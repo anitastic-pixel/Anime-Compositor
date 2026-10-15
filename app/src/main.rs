@@ -223,8 +223,8 @@ fn quality_asked(query: Option<&str>) -> Option<PreviewQuality> {
 ///
 /// The corners are in the frame's own pixels, which is what the canvas is drawn in, so a draft
 /// preview's boxes are a quarter the size of a full one's and land on the same drawing either
-/// way. That is why the plan goes through [`preview::scale_plan`] here exactly as it does when
-/// the frame is rendered.
+/// way. That is why the plan is [`anime_compositor::compose::plan_preview`]'s here, exactly as
+/// it is when the frame is rendered.
 ///
 /// A layer with no corners is a layer the plan does not contain — hidden, out of its own
 /// `[in_frame, out_frame)`, or missing its drawing at this frame — and having no box is the
@@ -663,7 +663,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
     // not rendered at full size to outline a draft frame.
     // P-25: and without the masks that cannot change an outline, which with a feather were a
     // whole mask drawn again for each outline asked for in a mask's drag.
-    let plan = match anime_compositor::compose::plan_frame_at(
+    let plan = match anime_compositor::compose::plan_preview(
         &taken.project.for_outlines(&taken.composition),
         &taken.composition,
         taken.frame,
@@ -671,8 +671,9 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
         taken.quality,
         &mut log,
         &mut taken.cache.lock().expect("the cel cache lock was poisoned"),
+        false,
     ) {
-        Ok(plan) => preview::scale_plan(plan, taken.quality),
+        Ok(plan) => plan,
         // The frame's own request will have said why in words. A selection outline is not the
         // place to say it a second time, so this answers with no boxes rather than an error.
         Err(_) => anime_compositor::render::FramePlan {

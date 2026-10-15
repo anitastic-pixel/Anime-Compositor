@@ -169,6 +169,52 @@ pub fn plan_frame_for_card(
     )
 }
 
+/// A frame's plan at the preview's own extent: [`plan_frame_at`], or with `card`
+/// [`plan_frame_for_card`], and then [`crate::preview::scale_plan`], at one `quality`, so a
+/// caller cannot plan at one quality and scale at another. At `Full` it is the plan unscaled.
+#[allow(clippy::too_many_arguments)]
+pub fn plan_preview(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+    card: bool,
+) -> Result<FramePlan, Diagnostic> {
+    plan_scaled(project, composition_id, frame, root, quality, log, cache, &mut Vec::new(), card)
+}
+
+/// [`plan_inside`], scaled to `quality`'s extent: [`plan_preview`] and a composition layer's
+/// inner frame (D-67).
+#[allow(clippy::too_many_arguments)]
+fn plan_scaled(
+    project: &Project,
+    composition_id: &Id,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    log: &mut FrameLog,
+    cache: &mut CelCache,
+    above: &mut Vec<Id>,
+    card: bool,
+) -> Result<FramePlan, Diagnostic> {
+    plan_inside(project, composition_id, frame, root, quality, log, cache, above, card)
+        .map(|plan| crate::preview::scale_plan(plan, quality))
+}
+
+/// The tile size a frame at `quality` renders in, given the size an export renders in,
+/// `tile_size`, measured on an export's extent. A draft frame is a quarter of that extent and is
+/// cut by its own measured size instead (P-03(f)): at `Full` the caller's size is used exactly,
+/// so a full-resolution preview and an export still go through the renderer identically.
+pub fn tile_size(quality: PreviewQuality, tile_size: usize) -> usize {
+    match quality {
+        PreviewQuality::Full | PreviewQuality::Half => tile_size,
+        PreviewQuality::Draft => DRAFT_TILE_SIZE,
+    }
+}
+
 /// `above` is the compositions this frame is being drawn inside of, outermost first. The
 /// loader and the commands refuse a composition cycle (D-67), so it is only ever a guard: a
 /// cycle reached some other way ends the render instead of hanging it.
@@ -1999,7 +2045,7 @@ fn resolve_held(
             let (drawn, files) = crate::cache::files_read(|| {
                 above.push(comp.id.clone());
                 let mut within = FrameLog::new(usize::MAX);
-                let plan = plan_inside(
+                let plan = plan_scaled(
                     project,
                     inner_id,
                     local,
@@ -2017,16 +2063,13 @@ fn resolve_held(
                 // frame's number: an export decides what to block by the frame it is writing.
                 log.absorb(within, frame, &layer.name);
                 let plan = match plan {
-                    Ok(plan) => crate::preview::scale_plan(plan, quality),
+                    Ok(plan) => plan,
                     Err(d) => {
                         log.record(frame, layer.name.clone(), d);
                         return None;
                     }
                 };
-                let tile = match quality {
-                    PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
-                    PreviewQuality::Draft => DRAFT_TILE_SIZE,
-                };
+                let tile = tile_size(quality, DEFAULT_TILE_SIZE);
                 Some((std::sync::Arc::new(render::render(&plan, tile)), quiet))
             });
             let (picture, quiet) = drawn?;

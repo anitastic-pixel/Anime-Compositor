@@ -196,8 +196,8 @@ pub fn preview_frame_cached(
     log: &mut FrameLog,
     cache: &mut CelCache,
 ) -> Result<WorkingBuffer, Diagnostic> {
-    let plan = scale_plan(compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?, quality);
-    let tile_size = tiles_for(quality, tile_size);
+    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, false)?;
+    let tile_size = compose::tile_size(quality, tile_size);
     Ok(match cache.below(composition_id, frame) {
         Some(below) => render::render_below(&plan, tile_size, None, below),
         None => render::render(&plan, tile_size),
@@ -232,27 +232,15 @@ pub fn preview_part(
     cache: &mut CelCache,
     seen: [f64; 4],
 ) -> Result<(WorkingBuffer, usize, usize, Option<render::Tile>), Diagnostic> {
-    let plan = compose::plan_frame_at(project, composition_id, frame, root, quality, log, cache)?;
-    let plan = scale_plan(plan, quality);
+    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, false)?;
     let part = part_in(seen, plan.width, plan.height);
-    let tile_size = tiles_for(quality, tile_size);
+    let tile_size = compose::tile_size(quality, tile_size);
     let pixels = match (cache.below(composition_id, frame), part) {
         (Some(below), part) => render::render_below(&plan, tile_size, part, below),
         (None, Some(part)) => render::render_part(&plan, tile_size, part),
         (None, None) => render::render(&plan, tile_size),
     };
     Ok((pixels, plan.width, plan.height, part))
-}
-
-/// `tile_size` is the size an export renders in, measured on an export's extent. A draft frame
-/// is a quarter of that extent and is cut by its own measured size instead (P-03(f)): at `Full`
-/// the caller's size is used exactly, so a full-resolution preview and an export still go
-/// through the renderer identically.
-fn tiles_for(quality: PreviewQuality, tile_size: usize) -> usize {
-    match quality {
-        PreviewQuality::Full | PreviewQuality::Half => tile_size,
-        PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
-    }
 }
 
 /// [`preview_frame_cached`] drawn on the graphics card (B-44, D-100 (a)), already encoded as the
@@ -273,13 +261,12 @@ pub fn preview_frame_srgb8(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(Vec<u8>, usize, usize), Diagnostic> {
-    let plan = compose::plan_frame_for_card(project, composition_id, frame, root, quality, log, cache)?;
-    let plan = scale_plan(plan, quality);
+    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, true)?;
     let pixels = match gpu.draw(&plan, cache) {
         Ok(pixels) => pixels,
         Err(why) => {
             log.record(frame, "GPU preview", why);
-            render::render(&plan, tiles_for(quality, tile_size)).to_srgb8_straight()
+            render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight()
         }
     };
     Ok((pixels, plan.width, plan.height))
@@ -299,11 +286,10 @@ pub fn preview_frame_held(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(usize, usize), Diagnostic> {
-    let plan = compose::plan_frame_for_card(project, composition_id, frame, root, quality, log, cache)?;
-    let plan = scale_plan(plan, quality);
+    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, true)?;
     if let Err(why) = gpu.draw_held(&plan, cache) {
         log.record(frame, "GPU preview", why);
-        let pixels = render::render(&plan, tiles_for(quality, tile_size)).to_srgb8_straight();
+        let pixels = render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight();
         gpu.hold(&pixels, plan.width, plan.height);
     }
     Ok((plan.width, plan.height))
