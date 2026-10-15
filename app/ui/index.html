@@ -1835,12 +1835,12 @@
   <span class="logo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5l-2 4M13 5l-2 4M18 5l-2 4"/></svg></span>
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">File</button><div class="drop" role="menu" aria-label="File" hidden>
     <button data-run="New project"></button>
-    <button id="open" data-key="Ctrl+O">Open project&hellip;</button>
+    <button id="open" data-line="Open project" data-key="Ctrl+O">Open project&hellip;</button>
     <select id="recent"><option value="">Open recent&hellip;</option></select>
     <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
     <hr>
     <button data-run="Save"></button>
-    <button id="saveas" data-key="Ctrl+Shift+S">Save As&hellip;</button>
+    <button id="saveas" data-line="Save as" data-key="Ctrl+Shift+S">Save As&hellip;</button>
     <button data-run="Increment and save"></button>
     <!-- D-61: After Effects' File > Collect Files and a check of what was collected. -->
     <button id="collect" title="Copy the project and every drawing it uses into an empty folder">Collect Files&hellip;</button>
@@ -1851,8 +1851,8 @@
     <button id="sessionlogbutton" title="Where each frame's time goes, kept only while this window is open">Session log&hellip;</button>
   </div></span>
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Edit</button><div class="drop" role="menu" aria-label="Edit" hidden>
-    <button id="undo" data-key="Ctrl+Z">Undo</button>
-    <button id="redo" data-key="Ctrl+Shift+Z">Redo</button>
+    <button id="undo" data-line="Undo" data-key="Ctrl+Z">Undo</button>
+    <button id="redo" data-line="Redo" data-key="Ctrl+Shift+Z">Redo</button>
     <hr>
     <button data-run="Copy layers"></button>
     <button data-run="Paste layers"></button>
@@ -1873,7 +1873,7 @@
     <button data-run="Duplicate the composition"></button>
     <button data-run="Delete the composition"></button>
     <hr>
-    <button id="export" data-key="Ctrl+M">Export&hellip;</button>
+    <button id="export" data-line="Export PNG sequence" data-key="Ctrl+M">Export&hellip;</button>
     <button id="addtoqueue" title="Keep this composition, as it is now, in the Render panel's queue, to be written later with the others">Add to Render queue&hellip;</button>
     <div class="opts" data-stay>
     <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
@@ -2021,7 +2021,7 @@
   <button class="fx" data-run="Find an effect or preset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14L10 6M11 1.5v3M9.5 3h3M14 5.5v2M13 6.5h2" stroke="currentColor" stroke-linecap="round"/></svg>Effects</button>
   <span class="grow"></span>
   <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose" aria-label="Compose"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3zM3 9h18M9 9v10"/></svg><span>Compose</span></button><button data-run="Animate workspace" data-workspace="Animate" aria-label="Animate"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c4 0 4-10 9-10s5 10 9 10"/></svg><span>Animate</span></button><button data-run="Render workspace" data-workspace="Render" aria-label="Render"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg><span>Render</span></button><button data-run="Sketch workspace" data-workspace="Sketch" aria-label="Sketch"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-5L16 4l4 4L9 19z"/></svg><span>Sketch</span></button></span>
-  <button id="save" data-key="Ctrl+S">Save</button>
+  <button id="save" data-line="Save" data-key="Ctrl+S">Save</button>
 </div>
 <div id="middle"><div id="main">
 <div id="work">
@@ -2115,7 +2115,7 @@
       <span id="fps" class="idle"></span>
       <span class="gs"></span>
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="qualitymenu"><span id="quality">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture quality" hidden>
-        <button id="toggle" data-key="D">Full resolution</button>
+        <button id="toggle" data-line="Draft or full quality" data-key="D">Full resolution</button>
         <button id="halfq" title="Half the size each way: sharper than Draft, quicker than Full, not final pixels">Half resolution</button>
         <div class="opts" data-stay><label title="At Full: Draft while you drag or scrub, then the Full picture a fifth of a second after you stop"><input type="checkbox" id="refine" checked> Refine when idle</label></div>
       </div></span>
@@ -2134,7 +2134,7 @@
       <button id="regionbtn" class="vb" title="Region of interest: drag a box on the picture and only it is drawn; click again for all of it" aria-label="Region of interest" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" fill="currentColor" opacity=".3"/><rect x="5" y="5.5" width="6.5" height="5" fill="#1e1e21" stroke="currentColor" stroke-dasharray="1.5 1"/></svg></button>
       <span class="gs"></span>
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="sizemenu" title="Picture size"><span id="zoomlabel">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture size" hidden>
-        <button id="fit" data-key="Shift+/" title="Fill the area">Fit</button>
+        <button id="fit" data-line="Fit the picture" data-key="Shift+/" title="Fill the area">Fit</button>
         <button id="fit100" title="Fill the area, but never past one pixel per pixel">Fit &le;100%</button>
         <button data-run="Picture at 100%"></button>
         <button data-run="Zoom the picture in"></button>
@@ -19333,6 +19333,12 @@ function markRunKeys() {
     const key = shownKey(line[0], line[1], map);
     if (key) button.dataset.key = key; else delete button.dataset.key;
     if (!button.closest('.drop')) button.title = line[0] + (key ? ' (' + key + ')' : '');
+  }
+  // A control with its own handler names its palette line, so the key it shows follows the editor.
+  for (const button of document.querySelectorAll('[data-line]')) {
+    const line = paletteLines().find(([name]) => name === button.dataset.line);
+    const key = line && shownKey(line[0], line[1], map);
+    if (key) button.dataset.key = key; else delete button.dataset.key;
   }
 }
 markRunKeys();
