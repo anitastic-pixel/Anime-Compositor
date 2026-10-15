@@ -16,7 +16,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN};
+use effect_table::{
+    both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -30,14 +32,17 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers.
 
-
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=17 {
         let file = format!("fx_push_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -45,7 +50,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::PushIris { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::PushIris { .. })
+                });
             }
         }
         t.row(
@@ -63,9 +70,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -79,7 +95,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::PushIris { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::PushIris { .. })
+                });
                 t.row(
                     &format!("the reference shot, Push Iris {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,7 +111,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -105,18 +126,28 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
-
 
 /// The pixel at (x, y) of a picture at the street's size.
 fn at(bytes: &[u8], p: (usize, usize)) -> [u8; 4] {
     let i = (p.1 * TOWN.0 + p.0) * 4;
     [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
 }
-
 
 /// A Push Iris with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
@@ -164,7 +195,11 @@ fn b395_push_iris() {
         ("fx_push_016.json", "reverse"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_push_001.json",
@@ -184,10 +219,26 @@ fn b395_push_iris() {
         &mut t,
         &mut gpu,
         &[
-            ("completion 30 (as added otherwise)", json!({"completion": 30}), 3),
-            ("completion 50, reversed, Center [30, 60]", json!({"completion": 50, "reverse": "on", "center": [30, 60]}), 3),
-            ("completion 70, Center [120, 50]", json!({"completion": 70, "center": [120, 50]}), 3),
-            ("completion keyed 10 to 90", json!({"completion": {"base": 10, "keyframes": [{"frame": 0, "value": 10, "interp": "linear"}, {"frame": 239, "value": 90, "interp": "linear"}]}}), 3),
+            (
+                "completion 30 (as added otherwise)",
+                json!({"completion": 30}),
+                3,
+            ),
+            (
+                "completion 50, reversed, Center [30, 60]",
+                json!({"completion": 50, "reverse": "on", "center": [30, 60]}),
+                3,
+            ),
+            (
+                "completion 70, Center [120, 50]",
+                json!({"completion": 70, "center": [120, 50]}),
+                3,
+            ),
+            (
+                "completion keyed 10 to 90",
+                json!({"completion": {"base": 10, "keyframes": [{"frame": 0, "value": 10, "interp": "linear"}, {"frame": 239, "value": 90, "interp": "linear"}]}}),
+                3,
+            ),
         ],
     );
 
@@ -196,29 +247,75 @@ fn b395_push_iris() {
     let out = repo("verification/D-515 pictures");
     fs::create_dir_all(&out).unwrap();
     let (street, _) = picture(&dir, "1_left.png", (480, 270), json!([]));
-    png_out::write_rgba(&out.join("0_the_street.png"), 480, 270, OutputDepth::Eight, &[], &street).unwrap();
+    png_out::write_rgba(
+        &out.join("0_the_street.png"),
+        480,
+        270,
+        OutputDepth::Eight,
+        &[],
+        &street,
+    )
+    .unwrap();
     // name, settings, a pixel that must be clear and one that must be covered, the street pushed
     // or pulled into it (worked by the reference's rule at 480 by 270).
     for (name, p, gone, covered) in [
         ("1_hole", json!({"completion": 30}), (240, 135), (2, 2)),
-        ("2_bigger_hole", json!({"completion": 60}), (240, 135), (2, 2)),
-        ("3_iris_closing", json!({"completion": 30, "reverse": "on"}), (2, 2), (240, 135)),
-        ("4_off_centre", json!({"completion": 40, "center": [20, 70]}), (96, 189), (470, 2)),
+        (
+            "2_bigger_hole",
+            json!({"completion": 60}),
+            (240, 135),
+            (2, 2),
+        ),
+        (
+            "3_iris_closing",
+            json!({"completion": 30, "reverse": "on"}),
+            (2, 2),
+            (240, 135),
+        ),
+        (
+            "4_off_centre",
+            json!({"completion": 40, "center": [20, 70]}),
+            (96, 189),
+            (470, 2),
+        ),
         ("5_done", json!({"completion": 100}), (2, 2), (240, 135)),
     ] {
         let (bytes, said) = picture(&dir, "1_left.png", (480, 270), json!([fx("pic", &p)]));
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let (g, k) = (at(&bytes, gone), at(&bytes, covered));
         let done = name == "5_done";
         t.row(
-            &format!("{name}.png: drawn without a warning, the pixel at {gone:?} clear, {}", if done { "every pixel clear".to_string() } else { format!("the one at {covered:?} covered") }),
-            &format!("{} pixels changed; at {gone:?} {g:?}; at {covered:?} {k:?}; warnings {said:?}", distance(&bytes, &street).1),
-            said.is_empty() && g[3] == 0 && if done { bytes.chunks_exact(4).all(|p| p[3] == 0) } else { k[3] == 255 },
+            &format!(
+                "{name}.png: drawn without a warning, the pixel at {gone:?} clear, {}",
+                if done {
+                    "every pixel clear".to_string()
+                } else {
+                    format!("the one at {covered:?} covered")
+                }
+            ),
+            &format!(
+                "{} pixels changed; at {gone:?} {g:?}; at {covered:?} {k:?}; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
+            said.is_empty()
+                && g[3] == 0
+                && if done {
+                    bytes.chunks_exact(4).all(|p| p[3] == 0)
+                } else {
+                    k[3] == 255
+                },
         );
     }
     t.finish("D-515_push_iris_table.md");
 }
-
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
 /// that changes every frame on its first three layers, so nothing is kept, then the effect,
@@ -245,23 +342,52 @@ fn b395_push_iris_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Push Iris, completion 50 (as added otherwise)", Some(json!({"completion": 50}))),
-        ("Noise, then Push Iris, completion 50, reversed", Some(json!({"completion": 50, "reverse": "on"}))),
-        ("Noise, then Push Iris, completion 30, Center [20, 70]", Some(json!({"completion": 30, "center": [20, 70]}))),
+        (
+            "Noise, then Push Iris, completion 50 (as added otherwise)",
+            Some(json!({"completion": 50})),
+        ),
+        (
+            "Noise, then Push Iris, completion 50, reversed",
+            Some(json!({"completion": 50, "reverse": "on"})),
+        ),
+        (
+            "Noise, then Push Iris, completion 30, Center [20, 70]",
+            Some(json!({"completion": 30, "center": [20, 70]})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B395_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-395_timing_raw.md"));
+    let out = std::env::var("B395_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-395_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

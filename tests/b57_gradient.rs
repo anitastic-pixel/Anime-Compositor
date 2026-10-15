@@ -113,7 +113,10 @@ fn b57_gradient() {
             ("end point 50, -1001", set(with!(end = [50.0, -1001.0]))),
             ("shape \"conic\"", set(with!(shape = "conic"))),
             ("blend \"overlay\"", set(with!(blend = "overlay"))),
-            ("start colour \"#12345\"", set(with!(start_color = "#12345"))),
+            (
+                "start colour \"#12345\"",
+                set(with!(start_color = "#12345")),
+            ),
             ("end colour \"violet\"", set(with!(end_color = "violet"))),
             (
                 "end opacity keyed to 150",

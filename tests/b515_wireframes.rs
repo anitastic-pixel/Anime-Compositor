@@ -25,12 +25,24 @@ use anime_compositor::effects::Effect;
 use anime_compositor::model::Id;
 use anime_compositor::{persist, png_out, OutputDepth};
 
-const WIRE_KEYS: [&str; 4] = ["view", "horizontal_rotation", "vertical_rotation", "vertical_scale"];
+const WIRE_KEYS: [&str; 4] = [
+    "view",
+    "horizontal_rotation",
+    "vertical_rotation",
+    "vertical_scale",
+];
 
 /// The `holder` layer's effect in `file`.
 fn effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 fn files(prefix: &str, numbers: std::ops::RangeInclusive<u32>) -> Vec<String> {
@@ -41,8 +53,16 @@ fn files(prefix: &str, numbers: std::ops::RangeInclusive<u32>) -> Vec<String> {
 /// Wave World's logo grown to the street as B-510's pictures have it), the holder's settings
 /// changed by `p`; `frame` drawn on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, folder: &str, file: &str, p: &J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo(&format!("Fixtures/{folder}/{file}"))).unwrap()).unwrap();
-    let a = project["assets"].as_array_mut().unwrap().iter_mut().find(|a| a["id"] == "asset-shot").unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo(&format!("Fixtures/{folder}/{file}"))).unwrap(),
+    )
+    .unwrap();
+    let a = project["assets"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|a| a["id"] == "asset-shot")
+        .unwrap();
     a["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -52,31 +72,68 @@ fn picture(dir: &Path, folder: &str, file: &str, p: &J, frame: i32) -> (Vec<u8>,
             l["transform"]["scale"]["base"] = json!([1500, 1500]);
         }
     }
-    let holder = comp["layers"].as_array_mut().unwrap().iter_mut().find(|l| l["id"] == "holder").unwrap();
+    let holder = comp["layers"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|l| l["id"] == "holder")
+        .unwrap();
     let parameters = &mut holder["effects"][0]["parameters"];
     for (k, v) in p.as_object().unwrap() {
         parameters[k] = v.clone();
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
 /// One effect's new cases: the fixtures, the refusals and the round trips.
-fn section(t: &mut Table, name: &str, folder: &str, prefix: &str, numbers: std::ops::RangeInclusive<u32>, refused: &[(&str, &str)]) {
+fn section(
+    t: &mut Table,
+    name: &str,
+    folder: &str,
+    prefix: &str,
+    numbers: std::ops::RangeInclusive<u32>,
+    refused: &[(&str, &str)],
+) {
     t.root = repo(&format!("Fixtures/{folder}"));
     let (a, b) = (*numbers.start(), *numbers.end());
-    t.heading(&format!("{name}: {}-{a:03} to {b:03} (document 25)", prefix.to_uppercase().replace('_', "-")));
+    t.heading(&format!(
+        "{name}: {}-{a:03} to {b:03} (document 25)",
+        prefix.to_uppercase().replace('_', "-")
+    ));
     t.fixtures_numbered(&format!("expected_{folder}.json"), numbers.clone());
     for (file, want) in refused {
         // A setting keyed out of range is refused when the file is read, by the warning.
         let mut why = effect(t, file).why_invalid();
         if why.is_empty() {
-            why = t.load(file).warnings.iter().map(|d| format!("{} {}", d.message, d.detail)).collect::<Vec<_>>().join(" ");
+            why = t
+                .load(file)
+                .warnings
+                .iter()
+                .map(|d| format!("{} {}", d.message, d.detail))
+                .collect::<Vec<_>>()
+                .join(" ");
         }
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
     let list = files(prefix, numbers);
     t.round_trips(&list.iter().map(String::as_str).collect::<Vec<_>>());
@@ -146,15 +203,38 @@ fn b515_wireframes() {
         saved["view"] == "wireframe_preview" && saved["vertical_rotation"] == json!(10) && saved["vertical_scale"] == json!(2) && saved.get("horizontal_rotation").is_none(),
     );
 
-    section(&mut t, "Shatter", "shatter", "fx_sh", 84..=92, &[("fx_sh_092.json", "view")]);
+    section(
+        &mut t,
+        "Shatter",
+        "shatter",
+        "fx_sh",
+        84..=92,
+        &[("fx_sh_092.json", "view")],
+    );
 
     t.heading("Pictures (verification/D-635 pictures)");
     let dir = std::env::temp_dir().join("b515_pictures");
     fs::create_dir_all(dir.join("media")).unwrap();
-    png_out::write_rgba(&dir.join("town.png"), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
-    fs::copy(repo("Fixtures/wave_world/media/logo.png"), dir.join("media/logo.png")).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        TOWN.0,
+        TOWN.1,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
+    fs::copy(
+        repo("Fixtures/wave_world/media/logo.png"),
+        dir.join("media/logo.png"),
+    )
+    .unwrap();
     for m in ["back", "ramp", "colours", "cracks"] {
-        fs::copy(repo(&format!("Fixtures/shatter/media/{m}.png")), dir.join(format!("media/{m}.png"))).unwrap();
+        fs::copy(
+            repo(&format!("Fixtures/shatter/media/{m}.png")),
+            dir.join(format!("media/{m}.png")),
+        )
+        .unwrap();
     }
     let out = repo("verification/D-635 pictures");
     fs::create_dir_all(&out).unwrap();
@@ -168,20 +248,76 @@ fn b515_wireframes() {
         p
     };
     for (name, folder, file, p, frame, want) in [
-        ("1_wave_world_wireframe_as_added", "wave_world", "fx_ww_049.json", water.clone(), 24, [true, true, false]),
-        ("2_wave_world_wireframe_turned_two_producers", "wave_world", "fx_ww_049.json",
-            with(&water, json!({"horizontal_rotation": 30, "vertical_rotation": 45, "vertical_scale": 3, "producer_1_position": [30, 50], "producer_2_position": [70, 50], "producer_2_amplitude": 0.5, "producer_2_frequency": 2.5})), 36, [true, true, true]),
-        ("3_wave_world_wireframe_island_shore", "wave_world", "fx_ww_058.json",
-            with(&water, json!({"ground_layer": "logo", "steepness": 0.6, "producer_1_position": [25, 50], "producer_1_amplitude": 1.5, "producer_1_frequency": 2, "vertical_scale": 2})), 48, [true, true, false]),
-        ("4_shatter_wireframe_front", "shatter", "fx_sh_001.json", json!({"view": "wireframe_front"}), 4, [true, false, false]),
-        ("5_shatter_wireframe_forces_turned_camera", "shatter", "fx_sh_001.json", json!({"view": "wireframe_forces", "camera_y_rotation": 30, "force_2_radius": 0.2, "force_2_position": [20, 30]}), 4, [true, true, true]),
+        (
+            "1_wave_world_wireframe_as_added",
+            "wave_world",
+            "fx_ww_049.json",
+            water.clone(),
+            24,
+            [true, true, false],
+        ),
+        (
+            "2_wave_world_wireframe_turned_two_producers",
+            "wave_world",
+            "fx_ww_049.json",
+            with(
+                &water,
+                json!({"horizontal_rotation": 30, "vertical_rotation": 45, "vertical_scale": 3, "producer_1_position": [30, 50], "producer_2_position": [70, 50], "producer_2_amplitude": 0.5, "producer_2_frequency": 2.5}),
+            ),
+            36,
+            [true, true, true],
+        ),
+        (
+            "3_wave_world_wireframe_island_shore",
+            "wave_world",
+            "fx_ww_058.json",
+            with(
+                &water,
+                json!({"ground_layer": "logo", "steepness": 0.6, "producer_1_position": [25, 50], "producer_1_amplitude": 1.5, "producer_1_frequency": 2, "vertical_scale": 2}),
+            ),
+            48,
+            [true, true, false],
+        ),
+        (
+            "4_shatter_wireframe_front",
+            "shatter",
+            "fx_sh_001.json",
+            json!({"view": "wireframe_front"}),
+            4,
+            [true, false, false],
+        ),
+        (
+            "5_shatter_wireframe_forces_turned_camera",
+            "shatter",
+            "fx_sh_001.json",
+            json!({"view": "wireframe_forces", "camera_y_rotation": 30, "force_2_radius": 0.2, "force_2_position": [20, 30]}),
+            4,
+            [true, true, true],
+        ),
     ] {
         let (bytes, said) = picture(&dir, folder, file, &p, frame);
         let n = colours(&bytes);
         // Saved over black, so the white lines show in any picture viewer; every drawn pixel is
         // opaque (checked below), so only the clear ones change.
-        let shown: Vec<u8> = bytes.chunks_exact(4).flat_map(|p| if p[3] == 0 { [0, 0, 0, 255] } else { [p[0], p[1], p[2], p[3]] }).collect();
-        png_out::write_rgba(&out.join(format!("{name}.png")), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &shown).unwrap();
+        let shown: Vec<u8> = bytes
+            .chunks_exact(4)
+            .flat_map(|p| {
+                if p[3] == 0 {
+                    [0, 0, 0, 255]
+                } else {
+                    [p[0], p[1], p[2], p[3]]
+                }
+            })
+            .collect();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            &shown,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png: drawn without a warning, only in white, red and blue, each colour there as asked"),
             &format!("{} white, {} red, {} blue, {} of any other colour; warnings {said:?}", n[0], n[1], n[2], n[3]),

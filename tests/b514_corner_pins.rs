@@ -29,12 +29,26 @@ use anime_compositor::model::Id;
 use anime_compositor::preview::PreviewQuality;
 use anime_compositor::{persist, png_out, OutputDepth};
 
-const PIN_KEYS: [&str; 6] = ["camera_system", "upper_left_corner", "upper_right_corner", "lower_left_corner", "lower_right_corner", "auto_focal_length"];
+const PIN_KEYS: [&str; 6] = [
+    "camera_system",
+    "upper_left_corner",
+    "upper_right_corner",
+    "lower_left_corner",
+    "lower_right_corner",
+    "auto_focal_length",
+];
 
 /// The `holder` layer's effect in `file`.
 fn effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 fn files(prefix: &str, numbers: std::ops::RangeInclusive<u32>) -> Vec<String> {
@@ -45,46 +59,103 @@ fn files(prefix: &str, numbers: std::ops::RangeInclusive<u32>) -> Vec<String> {
 /// the fixture's other layers as they are), the holder's settings changed by `p`; `frame` drawn
 /// on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, folder: &str, file: &str, p: &J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo(&format!("Fixtures/{folder}/{file}"))).unwrap()).unwrap();
-    let a = project["assets"].as_array_mut().unwrap().iter_mut().find(|a| a["id"] == "asset-shot").unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo(&format!("Fixtures/{folder}/{file}"))).unwrap(),
+    )
+    .unwrap();
+    let a = project["assets"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|a| a["id"] == "asset-shot")
+        .unwrap();
     a["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
     comp["height"] = J::from(TOWN.1);
-    let holder = comp["layers"].as_array_mut().unwrap().iter_mut().find(|l| l["id"] == "holder").unwrap();
+    let holder = comp["layers"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|l| l["id"] == "holder")
+        .unwrap();
     let parameters = &mut holder["effects"][0]["parameters"];
     for (k, v) in p.as_object().unwrap() {
         parameters[k] = v.clone();
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
 /// One effect's new cases: the fixtures, the refusals, the round trips, and an old file that
 /// never used the pins saved without them.
-fn section(t: &mut Table, name: &str, folder: &str, prefix: &str, numbers: std::ops::RangeInclusive<u32>, refused: &[(&str, &str)], old: &str) {
+fn section(
+    t: &mut Table,
+    name: &str,
+    folder: &str,
+    prefix: &str,
+    numbers: std::ops::RangeInclusive<u32>,
+    refused: &[(&str, &str)],
+    old: &str,
+) {
     t.root = repo(&format!("Fixtures/{folder}"));
     let (a, b) = (*numbers.start(), *numbers.end());
-    t.heading(&format!("{name}: {}-{a:03} to {b:03} (document 25)", prefix.to_uppercase().replace('_', "-")));
+    t.heading(&format!(
+        "{name}: {}-{a:03} to {b:03} (document 25)",
+        prefix.to_uppercase().replace('_', "-")
+    ));
     t.fixtures_numbered(&format!("expected_{folder}.json"), numbers.clone());
     for (file, want) in refused {
         // A setting keyed out of range is refused when the file is read, by the warning.
         let mut why = effect(t, file).why_invalid();
         if why.is_empty() {
-            why = t.load(file).warnings.iter().map(|d| format!("{} {}", d.message, d.detail)).collect::<Vec<_>>().join(" ");
+            why = t
+                .load(file)
+                .warnings
+                .iter()
+                .map(|d| format!("{} {}", d.message, d.detail))
+                .collect::<Vec<_>>()
+                .join(" ");
         }
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
     let list = files(prefix, numbers);
     t.round_trips(&list.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters(old);
-    let kept = if folder == "card_wipe" { &PIN_KEYS[..] } else { &PIN_KEYS[1..] };
+    let kept = if folder == "card_wipe" {
+        &PIN_KEYS[..]
+    } else {
+        &PIN_KEYS[1..]
+    };
     t.row(
-        &format!("{old}, from before D-634, opens with the pins as added and is saved without them"),
-        &format!("{:?}", kept.iter().filter(|k| saved.get(**k).is_some()).collect::<Vec<_>>()),
+        &format!(
+            "{old}, from before D-634, opens with the pins as added and is saved without them"
+        ),
+        &format!(
+            "{:?}",
+            kept.iter()
+                .filter(|k| saved.get(**k).is_some())
+                .collect::<Vec<_>>()
+        ),
         kept.iter().all(|k| saved.get(*k).is_none()),
     );
 }
@@ -132,7 +203,11 @@ fn b514_corner_pins() {
     let mut gpu = Gpu::new().expect("a graphics card");
     let comp = Id::new(MAIN);
     for file in files("fx_cw", 57..=65) {
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -140,7 +215,9 @@ fn b514_corner_pins() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CardWipe { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CardWipe { .. })
+                });
             }
         }
         t.row(
@@ -169,16 +246,31 @@ fn b514_corner_pins() {
         "shatter",
         "fx_sh",
         79..=83,
-        &[("fx_sh_082.json", "lower right corner"), ("fx_sh_083.json", "auto focal length")],
+        &[
+            ("fx_sh_082.json", "lower right corner"),
+            ("fx_sh_083.json", "auto focal length"),
+        ],
         "fx_sh_001.json",
     );
 
     t.heading("Pictures (verification/D-634 pictures)");
     let dir = std::env::temp_dir().join("b514_pictures");
     fs::create_dir_all(dir.join("media")).unwrap();
-    png_out::write_rgba(&dir.join("town.png"), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        TOWN.0,
+        TOWN.1,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
     for m in ["back", "ramp", "colours", "cracks"] {
-        fs::copy(repo(&format!("Fixtures/shatter/media/{m}.png")), dir.join(format!("media/{m}.png"))).unwrap();
+        fs::copy(
+            repo(&format!("Fixtures/shatter/media/{m}.png")),
+            dir.join(format!("media/{m}.png")),
+        )
+        .unwrap();
     }
     let out = repo("verification/D-634 pictures");
     fs::create_dir_all(&out).unwrap();
@@ -194,16 +286,78 @@ fn b514_corner_pins() {
     let wipe = json!({"transition_completion": 30, "back_layer": ""});
     let dance = json!({"rows": 9, "columns": 16});
     for (name, folder, file, plain, p, frame) in [
-        ("1_card_wipe_pulled_in", "card_wipe", "fx_cw_004.json", wipe.clone(), with(&wipe, keystone.clone()), 0),
-        ("2_card_wipe_pulled_in_auto_lens", "card_wipe", "fx_cw_004.json", wipe.clone(), with(&with(&wipe, keystone.clone()), json!({"auto_focal_length": "on"})), 0),
-        ("3_card_wipe_four_sided_point_light", "card_wipe", "fx_cw_004.json", wipe.clone(), with(&with(&wipe, quad.clone()), json!({"light_type": "point", "light_position": [20, 30], "light_depth": 0.3, "specular_reflection": 1, "highlight_sharpness": 20})), 0),
-        ("4_card_dance_pulled_in_auto_lens", "card_dance", "fx_cd_001.json", dance.clone(), with(&with(&dance, keystone.clone()), json!({"auto_focal_length": "on"})), 0),
-        ("5_card_dance_four_sided", "card_dance", "fx_cd_001.json", dance.clone(), with(&dance, quad.clone()), 0),
-        ("6_shatter_pulled_in_auto_lens", "shatter", "fx_sh_001.json", json!({"force_1_strength": 1}), with(&keystone, json!({"auto_focal_length": "on", "force_1_strength": 1})), 3),
+        (
+            "1_card_wipe_pulled_in",
+            "card_wipe",
+            "fx_cw_004.json",
+            wipe.clone(),
+            with(&wipe, keystone.clone()),
+            0,
+        ),
+        (
+            "2_card_wipe_pulled_in_auto_lens",
+            "card_wipe",
+            "fx_cw_004.json",
+            wipe.clone(),
+            with(
+                &with(&wipe, keystone.clone()),
+                json!({"auto_focal_length": "on"}),
+            ),
+            0,
+        ),
+        (
+            "3_card_wipe_four_sided_point_light",
+            "card_wipe",
+            "fx_cw_004.json",
+            wipe.clone(),
+            with(
+                &with(&wipe, quad.clone()),
+                json!({"light_type": "point", "light_position": [20, 30], "light_depth": 0.3, "specular_reflection": 1, "highlight_sharpness": 20}),
+            ),
+            0,
+        ),
+        (
+            "4_card_dance_pulled_in_auto_lens",
+            "card_dance",
+            "fx_cd_001.json",
+            dance.clone(),
+            with(
+                &with(&dance, keystone.clone()),
+                json!({"auto_focal_length": "on"}),
+            ),
+            0,
+        ),
+        (
+            "5_card_dance_four_sided",
+            "card_dance",
+            "fx_cd_001.json",
+            dance.clone(),
+            with(&dance, quad.clone()),
+            0,
+        ),
+        (
+            "6_shatter_pulled_in_auto_lens",
+            "shatter",
+            "fx_sh_001.json",
+            json!({"force_1_strength": 1}),
+            with(
+                &keystone,
+                json!({"auto_focal_length": "on", "force_1_strength": 1}),
+            ),
+            3,
+        ),
     ] {
         let (before, _) = picture(&dir, folder, file, &plain, frame);
         let (bytes, said) = picture(&dir, folder, file, &p, frame);
-        png_out::write_rgba(&out.join(format!("{name}.png")), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let moved = distance(&bytes, &before).1;
         t.row(
             &format!("{name}.png: drawn without a warning, different from the camera as added"),

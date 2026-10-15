@@ -110,7 +110,11 @@ fn what_the_window_writes_is_the_project_it_opened() {
     report.check(
         "reopening the saved file and saving it again would write the same bytes",
         bare(&written).len(),
-        bare(&persist::to_json(reopened.document.project(), &reopened.preserved)).len(),
+        bare(&persist::to_json(
+            reopened.document.project(),
+            &reopened.preserved,
+        ))
+        .len(),
     );
     report.check(
         "and the same text, not merely the same length",

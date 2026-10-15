@@ -37,9 +37,21 @@ fn b61_outline() {
 
     t.heading("How far it reaches");
     for (what, e, want) in [
-        ("the defaults, width 3, grow the drawing by 3 on every side", outline("#ffffff", 3.0, 0.0, 100.0), 3),
-        ("width 2.5 and softness 6 grow it by 3, the width rounded up, and 6, the blur's reach", outline("#ffffff", 2.5, 6.0, 100.0), 9),
-        ("width 0 does not grow it, whatever the softness", outline("#ffffff", 0.0, 10.0, 100.0), 0),
+        (
+            "the defaults, width 3, grow the drawing by 3 on every side",
+            outline("#ffffff", 3.0, 0.0, 100.0),
+            3,
+        ),
+        (
+            "width 2.5 and softness 6 grow it by 3, the width rounded up, and 6, the blur's reach",
+            outline("#ffffff", 2.5, 6.0, 100.0),
+            9,
+        ),
+        (
+            "width 0 does not grow it, whatever the softness",
+            outline("#ffffff", 0.0, 10.0, 100.0),
+            0,
+        ),
     ] {
         let got = e.bounds_expansion();
         t.row(what, &got.to_string(), got == want);
@@ -94,16 +106,28 @@ fn b61_outline() {
             ("opacity -1", set(outline("#ffffff", 3.0, 0.0, -1.0))),
             ("opacity 101", set(outline("#ffffff", 3.0, 0.0, 101.0))),
             ("colour \"white\"", set(outline("white", 3.0, 0.0, 100.0))),
-            ("width keyed to 150", keys("width", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "width keyed to 150",
+                keys("width", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_outline_001.json",
         vec![
-            ("width, softness and opacity 100, the tops,", set(outline("#c82828", 100.0, 100.0, 100.0))),
-            ("width, softness and opacity 0, the bottoms,", set(outline("#ffffff", 0.0, 0.0, 0.0))),
-            ("width keyed from 0 to 2", keys("width", &[(0, &[0.0]), (4, &[2.0])])),
+            (
+                "width, softness and opacity 100, the tops,",
+                set(outline("#c82828", 100.0, 100.0, 100.0)),
+            ),
+            (
+                "width, softness and opacity 0, the bottoms,",
+                set(outline("#ffffff", 0.0, 0.0, 0.0)),
+            ),
+            (
+                "width keyed from 0 to 2",
+                keys("width", &[(0, &[0.0]), (4, &[2.0])]),
+            ),
         ],
     );
 

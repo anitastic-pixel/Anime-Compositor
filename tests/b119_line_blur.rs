@@ -74,9 +74,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PAPER.1 * 3)
         .flat_map(|y| (0..PAPER.0 * 3).map(move |x| (y / 3 * PAPER.0 + x / 3) * 4))
@@ -100,7 +111,12 @@ fn b119_line_blur() {
     t.fixtures("expected_line_blur.json");
 
     t.heading("How far it reaches");
-    for (length, strength, want) in [(0.0, 100.0, 0), (0.5, 100.0, 3), (4.0, 0.0, 3), (50.0, 100.0, 3)] {
+    for (length, strength, want) in [
+        (0.0, 100.0, 0),
+        (0.5, 100.0, 3),
+        (4.0, 0.0, 3),
+        (50.0, 100.0, 3),
+    ] {
         let got = blur(length, strength, "off").bounds_expansion();
         t.row(
             &format!("length {length} at strength {strength} grows the drawing's bounds by {want}"),
@@ -145,27 +161,61 @@ fn b119_line_blur() {
             ("length -1", set(blur(-1.0, 100.0, "off"))),
             ("strength 101", set(blur(4.0, 101.0, "off"))),
             ("lines only \"yes\"", set(blur(4.0, 100.0, "yes"))),
-            ("length keyed to 60", keys("length", &[(0, &[0.0]), (4, &[60.0])])),
+            (
+                "length keyed to 60",
+                keys("length", &[(0, &[0.0]), (4, &[60.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_lblur_002.json",
         vec![
-            ("length 50 at strength 100, the top of the ranges,", set(blur(50.0, 100.0, "on"))),
-            ("length 0 at strength 0, the bottom,", set(blur(0.0, 0.0, "off"))),
-            ("strength keyed from 0 to 100", keys("strength", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "length 50 at strength 100, the top of the ranges,",
+                set(blur(50.0, 100.0, "on")),
+            ),
+            (
+                "length 0 at strength 0, the bottom,",
+                set(blur(0.0, 0.0, "off")),
+            ),
+            (
+                "strength keyed from 0 to 100",
+                keys("strength", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
-    t.heading("Pictures: a jagged ink drawing, in `verification/B-119 pictures/`, three times enlarged");
+    t.heading(
+        "Pictures: a jagged ink drawing, in `verification/B-119 pictures/`, three times enlarged",
+    );
     let dir = effect_table::repo("verification/B-119 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PAPER;
-    png_out::write_rgba(&dir.join("drawing.png"), w, h, OutputDepth::Eight, &[], &drawing()).unwrap();
+    png_out::write_rgba(
+        &dir.join("drawing.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &drawing(),
+    )
+    .unwrap();
     let (before, big, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (name, length, lines_only, what) in [
         ("length_4", 4, "off", "the settings it is added with"),
         ("length_12", 12, "off", "a longer pass"),
@@ -176,9 +226,20 @@ fn b119_line_blur() {
             "parameters": { "length": length, "strength": 100, "lines_only": lines_only },
         }]);
         let (bytes, big, said) = picture(&dir, effects);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w * 3, h * 3, OutputDepth::Eight, &[], &big)
-            .unwrap();
-        let changed = bytes.chunks(4).zip(before.chunks(4)).filter(|(a, b)| a != b).count();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w * 3,
+            h * 3,
+            OutputDepth::Eight,
+            &[],
+            &big,
+        )
+        .unwrap();
+        let changed = bytes
+            .chunks(4)
+            .zip(before.chunks(4))
+            .filter(|(a, b)| a != b)
+            .count();
         // Two pixels of paper, each well away from every stroke and from the paper's edge.
         let paper = [(60, 5), (100, 110)].iter().all(|&(x, y)| {
             let i = (y * w + x) * 4;

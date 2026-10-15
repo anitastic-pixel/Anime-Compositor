@@ -16,7 +16,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -34,7 +36,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=56 {
         let file = format!("fx_cw_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -42,7 +48,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CardWipe { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CardWipe { .. })
+                });
             }
         }
         t.row(
@@ -61,9 +69,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -77,7 +94,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CardWipe { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::CardWipe { .. })
+                });
                 t.row(
                     &format!("the reference shot, Card Wipe {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -92,27 +111,68 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// street the back and the fixture's ramp the gradient, the holder's effect set to `p`; drawn
 /// on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, p: &J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/card_wipe/fx_cw_004.json")).unwrap()).unwrap();
-    for (asset, path) in [("asset-shot", "left.png"), ("asset-back", "right.png"), ("asset-ramp", "ramp.png")] {
-        let a = project["assets"].as_array_mut().unwrap().iter_mut().find(|a| a["id"] == asset).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/card_wipe/fx_cw_004.json")).unwrap(),
+    )
+    .unwrap();
+    for (asset, path) in [
+        ("asset-shot", "left.png"),
+        ("asset-back", "right.png"),
+        ("asset-ramp", "ramp.png"),
+    ] {
+        let a = project["assets"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|a| a["id"] == asset)
+            .unwrap();
         a["path"] = J::from(path);
     }
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
     comp["height"] = J::from(TOWN.1);
-    let holder = comp["layers"].as_array_mut().unwrap().iter_mut().find(|l| l["id"] == "holder").unwrap();
-    holder["effects"] = if p.is_null() { json!([]) } else { json!([fx("pic", p)]) };
+    let holder = comp["layers"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|l| l["id"] == "holder")
+        .unwrap();
+    holder["effects"] = if p.is_null() {
+        json!([])
+    } else {
+        json!([fx("pic", p)])
+    };
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The `holder` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
@@ -192,7 +252,11 @@ fn b460_card_wipe() {
     let params = t.saved_parameters("fx_cw_004.json");
     t.row(
         "the back and gradient pictures the effect reads are never saved",
-        &format!("{:?} {:?}", params.get("back_map"), params.get("gradient_map")),
+        &format!(
+            "{:?} {:?}",
+            params.get("back_map"),
+            params.get("gradient_map")
+        ),
         params.get("back_map").is_none() && params.get("gradient_map").is_none(),
     );
     for (file, want) in [
@@ -212,20 +276,40 @@ fn b460_card_wipe() {
         ("fx_cw_055.json", "rows & columns"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let mut good = fx("x", &json!({}))["parameters"].clone();
     good["rows"] = json!("many");
-    t.shape_refused("fx_cw_001.json", "a Card Wipe whose rows is a word", &good.to_string());
+    t.shape_refused(
+        "fx_cw_001.json",
+        "a Card Wipe whose rows is a word",
+        &good.to_string(),
+    );
     let mut good = fx("x", &json!({}))["parameters"].clone();
     good["xy_position"] = json!(50);
-    t.shape_refused("fx_cw_001.json", "a Card Wipe whose X, Y Position is one number", &good.to_string());
+    t.shape_refused(
+        "fx_cw_001.json",
+        "a Card Wipe whose X, Y Position is one number",
+        &good.to_string(),
+    );
     let mut good = fx("x", &json!({}))["parameters"].clone();
     good.as_object_mut().unwrap().remove("flip_order");
-    t.shape_refused("fx_cw_001.json", "a Card Wipe with no flip order", &good.to_string());
+    t.shape_refused(
+        "fx_cw_001.json",
+        "a Card Wipe with no flip order",
+        &good.to_string(),
+    );
     let mut good = fx("x", &json!({}))["parameters"].clone();
     good.as_object_mut().unwrap().remove("back_layer");
-    t.shape_refused("fx_cw_001.json", "a Card Wipe with no back layer", &good.to_string());
+    t.shape_refused(
+        "fx_cw_001.json",
+        "a Card Wipe with no back layer",
+        &good.to_string(),
+    );
 
     t.heading("On the card (D-580)");
     let mut gpu = Gpu::new().expect("a graphics card");
@@ -255,27 +339,71 @@ fn b460_card_wipe() {
     t.heading("Pictures (verification/D-580 pictures)");
     let dir = std::env::temp_dir().join("b460_pictures");
     fs::create_dir_all(&dir).unwrap();
-    fs::copy(repo("verification/D-506 pictures/1_left.png"), dir.join("left.png")).unwrap();
-    fs::copy(repo("verification/D-506 pictures/2_right.png"), dir.join("right.png")).unwrap();
-    fs::copy(repo("Fixtures/card_wipe/media/ramp.png"), dir.join("ramp.png")).unwrap();
+    fs::copy(
+        repo("verification/D-506 pictures/1_left.png"),
+        dir.join("left.png"),
+    )
+    .unwrap();
+    fs::copy(
+        repo("verification/D-506 pictures/2_right.png"),
+        dir.join("right.png"),
+    )
+    .unwrap();
+    fs::copy(
+        repo("Fixtures/card_wipe/media/ramp.png"),
+        dir.join("ramp.png"),
+    )
+    .unwrap();
     let out = repo("verification/D-580 pictures");
     fs::create_dir_all(&out).unwrap();
     let street = picture(&dir, &J::Null).0;
     for (name, p) in [
-        ("1_halfway_left_to_right", json!({"transition_completion": 50, "back_layer": "back"})),
-        ("2_halfway_turned_camera_lit", json!({"transition_completion": 50, "back_layer": "back", "y_rotation": 25, "x_rotation": -15, "specular_reflection": 1, "highlight_sharpness": 20})),
-        ("3_gradient_order", json!({"transition_completion": 50, "back_layer": "back", "flip_order": "gradient", "gradient_layer": "ramp"})),
-        ("4_shuffled_random_flips", json!({"transition_completion": 50, "back_layer": "back", "timing_randomness": 1, "random_seed": 7, "flip_axis": "random", "flip_direction": "random"})),
-        ("5_small_cards_no_back", json!({"transition_completion": 40, "card_scale": 0.7, "rows": 12, "columns": 20})),
-        ("6_venetian_blinds", json!({"transition_completion": 50, "back_layer": "back", "rows": 10, "columns": 1, "transition_width": 100})),
-        ("7_all_turned_over", json!({"transition_completion": 100, "back_layer": "back"})),
+        (
+            "1_halfway_left_to_right",
+            json!({"transition_completion": 50, "back_layer": "back"}),
+        ),
+        (
+            "2_halfway_turned_camera_lit",
+            json!({"transition_completion": 50, "back_layer": "back", "y_rotation": 25, "x_rotation": -15, "specular_reflection": 1, "highlight_sharpness": 20}),
+        ),
+        (
+            "3_gradient_order",
+            json!({"transition_completion": 50, "back_layer": "back", "flip_order": "gradient", "gradient_layer": "ramp"}),
+        ),
+        (
+            "4_shuffled_random_flips",
+            json!({"transition_completion": 50, "back_layer": "back", "timing_randomness": 1, "random_seed": 7, "flip_axis": "random", "flip_direction": "random"}),
+        ),
+        (
+            "5_small_cards_no_back",
+            json!({"transition_completion": 40, "card_scale": 0.7, "rows": 12, "columns": 20}),
+        ),
+        (
+            "6_venetian_blinds",
+            json!({"transition_completion": 50, "back_layer": "back", "rows": 10, "columns": 1, "transition_width": 100}),
+        ),
+        (
+            "7_all_turned_over",
+            json!({"transition_completion": 100, "back_layer": "back"}),
+        ),
     ] {
         let (bytes, said) = picture(&dir, &p);
-        png_out::write_rgba(&out.join(format!("{name}.png")), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let middle = at(&bytes, (210, 118));
         t.row(
             &format!("{name}.png: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; pixel (210, 118) {middle:?}; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; pixel (210, 118) {middle:?}; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
@@ -307,23 +435,56 @@ fn b460_card_wipe_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Card Wipe, completion 50, 8 by 8", Some(json!({"transition_completion": 50, "back_layer": "layer-4"}))),
-        ("Noise, then Card Wipe, camera turned, point light", Some(json!({"transition_completion": 50, "back_layer": "layer-4", "y_rotation": 30, "x_rotation": -20, "light_type": "point", "specular_reflection": 1}))),
-        ("Noise, then Card Wipe, 100 by 100 cards", Some(json!({"transition_completion": 50, "back_layer": "layer-4", "rows": 100, "columns": 100}))),
+        (
+            "Noise, then Card Wipe, completion 50, 8 by 8",
+            Some(json!({"transition_completion": 50, "back_layer": "layer-4"})),
+        ),
+        (
+            "Noise, then Card Wipe, camera turned, point light",
+            Some(
+                json!({"transition_completion": 50, "back_layer": "layer-4", "y_rotation": 30, "x_rotation": -20, "light_type": "point", "specular_reflection": 1}),
+            ),
+        ),
+        (
+            "Noise, then Card Wipe, 100 by 100 cards",
+            Some(
+                json!({"transition_completion": 50, "back_layer": "layer-4", "rows": 100, "columns": 100}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B460_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-460_timing_raw.md"));
+    let out = std::env::var("B460_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-460_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

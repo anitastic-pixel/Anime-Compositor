@@ -228,7 +228,9 @@ fn b19c_fxkey() {
         same_json(&written, &serde_json::from_str::<J>(&text).unwrap()),
     );
     // P-17: exposure has no radius; keys on one used to be written back inside themselves.
-    let text = fs::read_to_string(root().join("fx_fxk_001.json")).unwrap().replacen(
+    let text = fs::read_to_string(root().join("fx_fxk_001.json"))
+        .unwrap()
+        .replacen(
         "\"parameters\": {",
         "\"parameters\": {\"radius\": {\"base\": 5, \"keyframes\": [{\"frame\": 0, \"value\": 1, \
          \"interp\": \"linear\"}, {\"frame\": 4, \"value\": 9, \"interp\": \"linear\"}]}, ",

@@ -217,13 +217,19 @@ fn b25b_shapes() {
         );
     }
     let opened = load("fx_shp_011.json");
-    let written: J =
-        serde_json::from_str(&persist::to_json(opened.project(), &persist::Preserved::default()))
-            .unwrap();
+    let written: J = serde_json::from_str(&persist::to_json(
+        opened.project(),
+        &persist::Preserved::default(),
+    ))
+    .unwrap();
     let layer = &written["compositions"][0]["layers"][0];
     t.row(
         "a saved shape layer says `shape` and carries a `shapes` list",
-        &format!("kind {}, shapes {}", layer["kind"], layer["shapes"].is_array()),
+        &format!(
+            "kind {}, shapes {}",
+            layer["kind"],
+            layer["shapes"].is_array()
+        ),
         layer["kind"] == "shape" && layer["shapes"].is_array(),
     );
     t.row(
@@ -294,9 +300,8 @@ fn b25b_shapes() {
         closed.outline() == vec![(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)]
             && open.outline() == closed.outline(),
     );
-    let on_the_left_edge = |closed: bool| {
-        anime_compositor::mask::distance_to_path(&open.outline(), closed, 0.0, 2.0)
-    };
+    let on_the_left_edge =
+        |closed: bool| anime_compositor::mask::distance_to_path(&open.outline(), closed, 0.0, 2.0);
     t.row(
         "and closing it is what puts the fourth side there: the left edge is on the path of a \
          closed square and two pixels off an open one",
@@ -345,12 +350,8 @@ fn b25b_shapes() {
             gradient: None,
         },
     );
-    let mask_says = anime_compositor::mask::is_simple(&[
-        (0.0, 0.0),
-        (4.0, 0.0),
-        (0.0, 4.0),
-        (4.0, 4.0),
-    ]);
+    let mask_says =
+        anime_compositor::mask::is_simple(&[(0.0, 0.0), (4.0, 0.0), (0.0, 4.0), (4.0, 4.0)]);
     t.row(
         "a path that crosses itself is drawn as a shape though the same outline is refused as a mask",
         &format!(

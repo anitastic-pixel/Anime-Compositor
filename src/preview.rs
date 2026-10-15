@@ -196,7 +196,16 @@ pub fn preview_frame_cached(
     log: &mut FrameLog,
     cache: &mut CelCache,
 ) -> Result<WorkingBuffer, Diagnostic> {
-    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, false)?;
+    let plan = compose::plan_preview(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        false,
+    )?;
     let tile_size = compose::tile_size(quality, tile_size);
     Ok(match cache.below(composition_id, frame) {
         Some(below) => render::render_below(&plan, tile_size, None, below),
@@ -208,13 +217,23 @@ pub fn preview_frame_cached(
 /// picture `[left, top, right, bottom]`, with one pixel more on every side for the page's
 /// rounding; `None` when that is all of the frame.
 pub fn part_in(seen: [f64; 4], width: usize, height: usize) -> Option<render::Tile> {
-    let [l, t, r, b] = seen.map(|f| if f.is_finite() { f.clamp(0.0, 1.0) } else { 0.0 });
+    let [l, t, r, b] = seen.map(|f| {
+        if f.is_finite() {
+            f.clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    });
     let x0 = ((l * width as f64).floor() as usize).saturating_sub(1);
     let y0 = ((t * height as f64).floor() as usize).saturating_sub(1);
     let x1 = ((r.max(l) * width as f64).ceil() as usize + 1).min(width);
     let y1 = ((b.max(t) * height as f64).ceil() as usize + 1).min(height);
-    ((x0, y0, x1, y1) != (0, 0, width, height))
-        .then_some(render::Tile { x: x0, y: y0, width: x1 - x0, height: y1 - y0 })
+    ((x0, y0, x1, y1) != (0, 0, width, height)).then_some(render::Tile {
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+    })
 }
 
 /// B-158 (G8): [`preview_frame_cached`] for only the part of the picture on screen, with the
@@ -232,7 +251,16 @@ pub fn preview_part(
     cache: &mut CelCache,
     seen: [f64; 4],
 ) -> Result<(WorkingBuffer, usize, usize, Option<render::Tile>), Diagnostic> {
-    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, false)?;
+    let plan = compose::plan_preview(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        false,
+    )?;
     let part = part_in(seen, plan.width, plan.height);
     let tile_size = compose::tile_size(quality, tile_size);
     let pixels = match (cache.below(composition_id, frame), part) {
@@ -261,7 +289,16 @@ pub fn preview_frame_srgb8(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(Vec<u8>, usize, usize), Diagnostic> {
-    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, true)?;
+    let plan = compose::plan_preview(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        true,
+    )?;
     let pixels = match gpu.draw(&plan, cache) {
         Ok(pixels) => pixels,
         Err(why) => {
@@ -286,10 +323,20 @@ pub fn preview_frame_held(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(usize, usize), Diagnostic> {
-    let plan = compose::plan_preview(project, composition_id, frame, root, quality, log, cache, true)?;
+    let plan = compose::plan_preview(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        true,
+    )?;
     if let Err(why) = gpu.draw_held(&plan, cache) {
         log.record(frame, "GPU preview", why);
-        let pixels = render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight();
+        let pixels =
+            render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight();
         gpu.hold(&pixels, plan.width, plan.height);
     }
     Ok((plan.width, plan.height))

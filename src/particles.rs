@@ -25,11 +25,12 @@
 //! the Emitter's camera and sprites; `tools/particle_grid_reference.py` is its reference.
 
 use crate::effects::{
-    Effect, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS,
+    Effect, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_GRID_SETTINGS,
+    PARTICLE_GRID_WORDS, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS,
 };
-use std::borrow::Cow;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
+use std::borrow::Cow;
 use std::f64::consts::PI;
 
 type V = [f64; 3];
@@ -51,7 +52,11 @@ fn dot(a: V, b: V) -> f64 {
 }
 
 fn cross(a: V, b: V) -> V {
-    [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
 }
 
 fn unit_or(v: V, fallback: V) -> V {
@@ -187,13 +192,19 @@ struct Particle {
 }
 
 fn word(words: &[String; 7], i: usize) -> usize {
-    PARTICLE_SPACE_WORDS[i].1.iter().position(|w| *w == words[i]).unwrap_or(0)
+    PARTICLE_SPACE_WORDS[i]
+        .1
+        .iter()
+        .position(|w| *w == words[i])
+        .unwrap_or(0)
 }
 
 impl Run<'_> {
     /// The settings sample `i` frames after the in point, held at the last.
     fn sample(&self, i: usize, n: usize) -> f64 {
-        self.samples.as_deref().map_or(self.now[n], |s| s[i.min(s.len() - 1)][n])
+        self.samples
+            .as_deref()
+            .map_or(self.now[n], |s| s[i.min(s.len() - 1)][n])
     }
 
     fn at(&self, n: usize, t: f64) -> f64 {
@@ -223,8 +234,13 @@ impl Run<'_> {
     /// Every (k, b_k) with b_k <= u that may be alive, oldest first.
     fn births(&self) -> Vec<(i64, f64)> {
         let n = self.u as usize + 2;
-        let q: Vec<f64> = (0..n).map(|i| 100.0 * self.sample(i, RATE) / self.fps).collect();
-        let lmax = (0..n).map(|i| self.sample(i, LONGEVITY)).fold(f64::MIN, f64::max) * self.fps;
+        let q: Vec<f64> = (0..n)
+            .map(|i| 100.0 * self.sample(i, RATE) / self.fps)
+            .collect();
+        let lmax = (0..n)
+            .map(|i| self.sample(i, LONGEVITY))
+            .fold(f64::MIN, f64::max)
+            * self.fps;
         let u = self.u as f64;
         let mut out = Vec::new();
         if q.iter().all(|v| *v == q[0]) {
@@ -250,7 +266,11 @@ impl Run<'_> {
                 while k as f64 + 0.5 <= next {
                     let d = k as f64 + 0.5 - total;
                     let den = b + (b * b + 4.0 * a * d).max(0.0).sqrt();
-                    let x = if den > 0.0 { (2.0 * d / den).min(1.0) } else { 1.0 };
+                    let x = if den > 0.0 {
+                        (2.0 * d / den).min(1.0)
+                    } else {
+                        1.0
+                    };
                     out.push((k, i as f64 + x));
                     k += 1;
                 }
@@ -263,7 +283,11 @@ impl Run<'_> {
     fn axes(&self, t: f64) -> V {
         if self.mode == FIRE {
             let g = self.vec(GRAVITY_VECTOR, t);
-            return if g.iter().any(|c| *c != 0.0) { mul(unit_or(g, [0.0, -1.0, 0.0]), -1.0) } else { [0.0, -1.0, 0.0] };
+            return if g.iter().any(|c| *c != 0.0) {
+                mul(unit_or(g, [0.0, -1.0, 0.0]), -1.0)
+            } else {
+                [0.0, -1.0, 0.0]
+            };
         }
         unit_or(self.vec(AXIS, t), [0.0, -1.0, 0.0])
     }
@@ -276,20 +300,31 @@ impl Run<'_> {
         let x = if self.flat {
             // D-612: on the ellipse's disc in the plane.
             let (rho, turn) = (r(0).sqrt(), 2.0 * PI * r(2));
-            [p[0] + rad[0] * rho * turn.cos(), p[1] + rad[1] * rho * turn.sin(), 0.0]
+            [
+                p[0] + rad[0] * rho * turn.cos(),
+                p[1] + rad[1] * rho * turn.sin(),
+                0.0,
+            ]
         } else {
             let rho = r(0).powf(1.0 / 3.0);
             let d = sphere(1.0 - 2.0 * r(1), 2.0 * PI * r(2));
             [0, 1, 2].map(|i| p[i] + rad[i] * rho * d[i])
         };
         let a = self.axes(b);
-        let h = if a[0].abs() >= 0.9 { [0.0, 1.0, 0.0] } else { [1.0, 0.0, 0.0] };
+        let h = if a[0].abs() >= 0.9 {
+            [0.0, 1.0, 0.0]
+        } else {
+            [1.0, 0.0, 0.0]
+        };
         let e1 = unit_or(cross(h, a), [1.0, 0.0, 0.0]);
         let e2 = cross(a, e1);
         let phi = 2.0 * PI * r(4);
         let cap = |cos_t: f64| {
             let sin_t = (1.0 - cos_t * cos_t).max(0.0).sqrt();
-            add(mul(a, cos_t), mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), sin_t))
+            add(
+                mul(a, cos_t),
+                mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), sin_t),
+            )
         };
         let alpha = (self.at(EXTRA_ANGLE, b) / 2.0).to_radians();
         // D-612: flat, turned in the plane from the axis towards a right angle clockwise of it.
@@ -312,7 +347,10 @@ impl Run<'_> {
         let mut v = mul(way, speed);
         let iv = self.at(INHERIT, b);
         if iv != 0.0 {
-            let pv = mul(sub(self.vec(PRODUCER, b + 0.125), self.vec(PRODUCER, b - 0.125)), self.fps / 0.25);
+            let pv = mul(
+                sub(self.vec(PRODUCER, b + 0.125), self.vec(PRODUCER, b - 0.125)),
+                self.fps / 0.25,
+            );
             v = add(v, mul(pv, iv / 100.0));
         }
         let sv = self.at(SIZE_VARIATION, b) / 100.0;
@@ -340,7 +378,11 @@ impl Run<'_> {
         let mut push = [0.0; 3];
         if matches!(self.mode, TWIRL | TWIRLY | VORTEX | FIRE) {
             // D-612: flat, the swirls turn about the plane's own axis.
-            let a = if self.flat && self.mode != FIRE { [0.0, 0.0, 1.0] } else { self.axes(t0) };
+            let a = if self.flat && self.mode != FIRE {
+                [0.0, 0.0, 1.0]
+            } else {
+                self.axes(t0)
+            };
             let dd = sub(x, self.vec(PRODUCER, t0));
             let dp = sub(dd, mul(a, dot(dd, a)));
             let vel = at(VELOCITY);
@@ -364,7 +406,11 @@ impl Run<'_> {
             };
         if strength > 0.0 {
             let (evo, sc) = (at(EVOLUTION), at(TURBULENCE_SCALE));
-            let q = [x[0] / sc + evo * 0.31, x[1] / sc + evo * 0.57, x[2] / sc + evo * 0.77];
+            let q = [
+                x[0] / sc + evo * 0.31,
+                x[1] / sc + evo * 0.57,
+                x[2] / sc + evo * 0.77,
+            ];
             push = add(push, mul(curl(self.seed, q, self.flat), strength));
         }
         if p.iced {
@@ -372,8 +418,22 @@ impl Run<'_> {
         }
         v = add(v, mul(push, h));
         let g = self.vec(GRAVITY_VECTOR, t0);
-        let gu = if g.iter().any(|c| *c != 0.0) { unit_or(g, [0.0; 3]) } else { [0.0; 3] };
-        let mut a = add(mul(gu, if self.mode == FIRE { -at(GRAVITY) } else { at(GRAVITY) }), self.vec(WIND, t0));
+        let gu = if g.iter().any(|c| *c != 0.0) {
+            unit_or(g, [0.0; 3])
+        } else {
+            [0.0; 3]
+        };
+        let mut a = add(
+            mul(
+                gu,
+                if self.mode == FIRE {
+                    -at(GRAVITY)
+                } else {
+                    at(GRAVITY)
+                },
+            ),
+            self.vec(WIND, t0),
+        );
         let k = at(RESISTANCE) + if self.mode == VISCOUS { 3.0 } else { 0.0 };
         if p.iced {
             a[1] = 0.0;
@@ -416,10 +476,16 @@ impl Run<'_> {
                 _ => {}
             }
             let m = p.bounces;
-            let bounce = (at(BOUNCINESS) / 100.0 + at(RANDOM_BOUNCINESS) / 100.0 * (2.0 * self.r(p.k, 100 + 2 * m) - 1.0)).max(0.0);
+            let bounce = (at(BOUNCINESS) / 100.0
+                + at(RANDOM_BOUNCINESS) / 100.0 * (2.0 * self.r(p.k, 100 + 2 * m) - 1.0))
+                .max(0.0);
             let turn = at(SPREAD) / 100.0 * PI * (2.0 * self.r(p.k, 101 + 2 * m) - 1.0);
             let (sn, cs) = (turn.sin(), turn.cos());
-            vc = [vc[0] * cs - vc[2] * sn, -vc[1] * bounce, vc[0] * sn + vc[2] * cs];
+            vc = [
+                vc[0] * cs - vc[2] * sn,
+                -vc[1] * bounce,
+                vc[0] * sn + vc[2] * cs,
+            ];
             p.bounces += 1;
             hops += 1;
             (x, v) = (xc, vc);
@@ -474,8 +540,13 @@ fn noise(seed: u64, c: u64, q: V) -> f64 {
         for dy in 0..2 {
             for dx in 0..2 {
                 let (ci, cj, cl) = (i[0] as i64 + dx, i[1] as i64 + dy, i[2] as i64 + dz);
-                let g = sphere(crate::grade::unit(seed, ci, cj, cl, 200 + 2 * c), PI * crate::grade::unit(seed, ci, cj, cl, 201 + 2 * c));
-                let wt = (if dx == 1 { w[0] } else { 1.0 - w[0] }) * (if dy == 1 { w[1] } else { 1.0 - w[1] }) * (if dz == 1 { w[2] } else { 1.0 - w[2] });
+                let g = sphere(
+                    crate::grade::unit(seed, ci, cj, cl, 200 + 2 * c),
+                    PI * crate::grade::unit(seed, ci, cj, cl, 201 + 2 * c),
+                );
+                let wt = (if dx == 1 { w[0] } else { 1.0 - w[0] })
+                    * (if dy == 1 { w[1] } else { 1.0 - w[1] })
+                    * (if dz == 1 { w[2] } else { 1.0 - w[2] });
                 total += wt * dot(g, [f[0] - dx as f64, f[1] - dy as f64, f[2] - dz as f64]);
             }
         }
@@ -503,9 +574,15 @@ fn closed(x: V, v: V, a: V, k: f64, h: f64) -> (V, V) {
     if k > 0.0 {
         let e = (-k * h).exp();
         let m = -(-k * h).exp_m1() / k;
-        ([0, 1, 2].map(|i| x[i] + a[i] / k * h + (v[i] - a[i] / k) * m), [0, 1, 2].map(|i| a[i] / k + (v[i] - a[i] / k) * e))
+        (
+            [0, 1, 2].map(|i| x[i] + a[i] / k * h + (v[i] - a[i] / k) * m),
+            [0, 1, 2].map(|i| a[i] / k + (v[i] - a[i] / k) * e),
+        )
     } else {
-        ([0, 1, 2].map(|i| x[i] + v[i] * h + a[i] * h * h / 2.0), [0, 1, 2].map(|i| v[i] + a[i] * h))
+        (
+            [0, 1, 2].map(|i| x[i] + v[i] * h + a[i] * h * h / 2.0),
+            [0, 1, 2].map(|i| v[i] + a[i] * h),
+        )
     }
 }
 
@@ -548,7 +625,15 @@ pub(crate) fn plane_row(v: &[f64; 25]) -> [f64; 46] {
 
 fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
     match e {
-        Effect::ParticleSpace { values, words, colors, clock, view, history, .. } => {
+        Effect::ParticleSpace {
+            values,
+            words,
+            colors,
+            clock,
+            view,
+            history,
+            ..
+        } => {
             let u = clock[0] as i64;
             if u < 0 {
                 return None;
@@ -576,16 +661,31 @@ fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
             };
             Some((run, look))
         }
-        Effect::ParticlePlane { values, words, colors, clock, history, .. } => {
+        Effect::ParticlePlane {
+            values,
+            words,
+            colors,
+            clock,
+            history,
+            ..
+        } => {
             let u = clock[0] as i64;
             if u < 0 {
                 return None;
             }
-            let w = |i: usize| PARTICLE_PLANE_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0);
+            let w = |i: usize| {
+                PARTICLE_PLANE_WORDS[i]
+                    .1
+                    .iter()
+                    .position(|x| *x == words[i])
+                    .unwrap_or(0)
+            };
             let now = plane_row(values);
             let run = Run {
                 now,
-                samples: history.as_deref().map(|h| Cow::Owned(h.iter().map(plane_row).collect())),
+                samples: history
+                    .as_deref()
+                    .map(|h| Cow::Owned(h.iter().map(plane_row).collect())),
                 u,
                 fps: clock[1],
                 seed: crate::grade::mix(now[SEED].floor() as u64),
@@ -629,8 +729,17 @@ fn opacity_map(m: usize, o: [f64; 5], f: f64) -> f64 {
 /// as [k, b, x, y, z, vx, vy, vz]. `e`'s clock and history already filled as compose fills them.
 #[doc(hidden)]
 pub fn alive(e: &Effect) -> Vec<[f64; 8]> {
-    let Some((run, ..)) = run_of(e) else { return Vec::new() };
-    run.alive().into_iter().map(|(p, _)| [p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2]]).collect()
+    let Some((run, ..)) = run_of(e) else {
+        return Vec::new();
+    };
+    run.alive()
+        .into_iter()
+        .map(|(p, _)| {
+            [
+                p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2],
+            ]
+        })
+        .collect()
 }
 
 /// D-610: the sprite list the processor and the card both draw (see [`HEAD`]): each sprite its
@@ -642,7 +751,11 @@ pub fn alive(e: &Effect) -> Vec<[f64; 8]> {
 /// layer named whose picture is empty, the textured kinds draw nothing. `source` is the drawing
 /// as it reaches the effect, its corner at `(ox, oy)`. Before the in point, none and the drawing
 /// kept.
-pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
+pub(crate) fn sprite_numbers(
+    source: &WorkingBuffer,
+    e: &Effect,
+    (ox, oy): (usize, usize),
+) -> Vec<f64> {
     // D-615: Particle Emitter's own.
     if let Effect::ParticleEmitter { .. } = e {
         return emitter_numbers(source, e, (ox, oy));
@@ -656,15 +769,37 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
     };
     let view = look.view;
     let now = run.now;
-    let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+    let (w0, h0) = (
+        (source.width() - 2 * ox) as f64,
+        (source.height() - 2 * oy) as f64,
+    );
     // The camera: a function from a world point to (X, Y, pixels a unit, depth).
     let m = {
         type M3 = [[f64; 3]; 3];
-        let mat = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum())) };
-        let (sx, cx) = (now[ROTATION].to_radians().sin(), now[ROTATION].to_radians().cos());
-        let (sy, cy) = (now[ROTATION + 1].to_radians().sin(), now[ROTATION + 1].to_radians().cos());
-        let (sz, cz) = (now[ROTATION + 2].to_radians().sin(), now[ROTATION + 2].to_radians().cos());
-        mat([[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]], mat([[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]], [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]]))
+        let mat = |a: M3, b: M3| -> M3 {
+            std::array::from_fn(|i| {
+                std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum())
+            })
+        };
+        let (sx, cx) = (
+            now[ROTATION].to_radians().sin(),
+            now[ROTATION].to_radians().cos(),
+        );
+        let (sy, cy) = (
+            now[ROTATION + 1].to_radians().sin(),
+            now[ROTATION + 1].to_radians().cos(),
+        );
+        let (sz, cz) = (
+            now[ROTATION + 2].to_radians().sin(),
+            now[ROTATION + 2].to_radians().cos(),
+        );
+        mat(
+            [[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]],
+            mat(
+                [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]],
+                [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]],
+            ),
+        )
     };
     let f = (w0 / 2.0) / (now[FOV].to_radians() / 2.0).tan();
     let dist = now[DISTANCE];
@@ -681,20 +816,41 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
                 return None;
             }
             let ratio = al / (al + zp);
-            return Some([ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio, ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio, w0 * ratio, depth]);
+            return Some([
+                ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio,
+                ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio,
+                w0 * ratio,
+                depth,
+            ]);
         }
         let c = [0, 1, 2].map(|i| m[i][0] * x[0] + m[i][1] * x[1] + m[i][2] * x[2]);
         let cz = c[2] + dist;
-        (cz > 0.01).then(|| [w0 / 2.0 + f * c[0] / cz, h0 / 2.0 + f * c[1] / cz, f / cz, cz])
+        (cz > 0.01).then(|| {
+            [
+                w0 / 2.0 + f * c[0] / cz,
+                h0 / 2.0 + f * c[1] / cz,
+                f / cz,
+                cz,
+            ]
+        })
     };
     let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
     let origin = |x0: V| -> V {
-        let (gx, gy) = ((w0 / 2.0 + x0[0] * w0).floor(), (h0 / 2.0 + x0[1] * w0).floor());
+        let (gx, gy) = (
+            (w0 / 2.0 + x0[0] * w0).floor(),
+            (h0 / 2.0 + x0[1] * w0).floor(),
+        );
         if !(0.0 <= gx && gx < w0 && 0.0 <= gy && gy < h0) {
             return [0.0; 3];
         }
-        let p = source.pixel(gx as usize + ox, gy as usize + oy).map(f64::from);
-        if p[3] > 0.0 { [p[0] / p[3], p[1] / p[3], p[2] / p[3]] } else { [0.0; 3] }
+        let p = source
+            .pixel(gx as usize + ox, gy as usize + oy)
+            .map(f64::from);
+        if p[3] > 0.0 {
+            [p[0] / p[3], p[1] / p[3], p[2] / p[3]]
+        } else {
+            [0.0; 3]
+        }
     };
     let mix3 = |a: V, b: V, t: f64| [0, 1, 2].map(|i| a[i] + (b[i] - a[i]) * t);
     let colors = look.colors;
@@ -725,7 +881,8 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
             let [x, y, ppu, depth] = see(p.x)?;
             let mut rad = size / 100.0 * ppu / 2.0;
             let mut col = colour(f, origin(p.x0));
-            let mut alpha = now[OPACITY] / 100.0 * look.fade.map_or(1.0, |(m, o)| opacity_map(m, o, f));
+            let mut alpha =
+                now[OPACITY] / 100.0 * look.fade.map_or(1.0, |(m, o)| opacity_map(m, o, f));
             let mut fog = 1.0;
             if cue != 0 {
                 let fd = (1.0 - depth / now[CUE_DISTANCE]).clamp(0.0, 1.0);
@@ -738,7 +895,19 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
             }
             let sprite = if kind == 0 {
                 let tail = see(sub(p.x, mul(p.v, size / 0.15 / run.fps)))?;
-                [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
+                [
+                    0.0,
+                    x,
+                    y,
+                    tail[0],
+                    tail[1],
+                    (2.0 * rad).max(1.0),
+                    alpha,
+                    col[0],
+                    col[1],
+                    col[2],
+                    0.0,
+                ]
             } else {
                 if rad < 0.7 {
                     alpha *= (rad / 0.7) * (rad / 0.7);
@@ -746,18 +915,47 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
                 }
                 if textured {
                     let age = (run.u as f64 - p.b) / run.fps;
-                    let turn = (run.at(INITIAL_ROTATION, p.b) * run.r(p.k, 10) + run.at(ROTATION_SPEED, p.b) * age).to_radians();
+                    let turn = (run.at(INITIAL_ROTATION, p.b) * run.r(p.k, 10)
+                        + run.at(ROTATION_SPEED, p.b) * age)
+                        .to_radians();
                     let c = if read { cue_color } else { col };
-                    [kind as f64, x, y, rad, turn.cos(), turn.sin(), alpha, c[0], c[1], c[2], fog]
+                    [
+                        kind as f64,
+                        x,
+                        y,
+                        rad,
+                        turn.cos(),
+                        turn.sin(),
+                        alpha,
+                        c[0],
+                        c[1],
+                        c[2],
+                        fog,
+                    ]
                 } else {
-                    [kind as f64, x, y, rad, 0.0, 0.0, alpha, col[0], col[1], col[2], 0.0]
+                    [
+                        kind as f64,
+                        x,
+                        y,
+                        rad,
+                        0.0,
+                        0.0,
+                        alpha,
+                        col[0],
+                        col[1],
+                        col[2],
+                        0.0,
+                    ]
                 }
             };
             Some((depth, p.k, sprite))
         })
         .collect();
     drawn.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    let (d, h) = (now[LIGHT_DIRECTION].to_radians(), now[LIGHT_HEIGHT].to_radians());
+    let (d, h) = (
+        now[LIGHT_DIRECTION].to_radians(),
+        now[LIGHT_HEIGHT].to_radians(),
+    );
     let mut k = vec![
         now[VOLUME_SHADE] / 100.0,
         h.cos() * d.sin(),
@@ -777,17 +975,31 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
 /// D-610: the sprites of `k` that may touch each 16 by 16 tile of a buffer `w` by `h`, the
 /// drawing's corner at `(ox, oy)`, farthest first: each tile's start in the list (and the end),
 /// then the list.
-pub(crate) fn tile_lists(k: &[f64], (ox, oy): (usize, usize), w: usize, h: usize) -> (Vec<usize>, Vec<usize>) {
+pub(crate) fn tile_lists(
+    k: &[f64],
+    (ox, oy): (usize, usize),
+    w: usize,
+    h: usize,
+) -> (Vec<usize>, Vec<usize>) {
     let (tw, th) = (w.div_ceil(TILE), h.div_ceil(TILE));
     let mut lists = vec![Vec::new(); tw * th];
     for (n, s) in k[HEAD..].chunks_exact(STRIDE).enumerate() {
         let (xs, ys) = if s[0] == 0.0 {
             let r = s[5] / 2.0 + 1.0;
-            ((s[1].min(s[3]) - r, s[1].max(s[3]) + r), (s[2].min(s[4]) - r, s[2].max(s[4]) + r))
+            (
+                (s[1].min(s[3]) - r, s[1].max(s[3]) + r),
+                (s[2].min(s[4]) - r, s[2].max(s[4]) + r),
+            )
         } else {
             // D-611: a turned square reaches as far as its corners.
             // D-615: a soft sphere as far as half its feather beyond.
-            let r = s[3] * if s[0] == 5.0 { std::f64::consts::SQRT_2 } else { 1.0 } + 1.0 + if s[0] == 9.0 { s[4] / 2.0 } else { 0.0 };
+            let r =
+                s[3] * if s[0] == 5.0 {
+                    std::f64::consts::SQRT_2
+                } else {
+                    1.0
+                } + 1.0
+                    + if s[0] == 9.0 { s[4] / 2.0 } else { 0.0 };
             ((s[1] - r, s[1] + r), (s[2] - r, s[2] + r))
         };
         let span = |lo: f64, hi: f64, o: usize, size: usize| {
@@ -795,7 +1007,9 @@ pub(crate) fn tile_lists(k: &[f64], (ox, oy): (usize, usize), w: usize, h: usize
             let b = ((hi + o as f64).ceil() + 1.0).clamp(0.0, size as f64) as usize;
             (a < b).then(|| a / TILE..=(b - 1) / TILE)
         };
-        let (Some(cols), Some(rows)) = (span(xs.0, xs.1, ox, w), span(ys.0, ys.1, oy, h)) else { continue };
+        let (Some(cols), Some(rows)) = (span(xs.0, xs.1, ox, w), span(ys.0, ys.1, oy, h)) else {
+            continue;
+        };
         for ty in rows {
             for tx in cols.clone() {
                 lists[ty * tw + tx].push(n);
@@ -868,7 +1082,11 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 
     let (cv, shade) = if s[0] == 0.0 {
         let (ax, ay, dx, dy) = (s[1], s[2], s[3] - s[1], s[4] - s[2]);
         let ll = dx * dx + dy * dy;
-        let t = if ll > 0.0 { (((x - ax) * dx + (y - ay) * dy) / ll).clamp(0.0, 1.0) } else { 0.0 };
+        let t = if ll > 0.0 {
+            (((x - ax) * dx + (y - ay) * dy) / ll).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         let e = (x - ax - t * dx).hypot(y - ay - t * dy);
         ((s[5] / 2.0 - e + 0.5).clamp(0.0, 1.0), 1.0)
     } else {
@@ -879,15 +1097,28 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 
             t * t
         } else {
             let c = (rad - e + 0.5).clamp(0.0, 1.0);
-            if s[0] == 4.0 { c * (0.25 + 0.75 * (e / rad).min(1.0).powi(4)) } else { c }
+            if s[0] == 4.0 {
+                c * (0.25 + 0.75 * (e / rad).min(1.0).powi(4))
+            } else {
+                c
+            }
         };
-        let v = if s[0] == 2.0 || s[0] == 4.0 { 1.0 } else { k[0] };
+        let v = if s[0] == 2.0 || s[0] == 4.0 {
+            1.0
+        } else {
+            k[0]
+        };
         let mut shade = 1.0;
         if v > 0.0 {
             let (dx, dy) = ((x - s[1]) / rad, (y - s[2]) / rad);
             let q = dx * dx + dy * dy;
-            let nv = if q < 1.0 { [dx, dy, -(1.0 - q).sqrt()] } else { [dx / q.sqrt(), dy / q.sqrt(), 0.0] };
-            shade = 1.0 - v + v * (0.2 + 0.8 * (nv[0] * k[1] + nv[1] * k[2] + nv[2] * k[3]).max(0.0));
+            let nv = if q < 1.0 {
+                [dx, dy, -(1.0 - q).sqrt()]
+            } else {
+                [dx / q.sqrt(), dy / q.sqrt(), 0.0]
+            };
+            shade =
+                1.0 - v + v * (0.2 + 0.8 * (nv[0] * k[1] + nv[1] * k[2] + nv[2] * k[3]).max(0.0));
         }
         (cv, shade)
     };
@@ -922,13 +1153,20 @@ fn star_cover(rad: f64, dx: f64, dy: f64) -> f64 {
 fn pixel(k: &[f64], ids: &[usize], x: f64, y: f64, mut d: [f64; 4], tex: Option<Tex>) -> [f64; 4] {
     let mode = k[4];
     for &n in ids {
-        let Some(s) = cover(k, n, x, y, tex) else { continue };
+        let Some(s) = cover(k, n, x, y, tex) else {
+            continue;
+        };
         d = if mode == 0.0 {
             [0, 1, 2, 3].map(|i| s[i] + (1.0 - s[3]) * d[i])
         } else if mode == 1.0 {
             [0, 1, 2, 3].map(|i| s[i] + d[i] - s[i] * d[i])
         } else {
-            [s[0] + d[0], s[1] + d[1], s[2] + d[2], (s[3] + d[3]).min(1.0)]
+            [
+                s[0] + d[0],
+                s[1] + d[1],
+                s[2] + d[2],
+                (s[3] + d[3]).min(1.0),
+            ]
         };
     }
     d
@@ -950,19 +1188,34 @@ pub(crate) fn particle_space(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (
     let (w, h) = (source.width(), source.height());
     let (starts, list) = tile_lists(&k, (ox, oy), w, h);
     let (tw, keep) = (w.div_ceil(TILE), k[5] == 1.0);
-    source.data_mut().par_chunks_mut(w * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(w * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let t = ty * tw + bx / TILE;
-                let d = if keep { [px[0], px[1], px[2], px[3]].map(f64::from) } else { [0.0; 4] };
-                let out = pixel(&k, &list[starts[t]..starts[t + 1]], bx as f64 - ox as f64 + 0.5, y, d, tex);
-                for (v, o) in px.iter_mut().zip(out) {
-                    *v = o as f32;
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(w * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let t = ty * tw + bx / TILE;
+                    let d = if keep {
+                        [px[0], px[1], px[2], px[3]].map(f64::from)
+                    } else {
+                        [0.0; 4]
+                    };
+                    let out = pixel(
+                        &k,
+                        &list[starts[t]..starts[t + 1]],
+                        bx as f64 - ox as f64 + 0.5,
+                        y,
+                        d,
+                        tex,
+                    );
+                    for (v, o) in px.iter_mut().zip(out) {
+                        *v = o as f32;
+                    }
                 }
             }
-        }
-    });
+        });
 }
 
 /// D-611: a texture's atlas and its levels.
@@ -975,12 +1228,23 @@ fn texture_named(e: &Effect) -> bool {
 /// D-611: a texture layer named but not read (not in the composition, which compose said, or a
 /// circle): the effect is left out (D-189's rule 4).
 pub(crate) fn texture_missing(e: &Effect) -> bool {
-    matches!(e, Effect::ParticleSpace { texture: None, .. } | Effect::ParticlePlane { texture: None, .. }) && texture_named(e)
+    matches!(
+        e,
+        Effect::ParticleSpace { texture: None, .. } | Effect::ParticlePlane { texture: None, .. }
+    ) && texture_named(e)
 }
 
 /// D-611: the texture read, when it has a picture.
 pub(crate) fn texture(e: &Effect) -> Option<&WorkingBuffer> {
-    let (Effect::ParticleSpace { texture: Some(t), .. } | Effect::ParticlePlane { texture: Some(t), .. }) = e else { return None };
+    let (Effect::ParticleSpace {
+        texture: Some(t), ..
+    }
+    | Effect::ParticlePlane {
+        texture: Some(t), ..
+    }) = e
+    else {
+        return None;
+    };
     (t.0.width() > 0 && t.0.height() > 0).then_some(&*t.0)
 }
 
@@ -1004,8 +1268,14 @@ pub(crate) fn atlas(t: &WorkingBuffer) -> WorkingBuffer {
     let width = lv.iter().map(|l| l[0] + l[2]).max().unwrap_or(0);
     let height = lv.iter().map(|l| l[1] + l[3]).max().unwrap_or(0);
     let mut out = WorkingBuffer::transparent(width, height);
-    let mut prev: Vec<[f64; 4]> = t.data().chunks_exact(4).map(|p| [0, 1, 2, 3].map(|i| f64::from(p[i]))).collect();
-    let set = |out: &mut WorkingBuffer, x: usize, y: usize, v: [f32; 4]| out.data_mut()[(y * width + x) * 4..][..4].copy_from_slice(&v);
+    let mut prev: Vec<[f64; 4]> = t
+        .data()
+        .chunks_exact(4)
+        .map(|p| [0, 1, 2, 3].map(|i| f64::from(p[i])))
+        .collect();
+    let set = |out: &mut WorkingBuffer, x: usize, y: usize, v: [f32; 4]| {
+        out.data_mut()[(y * width + x) * 4..][..4].copy_from_slice(&v)
+    };
     for y in 0..t.height() {
         for x in 0..t.width() {
             set(&mut out, x, y, t.pixel(x, y));
@@ -1022,7 +1292,8 @@ pub(crate) fn atlas(t: &WorkingBuffer) -> WorkingBuffer {
                     .filter(|&(xx, yy)| xx < pw && yy < ph)
                     .map(|(xx, yy)| prev[yy * pw + xx])
                     .collect();
-                let m = [0, 1, 2, 3].map(|i| taps.iter().map(|p| p[i]).sum::<f64>() / taps.len() as f64);
+                let m = [0, 1, 2, 3]
+                    .map(|i| taps.iter().map(|p| p[i]).sum::<f64>() / taps.len() as f64);
                 set(&mut out, x0 + x, y0 + y, m.map(|v| v as f32));
                 next.push(m);
             }
@@ -1036,7 +1307,9 @@ pub(crate) fn atlas(t: &WorkingBuffer) -> WorkingBuffer {
 /// tap held to its level's edge, at level log2(size / 2 rad) mixed towards the next.
 fn texel((t, lv): Tex, s: f64, u: f64, rad: f64) -> [f64; 4] {
     let top = lv.len() - 1;
-    let lam = (lv[0][2].max(lv[0][3]) as f64 / (2.0 * rad)).log2().clamp(0.0, top as f64);
+    let lam = (lv[0][2].max(lv[0][3]) as f64 / (2.0 * rad))
+        .log2()
+        .clamp(0.0, top as f64);
     let j = lam.floor() as usize;
     let held = |[x0, y0, w, h]: [usize; 4]| {
         let (fx, fy) = (s * w as f64 - 0.5, u * h as f64 - 0.5);
@@ -1068,15 +1341,27 @@ fn texel((t, lv): Tex, s: f64, u: f64, rad: f64) -> [f64; 4] {
 /// held inside its range.
 #[doc(hidden)]
 pub fn emitter_numbers_row(e: &Effect) -> [f64; 56] {
-    let Effect::ParticleEmitter { values, emitter_position, .. } = e else {
+    let Effect::ParticleEmitter {
+        values,
+        emitter_position,
+        ..
+    } = e
+    else {
         unreachable!("Particle Emitter's numbers of another effect")
     };
     let mut out = [0.0; 56];
-    for (o, (v, (_, lo, hi, _))) in out.iter_mut().zip(values.iter().zip(PARTICLE_EMITTER_SETTINGS)) {
+    for (o, (v, (_, lo, hi, _))) in out
+        .iter_mut()
+        .zip(values.iter().zip(PARTICLE_EMITTER_SETTINGS))
+    {
         *o = v.clamp(lo, hi);
     }
     for c in 0..2 {
-        out[54 + c] = emitter_position.get(c).copied().unwrap_or(0.0).clamp(-1000.0, 1000.0);
+        out[54 + c] = emitter_position
+            .get(c)
+            .copied()
+            .unwrap_or(0.0)
+            .clamp(-1000.0, 1000.0);
     }
     out
 }
@@ -1126,11 +1411,19 @@ fn held<const N: usize>(rows: Option<&[[f64; N]]>, now: &[f64; N], n: usize, t: 
 /// D-615: the turn Rx Ry Rz of three angles in degrees, Rz first, as Particle Space's camera.
 fn turn3(d: [f64; 3]) -> [[f64; 3]; 3] {
     type M3 = [[f64; 3]; 3];
-    let mat = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum())) };
+    let mat = |a: M3, b: M3| -> M3 {
+        std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum()))
+    };
     let (sx, cx) = (d[0].to_radians().sin(), d[0].to_radians().cos());
     let (sy, cy) = (d[1].to_radians().sin(), d[1].to_radians().cos());
     let (sz, cz) = (d[2].to_radians().sin(), d[2].to_radians().cos());
-    mat([[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]], mat([[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]], [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]]))
+    mat(
+        [[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]],
+        mat(
+            [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]],
+            [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]],
+        ),
+    )
 }
 
 fn apply3(m: [[f64; 3]; 3], v: V) -> V {
@@ -1160,18 +1453,31 @@ const EM_AUX: usize = 45;
 type Thrown = (Particle, [f64; 5]);
 
 fn emitter_of(e: &Effect, w: f64, h: f64) -> Option<Emitter<'_>> {
-    let Effect::ParticleEmitter { words, clock, history, .. } = e else {
+    let Effect::ParticleEmitter {
+        words,
+        clock,
+        history,
+        ..
+    } = e
+    else {
         unreachable!("Particle Emitter's particles of another effect")
     };
     let u = clock[0] as i64;
     if u < 0 {
         return None;
     }
-    let kinds = std::array::from_fn(|i| PARTICLE_EMITTER_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0));
+    let kinds = std::array::from_fn(|i| {
+        PARTICLE_EMITTER_WORDS[i]
+            .1
+            .iter()
+            .position(|x| *x == words[i])
+            .unwrap_or(0)
+    });
     let own_now = emitter_numbers_row(e);
     let own = history.as_deref().map(Vec::as_slice);
     let mut now = emitter_row(&own_now, w, h);
-    let mut samples: Option<Vec<[f64; 46]>> = own.map(|s| s.iter().map(|r| emitter_row(r, w, h)).collect());
+    let mut samples: Option<Vec<[f64; 46]>> =
+        own.map(|s| s.iter().map(|r| emitter_row(r, w, h)).collect());
     // D-711: with the second system on, every particle that may still have a thrown one alive is
     // born: the longest life widened by the longest Aux Life and a frame.
     if kinds[6] != 0 {
@@ -1196,7 +1502,13 @@ fn emitter_of(e: &Effect, w: f64, h: f64) -> Option<Emitter<'_>> {
         floor_action: [0, 3, 1, 2][kinds[5]],
         flat: false,
     };
-    Some(Emitter { run, own, own_now, w, kinds })
+    Some(Emitter {
+        run,
+        own,
+        own_now,
+        w,
+        kinds,
+    })
 }
 
 impl Emitter<'_> {
@@ -1214,7 +1526,11 @@ impl Emitter<'_> {
         let size = [at(EM_SIZE), at(EM_SIZE + 1), at(EM_SIZE + 2)];
         let off = match self.kinds[0] {
             0 => [0.0; 3],
-            1 => [size[0] * (r(0) - 0.5), size[1] * (r(1) - 0.5), size[2] * (r(2) - 0.5)],
+            1 => [
+                size[0] * (r(0) - 0.5),
+                size[1] * (r(1) - 0.5),
+                size[2] * (r(2) - 0.5),
+            ],
             2 => {
                 let rho = r(0).powf(1.0 / 3.0);
                 let d = sphere(1.0 - 2.0 * r(1), 2.0 * PI * r(2));
@@ -1231,7 +1547,11 @@ impl Emitter<'_> {
         let p = run.vec(PRODUCER, b);
         let x = [0, 1, 2].map(|i| p[i] + d[i] / self.w);
         let a = apply3(m, [0.0, -1.0, 0.0]);
-        let h = if a[0].abs() >= 0.9 { [0.0, 1.0, 0.0] } else { [1.0, 0.0, 0.0] };
+        let h = if a[0].abs() >= 0.9 {
+            [0.0, 1.0, 0.0]
+        } else {
+            [1.0, 0.0, 0.0]
+        };
         let e1 = unit_or(cross(h, a), [1.0, 0.0, 0.0]);
         let e2 = cross(a, e1);
         let phi = 2.0 * PI * r(4);
@@ -1240,17 +1560,28 @@ impl Emitter<'_> {
         let u = sphere(1.0 - 2.0 * r(3), phi);
         let cap = |ct: f64| {
             let st = (1.0 - ct * ct).max(0.0).sqrt();
-            add(mul(a, ct), mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), st))
+            add(
+                mul(a, ct),
+                mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), st),
+            )
         };
         let way = match self.kinds[1] {
             0 => u,
             dir @ (1 | 2) => {
                 let w = cap(1.0 - r(3) * (1.0 - alpha.cos()));
-                if dir == 2 && r(10) < 0.5 { mul(w, -1.0) } else { w }
+                if dir == 2 && r(10) < 0.5 {
+                    mul(w, -1.0)
+                } else {
+                    w
+                }
             }
             3 => cap(-(alpha / 2.0 * (2.0 * r(3) - 1.0)).sin()),
             dir => {
-                let o = if d.iter().any(|c| *c != 0.0) { unit_or(d, u) } else { u };
+                let o = if d.iter().any(|c| *c != 0.0) {
+                    unit_or(d, u)
+                } else {
+                    u
+                };
                 let o = if dir == 5 { mul(o, -1.0) } else { o };
                 unit_or(add(o, mul(u, spread / 100.0)), o)
             }
@@ -1259,10 +1590,25 @@ impl Emitter<'_> {
         let mut v = mul(way, speed);
         let vm = at(13);
         if vm != 0.0 {
-            let pv = mul(sub(run.vec(PRODUCER, b + 0.125), run.vec(PRODUCER, b - 0.125)), run.fps / 0.25);
+            let pv = mul(
+                sub(run.vec(PRODUCER, b + 0.125), run.vec(PRODUCER, b - 0.125)),
+                run.fps / 0.25,
+            );
             v = add(v, mul(pv, vm / 100.0));
         }
-        let p = Particle { k, b, x, v, x0: x, sizes: (0.0, 0.0), size_factor: 1.0, twirl: 1.0, glued: false, iced: false, bounces: 0 };
+        let p = Particle {
+            k,
+            b,
+            x,
+            v,
+            x0: x,
+            sizes: (0.0, 0.0),
+            size_factor: 1.0,
+            twirl: 1.0,
+            glued: false,
+            iced: false,
+            bounces: 0,
+        };
         let own = [
             self.life(k, b),
             at(17) * (1.0 + at(18) / 100.0 * (2.0 * r(6) - 1.0)),
@@ -1331,7 +1677,12 @@ impl Emitter<'_> {
                 }
                 let ((t0, x0, v0, _), (t1, x1, v1, _)) = (kept[i - 1], kept[i]);
                 let s = (c - t0) / (t1 - t0);
-                out.push((j, c, [0, 1, 2].map(|a| x0[a] + (x1[a] - x0[a]) * s), [0, 1, 2].map(|a| v0[a] + (v1[a] - v0[a]) * s)));
+                out.push((
+                    j,
+                    c,
+                    [0, 1, 2].map(|a| x0[a] + (x1[a] - x0[a]) * s),
+                    [0, 1, 2].map(|a| v0[a] + (v1[a] - v0[a]) * s),
+                ));
             }
             return out;
         }
@@ -1361,25 +1712,55 @@ impl Emitter<'_> {
             .flat_map_iter(|(k, b)| {
                 let life = self.life(k, b);
                 let (own, kept) = self.path(k, b, life);
-                self.throws(b, life, &kept).into_iter().filter_map(move |(j, c, x, vm)| {
-                    let alife = self.mine(EM_AUX + 2, c) * run.fps;
-                    if !(u - c < alife) {
-                        return None;
-                    }
-                    let key = !k.wrapping_shl(32).wrapping_add(j);
-                    let d = sphere(1.0 - 2.0 * run.r(key, 0), 2.0 * PI * run.r(key, 1));
-                    let (speed, inherit) = (self.mine(EM_AUX + 3, c) / self.w, self.mine(EM_AUX + 4, c) / 100.0);
-                    let v = [0, 1, 2].map(|a| d[a] * speed + vm[a] * inherit);
-                    let mut p = Particle { k: key, b: c, x, v, x0: x, sizes: (0.0, 0.0), size_factor: 1.0, twirl: 1.0, glued: false, iced: false, bounces: 0 };
-                    let mut t0 = c;
-                    for jj in (4.0 * c).floor() as i64 + 1..=4 * run.u {
-                        let t1 = jj as f64 / 4.0;
-                        run.step(&mut p, t0, (t1 - t0) / run.fps);
-                        t0 = t1;
-                    }
-                    let g = if over_life { ((c - b) / life).min(1.0) } else { own[3] };
-                    Some((p, [self.mine(EM_AUX + 5, c), self.mine(EM_AUX + 7, c) / 100.0, (u - c) / alife, g, own[4]]))
-                })
+                self.throws(b, life, &kept)
+                    .into_iter()
+                    .filter_map(move |(j, c, x, vm)| {
+                        let alife = self.mine(EM_AUX + 2, c) * run.fps;
+                        if !(u - c < alife) {
+                            return None;
+                        }
+                        let key = !k.wrapping_shl(32).wrapping_add(j);
+                        let d = sphere(1.0 - 2.0 * run.r(key, 0), 2.0 * PI * run.r(key, 1));
+                        let (speed, inherit) = (
+                            self.mine(EM_AUX + 3, c) / self.w,
+                            self.mine(EM_AUX + 4, c) / 100.0,
+                        );
+                        let v = [0, 1, 2].map(|a| d[a] * speed + vm[a] * inherit);
+                        let mut p = Particle {
+                            k: key,
+                            b: c,
+                            x,
+                            v,
+                            x0: x,
+                            sizes: (0.0, 0.0),
+                            size_factor: 1.0,
+                            twirl: 1.0,
+                            glued: false,
+                            iced: false,
+                            bounces: 0,
+                        };
+                        let mut t0 = c;
+                        for jj in (4.0 * c).floor() as i64 + 1..=4 * run.u {
+                            let t1 = jj as f64 / 4.0;
+                            run.step(&mut p, t0, (t1 - t0) / run.fps);
+                            t0 = t1;
+                        }
+                        let g = if over_life {
+                            ((c - b) / life).min(1.0)
+                        } else {
+                            own[3]
+                        };
+                        Some((
+                            p,
+                            [
+                                self.mine(EM_AUX + 5, c),
+                                self.mine(EM_AUX + 7, c) / 100.0,
+                                (u - c) / alife,
+                                g,
+                                own[4],
+                            ],
+                        ))
+                    })
             })
             .collect()
     }
@@ -1405,9 +1786,19 @@ impl Emitter<'_> {
 /// D-711: then the aux particles, for B-581's.
 #[doc(hidden)]
 pub fn emitter_alive(e: &Effect, w: f64, h: f64) -> Vec<[f64; 8]> {
-    let Some(em) = emitter_of(e, w, h) else { return Vec::new() };
-    let row = |p: &Particle| [p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2]];
-    em.alive().iter().map(|(p, ..)| row(p)).chain(em.thrown().iter().map(|(p, _)| row(p))).collect()
+    let Some(em) = emitter_of(e, w, h) else {
+        return Vec::new();
+    };
+    let row = |p: &Particle| {
+        [
+            p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2],
+        ]
+    };
+    em.alive()
+        .iter()
+        .map(|(p, ..)| row(p))
+        .chain(em.thrown().iter().map(|(p, _)| row(p)))
+        .collect()
 }
 
 /// D-615: Particle Emitter's sprite list, as [`sprite_numbers`]': Sphere (kind 9, its feather's
@@ -1415,11 +1806,16 @@ pub fn emitter_alive(e: &Effect, w: f64, h: f64) -> Vec<[f64; 8]> {
 /// (0, the line), none lit, seen through the composition camera or else straight on from 50/36
 /// of the width in front.
 fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
-    let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+    let (w0, h0) = (
+        (source.width() - 2 * ox) as f64,
+        (source.height() - 2 * oy) as f64,
+    );
     let Some(em) = emitter_of(e, w0, h0) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     };
-    let Effect::ParticleEmitter { colors, view, .. } = e else { unreachable!() };
+    let Effect::ParticleEmitter { colors, view, .. } = e else {
+        unreachable!()
+    };
     let see = seen(*view, w0, h0);
     let now = &em.own_now;
     let levels = |from: usize| -> [f64; 5] { std::array::from_fn(|i| now[from + i] / 100.0) };
@@ -1440,7 +1836,19 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
         let rad = size * ppu / (2.0 * w0);
         let sprite = if kind == 4 {
             let tail = see(sub(p.x, mul(p.v, 1.0 / em.run.fps)))?;
-            [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
+            [
+                0.0,
+                x,
+                y,
+                tail[0],
+                tail[1],
+                (2.0 * rad).max(1.0),
+                alpha,
+                col[0],
+                col[1],
+                col[2],
+                0.0,
+            ]
         } else {
             sprite_dot(kind, x, y, rad, alpha, col, feather)
         };
@@ -1456,7 +1864,13 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
                 _ => gradient(own[3]),
             }
             .map(|c| c * own[4]);
-            sprite(kind, &p, own[1] * curve(sizes, f), own[2] * curve(fades, f), col)
+            sprite(
+                kind,
+                &p,
+                own[1] * curve(sizes, f),
+                own[2] * curve(fades, f),
+                col,
+            )
         })
         .collect();
     // D-711: the aux particles, From Main the thrower's colour when thrown, or Aux Color; their
@@ -1469,7 +1883,13 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
             (_, 0) => linear(&colors[0]).map(|c| c * own[4]),
             _ => gradient(own[3]).map(|c| c * own[4]),
         };
-        sprite(em.kinds[7], &p, own[0] * (1.0 + aux_size * own[2]), own[1] * (1.0 + aux_fade * own[2]), col)
+        sprite(
+            em.kinds[7],
+            &p,
+            own[0] * (1.0 + aux_size * own[2]),
+            own[1] * (1.0 + aux_fade * own[2]),
+            col,
+        )
     }));
     sprite_list(drawn, em.kinds[4])
 }
@@ -1479,15 +1899,27 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
 /// inside its range.
 #[doc(hidden)]
 pub fn grid_numbers_row(e: &Effect) -> [f64; 30] {
-    let Effect::ParticleGrid { values, form_center, .. } = e else {
+    let Effect::ParticleGrid {
+        values,
+        form_center,
+        ..
+    } = e
+    else {
         unreachable!("Particle Grid's numbers of another effect")
     };
     let mut out = [0.0; 30];
-    for (o, (v, (_, lo, hi, _))) in out.iter_mut().zip(values.iter().zip(PARTICLE_GRID_SETTINGS)) {
+    for (o, (v, (_, lo, hi, _))) in out
+        .iter_mut()
+        .zip(values.iter().zip(PARTICLE_GRID_SETTINGS))
+    {
         *o = v.clamp(lo, hi);
     }
     for c in 0..2 {
-        out[28 + c] = form_center.get(c).copied().unwrap_or(0.0).clamp(-1000.0, 1000.0);
+        out[28 + c] = form_center
+            .get(c)
+            .copied()
+            .unwrap_or(0.0)
+            .clamp(-1000.0, 1000.0);
     }
     out
 }
@@ -1533,20 +1965,43 @@ type GridPoint = (usize, V, f64, f64, Option<V>);
 /// D-616: every point of a Particle Grid on a layer `w` by `h`, the maps those of
 /// [`PARTICLE_GRID_LAYERS`] (none where none is named); with the frame's numbers and the words
 /// as indices in [`PARTICLE_GRID_WORDS`]' order. None before the layer's in point.
-fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) -> Option<([f64; 30], [usize; 3], Vec<GridPoint>)> {
-    let Effect::ParticleGrid { words, colors, clock, history, .. } = e else {
+fn grid_points(
+    e: &Effect,
+    maps: [Option<&WorkingBuffer>; 4],
+    w: f64,
+    h: f64,
+) -> Option<([f64; 30], [usize; 3], Vec<GridPoint>)> {
+    let Effect::ParticleGrid {
+        words,
+        colors,
+        clock,
+        history,
+        ..
+    } = e
+    else {
         unreachable!("Particle Grid's points of another effect")
     };
     let u = clock[0] as i64;
     if u < 0 {
         return None;
     }
-    let kinds: [usize; 3] = std::array::from_fn(|i| PARTICLE_GRID_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0));
+    let kinds: [usize; 3] = std::array::from_fn(|i| {
+        PARTICLE_GRID_WORDS[i]
+            .1
+            .iter()
+            .position(|x| *x == words[i])
+            .unwrap_or(0)
+    });
     let s = grid_numbers_row(e);
     // The Flow settings summed from the in point, in seconds: straight lines between frames.
     let rows = history.as_deref().map(Vec::as_slice);
     let at = |k: usize, n: usize| rows.map_or(s[n], |r| r[k.min(r.len() - 1)][n]);
-    let flow = |n: usize| (0..u as usize).map(|k| (at(k, n) + at(k + 1, n)) / 2.0).sum::<f64>() / clock[1];
+    let flow = |n: usize| {
+        (0..u as usize)
+            .map(|k| (at(k, n) + at(k + 1, n)) / 2.0)
+            .sum::<f64>()
+            / clock[1]
+    };
     let off = [flow(19), flow(20), flow(21)];
     let evo = s[23] + flow(22);
     let seed = crate::grade::mix(s[27].floor() as u64);
@@ -1554,7 +2009,11 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) ->
     let m = turn3([s[7], s[8], s[9]]);
     let centre = [s[28] / 100.0 - 0.5, (s[29] / 100.0 - 0.5) * h / w, s[6] / w];
     let size = [s[0], s[1], s[2]];
-    let n = [s[3].floor() as usize, s[4].floor() as usize, s[5].floor() as usize];
+    let n = [
+        s[3].floor() as usize,
+        s[4].floor() as usize,
+        s[5].floor() as usize,
+    ];
     let linear = crate::effects::encoded(&colors[0]).map(crate::grade::to_linear);
     // ponytail: every point is worked every frame, up to 1000 by 1000 by 100 of them; cull the
     // ones off the layer first if big grids are slow.
@@ -1571,33 +2030,56 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) ->
                 ]
             } else {
                 let g = (mm + 1) as f64 / n[2] as f64;
-                let (th, ph) = (PI * (l as f64 + 0.5) / n[1] as f64, 2.0 * PI * i as f64 / n[0] as f64);
-                [g * size[0] / 2.0 * th.sin() * ph.cos(), -g * size[1] / 2.0 * th.cos(), g * size[2] / 2.0 * th.sin() * ph.sin()]
+                let (th, ph) = (
+                    PI * (l as f64 + 0.5) / n[1] as f64,
+                    2.0 * PI * i as f64 / n[0] as f64,
+                );
+                [
+                    g * size[0] / 2.0 * th.sin() * ph.cos(),
+                    -g * size[1] / 2.0 * th.cos(),
+                    g * size[2] / 2.0 * th.sin() * ph.sin(),
+                ]
             };
-            let front = |k: usize| if size[k] > 0.0 { d0[k] / size[k] + 0.5 } else { 0.5 };
+            let front = |k: usize| {
+                if size[k] > 0.0 {
+                    d0[k] / size[k] + 0.5
+                } else {
+                    0.5
+                }
+            };
             let (a, b) = (front(0), front(1));
-            let got = maps.map(|mp| mp.map(|mp| bilinear64(mp, a * mp.width() as f64, b * mp.height() as f64)));
+            let got = maps.map(|mp| {
+                mp.map(|mp| bilinear64(mp, a * mp.width() as f64, b * mp.height() as f64))
+            });
             // D-712: Layer keeps only the points where the Base Layer is half opaque or more.
             if kinds[0] == 3 && got[3].is_some_and(|p| p[3] < 0.5) {
                 return None;
             }
-            let q: V = std::array::from_fn(|k| (d0[k] + off[k]) / s[18] + evo * [0.31, 0.57, 0.77][k]);
+            let q: V =
+                std::array::from_fn(|k| (d0[k] + off[k]) / s[18] + evo * [0.31, 0.57, 0.77][k]);
             let nn: [f64; 5] = std::array::from_fn(|c| noise(seed, c as u64, q));
             let mut d: V = std::array::from_fn(|k| d0[k] + s[15] * (2.0 * r(j, k as u64) - 1.0));
             if let Some(dm) = got[2] {
                 d[2] -= s[26] * luma(dm);
             }
             let t = if size[1] > 0.0 { d0[1] / size[1] } else { 0.0 };
-            let (sn, cs) = ((s[16] * t).to_radians().sin(), (s[16] * t).to_radians().cos());
+            let (sn, cs) = (
+                (s[16] * t).to_radians().sin(),
+                (s[16] * t).to_radians().cos(),
+            );
             let d = apply3([[cs, 0.0, sn], [0.0, 1.0, 0.0], [-sn, 0.0, cs]], d);
             let d: V = std::array::from_fn(|k| d[k] + s[17] * nn[k]);
             let md = apply3(m, d);
             let x: V = std::array::from_fn(|k| centre[k] + md[k] / w);
-            let mut px = s[10] * (1.0 + s[11] / 100.0 * (2.0 * r(j, 3) - 1.0)) * (1.0 + s[24] / 100.0 * nn[3]).max(0.0);
+            let mut px = s[10]
+                * (1.0 + s[11] / 100.0 * (2.0 * r(j, 3) - 1.0))
+                * (1.0 + s[24] / 100.0 * nn[3]).max(0.0);
             if let Some(sm) = got[1] {
                 px *= luma(sm);
             }
-            let mut alpha = s[12] / 100.0 * (1.0 - s[13] / 100.0 * r(j, 4)) * (1.0 + s[25] / 100.0 * nn[4]).clamp(0.0, 1.0);
+            let mut alpha = s[12] / 100.0
+                * (1.0 - s[13] / 100.0 * r(j, 4))
+                * (1.0 + s[25] / 100.0 * nn[4]).clamp(0.0, 1.0);
             let col = match got[0] {
                 None => Some(linear),
                 Some(cm) if cm[3] > 0.0 => {
@@ -1616,15 +2098,25 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) ->
 /// opacity, on a layer `w` by `h` with the maps given.
 #[doc(hidden)]
 pub fn grid_alive(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) -> Vec<[f64; 6]> {
-    let Some((.., points)) = grid_points(e, maps, w, h) else { return Vec::new() };
-    points.into_iter().map(|(j, x, size, alpha, _)| [j as f64, x[0], x[1], x[2], size, alpha]).collect()
+    let Some((.., points)) = grid_points(e, maps, w, h) else {
+        return Vec::new();
+    };
+    points
+        .into_iter()
+        .map(|(j, x, size, alpha, _)| [j as f64, x[0], x[1], x[2], size, alpha])
+        .collect()
 }
 
 /// D-616: Particle Grid's sprite list, as [`sprite_numbers`]': the Emitter's camera and sprites
 /// (Sphere, Glow Sphere, Star, Cloudlet), farthest first, equal depths by index.
 fn grid_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
-    let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-    let Effect::ParticleGrid { view, maps, .. } = e else { unreachable!() };
+    let (w0, h0) = (
+        (source.width() - 2 * ox) as f64,
+        (source.height() - 2 * oy) as f64,
+    );
+    let Effect::ParticleGrid { view, maps, .. } = e else {
+        unreachable!()
+    };
     let maps = [0, 1, 2, 3].map(|i| maps[i].as_ref().map(|m| &*m.0));
     let Some((s, kinds, points)) = grid_points(e, maps, w0, h0) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
@@ -1643,7 +2135,11 @@ fn grid_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) ->
                 let col = col?;
                 let ([px, py, ppu, depth], [qx, qy, ..]) = (see(x)?, see(points[j + 1].1)?);
                 let wd = (size * ppu / w0).max(1.0);
-                Some((depth, j as i64, [0.0, px, py, qx, qy, wd, alpha, col[0], col[1], col[2], 0.0]))
+                Some((
+                    depth,
+                    j as i64,
+                    [0.0, px, py, qx, qy, wd, alpha, col[0], col[1], col[2], 0.0],
+                ))
             })
             .collect()
     } else {
@@ -1651,7 +2147,19 @@ fn grid_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) ->
             .into_iter()
             .filter_map(|(j, x, size, alpha, col)| {
                 let [px, py, ppu, depth] = see(x)?;
-                Some((depth, j as i64, sprite_dot(kinds[1], px, py, size * ppu / (2.0 * w0), alpha, col?, s[14] / 100.0)))
+                Some((
+                    depth,
+                    j as i64,
+                    sprite_dot(
+                        kinds[1],
+                        px,
+                        py,
+                        size * ppu / (2.0 * w0),
+                        alpha,
+                        col?,
+                        s[14] / 100.0,
+                    ),
+                ))
             })
             .collect()
     };
@@ -1662,7 +2170,11 @@ fn grid_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) ->
 /// (compose's, or straight on from 50/36 of the width in front when none): the pixel, pixels per
 /// unit and depth; none behind or too near the camera.
 fn seen(view: [f64; 4], w0: f64, h0: f64) -> impl Fn(V) -> Option<[f64; 4]> {
-    let view = if view[0] != 0.0 { view } else { [1.0, w0 / 2.0, h0 / 2.0, w0 * 50.0 / 36.0] };
+    let view = if view[0] != 0.0 {
+        view
+    } else {
+        [1.0, w0 / 2.0, h0 / 2.0, w0 * 50.0 / 36.0]
+    };
     move |x: V| {
         let (ax, ay, al) = (view[1], view[2], view[3]);
         let zp = x[2] * w0;
@@ -1671,14 +2183,27 @@ fn seen(view: [f64; 4], w0: f64, h0: f64) -> impl Fn(V) -> Option<[f64; 4]> {
             return None;
         }
         let ratio = al / (al + zp);
-        Some([ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio, ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio, w0 * ratio, depth])
+        Some([
+            ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio,
+            ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio,
+            w0 * ratio,
+            depth,
+        ])
     }
 }
 
 /// D-615, D-616: one round sprite: Sphere (kind 9, its feather's width fifth), Glow Sphere (10,
 /// likewise), Star (8) or Cloudlet (1, the faded sphere); never smaller than 0.7 pixels across
 /// the radius, fainter by the true size below it.
-fn sprite_dot(kind: usize, x: f64, y: f64, mut rad: f64, mut alpha: f64, col: V, feather: f64) -> [f64; STRIDE] {
+fn sprite_dot(
+    kind: usize,
+    x: f64,
+    y: f64,
+    mut rad: f64,
+    mut alpha: f64,
+    col: V,
+    feather: f64,
+) -> [f64; STRIDE] {
     if rad < 0.7 {
         alpha *= (rad / 0.7) * (rad / 0.7);
         rad = 0.7;
@@ -1696,7 +2221,15 @@ fn sprite_dot(kind: usize, x: f64, y: f64, mut rad: f64, mut alpha: f64, col: V,
 /// [`sprite_numbers`]' list over a clear layer, the transfer Normal, Add or Screen.
 fn sprite_list(mut drawn: Vec<(f64, i64, [f64; STRIDE])>, transfer: usize) -> Vec<f64> {
     drawn.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    let mut k = vec![0.0, 0.0, 0.0, 0.0, [0.0, 2.0, 1.0][transfer], 0.0, drawn.len() as f64];
+    let mut k = vec![
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        [0.0, 2.0, 1.0][transfer],
+        0.0,
+        drawn.len() as f64,
+    ];
     k.reserve(STRIDE * drawn.len());
     for (_, _, s) in drawn {
         k.extend(s);

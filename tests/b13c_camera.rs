@@ -197,12 +197,7 @@ fn at(document: &Document, layer_id: &Id, frame: i32, point: (f64, f64)) -> (f64
 
 /// Where that point lands on screen, the camera included. `None` is the layer that is level with
 /// the camera or behind it.
-fn screen(
-    document: &Document,
-    layer_id: &Id,
-    frame: i32,
-    point: (f64, f64),
-) -> Option<(f64, f64)> {
+fn screen(document: &Document, layer_id: &Id, frame: i32, point: (f64, f64)) -> Option<(f64, f64)> {
     screen_transform(composition(document), layer_id, frame).map(|t| t.apply(point.0, point.1))
 }
 
@@ -236,7 +231,12 @@ fn with_keys(document: &Document, edit: impl FnOnce(&mut serde_json::Value)) -> 
     edit(&mut root);
     let edited = serde_json::to_string_pretty(&root).expect("the edited project serialises");
     persist::load_str(&edited)
-        .unwrap_or_else(|d| panic!("the keyed project did not open: {} - {}", d.message, d.detail))
+        .unwrap_or_else(|d| {
+            panic!(
+                "the keyed project did not open: {} - {}",
+                d.message, d.detail
+            )
+        })
         .document
 }
 
@@ -525,18 +525,8 @@ fn fx_cam_003(report: &mut Report) {
 
     for (frame, near, middle, far) in [
         (0, 1160.0, 1110.0, 1060.0),
-        (
-            16,
-            1026.6666666666667,
-            1010.0,
-            993.3333333333334,
-        ),
-        (
-            32,
-            893.3333333333335,
-            910.0,
-            926.6666666666667,
-        ),
+        (16, 1026.6666666666667, 1010.0, 993.3333333333334),
+        (32, 893.3333333333335, 910.0, 926.6666666666667),
         (48, 760.0, 810.0, 860.0),
     ] {
         for ((name, id), expected) in planes.iter().zip([near, middle, far]) {
@@ -577,10 +567,8 @@ fn sideways_track() -> Document {
     set_depth(&mut document, &middle, 640.0);
     set_depth(&mut document, &far, 1920.0);
     with_keys(&document, |root| {
-        *camera_json(root, "position") = keys(&[
-            (0, json!([760.0, 540.0])),
-            (48, json!([1160.0, 540.0])),
-        ]);
+        *camera_json(root, "position") =
+            keys(&[(0, json!([760.0, 540.0])), (48, json!([1160.0, 540.0]))]);
     })
 }
 
@@ -782,7 +770,10 @@ fn fx_cam_008(report: &mut Report) {
     let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading the fixture: {e}"));
     let loaded = match persist::load_str(&text) {
         Ok(loaded) => loaded,
-        Err(d) => panic!("the camera fixture did not open: {} - {}", d.message, d.detail),
+        Err(d) => panic!(
+            "the camera fixture did not open: {} - {}",
+            d.message, d.detail
+        ),
     };
     let written = persist::to_json(loaded.document.project(), &loaded.preserved);
     report.check(
@@ -883,7 +874,11 @@ fn fx_cam_009(report: &mut Report) {
     let a = layer(&mut document, "layer-a", 0);
     let m = layer(&mut document, "layer-m", 1);
     camera_36mm(&mut document);
-    set_camera(&mut document, CameraProp::Position, Value::Vec2(760.0, 540.0));
+    set_camera(
+        &mut document,
+        CameraProp::Position,
+        Value::Vec2(760.0, 540.0),
+    );
     for id in [&a, &m] {
         set(&mut document, id, Prop::Position, Value::Vec2(960.0, 540.0));
     }
@@ -900,7 +895,11 @@ fn fx_cam_009(report: &mut Report) {
     let a_x = drawn(&document, &a, 0, (0.0, 0.0)).0;
     let m_x = drawn(&document, &m, 0, (0.0, 0.0)).0;
     report.number("FX-CAM-009: layer A's origin x, at depth 0", 1160.0, a_x);
-    report.number("FX-CAM-009: its matte's origin x, at depth 1920", 1060.0, m_x);
+    report.number(
+        "FX-CAM-009: its matte's origin x, at depth 1920",
+        1060.0,
+        m_x,
+    );
     // Written down because it is correct and looks like a defect: a matte is meant to share its
     // layer's depth, and nothing in this contract forces it to.
     report.number(

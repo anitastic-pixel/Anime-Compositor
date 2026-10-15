@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -30,7 +31,8 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// A Solid Composite with the settings `p`, every one `p` leaves out at its start.
 fn fx(id: &str, p: &J) -> J {
-    let mut all = json!({"source_opacity": 100, "color": "#ffffff", "opacity": 100, "blend": "normal"});
+    let mut all =
+        json!({"source_opacity": 100, "color": "#ffffff", "opacity": 100, "blend": "normal"});
     for (k, v) in p.as_object().unwrap() {
         all[k] = v.clone();
     }
@@ -43,7 +45,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=19 {
         let file = format!("fx_solidc_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -51,7 +57,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::SolidComposite { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::SolidComposite { .. })
+                });
             }
         }
         t.row(
@@ -69,9 +77,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -85,7 +102,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::SolidComposite { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::SolidComposite { .. })
+                });
                 t.row(
                     &format!("the reference shot, Solid Composite {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -99,7 +118,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,14 +133,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The pixels of `before` and `after` side by side, channel by channel (alpha left out).
 fn channels<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (i32, i32)> + 'a {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).flat_map(|(b, a)| (0..3).map(move |c| (b[c] as i32, a[c] as i32)))
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .flat_map(|(b, a)| (0..3).map(move |c| (b[c] as i32, a[c] as i32)))
 }
 
 #[test]
@@ -154,16 +191,31 @@ fn b440_solid_composite() {
     for (file, want) in [
         ("fx_solidc_014.json", "opacity"),
         ("fx_solidc_015.json", "source_opacity"),
-        ("fx_solidc_016.json", "blend is \"normal\", \"add\", \"screen\" or \"multiply\""),
+        (
+            "fx_solidc_016.json",
+            "blend is \"normal\", \"add\", \"screen\" or \"multiply\"",
+        ),
         ("fx_solidc_017.json", "colour is written #rrggbb"),
         ("fx_solidc_018.json", "colour is written #rrggbb"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence saying {want}"), &why, says);
+        t.row(
+            &format!("{file} is refused in a sentence saying {want}"),
+            &why,
+            says,
+        );
     }
-    t.shape_refused("fx_solidc_001.json", "a Solid Composite whose opacity is a word", r##"{"source_opacity": 100, "color": "#ffffff", "opacity": "full", "blend": "normal"}"##);
-    t.shape_refused("fx_solidc_001.json", "a Solid Composite without its blend", r##"{"source_opacity": 100, "color": "#ffffff", "opacity": 100}"##);
+    t.shape_refused(
+        "fx_solidc_001.json",
+        "a Solid Composite whose opacity is a word",
+        r##"{"source_opacity": 100, "color": "#ffffff", "opacity": "full", "blend": "normal"}"##,
+    );
+    t.shape_refused(
+        "fx_solidc_001.json",
+        "a Solid Composite without its blend",
+        r##"{"source_opacity": 100, "color": "#ffffff", "opacity": 100}"##,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_solidc_001.json").document;
@@ -178,8 +230,15 @@ fn b440_solid_composite() {
     let red = edit(|_, c| *c = "red".into());
     let screen = edit(|b, _| *b = "screen".into());
     let blue = edit(|_, c| *c = "#3366cc".into());
-    t.refused(&mut document, vec![("blend overlay", set(overlay)), ("colour red", set(red))]);
-    t.taken(&mut document, "fx_solidc_001.json", vec![("blend screen", set(screen)), ("colour #3366cc", set(blue))]);
+    t.refused(
+        &mut document,
+        vec![("blend overlay", set(overlay)), ("colour red", set(red))],
+    );
+    t.taken(
+        &mut document,
+        "fx_solidc_001.json",
+        vec![("blend screen", set(screen)), ("colour #3366cc", set(blue))],
+    );
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[
@@ -200,21 +259,44 @@ fn b440_solid_composite() {
         &mut t,
         &mut gpu,
         &[
-            ("colour #3366cc, source opacity 50", json!({"color": "#3366cc", "source_opacity": 50})),
-            ("multiply, colour #ff8040", json!({"blend": "multiply", "color": "#ff8040"})),
-            ("add, colour #404040 at opacity 60", json!({"blend": "add", "color": "#404040", "opacity": 60})),
+            (
+                "colour #3366cc, source opacity 50",
+                json!({"color": "#3366cc", "source_opacity": 50}),
+            ),
+            (
+                "multiply, colour #ff8040",
+                json!({"blend": "multiply", "color": "#ff8040"}),
+            ),
+            (
+                "add, colour #404040 at opacity 60",
+                json!({"blend": "add", "color": "#404040", "opacity": 60}),
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-560 pictures/`");
     let dir = repo("verification/D-560 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({}));
     t.row(
         "the settings as they start (white, normal, both at 100) change nothing on the solid street: the street byte for byte; draws cleanly",
@@ -224,7 +306,9 @@ fn b440_solid_composite() {
 
     let (half, said) = street(json!({"color": "#3366cc", "source_opacity": 50}));
     write("2_half_over_blue.png", TOWN, &half);
-    let between = channels(&before, &half).zip([0x33, 0x66, 0xcc].into_iter().cycle()).all(|((b, a), s)| a + 1 >= b.min(s) && a <= b.max(s) + 1);
+    let between = channels(&before, &half)
+        .zip([0x33, 0x66, 0xcc].into_iter().cycle())
+        .all(|((b, a), s)| a + 1 >= b.min(s) && a <= b.max(s) + 1);
     t.row(
         "2_half_over_blue.png, source opacity 50 over #3366cc: the street half seen through a blue; every channel between the street's and the blue's, within 1 level; draws cleanly",
         &format!("{said:?}, between: {between}"),
@@ -234,7 +318,10 @@ fn b440_solid_composite() {
     let (warm, said) = street(json!({"blend": "multiply", "color": "#ff8040"}));
     write("3_multiply_orange.png", TOWN, &warm);
     let darker = channels(&before, &warm).all(|(b, a)| a <= b + 1);
-    let reds = before.chunks_exact(4).zip(warm.chunks_exact(4)).all(|(b, a)| a[0].abs_diff(b[0]) <= 1);
+    let reds = before
+        .chunks_exact(4)
+        .zip(warm.chunks_exact(4))
+        .all(|(b, a)| a[0].abs_diff(b[0]) <= 1);
     t.row(
         "3_multiply_orange.png, multiply with #ff8040: the street warmer and darker, no channel lighter, the reds kept (the orange's red is full), within 1 level; draws cleanly",
         &format!("{said:?}, none lighter: {darker}, reds kept: {reds}"),
@@ -278,22 +365,48 @@ fn b440_solid_composite_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Solid Composite, #3366cc, source opacity 50", Some(json!({"color": "#3366cc", "source_opacity": 50}))),
-        ("Noise, then Solid Composite, multiply, #ff8040 at opacity 60", Some(json!({"blend": "multiply", "color": "#ff8040", "opacity": 60}))),
+        (
+            "Noise, then Solid Composite, #3366cc, source opacity 50",
+            Some(json!({"color": "#3366cc", "source_opacity": 50})),
+        ),
+        (
+            "Noise, then Solid Composite, multiply, #ff8040 at opacity 60",
+            Some(json!({"blend": "multiply", "color": "#ff8040", "opacity": 60})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B440_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-440_timing_raw.md"));
+    let out = std::env::var("B440_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-440_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

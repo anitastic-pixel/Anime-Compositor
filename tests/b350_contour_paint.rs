@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -47,7 +48,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=32 {
         let file = format!("fx_contour_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -55,7 +60,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ContourPaint { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ContourPaint { .. })
+                });
             }
         }
         t.row(
@@ -73,9 +80,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -89,7 +105,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ContourPaint { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ContourPaint { .. })
+                });
                 t.row(
                     &format!("the reference shot, Contour Paint {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -103,8 +121,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), with the still `texture` (in `dir`)
 /// beneath it as the hidden layer `bricks`, drawn on the processor at frame 0, straight 8-bit,
 /// with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), texture: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    texture: &str,
+    effects: J,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let mut bricks_asset = project["assets"][0].clone();
     bricks_asset["id"] = J::from("asset-bricks");
@@ -128,11 +155,26 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), texture: &str, effects
     hidden["transform"]["position"]["base"] = json!([0, 0]);
     hidden["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().push(hidden);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("bricks"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("bricks"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -153,14 +195,32 @@ fn brick() -> Vec<u8> {
 /// The `holder` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
 
 /// `command` aimed at the `holder` layer's effect `fx-1`; the fixtures' drawing is `holder`, not `art`.
 fn holder(mut command: Command) -> Command {
-    if let Command::SetEffectParameters { layer_id, instance_id, .. } | Command::SetEffectKeys { layer_id, instance_id, .. } = &mut command {
+    if let Command::SetEffectParameters {
+        layer_id,
+        instance_id,
+        ..
+    }
+    | Command::SetEffectKeys {
+        layer_id,
+        instance_id,
+        ..
+    } = &mut command
+    {
         *layer_id = Id::new("holder");
         *instance_id = Id::new("fx-1");
     }
@@ -183,7 +243,9 @@ fn b350_contour_paint() {
     t.fixtures_numbered("expected_contour_paint.json", 1..=32);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=22).map(|n| format!("fx_contour_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=22)
+        .map(|n| format!("fx_contour_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_contour_017.json");
     t.row(
@@ -209,36 +271,84 @@ fn b350_contour_paint() {
         ("fx_contour_031.json", "apply to alpha"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Contour Paint and its {want}"), &why, why.contains("Contour Paint") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Contour Paint and its {want}"),
+            &why,
+            why.contains("Contour Paint") && why.contains(want),
+        );
     }
     let full = r##"{"view": "final_result", "stylization": 50, "cleanliness": 50, "smear_iterations": 3, "apply_to_alpha": "off", "draw_color_fills": "none", "reduction_method": "k_means", "posterization_level": 8, "low_strength": 0, "high_strength": 100, "offset_flow_angles": 0, "quantize_flow_angles": 0, "edge_map_layer": ""}"##;
-    t.shape_refused("fx_contour_001.json", "a Contour Paint whose stylization is a word", &full.replace("\"stylization\": 50", "\"stylization\": \"strong\""));
-    t.shape_refused("fx_contour_001.json", "a Contour Paint without its cleanliness", &full.replace(", \"cleanliness\": 50", ""));
-    t.shape_refused("fx_contour_001.json", "a Contour Paint whose view is a number", &full.replace("\"final_result\"", "2"));
+    t.shape_refused(
+        "fx_contour_001.json",
+        "a Contour Paint whose stylization is a word",
+        &full.replace("\"stylization\": 50", "\"stylization\": \"strong\""),
+    );
+    t.shape_refused(
+        "fx_contour_001.json",
+        "a Contour Paint without its cleanliness",
+        &full.replace(", \"cleanliness\": 50", ""),
+    );
+    t.shape_refused(
+        "fx_contour_001.json",
+        "a Contour Paint whose view is a number",
+        &full.replace("\"final_result\"", "2"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_contour_001.json").document;
-    let over = changed(&t, "fx_contour_001.json", |e| if let Effect::ContourPaint { stylization, .. } = e { *stylization = 120.0 });
-    let view = changed(&t, "fx_contour_001.json", |e| if let Effect::ContourPaint { view, .. } = e { *view = "arrows".into() });
-    let number = changed(&t, "fx_contour_001.json", |e| if let Effect::ContourPaint { edge_map_layer, .. } = e { *edge_map_layer = json!(3) });
-    let effect_of = |d: &Document| d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].clone();
+    let over = changed(&t, "fx_contour_001.json", |e| {
+        if let Effect::ContourPaint { stylization, .. } = e {
+            *stylization = 120.0
+        }
+    });
+    let view = changed(&t, "fx_contour_001.json", |e| {
+        if let Effect::ContourPaint { view, .. } = e {
+            *view = "arrows".into()
+        }
+    });
+    let number = changed(&t, "fx_contour_001.json", |e| {
+        if let Effect::ContourPaint { edge_map_layer, .. } = e {
+            *edge_map_layer = json!(3)
+        }
+    });
+    let effect_of = |d: &Document| {
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .clone()
+    };
     let held = format!("{:?}", effect_of(&document));
     for (what, command) in [
         ("stylization 120", set(over)),
         ("view arrows", set(view)),
         ("external edge map the number 3", set(number)),
-        ("smear iterations keyed to 150", keys("smear_iterations", &[(0, &[3.0]), (4, &[150.0])])),
+        (
+            "smear iterations keyed to 150",
+            keys("smear_iterations", &[(0, &[3.0]), (4, &[150.0])]),
+        ),
     ] {
         let refused = document.apply(holder(command)).err();
         let untouched = format!("{:?}", effect_of(&document)) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
     let moved = changed(&t, "fx_contour_001.json", |e| {
-        if let Effect::ContourPaint { edge_map_layer, offset_flow_angles, quantize_flow_angles, draw_color_fills, .. } = e {
+        if let Effect::ContourPaint {
+            edge_map_layer,
+            offset_flow_angles,
+            quantize_flow_angles,
+            draw_color_fills,
+            ..
+        } = e
+        {
             *edge_map_layer = json!("ramp");
             *offset_flow_angles = 30.0;
             *quantize_flow_angles = 45.0;
@@ -249,8 +359,14 @@ fn b350_contour_paint() {
         &mut document,
         "fx_contour_001.json",
         vec![
-            ("the ramp as the edge map, the flow turned 30 and snapped to 45, fills only", holder(set(moved))),
-            ("posterization level keyed from 2 to 32", holder(keys("posterization_level", &[(0, &[2.0]), (4, &[32.0])]))),
+            (
+                "the ramp as the edge map, the flow turned 30 and snapped to 45, fills only",
+                holder(set(moved)),
+            ),
+            (
+                "posterization level keyed from 2 to 32",
+                holder(keys("posterization_level", &[(0, &[2.0]), (4, &[32.0])])),
+            ),
         ],
     );
 
@@ -289,22 +405,60 @@ fn b350_contour_paint() {
     t.heading("Pictures: in `verification/D-470 pictures/`");
     let dir = repo("verification/D-470 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     // The brick tiled over the whole street, so as an edge map it steers every pixel.
     let (w, h) = TOWN;
     let one = brick();
-    let wall: Vec<u8> = (0..w * h).flat_map(|i| { let (x, y) = (i % w % 32, i / w % 16); one[(y * 32 + x) * 4..(y * 32 + x) * 4 + 4].to_vec() }).collect();
+    let wall: Vec<u8> = (0..w * h)
+        .flat_map(|i| {
+            let (x, y) = (i % w % 32, i / w % 16);
+            one[(y * 32 + x) * 4..(y * 32 + x) * 4 + 4].to_vec()
+        })
+        .collect();
     write("brick_wall.png", TOWN, &wall);
-    let street = |p: J| picture(&dir, "town.png", TOWN, "brick_wall.png", json!([fx("fx-0-0", &p)]));
+    let street = |p: J| {
+        picture(
+            &dir,
+            "town.png",
+            TOWN,
+            "brick_wall.png",
+            json!([fx("fx-0-0", &p)]),
+        )
+    };
     let (before, said) = picture(&dir, "town.png", TOWN, "brick_wall.png", json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let coverings = |p: &[u8]| p.chunks_exact(4).map(|q| q[3]).collect::<Vec<_>>();
     // How far a picture is from the street, summed over every colour.
-    let away = |p: &[u8]| p.iter().zip(&before).map(|(a, b)| a.abs_diff(*b) as u64).sum::<u64>();
+    let away = |p: &[u8]| {
+        p.iter()
+            .zip(&before)
+            .map(|(a, b)| a.abs_diff(*b) as u64)
+            .sum::<u64>()
+    };
     // The distinct colours of a picture's pixels that are not clear.
-    let colours = |p: &[u8]| p.chunks_exact(4).filter(|q| q[3] > 0).map(|q| [q[0], q[1], q[2]]).collect::<HashSet<_>>().len();
+    let colours = |p: &[u8]| {
+        p.chunks_exact(4)
+            .filter(|q| q[3] > 0)
+            .map(|q| [q[0], q[1], q[2]])
+            .collect::<HashSet<_>>()
+            .len()
+    };
 
     let (added, said) = street(json!({}));
     write("2_as_added.png", TOWN, &added);
@@ -322,7 +476,8 @@ fn b350_contour_paint() {
         said.is_empty() && away(&long) > away(&added),
     );
 
-    let (filled, said) = street(json!({"draw_color_fills": "over_smeared_image", "posterization_level": 6}));
+    let (filled, said) =
+        street(json!({"draw_color_fills": "over_smeared_image", "posterization_level": 6}));
     write("4_fills_6_colours.png", TOWN, &filled);
     t.row(
         "4_fills_6_colours.png, Draw Color Fills Over Smeared Image, K-Means, 6 colours: the street in at most 6 flat colours; draws cleanly",
@@ -330,7 +485,8 @@ fn b350_contour_paint() {
         said.is_empty() && colours(&filled) <= 6 && colours(&added) > 6,
     );
 
-    let (strong, said) = street(json!({"draw_color_fills": "only", "posterization_level": 6, "low_strength": 10}));
+    let (strong, said) =
+        street(json!({"draw_color_fills": "only", "posterization_level": 6, "low_strength": 10}));
     write("5_fills_only_strong_edges.png", TOWN, &strong);
     let clear = strong.chunks_exact(4).filter(|q| q[3] == 0).count();
     t.row(
@@ -341,7 +497,10 @@ fn b350_contour_paint() {
 
     let (edges, said) = street(json!({"view": "edge_map"}));
     write("6_edge_map.png", TOWN, &edges);
-    let cyan = edges.chunks_exact(4).filter(|q| q[1] as i32 - q[0] as i32 > 60 && q[2] as i32 - q[0] as i32 > 60).count();
+    let cyan = edges
+        .chunks_exact(4)
+        .filter(|q| q[1] as i32 - q[0] as i32 > 60 && q[2] as i32 - q[0] as i32 > 60)
+        .count();
     let opaque = edges.chunks_exact(4).all(|q| q[3] == 255);
     t.row(
         "6_edge_map.png, View Edge Map: the edges' strength in grey, opaque everywhere, with short cyan lines along the flow; draws cleanly",
@@ -386,22 +545,48 @@ fn b350_contour_paint_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Contour Paint as added (three smears)", Some(json!({}))),
-        ("the same with fills Over Smeared Image, K-Means, 8 colours", Some(json!({"draw_color_fills": "over_smeared_image"}))),
+        (
+            "Noise, then Contour Paint as added (three smears)",
+            Some(json!({})),
+        ),
+        (
+            "the same with fills Over Smeared Image, K-Means, 8 colours",
+            Some(json!({"draw_color_fills": "over_smeared_image"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B350_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-350_timing_raw.md"));
+    let out = std::env::var("B350_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-350_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -47,11 +47,27 @@ fn b59_lens_blur() {
 
     t.heading("How far it reaches");
     for (what, e, want) in [
-        ("radius 10 grows the drawing by 10 on every side", lens(10.0, "transparent"), 10),
-        ("radius 2.5 grows it by 3, the radius rounded up", lens(2.5, "transparent"), 3),
-        ("radius 0.9 grows it by 1, though it changes no pixel", lens(0.9, "transparent"), 1),
+        (
+            "radius 10 grows the drawing by 10 on every side",
+            lens(10.0, "transparent"),
+            10,
+        ),
+        (
+            "radius 2.5 grows it by 3, the radius rounded up",
+            lens(2.5, "transparent"),
+            3,
+        ),
+        (
+            "radius 0.9 grows it by 1, though it changes no pixel",
+            lens(0.9, "transparent"),
+            1,
+        ),
         ("radius 0 does not grow it", lens(0.0, "transparent"), 0),
-        ("radius 10 with the edge pixels repeated does not grow it", lens(10.0, "repeat"), 0),
+        (
+            "radius 10 with the edge pixels repeated does not grow it",
+            lens(10.0, "repeat"),
+            0,
+        ),
     ] {
         let got = e.bounds_expansion();
         t.row(what, &got.to_string(), got == want);
@@ -93,7 +109,10 @@ fn b59_lens_blur() {
             ("radius -1", set(lens(-1.0, "transparent"))),
             ("edges \"wrap\"", set(lens(10.0, "wrap"))),
             ("edges \"Repeat\"", set(lens(10.0, "Repeat"))),
-            ("radius keyed to 250", keys("radius", &[(0, &[0.0]), (4, &[250.0])])),
+            (
+                "radius keyed to 250",
+                keys("radius", &[(0, &[0.0]), (4, &[250.0])]),
+            ),
         ],
     );
     t.taken(
@@ -102,7 +121,10 @@ fn b59_lens_blur() {
         vec![
             ("radius 200, the top,", set(lens(200.0, "transparent"))),
             ("radius 0, edges repeat", set(lens(0.0, "repeat"))),
-            ("radius keyed from 0 to 4", keys("radius", &[(0, &[0.0]), (4, &[4.0])])),
+            (
+                "radius keyed from 0 to 4",
+                keys("radius", &[(0, &[0.0]), (4, &[4.0])]),
+            ),
         ],
     );
 

@@ -30,7 +30,9 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, AlphaMode, ColorSpace, WorkingBuffer};
 
 const COMP: &str = "comp-reference-shot";
-const IMAGE_EXTENSIONS: [&str; 9] = ["png", "exr", "tga", "webp", "bmp", "tif", "tiff", "jpg", "jpeg"];
+const IMAGE_EXTENSIONS: [&str; 9] = [
+    "png", "exr", "tga", "webp", "bmp", "tif", "tiff", "jpg", "jpeg",
+];
 /// The reference shot's drawings, from its README: 1 + 24 + 12 - 1 missing + 20.
 const REFERENCE_PNGS: usize = 56;
 const COPY_16: u64 = 32 + 16 * 16 * 4;
@@ -41,7 +43,8 @@ struct Report {
 
 impl Report {
     fn check(&mut self, check: &str, expected: impl ToString, actual: impl ToString) {
-        self.rows.push((check.to_string(), expected.to_string(), actual.to_string()));
+        self.rows
+            .push((check.to_string(), expected.to_string(), actual.to_string()));
     }
 }
 
@@ -51,14 +54,19 @@ fn repo(rel: &str) -> PathBuf {
 
 /// A folder of its own for each section, empty at the start.
 fn scratch(name: &str) -> PathBuf {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("b161").join(name);
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join("b161")
+        .join(name);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
 }
 
 fn disk(folder: &Path, cap: u64) -> DiskCache {
-    DiskCache { folder: folder.to_path_buf(), cap }
+    DiskCache {
+        folder: folder.to_path_buf(),
+        cap,
+    }
 }
 
 fn with_disk(disk: &DiskCache) -> CelCache {
@@ -77,7 +85,12 @@ fn same(a: &WorkingBuffer, b: &WorkingBuffer) -> bool {
 
 fn copies(folder: &Path) -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = fs::read_dir(folder)
-        .map(|list| list.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "cel")).collect())
+        .map(|list| {
+            list.flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|e| e == "cel"))
+                .collect()
+        })
         .unwrap_or_default();
     found.sort();
     found
@@ -125,7 +138,11 @@ fn write_png(path: &Path, rgba: [u8; 4]) {
 
 fn project() -> Project {
     let path = repo("verification/B-08a_project.json");
-    persist::load(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)).document.project().clone()
+    persist::load(&path)
+        .unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -136,7 +153,8 @@ fn b161_disk_copies_change_nothing() {
     let all = fixture_images();
     let folder = scratch("every_image");
     let every = disk(&folder, u64::MAX);
-    let (mut decoded, mut refused, mut identical, mut first_identical, mut from_disk) = (0, 0, 0, 0, 0);
+    let (mut decoded, mut refused, mut identical, mut first_identical, mut from_disk) =
+        (0, 0, 0, 0, 0);
     let (mut refused_alike, mut exr, mut exr_copies) = (0, 0, 0);
     let mut reference = (0, 0);
     for path in &all {
@@ -155,7 +173,10 @@ fn b161_disk_copies_change_nothing() {
         let before = copies(&folder).len();
         let mut writing = with_disk(&every);
         let first = writing.decoded(path, reading).unwrap();
-        if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("exr")) {
+        if path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("exr"))
+        {
             exr += 1;
             exr_copies += copies(&folder).len() - before;
         }
@@ -213,7 +234,12 @@ fn b161_disk_copies_change_nothing() {
     let damages: [(&str, fn(&Path)); 5] = [
         ("cut to half its length", |f| {
             let len = fs::metadata(f).unwrap().len();
-            fs::OpenOptions::new().write(true).open(f).unwrap().set_len(len / 2).unwrap();
+            fs::OpenOptions::new()
+                .write(true)
+                .open(f)
+                .unwrap()
+                .set_len(len / 2)
+                .unwrap();
         }),
         ("one byte of one pixel changed", |f| {
             let mut bytes = fs::read(f).unwrap();
@@ -227,11 +253,14 @@ fn b161_disk_copies_change_nothing() {
             fs::write(f, bytes).unwrap();
         }),
         ("emptied to nothing", |f| fs::write(f, b"").unwrap()),
-        ("a width in its header that its length disagrees with", |f| {
-            let mut bytes = fs::read(f).unwrap();
-            bytes[8] = bytes[8].wrapping_add(1);
-            fs::write(f, bytes).unwrap();
-        }),
+        (
+            "a width in its header that its length disagrees with",
+            |f| {
+                let mut bytes = fs::read(f).unwrap();
+                bytes[8] = bytes[8].wrapping_add(1);
+                fs::write(f, bytes).unwrap();
+            },
+        ),
     ];
     for (what, damage) in damages {
         let folder = scratch("damaged");
@@ -243,9 +272,13 @@ fn b161_disk_copies_change_nothing() {
         let result = after.decoded(&drawing, reading);
         let notes = after.take_disk_notes();
         let pixels_same = result.as_ref().is_ok_and(|b| same(&plain, b));
-        let noted = notes.len() == 1 && notes[0].starts_with("DECODE_CACHE_DISCARDED: the disk copy of layer2_001.png");
+        let noted = notes.len() == 1
+            && notes[0].starts_with("DECODE_CACHE_DISCARDED: the disk copy of layer2_001.png");
         let mut again = with_disk(&cache_disk);
-        let rewritten = again.decoded(&drawing, reading).is_ok_and(|b| same(&plain, &b)) && again.disk_hits() == 1;
+        let rewritten = again
+            .decoded(&drawing, reading)
+            .is_ok_and(|b| same(&plain, &b))
+            && again.disk_hits() == 1;
         report.check(
             &format!("A copy {what}: decoded fresh with the same bits, one session-log line, written whole again"),
             "decoded, not from disk, 1 line, whole",
@@ -271,7 +304,12 @@ fn b161_disk_copies_change_nothing() {
     // Replaced by a different drawing under the same name, as a repaint is.
     fs::copy(repo("Fixtures/reference_shot/layer2/layer2_002.png"), &file).unwrap();
     let later = SystemTime::now() + Duration::from_secs(5);
-    fs::File::options().write(true).open(&file).unwrap().set_modified(later).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(later)
+        .unwrap();
     let mut replaced = with_disk(&cache_disk);
     let new = replaced.decoded(&file, reading).unwrap();
     report.check(
@@ -285,11 +323,23 @@ fn b161_disk_copies_change_nothing() {
     );
     // The same bytes, only a later time: still a different key, as document 27 says.
     let touched = later + Duration::from_secs(5);
-    fs::File::options().write(true).open(&file).unwrap().set_modified(touched).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(touched)
+        .unwrap();
     let mut retimed = with_disk(&cache_disk);
     retimed.decoded(&file, reading).unwrap();
-    report.check("The same drawing given a later time is decoded again", 0, retimed.disk_hits());
-    let linear = Interpretation { color_space: ColorSpace::LinearLight, alpha: AlphaMode::Premultiplied };
+    report.check(
+        "The same drawing given a later time is decoded again",
+        0,
+        retimed.disk_hits(),
+    );
+    let linear = Interpretation {
+        color_space: ColorSpace::LinearLight,
+        alpha: AlphaMode::Premultiplied,
+    };
     let mut other = with_disk(&cache_disk);
     let as_linear = other.decoded(&file, linear).unwrap();
     let mut other_again = with_disk(&cache_disk);
@@ -332,9 +382,20 @@ fn b161_disk_copies_change_nothing() {
     a_again.decoded(&a, reading).unwrap();
     step();
     with_disk(&small).decoded(&c, reading).unwrap();
-    let held: u64 = copies(&folder).iter().map(|p| fs::metadata(p).unwrap().len()).sum();
-    report.check("One 16x16 copy is 32 + 16 x 16 x 4 bytes", COPY_16, fs::metadata(&copies(&folder)[0]).unwrap().len());
-    report.check("With a cap of two copies, a third leaves two", format!("2 copies, {} bytes", 2 * COPY_16), format!("{} copies, {held} bytes", copies(&folder).len()));
+    let held: u64 = copies(&folder)
+        .iter()
+        .map(|p| fs::metadata(p).unwrap().len())
+        .sum();
+    report.check(
+        "One 16x16 copy is 32 + 16 x 16 x 4 bytes",
+        COPY_16,
+        fs::metadata(&copies(&folder)[0]).unwrap().len(),
+    );
+    report.check(
+        "With a cap of two copies, a third leaves two",
+        format!("2 copies, {} bytes", 2 * COPY_16),
+        format!("{} copies, {held} bytes", copies(&folder).len()),
+    );
     let hit = |p: &Path| {
         let mut cache = with_disk(&small);
         cache.decoded(p, reading).unwrap();
@@ -345,9 +406,17 @@ fn b161_disk_copies_change_nothing() {
     report.check(
         "The one let go is the one used longest ago (B), not the one written first (A)",
         "A kept, C kept",
-        format!("A {}, C {}", if a_kept == 1 { "kept" } else { "LET GO" }, if c_kept == 1 { "kept" } else { "LET GO" }),
+        format!(
+            "A {}, C {}",
+            if a_kept == 1 { "kept" } else { "LET GO" },
+            if c_kept == 1 { "kept" } else { "LET GO" }
+        ),
     );
-    report.check("A file in the folder that is not a copy is left alone", true, keep.exists());
+    report.check(
+        "A file in the folder that is not a copy is left alone",
+        true,
+        keep.exists(),
+    );
     let _ = fs::remove_dir_all(&folder);
     let _ = fs::remove_dir_all(&media);
 
@@ -361,8 +430,17 @@ fn b161_disk_copies_change_nothing() {
         frames
             .iter()
             .map(|&f| {
-                let buffer = preview::preview_frame_cached(&project, &comp, f, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, cache)
-                    .unwrap();
+                let buffer = preview::preview_frame_cached(
+                    &project,
+                    &comp,
+                    f,
+                    &root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    cache,
+                )
+                .unwrap();
                 bits(&buffer)
             })
             .collect()
@@ -380,7 +458,13 @@ fn b161_disk_copies_change_nothing() {
     second.prewarm(&compose::cels_at(&project, comp_model, frames[0], &root));
     let second_frames = render(&mut second);
     let samples = plain_frames.iter().map(Vec::len).sum::<usize>();
-    let agree = |x: &Vec<Vec<u32>>| x.iter().flatten().zip(plain_frames.iter().flatten()).filter(|(p, q)| p == q).count();
+    let agree = |x: &Vec<Vec<u32>>| {
+        x.iter()
+            .flatten()
+            .zip(plain_frames.iter().flatten())
+            .filter(|(p, q)| p == q)
+            .count()
+    };
     report.check(
         "Four full frames of the reference shot, first session (copies written): same bits as no copies",
         samples,
@@ -396,11 +480,19 @@ fn b161_disk_copies_change_nothing() {
         format!("{} decodes asked for, {} answered by copies", second.misses(), second.misses()),
         format!("{} decodes asked for, {} answered by copies", second.misses(), second.disk_hits()),
     );
-    report.check("The cache export uses has no disk copies to read (CelCache::none)", 0, {
-        let mut none = CelCache::none();
-        none.decoded(&repo("Fixtures/reference_shot/layer2/layer2_001.png"), Interpretation::default()).unwrap();
-        none.disk_hits()
-    });
+    report.check(
+        "The cache export uses has no disk copies to read (CelCache::none)",
+        0,
+        {
+            let mut none = CelCache::none();
+            none.decoded(
+                &repo("Fixtures/reference_shot/layer2/layer2_001.png"),
+                Interpretation::default(),
+            )
+            .unwrap();
+            none.disk_hits()
+        },
+    );
     let _ = fs::remove_dir_all(&folder);
 
     // --- The table. ----------------------------------------------------------------------------
@@ -448,7 +540,9 @@ fn b161_timing() {
     let root = repo("Fixtures/reference_shot");
     let folder = scratch("timing");
     let cache_disk = disk(&folder, u64::MAX);
-    let wanted: Vec<_> = (0..FRAMES).map(|f| compose::cels_at(&project, &comp, f, &root)).collect();
+    let wanted: Vec<_> = (0..FRAMES)
+        .map(|f| compose::cels_at(&project, &comp, f, &root))
+        .collect();
     // Write every copy once, and time that too: it is what the first pass pays.
     let mut writes = Vec::new();
     for cels in &wanted {
@@ -462,7 +556,11 @@ fn b161_timing() {
     let once = |cels: &Vec<(PathBuf, Interpretation)>, use_disk: bool| {
         let started = Instant::now();
         for (path, reading) in cels {
-            let mut cache = if use_disk { with_disk(&cache_disk) } else { CelCache::none() };
+            let mut cache = if use_disk {
+                with_disk(&cache_disk)
+            } else {
+                CelCache::none()
+            };
             let _ = cache.decoded(path, *reading);
         }
         started.elapsed().as_secs_f64() * 1000.0
@@ -471,7 +569,9 @@ fn b161_timing() {
     // other, so whatever else the machine is doing at that moment weighs on both columns alike.
     let (mut cold, mut hit) = (Vec::new(), Vec::new());
     for cels in &wanted {
-        let (mut decodes, mut reads): (Vec<f64>, Vec<f64>) = (0..RUNS).map(|_| (once(cels, false), once(cels, true))).unzip();
+        let (mut decodes, mut reads): (Vec<f64>, Vec<f64>) = (0..RUNS)
+            .map(|_| (once(cels, false), once(cels, true)))
+            .unzip();
         decodes.sort_by(f64::total_cmp);
         reads.sort_by(f64::total_cmp);
         cold.push(decodes[RUNS / 2]);
@@ -483,7 +583,10 @@ fn b161_timing() {
         v[v.len() / 2]
     };
     let cels: usize = wanted.iter().map(Vec::len).sum();
-    let held: u64 = copies(&folder).iter().map(|p| fs::metadata(p).unwrap().len()).sum();
+    let held: u64 = copies(&folder)
+        .iter()
+        .map(|p| fs::metadata(p).unwrap().len())
+        .sum();
     let mut out = format!(
         "# B-161: decoding a drawing against reading its disk copy\n\n\
          Produced by `cargo test --release --test b161_decode_cache -- --ignored`, with no other build running on \
@@ -518,7 +621,10 @@ fn b161_timing() {
         100.0 * median(&hit) / median(&cold),
     );
     for f in 0..FRAMES as usize {
-        out.push_str(&format!("| {f} | {:.2} | {:.2} | {:.2} |\n", cold[f], hit[f], writes[f]));
+        out.push_str(&format!(
+            "| {f} | {:.2} | {:.2} | {:.2} |\n",
+            cold[f], hit[f], writes[f]
+        ));
     }
     fs::write(repo("verification/B-161_decode_cache_timing.md"), out).unwrap();
     let _ = fs::remove_dir_all(&folder);

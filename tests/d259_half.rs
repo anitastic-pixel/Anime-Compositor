@@ -25,10 +25,26 @@ const COMP: &str = "comp-reference-shot";
 
 /// Taken on 258a0de, before Half existed.
 const BEFORE: [(PreviewQuality, i32, &str); 4] = [
-    (PreviewQuality::Full, 10, "06ad045e059c4f492c71d761f034f56aaf6ec034931bc731e33f33a20711d284"),
-    (PreviewQuality::Full, 100, "833970a6fab53413553b4cdb2a350f1048c2fa039c6f8af2684700a3d19e5c8d"),
-    (PreviewQuality::Draft, 10, "6c32af698fb03b107625be15a9b3e4ab7a901ac4da8ac73a2d69c6806288505e"),
-    (PreviewQuality::Draft, 100, "46bc3314f00bc927f67c5108563e4bc9b4f580b12acfc9de2c6aa5c4525b575e"),
+    (
+        PreviewQuality::Full,
+        10,
+        "06ad045e059c4f492c71d761f034f56aaf6ec034931bc731e33f33a20711d284",
+    ),
+    (
+        PreviewQuality::Full,
+        100,
+        "833970a6fab53413553b4cdb2a350f1048c2fa039c6f8af2684700a3d19e5c8d",
+    ),
+    (
+        PreviewQuality::Draft,
+        10,
+        "6c32af698fb03b107625be15a9b3e4ab7a901ac4da8ac73a2d69c6806288505e",
+    ),
+    (
+        PreviewQuality::Draft,
+        100,
+        "46bc3314f00bc927f67c5108563e4bc9b4f580b12acfc9de2c6aa5c4525b575e",
+    ),
 ];
 
 /// Half's frame 10, recorded from the first build with Half.
@@ -40,13 +56,29 @@ fn repo(rel: &str) -> PathBuf {
 
 fn project() -> Project {
     let path = repo("verification/B-08a_project.json");
-    persist::load(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)).document.project().clone()
+    persist::load(&path)
+        .unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message))
+        .document
+        .project()
+        .clone()
 }
 
 fn frame_at(project: &Project, frame: i32, quality: PreviewQuality) -> (usize, usize, Vec<u8>) {
-    let b = preview::preview_frame(project, &Id::new(COMP), frame, &repo("Fixtures/reference_shot"), quality, DEFAULT_TILE_SIZE, &mut FrameLog::new(3))
-        .unwrap_or_else(|d| panic!("preview frame {frame}: {}", d.message));
-    (b.width(), b.height(), b.encode(OutputDepth::Eight, OutputAlpha::Straight))
+    let b = preview::preview_frame(
+        project,
+        &Id::new(COMP),
+        frame,
+        &repo("Fixtures/reference_shot"),
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut FrameLog::new(3),
+    )
+    .unwrap_or_else(|d| panic!("preview frame {frame}: {}", d.message));
+    (
+        b.width(),
+        b.height(),
+        b.encode(OutputDepth::Eight, OutputAlpha::Straight),
+    )
 }
 
 fn median_ms(project: &Project, quality: PreviewQuality) -> f64 {
@@ -69,16 +101,46 @@ fn d259_half_beside_full_and_draft() {
 
     for (quality, frame, hash) in BEFORE {
         let (w, h, samples) = frame_at(&project, frame, quality);
-        rows.push((format!("{} frame {frame}, {w} by {h}, is byte for byte as before Half", quality.label()), hash.into(), sha256::hex(&samples)));
+        rows.push((
+            format!(
+                "{} frame {frame}, {w} by {h}, is byte for byte as before Half",
+                quality.label()
+            ),
+            hash.into(),
+            sha256::hex(&samples),
+        ));
     }
 
     let (w, h, half) = frame_at(&project, 10, PreviewQuality::Half);
-    rows.push(("Half is half the composition each way".into(), "960 by 540".into(), format!("{w} by {h}")));
-    rows.push(("Half says it differs from an export (the orange \"not final\")".into(), "true".into(), PreviewQuality::Half.differs_from_export().to_string()));
-    rows.push(("Half frame 10 is the recorded picture".into(), HALF_10.into(), sha256::hex(&half)));
+    rows.push((
+        "Half is half the composition each way".into(),
+        "960 by 540".into(),
+        format!("{w} by {h}"),
+    ));
+    rows.push((
+        "Half says it differs from an export (the orange \"not final\")".into(),
+        "true".into(),
+        PreviewQuality::Half.differs_from_export().to_string(),
+    ));
+    rows.push((
+        "Half frame 10 is the recorded picture".into(),
+        HALF_10.into(),
+        sha256::hex(&half),
+    ));
     let path = repo("verification/D-259_half_frame_10.png");
-    png_out::write_rgba(&path, w, h, OutputDepth::Eight, &[("Source", "frame 10 of verification/B-08a_project.json at Half, by tests/d259_half.rs".to_string())], &half)
-        .unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+    png_out::write_rgba(
+        &path,
+        w,
+        h,
+        OutputDepth::Eight,
+        &[(
+            "Source",
+            "frame 10 of verification/B-08a_project.json at Half, by tests/d259_half.rs"
+                .to_string(),
+        )],
+        &half,
+    )
+    .unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
 
     let full = median_ms(&project, PreviewQuality::Full);
     let halfms = median_ms(&project, PreviewQuality::Half);
@@ -91,7 +153,11 @@ fn d259_half_beside_full_and_draft() {
 
     let mut md = String::from("# D-259: Half beside Full and Draft\n\nWritten by `tests/d259_half.rs` from `verification/B-08a_project.json`. The Full and Draft hashes were taken on the build before Half existed (258a0de). Times are this machine's, on the CPU, with nothing remembered between runs.\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
     for (check, e, a) in &rows {
-        let _ = writeln!(md, "| {check} | {e} | {a} | {} |", if e == a { "pass" } else { "FAIL" });
+        let _ = writeln!(
+            md,
+            "| {check} | {e} | {a} | {} |",
+            if e == a { "pass" } else { "FAIL" }
+        );
     }
     fs::write(repo("verification/D-259_half_table.md"), md).unwrap();
     let failed: Vec<_> = rows.iter().filter(|(_, e, a)| e != a).collect();

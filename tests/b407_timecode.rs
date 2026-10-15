@@ -35,7 +35,13 @@ fn set(effect: Effect) -> Command {
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
     let layer = comp.layer(&Id::new("plate")).unwrap();
-    layer.effects.iter().find(|i| i.instance_id.as_str() == "fx-1").unwrap().effect.clone()
+    layer
+        .effects
+        .iter()
+        .find(|i| i.instance_id.as_str() == "fx-1")
+        .unwrap()
+        .effect
+        .clone()
 }
 
 /// Where the plates are written: the system's temporary folder.
@@ -54,7 +60,12 @@ fn plate((w, h): (usize, usize), frames: u32, effects: J) -> Project {
         .flat_map(|i| {
             let (x, y) = (i % w, i / w);
             let bar = if (x / 40) % 2 == 0 { 0 } else { 24 };
-            [(20 + 80 * x / w + bar) as u8, (30 + 40 * y / h) as u8, (90 + bar) as u8, 255]
+            [
+                (20 + 80 * x / w + bar) as u8,
+                (30 + 40 * y / h) as u8,
+                (90 + bar) as u8,
+                255,
+            ]
         })
         .collect();
     png_out::write_rgba(&dir.join(&file), w, h, OutputDepth::Eight, &[], &pixels).unwrap();
@@ -77,7 +88,11 @@ fn plate((w, h): (usize, usize), frames: u32, effects: J) -> Project {
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// Timecode as added with `changes` laid over its settings.
@@ -96,7 +111,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -118,7 +138,9 @@ fn b407_timecode() {
     );
 
     t.heading("FX-TC-001 to 046 (document 25): each frame against the words it must show");
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_timecode.json")).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_timecode.json")).unwrap())
+            .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     let mut files = Vec::new();
     let mut shots: Vec<(String, Project, i32)> = Vec::new();
@@ -134,20 +156,41 @@ fn b407_timecode() {
             let same = t.load(f["same"].as_str().unwrap()).document;
             let built = t.render(&loaded.document, frame, 64);
             let want = t.render(&same, frame, 64);
-            let d = built.data().iter().zip(want.data()).map(|(a, b)| (a - b).abs() as f64).fold(0.0, f64::max);
-            let shows = f["shows"].as_str().map_or("nothing".to_string(), |s| format!("\"{s}\""));
+            let d = built
+                .data()
+                .iter()
+                .zip(want.data())
+                .map(|(a, b)| (a - b).abs() as f64)
+                .fold(0.0, f64::max);
+            let shows = f["shows"]
+                .as_str()
+                .map_or("nothing".to_string(), |s| format!("\"{s}\""));
             t.row(
                 &format!("{name} frame {frame}: {says} Shows {shows}"),
                 &format!("largest difference {d:.1e}"),
                 d <= tolerance && built.data().len() == want.data().len(),
             );
-            shots.push((format!("{file} frame {frame}"), loaded.document.project().clone(), frame));
+            shots.push((
+                format!("{file} frame {frame}"),
+                loaded.document.project().clone(),
+                frame,
+            ));
         }
         let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
         let mut log = FrameLog::new(8);
-        let _ = plan_frame(loaded.document.project(), &Id::new(MAIN), first.unwrap(), &t.root, &mut log);
+        let _ = plan_frame(
+            loaded.document.project(),
+            &Id::new(MAIN),
+            first.unwrap(),
+            &t.root,
+            &mut log,
+        );
         let at_frame: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-        let want: Vec<&str> = case.get("warning").and_then(J::as_str).into_iter().collect();
+        let want: Vec<&str> = case
+            .get("warning")
+            .and_then(J::as_str)
+            .into_iter()
+            .collect();
         t.row(
             &format!("{name}: what opening it warns of, and what its first frame warns of"),
             &format!("{on_open:?} and {at_frame:?}"),
@@ -158,18 +201,35 @@ fn b407_timecode() {
     t.heading("A layer with a file: its own starting timecode is not read, and that is said");
     for (what, changes, want) in [
         ("layer source", json!({}), true),
-        ("composition source", json!({"time_source": "composition"}), false),
+        (
+            "composition source",
+            json!({"time_source": "composition"}),
+            false,
+        ),
         ("custom", json!({"time_source": "custom"}), false),
     ] {
         let project = plate((480, 160), 60, json!([timecode(changes)]));
         let mut log = FrameLog::new(8);
         let _ = plan_frame(&project, &Id::new(MAIN), 5, &plates(), &mut log);
         let said = log.finish();
-        let info = said.iter().find(|d| d.id == DiagnosticId::ProjectFeatureUnsupported);
+        let info = said
+            .iter()
+            .find(|d| d.id == DiagnosticId::ProjectFeatureUnsupported);
         t.row(
-            &format!("a still with Timecode, {what}: {}", if want { "said, as information" } else { "nothing said" }),
-            &info.map_or("nothing".to_string(), |d| format!("{} {}", d.severity, d.message)),
-            info.is_some() == want && said.len() == want as usize && info.map_or(true, |d| d.severity == Severity::Info),
+            &format!(
+                "a still with Timecode, {what}: {}",
+                if want {
+                    "said, as information"
+                } else {
+                    "nothing said"
+                }
+            ),
+            &info.map_or("nothing".to_string(), |d| {
+                format!("{} {}", d.severity, d.message)
+            }),
+            info.is_some() == want
+                && said.len() == want as usize
+                && info.map_or(true, |d| d.severity == Severity::Info),
         );
     }
 
@@ -194,7 +254,11 @@ fn b407_timecode() {
     ];
     for (file, sentence) in refusals {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming it"), &why, why == sentence);
+        t.row(
+            &format!("{file} is refused in a sentence naming it"),
+            &why,
+            why == sentence,
+        );
     }
 
     t.heading("Commands");
@@ -205,47 +269,101 @@ fn b407_timecode() {
         f(&mut e);
         e
     };
-    let refused = document.apply(set(with(&|e| if let Effect::Timecode { text_size, .. } = e { *text_size = 0.0 }))).err();
+    let refused = document
+        .apply(set(with(&|e| {
+            if let Effect::Timecode { text_size, .. } = e {
+                *text_size = 0.0
+            }
+        })))
+        .err();
     let untouched = effect_of(&document) == base;
     t.row(
         "Text size 0 is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
     t.taken(
         &mut document,
         "fx_tc_001.json",
         vec![
-            ("Display Frames, Composition source,", set(with(&|e| if let Effect::Timecode { display_format, time_source, .. } = e {
-                *display_format = "frames".to_string();
-                *time_source = "composition".to_string();
-            }))),
-            ("Custom, drop frame at 60 time units, a blue box at half opacity,", set(with(&|e| if let Effect::Timecode { time_source, drop_frame, time_units, box_color, opacity, .. } = e {
-                *time_source = "custom".to_string();
-                *drop_frame = "on".to_string();
-                *time_units = 60.0;
-                *box_color = "#3050a0".to_string();
-                *opacity = 50.0;
-            }))),
+            (
+                "Display Frames, Composition source,",
+                set(with(&|e| {
+                    if let Effect::Timecode {
+                        display_format,
+                        time_source,
+                        ..
+                    } = e
+                    {
+                        *display_format = "frames".to_string();
+                        *time_source = "composition".to_string();
+                    }
+                })),
+            ),
+            (
+                "Custom, drop frame at 60 time units, a blue box at half opacity,",
+                set(with(&|e| {
+                    if let Effect::Timecode {
+                        time_source,
+                        drop_frame,
+                        time_units,
+                        box_color,
+                        opacity,
+                        ..
+                    } = e
+                    {
+                        *time_source = "custom".to_string();
+                        *drop_frame = "on".to_string();
+                        *time_units = 60.0;
+                        *box_color = "#3050a0".to_string();
+                        *opacity = 50.0;
+                    }
+                })),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_tc_001.json", 37), ("fx_tc_006.json", 1800), ("fx_tc_021.json", 37), ("fx_tc_024.json", 37), ("fx_tc_027.json", 10)]);
+    t.tiles(&[
+        ("fx_tc_001.json", 37),
+        ("fx_tc_006.json", 1800),
+        ("fx_tc_021.json", 37),
+        ("fx_tc_024.json", 37),
+        ("fx_tc_027.json", 10),
+    ]);
 
     t.heading("The card against the processor, within 1 level of 255 (ADR-006, D-100)");
     let mut gpu = Gpu::new().expect("a usable card");
     let fixtures = t.root.clone();
     let plate_dir = plates();
-    let mut card: Vec<(String, Project, i32, bool)> = shots.into_iter().map(|(n, p, f)| (n, p, f, false)).collect();
+    let mut card: Vec<(String, Project, i32, bool)> = shots
+        .into_iter()
+        .map(|(n, p, f)| (n, p, f, false))
+        .collect();
     let samples: [(&str, J); 4] = [
         ("as added", json!({})),
-        ("frames, a blue box at half opacity, composite off", json!({"display_format": "frames", "time_source": "composition", "box_color": "#3050a0", "opacity": 50, "composite_on_original": "off"})),
-        ("custom drop frame at 30, size 60, near the top", json!({"time_source": "custom", "drop_frame": "on", "starting_frame": 107892, "text_size": 60, "text_position": [50, 40]})),
-        ("feet and frames of 16mm, no box, yellow", json!({"display_format": "feet_frames_16mm", "time_source": "composition", "show_box": "off", "text_color": "#ffd040"})),
+        (
+            "frames, a blue box at half opacity, composite off",
+            json!({"display_format": "frames", "time_source": "composition", "box_color": "#3050a0", "opacity": 50, "composite_on_original": "off"}),
+        ),
+        (
+            "custom drop frame at 30, size 60, near the top",
+            json!({"time_source": "custom", "drop_frame": "on", "starting_frame": 107892, "text_size": 60, "text_position": [50, 40]}),
+        ),
+        (
+            "feet and frames of 16mm, no box, yellow",
+            json!({"display_format": "feet_frames_16mm", "time_source": "composition", "show_box": "off", "text_color": "#ffd040"}),
+        ),
     ];
     for (name, changes) in samples {
-        card.push((format!("a 480 by 160 picture, {name}"), plate((480, 160), 60, json!([timecode(changes)])), 9, true));
+        card.push((
+            format!("a 480 by 160 picture, {name}"),
+            plate((480, 160), 60, json!([timecode(changes)])),
+            9,
+            true,
+        ));
     }
     let mut worst = 0u8;
     for (name, project, frame, is_sample) in &card {
@@ -254,16 +372,44 @@ fn b407_timecode() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             let mut cache = CelCache::viewer();
             let mut log = FrameLog::new(3);
-            let c = preview::preview_frame_cached(project, &comp.id, *frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                .unwrap_or_else(|d| panic!("{name} on the CPU: {}", d.message));
+            let c = preview::preview_frame_cached(
+                project,
+                &comp.id,
+                *frame,
+                root,
+                quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+            )
+            .unwrap_or_else(|d| panic!("{name} on the CPU: {}", d.message));
             let said_cpu = said(log);
             let c = c.to_srgb8_straight();
             let mut log = FrameLog::new(3);
-            let (g, ..) = preview::preview_frame_srgb8(project, &comp.id, *frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                .unwrap_or_else(|d| panic!("{name} on the GPU: {}", d.message));
+            let (g, ..) = preview::preview_frame_srgb8(
+                project,
+                &comp.id,
+                *frame,
+                root,
+                quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+                &mut gpu,
+            )
+            .unwrap_or_else(|d| panic!("{name} on the GPU: {}", d.message));
             let said_gpu = said(log);
             let mut log = FrameLog::new(3);
-            let plan = compose::plan_frame_for_card(project, &comp.id, *frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+            let plan = compose::plan_frame_for_card(
+                project,
+                &comp.id,
+                *frame,
+                root,
+                quality,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("plan the frame");
             let on_card: usize = plan.layers.iter().map(|l| l.on_card.len()).sum();
             let effects = comp.layer(&Id::new("plate")).map_or(0, |l| l.effects.len());
             let d = distance(&c, &g);
@@ -276,7 +422,11 @@ fn b407_timecode() {
             );
         }
     }
-    t.row("the largest difference over every frame above", &format!("{worst} level(s)"), worst <= 1);
+    t.row(
+        "the largest difference over every frame above",
+        &format!("{worst} level(s)"),
+        worst <= 1,
+    );
 
     t.heading("Pictures: in `verification/D-527 pictures/`");
     let dir = effect_table::repo("verification/D-527 pictures");
@@ -297,10 +447,30 @@ fn b407_timecode() {
     for (file, frame, png, what) in pictures {
         let document = t.load(file).document;
         let mut log = FrameLog::new(8);
-        let b = render_frame(document.project(), &Id::new(MAIN), frame, &fixtures, 64, &mut log).expect("the frame draws");
+        let b = render_frame(
+            document.project(),
+            &Id::new(MAIN),
+            frame,
+            &fixtures,
+            64,
+            &mut log,
+        )
+        .expect("the frame draws");
         let s = said(log);
-        png_out::write_rgba(&dir.join(format!("{png}.png")), 480, 160, OutputDepth::Eight, &[], &b.to_srgb8_straight()).unwrap();
-        t.row(&format!("{png}.png, {what}"), &format!("warnings {s:?}"), s.is_empty());
+        png_out::write_rgba(
+            &dir.join(format!("{png}.png")),
+            480,
+            160,
+            OutputDepth::Eight,
+            &[],
+            &b.to_srgb8_straight(),
+        )
+        .unwrap();
+        t.row(
+            &format!("{png}.png, {what}"),
+            &format!("warnings {s:?}"),
+            s.is_empty(),
+        );
     }
 
     t.finish("D-527_timecode_table.md");
@@ -323,15 +493,27 @@ fn b407_timecode_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let noise = json!({"instance_id": "fx-2", "type_id": "core.noise", "enabled": true,
                        "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}});
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Timecode, composition source at size 200, then Noise", Some(timecode(json!({"time_source": "composition", "text_size": 200})))),
-        ("Timecode, custom drop frame on a half-opacity box, composite off, then Noise", Some(timecode(json!({"time_source": "custom",
-            "drop_frame": "on", "text_size": 120, "opacity": 50, "composite_on_original": "off"})))),
+        (
+            "Timecode, composition source at size 200, then Noise",
+            Some(timecode(
+                json!({"time_source": "composition", "text_size": 200}),
+            )),
+        ),
+        (
+            "Timecode, custom drop frame on a half-opacity box, composite off, then Noise",
+            Some(timecode(json!({"time_source": "custom",
+            "drop_frame": "on", "text_size": 120, "opacity": 50, "composite_on_original": "off"}))),
+        ),
     ];
     let dir = plates();
     for (name, e) in shots {
@@ -344,14 +526,41 @@ fn b407_timecode_timing() {
             for frame in (0..240).step_by(8) {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        &project,
+                        &Id::new(MAIN),
+                        frame,
+                        &dir,
+                        PreviewQuality::Full,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("GPU frame"),
+                );
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                assert!(log.finish().is_empty(), "{name}: the frame draws without a warning");
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                assert!(
+                    log.finish().is_empty(),
+                    "{name}: the frame draws without a warning"
+                );
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B407_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-407_timing_raw.md"));
+    let out = std::env::var("B407_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-407_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

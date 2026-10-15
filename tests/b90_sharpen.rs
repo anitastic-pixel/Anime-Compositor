@@ -13,7 +13,11 @@ use effect_table::{keys, set, Table};
 use anime_compositor::effects::Effect;
 
 fn sharpen(amount: f64, radius: f64) -> Effect {
-    Effect::Sharpen { amount, radius, threshold: 0.0 }
+    Effect::Sharpen {
+        amount,
+        radius,
+        threshold: 0.0,
+    }
 }
 
 #[test]
@@ -33,7 +37,11 @@ fn b90_sharpen() {
 
     t.heading("How far it reaches");
     let got = sharpen(500.0, 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = sharpen(100.0, 3.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -55,7 +63,11 @@ fn b90_sharpen() {
         "fx_sharpen_017.json",
         "fx_sharpen_018.json",
     ]);
-    t.shape_refused("fx_sharpen_001.json", "no `radius` at all", r#"{"amount": 100}"#);
+    t.shape_refused(
+        "fx_sharpen_001.json",
+        "no `radius` at all",
+        r#"{"amount": 100}"#,
+    );
     t.shape_refused(
         "fx_sharpen_001.json",
         "an amount that is a word",
@@ -71,16 +83,28 @@ fn b90_sharpen() {
             ("amount -1", set(sharpen(-1.0, 1.0))),
             ("radius 101", set(sharpen(100.0, 101.0))),
             ("radius -0.5", set(sharpen(100.0, -0.5))),
-            ("amount keyed to 600", keys("amount", &[(0, &[100.0]), (4, &[600.0])])),
+            (
+                "amount keyed to 600",
+                keys("amount", &[(0, &[100.0]), (4, &[600.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_sharpen_001.json",
         vec![
-            ("amount 0 and radius 0, the bottoms,", set(sharpen(0.0, 0.0))),
-            ("amount 500 and radius 100, the tops,", set(sharpen(500.0, 100.0))),
-            ("radius keyed from 0 to 2", keys("radius", &[(0, &[0.0]), (4, &[2.0])])),
+            (
+                "amount 0 and radius 0, the bottoms,",
+                set(sharpen(0.0, 0.0)),
+            ),
+            (
+                "amount 500 and radius 100, the tops,",
+                set(sharpen(500.0, 100.0)),
+            ),
+            (
+                "radius keyed from 0 to 2",
+                keys("radius", &[(0, &[0.0]), (4, &[2.0])]),
+            ),
         ],
     );
 

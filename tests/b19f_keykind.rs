@@ -632,8 +632,7 @@ fn b19f_keykind() {
     );
     fs::write(repo("verification/B-19f_keykind_table.md"), report).unwrap();
     assert_eq!(
-        t.passed,
-        t.checks,
+        t.passed, t.checks,
         "see verification/B-19f_keykind_table.md"
     );
 }

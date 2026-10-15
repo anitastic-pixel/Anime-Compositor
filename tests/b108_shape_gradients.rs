@@ -176,9 +176,11 @@ fn b108_shape_gradients() {
         );
     }
     let opened = load("fx_shp_048.json");
-    let written: J =
-        serde_json::from_str(&persist::to_json(opened.project(), &persist::Preserved::default()))
-            .unwrap();
+    let written: J = serde_json::from_str(&persist::to_json(
+        opened.project(),
+        &persist::Preserved::default(),
+    ))
+    .unwrap();
     let fill = &written["compositions"][0]["layers"][0]["shapes"][0]["fill"];
     t.row(
         "stops are saved in the order they were written, blue first, not re-sorted",
@@ -196,5 +198,8 @@ fn b108_shape_gradients() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-108_shape_gradient_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-108_shape_gradient_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-108_shape_gradient_table.md"
+    );
 }

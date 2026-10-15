@@ -162,7 +162,17 @@ impl Sound {
     /// measures (ADPCM and the like).
     pub fn read(raw: Vec<u8>) -> Result<Sound, Diagnostic> {
         match layout(&raw)? {
-            (Wav::Read { encoding, channels, sample_rate, bits, samples, .. }, data) => Ok(Sound {
+            (
+                Wav::Read {
+                    encoding,
+                    channels,
+                    sample_rate,
+                    bits,
+                    samples,
+                    ..
+                },
+                data,
+            ) => Ok(Sound {
                 raw,
                 data,
                 encoding,
@@ -172,7 +182,9 @@ impl Sound {
                 samples,
                 kept: Default::default(),
             }),
-            (Wav::Other { .. }, _) => Err(unreadable("an encoding this build plays but does not read")),
+            (Wav::Other { .. }, _) => {
+                Err(unreadable("an encoding this build plays but does not read"))
+            }
         }
     }
 
@@ -187,8 +199,12 @@ impl Sound {
         match (self.encoding, self.bits) {
             (Encoding::Pcm, 8) => (b[0] as f64 - 128.0) / 128.0,
             (Encoding::Pcm, 16) => i16::from_le_bytes([b[0], b[1]]) as f64 / 32768.0,
-            (Encoding::Pcm, 24) => (i32::from_le_bytes([0, b[0], b[1], b[2]]) >> 8) as f64 / 8388608.0,
-            (Encoding::Pcm, _) => i32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64 / 2147483648.0,
+            (Encoding::Pcm, 24) => {
+                (i32::from_le_bytes([0, b[0], b[1], b[2]]) >> 8) as f64 / 8388608.0
+            }
+            (Encoding::Pcm, _) => {
+                i32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64 / 2147483648.0
+            }
             (Encoding::Float, 32) => f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64,
             (Encoding::Float, _) => f64::from_le_bytes(b.try_into().unwrap_or([0; 8])),
         }
@@ -206,17 +222,34 @@ impl Sound {
     /// before and after as well.
     // ponytail: one sum per band, count x bands sines a frame. A transform would be quicker for
     // thousands of bands over long windows, but changes the rule.
-    pub fn levels(&self, start: i64, count: usize, freqs: &[f64], gain: f64, averaging: bool) -> Vec<f64> {
+    pub fn levels(
+        &self,
+        start: i64,
+        count: usize,
+        freqs: &[f64],
+        gain: f64,
+        averaging: bool,
+    ) -> Vec<f64> {
         use rayon::prelude::*;
         let w: Vec<f64> = (0..count)
-            .map(|k| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * (k as f64 + 0.5) / count as f64).cos())
+            .map(|k| {
+                0.5 - 0.5 * (2.0 * std::f64::consts::PI * (k as f64 + 0.5) / count as f64).cos()
+            })
             .collect();
         let sw: f64 = w.iter().sum();
         let half = (count / 2) as i64;
-        let starts = if averaging { vec![start - half, start, start + half] } else { vec![start] };
+        let starts = if averaging {
+            vec![start - half, start, start + half]
+        } else {
+            vec![start]
+        };
         let windows: Vec<Vec<f64>> = starts
             .iter()
-            .map(|s| (0..count).map(|k| self.mean(s + k as i64) * gain * w[k]).collect())
+            .map(|s| {
+                (0..count)
+                    .map(|k| self.mean(s + k as i64) * gain * w[k])
+                    .collect()
+            })
             .collect();
         let rate = self.rate as f64;
         freqs
@@ -246,7 +279,14 @@ impl Sound {
     /// floor((j + 1) count / shown), or the first alone), each the channels' mean or channel
     /// `channel` (the last when the file has fewer) times `gain`, held to -1..1; least and
     /// greatest in turn.
-    pub fn spans(&self, start: i64, count: usize, shown: usize, gain: f64, channel: Option<usize>) -> Vec<f64> {
+    pub fn spans(
+        &self,
+        start: i64,
+        count: usize,
+        shown: usize,
+        gain: f64,
+        channel: Option<usize>,
+    ) -> Vec<f64> {
         let x = |i: i64| {
             let v = match channel {
                 None => self.mean(i),
@@ -257,7 +297,11 @@ impl Sound {
         (0..shown)
             .flat_map(|j| {
                 let (a, b) = (j * count / shown, (j + 1) * count / shown);
-                let (lo, hi) = (a..b.max(a + 1)).map(|k| x(start + k as i64)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| (lo.min(v), hi.max(v)));
+                let (lo, hi) = (a..b.max(a + 1))
+                    .map(|k| x(start + k as i64))
+                    .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| {
+                        (lo.min(v), hi.max(v))
+                    });
                 [lo, hi]
             })
             .collect()
@@ -271,7 +315,8 @@ pub fn load(path: &std::path::Path) -> Result<std::sync::Arc<Sound>, Diagnostic>
     use std::sync::{Arc, Mutex, OnceLock};
     type Kept = HashMap<std::path::PathBuf, (u64, Option<std::time::SystemTime>, Arc<Sound>)>;
     static KEPT: OnceLock<Mutex<Kept>> = OnceLock::new();
-    let meta = crate::cache::looked_at(path).map_err(|e| unreadable(&format!("the file could not be opened ({e})")))?;
+    let meta = crate::cache::looked_at(path)
+        .map_err(|e| unreadable(&format!("the file could not be opened ({e})")))?;
     let stamp = (meta.len(), meta.modified().ok());
     let kept = KEPT.get_or_init(Default::default);
     if let Some((len, time, sound)) = kept.lock().unwrap_or_else(|e| e.into_inner()).get(path) {
@@ -375,7 +420,11 @@ impl Sound {
         };
         // The weights repeat every `period` outputs; worked out once when that is short.
         let period = work / gcd(work, rate);
-        let table: Vec<Vec<f64>> = if period <= 4096 { (0..period).map(taps).collect() } else { Vec::new() };
+        let table: Vec<Vec<f64>> = if period <= 4096 {
+            (0..period).map(taps).collect()
+        } else {
+            Vec::new()
+        };
         let one = |x: &[f64], j: usize| -> f64 {
             let k0 = (j as u64 * rate / work) as i64;
             let own;
@@ -389,7 +438,11 @@ impl Sound {
                 .zip(-reach..=reach)
                 .map(|(g, m)| {
                     let k = k0 + m;
-                    if k < 0 || k as usize >= n { 0.0 } else { g * x[k as usize] }
+                    if k < 0 || k as usize >= n {
+                        0.0
+                    } else {
+                        g * x[k as usize]
+                    }
                 })
                 .sum()
         };
@@ -399,7 +452,11 @@ impl Sound {
 }
 
 fn gcd(a: u64, b: u64) -> u64 {
-    if b == 0 { a } else { gcd(b, a % b) }
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
 }
 
 /// D-639: the warning an Opus file carries.
@@ -419,9 +476,18 @@ pub fn preview_only(name: &str) -> Diagnostic {
 /// `.mov`) by the decoder Windows carries, or elsewhere an `ffmpeg` the user installed; Opus by
 /// neither, MEDIA_AUDIO_PREVIEW_ONLY. Any other name is read as a WAV, as before.
 pub fn read_file(path: &std::path::Path) -> Result<Sound, Diagnostic> {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-    let name = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
-    let raw = || std::fs::read(path).map_err(|e| unreadable(&format!("the file could not be read ({e})")));
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    let raw = || {
+        std::fs::read(path).map_err(|e| unreadable(&format!("the file could not be read ({e})")))
+    };
     match ext.as_str() {
         "opus" => Err(preview_only(&name)),
         "flac" | "mp3" | "ogg" => by_symphonia(raw()?, &ext, &name),
@@ -440,10 +506,22 @@ fn by_symphonia(raw: Vec<u8>, ext: &str, name: &str) -> Result<Sound, Diagnostic
     let mut hint = Hint::new();
     hint.with_extension(ext);
     let mut format = symphonia::default::get_probe()
-        .probe(&hint, source, FormatOptions::default(), MetadataOptions::default())
+        .probe(
+            &hint,
+            source,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
         .map_err(|e| bad(&e))?;
-    let track = format.default_track(TrackType::Audio).ok_or_else(|| unreadable("no sound track"))?;
-    let params = track.codec_params.as_ref().and_then(|p| p.audio()).ok_or_else(|| unreadable("no sound track"))?.clone();
+    let track = format
+        .default_track(TrackType::Audio)
+        .ok_or_else(|| unreadable("no sound track"))?;
+    let params = track
+        .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
+        .ok_or_else(|| unreadable("no sound track"))?
+        .clone();
     if params.codec == CODEC_ID_OPUS {
         return Err(preview_only(name));
     }
@@ -496,7 +574,9 @@ fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64)> {
         }
         Some(out)
     };
-    let find = |list: &[(&[u8], usize, usize)], name: &[u8]| list.iter().find(|x| x.0 == name).map(|x| (x.1, x.2));
+    let find = |list: &[(&[u8], usize, usize)], name: &[u8]| {
+        list.iter().find(|x| x.0 == name).map(|x| (x.1, x.2))
+    };
     // A full box's timescale: after version and flags, and two dates of 4 or 8 bytes.
     let timescale = |at: usize| u32_be(at + if b.get(at)? == &1 { 20 } else { 12 });
     let (moov, end) = find(&boxes(0, b.len())?, b"moov")?;
@@ -510,7 +590,9 @@ fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64)> {
             continue;
         }
         let rate = timescale(find(&mdia, b"mdhd")?.0)?;
-        let Some((ea, ee)) = find(&trak, b"edts") else { return None };
+        let Some((ea, ee)) = find(&trak, b"edts") else {
+            return None;
+        };
         let (la, _) = find(&boxes(ea, ee)?, b"elst")?;
         let wide = b.get(la)? == &1;
         let (step, count) = (if wide { 20 } else { 12 }, u32_be(la + 4)?);
@@ -542,7 +624,9 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
     use windows::core::HSTRING;
     use windows::Win32::Media::MediaFoundation::*;
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-    let said = |e: windows::core::Error| unreadable(&format!("Windows' sound decoder answered: {}", e.message()));
+    let said = |e: windows::core::Error| {
+        unreadable(&format!("Windows' sound decoder answered: {}", e.message()))
+    };
     unsafe {
         // Already initialised on this thread is an answer too, and not a failure.
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -562,14 +646,22 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
             let mut x: Vec<f32> = Vec::new();
             loop {
                 let (mut flags, mut time, mut sample) = (0u32, 0i64, None);
-                reader.ReadSample(first, 0, None, Some(&mut flags), Some(&mut time), Some(&mut sample))?;
+                reader.ReadSample(
+                    first,
+                    0,
+                    None,
+                    Some(&mut flags),
+                    Some(&mut time),
+                    Some(&mut sample),
+                )?;
                 if let Some(sample) = sample {
                     let buffer = sample.ConvertToContiguousBuffer()?;
                     let (mut data, mut len) = (std::ptr::null_mut(), 0u32);
                     buffer.Lock(&mut data, None, Some(&mut len))?;
                     let piece = std::slice::from_raw_parts(data as *const f32, len as usize / 4);
                     // Where the piece starts, to the nearest sample: before 0 is the start delay.
-                    let at = (time as i128 * rate as i128 + 5_000_000).div_euclid(10_000_000) as i64;
+                    let at =
+                        (time as i128 * rate as i128 + 5_000_000).div_euclid(10_000_000) as i64;
                     let skip = ((-at).max(0) as usize * channels).min(piece.len());
                     let start = at.max(0) as usize * channels;
                     if start > x.len() {
@@ -588,7 +680,9 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
         let result = read();
         let _ = MFShutdown();
         let (rate, channels, mut x) = result.map_err(said)?;
-        if let Some((silence, skip, keep, track)) = std::fs::read(path).ok().as_deref().and_then(edit_list) {
+        if let Some((silence, skip, keep, track)) =
+            std::fs::read(path).ok().as_deref().and_then(edit_list)
+        {
             let at = |n: u64| (n as u128 * rate as u128 / track.max(1) as u128) as usize * channels;
             x.drain(..at(skip).min(x.len()));
             if let Some(keep) = keep {
@@ -613,7 +707,11 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
         .arg(path)
         .args(["-map", "0:a:0", "-c:a", "pcm_f32le", "-f", "wav", "-"])
         .output()
-        .map_err(|e| unreadable(&format!("AAC is read through ffmpeg, which could not be started ({e})")))?;
+        .map_err(|e| {
+            unreadable(&format!(
+                "AAC is read through ffmpeg, which could not be started ({e})"
+            ))
+        })?;
     if !out.status.success() {
         return Err(unreadable("ffmpeg could not read the sound track"));
     }
@@ -626,7 +724,9 @@ impl Sound {
     // ponytail: kept for as long as the sound is (the session, by `load`); 64-bit, so three
     // minutes is about 140 MB. Keep 32-bit or drop unused sounds if long recordings pile up.
     pub fn working_kept(&self) -> std::sync::Arc<[Vec<f64>; 2]> {
-        self.kept.get_or_init(|| std::sync::Arc::new(self.working())).clone()
+        self.kept
+            .get_or_init(|| std::sync::Arc::new(self.working()))
+            .clone()
     }
 }
 
@@ -655,7 +755,13 @@ pub fn wav24(sound: &[Vec<f64>; 2]) -> Vec<u8> {
     out.extend_from_slice(b"RIFF");
     out.extend_from_slice(&(36 + data).to_le_bytes());
     out.extend_from_slice(b"WAVEfmt ");
-    for v in [16u32, 1 | 2 << 16, WORKING_RATE, WORKING_RATE * 6, 6 | 24 << 16] {
+    for v in [
+        16u32,
+        1 | 2 << 16,
+        WORKING_RATE,
+        WORKING_RATE * 6,
+        6 | 24 << 16,
+    ] {
         out.extend_from_slice(&v.to_le_bytes());
     }
     out.extend_from_slice(b"data");
@@ -676,20 +782,34 @@ pub fn mix(
     from: i32,
     frames: u32,
 ) -> ([Vec<f64>; 2], Vec<(String, Diagnostic)>) {
-    mix_in(project, root, comp, from as i64, frames as i64, &mut Vec::new())
+    mix_in(
+        project,
+        root,
+        comp,
+        from as i64,
+        frames as i64,
+        &mut Vec::new(),
+    )
 }
 
 /// D-645: whether the composition has anything to hear: an audio layer switched on, here or
 /// inside a composition layer switched on.
 pub fn has_sound(project: &crate::model::Project, comp: &crate::model::Composition) -> bool {
-    fn inside(project: &crate::model::Project, comp: &crate::model::Composition, above: &mut Vec<crate::model::Id>) -> bool {
+    fn inside(
+        project: &crate::model::Project,
+        comp: &crate::model::Composition,
+        above: &mut Vec<crate::model::Id>,
+    ) -> bool {
         if above.contains(&comp.id) {
             return false;
         }
         above.push(comp.id.clone());
         let heard = comp.layers_in_order().filter(|l| l.enabled).any(|l| {
             l.kind == crate::model::LayerKind::Audio
-                || l.composition_id.as_ref().and_then(|id| project.composition(id)).is_some_and(|c| inside(project, c, above))
+                || l.composition_id
+                    .as_ref()
+                    .and_then(|id| project.composition(id))
+                    .is_some_and(|c| inside(project, c, above))
         });
         above.pop();
         heard
@@ -700,9 +820,14 @@ pub fn has_sound(project: &crate::model::Project, comp: &crate::model::Compositi
 /// D-645: a layer's level in dB and pan at composition frame `f`, each held to its range.
 fn level_at(layer: &crate::model::Layer, f: i64) -> (f64, f64) {
     let read = |p: &Option<crate::model::Property>, plain: f64| {
-        p.as_ref().and_then(|p| p.value_at(f as i32).as_scalar()).unwrap_or(plain)
+        p.as_ref()
+            .and_then(|p| p.value_at(f as i32).as_scalar())
+            .unwrap_or(plain)
     };
-    (read(&layer.gain_keys, layer.gain_db).clamp(-96.0, 12.0), read(&layer.pan, 0.0).clamp(-100.0, 100.0))
+    (
+        read(&layer.gain_keys, layer.gain_db).clamp(-96.0, 12.0),
+        read(&layer.pan, 0.0).clamp(-100.0, 100.0),
+    )
 }
 
 /// D-645: the two channels' gains a share `t` of the way from `a` to `b` (each a level in dB
@@ -711,7 +836,10 @@ fn level_at(layer: &crate::model::Layer, f: i64) -> (f64, f64) {
 fn channel_gains(a: (f64, f64), b: (f64, f64), t: f64) -> [f64; 2] {
     let (db, p) = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
     let g = 10f64.powf(db / 20.0);
-    [g * (1.0 - p / 100.0).min(1.0), g * (1.0 + p / 100.0).min(1.0)]
+    [
+        g * (1.0 - p / 100.0).min(1.0),
+        g * (1.0 + p / 100.0).min(1.0),
+    ]
 }
 
 fn mix_in(
@@ -722,7 +850,10 @@ fn mix_in(
     frames: i64,
     above: &mut Vec<crate::model::Id>,
 ) -> ([Vec<f64>; 2], Vec<(String, Diagnostic)>) {
-    let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
+    let (num, den) = (
+        comp.frame_rate.numerator() as i128,
+        comp.frame_rate.denominator() as i128,
+    );
     let first = |f: i64| (f as i128 * WORKING_RATE as i128 * den).div_euclid(num) as i64;
     let to = from + frames;
     let s0 = first(from);
@@ -737,21 +868,33 @@ fn mix_in(
             // D-645: a composition layer is heard. A missing composition was said on opening
             // (COMPOSITION_REFERENCE_MISSING); a cycle cannot open, and is silent here if an edit
             // makes one.
-            let Some(inner) = project.composition(inner_id) else { continue };
+            let Some(inner) = project.composition(inner_id) else {
+                continue;
+            };
             if above.contains(inner_id) || &comp.id == inner_id {
                 continue;
             }
-            let (ni, di) = (inner.frame_rate.numerator() as i128, inner.frame_rate.denominator() as i128);
+            let (ni, di) = (
+                inner.frame_rate.numerator() as i128,
+                inner.frame_rate.denominator() as i128,
+            );
             let first_in = |f: i64| (f as i128 * WORKING_RATE as i128 * di).div_euclid(ni) as i64;
-            let (start, end) = (inner.start_frame as i64, inner.start_frame as i64 + inner.duration_frames as i64);
+            let (start, end) = (
+                inner.start_frame as i64,
+                inner.start_frame as i64 + inner.duration_frames as i64,
+            );
             // Composition frame f plays inner frame g = floor(source time) from its first sample.
-            let reads: Vec<(i64, i64)> = (from.max(layer.in_frame as i64)..to.min(layer.out_frame as i64))
+            let reads: Vec<(i64, i64)> = (from.max(layer.in_frame as i64)
+                ..to.min(layer.out_frame as i64))
                 .filter_map(|f| Some((f, layer.source_time(f as i32)?.floor() as i64)))
                 .filter(|&(_, g)| (start..end).contains(&g))
                 .collect();
             let (Some(lo), Some(need)) = (
                 reads.iter().map(|r| r.1).min(),
-                reads.iter().map(|&(f, g)| first_in(g) + first(f + 1) - first(f)).max(),
+                reads
+                    .iter()
+                    .map(|&(f, g)| first_in(g) + first(f + 1) - first(f))
+                    .max(),
             ) else {
                 continue;
             };
@@ -780,7 +923,12 @@ fn mix_in(
         if layer.kind != crate::model::LayerKind::Audio {
             continue;
         }
-        let Some(path) = project.assets.iter().find(|a| a.id == layer.asset_id).and_then(|a| a.path.as_ref()) else {
+        let Some(path) = project
+            .assets
+            .iter()
+            .find(|a| a.id == layer.asset_id)
+            .and_then(|a| a.path.as_ref())
+        else {
             continue;
         };
         let sound = match load(&root.join(path)) {
@@ -796,9 +944,19 @@ fn mix_in(
         let plain = layer.gain_keys.is_none() && layer.pan.is_none();
         let fixed = channel_gains(level_at(layer, 0), level_at(layer, 0), 0.0);
         let gains = |f: i64| {
-            let (a, b) = if plain { ((0.0, 0.0), (0.0, 0.0)) } else { (level_at(layer, f), level_at(layer, f + 1)) };
+            let (a, b) = if plain {
+                ((0.0, 0.0), (0.0, 0.0))
+            } else {
+                (level_at(layer, f), level_at(layer, f + 1))
+            };
             let (s_a, s_b) = (first(f), first(f + 1));
-            move |s: i64| if plain { fixed } else { channel_gains(a, b, (s - s_a) as f64 / (s_b - s_a) as f64) }
+            move |s: i64| {
+                if plain {
+                    fixed
+                } else {
+                    channel_gains(a, b, (s - s_a) as f64 / (s_b - s_a) as f64)
+                }
+            }
         };
         if !layer.effects.is_empty() {
             // D-642: a sound effect needs what came before, so the layer is made from its
@@ -813,7 +971,9 @@ fn mix_in(
             let len = (first(hi) - start) as usize;
             let mut y = [vec![0.0; len], vec![0.0; len]];
             for f in lo..hi {
-                let Some(local) = timing.local_frame(f as i32) else { continue };
+                let Some(local) = timing.local_frame(f as i32) else {
+                    continue;
+                };
                 let (a, b, src) = (first(f), first(f + 1), first(local as i64));
                 for s in a..b {
                     let i = src + (s - a);
@@ -861,7 +1021,9 @@ fn mix_in(
             continue;
         }
         for f in from.max(layer.in_frame as i64)..to.min(layer.out_frame as i64) {
-            let Some(local) = timing.local_frame(f as i32) else { continue };
+            let Some(local) = timing.local_frame(f as i32) else {
+                continue;
+            };
             let (a, b, start) = (first(f), first(f + 1), first(local as i64));
             let gain = gains(f);
             for s in a..b {
@@ -891,7 +1053,12 @@ fn noise_gate(
     fx: &crate::effects::EffectInstance,
 ) {
     let read = |f: i64| match fx.at(f as i32).effect {
-        crate::effects::Effect::NoiseGate { threshold, attack, hold, release } => [threshold, attack, hold, release],
+        crate::effects::Effect::NoiseGate {
+            threshold,
+            attack,
+            hold,
+            release,
+        } => [threshold, attack, hold, release],
         _ => unreachable!("called for Noise Gate only"),
     };
     let whole = |ms: f64| (ms * 48.0 + 0.5).floor() as i64;
@@ -902,7 +1069,12 @@ fn noise_gate(
         let (a, b) = (read(f), read(f + 1));
         for s in s0..s1 {
             let v = |k: usize| a[k] + (b[k] - a[k]) * (s - s0) as f64 / (s1 - s0) as f64;
-            let (t, att, h, r) = (10f64.powf(v(0) / 20.0), whole(v(1)), whole(v(2)), whole(v(3)));
+            let (t, att, h, r) = (
+                10f64.powf(v(0) / 20.0),
+                whole(v(1)),
+                whole(v(2)),
+                whole(v(3)),
+            );
             let i = (s - start) as usize;
             let rise = |g: f64| if att == 0 { 1.0 } else { g + 1.0 / att as f64 };
             if y[0][i].abs().max(y[1][i].abs()) >= t {
@@ -939,9 +1111,24 @@ fn compressor(
     fx: &crate::effects::EffectInstance,
 ) {
     let read = |f: i64| match fx.at(f as i32).effect {
-        crate::effects::Effect::Compressor { threshold, ratio, knee, attack, release, makeup, output_limit, .. } => {
-            [threshold, ratio, knee, attack, release, makeup, output_limit]
-        }
+        crate::effects::Effect::Compressor {
+            threshold,
+            ratio,
+            knee,
+            attack,
+            release,
+            makeup,
+            output_limit,
+            ..
+        } => [
+            threshold,
+            ratio,
+            knee,
+            attack,
+            release,
+            makeup,
+            output_limit,
+        ],
         _ => unreachable!("called for Compressor only"),
     };
     let auto = matches!(&fx.effect, crate::effects::Effect::Compressor { auto_release, .. } if auto_release == "on");
@@ -997,9 +1184,15 @@ fn distortion(
     fx: &crate::effects::EffectInstance,
 ) {
     let read = |f: i64| match fx.at(f as i32).effect {
-        crate::effects::Effect::Distortion { drive, gain, wet, volume, resolution, downsample, .. } => {
-            [drive, gain, wet, volume, resolution, downsample]
-        }
+        crate::effects::Effect::Distortion {
+            drive,
+            gain,
+            wet,
+            volume,
+            resolution,
+            downsample,
+            ..
+        } => [drive, gain, wet, volume, resolution, downsample],
         _ => unreachable!("called for Distortion only"),
     };
     let kind = match &fx.effect {

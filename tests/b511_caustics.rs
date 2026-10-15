@@ -30,11 +30,19 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// The `holder` layer's effect in `file`.
 fn effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 fn read(file: &str) -> J {
-    serde_json::from_str(&fs::read_to_string(repo(&format!("Fixtures/caustics/{file}"))).unwrap()).unwrap()
+    serde_json::from_str(&fs::read_to_string(repo(&format!("Fixtures/caustics/{file}"))).unwrap())
+        .unwrap()
 }
 
 /// FX-CA-002's project at the street's size in `dir` (the street the holder's drawing, the
@@ -42,20 +50,42 @@ fn read(file: &str) -> J {
 /// frame 0 drawn on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, p: &J) -> (Vec<u8>, Vec<String>) {
     let mut project = read("fx_ca_002.json");
-    let a = project["assets"].as_array_mut().unwrap().iter_mut().find(|a| a["id"] == "asset-shot").unwrap();
+    let a = project["assets"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|a| a["id"] == "asset-shot")
+        .unwrap();
     a["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
     comp["height"] = J::from(TOWN.1);
-    let holder = comp["layers"].as_array_mut().unwrap().iter_mut().find(|l| l["id"] == "holder").unwrap();
+    let holder = comp["layers"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|l| l["id"] == "holder")
+        .unwrap();
     let parameters = &mut holder["effects"][0]["parameters"];
     for (k, v) in p.as_object().unwrap() {
         parameters[k] = v.clone();
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -81,7 +111,11 @@ fn b511_caustics() {
 
     t.heading("The settings");
     let plain = effect(&t, "fx_ca_002.json");
-    t.row("Caustics never grows the layer's bounds", &plain.bounds_expansion().to_string(), plain.bounds_expansion() == 0);
+    t.row(
+        "Caustics never grows the layer's bounds",
+        &plain.bounds_expansion().to_string(),
+        plain.bounds_expansion() == 0,
+    );
     let mut draft = plain.clone();
     draft.scale_distances(|d| d * 0.5);
     t.row("a half-size draft preview changes no setting, each a share of the layer, a count or a word", &format!("{draft:?}"), draft == plain);
@@ -97,7 +131,11 @@ fn b511_caustics() {
         ("fx_ca_037.json", "light position"),
     ] {
         let why = effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
 
     t.heading("The file");
@@ -115,8 +153,15 @@ fn b511_caustics() {
     );
     t.row(
         "the three pictures the effect is drawn with are never saved",
-        &format!("{:?} {:?} {:?}", saved.get("bottom_map"), saved.get("surface_map"), saved.get("sky_map")),
-        ["bottom_map", "surface_map", "sky_map"].iter().all(|k| saved.get(*k).is_none()),
+        &format!(
+            "{:?} {:?} {:?}",
+            saved.get("bottom_map"),
+            saved.get("surface_map"),
+            saved.get("sky_map")
+        ),
+        ["bottom_map", "surface_map", "sky_map"]
+            .iter()
+            .all(|k| saved.get(*k).is_none()),
     );
     let one = t.saved_parameters("fx_ca_037.json");
     t.row(
@@ -124,26 +169,55 @@ fn b511_caustics() {
         &one["light_position"].to_string(),
         one["light_position"] == json!([10]),
     );
-    let good = read("fx_ca_002.json")["compositions"][0]["layers"][4]["effects"][0]["parameters"].clone();
+    let good =
+        read("fx_ca_002.json")["compositions"][0]["layers"][4]["effects"][0]["parameters"].clone();
     let mut p = good.clone();
     p["wave_height"] = json!("tall");
-    t.shape_refused("fx_ca_002.json", "a Caustics whose wave height is a word", &p.to_string());
+    t.shape_refused(
+        "fx_ca_002.json",
+        "a Caustics whose wave height is a word",
+        &p.to_string(),
+    );
     let mut p = good.clone();
     p["light_position"] = json!(50);
-    t.shape_refused("fx_ca_002.json", "a Caustics whose Light Position is a number, not a list", &p.to_string());
+    t.shape_refused(
+        "fx_ca_002.json",
+        "a Caustics whose Light Position is a number, not a list",
+        &p.to_string(),
+    );
     let mut p = good.clone();
     p.as_object_mut().unwrap().remove("bottom_fit");
-    t.shape_refused("fx_ca_002.json", "a Caustics with no bottom fit", &p.to_string());
+    t.shape_refused(
+        "fx_ca_002.json",
+        "a Caustics with no bottom fit",
+        &p.to_string(),
+    );
     let mut p = good;
     p.as_object_mut().unwrap().remove("sky_layer");
-    t.shape_refused("fx_ca_002.json", "a Caustics with no sky layer", &p.to_string());
+    t.shape_refused(
+        "fx_ca_002.json",
+        "a Caustics with no sky layer",
+        &p.to_string(),
+    );
 
     t.heading("Pictures (verification/D-631 pictures)");
     let dir = std::env::temp_dir().join("b511_pictures");
     fs::create_dir_all(dir.join("media")).unwrap();
-    png_out::write_rgba(&dir.join("town.png"), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        TOWN.0,
+        TOWN.1,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
     for m in ["floor", "sky"] {
-        fs::copy(repo(&format!("Fixtures/caustics/media/{m}.png")), dir.join(format!("media/{m}.png"))).unwrap();
+        fs::copy(
+            repo(&format!("Fixtures/caustics/media/{m}.png")),
+            dir.join(format!("media/{m}.png")),
+        )
+        .unwrap();
     }
     // The fixtures' ripples drawn again at the street's size, so the water is smooth and not
     // the 48 by 27 picture stretched.
@@ -152,12 +226,22 @@ fn b511_caustics() {
     let ripples: Vec<u8> = (0..TOWN.0 * TOWN.1)
         .flat_map(|i| {
             let (x, y) = ((i % TOWN.0) as f64 / k, (i / TOWN.0) as f64 / k);
-            let v = 0.5 + 0.3 * (tau * (x + 0.5) / 16.0).sin() * (tau * (y + 0.5) / 13.0).cos() + 0.12 * (tau * (x + y + 1.0) / 9.0).sin();
+            let v = 0.5
+                + 0.3 * (tau * (x + 0.5) / 16.0).sin() * (tau * (y + 0.5) / 13.0).cos()
+                + 0.12 * (tau * (x + y + 1.0) / 9.0).sin();
             let g = (255.0 * v.clamp(0.0, 1.0)).round() as u8;
             [g, g, g, 255]
         })
         .collect();
-    png_out::write_rgba(&dir.join("media/ripples.png"), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &ripples).unwrap();
+    png_out::write_rgba(
+        &dir.join("media/ripples.png"),
+        TOWN.0,
+        TOWN.1,
+        OutputDepth::Eight,
+        &[],
+        &ripples,
+    )
+    .unwrap();
     let out = repo("verification/D-631 pictures");
     fs::create_dir_all(&out).unwrap();
     // The settings as added, with the ripples as the water surface; each picture changes some.
@@ -180,22 +264,54 @@ fn b511_caustics() {
     }
     for (name, p) in [
         ("1_as_added_with_water", with(json!({}))),
-        ("2_deeper_waves", with(json!({"wave_height": 0.5, "water_depth": 0.2, "surface_opacity": 0.1}))),
-        ("3_caustics", with(json!({"wave_height": 0.5, "water_depth": 0.2, "surface_opacity": 0.1, "caustics_strength": 1}))),
-        ("4_floor_tiled", with(json!({"wave_height": 0.5, "water_depth": 0.2, "bottom_layer": "floor", "bottom_fit": "center", "bottom_scaling": 4, "surface_opacity": 0.1}))),
-        ("5_sky_mirrored", with(json!({"wave_height": 0.5, "water_depth": 0.2, "sky_layer": "sky", "sky_intensity": 1, "surface_opacity": 0.7}))),
+        (
+            "2_deeper_waves",
+            with(json!({"wave_height": 0.5, "water_depth": 0.2, "surface_opacity": 0.1})),
+        ),
+        (
+            "3_caustics",
+            with(
+                json!({"wave_height": 0.5, "water_depth": 0.2, "surface_opacity": 0.1, "caustics_strength": 1}),
+            ),
+        ),
+        (
+            "4_floor_tiled",
+            with(
+                json!({"wave_height": 0.5, "water_depth": 0.2, "bottom_layer": "floor", "bottom_fit": "center", "bottom_scaling": 4, "surface_opacity": 0.1}),
+            ),
+        ),
+        (
+            "5_sky_mirrored",
+            with(
+                json!({"wave_height": 0.5, "water_depth": 0.2, "sky_layer": "sky", "sky_intensity": 1, "surface_opacity": 0.7}),
+            ),
+        ),
         ("6_point_light_highlight", lit),
         ("7_everything", all),
     ] {
         let (bytes, said) = picture(&dir, &p);
-        png_out::write_rgba(&out.join(format!("{name}.png")), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let mut colours: Vec<[u8; 3]> = bytes.chunks_exact(4).map(|p| [p[0], p[1], p[2]]).collect();
         colours.sort();
         colours.dedup();
         let clear = bytes.chunks_exact(4).filter(|p| p[3] == 0).count();
         t.row(
-            &format!("{name}.png: drawn without a warning, every pixel covered, {} distinct colours", colours.len()),
-            &format!("{} colours; {clear} clear pixels; warnings {said:?}", colours.len()),
+            &format!(
+                "{name}.png: drawn without a warning, every pixel covered, {} distinct colours",
+                colours.len()
+            ),
+            &format!(
+                "{} colours; {clear} clear pixels; warnings {said:?}",
+                colours.len()
+            ),
             said.is_empty() && colours.len() > 100 && clear == 0,
         );
     }
@@ -204,10 +320,15 @@ fn b511_caustics() {
 
 /// The reference shot (1920 by 1080) with `stack` on its first layer.
 fn reference(stack: J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     j["compositions"][0]["layers"][0]["effects"] = stack;
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The frame times: the reference shot (1920 by 1080, 24 a second) with Caustics on its first
@@ -226,7 +347,10 @@ fn b511_caustics_timing() {
         std::env::consts::OS,
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
-    let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
+    let (comp, root) = (
+        Id::new("comp-reference-shot"),
+        repo("Fixtures/reference_shot"),
+    );
     let base = read("fx_ca_001.json")["compositions"][0]["layers"][4]["effects"][0].clone();
     let with = |extra: J| {
         let mut e = base.clone();
@@ -238,8 +362,14 @@ fn b511_caustics_timing() {
     for (name, stack) in [
         ("no effect", json!([])),
         ("Caustics as added (no water surface)", with(json!({}))),
-        ("Caustics, the layer its own water surface, caustics 1", with(json!({"water_surface": "layer-1", "caustics_strength": 1}))),
-        ("the same with Bottom Blur 50 (the ceiling)", with(json!({"water_surface": "layer-1", "caustics_strength": 1, "bottom_blur": 50}))),
+        (
+            "Caustics, the layer its own water surface, caustics 1",
+            with(json!({"water_surface": "layer-1", "caustics_strength": 1})),
+        ),
+        (
+            "the same with Bottom Blur 50 (the ceiling)",
+            with(json!({"water_surface": "layer-1", "caustics_strength": 1, "bottom_blur": 50})),
+        ),
     ] {
         let project = reference(stack);
         let _ = write!(s, "| {name} |");
@@ -249,8 +379,17 @@ fn b511_caustics_timing() {
                     let mut log = FrameLog::new(3);
                     let t = std::time::Instant::now();
                     drop(
-                        preview::preview_frame_cached(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                            .expect("CPU frame"),
+                        preview::preview_frame_cached(
+                            &project,
+                            &comp,
+                            frame,
+                            &root,
+                            PreviewQuality::Full,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut CelCache::viewer(),
+                        )
+                        .expect("CPU frame"),
                     );
                     t.elapsed().as_secs_f64() * 1000.0
                 })
@@ -259,6 +398,8 @@ fn b511_caustics_timing() {
         }
         s.push('\n');
     }
-    let out = std::env::var("B511_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-511_timing_raw.md"));
+    let out = std::env::var("B511_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-511_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

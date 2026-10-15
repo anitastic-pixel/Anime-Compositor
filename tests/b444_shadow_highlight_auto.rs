@@ -15,7 +15,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{distance, median, on_card, reference, repo, said, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    distance, median, on_card, reference, repo, said, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -30,20 +32,55 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
     // The card handing the frame over is reported as `refused`; the rest must agree.
-    let said_gpu = said_gpu.split(", ").filter(|id| *id != DiagnosticId::GpuPreviewOnCpu.as_str()).collect::<Vec<_>>().join(", ");
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    let said_gpu = said_gpu
+        .split(", ")
+        .filter(|id| *id != DiagnosticId::GpuPreviewOnCpu.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// A Shadow/Highlight with the settings `p`, every one `p` leaves out as it is added.
@@ -65,7 +102,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32], whole: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=14 {
         let file = format!("fx_shauto_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -73,7 +114,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32], whole: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ShadowHighlight { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ShadowHighlight { .. })
+                });
             }
         }
         t.row(
@@ -91,9 +134,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -107,7 +159,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ShadowHighlight { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ShadowHighlight { .. })
+                });
                 t.row(
                     &format!("the reference shot, Shadow/Highlight {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -121,7 +175,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -133,19 +190,38 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The fixtures' drawing is `holder`, its effect `fx-1`.
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("holder")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
@@ -154,7 +230,14 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -206,7 +289,13 @@ fn b444_shadow_highlight_auto() {
         t.row(&format!("{file} is refused in a sentence naming it"), &why, why.contains(want));
     }
     let rest = r#""shadow_amount": 50, "highlight_amount": 0, "shadow_tonal_width": 50, "shadow_radius": 30, "highlight_tonal_width": 50, "highlight_radius": 30, "color_correction": 20, "midtone_contrast": 0, "black_clip": 0, "white_clip": 0"#;
-    t.shape_refused("fx_shauto_002.json", "a Shadow/Highlight whose auto amounts is a number", &format!(r#"{{{rest}, "auto_amounts": 1, "temporal_smoothing": 0, "scene_detect": "off"}}"#));
+    t.shape_refused(
+        "fx_shauto_002.json",
+        "a Shadow/Highlight whose auto amounts is a number",
+        &format!(
+            r#"{{{rest}, "auto_amounts": 1, "temporal_smoothing": 0, "scene_detect": "off"}}"#
+        ),
+    );
     t.shape_refused("fx_shauto_002.json", "a Shadow/Highlight whose temporal smoothing is a word", &format!(r#"{{{rest}, "auto_amounts": "on", "temporal_smoothing": "some", "scene_detect": "off"}}"#));
 
     t.heading("Commands");
@@ -218,16 +307,45 @@ fn b444_shadow_highlight_auto() {
         e
     };
     for (what, command) in [
-        ("auto amounts \"yes\"", set(with(&|e| if let Effect::ShadowHighlight { auto_amounts, .. } = e { *auto_amounts = "yes".into() }))),
-        ("scene detect \"maybe\"", set(with(&|e| if let Effect::ShadowHighlight { scene_detect, .. } = e { *scene_detect = "maybe".into() }))),
-        ("temporal smoothing 11", set(with(&|e| if let Effect::ShadowHighlight { temporal_smoothing, .. } = e { *temporal_smoothing = 11.0 }))),
-        ("temporal smoothing keyed to -1", keys("temporal_smoothing", &[(0, 0.0), (4, -1.0)])),
+        (
+            "auto amounts \"yes\"",
+            set(with(&|e| {
+                if let Effect::ShadowHighlight { auto_amounts, .. } = e {
+                    *auto_amounts = "yes".into()
+                }
+            })),
+        ),
+        (
+            "scene detect \"maybe\"",
+            set(with(&|e| {
+                if let Effect::ShadowHighlight { scene_detect, .. } = e {
+                    *scene_detect = "maybe".into()
+                }
+            })),
+        ),
+        (
+            "temporal smoothing 11",
+            set(with(&|e| {
+                if let Effect::ShadowHighlight {
+                    temporal_smoothing, ..
+                } = e
+                {
+                    *temporal_smoothing = 11.0
+                }
+            })),
+        ),
+        (
+            "temporal smoothing keyed to -1",
+            keys("temporal_smoothing", &[(0, 0.0), (4, -1.0)]),
+        ),
     ] {
         let refused = document.apply(command).err();
         let untouched = effect_of(&document) == base;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
@@ -235,12 +353,26 @@ fn b444_shadow_highlight_auto() {
         &mut document,
         "fx_shauto_002.json",
         vec![
-            ("auto amounts on, temporal smoothing 0.1, scene detect on", set(with(&|e| if let Effect::ShadowHighlight { auto_amounts, temporal_smoothing, scene_detect, .. } = e {
-                *auto_amounts = "on".into();
-                *temporal_smoothing = 0.1;
-                *scene_detect = "on".into();
-            }))),
-            ("temporal smoothing keyed from 0 to 0.2", keys("temporal_smoothing", &[(0, 0.0), (4, 0.2)])),
+            (
+                "auto amounts on, temporal smoothing 0.1, scene detect on",
+                set(with(&|e| {
+                    if let Effect::ShadowHighlight {
+                        auto_amounts,
+                        temporal_smoothing,
+                        scene_detect,
+                        ..
+                    } = e
+                    {
+                        *auto_amounts = "on".into();
+                        *temporal_smoothing = 0.1;
+                        *scene_detect = "on".into();
+                    }
+                })),
+            ),
+            (
+                "temporal smoothing keyed from 0 to 0.2",
+                keys("temporal_smoothing", &[(0, 0.0), (4, 0.2)]),
+            ),
         ],
     );
 
@@ -274,7 +406,17 @@ fn b444_shadow_highlight_auto() {
     t.heading("Pictures: in `verification/D-564 pictures/`");
     let dir = repo("verification/D-564 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     let luma = |p: &[u8]| 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
     let mean = |v: &[u8]| {
         let l: Vec<f64> = v.chunks_exact(4).filter(|p| p[3] > 0).map(luma).collect();
@@ -282,12 +424,18 @@ fn b444_shadow_highlight_auto() {
     };
     write("town.png", TOWN, &town());
     // The street at half its brightness, a picture lit from behind.
-    let dark: Vec<u8> = town().chunks_exact(4).flat_map(|p| [p[0] / 2, p[1] / 2, p[2] / 2, 255]).collect();
+    let dark: Vec<u8> = town()
+        .chunks_exact(4)
+        .flat_map(|p| [p[0] / 2, p[1] / 2, p[2] / 2, 255])
+        .collect();
     write("dark_town.png", TOWN, &dark);
     let street = |asset: &str, p: J| picture(&dir, asset, TOWN, json!([fx("fx-0-0", &p)]));
     let (before, s0) = picture(&dir, "town.png", TOWN, json!([]));
     let (added, s1) = street("town.png", json!({}));
-    let (auto, s2) = street("town.png", json!({"auto_amounts": "on", "shadow_amount": 90}));
+    let (auto, s2) = street(
+        "town.png",
+        json!({"auto_amounts": "on", "shadow_amount": 90}),
+    );
     write("1_before.png", TOWN, &before);
     write("2_as_added.png", TOWN, &added);
     write("3_auto.png", TOWN, &auto);
@@ -300,7 +448,10 @@ fn b444_shadow_highlight_auto() {
     let (dark_auto, s4) = street("dark_town.png", json!({"auto_amounts": "on"}));
     write("4_dark_before.png", TOWN, &dark_before);
     write("5_dark_auto.png", TOWN, &dark_auto);
-    let (lift, dark_lift) = (mean(&auto) - mean(&before), mean(&dark_auto) - mean(&dark_before));
+    let (lift, dark_lift) = (
+        mean(&auto) - mean(&before),
+        mean(&dark_auto) - mean(&dark_before),
+    );
     t.row(
         "4_dark_before.png and 5_dark_auto.png: the street at half its brightness, and with Auto Amounts on: the darker picture is lifted more than the street was (whose auto highlight amount pulls its lightest parts down a little); both draw cleanly",
         &format!("{s3:?} {s4:?}; mean brightness raised {dark_lift:.2} on the dark street against {lift:.2} on the street"),
@@ -343,17 +494,37 @@ fn b444_shadow_highlight_auto_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B444_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-444_timing_raw.md"));
+    let out = std::env::var("B444_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-444_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

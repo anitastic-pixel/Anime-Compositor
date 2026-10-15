@@ -22,7 +22,13 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// `[segments, rotation, size]`, the centre and the mirroring.
 fn kaleidoscope(n: [f64; 3], center: [f64; 2], mode: &str) -> Effect {
-    Effect::Kaleidoscope { segments: n[0], rotation: n[1], size: n[2], center, mode: mode.to_string() }
+    Effect::Kaleidoscope {
+        segments: n[0],
+        rotation: n[1],
+        size: n[2],
+        center,
+        mode: mode.to_string(),
+    }
 }
 
 const START: [f64; 3] = [6.0, 0.0, 100.0];
@@ -59,7 +65,10 @@ fn drawing() -> Vec<u8> {
 /// same enlarged three times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/kaleidoscope/fx_kaleido_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/kaleidoscope/fx_kaleido_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("drawing.png");
@@ -73,9 +82,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -120,7 +140,11 @@ fn b140_kaleidoscope() {
 
     t.heading("How far it reaches");
     let got = kaleidoscope(START, [50.0, 50.0], "mirror").bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = kaleidoscope([8.0, 30.0, 200.0], [25.0, 75.0], "repeat");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -167,38 +191,103 @@ fn b140_kaleidoscope() {
     t.refused(
         &mut document,
         vec![
-            ("segments 1", set(kaleidoscope([1.0, 0.0, 100.0], [50.0, 50.0], "mirror"))),
-            ("segments 33", set(kaleidoscope([33.0, 0.0, 100.0], [50.0, 50.0], "mirror"))),
-            ("rotation -3601", set(kaleidoscope([6.0, -3601.0, 100.0], [50.0, 50.0], "mirror"))),
-            ("size 9", set(kaleidoscope([6.0, 0.0, 9.0], [50.0, 50.0], "mirror"))),
-            ("size 1001", set(kaleidoscope([6.0, 0.0, 1001.0], [50.0, 50.0], "mirror"))),
-            ("centre down -1001", set(kaleidoscope(START, [50.0, -1001.0], "mirror"))),
-            ("mirroring \"flower\"", set(kaleidoscope(START, [50.0, 50.0], "flower"))),
-            ("mirroring \"Mirror\", written with a capital", set(kaleidoscope(START, [50.0, 50.0], "Mirror"))),
-            ("segments keyed to 40", keys("segments", &[(0, &[6.0]), (4, &[40.0])])),
-            ("centre keyed to 2000 across", keys("center", &[(0, &[50.0, 50.0]), (4, &[2000.0, 50.0])])),
+            (
+                "segments 1",
+                set(kaleidoscope([1.0, 0.0, 100.0], [50.0, 50.0], "mirror")),
+            ),
+            (
+                "segments 33",
+                set(kaleidoscope([33.0, 0.0, 100.0], [50.0, 50.0], "mirror")),
+            ),
+            (
+                "rotation -3601",
+                set(kaleidoscope([6.0, -3601.0, 100.0], [50.0, 50.0], "mirror")),
+            ),
+            (
+                "size 9",
+                set(kaleidoscope([6.0, 0.0, 9.0], [50.0, 50.0], "mirror")),
+            ),
+            (
+                "size 1001",
+                set(kaleidoscope([6.0, 0.0, 1001.0], [50.0, 50.0], "mirror")),
+            ),
+            (
+                "centre down -1001",
+                set(kaleidoscope(START, [50.0, -1001.0], "mirror")),
+            ),
+            (
+                "mirroring \"flower\"",
+                set(kaleidoscope(START, [50.0, 50.0], "flower")),
+            ),
+            (
+                "mirroring \"Mirror\", written with a capital",
+                set(kaleidoscope(START, [50.0, 50.0], "Mirror")),
+            ),
+            (
+                "segments keyed to 40",
+                keys("segments", &[(0, &[6.0]), (4, &[40.0])]),
+            ),
+            (
+                "centre keyed to 2000 across",
+                keys("center", &[(0, &[50.0, 50.0]), (4, &[2000.0, 50.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_kaleido_001.json",
         vec![
-            ("every number at its bottom,", set(kaleidoscope([2.0, -3600.0, 10.0], [-1000.0, -1000.0], "repeat"))),
-            ("every number at its top,", set(kaleidoscope([32.0, 3600.0, 1000.0], [1000.0, 1000.0], "mirror"))),
-            ("segments keyed from 2 to 12", keys("segments", &[(0, &[2.0]), (4, &[12.0])])),
-            ("centre keyed across the drawing", keys("center", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])])),
+            (
+                "every number at its bottom,",
+                set(kaleidoscope(
+                    [2.0, -3600.0, 10.0],
+                    [-1000.0, -1000.0],
+                    "repeat",
+                )),
+            ),
+            (
+                "every number at its top,",
+                set(kaleidoscope(
+                    [32.0, 3600.0, 1000.0],
+                    [1000.0, 1000.0],
+                    "mirror",
+                )),
+            ),
+            (
+                "segments keyed from 2 to 12",
+                keys("segments", &[(0, &[2.0]), (4, &[12.0])]),
+            ),
+            (
+                "centre keyed across the drawing",
+                keys("center", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_kaleido_001.json", 0), ("fx_kaleido_007.json", 0), ("fx_kaleido_010.json", 2), ("fx_kaleido_013.json", 0)]);
+    t.tiles(&[
+        ("fx_kaleido_001.json", 0),
+        ("fx_kaleido_007.json", 0),
+        ("fx_kaleido_010.json", 2),
+        ("fx_kaleido_013.json", 0),
+    ]);
 
-    t.heading("Pictures: a made-up drawing, in `verification/B-140 pictures/`, three times enlarged");
+    t.heading(
+        "Pictures: a made-up drawing, in `verification/B-140 pictures/`, three times enlarged",
+    );
     let dir = effect_table::repo("verification/B-140 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -221,24 +310,43 @@ fn b140_kaleidoscope() {
 
     let (before, big, said) = picture(&dir, stack(&[]));
     write("before.png", &big, 3);
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (six, big, said) = picture(&dir, stack(&[(START, [50.0, 50.0], "mirror")]));
     write("six_mirror.png", &big, 3);
-    let (kept, all) = (inside(0.0, 60.0, middle).filter(|&p| near(px(&six, p), px(&before, p))).count(), inside(0.0, 60.0, middle).count());
-    let halves = every().filter(|&(x, y)| near(px(&six, (x, y)), px(&six, (w - 1 - x, y)))).count();
+    let (kept, all) = (
+        inside(0.0, 60.0, middle)
+            .filter(|&p| near(px(&six, p), px(&before, p)))
+            .count(),
+        inside(0.0, 60.0, middle).count(),
+    );
+    let halves = every()
+        .filter(|&(x, y)| near(px(&six, (x, y)), px(&six, (w - 1 - x, y))))
+        .count();
     t.row(
         "six_mirror.png, as it starts, six wedges mirrored: the wedge from straight up clockwise \
          through 60 degrees is the drawing itself, every pixel inside it within 1 of before.png; \
          the left half the right half mirrored, every pixel; nothing clear; draws cleanly",
-        &format!("{said:?}, {kept} of {all} in the wedge, {halves} of {} mirrored, {} clear", w * h, clear(&six)),
+        &format!(
+            "{said:?}, {kept} of {all} in the wedge, {halves} of {} mirrored, {} clear",
+            w * h,
+            clear(&six)
+        ),
         said.is_empty() && all > 0 && kept == all && halves == w * h && clear(&six) == 0,
     );
 
     let (repeat, big, said) = picture(&dir, stack(&[(START, [50.0, 50.0], "repeat")]));
     write("six_repeat.png", &big, 3);
-    let same = inside(0.0, 60.0, middle).filter(|&p| px(&repeat, p) == px(&six, p)).count();
-    let next = inside(60.0, 60.0, middle).filter(|&p| px(&repeat, p) != px(&six, p)).count();
+    let same = inside(0.0, 60.0, middle)
+        .filter(|&p| px(&repeat, p) == px(&six, p))
+        .count();
+    let next = inside(60.0, 60.0, middle)
+        .filter(|&p| px(&repeat, p) != px(&six, p))
+        .count();
     t.row(
         "six_repeat.png, Repeat: the first wedge the same as six_mirror.png, every pixel, and the \
          next wedge different from it in most pixels, as it is turned rather than mirrored; nothing \
@@ -249,17 +357,30 @@ fn b140_kaleidoscope() {
 
     let (twelve, big, said) = picture(&dir, stack(&[([12.0, 0.0, 100.0], [50.0, 50.0], "mirror")]));
     write("twelve.png", &big, 3);
-    let (kept, all) = (inside(0.0, 30.0, middle).filter(|&p| near(px(&twelve, p), px(&before, p))).count(), inside(0.0, 30.0, middle).count());
+    let (kept, all) = (
+        inside(0.0, 30.0, middle)
+            .filter(|&p| near(px(&twelve, p), px(&before, p)))
+            .count(),
+        inside(0.0, 30.0, middle).count(),
+    );
     t.row(
         "twelve.png, 12 segments: a finer pattern, its first wedge, 30 degrees wide, the drawing \
          itself; nothing clear; draws cleanly",
-        &format!("{said:?}, {kept} of {all} in the wedge, {} clear", clear(&twelve)),
+        &format!(
+            "{said:?}, {kept} of {all} in the wedge, {} clear",
+            clear(&twelve)
+        ),
         said.is_empty() && all > 0 && kept == all && clear(&twelve) == 0 && twelve != six,
     );
 
     let (spun, big, said) = picture(&dir, stack(&[([6.0, 30.0, 100.0], [50.0, 50.0], "mirror")]));
     write("rotation_30.png", &big, 3);
-    let (kept, all) = (inside(30.0, 60.0, middle).filter(|&p| near(px(&spun, p), px(&before, p))).count(), inside(30.0, 60.0, middle).count());
+    let (kept, all) = (
+        inside(30.0, 60.0, middle)
+            .filter(|&p| near(px(&spun, p), px(&before, p)))
+            .count(),
+        inside(30.0, 60.0, middle).count(),
+    );
     t.row(
         "rotation_30.png, rotation 30: the pattern turned, the wedge from 30 degrees clockwise \
          through 90 now the drawing itself; draws cleanly",
@@ -278,7 +399,9 @@ fn b140_kaleidoscope() {
 
     let (aside, big, said) = picture(&dir, stack(&[(START, [25.0, 50.0], "mirror")]));
     write("centre_25.png", &big, 3);
-    let halves = every().filter(|&(x, y)| x < 80 && near(px(&aside, (x, y)), px(&aside, (79 - x, y)))).count();
+    let halves = every()
+        .filter(|&(x, y)| x < 80 && near(px(&aside, (x, y)), px(&aside, (79 - x, y))))
+        .count();
     t.row(
         "centre_25.png, the centre a quarter of the way across: the pattern turns round that point, \
          the strip left of it the strip right of it mirrored, every pixel of the left half; nothing \

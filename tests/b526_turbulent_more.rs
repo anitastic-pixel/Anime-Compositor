@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,14 +43,20 @@ fn fx(id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// `effects` on the street (in `dir`) at `frame`, drawn by the processor, straight 8-bit, with
 /// what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -64,8 +71,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -102,10 +121,22 @@ fn b526_turbulent_more() {
     t.root = root;
 
     t.heading("The file");
-    let all: Vec<String> = (33..=60).map(|n| format!("fx_turbnoise_{n:03}.json")).collect();
+    let all: Vec<String> = (33..=60)
+        .map(|n| format!("fx_turbnoise_{n:03}.json"))
+        .collect();
     t.round_trips(&all.iter().map(String::as_str).collect::<Vec<_>>());
     let old = t.saved_parameters("fx_turbnoise_001.json");
-    let new_keys = ["overflow", "rotation", "uniform_scaling", "perspective_offset", "sub_influence", "sub_scaling", "sub_rotation", "sub_offset", "center_subscale"];
+    let new_keys = [
+        "overflow",
+        "rotation",
+        "uniform_scaling",
+        "perspective_offset",
+        "sub_influence",
+        "sub_scaling",
+        "sub_rotation",
+        "sub_offset",
+        "center_subscale",
+    ];
     t.row(
         "fx_turbnoise_001.json, from before D-647, opens as added and saves none of the nine new settings",
         &old.to_string(),
@@ -130,7 +161,11 @@ fn b526_turbulent_more() {
             && saved["center_subscale"] == "on",
     );
     let saved = t.saved_parameters("fx_turbnoise_037.json");
-    t.row("fx_turbnoise_037.json is saved with Rotation's keys kept", &saved["rotation"].to_string(), saved["rotation"]["keyframes"][1]["value"] == json!(90));
+    t.row(
+        "fx_turbnoise_037.json is saved with Rotation's keys kept",
+        &saved["rotation"].to_string(),
+        saved["rotation"]["keyframes"][1]["value"] == json!(90),
+    );
     for (file, words) in [
         ("fx_turbnoise_056.json", ["overflow", "\"hdr\""]),
         ("fx_turbnoise_057.json", ["sub_scaling", "5"]),
@@ -139,9 +174,15 @@ fn b526_turbulent_more() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         t.row(
-            &format!("{file} is refused in a sentence naming Turbulent Noise, {} and {}", words[0], words[1]),
+            &format!(
+                "{file} is refused in a sentence naming Turbulent Noise, {} and {}",
+                words[0], words[1]
+            ),
             &why,
-            why.contains("Turbulent Noise") && words.iter().all(|w| why.replace('_', " ").contains(&w.replace('_', " "))),
+            why.contains("Turbulent Noise")
+                && words
+                    .iter()
+                    .all(|w| why.replace('_', " ").contains(&w.replace('_', " "))),
         );
     }
 
@@ -149,8 +190,22 @@ fn b526_turbulent_more() {
     let mut document = t.load("fx_turbnoise_002.json").document;
     let with = |f: fn(&mut Effect)| changed(&t, "fx_turbnoise_002.json", f);
     let refused = vec![
-        ("overflow \"hdr\"", set(with(|e| if let Effect::TurbulentNoise { more, .. } = e { more.overflow = "hdr".into() }))),
-        ("sub scaling 5", set(with(|e| if let Effect::TurbulentNoise { more, .. } = e { more.sub_scaling = 5.0 }))),
+        (
+            "overflow \"hdr\"",
+            set(with(|e| {
+                if let Effect::TurbulentNoise { more, .. } = e {
+                    more.overflow = "hdr".into()
+                }
+            })),
+        ),
+        (
+            "sub scaling 5",
+            set(with(|e| {
+                if let Effect::TurbulentNoise { more, .. } = e {
+                    more.sub_scaling = 5.0
+                }
+            })),
+        ),
     ];
     let taken = vec![(
         "rotation -45, sub rotation 30, center subscale on, wrap back, difference",
@@ -168,14 +223,24 @@ fn b526_turbulent_more() {
     t.taken(&mut document, "fx_turbnoise_002.json", taken);
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_turbnoise_036.json", 0), ("fx_turbnoise_037.json", 2), ("fx_turbnoise_046.json", 0), ("fx_turbnoise_047.json", 0), ("fx_turbnoise_054.json", 0)]);
+    t.tiles(&[
+        ("fx_turbnoise_036.json", 0),
+        ("fx_turbnoise_037.json", 2),
+        ("fx_turbnoise_046.json", 0),
+        ("fx_turbnoise_047.json", 0),
+        ("fx_turbnoise_054.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     let comp = Id::new(MAIN);
     for n in 33..=60u32 {
         let file = format!("fx_turbnoise_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -183,7 +248,9 @@ fn b526_turbulent_more() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::TurbulentNoise { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::TurbulentNoise { .. })
+                });
             }
         }
         // The refused ones (056 to 059) leave nothing for the card; 060 is drawn since D-731 (Hue).
@@ -197,12 +264,23 @@ fn b526_turbulent_more() {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
-    let as_added = cpu(&reference(|id| json!([fx(&format!("b526-{id}"), &json!({"size": 60}))])));
+    let as_added = cpu(&reference(|id| {
+        json!([fx(&format!("b526-{id}"), &json!({"size": 60}))])
+    }));
     for (what, p) in [
         ("Rotation 30, Offset (40, -25) with Perspective Offset", json!({"size": 60, "rotation": 30, "offset": [40, -25], "perspective_offset": "on"})),
         (
@@ -237,7 +315,17 @@ fn b526_turbulent_more() {
     t.heading("Pictures: the street, in `verification/D-647 pictures/`");
     let dir = repo("verification/D-647 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let street = |p: J| picture(&dir, json!([fx("fx-0-0", &p)]), 0);
     let (base, said) = street(json!({"size": 40}));
@@ -296,17 +384,37 @@ fn b526_turbulent_more_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B526_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-526_timing_raw.md"));
+    let out = std::env::var("B526_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-526_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

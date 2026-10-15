@@ -57,9 +57,10 @@ fn inside(x: usize, y: usize) -> bool {
 /// The sky with `settings` on it at `frame`, straight 8-bit; and the same enlarged three times
 /// over a grey check where it is clear.
 fn picture(dir: &Path, settings: J, frame: i32) -> (Vec<u8>, Vec<u8>) {
-    let mut project: J =
-        serde_json::from_str(&fs::read_to_string(effect_table::repo("Fixtures/snowfall/fx_snow_001.json")).unwrap())
-            .unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(effect_table::repo("Fixtures/snowfall/fx_snow_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("sky.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(PLATE.0);
@@ -74,15 +75,29 @@ fn picture(dir: &Path, settings: J, frame: i32) -> (Vec<u8>, Vec<u8>) {
     layer["effects"][0]["parameters"] = settings;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), frame, dir, 64, &mut log)
-        .expect("the picture draws");
-    assert!(log.finish().is_empty(), "the picture draws without a warning");
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    assert!(
+        log.finish().is_empty(),
+        "the picture draws without a warning"
+    );
     let bytes = drawn.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
-            let check = if (x / 12 + y / 12) % 2 == 0 { 96.0 } else { 128.0 };
+            let check = if (x / 12 + y / 12) % 2 == 0 {
+                96.0
+            } else {
+                128.0
+            };
             let a = bytes[i + 3] as f64 / 255.0;
             let over = |c: u8| (c as f64 * a + check * (1.0 - a)).round() as u8;
             [over(bytes[i]), over(bytes[i + 1]), over(bytes[i + 2]), 255]
@@ -119,8 +134,15 @@ fn b139_snowfall() {
 
     t.heading("How far it reaches");
     let got = with(2, 100.0).bounds_expansion();
-    t.row("size 100 grows the drawing's bounds by nothing", &got.to_string(), got == 0);
-    let mut draft = snowfall([50.0, 32.0, 6.0, 50.0, 2.0, -1.0, 3.0, 48.0, 5.0, 100.0], "#ffffff");
+    t.row(
+        "size 100 grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
+    let mut draft = snowfall(
+        [50.0, 32.0, 6.0, 50.0, 2.0, -1.0, 3.0, 48.0, 5.0, 100.0],
+        "#ffffff",
+    );
     draft.scale_distances(|d| d * 0.5);
     t.row(
         "a half-size draft preview halves the spacing, size, speed, wind and wiggle, and nothing else",
@@ -180,7 +202,10 @@ fn b139_snowfall() {
             ("opacity 101", set(with(9, 101.0))),
             ("colour \"#fffff\"", set(snowfall(START, "#fffff"))),
             ("colour \"white\"", set(snowfall(START, "white"))),
-            ("opacity keyed to 150", keys("opacity", &[(0, &[100.0]), (4, &[150.0])])),
+            (
+                "opacity keyed to 150",
+                keys("opacity", &[(0, &[100.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -189,31 +214,59 @@ fn b139_snowfall() {
         vec![
             (
                 "every number at its bottom,",
-                set(snowfall([0.0, 2.0, 0.0, 0.0, 0.0, -1000.0, 0.0, 1.0, 0.0, 0.0], "#000000")),
+                set(snowfall(
+                    [0.0, 2.0, 0.0, 0.0, 0.0, -1000.0, 0.0, 1.0, 0.0, 0.0],
+                    "#000000",
+                )),
             ),
             (
                 "every number at its top,",
                 set(snowfall(
-                    [100.0, 1000.0, 100.0, 100.0, 1000.0, 1000.0, 100.0, 1000.0, 100000.0, 100.0],
+                    [
+                        100.0, 1000.0, 100.0, 100.0, 1000.0, 1000.0, 100.0, 1000.0, 100000.0, 100.0,
+                    ],
                     "#ffffff",
                 )),
             ),
-            ("opacity keyed from 0 to 100", keys("opacity", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "opacity keyed from 0 to 100",
+                keys("opacity", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_snow_002.json", 0), ("fx_snow_010.json", 4), ("fx_snow_020.json", 0)]);
+    t.tiles(&[
+        ("fx_snow_002.json", 0),
+        ("fx_snow_010.json", 4),
+        ("fx_snow_020.json", 0),
+    ]);
 
-    t.heading("Pictures: snow on a night sky, in `verification/B-139 pictures/`, three times enlarged");
+    t.heading(
+        "Pictures: snow on a night sky, in `verification/B-139 pictures/`, three times enlarged",
+    );
     let dir = effect_table::repo("verification/B-139 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     let sky: Vec<u8> = (0..w * h)
-        .flat_map(|i| if inside(i % w, i / w) { [SKY[0], SKY[1], SKY[2], 255] } else { [0; 4] })
+        .flat_map(|i| {
+            if inside(i % w, i / w) {
+                [SKY[0], SKY[1], SKY[2], 255]
+            } else {
+                [0; 4]
+            }
+        })
         .collect();
     write("sky.png", &sky, 1);
     // How many pixels of the sky the snow lights, and whether any outside it shows.
@@ -225,10 +278,30 @@ fn b139_snowfall() {
         (bytes, what.to_string())
     };
     let pictures = [
-        shot("start_frame_0.png", "as it starts, frame 0", settings(&[]), 0),
-        shot("start_frame_24.png", "as it starts, frame 24", settings(&[]), 24),
-        shot("depth_0.png", "scene depth 0", settings(&[("depth", J::from(0))]), 0),
-        shot("depth_100.png", "scene depth 100", settings(&[("depth", J::from(100))]), 0),
+        shot(
+            "start_frame_0.png",
+            "as it starts, frame 0",
+            settings(&[]),
+            0,
+        ),
+        shot(
+            "start_frame_24.png",
+            "as it starts, frame 24",
+            settings(&[]),
+            24,
+        ),
+        shot(
+            "depth_0.png",
+            "scene depth 0",
+            settings(&[("depth", J::from(0))]),
+            0,
+        ),
+        shot(
+            "depth_100.png",
+            "scene depth 100",
+            settings(&[("depth", J::from(100))]),
+            0,
+        ),
         shot(
             "blizzard.png",
             "a blizzard: density 100, spacing 12, size 3, wind 4, speed 6",
@@ -246,7 +319,11 @@ fn b139_snowfall() {
         let n = lit(bytes);
         t.row(
             &format!("{what}: snow lights some of the sky, and nothing shows outside it"),
-            &format!("{n} of {} sky pixels lit; spilt: {}", 140 * 70, spilt(bytes)),
+            &format!(
+                "{n} of {} sky pixels lit; spilt: {}",
+                140 * 70,
+                spilt(bytes)
+            ),
             n > 0 && !spilt(bytes),
         );
     }

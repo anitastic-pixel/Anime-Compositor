@@ -12,7 +12,14 @@ use effect_table::{keys, set, Table};
 
 use anime_compositor::effects::Effect;
 
-fn rim(color: &str, direction: f64, width: f64, softness: f64, intensity: f64, blend: &str) -> Effect {
+fn rim(
+    color: &str,
+    direction: f64,
+    width: f64,
+    softness: f64,
+    intensity: f64,
+    blend: &str,
+) -> Effect {
     Effect::RimLight {
         color: color.into(),
         direction,
@@ -91,24 +98,60 @@ fn b60_rim_light() {
     t.refused(
         &mut document,
         vec![
-            ("width 101", set(rim("#ffffff", 45.0, 101.0, 1.0, 100.0, "normal"))),
-            ("width -1", set(rim("#ffffff", 45.0, -1.0, 1.0, 100.0, "normal"))),
-            ("softness 101", set(rim("#ffffff", 45.0, 3.0, 101.0, 100.0, "normal"))),
-            ("intensity -1", set(rim("#ffffff", 45.0, 3.0, 1.0, -1.0, "normal"))),
-            ("intensity 101", set(rim("#ffffff", 45.0, 3.0, 1.0, 101.0, "normal"))),
-            ("direction -3601", set(rim("#ffffff", -3601.0, 3.0, 1.0, 100.0, "normal"))),
-            ("blend \"overlay\"", set(rim("#ffffff", 45.0, 3.0, 1.0, 100.0, "overlay"))),
-            ("colour \"#fff\"", set(rim("#fff", 45.0, 3.0, 1.0, 100.0, "normal"))),
-            ("width keyed to 150", keys("width", &[(0, &[3.0]), (4, &[150.0])])),
+            (
+                "width 101",
+                set(rim("#ffffff", 45.0, 101.0, 1.0, 100.0, "normal")),
+            ),
+            (
+                "width -1",
+                set(rim("#ffffff", 45.0, -1.0, 1.0, 100.0, "normal")),
+            ),
+            (
+                "softness 101",
+                set(rim("#ffffff", 45.0, 3.0, 101.0, 100.0, "normal")),
+            ),
+            (
+                "intensity -1",
+                set(rim("#ffffff", 45.0, 3.0, 1.0, -1.0, "normal")),
+            ),
+            (
+                "intensity 101",
+                set(rim("#ffffff", 45.0, 3.0, 1.0, 101.0, "normal")),
+            ),
+            (
+                "direction -3601",
+                set(rim("#ffffff", -3601.0, 3.0, 1.0, 100.0, "normal")),
+            ),
+            (
+                "blend \"overlay\"",
+                set(rim("#ffffff", 45.0, 3.0, 1.0, 100.0, "overlay")),
+            ),
+            (
+                "colour \"#fff\"",
+                set(rim("#fff", 45.0, 3.0, 1.0, 100.0, "normal")),
+            ),
+            (
+                "width keyed to 150",
+                keys("width", &[(0, &[3.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_rim_001.json",
         vec![
-            ("width, softness and intensity 100, direction 3600, the tops,", set(rim("#ffb040", 3600.0, 100.0, 100.0, 100.0, "add"))),
-            ("width, softness and intensity 0, direction -3600, the bottoms,", set(rim("#ffffff", -3600.0, 0.0, 0.0, 0.0, "multiply"))),
-            ("direction keyed from 0 to 180", keys("direction", &[(0, &[0.0]), (4, &[180.0])])),
+            (
+                "width, softness and intensity 100, direction 3600, the tops,",
+                set(rim("#ffb040", 3600.0, 100.0, 100.0, 100.0, "add")),
+            ),
+            (
+                "width, softness and intensity 0, direction -3600, the bottoms,",
+                set(rim("#ffffff", -3600.0, 0.0, 0.0, 0.0, "multiply")),
+            ),
+            (
+                "direction keyed from 0 to 180",
+                keys("direction", &[(0, &[0.0]), (4, &[180.0])]),
+            ),
         ],
     );
 

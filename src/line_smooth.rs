@@ -43,10 +43,14 @@ pub(crate) fn line_smooth(source: &mut WorkingBuffer, softness: f64, threshold: 
     // Which pixels mix, and with what, is read from the source alone, so every pair of rows and
     // every pair of columns is worked out at once. The mixes are then made one at a time in the
     // order one thread would make them, so the picture is the same to the bit.
-    let rows: Vec<Vec<Mix>> =
-        (0..h - 1).into_par_iter().map(|y| s.line(y, w, h, y * w, (y + 1) * w, 1, w, true)).collect();
-    let cols: Vec<Vec<Mix>> =
-        (0..w - 1).into_par_iter().map(|x| s.line(x, h, w, x, x + 1, w, 1, false)).collect();
+    let rows: Vec<Vec<Mix>> = (0..h - 1)
+        .into_par_iter()
+        .map(|y| s.line(y, w, h, y * w, (y + 1) * w, 1, w, true))
+        .collect();
+    let cols: Vec<Vec<Mix>> = (0..w - 1)
+        .into_par_iter()
+        .map(|x| s.line(x, h, w, x, x + 1, w, 1, false))
+        .collect();
     let mut o = s.p.clone();
     let mut touched = vec![false; o.len()];
     for (out, other, area) in rows.into_iter().chain(cols).flatten() {
@@ -57,11 +61,15 @@ pub(crate) fn line_smooth(source: &mut WorkingBuffer, softness: f64, threshold: 
         }
     }
     // Only a mixed pixel comes back through the curve; every other keeps its value exactly.
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        if touched[i] {
-            px.copy_from_slice(&working(o[i]));
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            if touched[i] {
+                px.copy_from_slice(&working(o[i]));
+            }
+        });
 }
 
 /// D-86: the colour as a drawing program stores it, straight through the sRGB curve and
@@ -112,7 +120,16 @@ impl Smooth {
 
     /// OpenToonz's checkNeighbourHood: when both diagonals could be joined, join the minority.
     #[allow(clippy::too_many_arguments)]
-    fn neighbourhood(&self, x: isize, y: isize, pix: isize, lx: isize, ly: isize, dx: isize, dy: isize) -> bool {
+    fn neighbourhood(
+        &self,
+        x: isize,
+        y: isize,
+        pix: isize,
+        lx: isize,
+        ly: isize,
+        dx: isize,
+        dy: isize,
+    ) -> bool {
         let (mut c1, mut c2) = (0, 0);
         let mut count = |a: isize, b: isize| {
             c1 += self.eq(pix - dx, a) as i32 + self.eq(pix - dx, b) as i32;
@@ -136,7 +153,16 @@ impl Smooth {
     /// OpenToonz's filterLine: the pixels under the slope take the other line's colour by the
     /// area of them the slope leaves on its side.
     #[allow(clippy::too_many_arguments)]
-    fn filter(m: &mut Vec<Mix>, mut in_l: isize, mut in_u: isize, mut out: isize, ll: isize, step: isize, slope: f64, lower: bool) {
+    fn filter(
+        m: &mut Vec<Mix>,
+        mut in_l: isize,
+        mut in_u: isize,
+        mut out: isize,
+        ll: isize,
+        step: isize,
+        slope: f64,
+        lower: bool,
+    ) {
         let mut h0 = 0.5;
         let base = h0 / slope;
         let end = (base.floor() as isize).min(ll);
@@ -149,14 +175,29 @@ impl Smooth {
             h0 = h1;
         }
         if end < ll {
-            mix(m, out, if lower { in_u } else { in_l }, 0.5 * (base - end as f64) * h0);
+            mix(
+                m,
+                out,
+                if lower { in_u } else { in_l },
+                0.5 * (base - end as f64) * h0,
+            );
         }
     }
 
     /// OpenToonz's processLine for one pair of rows (or, turned, of columns), with D-86's corner
     /// guard at each end of a run.
     #[allow(clippy::too_many_arguments)]
-    fn line(&self, r: isize, lx: isize, ly: isize, l_row: isize, u_row: isize, dx: isize, dy: isize, do1: bool) -> Vec<Mix> {
+    fn line(
+        &self,
+        r: isize,
+        lx: isize,
+        ly: isize,
+        l_row: isize,
+        u_row: isize,
+        dx: isize,
+        dy: isize,
+        do1: bool,
+    ) -> Vec<Mix> {
         let mut m = Vec::new();
         let s = self;
         let r = r + 1;
@@ -186,12 +227,13 @@ impl Smooth {
         let corner = |s: &Self, len: isize, al: isize, bl: isize, au: isize, bu: isize| {
             len >= CORNER && crossing(s, al, bl, au, bu) >= CORNER
         };
-        let check_length = |s: &Self, len: isize, l1: isize, u1: isize, l2: isize, u2: isize, unite_u: bool| {
-            len > 1
-                || do1
-                    && (unite_u && r > 1 && !(s.eq(l1, l1 - dy) && s.eq(l2, l2 - dy))
-                        || r < ly - 1 && !(s.eq(u1, u1 + dy) && s.eq(u2, u2 + dy)))
-        };
+        let check_length =
+            |s: &Self, len: isize, l1: isize, u1: isize, l2: isize, u2: isize, unite_u: bool| {
+                len > 1
+                    || do1
+                        && (unite_u && r > 1 && !(s.eq(l1, l1 - dy) && s.eq(l2, l2 - dy))
+                            || r < ly - 1 && !(s.eq(u1, u1 + dy) && s.eq(u2, u2 + dy)))
+            };
         let right = |m: &mut Vec<Mix>, ll: isize, lr: isize, whole: bool| {
             let ur = lr + off;
             let len = (lr - ll) / dx;

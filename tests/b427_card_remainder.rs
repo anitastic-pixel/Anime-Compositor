@@ -31,7 +31,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -45,9 +50,24 @@ fn said(log: FrameLog) -> String {
     ids.join(", ")
 }
 
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -56,15 +76,41 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 }
 
 /// The processor's and the card's frame, as sRGB bytes, and whether the card refused.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> (Vec<u8>, Vec<u8>, bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (Vec<u8>, Vec<u8>, bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
     (c.to_srgb8_straight(), g, refused, said_cpu, said_gpu)
@@ -72,13 +118,18 @@ fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, qu
 
 /// The reference shot with `type_id` of `parameters` on its first three layers.
 fn reference(type_id: &str, parameters: &J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = json!([{"instance_id": format!("b427-{id}"), "type_id": type_id, "enabled": true, "parameters": parameters}]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 fn noise_alpha(phase: f64, cycle: f64) -> J {
@@ -115,14 +166,54 @@ fn b427_card_remainder() {
     let root = effect_table::repo("Fixtures/reference_shot");
     let mut gpu = Gpu::new().expect("a usable card");
     let cases: Vec<(&str, &str, J, J)> = vec![
-        ("Noise Alpha, phase -100, cycle 3", "core.noise_alpha", noise_alpha(-100.0, 3.0), noise_alpha(-100.0, 0.0)),
-        ("Noise Alpha, phase -1000, cycle 7", "core.noise_alpha", noise_alpha(-1000.0, 7.0), noise_alpha(-1000.0, 0.0)),
-        ("Noise Alpha, phase -100, cycle 2 (agreed before)", "core.noise_alpha", noise_alpha(-100.0, 2.0), noise_alpha(-100.0, 0.0)),
-        ("Noise Alpha, phase 500, cycle 3 (agreed before)", "core.noise_alpha", noise_alpha(500.0, 3.0), noise_alpha(500.0, 0.0)),
-        ("Fractal Noise, evolution -500, cycle 3", "core.fractal_noise", fractal_noise(-500.0, 3.0, false), fractal_noise(-500.0, 0.0, false)),
-        ("Fractal Noise, turbulent block, evolution -2000, cycle 5", "core.fractal_noise", fractal_noise(-2000.0, 5.0, true), fractal_noise(-2000.0, 0.0, true)),
-        ("Fractal Noise, evolution -500, cycle 2 (agreed before)", "core.fractal_noise", fractal_noise(-500.0, 2.0, false), fractal_noise(-500.0, 0.0, false)),
-        ("Fractal Noise, evolution 1500, cycle 3 (agreed before)", "core.fractal_noise", fractal_noise(1500.0, 3.0, false), fractal_noise(1500.0, 0.0, false)),
+        (
+            "Noise Alpha, phase -100, cycle 3",
+            "core.noise_alpha",
+            noise_alpha(-100.0, 3.0),
+            noise_alpha(-100.0, 0.0),
+        ),
+        (
+            "Noise Alpha, phase -1000, cycle 7",
+            "core.noise_alpha",
+            noise_alpha(-1000.0, 7.0),
+            noise_alpha(-1000.0, 0.0),
+        ),
+        (
+            "Noise Alpha, phase -100, cycle 2 (agreed before)",
+            "core.noise_alpha",
+            noise_alpha(-100.0, 2.0),
+            noise_alpha(-100.0, 0.0),
+        ),
+        (
+            "Noise Alpha, phase 500, cycle 3 (agreed before)",
+            "core.noise_alpha",
+            noise_alpha(500.0, 3.0),
+            noise_alpha(500.0, 0.0),
+        ),
+        (
+            "Fractal Noise, evolution -500, cycle 3",
+            "core.fractal_noise",
+            fractal_noise(-500.0, 3.0, false),
+            fractal_noise(-500.0, 0.0, false),
+        ),
+        (
+            "Fractal Noise, turbulent block, evolution -2000, cycle 5",
+            "core.fractal_noise",
+            fractal_noise(-2000.0, 5.0, true),
+            fractal_noise(-2000.0, 0.0, true),
+        ),
+        (
+            "Fractal Noise, evolution -500, cycle 2 (agreed before)",
+            "core.fractal_noise",
+            fractal_noise(-500.0, 2.0, false),
+            fractal_noise(-500.0, 0.0, false),
+        ),
+        (
+            "Fractal Noise, evolution 1500, cycle 3 (agreed before)",
+            "core.fractal_noise",
+            fractal_noise(1500.0, 3.0, false),
+            fractal_noise(1500.0, 0.0, false),
+        ),
     ];
     let dir = effect_table::repo("verification/D-547 pictures");
     fs::create_dir_all(&dir).unwrap();
@@ -132,9 +223,18 @@ fn b427_card_remainder() {
         let plain = reference(type_id, uncycled);
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &comp, 0, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &comp,
+                0,
+                &root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
         let changed = distance(&cpu(&project), &cpu(&plain)).1;
         t.row(
@@ -156,9 +256,29 @@ fn b427_card_remainder() {
                 if i < 2 && frame == 0 && quality == PreviewQuality::Full {
                     let size = project.composition(&comp).unwrap();
                     let (w, h) = (size.width as usize, size.height as usize);
-                    let name = if i == 0 { "noise_alpha" } else { "noise_alpha_7" };
-                    png_out::write_rgba(&dir.join(format!("{name}_processor.png")), w, h, OutputDepth::Eight, &[], &c).unwrap();
-                    png_out::write_rgba(&dir.join(format!("{name}_card.png")), w, h, OutputDepth::Eight, &[], &g).unwrap();
+                    let name = if i == 0 {
+                        "noise_alpha"
+                    } else {
+                        "noise_alpha_7"
+                    };
+                    png_out::write_rgba(
+                        &dir.join(format!("{name}_processor.png")),
+                        w,
+                        h,
+                        OutputDepth::Eight,
+                        &[],
+                        &c,
+                    )
+                    .unwrap();
+                    png_out::write_rgba(
+                        &dir.join(format!("{name}_card.png")),
+                        w,
+                        h,
+                        OutputDepth::Eight,
+                        &[],
+                        &g,
+                    )
+                    .unwrap();
                 }
             }
         }
@@ -186,7 +306,11 @@ fn b427_card_remainder_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let moving = |cycle: f64| {
         let mut p = fractal_noise(-3000.0, cycle, false);
@@ -194,17 +318,53 @@ fn b427_card_remainder_timing() {
         p
     };
     let shots: [(&str, &str, J); 4] = [
-        ("Fractal Noise, evolution -3000 moving, no cycle", "core.fractal_noise", moving(0.0)),
-        ("Fractal Noise, evolution -3000 moving, cycle 3", "core.fractal_noise", moving(3.0)),
-        ("Noise Alpha, phase -100, no cycle", "core.noise_alpha", noise_alpha(-100.0, 0.0)),
-        ("Noise Alpha, phase -100, cycle 3", "core.noise_alpha", noise_alpha(-100.0, 3.0)),
+        (
+            "Fractal Noise, evolution -3000 moving, no cycle",
+            "core.fractal_noise",
+            moving(0.0),
+        ),
+        (
+            "Fractal Noise, evolution -3000 moving, cycle 3",
+            "core.fractal_noise",
+            moving(3.0),
+        ),
+        (
+            "Noise Alpha, phase -100, no cycle",
+            "core.noise_alpha",
+            noise_alpha(-100.0, 0.0),
+        ),
+        (
+            "Noise Alpha, phase -100, cycle 3",
+            "core.noise_alpha",
+            noise_alpha(-100.0, 3.0),
+        ),
     ];
-    let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
+    let (comp, root) = (
+        Id::new("comp-reference-shot"),
+        effect_table::repo("Fixtures/reference_shot"),
+    );
     for (name, type_id, p) in shots {
         let project = reference(type_id, &p);
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B427_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-427_card_remainder_timing_table.md"));
+    let out = std::env::var("B427_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            effect_table::repo("verification/B-427_card_remainder_timing_table.md")
+        });
     fs::write(out, s).expect("write the timing table");
 }

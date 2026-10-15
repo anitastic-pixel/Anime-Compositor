@@ -30,7 +30,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use anime_compositor::cache::{automatic_budget, budget_label, installed_memory, CelCache, DEFAULT_BUDGET_BYTES};
+use anime_compositor::cache::{
+    automatic_budget, budget_label, installed_memory, CelCache, DEFAULT_BUDGET_BYTES,
+};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::gpu::Gpu;
@@ -51,19 +53,44 @@ const SCATTER: i32 = 97;
 const FRAME_BUDGET_MS: f64 = 1000.0 / 24.0;
 const MIB: f64 = 1024.0 * 1024.0;
 
-fn frame_ms(project: &Project, root: &Path, frame: i32, cache: &mut CelCache, gpu: &mut Option<Gpu>) -> f64 {
+fn frame_ms(
+    project: &Project,
+    root: &Path,
+    frame: i32,
+    cache: &mut CelCache,
+    gpu: &mut Option<Gpu>,
+) -> f64 {
     let comp = Id::new(COMP);
     let mut log = FrameLog::new(3);
     let at = Instant::now();
     let q = PreviewQuality::Draft;
     match gpu {
         Some(g) => drop(
-            preview::preview_frame_srgb8(project, &comp, frame, root, q, DEFAULT_TILE_SIZE, &mut log, cache, g)
-                .unwrap_or_else(|d| panic!("frame {frame} on the card: {}", d.message)),
+            preview::preview_frame_srgb8(
+                project,
+                &comp,
+                frame,
+                root,
+                q,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                cache,
+                g,
+            )
+            .unwrap_or_else(|d| panic!("frame {frame} on the card: {}", d.message)),
         ),
         None => drop(
-            preview::preview_frame_cached(project, &comp, frame, root, q, DEFAULT_TILE_SIZE, &mut log, cache)
-                .unwrap_or_else(|d| panic!("frame {frame}: {}", d.message)),
+            preview::preview_frame_cached(
+                project,
+                &comp,
+                frame,
+                root,
+                q,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                cache,
+            )
+            .unwrap_or_else(|d| panic!("frame {frame}: {}", d.message)),
         ),
     }
     at.elapsed().as_secs_f64() * 1000.0
@@ -101,10 +128,19 @@ fn measure(project: &Project, root: &Path, total: usize, gpu: &mut Option<Gpu>) 
     let (mut decodes, mut effects_reused) = (0, 0);
     for _ in 0..LOOPS {
         let (misses, effect_hits) = (cache.misses(), cache.effect_hits());
-        loops.push(sorted((0..FRAMES).map(|f| frame_ms(project, root, f, &mut cache, gpu)).collect()));
+        loops.push(sorted(
+            (0..FRAMES)
+                .map(|f| frame_ms(project, root, f, &mut cache, gpu))
+                .collect(),
+        ));
         (decodes, effects_reused) = (cache.misses() - misses, cache.effect_hits() - effect_hits);
         ws.push(working_set());
-        assert!(cache.held_bytes() <= cache.budget(), "drawings over budget: {} of {}", cache.held_bytes(), cache.budget());
+        assert!(
+            cache.held_bytes() <= cache.budget(),
+            "drawings over budget: {} of {}",
+            cache.held_bytes(),
+            cache.budget()
+        );
         assert!(
             cache.effect_held_bytes() <= cache.effect_budget(),
             "effect results over budget: {} of {}",
@@ -147,15 +183,36 @@ fn b114_viewer_envelope() {
         .clone();
     let (declared, declared_root, _) = build_fixture("b114");
     let shots: [(&str, Project, PathBuf); 2] = [
-        ("The reference shot: four layers, no mattes, no effects", reference, repo("Fixtures/reference_shot")),
-        ("Document 08's shot: ten layers, two mattes, three effects", declared, declared_root),
+        (
+            "The reference shot: four layers, no mattes, no effects",
+            reference,
+            repo("Fixtures/reference_shot"),
+        ),
+        (
+            "Document 08's shot: ten layers, two mattes, three effects",
+            declared,
+            declared_root,
+        ),
     ];
     let mut gpu = Gpu::new().ok();
-    let drawn_on = gpu.as_ref().map_or("the processor: no usable card was found".to_string(), |g| format!("the card, {}", g.about()));
+    let drawn_on = gpu
+        .as_ref()
+        .map_or("the processor: no usable card was found".to_string(), |g| {
+            format!("the card, {}", g.about())
+        });
     let automatic = automatic_budget();
     let budgets = [
-        (format!("{} (Automatic on this machine)", budget_label(automatic)), automatic),
-        (format!("{} (the least Automatic gives)", budget_label(DEFAULT_BUDGET_BYTES)), DEFAULT_BUDGET_BYTES),
+        (
+            format!("{} (Automatic on this machine)", budget_label(automatic)),
+            automatic,
+        ),
+        (
+            format!(
+                "{} (the least Automatic gives)",
+                budget_label(DEFAULT_BUDGET_BYTES)
+            ),
+            DEFAULT_BUDGET_BYTES,
+        ),
     ];
 
     let mut s = format!(

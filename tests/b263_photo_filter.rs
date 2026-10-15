@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -47,7 +48,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=20 {
         let file = format!("fx_pfilt_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -73,9 +78,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -102,7 +116,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -114,8 +131,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -162,7 +191,11 @@ fn b263_photo_filter() {
         ("fx_pfilt_020.json", "preserve luminosity"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_pfilt_001.json",
@@ -177,18 +210,32 @@ fn b263_photo_filter() {
 
     t.heading("Commands");
     let mut document = t.load("fx_pfilt_001.json").document;
-    let dense = changed(&t, "fx_pfilt_001.json", |e| if let Effect::PhotoFilter { density, .. } = e { *density = 101.0 });
-    let word = changed(&t, "fx_pfilt_001.json", |e| if let Effect::PhotoFilter { filter, .. } = e { *filter = "warm".into() });
+    let dense = changed(&t, "fx_pfilt_001.json", |e| {
+        if let Effect::PhotoFilter { density, .. } = e {
+            *density = 101.0
+        }
+    });
+    let word = changed(&t, "fx_pfilt_001.json", |e| {
+        if let Effect::PhotoFilter { filter, .. } = e {
+            *filter = "warm".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("density 101", set(dense)),
             ("filter \"warm\"", set(word)),
-            ("density keyed to 150", keys("density", &[(0, &[25.0]), (4, &[150.0])])),
+            (
+                "density keyed to 150",
+                keys("density", &[(0, &[25.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let cool = changed(&t, "fx_pfilt_001.json", |e| {
-        if let Effect::PhotoFilter { filter, density, .. } = e {
+        if let Effect::PhotoFilter {
+            filter, density, ..
+        } = e
+        {
             *filter = "cooling_80".into();
             *density = 80.0;
         }
@@ -196,11 +243,23 @@ fn b263_photo_filter() {
     t.taken(
         &mut document,
         "fx_pfilt_001.json",
-        vec![("Cooling Filter (80) at density 80", set(cool)), ("density keyed from 0 to 100", keys("density", &[(0, &[0.0]), (4, &[100.0])]))],
+        vec![
+            ("Cooling Filter (80) at density 80", set(cool)),
+            (
+                "density keyed from 0 to 100",
+                keys("density", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_pfilt_001.json", 0), ("fx_pfilt_004.json", 0), ("fx_pfilt_009.json", 0), ("fx_pfilt_013.json", 2), ("fx_pfilt_014.json", 3)]);
+    t.tiles(&[
+        ("fx_pfilt_001.json", 0),
+        ("fx_pfilt_004.json", 0),
+        ("fx_pfilt_009.json", 0),
+        ("fx_pfilt_013.json", 2),
+        ("fx_pfilt_014.json", 3),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -212,20 +271,42 @@ fn b263_photo_filter() {
         &mut gpu,
         &[
             ("as added, Warming Filter (85) at 25", json!({}), 3),
-            ("Cooling Filter (80) at 70, luminosity kept", json!({"filter": "cooling_80", "density": 70}), 3),
-            ("custom #ff00ff at 50, luminosity off", json!({"filter": "custom", "color": "#ff00ff", "density": 50, "preserve_luminosity": "off"}), 3),
+            (
+                "Cooling Filter (80) at 70, luminosity kept",
+                json!({"filter": "cooling_80", "density": 70}),
+                3,
+            ),
+            (
+                "custom #ff00ff at 50, luminosity off",
+                json!({"filter": "custom", "color": "#ff00ff", "density": 50, "preserve_luminosity": "off"}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-384 pictures/`");
     let dir = repo("verification/D-384 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let one = |p: J| json!([fx("fx-0-0", &p)]);
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = picture(&dir, one(json!({"density": 0})));
     t.row(
         "density 0 changes nothing: the street byte for byte; draws cleanly",
@@ -233,10 +314,26 @@ fn b263_photo_filter() {
         said.is_empty() && same == before,
     );
     for (name, p, warmer) in [
-        ("2_warming_85.png, as added, Warming Filter (85) at 25: the street warmer", json!({}), true),
-        ("3_cooling_80.png, Cooling Filter (80) at 60: the street cooler", json!({"filter": "cooling_80", "density": 60}), false),
-        ("4_sepia.png, Sepia at 80: the street brown", json!({"filter": "sepia", "density": 80}), true),
-        ("5_underwater.png, Underwater at 70: the street green-blue, the reds pulled down", json!({"filter": "underwater", "density": 70}), false),
+        (
+            "2_warming_85.png, as added, Warming Filter (85) at 25: the street warmer",
+            json!({}),
+            true,
+        ),
+        (
+            "3_cooling_80.png, Cooling Filter (80) at 60: the street cooler",
+            json!({"filter": "cooling_80", "density": 60}),
+            false,
+        ),
+        (
+            "4_sepia.png, Sepia at 80: the street brown",
+            json!({"filter": "sepia", "density": 80}),
+            true,
+        ),
+        (
+            "5_underwater.png, Underwater at 70: the street green-blue, the reds pulled down",
+            json!({"filter": "underwater", "density": 70}),
+            false,
+        ),
     ] {
         let (after, said) = picture(&dir, one(p));
         write(name.split(',').next().unwrap(), &after);
@@ -247,9 +344,17 @@ fn b263_photo_filter() {
             said.is_empty() && (w1 > w0) == warmer && w1 != w0,
         );
     }
-    let (dark, said) = picture(&dir, one(json!({"filter": "custom", "color": "#3366cc", "density": 60, "preserve_luminosity": "off"})));
+    let (dark, said) = picture(
+        &dir,
+        one(
+            json!({"filter": "custom", "color": "#3366cc", "density": 60, "preserve_luminosity": "off"}),
+        ),
+    );
     write("6_custom_blue_unkept.png", &dark);
-    let darker = before.chunks_exact(4).zip(dark.chunks_exact(4)).all(|(b, d)| (0..3).all(|c| d[c] <= b[c]));
+    let darker = before
+        .chunks_exact(4)
+        .zip(dark.chunks_exact(4))
+        .all(|(b, d)| (0..3).all(|c| d[c] <= b[c]));
     t.row(
         "6_custom_blue_unkept.png, a custom blue #3366cc at 60, luminosity off: the street bluer and darker, no channel brighter; draws cleanly",
         &format!("{said:?}, no channel brighter: {darker}"),
@@ -284,22 +389,50 @@ fn b263_photo_filter_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Photo Filter as added (Warming (85), 25, luminosity kept)", Some(json!({}))),
-        ("Noise, then Photo Filter, custom colour at 60, luminosity off", Some(json!({"filter": "custom", "color": "#3366cc", "density": 60, "preserve_luminosity": "off"}))),
+        (
+            "Noise, then Photo Filter as added (Warming (85), 25, luminosity kept)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Photo Filter, custom colour at 60, luminosity off",
+            Some(
+                json!({"filter": "custom", "color": "#3366cc", "density": 60, "preserve_luminosity": "off"}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B263_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-263_timing_raw.md"));
+    let out = std::env::var("B263_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-263_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

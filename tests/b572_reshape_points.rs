@@ -15,7 +15,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{changed, distance, keys, median, repo, set, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    changed, distance, keys, median, repo, set, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::compose::render_frame;
@@ -32,7 +34,10 @@ fn mine(e: &Effect) -> bool {
 
 /// A rectangle from (x0, y0) to (x1, y1), corner points only.
 fn rect([x0, y0, x1, y1]: [f64; 4]) -> J {
-    let points: Vec<J> = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].iter().map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]})).collect();
+    let points: Vec<J> = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+        .iter()
+        .map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]}))
+        .collect();
     json!({ "points": points })
 }
 
@@ -65,15 +70,24 @@ fn fx(id: &str, p: &J) -> J {
 /// The reference shot (1920 by 1080) with B-485's three masks (a square, the same square moved
 /// 200 right, a boundary about both) and `stack` on its first three layers.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         let d = 40.0 * i as f64;
-        layers[i]["masks"] = masks(&[[760.0 + d, 340.0, 1160.0 + d, 740.0], [960.0 + d, 340.0, 1360.0 + d, 740.0], [400.0, 100.0, 1520.0, 980.0]]);
+        layers[i]["masks"] = masks(&[
+            [760.0 + d, 340.0, 1160.0 + d, 740.0],
+            [960.0 + d, 340.0, 1360.0 + d, 740.0],
+            [400.0, 100.0, 1520.0, 980.0],
+        ]);
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The street's masks: 1 a square about the middle, 2 the same square 60 right.
@@ -82,7 +96,10 @@ const STREET: [[f64; 4]; 2] = [[190.0, 85.0, 290.0, 185.0], [250.0, 85.0, 350.0,
 /// `effects` on the street (in `dir`), with [`STREET`]'s masks, drawn on the processor at
 /// `frame`, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -95,8 +112,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -126,48 +155,110 @@ fn b572_reshape_points() {
         saved.as_object().unwrap().len() == 7 && saved["correspondence_points"] == json!([0, 0, 50, 25]) && saved["interpolation"] == "discrete",
     );
     for (file, want) in [
-        ("fx_reshp_012.json", "correspondence points are none, or pairs"),
+        (
+            "fx_reshp_012.json",
+            "correspondence points are none, or pairs",
+        ),
         ("fx_reshp_013.json", "correspondence points"),
         ("fx_reshp_014.json", "at most 32 pairs"),
-        ("fx_reshp_015.json", "interpolation is discrete, linear or smooth"),
+        (
+            "fx_reshp_015.json",
+            "interpolation is discrete, linear or smooth",
+        ),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Reshape and its {want}"), &why, why.contains("Reshape") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Reshape and its {want}"),
+            &why,
+            why.contains("Reshape") && why.contains(want),
+        );
     }
     let full = fx("x", &json!({}))["parameters"].to_string();
-    t.shape_refused("fx_reshp_001.json", "a Reshape whose interpolation is a number", &full.replace("\"elasticity\":\"normal\"", "\"elasticity\":\"normal\",\"interpolation\":2"));
-    t.shape_refused("fx_reshp_001.json", "a Reshape whose correspondence points are one number", &full.replace("\"elasticity\":\"normal\"", "\"elasticity\":\"normal\",\"correspondence_points\":5"));
+    t.shape_refused(
+        "fx_reshp_001.json",
+        "a Reshape whose interpolation is a number",
+        &full.replace(
+            "\"elasticity\":\"normal\"",
+            "\"elasticity\":\"normal\",\"interpolation\":2",
+        ),
+    );
+    t.shape_refused(
+        "fx_reshp_001.json",
+        "a Reshape whose correspondence points are one number",
+        &full.replace(
+            "\"elasticity\":\"normal\"",
+            "\"elasticity\":\"normal\",\"correspondence_points\":5",
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_reshp_003.json").document;
-    let odd = changed(&t, "fx_reshp_003.json", |e| if let Effect::Reshape { correspondence_points, .. } = e { correspondence_points.truncate(3) });
-    let cubic = changed(&t, "fx_reshp_003.json", |e| if let Effect::Reshape { interpolation, .. } = e { *interpolation = "cubic".into() });
+    let odd = changed(&t, "fx_reshp_003.json", |e| {
+        if let Effect::Reshape {
+            correspondence_points,
+            ..
+        } = e
+        {
+            correspondence_points.truncate(3)
+        }
+    });
+    let cubic = changed(&t, "fx_reshp_003.json", |e| {
+        if let Effect::Reshape { interpolation, .. } = e {
+            *interpolation = "cubic".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("three numbers for the correspondence points", set(odd)),
             ("interpolation cubic", set(cubic)),
-            ("the pairs keyed to end at 101", keys("correspondence_points", &[(0, &[0.0, 0.0, 50.0, 25.0]), (4, &[0.0, 0.0, 50.0, 101.0])])),
+            (
+                "the pairs keyed to end at 101",
+                keys(
+                    "correspondence_points",
+                    &[(0, &[0.0, 0.0, 50.0, 25.0]), (4, &[0.0, 0.0, 50.0, 101.0])],
+                ),
+            ),
         ],
     );
-    let smooth = changed(&t, "fx_reshp_003.json", |e| if let Effect::Reshape { interpolation, .. } = e { *interpolation = "smooth".into() });
+    let smooth = changed(&t, "fx_reshp_003.json", |e| {
+        if let Effect::Reshape { interpolation, .. } = e {
+            *interpolation = "smooth".into()
+        }
+    });
     t.taken(
         &mut document,
         "fx_reshp_003.json",
         vec![
             ("interpolation smooth", set(smooth)),
-            ("the pairs keyed from (0, 0), (50, 25) to (0, 25), (50, 50)", keys("correspondence_points", &[(0, &[0.0, 0.0, 50.0, 25.0]), (4, &[0.0, 25.0, 50.0, 50.0])])),
+            (
+                "the pairs keyed from (0, 0), (50, 25) to (0, 25), (50, 50)",
+                keys(
+                    "correspondence_points",
+                    &[(0, &[0.0, 0.0, 50.0, 25.0]), (4, &[0.0, 25.0, 50.0, 50.0])],
+                ),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_reshp_003.json", 0), ("fx_reshp_004.json", 0), ("fx_reshp_007.json", 1), ("fx_reshp_007.json", 3)]);
+    t.tiles(&[
+        ("fx_reshp_003.json", 0),
+        ("fx_reshp_004.json", 0),
+        ("fx_reshp_007.json", 1),
+        ("fx_reshp_007.json", 3),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     // The refused (012 to 015) are left out, so nothing is on the card; 005 and 006 rest at
     // frame 0 only.
-    t.card_fixtures(&mut gpu, "expected_reshape_points.json", &[12, 13, 14, 15], mine);
+    t.card_fixtures(
+        &mut gpu,
+        "expected_reshape_points.json",
+        &[12, 13, 14, 15],
+        mine,
+    );
     let shots: Vec<(&str, Project, usize)> = [
         ("Reshape, the square to the square moved right, pairs (0, 0) and (50, 25)", json!({"correspondence_points": [0, 0, 50, 25]})),
         ("Reshape, Percent keyed 20 to 100 and back to 40, Smooth", json!({"percent": {"base": 0, "keyframes": [{"frame": 0, "value": 20, "interp": "linear"}, {"frame": 120, "value": 100, "interp": "linear"}, {"frame": 239, "value": 40, "interp": "linear"}]}, "interpolation": "smooth"})),
@@ -180,13 +271,27 @@ fn b572_reshape_points() {
     t.heading("Pictures: in `verification/D-702 pictures/`");
     let dir = repo("verification/D-702 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (w, h) = TOWN;
     let street = |p: J, frame: i32| picture(&dir, json!([fx("fx-0-0", &p)]), frame);
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect (its two masks cut nothing); draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect (its two masks cut nothing); draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (plain, said) = street(json!({}), 0);
     write("2_matched_from_the_start.png", &plain);
@@ -248,25 +353,50 @@ fn b572_reshape_points_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Reshape with pairs (0, 0) and (50, 25)", Some(json!({"correspondence_points": [0, 0, 50, 25]}))),
+        (
+            "Noise, then Reshape with pairs (0, 0) and (50, 25)",
+            Some(json!({"correspondence_points": [0, 0, 50, 25]})),
+        ),
         (
             "Noise, then Reshape, Percent keyed 20 to 100 and back to 40, Smooth",
-            Some(json!({"percent": {"base": 0, "keyframes": [{"frame": 0, "value": 20, "interp": "linear"}, {"frame": 120, "value": 100, "interp": "linear"}, {"frame": 239, "value": 40, "interp": "linear"}]}, "interpolation": "smooth"})),
+            Some(
+                json!({"percent": {"base": 0, "keyframes": [{"frame": 0, "value": 20, "interp": "linear"}, {"frame": 120, "value": 100, "interp": "linear"}, {"frame": 239, "value": 40, "interp": "linear"}]}, "interpolation": "smooth"}),
+            ),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B572_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-572_timing_raw.md"));
+    let out = std::env::var("B572_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-572_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

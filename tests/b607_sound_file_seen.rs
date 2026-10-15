@@ -15,7 +15,10 @@ fn a_replaced_sound_file_is_seen() {
     for _ in 0..2 {
         let (sound, files) = cache::files_read(|| audio::load(&file));
         assert!(sound.is_ok());
-        assert_eq!(files.iter().map(|(p, _)| p.clone()).collect::<Vec<_>>(), vec![file.clone()]);
+        assert_eq!(
+            files.iter().map(|(p, _)| p.clone()).collect::<Vec<_>>(),
+            vec![file.clone()]
+        );
         assert!(cache::unchanged(&files));
     }
 

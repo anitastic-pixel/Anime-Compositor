@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -50,7 +51,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=34 {
         let file = format!("fx_grade_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -76,9 +81,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -106,9 +120,15 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of. The project has the
 /// fixtures' look file as `asset-look`.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
-    project["assets"].as_array_mut().unwrap().push(json!({"id": "asset-look", "kind": "lut", "name": "look", "path": "look.cube"}));
+    project["assets"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id": "asset-look", "kind": "lut", "name": "look", "path": "look.cube"}));
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
     comp["height"] = J::from(TOWN.1);
@@ -119,15 +139,30 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Color Grade's setting `name` in `e`, set to `v`.
 fn with(e: &mut Effect, name: &str, v: f64) {
     if let Effect::ColorGrade { values, .. } = e {
-        values[COLOR_GRADE_SETTINGS.iter().position(|s| s.0 == name).unwrap()] = v;
+        values[COLOR_GRADE_SETTINGS
+            .iter()
+            .position(|s| s.0 == name)
+            .unwrap()] = v;
     }
 }
 
@@ -139,7 +174,11 @@ fn warmth(p: &[u8]) -> f64 {
 
 /// The darkest channel over the covered pixels.
 fn darkest(p: &[u8]) -> u8 {
-    p.chunks_exact(4).filter(|q| q[3] > 0).flat_map(|q| q[..3].to_vec()).min().unwrap_or(0)
+    p.chunks_exact(4)
+        .filter(|q| q[3] > 0)
+        .flat_map(|q| q[..3].to_vec())
+        .min()
+        .unwrap_or(0)
 }
 
 /// The brightness, the three channels summed, of the pixel at (x, y).
@@ -171,7 +210,9 @@ fn b276_color_grade() {
     t.row(
         "fx_grade_024.json is saved with its 23 settings, the look and 22 numbers",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 23 && saved["look"] == "asset-look" && saved["look_intensity"] == 80.0,
+        saved.as_object().unwrap().len() == 23
+            && saved["look"] == "asset-look"
+            && saved["look_intensity"] == 80.0,
     );
     for (file, want) in [
         ("fx_grade_028.json", "temperature"),
@@ -183,14 +224,26 @@ fn b276_color_grade() {
         ("fx_grade_034.json", "vignette roundness"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let mut word = fx("x", &json!({}))["parameters"].clone();
     word["exposure"] = J::from("1");
-    t.shape_refused("fx_grade_001.json", "a Color Grade whose exposure is a word", &word.to_string());
+    t.shape_refused(
+        "fx_grade_001.json",
+        "a Color Grade whose exposure is a word",
+        &word.to_string(),
+    );
     let mut lookless = fx("x", &json!({}))["parameters"].clone();
     lookless.as_object_mut().unwrap().remove("look");
-    t.shape_refused("fx_grade_001.json", "a Color Grade without its look", &lookless.to_string());
+    t.shape_refused(
+        "fx_grade_001.json",
+        "a Color Grade without its look",
+        &lookless.to_string(),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_grade_001.json").document;
@@ -204,8 +257,14 @@ fn b276_color_grade() {
         &mut document,
         vec![
             ("temperature 101", set(hot)),
-            ("look \"asset-colours\", a picture and not a lookup file", set(elsewhere)),
-            ("exposure keyed to 6", keys("exposure", &[(0, &[0.0]), (4, &[6.0])])),
+            (
+                "look \"asset-colours\", a picture and not a lookup file",
+                set(elsewhere),
+            ),
+            (
+                "exposure keyed to 6",
+                keys("exposure", &[(0, &[0.0]), (4, &[6.0])]),
+            ),
         ],
     );
     let graded = changed(&t, "fx_grade_001.json", |e| {
@@ -218,11 +277,24 @@ fn b276_color_grade() {
     t.taken(
         &mut document,
         "fx_grade_001.json",
-        vec![("contrast 40, faded film 30, the look file", set(graded)), ("exposure keyed from -2 to 2", keys("exposure", &[(0, &[-2.0]), (4, &[2.0])]))],
+        vec![
+            ("contrast 40, faded film 30, the look file", set(graded)),
+            (
+                "exposure keyed from -2 to 2",
+                keys("exposure", &[(0, &[-2.0]), (4, &[2.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_grade_001.json", 0), ("fx_grade_006.json", 0), ("fx_grade_013.json", 0), ("fx_grade_023.json", 0), ("fx_grade_024.json", 0), ("fx_grade_026.json", 3)]);
+    t.tiles(&[
+        ("fx_grade_001.json", 0),
+        ("fx_grade_006.json", 0),
+        ("fx_grade_013.json", 0),
+        ("fx_grade_023.json", 0),
+        ("fx_grade_024.json", 0),
+        ("fx_grade_026.json", 3),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -234,26 +306,52 @@ fn b276_color_grade() {
         &mut t,
         &mut gpu,
         &[
-            ("basic: temperature 30, exposure 0.5, contrast 40, shadows 30, saturation 120", json!({"temperature": 30, "exposure": 0.5, "contrast": 40, "shadows": 30, "saturation": 120}), 3),
+            (
+                "basic: temperature 30, exposure 0.5, contrast 40, shadows 30, saturation 120",
+                json!({"temperature": 30, "exposure": 0.5, "contrast": 40, "shadows": 30, "saturation": 120}),
+                3,
+            ),
             (
                 "creative: faded film 40, vibrance 50, teal shadows and orange highlights",
                 json!({"faded_film": 40, "vibrance": 50, "shadow_tint_hue": 195, "shadow_tint_amount": 60, "highlight_tint_hue": 35, "highlight_tint_amount": 50}),
                 3,
             ),
-            ("highlights -40, whites 30 and a vignette of -3", json!({"highlights": -40, "whites": 30, "vignette_amount": -3, "vignette_roundness": 50}), 3),
+            (
+                "highlights -40, whites 30 and a vignette of -3",
+                json!({"highlights": -40, "whites": 30, "vignette_amount": -3, "vignette_roundness": 50}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-397 pictures/`");
     let dir = repo("verification/D-397 pictures");
     fs::create_dir_all(&dir).unwrap();
-    fs::copy(repo("Fixtures/color_grade/luts/look.cube"), dir.join("look.cube")).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    fs::copy(
+        repo("Fixtures/color_grade/luts/look.cube"),
+        dir.join("look.cube"),
+    )
+    .unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let one = |p: J| json!([fx("fx-0-0", &p)]);
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = picture(&dir, one(json!({})));
     t.row(
         "Color Grade as added changes nothing: the street byte for byte; draws cleanly",
@@ -268,7 +366,12 @@ fn b276_color_grade() {
         &format!("{said:?}, red less blue {w0:.1} before, {w1:.1} after"),
         said.is_empty() && w1 > w0,
     );
-    let (teal, said) = picture(&dir, one(json!({"contrast": 30, "shadow_tint_hue": 195, "shadow_tint_amount": 60, "highlight_tint_hue": 35, "highlight_tint_amount": 50})));
+    let (teal, said) = picture(
+        &dir,
+        one(
+            json!({"contrast": 30, "shadow_tint_hue": 195, "shadow_tint_amount": 60, "highlight_tint_hue": 35, "highlight_tint_amount": 50}),
+        ),
+    );
     write("3_teal_orange.png", &teal);
     t.row(
         "3_teal_orange.png, contrast 30, teal shadows and orange highlights: the street changed; draws cleanly",
@@ -286,7 +389,11 @@ fn b276_color_grade() {
     write("5_faded_film.png", &faded);
     t.row(
         "5_faded_film.png, faded film 70: the darkest level lifted; draws cleanly",
-        &format!("{said:?}, darkest level {} before, {} after", darkest(&before), darkest(&faded)),
+        &format!(
+            "{said:?}, darkest level {} before, {} after",
+            darkest(&before),
+            darkest(&faded)
+        ),
         said.is_empty() && darkest(&faded) > darkest(&before),
     );
     let (dark, said) = picture(&dir, one(json!({"vignette_amount": -3})));
@@ -294,8 +401,16 @@ fn b276_color_grade() {
     let (cx, cy) = (TOWN.0 as usize / 2, TOWN.1 as usize / 2);
     t.row(
         "6_vignette.png, vignette -3: the corners darker, the middle as it was; draws cleanly",
-        &format!("{said:?}, corner {} before, {} after; middle {} before, {} after", at(&before, 0, 0), at(&dark, 0, 0), at(&before, cx, cy), at(&dark, cx, cy)),
-        said.is_empty() && at(&dark, 0, 0) < at(&before, 0, 0) && at(&dark, cx, cy) == at(&before, cx, cy),
+        &format!(
+            "{said:?}, corner {} before, {} after; middle {} before, {} after",
+            at(&before, 0, 0),
+            at(&dark, 0, 0),
+            at(&before, cx, cy),
+            at(&dark, cx, cy)
+        ),
+        said.is_empty()
+            && at(&dark, 0, 0) < at(&before, 0, 0)
+            && at(&dark, cx, cy) == at(&before, cx, cy),
     );
 
     t.finish("D-397_color_grade_table.md");
@@ -335,17 +450,37 @@ fn b276_color_grade_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B276_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-276_timing_raw.md"));
+    let out = std::env::var("B276_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-276_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

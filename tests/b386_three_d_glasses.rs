@@ -35,9 +35,24 @@ fn is_ours(c: &render::OnCard) -> bool {
 }
 
 /// The 3D Glasses the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_ours(c.unmixed())).count()
         // An adjustment layer's run is made from its stack when the card draws it.
         + plan.layers
@@ -65,7 +80,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=37 {
         let file = format!("fx_glasses_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -91,9 +110,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -121,7 +149,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the layer showing `1_left.png` (from `dir`), with a hidden layer `right` showing
 /// `right_png` beneath it, drawn on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, right_png: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-right");
@@ -143,17 +174,37 @@ fn picture(dir: &Path, right_png: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     right["enabled"] = J::from(false);
     right["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().insert(0, right);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("right"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("right"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Set the `holder` layer's first effect (the fixtures' own names).
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's first effect, linearly.
@@ -163,7 +214,14 @@ fn keys_holder(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -190,26 +248,40 @@ fn b386_three_d_glasses() {
     t.fixtures_numbered("expected_three_d_glasses.json", 1..=37);
 
     t.heading("Files whose layers read each other (document 25)");
-    let expected: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/three_d_glasses/expected_three_d_glasses.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(repo(
+            "Fixtures/three_d_glasses/expected_three_d_glasses.json",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
         let got = persist::load(&t.root.join(file)).err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
 
     t.heading("The file");
-    let files: Vec<String> = (1..=37).map(|n| format!("fx_glasses_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=37)
+        .map(|n| format!("fx_glasses_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_glasses_002.json");
     t.row(
         "fx_glasses_002.json is saved with its eight settings, the views as written, red blue",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 8 && saved["left_view"] == "left" && saved["right_view"] == "right" && saved["three_d_view"] == "red_blue" && saved["balance"] == 0.75,
+        saved.as_object().unwrap().len() == 8
+            && saved["left_view"] == "left"
+            && saved["right_view"] == "right"
+            && saved["three_d_view"] == "red_blue"
+            && saved["balance"] == 0.75,
     );
     for (file, want) in [
         ("fx_glasses_027.json", "scene convergence"),
@@ -224,11 +296,23 @@ fn b386_three_d_glasses() {
         ("fx_glasses_036.json", "right view"),
     ] {
         let why = holder_effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let whole = r#""left_view": "", "right_view": "", "vertical_alignment": 0, "units": "pixels", "swap_left_right": "off", "three_d_view": "red_blue", "balance": 0.75"#;
-    t.shape_refused("fx_glasses_001.json", "a 3D Glasses whose convergence is a word", &format!(r#"{{{whole}, "scene_convergence": "near"}}"#));
-    t.shape_refused("fx_glasses_001.json", "a 3D Glasses without its convergence", &format!(r#"{{{whole}}}"#));
+    t.shape_refused(
+        "fx_glasses_001.json",
+        "a 3D Glasses whose convergence is a word",
+        &format!(r#"{{{whole}, "scene_convergence": "near"}}"#),
+    );
+    t.shape_refused(
+        "fx_glasses_001.json",
+        "a 3D Glasses without its convergence",
+        &format!(r#"{{{whole}}}"#),
+    );
     t.shape_refused(
         "fx_glasses_001.json",
         "a 3D Glasses without its right view",
@@ -242,11 +326,31 @@ fn b386_three_d_glasses() {
         f(&mut e);
         e
     };
-    let over = with(&|e| if let Effect::ThreeDGlasses { scene_convergence, .. } = e { *scene_convergence = 1001.0 });
-    let view = with(&|e| if let Effect::ThreeDGlasses { three_d_view, .. } = e { *three_d_view = "anaglyph".into() });
-    let units = with(&|e| if let Effect::ThreeDGlasses { units, .. } = e { *units = "inches".into() });
+    let over = with(&|e| {
+        if let Effect::ThreeDGlasses {
+            scene_convergence, ..
+        } = e
+        {
+            *scene_convergence = 1001.0
+        }
+    });
+    let view = with(&|e| {
+        if let Effect::ThreeDGlasses { three_d_view, .. } = e {
+            *three_d_view = "anaglyph".into()
+        }
+    });
+    let units = with(&|e| {
+        if let Effect::ThreeDGlasses { units, .. } = e {
+            *units = "inches".into()
+        }
+    });
     let lined = with(&|e| {
-        if let Effect::ThreeDGlasses { scene_convergence, three_d_view, .. } = e {
+        if let Effect::ThreeDGlasses {
+            scene_convergence,
+            three_d_view,
+            ..
+        } = e
+        {
             *scene_convergence = 2.0;
             *three_d_view = "balanced_red_green".into();
         }
@@ -255,7 +359,13 @@ fn b386_three_d_glasses() {
     // keeps them when they are a share of the layer, which is already halved.
     let draft = |units: &str, c: f64, v: f64| {
         with(&|e| {
-            if let Effect::ThreeDGlasses { scene_convergence, vertical_alignment, units: u, .. } = e {
+            if let Effect::ThreeDGlasses {
+                scene_convergence,
+                vertical_alignment,
+                units: u,
+                ..
+            } = e
+            {
                 (*scene_convergence, *vertical_alignment, *u) = (c, v, units.to_string());
             }
         })
@@ -271,7 +381,10 @@ fn b386_three_d_glasses() {
             ("scene convergence 1001", set_holder(over)),
             ("3D view \"anaglyph\"", set_holder(view)),
             ("units \"inches\"", set_holder(units)),
-            ("balance keyed to 20", keys_holder("balance", &[(0, 0.0), (4, 20.0)])),
+            (
+                "balance keyed to 20",
+                keys_holder("balance", &[(0, 0.0), (4, 20.0)]),
+            ),
         ],
     );
     taken(
@@ -280,7 +393,10 @@ fn b386_three_d_glasses() {
         "fx_glasses_002.json",
         vec![
             ("balanced red green at convergence 2", set_holder(lined)),
-            ("vertical alignment keyed from 0 to 4", keys_holder("vertical_alignment", &[(0, 0.0), (4, 4.0)])),
+            (
+                "vertical alignment keyed from 0 to 4",
+                keys_holder("vertical_alignment", &[(0, 0.0), (4, 4.0)]),
+            ),
         ],
     );
 
@@ -327,7 +443,9 @@ fn b386_three_d_glasses() {
     let dir = repo("verification/D-506 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     // The left eye sees the street; the right eye, standing a little to the right, sees it 6
     // pixels further left. The last 6 columns, which the right eye would see past the edge, are
     // the street's own last column repeated.
@@ -343,7 +461,14 @@ fn b386_three_d_glasses() {
     write("2_right.png", &right);
     let grey = |p: &[u8]| p[0].abs_diff(p[1]) <= 1 && p[1].abs_diff(p[2]) <= 1;
 
-    let (anaglyph, said) = picture(&dir, "2_right.png", json!([fx("fx-0-0", &json!({"right_view": "right", "three_d_view": "red_blue"}))]));
+    let (anaglyph, said) = picture(
+        &dir,
+        "2_right.png",
+        json!([fx(
+            "fx-0-0",
+            &json!({"right_view": "right", "three_d_view": "red_blue"})
+        )]),
+    );
     write("3_red_blue.png", &anaglyph);
     let fringed = anaglyph.chunks_exact(4).filter(|p| !grey(p)).count();
     t.row(
@@ -353,9 +478,21 @@ fn b386_three_d_glasses() {
     );
 
     // Convergence -6 slides the left view 3 pixels left and the right 3 right, so the eyes agree.
-    let (lined, said) = picture(&dir, "2_right.png", json!([fx("fx-0-0", &json!({"right_view": "right", "three_d_view": "red_blue", "scene_convergence": -6}))]));
+    let (lined, said) = picture(
+        &dir,
+        "2_right.png",
+        json!([fx(
+            "fx-0-0",
+            &json!({"right_view": "right", "three_d_view": "red_blue", "scene_convergence": -6})
+        )]),
+    );
     write("4_lined_up.png", &lined);
-    let inside: Vec<&[u8]> = lined.chunks_exact(4).enumerate().filter(|(i, _)| (3..w - 3).contains(&(i % w))).map(|(_, p)| p).collect();
+    let inside: Vec<&[u8]> = lined
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(i, _)| (3..w - 3).contains(&(i % w)))
+        .map(|(_, p)| p)
+        .collect();
     let agree = inside.iter().filter(|p| grey(p) && p[3] == 255).count();
     t.row(
         "4_lined_up.png, the same at convergence -6: the eyes agree, so between the 3 columns at each edge (which only one eye sees) the picture is plain grey; draws cleanly",
@@ -363,7 +500,11 @@ fn b386_three_d_glasses() {
         said.is_empty() && agree == inside.len(),
     );
 
-    let (colored, said) = picture(&dir, "2_right.png", json!([fx("fx-0-0", &json!({"right_view": "right"}))]));
+    let (colored, said) = picture(
+        &dir,
+        "2_right.png",
+        json!([fx("fx-0-0", &json!({"right_view": "right"}))]),
+    );
     write("5_balanced_colored.png", &colored);
     let changed = distance(&colored, &street).1;
     t.row(
@@ -372,7 +513,14 @@ fn b386_three_d_glasses() {
         said.is_empty() && changed > 0,
     );
 
-    let (pair, said) = picture(&dir, "2_right.png", json!([fx("fx-0-0", &json!({"right_view": "right", "three_d_view": "side_by_side"}))]));
+    let (pair, said) = picture(
+        &dir,
+        "2_right.png",
+        json!([fx(
+            "fx-0-0",
+            &json!({"right_view": "right", "three_d_view": "side_by_side"})
+        )]),
+    );
     write("6_side_by_side.png", &pair);
     // The right half is the left half 3 pixels on (the eyes' 6 pixels, squeezed by half).
     let half = w / 2;
@@ -390,7 +538,14 @@ fn b386_three_d_glasses() {
         said.is_empty() && same == all,
     );
 
-    let (gone, said) = picture(&dir, "2_right.png", json!([fx("fx-0-0", &json!({"right_view": "gone", "three_d_view": "red_blue"}))]));
+    let (gone, said) = picture(
+        &dir,
+        "2_right.png",
+        json!([fx(
+            "fx-0-0",
+            &json!({"right_view": "gone", "three_d_view": "red_blue"})
+        )]),
+    );
     t.row(
         "a right view not in the composition: the street exactly as it was, with the warning",
         &format!("{said:?}, {} pixels changed", distance(&gone, &street).1),
@@ -403,41 +558,74 @@ fn b386_three_d_glasses() {
 /// The `holder` layer's effect in `file`.
 fn holder_effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    let layer = d.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().find(|l| l.effects.iter().any(|e| matches!(e.effect, Effect::ThreeDGlasses { .. })));
-    layer.expect("a layer with a 3D Glasses").effects[0].effect.clone()
+    let layer = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| {
+            l.effects
+                .iter()
+                .any(|e| matches!(e.effect, Effect::ThreeDGlasses { .. }))
+        });
+    layer.expect("a layer with a 3D Glasses").effects[0]
+        .effect
+        .clone()
 }
 
 /// The whole composition, to see that a refused command changed nothing (the effect is on
 /// `holder`, not on the table's `art` layer).
 fn everything(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    )
 }
 
-fn refused(t: &mut Table, document: &mut anime_compositor::command::Document, commands: Vec<(&str, Command)>) {
+fn refused(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    commands: Vec<(&str, Command)>,
+) {
     let held = everything(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
-fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file: &str, commands: Vec<(&str, Command)>) {
+fn taken(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    file: &str,
+    commands: Vec<(&str, Command)>,
+) {
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
@@ -465,22 +653,48 @@ fn b386_three_d_glasses_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then 3D Glasses against layer 4, balanced colored red blue", Some(json!({"right_view": "layer-4"}))),
-        ("Noise, then 3D Glasses, the layer itself, red blue, convergence 7", Some(json!({"three_d_view": "red_blue", "scene_convergence": 7}))),
+        (
+            "Noise, then 3D Glasses against layer 4, balanced colored red blue",
+            Some(json!({"right_view": "layer-4"})),
+        ),
+        (
+            "Noise, then 3D Glasses, the layer itself, red blue, convergence 7",
+            Some(json!({"three_d_view": "red_blue", "scene_convergence": 7})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B386_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-386_timing_raw.md"));
+    let out = std::env::var("B386_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-386_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

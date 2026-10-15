@@ -38,7 +38,11 @@ fn b88_emboss() {
 
     t.heading("How far it reaches");
     let got = emboss(135.0, 100.0, 1000.0, "grey").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = emboss(135.0, 3.0, 100.0, "grey");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -82,7 +86,10 @@ fn b88_emboss() {
             ("contrast 1001", set(emboss(135.0, 1.0, 1001.0, "grey"))),
             ("direction 3601", set(emboss(3601.0, 1.0, 100.0, "grey"))),
             ("mode \"gray\"", set(emboss(135.0, 1.0, 100.0, "gray"))),
-            ("relief keyed to 150", keys("relief", &[(0, &[1.0]), (4, &[150.0])])),
+            (
+                "relief keyed to 150",
+                keys("relief", &[(0, &[1.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -97,7 +104,10 @@ fn b88_emboss() {
                 "direction 3600, relief 100 and contrast 1000, the tops,",
                 set(emboss(3600.0, 100.0, 1000.0, "grey")),
             ),
-            ("direction keyed from 0 to 180", keys("direction", &[(0, &[0.0]), (4, &[180.0])])),
+            (
+                "direction keyed from 0 to 180",
+                keys("direction", &[(0, &[0.0]), (4, &[180.0])]),
+            ),
         ],
     );
 

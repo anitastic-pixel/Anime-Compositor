@@ -66,30 +66,67 @@ fn shot(mode: &str, opacity: f64) -> String {
 fn red_at_middle(mode: &str, opacity: f64) -> f64 {
     let loaded = persist::load_str(&shot(mode, opacity)).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 64, &mut log).expect("the frame draws");
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        64,
+        &mut log,
+    )
+    .expect("the frame draws");
     assert!(log.finish().is_empty(), "the shot draws without a word");
     frame.pixel(2, 2)[0] as f64
 }
 
 #[test]
 fn each_mode_lays_the_adjusted_frame_on_the_one_beneath() {
-    for (mode, full) in [("normal", 0.4), ("multiply", 0.08), ("screen", 0.52), ("add", 0.6)] {
+    for (mode, full) in [
+        ("normal", 0.4),
+        ("multiply", 0.08),
+        ("screen", 0.52),
+        ("add", 0.6),
+    ] {
         let got = red_at_middle(mode, 1.0);
-        assert!((got - full).abs() < 1e-6, "{mode} at 100%: {got} against {full}");
+        assert!(
+            (got - full).abs() < 1e-6,
+            "{mode} at 100%: {got} against {full}"
+        );
         let half = G + 0.5 * (full - G);
         let got = red_at_middle(mode, 0.5);
-        assert!((got - half).abs() < 1e-6, "{mode} at 50%: {got} against {half}");
+        assert!(
+            (got - half).abs() < 1e-6,
+            "{mode} at 50%: {got} against {half}"
+        );
     }
 }
 
 #[test]
 fn the_file_and_the_command_take_a_mode() {
-    let loaded = persist::load_str(&shot("screen", 1.0)).expect("an adjustment layer in screen opens");
-    let saved: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
-    assert_eq!(saved["compositions"][0]["layers"][1]["blend_mode"], "screen");
+    let loaded =
+        persist::load_str(&shot("screen", 1.0)).expect("an adjustment layer in screen opens");
+    let saved: J = serde_json::from_str(&persist::to_json(
+        loaded.document.project(),
+        &loaded.preserved,
+    ))
+    .unwrap();
+    assert_eq!(
+        saved["compositions"][0]["layers"][1]["blend_mode"],
+        "screen"
+    );
     let mut document = persist::load_str(&shot("normal", 1.0)).unwrap().document;
     document
-        .apply(Command::SetBlendMode { composition: Id::new(MAIN), layer_id: Id::new("adj"), mode: BlendMode::Add })
+        .apply(Command::SetBlendMode {
+            composition: Id::new(MAIN),
+            layer_id: Id::new("adj"),
+            mode: BlendMode::Add,
+        })
         .expect("an adjustment layer takes add");
-    assert_eq!(document.project().compositions[0].layer(&Id::new("adj")).unwrap().blend_mode, BlendMode::Add);
+    assert_eq!(
+        document.project().compositions[0]
+            .layer(&Id::new("adj"))
+            .unwrap()
+            .blend_mode,
+        BlendMode::Add
+    );
 }

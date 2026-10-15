@@ -26,7 +26,8 @@ fn picture(name: &str, mix: &[Vec<f64>; 2], ticks: &[usize]) {
     let n = mix[0].len().max(1);
     let peak = mix.iter().flatten().fold(1f64, |m, v| m.max(v.abs()));
     let mut px = vec![255u8; w * h * 3];
-    let mut put = |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
+    let mut put =
+        |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
     for &t in ticks {
         for y in 0..h {
             put(t * w / n, y, [215, 215, 215]);
@@ -35,8 +36,11 @@ fn picture(name: &str, mix: &[Vec<f64>; 2], ticks: &[usize]) {
     for (c, half) in [(0usize, 0usize), (1, h / 2)] {
         for x in 0..w {
             let (a, b) = (x * n / w, ((x + 1) * n / w).max(x * n / w + 1).min(n));
-            let (lo, hi) = (a..b).map(|i| mix[c].get(i).copied().unwrap_or(0.0)).fold((0f64, 0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
-            let row = |v: f64| half + (((1.0 - v / peak) / 2.0) * (h / 2 - 1) as f64).round() as usize;
+            let (lo, hi) = (a..b)
+                .map(|i| mix[c].get(i).copied().unwrap_or(0.0))
+                .fold((0f64, 0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
+            let row =
+                |v: f64| half + (((1.0 - v / peak) / 2.0) * (h / 2 - 1) as f64).round() as usize;
             for y in row(hi)..=row(lo) {
                 put(x, y, [30, 60, 160]);
             }
@@ -64,7 +68,10 @@ fn b519_sound_mix() {
          Pictures: `verification/D-640 pictures/` (left channel above, right below, a grey line at \
          each frame's first sample, drawn to the loudest sample).\n",
     );
-    let expected: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("expected_sound_mix.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &std::fs::read_to_string(t.root.join("expected_sound_mix.json")).unwrap(),
+    )
+    .unwrap();
     let tol = expected["tolerance"].as_f64().unwrap();
     let mut level = Vec::new();
     let mut mixes = std::collections::HashMap::new();
@@ -75,41 +82,105 @@ fn b519_sound_mix() {
         let loaded = t.load(file);
         let project = loaded.document.project();
         let comp = &project.compositions[0];
-        let (from, frames) = (case["from"].as_i64().unwrap() as i32, case["frames"].as_u64().unwrap() as u32);
+        let (from, frames) = (
+            case["from"].as_i64().unwrap() as i32,
+            case["frames"].as_u64().unwrap() as u32,
+        );
         let (mix, left_out) = audio::mix(project, &t.root, comp, from, frames);
         let n = case["samples"].as_u64().unwrap() as usize;
-        t.row(&format!("frames {from} to {}: {n} samples", from + frames as i32), &format!("{} and {}", mix[0].len(), mix[1].len()), mix[0].len() == n && mix[1].len() == n);
-        let want_w: Vec<&str> = case["warnings"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        t.row(
+            &format!("frames {from} to {}: {n} samples", from + frames as i32),
+            &format!("{} and {}", mix[0].len(), mix[1].len()),
+            mix[0].len() == n && mix[1].len() == n,
+        );
+        let want_w: Vec<&str> = case["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
         let got_w: Vec<&str> = left_out.iter().map(|(_, d)| d.id.as_str()).collect();
         t.row(
-            &format!("left out: {}", if want_w.is_empty() { "none".to_string() } else { want_w.join(", ") }),
-            &if got_w.is_empty() { "none".to_string() } else { left_out.iter().map(|(l, d)| format!("{l} {}", d.id.as_str())).collect::<Vec<_>>().join(", ") },
+            &format!(
+                "left out: {}",
+                if want_w.is_empty() {
+                    "none".to_string()
+                } else {
+                    want_w.join(", ")
+                }
+            ),
+            &if got_w.is_empty() {
+                "none".to_string()
+            } else {
+                left_out
+                    .iter()
+                    .map(|(l, d)| format!("{l} {}", d.id.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            },
             got_w == want_w,
         );
         let silent = mix.iter().flatten().all(|v| *v == 0.0);
         let want_silent = case["silent"].as_bool().unwrap();
-        t.row(if want_silent { "every sample 0" } else { "not silent" }, if silent { "every sample 0" } else { "not silent" }, silent == want_silent);
+        t.row(
+            if want_silent {
+                "every sample 0"
+            } else {
+                "not silent"
+            },
+            if silent {
+                "every sample 0"
+            } else {
+                "not silent"
+            },
+            silent == want_silent,
+        );
         let mut worst = 0f64;
         let places = case["places"].as_array().unwrap();
         for (i, v) in places.iter().zip(case["values"].as_array().unwrap()) {
             let i = i.as_u64().unwrap() as usize;
             for (c, v) in v.as_array().unwrap().iter().enumerate() {
-                worst = worst.max(mix[c].get(i).map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()));
+                worst = worst.max(
+                    mix[c]
+                        .get(i)
+                        .map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()),
+                );
             }
         }
-        t.row(&format!("{} named places within {tol}", places.len()), &format!("largest difference {worst:.2e}"), worst <= tol);
-        let want: Vec<Option<f64>> = case["peak_db"].as_array().unwrap().iter().map(|v| v.as_f64()).collect();
-        let got: Vec<Option<f64>> = mix.iter().map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs())))).collect();
+        t.row(
+            &format!("{} named places within {tol}", places.len()),
+            &format!("largest difference {worst:.2e}"),
+            worst <= tol,
+        );
+        let want: Vec<Option<f64>> = case["peak_db"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_f64())
+            .collect();
+        let got: Vec<Option<f64>> = mix
+            .iter()
+            .map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs()))))
+            .collect();
         let ok = want.iter().zip(&got).all(|(w, g)| match (w, g) {
             (Some(w), Some(g)) => (w - g).abs() <= 0.01,
             (None, None) => true,
             _ => false,
         });
-        level.push((format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])), format!("{}, {}", shown(got[0]), shown(got[1])), ok));
-        let (num, den) = (comp.frame_rate.numerator() as i64, comp.frame_rate.denominator() as i64);
+        level.push((
+            format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])),
+            format!("{}, {}", shown(got[0]), shown(got[1])),
+            ok,
+        ));
+        let (num, den) = (
+            comp.frame_rate.numerator() as i64,
+            comp.frame_rate.denominator() as i64,
+        );
         let first = |f: i64| f * 48000 * den / num;
         let s0 = first(from as i64);
-        let ticks: Vec<usize> = (from as i64..from as i64 + frames as i64).map(|f| (first(f) - s0) as usize).collect();
+        let ticks: Vec<usize> = (from as i64..from as i64 + frames as i64)
+            .map(|f| (first(f) - s0) as usize)
+            .collect();
         picture(name, &mix, &ticks);
         mixes.insert(name.to_string(), (s0 as usize, mix));
     }
@@ -117,10 +188,34 @@ fn b519_sound_mix() {
     t.heading("A stretch alone is the whole mix there");
     let (whole_at, whole) = &mixes["fx_smix_003"];
     let (part_at, part) = &mixes["fx_smix_014"];
-    let same = (0..part[0].len()).all(|i| (0..2).all(|c| part[c][i] == whole[c][part_at - whole_at + i]));
-    t.row("fx_smix_014 (frames 10 to 14) against fx_smix_003 at the same samples", if same { "every sample the same" } else { "different" }, same);
-    let again = audio::mix(t.load("fx_smix_003.json").document.project(), &t.root, &t.load("fx_smix_003.json").document.project().compositions[0], 0, 36).0;
-    t.row("mixing again (the working sound kept) gives the same samples", if again == *whole { "the same" } else { "different" }, again == *whole);
+    let same =
+        (0..part[0].len()).all(|i| (0..2).all(|c| part[c][i] == whole[c][part_at - whole_at + i]));
+    t.row(
+        "fx_smix_014 (frames 10 to 14) against fx_smix_003 at the same samples",
+        if same {
+            "every sample the same"
+        } else {
+            "different"
+        },
+        same,
+    );
+    let again = audio::mix(
+        t.load("fx_smix_003.json").document.project(),
+        &t.root,
+        &t.load("fx_smix_003.json").document.project().compositions[0],
+        0,
+        36,
+    )
+    .0;
+    t.row(
+        "mixing again (the working sound kept) gives the same samples",
+        if again == *whole {
+            "the same"
+        } else {
+            "different"
+        },
+        again == *whole,
+    );
 
     t.heading("The level table: each channel's loudest sample, within 0.01 dB");
     for (what, built, ok) in level {

@@ -29,7 +29,9 @@ use anime_compositor::{persist, png_out, render, OutputDepth};
 
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("art")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
@@ -40,7 +42,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -74,18 +81,38 @@ fn flare(changes: J) -> J {
 /// The reference shot with `type_id` of `parameters` on its first three layers, the fourth
 /// layer as their dirt when they name it.
 fn reference(type_id: &str, parameters: &J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = json!([{"instance_id": format!("b425-{id}"), "type_id": type_id, "enabled": true, "parameters": parameters}]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -93,18 +120,49 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
         .count()
 }
 
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// A dirt picture for the pictures: `w` by `h` soft grey smudges and specks of our own, placed by
@@ -116,7 +174,16 @@ fn smudges(w: usize, h: usize) -> Vec<u8> {
         seed = seed.wrapping_mul(1103515245).wrapping_add(12345);
         (seed >> 8) as f64 / (1u32 << 24) as f64
     };
-    let spots: Vec<(f64, f64, f64, f64)> = (0..40).map(|_| (next() * w as f64, next() * h as f64, 2.0 + next() * 14.0, 0.3 + next() * 0.7)).collect();
+    let spots: Vec<(f64, f64, f64, f64)> = (0..40)
+        .map(|_| {
+            (
+                next() * w as f64,
+                next() * h as f64,
+                2.0 + next() * 14.0,
+                0.3 + next() * 0.7,
+            )
+        })
+        .collect();
     for y in 0..h {
         for x in 0..w {
             let mut a: f64 = 0.0;
@@ -136,11 +203,13 @@ fn smudges(w: usize, h: usize) -> Vec<u8> {
 fn framed(effects: J) -> Project {
     let (w, h) = TOWN;
     let t = |v: J| json!({"base": v, "keyframes": []});
-    let layer = |id: &str, asset: &str, enabled: bool, effects: J| json!({"id": id, "kind": "raster", "name": id, "asset_id": asset, "enabled": enabled,
+    let layer = |id: &str, asset: &str, enabled: bool, effects: J| {
+        json!({"id": id, "kind": "raster", "name": id, "asset_id": asset, "enabled": enabled,
         "locked": false, "in_frame": 0, "out_frame": 8, "source_offset_frames": 0,
         "transform": {"anchor": t(json!([0, 0])), "position": t(json!([80, 80])), "scale": t(json!([100, 100])),
                       "rotation": t(json!(0)), "opacity": t(json!(1))},
-        "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects});
+        "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects})
+    };
     let project = json!({
         "schema_version": 0, "project_id": "proj-b425",
         "color_settings": {"working_space": "linear-srgb", "alpha_mode": "premultiplied"},
@@ -156,7 +225,11 @@ fn framed(effects: J) -> Project {
             "layers": [layer("art", "asset-town", true, effects), layer("dirt", "asset-dirt", false, json!([]))]
         }]
     });
-    persist::load_str(&project.to_string()).unwrap_or_else(|d| panic!("the framed town opens: {}", d.message)).document.project().clone()
+    persist::load_str(&project.to_string())
+        .unwrap_or_else(|d| panic!("the framed town opens: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -183,10 +256,26 @@ fn b425_lens_dirt() {
     t.fixtures("expected_soft_glow.json");
     t.round_trips(&["fx_sglow_001.json", "fx_sglow_020.json"]);
     for (root, heading, expected) in [
-        ("glow_tint", "D-542's FX-GTINT-001 to 022, unchanged", "expected_glow_tint.json"),
-        ("spectral_glow", "D-543's FX-SPGLOW-001 to 020, unchanged", "expected_spectral_glow.json"),
-        ("halation", "D-544's FX-HALO-001 to 018, unchanged", "expected_halation.json"),
-        ("lens_flare", "D-426's FX-FLARE-001 to 019, unchanged: Lens Flare draws as before", "expected_lens_flare.json"),
+        (
+            "glow_tint",
+            "D-542's FX-GTINT-001 to 022, unchanged",
+            "expected_glow_tint.json",
+        ),
+        (
+            "spectral_glow",
+            "D-543's FX-SPGLOW-001 to 020, unchanged",
+            "expected_spectral_glow.json",
+        ),
+        (
+            "halation",
+            "D-544's FX-HALO-001 to 018, unchanged",
+            "expected_halation.json",
+        ),
+        (
+            "lens_flare",
+            "D-426's FX-FLARE-001 to 019, unchanged: Lens Flare draws as before",
+            "expected_lens_flare.json",
+        ),
     ] {
         t.root = effect_table::repo(&format!("Fixtures/{root}"));
         t.heading(heading);
@@ -213,12 +302,25 @@ fn b425_lens_dirt() {
         o.to_string()
     });
     for (file, said) in [
-        ("fx_dirt_023.json", "Soft Physical Glow's dirt opacity runs from 0 to 100, and this is 101."),
-        ("fx_dirt_026.json", "Soft Physical Glow's dirt gamma runs from 0.1 to 10, and this is 0.05."),
-        ("fx_dirt_027.json", "Soft Physical Glow's dirt repeat is \"on\" or \"off\", and this is \"yes\"."),
+        (
+            "fx_dirt_023.json",
+            "Soft Physical Glow's dirt opacity runs from 0 to 100, and this is 101.",
+        ),
+        (
+            "fx_dirt_026.json",
+            "Soft Physical Glow's dirt gamma runs from 0.1 to 10, and this is 0.05.",
+        ),
+        (
+            "fx_dirt_027.json",
+            "Soft Physical Glow's dirt repeat is \"on\" or \"off\", and this is \"yes\".",
+        ),
     ] {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming it"), &why, why == said);
+        t.row(
+            &format!("{file} is refused in a sentence naming it"),
+            &why,
+            why == said,
+        );
     }
 
     t.heading("Commands");
@@ -232,37 +334,91 @@ fn b425_lens_dirt() {
     t.refused(
         &mut document,
         vec![
-            ("dirt opacity 101", set(with(&|e| if let Effect::SoftGlow { dirt, .. } = e { dirt.opacity = 101.0 }))),
-            ("dirt gamma 0", set(with(&|e| if let Effect::SoftGlow { dirt, .. } = e { dirt.gamma = 0.0 }))),
-            ("dirt repeat \"yes\"", set(with(&|e| if let Effect::SoftGlow { dirt, .. } = e { dirt.repeat = "yes".into() }))),
+            (
+                "dirt opacity 101",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { dirt, .. } = e {
+                        dirt.opacity = 101.0
+                    }
+                })),
+            ),
+            (
+                "dirt gamma 0",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { dirt, .. } = e {
+                        dirt.gamma = 0.0
+                    }
+                })),
+            ),
+            (
+                "dirt repeat \"yes\"",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { dirt, .. } = e {
+                        dirt.repeat = "yes".into()
+                    }
+                })),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_dirt_001.json",
         vec![
-            ("dirt layer specks, inherit 100, exposure 1, repeat off", set(with(&|e| if let Effect::SoftGlow { dirt, .. } = e {
-                dirt.layer = json!("specks");
-                dirt.inherit = 100.0;
-                dirt.exposure = 1.0;
-                dirt.repeat = "off".into();
-            }))),
-            ("dirt opacity keyed 0 to 100 over frames 0 to 4", keys("dirt_opacity", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "dirt layer specks, inherit 100, exposure 1, repeat off",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { dirt, .. } = e {
+                        dirt.layer = json!("specks");
+                        dirt.inherit = 100.0;
+                        dirt.exposure = 1.0;
+                        dirt.repeat = "off".into();
+                    }
+                })),
+            ),
+            (
+                "dirt opacity keyed 0 to 100 over frames 0 to 4",
+                keys("dirt_opacity", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
     // D-68: a setting keyed is saved with its keys, even at its start value.
     let loaded = t.load("fx_dirt_001.json");
     let mut keyed = loaded.document;
-    keyed.apply(keys("dirt_gamma", &[(0, &[1.0]), (4, &[2.0])])).expect("dirt gamma keyed");
-    let back = persist::load_str(&persist::to_json(keyed.project(), &loaded.preserved)).expect("opened again").document;
+    keyed
+        .apply(keys("dirt_gamma", &[(0, &[1.0]), (4, &[2.0])]))
+        .expect("dirt gamma keyed");
+    let back = persist::load_str(&persist::to_json(keyed.project(), &loaded.preserved))
+        .expect("opened again")
+        .document;
     // D-68: the keys and the constants; a keyed setting's unused base is not compared.
-    let fx = |d: &Document| d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].clone();
+    let fx = |d: &Document| {
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .clone()
+    };
     let (a, b) = (fx(&back), fx(&keyed));
-    let kept = a.effect == b.effect && a.keys("dirt_gamma").len() == 2 && a.keys("dirt_gamma") == b.keys("dirt_gamma");
-    t.row("dirt gamma keyed 1 to 2, saved and opened again: the keys are kept", if kept { "kept" } else { "lost" }, kept);
+    let kept = a.effect == b.effect
+        && a.keys("dirt_gamma").len() == 2
+        && a.keys("dirt_gamma") == b.keys("dirt_gamma");
+    t.row(
+        "dirt gamma keyed 1 to 2, saved and opened again: the keys are kept",
+        if kept { "kept" } else { "lost" },
+        kept,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_dirt_001.json", 0), ("fx_dirt_002.json", 0), ("fx_dirt_012.json", 0), ("fx_dirt_013.json", 0), ("fx_dirt_017.json", 0), ("fx_dirt_021.json", 0)]);
+    t.tiles(&[
+        ("fx_dirt_001.json", 0),
+        ("fx_dirt_002.json", 0),
+        ("fx_dirt_012.json", 0),
+        ("fx_dirt_013.json", 0),
+        ("fx_dirt_017.json", 0),
+        ("fx_dirt_021.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -270,7 +426,11 @@ fn b425_lens_dirt() {
     let fixture_root = effect_table::repo("Fixtures/lens_dirt");
     for n in 1..=22 {
         let file = format!("fx_dirt_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -330,14 +490,37 @@ fn b425_lens_dirt() {
     let dir = effect_table::repo("verification/D-545 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
     let (dw, dh) = (160, 100);
-    png_out::write_rgba(&dir.join("dirt.png"), dw, dh, OutputDepth::Eight, &[], &smudges(dw, dh)).unwrap();
+    png_out::write_rgba(
+        &dir.join("dirt.png"),
+        dw,
+        dh,
+        OutputDepth::Eight,
+        &[],
+        &smudges(dw, dh),
+    )
+    .unwrap();
     let (fw, fh) = (w + 160, h + 160);
     let draw = |effects: J| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(&framed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log).expect("the town draws");
-        (b.to_srgb8_straight(), log.finish().iter().map(|d| d.id.as_str().to_string()).collect::<Vec<_>>())
+        let b = render_frame(&framed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log)
+            .expect("the town draws");
+        (
+            b.to_srgb8_straight(),
+            log.finish()
+                .iter()
+                .map(|d| d.id.as_str().to_string())
+                .collect::<Vec<_>>(),
+        )
     };
     let fx = |type_id: &str, p: J| json!([{"instance_id": "fx-0-0", "type_id": type_id, "enabled": true, "parameters": p}]);
     let pictures = [
@@ -385,34 +568,73 @@ fn b425_lens_dirt_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let shots: [(&str, Option<(&str, J)>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Soft Physical Glow (radius 40)", Some(("core.glow", glow(json!({}))))),
-        ("Noise, then Soft Physical Glow with the fourth layer as its dirt", Some(("core.glow", glow(json!({"dirt_layer": "layer-4"}))))),
-        ("Noise, then Lens Flare", Some(("core.lens_flare", flare(json!({}))))),
-        ("Noise, then Lens Flare with the fourth layer as its dirt", Some(("core.lens_flare", flare(json!({"dirt_layer": "layer-4"}))))),
+        (
+            "Noise, then Soft Physical Glow (radius 40)",
+            Some(("core.glow", glow(json!({})))),
+        ),
+        (
+            "Noise, then Soft Physical Glow with the fourth layer as its dirt",
+            Some(("core.glow", glow(json!({"dirt_layer": "layer-4"})))),
+        ),
+        (
+            "Noise, then Lens Flare",
+            Some(("core.lens_flare", flare(json!({})))),
+        ),
+        (
+            "Noise, then Lens Flare with the fourth layer as its dirt",
+            Some(("core.lens_flare", flare(json!({"dirt_layer": "layer-4"})))),
+        ),
     ];
     for (name, e) in shots {
         let stack = |id: &str| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some((type_id, p)) = &e {
                 v.push(json!({"instance_id": format!("{id}d"), "type_id": type_id, "enabled": true, "parameters": p}));
             }
             v
         };
-        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         let layers = &mut j["compositions"][0]["layers"];
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
             layers[i]["effects"] = J::Array(stack(id));
         }
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
-        let (project, comp, root) = (loaded.document.project().clone(), Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let (project, comp, root) = (
+            loaded.document.project().clone(),
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B425_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-425_lens_dirt_timing_table.md"));
+    let out = std::env::var("B425_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-425_lens_dirt_timing_table.md"));
     fs::write(out, s).expect("write the timing table");
 }

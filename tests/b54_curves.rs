@@ -108,7 +108,10 @@ fn b54_curves() {
     t.refused(
         &mut document,
         vec![
-            ("a master of one point", set(master(line(&[[128.0, 128.0]])))),
+            (
+                "a master of one point",
+                set(master(line(&[[128.0, 128.0]]))),
+            ),
             ("a master of 17 points", set(master(rising(17)))),
             (
                 "an out of 256",
@@ -120,11 +123,20 @@ fn b54_curves() {
             ),
             (
                 "two points at in 128",
-                set(master(line(&[[0.0, 0.0], [128.0, 100.0], [128.0, 200.0], [255.0, 255.0]]))),
+                set(master(line(&[
+                    [0.0, 0.0],
+                    [128.0, 100.0],
+                    [128.0, 200.0],
+                    [255.0, 255.0],
+                ]))),
             ),
             (
                 "a point of three numbers",
-                set(master(vec![vec![0.0, 0.0], vec![128.0, 128.0, 128.0], vec![255.0, 255.0]])),
+                set(master(vec![
+                    vec![0.0, 0.0],
+                    vec![128.0, 128.0, 128.0],
+                    vec![255.0, 255.0],
+                ])),
             ),
             (
                 "the master curve keyed, which a list of points cannot be",

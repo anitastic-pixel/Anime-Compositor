@@ -18,9 +18,9 @@ use effect_table::{both, distance, median, reference, repo, time_passes, town, T
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
+use anime_compositor::command::Command;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::command::Command;
 use anime_compositor::effects::{Effect, EffectKey};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Interp, Project};
@@ -32,9 +32,24 @@ fn is_ours(c: &render::OnCard) -> bool {
 }
 
 /// The Difference Mattes the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_ours(c.unmixed())).count()
         // An adjustment layer's run is made from its stack when the card draws it.
         + plan.layers
@@ -62,7 +77,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=26 {
         let file = format!("fx_dmatte_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -88,9 +107,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -118,7 +146,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the layer showing `1_shot.png` (from `dir`), with a hidden layer `plate` showing
 /// `plate_png` beneath it, drawn on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, plate_png: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_shot.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-plate");
@@ -140,17 +171,37 @@ fn picture(dir: &Path, plate_png: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     plate["enabled"] = J::from(false);
     plate["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().insert(0, plate);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("plate"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("plate"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Set the `holder` layer's first effect (the fixtures' own names).
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's first effect, linearly.
@@ -160,7 +211,14 @@ fn keys_holder(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -181,14 +239,22 @@ fn b381_difference_matte() {
     t.fixtures_numbered("expected_difference_matte.json", 1..=26);
 
     t.heading("Files whose layers read each other (document 25)");
-    let expected: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/difference_matte/expected_difference_matte.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(repo(
+            "Fixtures/difference_matte/expected_difference_matte.json",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
         let got = persist::load(&t.root.join(file)).err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
@@ -200,7 +266,10 @@ fn b381_difference_matte() {
     t.row(
         "fx_dmatte_010.json is saved with its six settings, the layer as written",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 6 && saved["layer"] == "patch" && saved["fit"] == "center" && saved["matching_tolerance"] == 15.0,
+        saved.as_object().unwrap().len() == 6
+            && saved["layer"] == "patch"
+            && saved["fit"] == "center"
+            && saved["matching_tolerance"] == 15.0,
     );
     for (file, want) in [
         ("fx_dmatte_018.json", "matching tolerance"),
@@ -213,11 +282,24 @@ fn b381_difference_matte() {
         ("fx_dmatte_025.json", "difference layer"),
     ] {
         let why = holder_effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
-    let whole = r#""view": "final", "fit": "center", "matching_softness": 0, "blur_before_difference": 0"#;
-    t.shape_refused("fx_dmatte_001.json", "a Difference Matte whose tolerance is a word", &format!(r#"{{{whole}, "layer": "", "matching_tolerance": "some"}}"#));
-    t.shape_refused("fx_dmatte_001.json", "a Difference Matte without its layer", &format!(r#"{{{whole}, "matching_tolerance": 15}}"#));
+    let whole =
+        r#""view": "final", "fit": "center", "matching_softness": 0, "blur_before_difference": 0"#;
+    t.shape_refused(
+        "fx_dmatte_001.json",
+        "a Difference Matte whose tolerance is a word",
+        &format!(r#"{{{whole}, "layer": "", "matching_tolerance": "some"}}"#),
+    );
+    t.shape_refused(
+        "fx_dmatte_001.json",
+        "a Difference Matte without its layer",
+        &format!(r#"{{{whole}, "matching_tolerance": 15}}"#),
+    );
     t.shape_refused(
         "fx_dmatte_001.json",
         "a Difference Matte whose view is a number",
@@ -231,19 +313,49 @@ fn b381_difference_matte() {
         f(&mut e);
         e
     };
-    let over = with(&|e| if let Effect::DifferenceMatte { matching_tolerance, .. } = e { *matching_tolerance = 101.0 });
-    let alpha = with(&|e| if let Effect::DifferenceMatte { view, .. } = e { *view = "alpha".into() });
-    let tile = with(&|e| if let Effect::DifferenceMatte { fit, .. } = e { *fit = "tile".into() });
+    let over = with(&|e| {
+        if let Effect::DifferenceMatte {
+            matching_tolerance, ..
+        } = e
+        {
+            *matching_tolerance = 101.0
+        }
+    });
+    let alpha = with(&|e| {
+        if let Effect::DifferenceMatte { view, .. } = e {
+            *view = "alpha".into()
+        }
+    });
+    let tile = with(&|e| {
+        if let Effect::DifferenceMatte { fit, .. } = e {
+            *fit = "tile".into()
+        }
+    });
     let plate = with(&|e| {
-        if let Effect::DifferenceMatte { layer, matching_tolerance, .. } = e {
+        if let Effect::DifferenceMatte {
+            layer,
+            matching_tolerance,
+            ..
+        } = e
+        {
             *layer = J::from("plate");
             *matching_tolerance = 5.0;
         }
     });
     let blurred = |b: f64| {
         with(&|e| {
-            if let Effect::DifferenceMatte { matching_tolerance, matching_softness, blur_before_difference, .. } = e {
-                (*matching_tolerance, *matching_softness, *blur_before_difference) = (5.0, 10.0, b);
+            if let Effect::DifferenceMatte {
+                matching_tolerance,
+                matching_softness,
+                blur_before_difference,
+                ..
+            } = e
+            {
+                (
+                    *matching_tolerance,
+                    *matching_softness,
+                    *blur_before_difference,
+                ) = (5.0, 10.0, b);
             }
         })
     };
@@ -255,7 +367,10 @@ fn b381_difference_matte() {
             ("tolerance 101", set_holder(over)),
             ("view alpha", set_holder(alpha)),
             ("fit tile", set_holder(tile)),
-            ("tolerance keyed to 150", keys_holder("matching_tolerance", &[(0, 0.0), (4, 150.0)])),
+            (
+                "tolerance keyed to 150",
+                keys_holder("matching_tolerance", &[(0, 0.0), (4, 150.0)]),
+            ),
         ],
     );
     taken(
@@ -263,8 +378,14 @@ fn b381_difference_matte() {
         &mut document,
         "fx_dmatte_001.json",
         vec![
-            ("the plate as the difference layer at tolerance 5", set_holder(plate)),
-            ("tolerance keyed from 0 to 10", keys_holder("matching_tolerance", &[(0, 0.0), (4, 10.0)])),
+            (
+                "the plate as the difference layer at tolerance 5",
+                set_holder(plate),
+            ),
+            (
+                "tolerance keyed from 0 to 10",
+                keys_holder("matching_tolerance", &[(0, 0.0), (4, 10.0)]),
+            ),
         ],
     );
 
@@ -302,18 +423,40 @@ fn b381_difference_matte() {
         &mut gpu,
         &[
             ("against layer 4", json!({"layer": "layer-4"}), 3),
-            ("against layer 4 stretched, as the matte, tolerance 8, softness 12", json!({"layer": "layer-4", "fit": "stretch", "view": "matte", "matching_tolerance": 8, "matching_softness": 12}), 3),
-            ("against layer 4, tolerance 5, softness 10, blurred at 2", json!({"layer": "layer-4", "matching_tolerance": 5, "matching_softness": 10, "blur_before_difference": 2}), 3),
+            (
+                "against layer 4 stretched, as the matte, tolerance 8, softness 12",
+                json!({"layer": "layer-4", "fit": "stretch", "view": "matte", "matching_tolerance": 8, "matching_softness": 12}),
+                3,
+            ),
+            (
+                "against layer 4, tolerance 5, softness 10, blurred at 2",
+                json!({"layer": "layer-4", "matching_tolerance": 5, "matching_softness": 10, "blur_before_difference": 2}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-501 pictures/`");
     let dir = repo("verification/D-501 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     // The plate is the street; the shot is the street with a magenta disc in front of it.
     let street = town();
-    let (cx, cy, r) = (TOWN.0 as f64 / 2.0, TOWN.1 as f64 / 2.0, TOWN.1 as f64 / 4.0);
+    let (cx, cy, r) = (
+        TOWN.0 as f64 / 2.0,
+        TOWN.1 as f64 / 2.0,
+        TOWN.1 as f64 / 4.0,
+    );
     let inside = |i: usize| {
         let (x, y) = ((i % TOWN.0) as f64 + 0.5, (i / TOWN.0) as f64 + 0.5);
         (x - cx).hypot(y - cy) < r
@@ -321,48 +464,119 @@ fn b381_difference_matte() {
     let shot: Vec<u8> = street
         .chunks_exact(4)
         .enumerate()
-        .flat_map(|(i, p)| if inside(i) { [230, 40, 160, 255] } else { [p[0], p[1], p[2], p[3]] })
+        .flat_map(|(i, p)| {
+            if inside(i) {
+                [230, 40, 160, 255]
+            } else {
+                [p[0], p[1], p[2], p[3]]
+            }
+        })
         .collect();
     write("1_shot.png", &shot);
     write("2_plate.png", &street);
     let disc = (0..TOWN.0 * TOWN.1).filter(|i| inside(*i)).count();
 
-    let (keyed, said) = picture(&dir, "2_plate.png", json!([fx("fx-0-0", &json!({"layer": "plate"}))]));
+    let (keyed, said) = picture(
+        &dir,
+        "2_plate.png",
+        json!([fx("fx-0-0", &json!({"layer": "plate"}))]),
+    );
     write("3_keyed.png", &keyed);
-    let kept = keyed.chunks_exact(4).enumerate().filter(|(i, p)| inside(*i) && p[3] == 255).count();
-    let leaked = keyed.chunks_exact(4).enumerate().filter(|(i, p)| !inside(*i) && p[3] > 0).count();
+    let kept = keyed
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(i, p)| inside(*i) && p[3] == 255)
+        .count();
+    let leaked = keyed
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(i, p)| !inside(*i) && p[3] > 0)
+        .count();
     t.row(
         "3_keyed.png, against the plate as added (tolerance 15): only the disc is left, every pixel of the street keyed out; draws cleanly",
         &format!("{said:?}, {kept} of the disc's {disc} pixels whole, {leaked} pixels of the street showing"),
         said.is_empty() && kept == disc && leaked == 0,
     );
 
-    let (matte, said) = picture(&dir, "2_plate.png", json!([fx("fx-0-0", &json!({"layer": "plate", "view": "matte"}))]));
+    let (matte, said) = picture(
+        &dir,
+        "2_plate.png",
+        json!([fx("fx-0-0", &json!({"layer": "plate", "view": "matte"}))]),
+    );
     write("4_matte.png", &matte);
-    let white = matte.chunks_exact(4).enumerate().filter(|(i, p)| inside(*i) && p[..3] == [255, 255, 255]).count();
-    let black = matte.chunks_exact(4).enumerate().filter(|(i, p)| !inside(*i) && p[..3] == [0, 0, 0] && p[3] == 255).count();
+    let white = matte
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(i, p)| inside(*i) && p[..3] == [255, 255, 255])
+        .count();
+    let black = matte
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(i, p)| !inside(*i) && p[..3] == [0, 0, 0] && p[3] == 255)
+        .count();
     t.row(
         "4_matte.png, as the matte only: the disc white, the street black; draws cleanly",
-        &format!("{said:?}, {white} of {disc} disc pixels white, {black} of {} street pixels black", TOWN.0 * TOWN.1 - disc),
+        &format!(
+            "{said:?}, {white} of {disc} disc pixels white, {black} of {} street pixels black",
+            TOWN.0 * TOWN.1 - disc
+        ),
         said.is_empty() && white == disc && black == TOWN.0 * TOWN.1 - disc,
     );
 
     // A plate 6 levels lighter, as if the light changed between the two takes.
-    let lighter: Vec<u8> = street.chunks_exact(4).flat_map(|p| [p[0].saturating_add(6), p[1].saturating_add(6), p[2].saturating_add(6), p[3]]).collect();
+    let lighter: Vec<u8> = street
+        .chunks_exact(4)
+        .flat_map(|p| {
+            [
+                p[0].saturating_add(6),
+                p[1].saturating_add(6),
+                p[2].saturating_add(6),
+                p[3],
+            ]
+        })
+        .collect();
     write("5_lighter_plate.png", &lighter);
-    let (tight, said_tight) = picture(&dir, "5_lighter_plate.png", json!([fx("fx-0-0", &json!({"layer": "plate", "matching_tolerance": 1}))]));
-    let (loose, said_loose) = picture(&dir, "5_lighter_plate.png", json!([fx("fx-0-0", &json!({"layer": "plate", "matching_tolerance": 5}))]));
+    let (tight, said_tight) = picture(
+        &dir,
+        "5_lighter_plate.png",
+        json!([fx(
+            "fx-0-0",
+            &json!({"layer": "plate", "matching_tolerance": 1})
+        )]),
+    );
+    let (loose, said_loose) = picture(
+        &dir,
+        "5_lighter_plate.png",
+        json!([fx(
+            "fx-0-0",
+            &json!({"layer": "plate", "matching_tolerance": 5})
+        )]),
+    );
     write("6_lighter_tolerance_1.png", &tight);
     write("7_lighter_tolerance_5.png", &loose);
-    let showing = |p: &[u8]| p.chunks_exact(4).enumerate().filter(|(i, q)| !inside(*i) && q[3] > 0).count();
-    let whole = |p: &[u8]| p.chunks_exact(4).enumerate().filter(|(i, q)| inside(*i) && q[3] == 255).count();
+    let showing = |p: &[u8]| {
+        p.chunks_exact(4)
+            .enumerate()
+            .filter(|(i, q)| !inside(*i) && q[3] > 0)
+            .count()
+    };
+    let whole = |p: &[u8]| {
+        p.chunks_exact(4)
+            .enumerate()
+            .filter(|(i, q)| inside(*i) && q[3] == 255)
+            .count()
+    };
     t.row(
         "6 and 7: against a plate 6 levels lighter (about 2.4 per cent), tolerance 1 keys almost none of the street and tolerance 5 keys all of it, the disc whole in both; draws cleanly",
         &format!("{said_tight:?} {said_loose:?}, street pixels showing {} at 1 and {} at 5, disc pixels whole {} and {} of {disc}", showing(&tight), showing(&loose), whole(&tight), whole(&loose)),
         said_tight.is_empty() && said_loose.is_empty() && showing(&tight) > (TOWN.0 * TOWN.1 - disc) * 9 / 10 && showing(&loose) == 0 && whole(&tight) == disc && whole(&loose) == disc,
     );
 
-    let (gone, said) = picture(&dir, "2_plate.png", json!([fx("fx-0-0", &json!({"layer": "gone"}))]));
+    let (gone, said) = picture(
+        &dir,
+        "2_plate.png",
+        json!([fx("fx-0-0", &json!({"layer": "gone"}))]),
+    );
     t.row(
         "a difference layer not in the composition: the shot exactly as it was, with the warning",
         &format!("{said:?}, {} pixels changed", distance(&gone, &shot).1),
@@ -375,41 +589,74 @@ fn b381_difference_matte() {
 /// The `holder` layer's effect in `file`.
 fn holder_effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    let layer = d.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().find(|l| l.effects.iter().any(|e| matches!(e.effect, Effect::DifferenceMatte { .. })));
-    layer.expect("a layer with a Difference Matte").effects[0].effect.clone()
+    let layer = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| {
+            l.effects
+                .iter()
+                .any(|e| matches!(e.effect, Effect::DifferenceMatte { .. }))
+        });
+    layer.expect("a layer with a Difference Matte").effects[0]
+        .effect
+        .clone()
 }
 
 /// The whole composition, to see that a refused command changed nothing (the effect is on
 /// `holder`, not on the table's `art` layer).
 fn everything(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    )
 }
 
-fn refused(t: &mut Table, document: &mut anime_compositor::command::Document, commands: Vec<(&str, Command)>) {
+fn refused(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    commands: Vec<(&str, Command)>,
+) {
     let held = everything(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
-fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file: &str, commands: Vec<(&str, Command)>) {
+fn taken(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    file: &str,
+    commands: Vec<(&str, Command)>,
+) {
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
@@ -437,25 +684,50 @@ fn b381_difference_matte_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Difference Matte against layer 4 (tolerance 15)", Some(json!({"layer": "layer-4"}))),
+        (
+            "Noise, then Difference Matte against layer 4 (tolerance 15)",
+            Some(json!({"layer": "layer-4"})),
+        ),
         (
             "Noise, then Difference Matte against layer 4, softness 10, blurred at 2",
-            Some(json!({"layer": "layer-4", "matching_tolerance": 5, "matching_softness": 10, "blur_before_difference": 2})),
+            Some(
+                json!({"layer": "layer-4", "matching_tolerance": 5, "matching_softness": 10, "blur_before_difference": 2}),
+            ),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B381_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-381_timing_raw.md"));
+    let out = std::env::var("B381_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-381_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

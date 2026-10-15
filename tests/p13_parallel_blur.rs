@@ -69,7 +69,12 @@ fn blurred() -> WorkingBuffer {
     let mut buffer = cel();
     let stack = [EffectInstance::new(
         Id::new("p12-blur"),
-        Effect::GaussianBlur { sigma_px: SIGMA, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() },
+        Effect::GaussianBlur {
+            sigma_px: SIGMA,
+            edges: "transparent".into(),
+            dimensions: "both".into(),
+            units: "sigma".into(),
+        },
     )];
     apply_stack(&mut buffer, &stack, |at, _, why| {
         panic!("the blur was bypassed at position {at}: {why:?}")

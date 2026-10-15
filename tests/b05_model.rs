@@ -418,9 +418,17 @@ fn b05_model_and_undo() {
         value: true,
     })
     .expect("shy");
-    report.check("shy: layer 1 is shy", true, layer_named(&doc, "layer-1").shy);
+    report.check(
+        "shy: layer 1 is shy",
+        true,
+        layer_named(&doc, "layer-1").shy,
+    );
     doc.undo();
-    report.check("shy undone: not shy", false, layer_named(&doc, "layer-1").shy);
+    report.check(
+        "shy undone: not shy",
+        false,
+        layer_named(&doc, "layer-1").shy,
+    );
     let comps = |doc: &Document| {
         doc.project()
             .compositions
@@ -455,9 +463,17 @@ fn b05_model_and_undo() {
         composition: id(COMP),
     })
     .expect("delete composition");
-    report.check("delete composition: the other is left", "comp-extra", comps(&doc));
+    report.check(
+        "delete composition: the other is left",
+        "comp-extra",
+        comps(&doc),
+    );
     doc.undo();
-    report.check("delete undone: both are back, in their places", &two, comps(&doc));
+    report.check(
+        "delete undone: both are back, in their places",
+        &two,
+        comps(&doc),
+    );
     doc.undo();
     report.check("and the second undone", &one, comps(&doc));
 
@@ -480,7 +496,10 @@ fn b05_model_and_undo() {
         layer_named(&doc, "layer-1").blend_mode.as_str(),
     );
     let settings = |doc: &Document| {
-        let c = doc.project().composition(&id(COMP)).expect("the composition");
+        let c = doc
+            .project()
+            .composition(&id(COMP))
+            .expect("the composition");
         format!(
             "{} {}x{} {:?} {} frames, work {:?}, markers {:?}",
             c.name,
@@ -496,8 +515,14 @@ fn b05_model_and_undo() {
     doc.apply(Command::SetMarkers {
         composition: id(COMP),
         markers: vec![
-            Marker { frame: first, name: String::new() },
-            Marker { frame: past - 1, name: "end".to_string() },
+            Marker {
+                frame: first,
+                name: String::new(),
+            },
+            Marker {
+                frame: past - 1,
+                name: "end".to_string(),
+            },
         ],
     })
     .expect("markers");
@@ -538,10 +563,18 @@ fn b05_model_and_undo() {
         settings(&doc),
     );
     doc.undo();
-    report.check("composition settings undone, marker and work area back", &before, settings(&doc));
+    report.check(
+        "composition settings undone, marker and work area back",
+        &before,
+        settings(&doc),
+    );
     doc.undo();
     doc.undo();
-    report.check("and the work area and markers undone", &untouched, settings(&doc));
+    report.check(
+        "and the work area and markers undone",
+        &untouched,
+        settings(&doc),
+    );
 
     // -- Document 26: scalar property edit, undo, redo exact value -------------------------------
     doc.apply(Command::SetPropertyBase {
@@ -1248,7 +1281,11 @@ fn b05_model_and_undo() {
     // -- Audit B3: Undo or Redo pressed while a drag is still held is refused --------------------
     // Before, Undo went through mid-drag and the release then recorded the drag on top of the
     // undone state, so the next Undo brought the undone change back and Redo was lost.
-    let held_from = layer_named(&doc, "layer-4").transform.position.base().to_string();
+    let held_from = layer_named(&doc, "layer-4")
+        .transform
+        .position
+        .base()
+        .to_string();
     let depth_before_held = doc.undo_depth();
     doc.begin_drag().expect("begin");
     doc.update_drag(Command::SetPropertyBase {
@@ -1263,8 +1300,16 @@ fn b05_model_and_undo() {
         "refused, refused",
         format!(
             "{}, {}",
-            if doc.undo().is_some() { "went through" } else { "refused" },
-            if doc.redo().is_some() { "went through" } else { "refused" }
+            if doc.undo().is_some() {
+                "went through"
+            } else {
+                "refused"
+            },
+            if doc.redo().is_some() {
+                "went through"
+            } else {
+                "refused"
+            }
         ),
     );
     doc.end_drag();

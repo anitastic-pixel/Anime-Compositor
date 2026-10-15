@@ -91,9 +91,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -101,7 +112,12 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
             let a = bytes[i + 3] as f64 / 255.0;
             let over = |c: u8, b: f64| (c as f64 * a + b * (1.0 - a)).round() as u8;
-            [over(bytes[i], BACK[0]), over(bytes[i + 1], BACK[1]), over(bytes[i + 2], BACK[2]), 255]
+            [
+                over(bytes[i], BACK[0]),
+                over(bytes[i + 1], BACK[1]),
+                over(bytes[i + 2], BACK[2]),
+                255,
+            ]
         })
         .collect();
     (bytes, big, said)
@@ -123,7 +139,11 @@ fn b134_light_sweep() {
 
     t.heading("How far it reaches");
     let got = sweep(MIDDLE, ADDED, WORDS).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = sweep(MIDDLE, [-30.0, 50.0, 50.0, 100.0, 6.0], WORDS);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -176,17 +196,50 @@ fn b134_light_sweep() {
         &mut document,
         vec![
             ("centre x 1000.5", set(sweep([1000.5, 50.0], ADDED, WORDS))),
-            ("direction -3600.5", set(sweep(MIDDLE, [-3600.5, 50.0, 50.0, 100.0, 1.0], WORDS))),
-            ("width -1", set(sweep(MIDDLE, [-30.0, -1.0, 50.0, 100.0, 1.0], WORDS))),
-            ("width 10000.5", set(sweep(MIDDLE, [-30.0, 10000.5, 50.0, 100.0, 1.0], WORDS))),
-            ("sweep intensity 101", set(sweep(MIDDLE, [-30.0, 50.0, 101.0, 100.0, 1.0], WORDS))),
-            ("edge intensity -0.5", set(sweep(MIDDLE, [-30.0, 50.0, 50.0, -0.5, 1.0], WORDS))),
-            ("edge thickness 0.9", set(sweep(MIDDLE, [-30.0, 50.0, 50.0, 100.0, 0.9], WORDS))),
-            ("edge thickness 50.5", set(sweep(MIDDLE, [-30.0, 50.0, 50.0, 100.0, 50.5], WORDS))),
-            ("shape \"round\"", set(sweep(MIDDLE, ADDED, ["round", "#ffffff", "add"]))),
-            ("light colour \"#fff\"", set(sweep(MIDDLE, ADDED, ["smooth", "#fff", "add"]))),
-            ("light reception \"glow\"", set(sweep(MIDDLE, ADDED, ["smooth", "#ffffff", "glow"]))),
-            ("edge thickness keyed to 60", keys("edge_thickness", &[(0, &[1.0]), (4, &[60.0])])),
+            (
+                "direction -3600.5",
+                set(sweep(MIDDLE, [-3600.5, 50.0, 50.0, 100.0, 1.0], WORDS)),
+            ),
+            (
+                "width -1",
+                set(sweep(MIDDLE, [-30.0, -1.0, 50.0, 100.0, 1.0], WORDS)),
+            ),
+            (
+                "width 10000.5",
+                set(sweep(MIDDLE, [-30.0, 10000.5, 50.0, 100.0, 1.0], WORDS)),
+            ),
+            (
+                "sweep intensity 101",
+                set(sweep(MIDDLE, [-30.0, 50.0, 101.0, 100.0, 1.0], WORDS)),
+            ),
+            (
+                "edge intensity -0.5",
+                set(sweep(MIDDLE, [-30.0, 50.0, 50.0, -0.5, 1.0], WORDS)),
+            ),
+            (
+                "edge thickness 0.9",
+                set(sweep(MIDDLE, [-30.0, 50.0, 50.0, 100.0, 0.9], WORDS)),
+            ),
+            (
+                "edge thickness 50.5",
+                set(sweep(MIDDLE, [-30.0, 50.0, 50.0, 100.0, 50.5], WORDS)),
+            ),
+            (
+                "shape \"round\"",
+                set(sweep(MIDDLE, ADDED, ["round", "#ffffff", "add"])),
+            ),
+            (
+                "light colour \"#fff\"",
+                set(sweep(MIDDLE, ADDED, ["smooth", "#fff", "add"])),
+            ),
+            (
+                "light reception \"glow\"",
+                set(sweep(MIDDLE, ADDED, ["smooth", "#ffffff", "glow"])),
+            ),
+            (
+                "edge thickness keyed to 60",
+                keys("edge_thickness", &[(0, &[1.0]), (4, &[60.0])]),
+            ),
         ],
     );
     t.taken(
@@ -195,13 +248,24 @@ fn b134_light_sweep() {
         vec![
             (
                 "every setting at the top of its range, the last words,",
-                set(sweep([1000.0, 1000.0], [3600.0, 10000.0, 100.0, 100.0, 50.0], ["sharp", "#000000", "cutout"])),
+                set(sweep(
+                    [1000.0, 1000.0],
+                    [3600.0, 10000.0, 100.0, 100.0, 50.0],
+                    ["sharp", "#000000", "cutout"],
+                )),
             ),
             (
                 "every setting at the bottom, the other words,",
-                set(sweep([-1000.0, -1000.0], [-3600.0, 0.0, 0.0, 0.0, 1.0], ["linear", "#ffb040", "composite"])),
+                set(sweep(
+                    [-1000.0, -1000.0],
+                    [-3600.0, 0.0, 0.0, 0.0, 1.0],
+                    ["linear", "#ffb040", "composite"],
+                )),
             ),
-            ("the centre keyed from (0, 50) to (100, 50)", keys("center", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])])),
+            (
+                "the centre keyed from (0, 50) to (100, 50)",
+                keys("center", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])]),
+            ),
         ],
     );
 
@@ -210,25 +274,89 @@ fn b134_light_sweep() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let drawn = plate();
-    png_out::write_rgba(&dir.join("plate.png"), w, h, OutputDepth::Eight, &[], &drawn).unwrap();
+    png_out::write_rgba(
+        &dir.join("plate.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &drawn,
+    )
+    .unwrap();
     let (_, big, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the badge with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the badge with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
         let i = (y * w + x) * 4;
         [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
     };
-    let brighter = |a: [u8; 4], b: [u8; 4]| a[3] == b[3] && a[..3].iter().zip(&b[..3]).all(|(u, v)| u >= v) && a != b;
+    let brighter = |a: [u8; 4], b: [u8; 4]| {
+        a[3] == b[3] && a[..3].iter().zip(&b[..3]).all(|(u, v)| u >= v) && a != b
+    };
     let (corner, off) = ((5, 5), (118, 20));
     let at = |x: usize| (x, 50);
     for (name, what, center, n, words) in [
-        ("start", "as it is added: a soft white band leaning left through the middle", MIDDLE, ADDED, WORDS),
-        ("sweep_1", "a sharp band keyed along, a third of the way", [30.0, 50.0], [-30.0, 24.0, 70.0, 100.0, 1.0], ["sharp", "#ffffff", "add"]),
-        ("sweep_2", "half way", MIDDLE, [-30.0, 24.0, 70.0, 100.0, 1.0], ["sharp", "#ffffff", "add"]),
-        ("sweep_3", "two thirds of the way", [70.0, 50.0], [-30.0, 24.0, 70.0, 100.0, 1.0], ["sharp", "#ffffff", "add"]),
-        ("edges", "the edges alone, three pixels deep", MIDDLE, [-30.0, 10000.0, 0.0, 100.0, 3.0], WORDS),
-        ("composite", "composited in orange #ffb040", MIDDLE, [-30.0, 80.0, 90.0, 100.0, 1.0], ["smooth", "#ffb040", "composite"]),
-        ("cutout", "cutout: only the light is left", MIDDLE, [-30.0, 80.0, 100.0, 100.0, 1.0], ["smooth", "#ffffff", "cutout"]),
+        (
+            "start",
+            "as it is added: a soft white band leaning left through the middle",
+            MIDDLE,
+            ADDED,
+            WORDS,
+        ),
+        (
+            "sweep_1",
+            "a sharp band keyed along, a third of the way",
+            [30.0, 50.0],
+            [-30.0, 24.0, 70.0, 100.0, 1.0],
+            ["sharp", "#ffffff", "add"],
+        ),
+        (
+            "sweep_2",
+            "half way",
+            MIDDLE,
+            [-30.0, 24.0, 70.0, 100.0, 1.0],
+            ["sharp", "#ffffff", "add"],
+        ),
+        (
+            "sweep_3",
+            "two thirds of the way",
+            [70.0, 50.0],
+            [-30.0, 24.0, 70.0, 100.0, 1.0],
+            ["sharp", "#ffffff", "add"],
+        ),
+        (
+            "edges",
+            "the edges alone, three pixels deep",
+            MIDDLE,
+            [-30.0, 10000.0, 0.0, 100.0, 3.0],
+            WORDS,
+        ),
+        (
+            "composite",
+            "composited in orange #ffb040",
+            MIDDLE,
+            [-30.0, 80.0, 90.0, 100.0, 1.0],
+            ["smooth", "#ffb040", "composite"],
+        ),
+        (
+            "cutout",
+            "cutout: only the light is left",
+            MIDDLE,
+            [-30.0, 80.0, 100.0, 100.0, 1.0],
+            ["smooth", "#ffffff", "cutout"],
+        ),
     ] {
         let effects = serde_json::json!([{
             "instance_id": "fx-0-0", "type_id": "core.light_sweep", "enabled": true,
@@ -239,8 +367,15 @@ fn b134_light_sweep() {
             },
         }]);
         let (bytes, big, said) = picture(&dir, effects);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w * 3, h * 3, OutputDepth::Eight, &[], &big)
-            .unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w * 3,
+            h * 3,
+            OutputDepth::Eight,
+            &[],
+            &big,
+        )
+        .unwrap();
         let got = |p| px(&bytes, p);
         let was = |p| px(&drawn, p);
         let (claim, ok) = match name {
@@ -274,7 +409,10 @@ fn b134_light_sweep() {
                 )
             }
         };
-        let spots: Vec<[u8; 4]> = [at(40), at(42), at(43), at(48), at(80), at(112), off, corner].into_iter().map(got).collect();
+        let spots: Vec<[u8; 4]> = [at(40), at(42), at(43), at(48), at(80), at(112), off, corner]
+            .into_iter()
+            .map(got)
+            .collect();
         t.row(
             &format!("{name}.png, {what}; draws cleanly; {claim}"),
             &format!(
@@ -285,7 +423,11 @@ fn b134_light_sweep() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_sweep_001.json", 0), ("fx_sweep_010.json", 0), ("fx_sweep_019.json", 0)]);
+    t.tiles(&[
+        ("fx_sweep_001.json", 0),
+        ("fx_sweep_010.json", 0),
+        ("fx_sweep_019.json", 0),
+    ]);
 
     t.finish("B-134_light_sweep_table.md");
 }

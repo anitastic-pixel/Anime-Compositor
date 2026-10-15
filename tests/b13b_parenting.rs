@@ -108,13 +108,7 @@ fn layer(document: &mut Document, id: &str, index: usize) -> Id {
     document
         .apply(Command::AddLayer {
             composition: Id::new(COMP),
-            layer: Box::new(Layer::new(
-                layer_id.clone(),
-                id,
-                Id::new(ASSET),
-                0,
-                40,
-            )),
+            layer: Box::new(Layer::new(layer_id.clone(), id, Id::new(ASSET), 0, 40)),
             index,
         })
         .unwrap_or_else(|d| panic!("adding {id}: {}", d.message));
@@ -227,7 +221,12 @@ fn fx_parent_001(report: &mut Report) {
     let mut document = project();
     let parent = layer(&mut document, "layer-p", 0);
     let child = layer(&mut document, "layer-c", 1);
-    set(&mut document, &parent, Prop::Anchor, Value::Vec2(50.0, 50.0));
+    set(
+        &mut document,
+        &parent,
+        Prop::Anchor,
+        Value::Vec2(50.0, 50.0),
+    );
     set(
         &mut document,
         &parent,
@@ -328,7 +327,13 @@ fn chain_of_three() -> Document {
         Prop::Position,
         Value::Vec2(200.0, 0.0),
     );
-    key(&mut document, &parent, Prop::Rotation, 0, Value::Scalar(0.0));
+    key(
+        &mut document,
+        &parent,
+        Prop::Rotation,
+        0,
+        Value::Scalar(0.0),
+    );
     key(
         &mut document,
         &parent,
@@ -364,7 +369,12 @@ fn fx_parent_003(report: &mut Report) {
     let mut document = project();
     let parent = layer(&mut document, "layer-p", 0);
     let child = layer(&mut document, "layer-c", 1);
-    set(&mut document, &parent, Prop::Anchor, Value::Vec2(50.0, 50.0));
+    set(
+        &mut document,
+        &parent,
+        Prop::Anchor,
+        Value::Vec2(50.0, 50.0),
+    );
     set(
         &mut document,
         &parent,
@@ -474,7 +484,10 @@ fn fx_parent_005(report: &mut Report) {
         ((50.0, 50.0), (400.0, 300.0), (2.0, 2.0), 90.0),
         ((10.0, 20.0), (500.0, 400.0), (1.0, 1.0), 30.0),
     );
-    let before: Vec<(f64, f64)> = CORNERS.iter().map(|c| at(&document, &child, 0, *c)).collect();
+    let before: Vec<(f64, f64)> = CORNERS
+        .iter()
+        .map(|c| at(&document, &child, 0, *c))
+        .collect();
 
     let comp = document
         .project()
@@ -566,14 +579,24 @@ fn keep_place_case(
     for (id, (anchor, position, scale, rotation)) in
         [(&parent, parent_values), (&child, child_values)]
     {
-        set(&mut document, id, Prop::Anchor, Value::Vec2(anchor.0, anchor.1));
+        set(
+            &mut document,
+            id,
+            Prop::Anchor,
+            Value::Vec2(anchor.0, anchor.1),
+        );
         set(
             &mut document,
             id,
             Prop::Position,
             Value::Vec2(position.0, position.1),
         );
-        set(&mut document, id, Prop::Scale, Value::Vec2(scale.0, scale.1));
+        set(
+            &mut document,
+            id,
+            Prop::Scale,
+            Value::Vec2(scale.0, scale.1),
+        );
         set(&mut document, id, Prop::Rotation, Value::Scalar(rotation));
     }
     (document, parent, child)
@@ -585,7 +608,10 @@ fn fx_parent_007(report: &mut Report) {
     let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading the fixture: {e}"));
     let loaded = match persist::load_str(&text) {
         Ok(loaded) => loaded,
-        Err(d) => panic!("the parenting fixture did not open: {} - {}", d.message, d.detail),
+        Err(d) => panic!(
+            "the parenting fixture did not open: {} - {}",
+            d.message, d.detail
+        ),
     };
     let missing: Vec<&anime_compositor::diagnostics::Diagnostic> = loaded
         .warnings
@@ -669,7 +695,11 @@ fn fx_parent_008(report: &mut Report) {
 
     let (anchor, position, scale, rotation) = held(&document, &child);
     report.check("FX-PARENT-008: the anchor", place((10.0, 20.0)), anchor);
-    report.check("FX-PARENT-008: the position", place((500.0, 400.0)), position);
+    report.check(
+        "FX-PARENT-008: the position",
+        place((500.0, 400.0)),
+        position,
+    );
     report.check("FX-PARENT-008: the scale", place((100.0, 100.0)), scale);
     report.check("FX-PARENT-008: the rotation", "30.000000000", rotation);
     report.check(
@@ -697,7 +727,12 @@ fn fx_parent_008(report: &mut Report) {
     );
     report.check(
         "FX-PARENT-008: and the child's FX-PARENT-005 values with it",
-        format!("{}, {}, {}", place((100.0, 0.0)), place((50.0, 50.0)), "-60.000000000"),
+        format!(
+            "{}, {}, {}",
+            place((100.0, 0.0)),
+            place((50.0, 50.0)),
+            "-60.000000000"
+        ),
         format!("{position}, {scale}, {rotation}"),
     );
 }

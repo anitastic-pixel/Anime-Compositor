@@ -17,7 +17,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, keys, median, on_card, repo, set, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, keys, median, on_card, repo, set, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -30,7 +32,10 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 /// An Inner/Outer Key: foreground, background, radius, thin, feather, threshold, blend; invert.
-fn iok([foreground, background, single_mask_highlight_radius, edge_thin, edge_feather, edge_threshold, blend_with_original]: [f64; 7], invert: &str) -> Effect {
+fn iok(
+    [foreground, background, single_mask_highlight_radius, edge_thin, edge_feather, edge_threshold, blend_with_original]: [f64; 7],
+    invert: &str,
+) -> Effect {
     Effect::InnerOuterKey {
         foreground,
         background,
@@ -70,23 +75,35 @@ fn masks(circles: &[((f64, f64), f64)]) -> J {
 /// The reference shot (1920 by 1080) with four masks (mode None: a small circle inside a large
 /// one, and two more) and `stack` on its first three layers.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         let d = 40.0 * i as f64;
-        layers[i]["masks"] = masks(&[((960.0 + d, 540.0), 250.0), ((960.0 + d, 540.0), 400.0), ((560.0 + d, 400.0), 220.0), ((1400.0 + d, 620.0), 300.0)]);
+        layers[i]["masks"] = masks(&[
+            ((960.0 + d, 540.0), 250.0),
+            ((960.0 + d, 540.0), 400.0),
+            ((560.0 + d, 400.0), 220.0),
+            ((1400.0 + d, 620.0), 300.0),
+        ]);
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.inner_outer_key" => json!({"foreground": 0, "background": 0, "single_mask_highlight_radius": 10, "edge_thin": 0, "edge_feather": 0,
-            "edge_threshold": 0, "invert_extraction": "off", "blend_with_original": 0}),
+        "core.inner_outer_key" => {
+            json!({"foreground": 0, "background": 0, "single_mask_highlight_radius": 10, "edge_thin": 0, "edge_feather": 0,
+            "edge_threshold": 0, "invert_extraction": "off", "blend_with_original": 0})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -101,7 +118,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, pick: fn(
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -122,14 +143,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, pick: fn(
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, the card's frame against the processor's.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -158,7 +195,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 /// three masks that cut nothing: a circle about the middle, a larger one about it, and one to
 /// the upper left.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -167,34 +207,75 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     let middle = json!([TOWN.0 as f64 / 2.0, TOWN.1 as f64 / 2.0]);
     layer["transform"]["anchor"]["base"] = middle.clone();
     layer["transform"]["position"]["base"] = middle;
-    layer["masks"] = masks(&[((240.0, 135.0), 70.0), ((240.0, 135.0), 110.0), ((110.0, 80.0), 50.0)]);
+    layer["masks"] = masks(&[
+        ((240.0, 135.0), 70.0),
+        ((240.0, 135.0), 110.0),
+        ((110.0, 80.0), 50.0),
+    ]);
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The street drawn plain and with each of `shots` of `type_id`, written as numbered pictures
 /// into `verification/{d} pictures/`; a row each that it draws cleanly and changes what it says
 /// it changes.
-fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+fn street(
+    t: &mut Table,
+    d: &str,
+    type_id: &str,
+    shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)],
+) {
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect (its three masks cut nothing); draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect (its three masks cut nothing); draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]));
         write(&file, &bytes);
         t.row(
             &format!("{file}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}", distance(&bytes, &before).1, TOWN.0 * TOWN.1),
+            &format!(
+                "{said:?}, {} pixels changed of {}",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -203,8 +284,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -219,7 +312,12 @@ fn is_iok(e: &Effect) -> bool {
 /// The share of pixels that changed, and whether no pixel's alpha rose (a key only takes away).
 fn taken_away(a: &[u8], b: &[u8]) -> (f64, bool) {
     let share = distance(a, b).1 as f64 / (a.len() / 4) as f64;
-    (share, a.chunks_exact(4).zip(b.chunks_exact(4)).all(|(p, q)| p[3] <= q[3]))
+    (
+        share,
+        a.chunks_exact(4)
+            .zip(b.chunks_exact(4))
+            .all(|(p, q)| p[3] <= q[3]),
+    )
 }
 
 /// Most pixels changed but not all, none made less see-through.
@@ -264,8 +362,12 @@ fn b382_inner_outer_key() {
     t.row(
         "fx_iok_017.json is saved with its numbers and word as written, no paths",
         &saved.to_string(),
-        saved["foreground"] == 1.5 && saved["background"] == 2.7 && saved["single_mask_highlight_radius"] == 10
-            && saved["invert_extraction"] == "off" && saved["blend_with_original"] == 0 && saved.get("paths").is_none(),
+        saved["foreground"] == 1.5
+            && saved["background"] == 2.7
+            && saved["single_mask_highlight_radius"] == 10
+            && saved["invert_extraction"] == "off"
+            && saved["blend_with_original"] == 0
+            && saved.get("paths").is_none(),
     );
     why(
         &mut t,
@@ -282,7 +384,11 @@ fn b382_inner_outer_key() {
         ],
     );
     let ok = r#""single_mask_highlight_radius": 10, "edge_thin": 0, "edge_feather": 0, "edge_threshold": 0"#;
-    t.shape_refused("fx_iok_002.json", "an Inner/Outer Key with no `blend_with_original`", &format!(r#"{{"foreground": 1, "background": 2, {ok}, "invert_extraction": "off"}}"#));
+    t.shape_refused(
+        "fx_iok_002.json",
+        "an Inner/Outer Key with no `blend_with_original`",
+        &format!(r#"{{"foreground": 1, "background": 2, {ok}, "invert_extraction": "off"}}"#),
+    );
     t.shape_refused("fx_iok_002.json", "an Inner/Outer Key with a foreground in words", &format!(r#"{{"foreground": "first", "background": 2, {ok}, "invert_extraction": "off", "blend_with_original": 0}}"#));
     t.shape_refused("fx_iok_002.json", "an Inner/Outer Key whose invert extraction is true", &format!(r#"{{"foreground": 1, "background": 2, {ok}, "invert_extraction": true, "blend_with_original": 0}}"#));
 
@@ -291,11 +397,26 @@ fn b382_inner_outer_key() {
     t.refused(
         &mut document,
         vec![
-            ("foreground -1", set(iok([-1.0, 2.0, 10.0, 0.0, 0.0, 0.0, 0.0], "off"))),
-            ("edge thin 101", set(iok([1.0, 2.0, 10.0, 101.0, 0.0, 0.0, 0.0], "off"))),
-            ("edge feather 1001", set(iok([1.0, 2.0, 10.0, 0.0, 1001.0, 0.0, 0.0], "off"))),
-            ("invert extraction \"yes\"", set(iok([1.0, 2.0, 10.0, 0.0, 0.0, 0.0, 0.0], "yes"))),
-            ("blend with original keyed to 101", keys("blend_with_original", &[(0, &[0.0]), (4, &[101.0])])),
+            (
+                "foreground -1",
+                set(iok([-1.0, 2.0, 10.0, 0.0, 0.0, 0.0, 0.0], "off")),
+            ),
+            (
+                "edge thin 101",
+                set(iok([1.0, 2.0, 10.0, 101.0, 0.0, 0.0, 0.0], "off")),
+            ),
+            (
+                "edge feather 1001",
+                set(iok([1.0, 2.0, 10.0, 0.0, 1001.0, 0.0, 0.0], "off")),
+            ),
+            (
+                "invert extraction \"yes\"",
+                set(iok([1.0, 2.0, 10.0, 0.0, 0.0, 0.0, 0.0], "yes")),
+            ),
+            (
+                "blend with original keyed to 101",
+                keys("blend_with_original", &[(0, &[0.0]), (4, &[101.0])]),
+            ),
         ],
     );
     t.taken(
@@ -309,7 +430,15 @@ fn b382_inner_outer_key() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_iok_002.json", 0), ("fx_iok_003.json", 0), ("fx_iok_008.json", 0), ("fx_iok_011.json", 0), ("fx_iok_014.json", 2), ("fx_iok_016.json", 0), ("fx_iok_021.json", 0)]);
+    t.tiles(&[
+        ("fx_iok_002.json", 0),
+        ("fx_iok_003.json", 0),
+        ("fx_iok_008.json", 0),
+        ("fx_iok_011.json", 0),
+        ("fx_iok_014.json", 2),
+        ("fx_iok_016.json", 0),
+        ("fx_iok_021.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255 (the key is drawn on the processor; the card draws what follows it)");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -320,11 +449,23 @@ fn b382_inner_outer_key() {
         "Inner/Outer Key",
         "core.inner_outer_key",
         &[
-            ("foreground 1 (a circle of radius 250), background 2 (radius 400 about it)", json!({"foreground": 1, "background": 2})),
+            (
+                "foreground 1 (a circle of radius 250), background 2 (radius 400 about it)",
+                json!({"foreground": 1, "background": 2}),
+            ),
             ("foreground 1 alone, radius 10", json!({"foreground": 1})),
-            ("foreground 3 alone, radius 40, inverted", json!({"foreground": 3, "single_mask_highlight_radius": 40, "invert_extraction": "on"})),
-            ("foreground 1, background 2, thin 3, feather 12, threshold 20", json!({"foreground": 1, "background": 2, "edge_thin": 3, "edge_feather": 12, "edge_threshold": 20})),
-            ("foreground 4 alone, radius 25, thin -4, blend 40", json!({"foreground": 4, "single_mask_highlight_radius": 25, "edge_thin": -4, "blend_with_original": 40})),
+            (
+                "foreground 3 alone, radius 40, inverted",
+                json!({"foreground": 3, "single_mask_highlight_radius": 40, "invert_extraction": "on"}),
+            ),
+            (
+                "foreground 1, background 2, thin 3, feather 12, threshold 20",
+                json!({"foreground": 1, "background": 2, "edge_thin": 3, "edge_feather": 12, "edge_threshold": 20}),
+            ),
+            (
+                "foreground 4 alone, radius 25, thin -4, blend 40",
+                json!({"foreground": 4, "single_mask_highlight_radius": 25, "edge_thin": -4, "blend_with_original": 40}),
+            ),
         ],
         is_iok,
     );
@@ -370,22 +511,59 @@ fn b382_inner_outer_key_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Inner/Outer Key, two masks", Some(("core.inner_outer_key", json!({"foreground": 1, "background": 2})))),
-        ("Noise, then Inner/Outer Key, one mask, radius 10", Some(("core.inner_outer_key", json!({"foreground": 1})))),
-        ("Noise, then Inner/Outer Key, two masks, thin 3, feather 12, threshold 20", Some(("core.inner_outer_key", json!({"foreground": 1, "background": 2, "edge_thin": 3, "edge_feather": 12, "edge_threshold": 20})))),
+        (
+            "Noise, then Inner/Outer Key, two masks",
+            Some((
+                "core.inner_outer_key",
+                json!({"foreground": 1, "background": 2}),
+            )),
+        ),
+        (
+            "Noise, then Inner/Outer Key, one mask, radius 10",
+            Some(("core.inner_outer_key", json!({"foreground": 1}))),
+        ),
+        (
+            "Noise, then Inner/Outer Key, two masks, thin 3, feather 12, threshold 20",
+            Some((
+                "core.inner_outer_key",
+                json!({"foreground": 1, "background": 2, "edge_thin": 3, "edge_feather": 12, "edge_threshold": 20}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B382_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-382_timing_raw.md"));
+    let out = std::env::var("B382_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-382_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

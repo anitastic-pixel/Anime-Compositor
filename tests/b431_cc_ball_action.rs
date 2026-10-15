@@ -16,7 +16,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN};
+use effect_table::{
+    both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -30,14 +32,17 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers.
 
-
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=45 {
         let file = format!("fx_ball_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -45,7 +50,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CcBallAction { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CcBallAction { .. })
+                });
             }
         }
         t.row(
@@ -63,9 +70,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -79,7 +95,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CcBallAction { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::CcBallAction { .. })
+                });
                 t.row(
                     &format!("the reference shot, CC Ball Action {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,7 +111,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -105,11 +126,22 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
-
 
 /// A CC Ball Action with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
@@ -164,7 +196,11 @@ fn b431_cc_ball_action() {
         ("fx_ball_045.json", "twist property"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_ball_001.json",
@@ -185,9 +221,21 @@ fn b431_cc_ball_action() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("grid spacing 24, rotation 40 about XY, twist radius 90", json!({"grid_spacing": 24, "rotation_axis": "xy", "rotation": 40, "twist_property": "radius", "twist_angle": 90}), 3),
-            ("scatter 60, instability state 120, ball size 160", json!({"scatter": 60, "instability_state": 120, "ball_size": 160}), 3),
-            ("fast top 200, rotation keyed 0 to 720 about Y", json!({"rotation_axis": "y", "twist_property": "fast_top", "twist_angle": 200, "rotation": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 720, "interp": "linear"}]}}), 3),
+            (
+                "grid spacing 24, rotation 40 about XY, twist radius 90",
+                json!({"grid_spacing": 24, "rotation_axis": "xy", "rotation": 40, "twist_property": "radius", "twist_angle": 90}),
+                3,
+            ),
+            (
+                "scatter 60, instability state 120, ball size 160",
+                json!({"scatter": 60, "instability_state": 120, "ball_size": 160}),
+                3,
+            ),
+            (
+                "fast top 200, rotation keyed 0 to 720 about Y",
+                json!({"rotation_axis": "y", "twist_property": "fast_top", "twist_angle": 200, "rotation": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 720, "interp": "linear"}]}}),
+                3,
+            ),
         ],
     );
 
@@ -199,22 +247,41 @@ fn b431_cc_ball_action() {
     for (name, p) in [
         ("1_as_added", json!({})),
         ("2_large_balls", json!({"grid_spacing": 16})),
-        ("3_turned_about_y", json!({"grid_spacing": 12, "rotation_axis": "y", "rotation": 50})),
-        ("4_twist_radius", json!({"grid_spacing": 12, "twist_property": "radius", "twist_angle": 120})),
-        ("5_scattered", json!({"grid_spacing": 12, "scatter": 40, "instability_state": 90})),
+        (
+            "3_turned_about_y",
+            json!({"grid_spacing": 12, "rotation_axis": "y", "rotation": 50}),
+        ),
+        (
+            "4_twist_radius",
+            json!({"grid_spacing": 12, "twist_property": "radius", "twist_angle": 120}),
+        ),
+        (
+            "5_scattered",
+            json!({"grid_spacing": 12, "scatter": 40, "instability_state": 90}),
+        ),
     ] {
         let (bytes, said) = picture(&dir, "1_left.png", (480, 270), json!([fx("pic", &p)]));
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let covered = bytes.chunks_exact(4).filter(|p| p[3] > 0).count();
         t.row(
             &format!("{name}.png: drawn without a warning, the street changed, balls drawn"),
-            &format!("{} pixels changed; {covered} pixels covered; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; {covered} pixels covered; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0 && covered > 0,
         );
     }
     t.finish("D-551_cc_ball_action_table.md");
 }
-
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
 /// that changes every frame on its first three layers, so nothing is kept, then the effect,
@@ -242,22 +309,48 @@ fn b431_cc_ball_action_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then CC Ball Action as added", Some(json!({}))),
-        ("Noise, then CC Ball Action, grid spacing 4, rotation 40 about XY", Some(json!({"grid_spacing": 4, "rotation_axis": "xy", "rotation": 40}))),
-        ("Noise, then CC Ball Action, scatter 60, ball size 300", Some(json!({"scatter": 60, "ball_size": 300}))),
+        (
+            "Noise, then CC Ball Action, grid spacing 4, rotation 40 about XY",
+            Some(json!({"grid_spacing": 4, "rotation_axis": "xy", "rotation": 40})),
+        ),
+        (
+            "Noise, then CC Ball Action, scatter 60, ball size 300",
+            Some(json!({"scatter": 60, "ball_size": 300})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B431_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-431_timing_raw.md"));
+    let out = std::env::var("B431_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-431_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -52,7 +52,11 @@ fn b93_ripple() {
 
     t.heading("How far it reaches");
     let got = with(0, 1000.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = ripple(MIDDLE, [5.0, 30.0, 20.0, 40.0, 60.0]);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -109,7 +113,10 @@ fn b93_ripple() {
             ("phase -100001", set(with(3, -100001.0))),
             ("fade -1", set(with(4, -1.0))),
             ("centre 50, 1001", set(ripple([50.0, 1001.0], START))),
-            ("amplitude keyed to 1500", keys("amplitude", &[(0, &[5.0]), (4, &[1500.0])])),
+            (
+                "amplitude keyed to 1500",
+                keys("amplitude", &[(0, &[5.0]), (4, &[1500.0])]),
+            ),
         ],
     );
     t.taken(
@@ -118,11 +125,17 @@ fn b93_ripple() {
         vec![
             (
                 "every number at its bottom,",
-                set(ripple([-1000.0, -1000.0], [0.0, 1.0, -360.0, -100000.0, 0.0])),
+                set(ripple(
+                    [-1000.0, -1000.0],
+                    [0.0, 1.0, -360.0, -100000.0, 0.0],
+                )),
             ),
             (
                 "every number at its top,",
-                set(ripple([1000.0, 1000.0], [1000.0, 10000.0, 360.0, 100000.0, 100000.0])),
+                set(ripple(
+                    [1000.0, 1000.0],
+                    [1000.0, 10000.0, 360.0, 100000.0, 100000.0],
+                )),
             ),
             (
                 "the centre keyed from 50, 50 to 0, 0",

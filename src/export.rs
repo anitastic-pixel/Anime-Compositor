@@ -72,7 +72,10 @@ pub enum OutputFormat {
 impl OutputFormat {
     /// True when the whole job is one file rather than a file a frame.
     pub fn is_one_file(self) -> bool {
-        matches!(self, OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4)
+        matches!(
+            self,
+            OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4
+        )
     }
 }
 
@@ -245,7 +248,11 @@ pub fn files_in_the_way(request: &ExportRequest) -> Vec<PathBuf> {
 }
 
 /// The first file in the way of `request` that is one of `project`'s own media files.
-fn own_media_in_the_way(project: &Project, root: &Path, request: &ExportRequest) -> Option<PathBuf> {
+fn own_media_in_the_way(
+    project: &Project,
+    root: &Path,
+    request: &ExportRequest,
+) -> Option<PathBuf> {
     let in_the_way = files_in_the_way(request);
     if in_the_way.is_empty() {
         return None;
@@ -292,7 +299,8 @@ pub fn export_sequence_watched(
     report.frames_requested = frames.len();
     let one_file = request.format.is_one_file();
     // D-641: the WAV beside, when asked for and the format takes one.
-    let wav = request.choices.wav && !matches!(request.format, OutputFormat::Gif | OutputFormat::Mp4);
+    let wav =
+        request.choices.wav && !matches!(request.format, OutputFormat::Gif | OutputFormat::Mp4);
     report.files_expected = if one_file { 1 } else { frames.len() } + wav as usize;
     // D-641: the composition's sound goes into an MP4 when it has any audio layer switched on;
     // D-645: here or inside a composition layer switched on.
@@ -378,9 +386,11 @@ pub fn export_sequence_watched(
         }
         // D-291: and so does one on an effect's setting.
         for layer in comp.layers_in_order() {
-            for i in layer.effects.iter().filter(|i| {
-                i.tracks.values().any(|t| t[0].live_expression().is_some())
-            }) {
+            for i in layer
+                .effects
+                .iter()
+                .filter(|i| i.tracks.values().any(|t| t[0].live_expression().is_some()))
+            {
                 let mut failing: Vec<(i32, String, crate::expr::ExprError)> = Vec::new();
                 for &f in &frames {
                     let (_, failed) =
@@ -404,7 +414,9 @@ pub fn export_sequence_watched(
                         ),
                         format!("{}. It fails on frames {}.", e.message, ranges(&at)),
                     )
-                    .with_remediation("Correct the expression, or switch it off, and export again."),
+                    .with_remediation(
+                        "Correct the expression, or switch it off, and export again.",
+                    ),
                 );
             }
         }
@@ -428,8 +440,13 @@ pub fn export_sequence_watched(
                 .par_iter()
                 .map(|&frame| {
                     let mut journal = FrameLog::journal();
-                    let planned =
-                        compose::plan_frame(project, &request.composition, frame, root, &mut journal);
+                    let planned = compose::plan_frame(
+                        project,
+                        &request.composition,
+                        frame,
+                        root,
+                        &mut journal,
+                    );
                     (journal, planned.map(|_| ()))
                 })
                 .collect();
@@ -528,12 +545,16 @@ pub fn export_sequence_watched(
                 return report;
             }
 
-            let (journal, drawn) = drawn
-                .next()
-                .flatten()
-                .expect("a frame is left undrawn only once cancelled, which the check above stops at");
+            let (journal, drawn) = drawn.next().flatten().expect(
+                "a frame is left undrawn only once cancelled, which the check above stops at",
+            );
             journal.replay_into(&mut log);
-            let Drawn { buffer, bypassed: drew_bypassed, encoded, small } = match drawn {
+            let Drawn {
+                buffer,
+                bypassed: drew_bypassed,
+                encoded,
+                small,
+            } = match drawn {
                 Ok(drawn) => drawn,
                 Err(d) => {
                     report.status = ExportStatus::Failed;
@@ -564,17 +585,40 @@ pub fn export_sequence_watched(
                     },
                     OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
                         Some(why) => Err(why),
-                        None if has_sound => crate::mp4_out::Mp4::create_with_sound(&path, w, h, rate, request.choices.mp4_quality)
-                            .map(Film::Mp4),
-                        None => crate::mp4_out::Mp4::create(&path, w, h, rate, request.choices.mp4_quality)
-                            .map(Film::Mp4),
+                        None if has_sound => crate::mp4_out::Mp4::create_with_sound(
+                            &path,
+                            w,
+                            h,
+                            rate,
+                            request.choices.mp4_quality,
+                        )
+                        .map(Film::Mp4),
+                        None => crate::mp4_out::Mp4::create(
+                            &path,
+                            w,
+                            h,
+                            rate,
+                            request.choices.mp4_quality,
+                        )
+                        .map(Film::Mp4),
                     },
                     // The header is written once, so it carries no `Frame` tag, and its `Fidelity`
                     // tag speaks for the first frame only; the report speaks for them all.
                     _ => {
-                        let header: Vec<(&str, String)> =
-                            tags.iter().filter(|(k, _)| *k != "Frame").cloned().collect();
-                        Film::apng(&path, w, h, request.depth, rate, frames.len() as u32, &header)
+                        let header: Vec<(&str, String)> = tags
+                            .iter()
+                            .filter(|(k, _)| *k != "Frame")
+                            .cloned()
+                            .collect();
+                        Film::apng(
+                            &path,
+                            w,
+                            h,
+                            request.depth,
+                            rate,
+                            frames.len() as u32,
+                            &header,
+                        )
                     }
                 });
                 match opened {
@@ -589,25 +633,45 @@ pub fn export_sequence_watched(
             let written = match encoded {
                 Encoded::Film { srgb8, samples } => {
                     let film = film.as_mut().expect("the film was opened above");
-                    film.push(buffer.width(), buffer.height(), &srgb8, &samples).and_then(|()| match film {
-                        // D-641: each frame's sound goes in after its picture.
-                        Film::Mp4(mp4) if mp4.carries_sound() => {
-                            let comp = sound_comp.expect("an MP4 with sound has its composition");
-                            let all = film_sound.get_or_insert_with(|| {
-                                let (sound, left_out) =
-                                    crate::audio::mix(project, root, comp, request.first_frame, frames.len() as u32);
-                                sound_said.heard(request.first_frame, &[vec![], vec![]], left_out);
-                                sound
-                            });
-                            let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
-                            let first = |f: i32| (f as i128 * crate::audio::WORKING_RATE as i128 * den).div_euclid(num) as i64;
-                            let (a, b) = ((first(frame) - first(request.first_frame)) as usize, (first(frame + 1) - first(request.first_frame)) as usize);
-                            let sound = [all[0][a..b].to_vec(), all[1][a..b].to_vec()];
-                            sound_said.heard(frame, &sound, Vec::new());
-                            mp4.push_sound(&sound)
-                        }
-                        _ => Ok(()),
-                    })
+                    film.push(buffer.width(), buffer.height(), &srgb8, &samples)
+                        .and_then(|()| match film {
+                            // D-641: each frame's sound goes in after its picture.
+                            Film::Mp4(mp4) if mp4.carries_sound() => {
+                                let comp =
+                                    sound_comp.expect("an MP4 with sound has its composition");
+                                let all = film_sound.get_or_insert_with(|| {
+                                    let (sound, left_out) = crate::audio::mix(
+                                        project,
+                                        root,
+                                        comp,
+                                        request.first_frame,
+                                        frames.len() as u32,
+                                    );
+                                    sound_said.heard(
+                                        request.first_frame,
+                                        &[vec![], vec![]],
+                                        left_out,
+                                    );
+                                    sound
+                                });
+                                let (num, den) = (
+                                    comp.frame_rate.numerator() as i128,
+                                    comp.frame_rate.denominator() as i128,
+                                );
+                                let first = |f: i32| {
+                                    (f as i128 * crate::audio::WORKING_RATE as i128 * den)
+                                        .div_euclid(num) as i64
+                                };
+                                let (a, b) = (
+                                    (first(frame) - first(request.first_frame)) as usize,
+                                    (first(frame + 1) - first(request.first_frame)) as usize,
+                                );
+                                let sound = [all[0][a..b].to_vec(), all[1][a..b].to_vec()];
+                                sound_said.heard(frame, &sound, Vec::new());
+                                mp4.push_sound(&sound)
+                            }
+                            _ => Ok(()),
+                        })
                 }
                 // A PNG was encoded with the fidelity mark its own frame's log called for. The job's
                 // log is the one that decides, and should an earlier frame have logged against this
@@ -653,7 +717,11 @@ pub fn export_sequence_watched(
                 report.written.push(path);
             }
             if log.ids_at(frame).iter().any(|id| is_unresolved_source(*id)) {
-                watch.missing.lock().expect("the watch lock was poisoned").push(frame);
+                watch
+                    .missing
+                    .lock()
+                    .expect("the watch lock was poisoned")
+                    .push(frame);
             }
             {
                 let mut written = watch.written.lock().expect("the watch lock was poisoned");
@@ -681,7 +749,13 @@ pub fn export_sequence_watched(
     // ponytail: the whole range's sound is held at once (about 0.8 MB a second); write it in
     // stretches if hour-long exports meet a short machine.
     if let (true, Some(comp)) = (wav, sound_comp) {
-        let (sound, left_out) = crate::audio::mix(project, root, comp, request.first_frame, frames.len() as u32);
+        let (sound, left_out) = crate::audio::mix(
+            project,
+            root,
+            comp,
+            request.first_frame,
+            frames.len() as u32,
+        );
         sound_said.heard(request.first_frame, &sound, left_out);
         let path = request.output_dir.join(sound_file_name(&request.naming));
         match std::fs::write(&path, crate::audio::wav24(&sound)) {
@@ -695,7 +769,9 @@ pub fn export_sequence_watched(
                         format!("The sound could not be written to {}.", path.display()),
                         format!("{e}. The frames were written and were left in place."),
                     )
-                    .with_remediation("Check that the folder is writable and has room, then export again."),
+                    .with_remediation(
+                        "Check that the folder is writable and has room, then export again.",
+                    ),
                 );
             }
         }
@@ -751,7 +827,10 @@ enum Encoded {
     Png(Result<Vec<u8>, String>),
     Exr(Result<Vec<u8>, String>),
     /// The two encodings `Film::push` takes.
-    Film { srgb8: Vec<u8>, samples: Vec<u8> },
+    Film {
+        srgb8: Vec<u8>,
+        samples: Vec<u8>,
+    },
 }
 
 /// Draw `frame` into a log of its own and encode its file. `None` when the job was cancelled
@@ -792,7 +871,11 @@ fn draw(
     .map(|buffer| {
         let bypassed = bypassed(&journal.ids_at(frame));
         let encoded = match request.format {
-            OutputFormat::Png => Encoded::Png(png_encode(request, &buffer, &tags(request, frame, bypassed))),
+            OutputFormat::Png => Encoded::Png(png_encode(
+                request,
+                &buffer,
+                &tags(request, frame, bypassed),
+            )),
             OutputFormat::Exr(samples) => Encoded::Exr(
                 project
                     .composition(&request.composition)
@@ -804,15 +887,25 @@ fn draw(
                 let mut srgb8 = buffer.encode(OutputDepth::Eight, OutputAlpha::Straight);
                 // D-311: an MP4 has no alpha, so it is laid over the background colour, in the
                 // same encoded values it was always laid over black in, as the viewer does.
-                let background = project.composition(&request.composition).and_then(|c| c.background_color);
+                let background = project
+                    .composition(&request.composition)
+                    .and_then(|c| c.background_color);
                 if let (OutputFormat::Mp4, Some(bg)) = (request.format, background) {
                     lay_over(&mut srgb8, bg);
                 }
-                Encoded::Film { srgb8, samples: buffer.encode(request.depth, request.alpha) }
+                Encoded::Film {
+                    srgb8,
+                    samples: buffer.encode(request.depth, request.alpha),
+                }
             }
         };
         let small = small(&buffer, 480);
-        Drawn { buffer, bypassed, encoded, small }
+        Drawn {
+            buffer,
+            bypassed,
+            encoded,
+            small,
+        }
     });
     Some((journal, drawn))
 }
@@ -868,7 +961,11 @@ fn tags(request: &ExportRequest, frame: i32, bypassed: bool) -> Vec<(&'static st
     tags
 }
 
-fn png_encode(request: &ExportRequest, buffer: &WorkingBuffer, tags: &[(&str, String)]) -> Result<Vec<u8>, String> {
+fn png_encode(
+    request: &ExportRequest,
+    buffer: &WorkingBuffer,
+    tags: &[(&str, String)],
+) -> Result<Vec<u8>, String> {
     png_out::encode_rgba(
         buffer.width(),
         buffer.height(),
@@ -947,7 +1044,11 @@ struct SoundSaid {
 impl SoundSaid {
     fn heard(&mut self, frame: i32, sound: &[Vec<f64>; 2], left_out: Vec<(String, Diagnostic)>) {
         for (layer, d) in left_out {
-            if !self.left_out.iter().any(|(l, e)| *l == layer && e.id == d.id) {
+            if !self
+                .left_out
+                .iter()
+                .any(|(l, e)| *l == layer && e.id == d.id)
+            {
                 self.left_out.push((layer, d));
             }
         }

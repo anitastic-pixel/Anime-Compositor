@@ -183,7 +183,17 @@ pub fn plan_preview(
     cache: &mut CelCache,
     card: bool,
 ) -> Result<FramePlan, Diagnostic> {
-    plan_scaled(project, composition_id, frame, root, quality, log, cache, &mut Vec::new(), card)
+    plan_scaled(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        &mut Vec::new(),
+        card,
+    )
 }
 
 /// [`plan_inside`], scaled to `quality`'s extent: [`plan_preview`] and a composition layer's
@@ -200,8 +210,18 @@ fn plan_scaled(
     above: &mut Vec<Id>,
     card: bool,
 ) -> Result<FramePlan, Diagnostic> {
-    plan_inside(project, composition_id, frame, root, quality, log, cache, above, card)
-        .map(|plan| crate::preview::scale_plan(plan, quality))
+    plan_inside(
+        project,
+        composition_id,
+        frame,
+        root,
+        quality,
+        log,
+        cache,
+        above,
+        card,
+    )
+    .map(|plan| crate::preview::scale_plan(plan, quality))
 }
 
 /// The tile size a frame at `quality` renders in, given the size an export renders in,
@@ -240,7 +260,12 @@ fn inner_key(
     let mut next = 0;
     while let Some(id) = reach.get(next).cloned() {
         next += 1;
-        for id in project.composition(&id).into_iter().flat_map(|c| c.layers_in_order()).filter_map(|l| l.composition_id.as_ref()) {
+        for id in project
+            .composition(&id)
+            .into_iter()
+            .flat_map(|c| c.layers_in_order())
+            .filter_map(|l| l.composition_id.as_ref())
+        {
             if !reach.contains(id) {
                 reach.push(id.clone());
             }
@@ -249,7 +274,10 @@ fn inner_key(
     if reach.iter().any(|id| id == outer || above.contains(id)) {
         return None;
     }
-    let mut key = format!("{}\n{root:?}\n{quality:?}\n{frame}\n{float}\n{bits:?}\n", crate::cache::build()?);
+    let mut key = format!(
+        "{}\n{root:?}\n{quality:?}\n{frame}\n{float}\n{bits:?}\n",
+        crate::cache::build()?
+    );
     for id in &reach {
         key.push_str(&format!("{:?}\n", project.composition(id)));
     }
@@ -261,13 +289,19 @@ fn inner_key(
 /// depth is the whole project's. `above` is the compositions `comp` is drawn inside, outermost
 /// first.
 fn float_depth(project: &Project, above: &[Id], comp: &crate::model::Composition) -> bool {
-    above.first().map_or(Some(comp), |id| project.composition(id)).is_some_and(|c| c.float_depth)
+    above
+        .first()
+        .map_or(Some(comp), |id| project.composition(id))
+        .is_some_and(|c| c.float_depth)
 }
 
 /// D-330, D-333: the same for 8 bpc and 32 bpc (After Effects).
 fn bits(project: &Project, above: &[Id], comp: &crate::model::Composition) -> crate::effects::Bits {
     use crate::effects::Bits;
-    match above.first().map_or(Some(comp), |id| project.composition(id)) {
+    match above
+        .first()
+        .map_or(Some(comp), |id| project.composition(id))
+    {
         Some(c) if c.eight_bpc => Bits::Eight,
         Some(c) if c.ae_32bpc => Bits::Ae32,
         _ => Bits::Linear,
@@ -351,11 +385,22 @@ fn plan_inside(
         };
         // B-156b (D-226): a plan for the card leaves a drawn layer's moments for the card to add
         // up, with the transform `settle` would have given the average.
-        let (resolved, moments) = if card && !layer.is_adjustment() && !resolved.moments.is_empty() {
+        let (resolved, moments) = if card && !layer.is_adjustment() && !resolved.moments.is_empty()
+        {
             let d = quality.divisor() as f64;
             let moments = std::mem::take(&mut resolved.moments);
-            let transform = if d == 1.0 { Affine::IDENTITY } else { Affine::scaling(d, d) };
-            (ResolvedLayer { transform, ..resolved }, moments)
+            let transform = if d == 1.0 {
+                Affine::IDENTITY
+            } else {
+                Affine::scaling(d, d)
+            };
+            (
+                ResolvedLayer {
+                    transform,
+                    ..resolved
+                },
+                moments,
+            )
         } else {
             (resolved, Vec::new())
         };
@@ -392,7 +437,10 @@ fn plan_inside(
                         mixed |= m.mixed;
                         let m = settle(m, comp, quality, true);
                         Box::new(matte_coverage(
-                            render::MatteDraw { source: m.source, transform: m.transform },
+                            render::MatteDraw {
+                                source: m.source,
+                                transform: m.transform,
+                            },
                             reference.mode,
                             comp,
                         ))
@@ -450,8 +498,30 @@ fn plan_inside(
                     crate::lut::fill(&mut effects, project, root, &layer.name);
                     // D-191: an adjustment layer's maps lie on the frame it runs on.
                     let size = quality.extent(comp.width as usize, comp.height as usize);
-                    fill_maps(&mut effects, project, root, comp, layer, frame, quality, size, cache, log);
-                    fill_time_difference(&mut effects, project, root, comp, layer, frame, quality, size, cache, log);
+                    fill_maps(
+                        &mut effects,
+                        project,
+                        root,
+                        comp,
+                        layer,
+                        frame,
+                        quality,
+                        size,
+                        cache,
+                        log,
+                    );
+                    fill_time_difference(
+                        &mut effects,
+                        project,
+                        root,
+                        comp,
+                        layer,
+                        frame,
+                        quality,
+                        size,
+                        cache,
+                        log,
+                    );
                     effects
                 }),
                 nested: resolved.nested,
@@ -468,7 +538,14 @@ fn plan_inside(
                         .filter(|i| matches!(i.effect, crate::effects::Effect::LightWrap { .. }))
                         .map(|i| {
                             let at = posterized(comp, layer, frame);
-                            crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0
+                            crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                i,
+                                at,
+                                layer.key_time(at as f64),
+                            )
+                            .0
                         })
                         .collect()
                 },
@@ -547,14 +624,22 @@ fn matte_coverage(
         let v = match mode {
             // The picture luma of a premultiplied pixel: its colour over black, encoded.
             M::Luma | M::LumaInverted => crate::grade::to_srgb(
-                (0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64).clamp(0.0, 1.0),
+                (0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64)
+                    .clamp(0.0, 1.0),
             ),
             M::Alpha | M::AlphaInverted => p[3] as f64,
         };
-        let v = if matches!(mode, M::AlphaInverted | M::LumaInverted) { 1.0 - v } else { v };
+        let v = if matches!(mode, M::AlphaInverted | M::LumaInverted) {
+            1.0 - v
+        } else {
+            v
+        };
         p.copy_from_slice(&[0.0, 0.0, 0.0, v as f32]);
     });
-    render::MatteDraw { source: std::sync::Arc::new(flat), transform: Affine::IDENTITY }
+    render::MatteDraw {
+        source: std::sync::Arc::new(flat),
+        transform: Affine::IDENTITY,
+    }
 }
 
 /// D-42: the layers some other layer uses as a matte-only source. They are still resolved as
@@ -586,10 +671,20 @@ pub fn cels_at(
         if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
-        wanted.extend(exposed_cel(project, layer, posterized(comp, layer, frame), root));
+        wanted.extend(exposed_cel(
+            project,
+            layer,
+            posterized(comp, layer, frame),
+            root,
+        ));
         if let Some(matte) = &layer.matte {
             if let Some(matte_layer) = comp.layer(&matte.layer_id) {
-                wanted.extend(exposed_cel(project, matte_layer, posterized(comp, matte_layer, frame), root));
+                wanted.extend(exposed_cel(
+                    project,
+                    matte_layer,
+                    posterized(comp, matte_layer, frame),
+                    root,
+                ));
             }
         }
     }
@@ -729,20 +824,34 @@ pub fn camera_at_time(comp: &crate::model::Composition, frame: i32, t: f64) -> O
         }
     };
     let at = |prop, property| {
-        crate::expr::resolve_at(comp, property, || crate::expr::Target::Camera, prop, frame, t).0
+        crate::expr::resolve_at(
+            comp,
+            property,
+            || crate::expr::Target::Camera,
+            prop,
+            frame,
+            t,
+        )
+        .0
     };
     let (x, y) = at(Prop::Position, &camera.position).as_vec2()?;
     let depth = at(Prop::Depth, &camera.depth).as_scalar()?;
     let zoom = at(Prop::Zoom, &camera.zoom).as_scalar()?;
     // D-171: riding a layer moves where the camera stands and how far back, never the view.
-    Some(match camera.parent.as_ref().filter(|p| comp.layer(p).is_some()) {
-        Some(parent) => CameraAt {
-            position: world_at_time(comp, parent, frame, t).matrix.apply(x, y),
-            depth: depth + world_depth_at(comp, parent, frame, t),
-            zoom,
+    Some(
+        match camera.parent.as_ref().filter(|p| comp.layer(p).is_some()) {
+            Some(parent) => CameraAt {
+                position: world_at_time(comp, parent, frame, t).matrix.apply(x, y),
+                depth: depth + world_depth_at(comp, parent, frame, t),
+                zoom,
+            },
+            None => CameraAt {
+                position: (x, y),
+                depth,
+                zoom,
+            },
         },
-        None => CameraAt { position: (x, y), depth, zoom },
-    })
+    )
 }
 
 /// D-59: every expression in `comp` that fails at `frame`, with the property it sits on. The
@@ -1375,7 +1484,12 @@ fn card_effect(
     offset: &mut (usize, usize),
 ) -> Option<render::OnCard> {
     match effect {
-        crate::effects::Effect::RadialBlur { kind, amount, center, edges } => Some(render::OnCard::Radial(render::Radial {
+        crate::effects::Effect::RadialBlur {
+            kind,
+            amount,
+            center,
+            edges,
+        } => Some(render::OnCard::Radial(render::Radial {
             spin: kind == "spin",
             amount,
             center: crate::effects::radial_center(center, size, *offset),
@@ -1383,7 +1497,8 @@ fn card_effect(
             sweep: None,
         })),
         // D-361/D-362: Radial Blur's pass, its samples laid and weighed their own way.
-        crate::effects::Effect::SpinZoomBlur { amount, center, .. } | crate::effects::Effect::FastZoomBlur { amount, center, .. } => {
+        crate::effects::Effect::SpinZoomBlur { amount, center, .. }
+        | crate::effects::Effect::FastZoomBlur { amount, center, .. } => {
             effect.sweep().map(|(spin, sweep)| {
                 render::OnCard::Radial(render::Radial {
                     spin,
@@ -1395,23 +1510,48 @@ fn card_effect(
             })
         }
         // B-49: length 0 changes nothing and grows nothing, so it is not left either.
-        crate::effects::Effect::DirectionalBlur { direction, length, edges } => (length != 0.0).then(|| {
-            let d = render::Directional { direction, length, repeat: edges == "repeat" };
+        crate::effects::Effect::DirectionalBlur {
+            direction,
+            length,
+            edges,
+        } => (length != 0.0).then(|| {
+            let d = render::Directional {
+                direction,
+                length,
+                repeat: edges == "repeat",
+            };
             *offset = (offset.0 + d.grow(), offset.1 + d.grow());
             render::OnCard::Directional(d)
         }),
         // D-472: as the Gaussian Blur in Blurriness it is, its edges clear.
-        crate::effects::Effect::GaussianBlurLegacy { blurriness, dimensions } => card_effect(
-            crate::effects::Effect::GaussianBlur { sigma_px: blurriness, edges: "transparent".into(), dimensions, units: "blurriness".into() },
+        crate::effects::Effect::GaussianBlurLegacy {
+            blurriness,
+            dimensions,
+        } => card_effect(
+            crate::effects::Effect::GaussianBlur {
+                sigma_px: blurriness,
+                edges: "transparent".into(),
+                dimensions,
+                units: "blurriness".into(),
+            },
             instance,
             size,
             offset,
         ),
         // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
-        crate::effects::Effect::GaussianBlur { sigma_px, edges, units, .. } => {
+        crate::effects::Effect::GaussianBlur {
+            sigma_px,
+            edges,
+            units,
+            ..
+        } => {
             let (sigma, long) = crate::effects::blur_reach(sigma_px, &units);
             (crate::effects::kernel_radius(sigma) != 0).then(|| {
-                let g = render::Gaussian { sigma, repeat: edges == "repeat", long };
+                let g = render::Gaussian {
+                    sigma,
+                    repeat: edges == "repeat",
+                    long,
+                };
                 *offset = (offset.0 + g.grow(), offset.1 + g.grow());
                 render::OnCard::Gaussian(g)
             })
@@ -1422,91 +1562,238 @@ fn card_effect(
         effect => {
             use crate::effects::Effect as E;
             let nothing = match &effect {
-                E::Curves { master, red, green, blue, alpha } => {
-                    [master, red, green, blue, alpha].iter().all(|c| crate::grade::is_straight(c))
+                E::Curves {
+                    master,
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                } => [master, red, green, blue, alpha]
+                    .iter()
+                    .all(|c| crate::grade::is_straight(c)),
+                E::Levels {
+                    input_black,
+                    input_white,
+                    gamma,
+                    output_black,
+                    output_white,
+                } => {
+                    [
+                        *input_black,
+                        *input_white,
+                        *gamma,
+                        *output_black,
+                        *output_white,
+                    ] == [0.0, 255.0, 1.0, 0.0, 255.0]
                 }
-                E::Levels { input_black, input_white, gamma, output_black, output_white } => {
-                    [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]
+                E::ChannelLevels { sets, .. } => {
+                    sets.iter().all(|s| *s == crate::effects::LEVELS_PLAIN)
                 }
-                E::ChannelLevels { sets, .. } => sets.iter().all(|s| *s == crate::effects::LEVELS_PLAIN),
-                E::HueSaturation { hue, saturation, lightness, ranges } => {
-                    [*hue, *saturation, *lightness] == [0.0; 3] && *ranges == [[0.0; 3]; 6]
-                }
-                E::Gradient { start_opacity, end_opacity, .. } => [*start_opacity, *end_opacity] == [0.0; 2],
+                E::HueSaturation {
+                    hue,
+                    saturation,
+                    lightness,
+                    ranges,
+                } => [*hue, *saturation, *lightness] == [0.0; 3] && *ranges == [[0.0; 3]; 6],
+                E::Gradient {
+                    start_opacity,
+                    end_opacity,
+                    ..
+                } => [*start_opacity, *end_opacity] == [0.0; 2],
                 E::RimLight { intensity, .. } => *intensity == 0.0,
                 E::Outline { width, .. } => *width == 0.0,
-                E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } | E::NoiseAlpha { amount, .. } => *amount == 0.0,
+                E::Noise { amount, .. }
+                | E::ChromaticAberration { amount, .. }
+                | E::NoiseAlpha { amount, .. } => *amount == 0.0,
                 E::AddGrain { intensity, .. } => *intensity == 0.0,
                 E::MatchGrain { .. } => crate::grade::matched_grain(&effect).is_none(),
-                E::NoiseHls { hue, lightness, saturation, .. } | E::NoiseHlsAuto { hue, lightness, saturation, .. } => {
-                    [*hue, *lightness, *saturation] == [0.0; 3]
+                E::NoiseHls {
+                    hue,
+                    lightness,
+                    saturation,
+                    ..
                 }
+                | E::NoiseHlsAuto {
+                    hue,
+                    lightness,
+                    saturation,
+                    ..
+                } => [*hue, *lightness, *saturation] == [0.0; 3],
                 // D-409: as layer_fx::lens_chromatic_aberration returns at once.
-                E::LensChromaticAberration { amount, red_scale, green_scale, blue_scale, .. } => {
-                    *amount == 0.0 || [*red_scale, *green_scale, *blue_scale] == [0.0; 3]
-                }
+                E::LensChromaticAberration {
+                    amount,
+                    red_scale,
+                    green_scale,
+                    blue_scale,
+                    ..
+                } => *amount == 0.0 || [*red_scale, *green_scale, *blue_scale] == [0.0; 3],
                 E::DistanceGradation { width, opacity, .. } => *width == 0.0 || *opacity == 0.0,
-                E::LightRays { intensity, .. } | E::LightBurst { intensity, .. } | E::CcLightRays { intensity, .. } => *intensity == 0.0,
+                E::LightRays { intensity, .. }
+                | E::LightBurst { intensity, .. }
+                | E::CcLightRays { intensity, .. } => *intensity == 0.0,
                 E::ExposureFlicker { amount, .. }
                 | E::Vignette { amount, .. }
                 | E::TurbulentDisplace { amount, .. }
                 | E::GradientMap { amount, .. } => *amount == 0.0,
                 E::TintMap { amount_to_tint, .. } => *amount_to_tint == 0.0,
-                E::CcVignette { amount, angle_of_view, .. } => *amount == 0.0 || *angle_of_view == 0.0,
-                E::Tritone { blend_with_original, .. } => *blend_with_original == 100.0,
+                E::CcVignette {
+                    amount,
+                    angle_of_view,
+                    ..
+                } => *amount == 0.0 || *angle_of_view == 0.0,
+                E::Tritone {
+                    blend_with_original,
+                    ..
+                } => *blend_with_original == 100.0,
                 E::FractalNoise { opacity, .. } => *opacity == 0.0,
                 // D-730: None and the stencils still clear the layer at opacity 0.
-                E::TurbulentNoise { opacity, blend, .. } => *opacity == 0.0 && !["none", "stencil_alpha", "stencil_luma"].contains(&blend.as_str()),
-                E::ColorBalance { shadows, midtones, highlights, .. } => {
-                    [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
+                E::TurbulentNoise { opacity, blend, .. } => {
+                    *opacity == 0.0
+                        && !["none", "stencil_alpha", "stencil_luma"].contains(&blend.as_str())
                 }
+                E::ColorBalance {
+                    shadows,
+                    midtones,
+                    highlights,
+                    ..
+                } => [shadows, midtones, highlights]
+                    .iter()
+                    .all(|t| t.iter().all(|v| *v == 0.0)),
                 E::Offset { shift } => *shift == [0.0, 0.0],
                 // D-366/D-367: as each one's own function returns at once.
-                E::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, .. } => {
-                    crate::effects::neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]) == [[0.0; 3]; 3]
+                E::ColorNeutralizer {
+                    shadows_unbalance,
+                    midtones_unbalance,
+                    highlights_unbalance,
+                    shadows,
+                    midtones,
+                    highlights,
+                    ..
+                } => {
+                    crate::effects::neutral_corrections(
+                        [shadows_unbalance, midtones_unbalance, highlights_unbalance],
+                        [shadows, midtones, highlights],
+                    ) == [[0.0; 3]; 3]
                 }
-                E::ColorOffset { red_phase, green_phase, blue_phase, .. } => [*red_phase, *green_phase, *blue_phase] == [0.0; 3],
+                E::ColorOffset {
+                    red_phase,
+                    green_phase,
+                    blue_phase,
+                    ..
+                } => [*red_phase, *green_phase, *blue_phase] == [0.0; 3],
                 // D-368/D-370: as each one's own function returns at once.
-                E::Kernel { line_1, line_2, line_3, divider, .. } => {
-                    crate::effects::kernel_grid([line_1, line_2, line_3]).map(|row| row.map(|v| v / *divider))
+                E::Kernel {
+                    line_1,
+                    line_2,
+                    line_3,
+                    divider,
+                    ..
+                } => {
+                    crate::effects::kernel_grid([line_1, line_2, line_3])
+                        .map(|row| row.map(|v| v / *divider))
                         == [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]
                 }
-                E::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, .. } => {
-                    view != "mask" && [*hue_transform, *lightness_transform, *saturation_transform] == [0.0; 3]
+                E::ChangeColor {
+                    view,
+                    hue_transform,
+                    lightness_transform,
+                    saturation_transform,
+                    ..
+                } => {
+                    view != "mask"
+                        && [*hue_transform, *lightness_transform, *saturation_transform] == [0.0; 3]
                 }
-                E::ColorBalanceHls { hue, lightness, saturation } => [*hue, *lightness, *saturation] == [0.0; 3],
-                E::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => crate::grade::gamma_pedestal_gain_untouched(*black_stretch, *gamma, *pedestal, *gain),
+                E::ColorBalanceHls {
+                    hue,
+                    lightness,
+                    saturation,
+                } => [*hue, *lightness, *saturation] == [0.0; 3],
+                E::GammaPedestalGain {
+                    black_stretch,
+                    gamma,
+                    pedestal,
+                    gain,
+                } => crate::grade::gamma_pedestal_gain_untouched(
+                    *black_stretch,
+                    *gamma,
+                    *pedestal,
+                    *gain,
+                ),
                 E::PhotoFilter { density, .. } => crate::grade::photo_filter_untouched(*density),
-                E::SelectiveColor { families, .. } => {
-                    crate::grade::selective_color_untouched(&crate::effects::selective_color_amounts(families))
+                E::SelectiveColor { families, .. } => crate::grade::selective_color_untouched(
+                    &crate::effects::selective_color_amounts(families),
+                ),
+                e @ E::AdvancedSpillSuppressor { .. } => {
+                    crate::grade::spill_untouched(&crate::grade::spill_settings(e))
                 }
-                e @ E::AdvancedSpillSuppressor { .. } => crate::grade::spill_untouched(&crate::grade::spill_settings(e)),
                 E::ColorDifferenceKey { view, .. } => view == "source",
                 E::ShadowHighlight { auto_amounts, .. } if auto_amounts == "on" => false,
-                E::ShadowHighlight { shadow_amount, highlight_amount, midtone_contrast, black_clip, white_clip, .. } => {
-                    crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount, *midtone_contrast, *black_clip, *white_clip)
+                E::ShadowHighlight {
+                    shadow_amount,
+                    highlight_amount,
+                    midtone_contrast,
+                    black_clip,
+                    white_clip,
+                    ..
+                } => crate::grade::shadow_highlight_untouched(
+                    *shadow_amount,
+                    *highlight_amount,
+                    *midtone_contrast,
+                    *black_clip,
+                    *white_clip,
+                ),
+                E::ColorGrade { .. } => {
+                    crate::effects::color_grade_steps(&effect, (1, 1), (0, 0)).is_empty()
                 }
-                E::ColorGrade { .. } => crate::effects::color_grade_steps(&effect, (1, 1), (0, 0)).is_empty(),
-                E::ColorLink { opacity, map, .. } => *opacity == 0.0 || map.as_ref().is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none()),
+                E::ColorLink { opacity, map, .. } => {
+                    *opacity == 0.0
+                        || map
+                            .as_ref()
+                            .is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none())
+                }
                 // B-107: the third batch, each as its own function returns at once.
                 E::Invert { amount, .. }
                 | E::LeaveColor { amount, .. }
                 | E::Halftone { amount, .. } => *amount == 0.0,
-                E::BrightnessContrast { brightness, contrast } => [*brightness, *contrast] == [0.0; 2],
-                E::ChannelMixer { red, green, blue, monochrome } => {
+                E::BrightnessContrast {
+                    brightness,
+                    contrast,
+                } => [*brightness, *contrast] == [0.0; 2],
+                E::ChannelMixer {
+                    red,
+                    green,
+                    blue,
+                    monochrome,
+                } => {
                     monochrome != "on"
                         && [&red[..4], &green[..4], &blue[..4]]
-                            == [[100.0, 0.0, 0.0, 0.0], [0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0]]
+                            == [
+                                [100.0, 0.0, 0.0, 0.0],
+                                [0.0, 100.0, 0.0, 0.0],
+                                [0.0, 0.0, 100.0, 0.0],
+                            ]
                 }
-                E::Vibrance { vibrance, saturation } => [*vibrance, *saturation] == [0.0; 2],
+                E::Vibrance {
+                    vibrance,
+                    saturation,
+                } => [*vibrance, *saturation] == [0.0; 2],
                 E::Mosaic { size } => *size <= 1.0,
-                E::BlockLoad { completion, scans, start_cleared, .. } => {
-                    crate::layer_fx::block_load_pass(*completion, *scans, start_cleared == "on").is_none()
-                }
+                E::BlockLoad {
+                    completion,
+                    scans,
+                    start_cleared,
+                    ..
+                } => crate::layer_fx::block_load_pass(*completion, *scans, start_cleared == "on")
+                    .is_none(),
                 E::BurnFilm { burn, .. } => *burn <= 0.0,
                 E::FindEdges { amount, .. } => *amount <= 0.0,
                 E::Sharpen { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
-                E::Diffusion { amount, radius, second_amount, .. } => *radius <= 0.0 || (*amount <= 0.0 && *second_amount <= 0.0),
+                E::Diffusion {
+                    amount,
+                    radius,
+                    second_amount,
+                    ..
+                } => *radius <= 0.0 || (*amount <= 0.0 && *second_amount <= 0.0),
                 E::WaveWarp { height, .. } | E::Bulge { height, .. } if *height == 0.0 => true,
                 E::Bulge { radius, .. } => *radius <= 0.0,
                 E::Ripple { amplitude, .. } => *amplitude == 0.0,
@@ -1522,174 +1809,488 @@ fn card_effect(
                 | E::PushIris { completion, .. } => *completion == 0.0,
                 E::StretchWipe { scale, .. } => *scale == 100.0,
                 E::SimpleChoker { choke } => *choke == 0.0,
-                E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
-                E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
-                E::Rain { density, opacity, .. } => *density == 0.0 || *opacity == 0.0,
+                E::CrossGlare {
+                    length, intensity, ..
+                } => length.floor() == 0.0 || *intensity == 0.0,
+                E::CameraShake {
+                    amount, rotation, ..
+                } => [*amount, *rotation] == [0.0; 2],
+                E::Rain {
+                    density, opacity, ..
+                } => *density == 0.0 || *opacity == 0.0,
                 // B-115: a tile that grows nothing, as `layer_fx::motion_tile` returns at once.
-                E::MotionTile { output_width, output_height, tile_center, tile_width, tile_height, .. } => {
+                E::MotionTile {
+                    output_width,
+                    output_height,
+                    tile_center,
+                    tile_width,
+                    tile_height,
+                    ..
+                } => {
                     crate::layer_fx::tile_growth((*output_width, *output_height), size) == (0, 0)
-                        && (*tile_center, *tile_width, *tile_height) == (crate::layer_fx::PLAIN_TILE, 100.0, 100.0)
+                        && (*tile_center, *tile_width, *tile_height)
+                            == (crate::layer_fx::PLAIN_TILE, 100.0, 100.0)
                 }
                 // D-464: nothing grown and no blend, as `layer_fx::repeat_tile` returns at once.
-                E::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
-                    let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
-                    crate::layer_fx::repeat_tile_growth([*expand_right, *expand_left, *expand_down, *expand_up], size) == (0, 0) && k[5] == 0.0
+                E::RepeatTile {
+                    expand_right,
+                    expand_left,
+                    expand_down,
+                    expand_up,
+                    tiling,
+                    blend_borders,
+                } => {
+                    let k = crate::layer_fx::repeat_tile_setup(
+                        [*expand_right, *expand_left, *expand_down, *expand_up],
+                        tiling,
+                        *blend_borders,
+                    );
+                    crate::layer_fx::repeat_tile_growth(
+                        [*expand_right, *expand_left, *expand_down, *expand_up],
+                        size,
+                    ) == (0, 0)
+                        && k[5] == 0.0
                 }
                 // D-465: no reach, as `layer_fx::scatter` returns at once.
-                E::Scatter { scatter_amount, grain, .. } => crate::layer_fx::scatter_setup(*scatter_amount, grain)[0] == 0,
+                E::Scatter {
+                    scatter_amount,
+                    grain,
+                    ..
+                } => crate::layer_fx::scatter_setup(*scatter_amount, grain)[0] == 0,
                 // D-466: off at this moment, or blended wholly back to the original.
-                E::StrobeLight { blend_with_original, strobe_duration, strobe_period, random_strobe_probability, random_seed, time, count, .. } => {
+                E::StrobeLight {
+                    blend_with_original,
+                    strobe_duration,
+                    strobe_period,
+                    random_strobe_probability,
+                    random_seed,
+                    time,
+                    count,
+                    ..
+                } => {
                     *blend_with_original == 100.0
-                        || !crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count)
+                        || !crate::layer_fx::strobe_on(
+                            *strobe_duration,
+                            *strobe_period,
+                            *random_strobe_probability,
+                            *random_seed,
+                            *time,
+                            *count,
+                        )
                 }
-                E::ChannelThreshold { blend_with_original, .. } | E::ThresholdRgb { blend_with_original, .. } => *blend_with_original == 100.0,
+                E::ChannelThreshold {
+                    blend_with_original,
+                    ..
+                }
+                | E::ThresholdRgb {
+                    blend_with_original,
+                    ..
+                } => *blend_with_original == 100.0,
                 // D-470: no smear and no fills, as `Effect::apply` returns at once.
-                E::ContourPaint { view, smear_iterations, draw_color_fills, .. } => {
-                    view != "edge_map" && smear_iterations.floor() == 0.0 && draw_color_fills == "none"
+                E::ContourPaint {
+                    view,
+                    smear_iterations,
+                    draw_color_fills,
+                    ..
+                } => {
+                    view != "edge_map"
+                        && smear_iterations.floor() == 0.0
+                        && draw_color_fills == "none"
                 }
                 // D-467: no texture, or none of its relief.
-                E::Texturize { map, texture_contrast, .. } => map.is_none() || *texture_contrast == 0.0,
+                E::Texturize {
+                    map,
+                    texture_contrast,
+                    ..
+                } => map.is_none() || *texture_contrast == 0.0,
                 // D-583: an Other Layer whose layer was not read, as grade::curl_noise returns at once.
                 E::CurlNoise { source, map, .. } => source == "other_layer" && map.is_none(),
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
                 E::ArbitraryMap { table, .. } => table.is_none(),
                 E::LineBlur { length, .. } => *length == 0.0,
-                E::Paraffin { spread, opacity, .. } => *spread == 0.0 || *opacity == 0.0,
-                E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
+                E::Paraffin {
+                    spread, opacity, ..
+                } => *spread == 0.0 || *opacity == 0.0,
+                E::KiraKira {
+                    size,
+                    density,
+                    opacity,
+                    ..
+                } => [*size, *density, *opacity].contains(&0.0),
                 // B-151: ten of the fourth batch, each as its own function returns at once.
                 E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
                 // D-453: no two 8-bit values are more than 255 apart, so nothing is changed.
-                E::DustScratches { radius, threshold, .. } => *radius < 1.0 || *threshold >= 255.0,
-                E::RemoveGrain { unsharp_amount, unsharp_radius, .. } => {
-                    crate::grade::grain_spreads(&effect).is_none() && (*unsharp_amount <= 0.0 || *unsharp_radius <= 0.0)
+                E::DustScratches {
+                    radius, threshold, ..
+                } => *radius < 1.0 || *threshold >= 255.0,
+                E::RemoveGrain {
+                    unsharp_amount,
+                    unsharp_radius,
+                    ..
+                } => {
+                    crate::grade::grain_spreads(&effect).is_none()
+                        && (*unsharp_amount <= 0.0 || *unsharp_radius <= 0.0)
                 }
-                E::Deband { view, blur_amount, diffusion_amount, noise_amount, .. } => {
+                E::Deband {
+                    view,
+                    blur_amount,
+                    diffusion_amount,
+                    noise_amount,
+                    ..
+                } => {
                     view == "normal" && [*blur_amount, *diffusion_amount, *noise_amount] == [0.0; 3]
                 }
-                E::BilateralBlur { radius, threshold, colorize } => colorize == "on" && (*radius < 1.0 || *threshold == 0.0),
+                E::BilateralBlur {
+                    radius,
+                    threshold,
+                    colorize,
+                } => colorize == "on" && (*radius < 1.0 || *threshold == 0.0),
                 E::RoughenEdges { border, .. } => *border == 0.0,
-                E::BevelAlpha { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
-                E::Snowfall { density, size, opacity, .. } => [*density, *size, *opacity].contains(&0.0),
+                E::BevelAlpha {
+                    edge_thickness,
+                    light_intensity,
+                    ..
+                } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
+                E::Snowfall {
+                    density,
+                    size,
+                    opacity,
+                    ..
+                } => [*density, *size, *opacity].contains(&0.0),
                 E::CellPattern { opacity, .. } => *opacity == 0.0,
                 E::PolarCoordinates { interpolation, .. } => *interpolation == 0.0,
                 E::OpticsCompensation { field_of_view, .. } => *field_of_view == 0.0,
-                E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
-                    [*upper_left, *upper_right, *lower_left, *lower_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
+                E::CornerPin {
+                    upper_left,
+                    upper_right,
+                    lower_left,
+                    lower_right,
+                } => {
+                    [*upper_left, *upper_right, *lower_left, *lower_right]
+                        == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
                 }
                 // B-222: as each one's own function returns at once, in linear light (D-330).
-                E::Exposure { stops, offset, gamma, .. } => *offset == 0.0 && *gamma == 1.0 && 2f64.powf(*stops) as f32 == 1.0,
+                E::Exposure {
+                    stops,
+                    offset,
+                    gamma,
+                    ..
+                } => *offset == 0.0 && *gamma == 1.0 && 2f64.powf(*stops) as f32 == 1.0,
                 E::Tint { amount, .. } => *amount == 0.0,
-                E::ShiftChannels { take_alpha, take_red, take_green, take_blue } => {
-                    [take_red, take_green, take_blue, take_alpha] == ["red", "green", "blue", "alpha"]
+                E::ShiftChannels {
+                    take_alpha,
+                    take_red,
+                    take_green,
+                    take_blue,
+                } => {
+                    [take_red, take_green, take_blue, take_alpha]
+                        == ["red", "green", "blue", "alpha"]
                 }
-                E::ColorKey { colors, .. } | E::SelectColor { colors, .. } | E::LineRecolor { colors, .. } => {
+                E::ColorKey { colors, .. }
+                | E::SelectColor { colors, .. }
+                | E::LineRecolor { colors, .. } => {
                     crate::selective_blur::targets(colors).is_empty()
                 }
                 // B-223: as each one's own function returns at once.
-                E::FastBoxBlur { radius, iterations, .. } => crate::effects::box_reach(*radius, *iterations) == 0,
+                E::FastBoxBlur {
+                    radius, iterations, ..
+                } => crate::effects::box_reach(*radius, *iterations) == 0,
                 E::FastBlurLegacy { blurriness, .. } => {
-                    crate::effects::box_reach(crate::effects::FAST_BLUR_LEGACY_FACTOR * blurriness, crate::effects::FAST_BLUR_LEGACY_ITERATIONS) == 0
+                    crate::effects::box_reach(
+                        crate::effects::FAST_BLUR_LEGACY_FACTOR * blurriness,
+                        crate::effects::FAST_BLUR_LEGACY_ITERATIONS,
+                    ) == 0
                 }
-                E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, .. } => {
-                    [red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness].iter().all(|s| crate::effects::kernel_radius(**s) == 0)
-                }
+                E::ChannelBlur {
+                    red_blurriness,
+                    green_blurriness,
+                    blue_blurriness,
+                    alpha_blurriness,
+                    ..
+                } => [
+                    red_blurriness,
+                    green_blurriness,
+                    blue_blurriness,
+                    alpha_blurriness,
+                ]
+                .iter()
+                .all(|s| crate::effects::kernel_radius(**s) == 0),
                 E::CompoundBlur { map, max_blur, .. } => map.is_none() || *max_blur == 0.0,
                 // D-359: a blur layer named and not read this frame is drawn without the effect.
-                E::LensBlur { layer, map, .. } => layer.as_str().is_some_and(|l| !l.is_empty()) && map.is_none(),
+                E::LensBlur { layer, map, .. } => {
+                    layer.as_str().is_some_and(|l| !l.is_empty()) && map.is_none()
+                }
                 // D-545: as Lens Blur's, for a dirt layer.
                 E::SoftGlow { dirt, .. } | E::LensFlare { dirt, .. } => dirt.missing(),
-                E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
+                E::SelectiveColorBlur { blur, colors, .. } => {
+                    (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty()
+                }
                 E::VectorBlur { amount, .. } => *amount == 0.0,
                 // D-377/D-378: no bar, or no push.
                 E::BendIt { start, end, .. } => start == end,
-                E::Bender { amount, top, base, .. } => *amount == 0.0 || top == base,
+                E::Bender {
+                    amount, top, base, ..
+                } => *amount == 0.0 || top == base,
                 // D-385/D-386: no pull, or every tile as it was.
-                E::FlowMotion { amount_1, amount_2, .. } => *amount_1 == 0.0 && *amount_2 == 0.0,
-                E::Griddler { horizontal_scale, vertical_scale, rotation, .. } => {
-                    *horizontal_scale == 100.0 && *vertical_scale == 100.0 && rotation.to_radians() == 0.0
+                E::FlowMotion {
+                    amount_1, amount_2, ..
+                } => *amount_1 == 0.0 && *amount_2 == 0.0,
+                E::Griddler {
+                    horizontal_scale,
+                    vertical_scale,
+                    rotation,
+                    ..
+                } => {
+                    *horizontal_scale == 100.0
+                        && *vertical_scale == 100.0
+                        && rotation.to_radians() == 0.0
                 }
                 // D-388..D-390: a corner turned onto itself; every pin where it starts and nothing
                 // expanded; no change in the level to send out, with no bump drawn.
-                E::PageTurn { controls, fold_position, fold_direction, fold_radius, .. } => {
-                    let d = ((size.0 - 2 * offset.0) as f64, (size.1 - 2 * offset.1) as f64);
-                    crate::effects::page_turn_fold(controls, *fold_position, *fold_direction, *fold_radius, d).is_none()
+                E::PageTurn {
+                    controls,
+                    fold_position,
+                    fold_direction,
+                    fold_radius,
+                    ..
+                } => {
+                    let d = (
+                        (size.0 - 2 * offset.0) as f64,
+                        (size.1 - 2 * offset.1) as f64,
+                    );
+                    crate::effects::page_turn_fold(
+                        controls,
+                        *fold_position,
+                        *fold_direction,
+                        *fold_radius,
+                        d,
+                    )
+                    .is_none()
                 }
-                E::PowerPin { top_left, top_right, bottom_left, bottom_right, expansion_top, expansion_left, expansion_right, expansion_bottom, .. } => {
-                    [*top_left, *top_right, *bottom_left, *bottom_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
-                        && [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom] == [0.0; 4]
+                E::PowerPin {
+                    top_left,
+                    top_right,
+                    bottom_left,
+                    bottom_right,
+                    expansion_top,
+                    expansion_left,
+                    expansion_right,
+                    expansion_bottom,
+                    ..
+                } => {
+                    [*top_left, *top_right, *bottom_left, *bottom_right]
+                        == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
+                        && [
+                            *expansion_top,
+                            *expansion_left,
+                            *expansion_right,
+                            *expansion_bottom,
+                        ] == [0.0; 4]
                 }
                 // D-602: every point where it starts.
                 E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
                 // D-603: the mesh at rest; D-701: no handle moved.
-                E::MeshWarp { rows, columns, distortion_mesh, vertex_handles, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh, vertex_handles),
+                E::MeshWarp {
+                    rows,
+                    columns,
+                    distortion_mesh,
+                    vertex_handles,
+                    ..
+                } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh, vertex_handles),
                 // D-607: no source, a mask named not found, or none of the way.
                 E::MaskSmear { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-606: no source or destination, a mask named not found, or none of the way.
-                E::Reshape { paths, percent, between, .. } => paths.is_none() || if between.is_empty() { *percent == 0.0 } else { between.iter().all(|(p, _)| *p == 0.0) },
+                E::Reshape {
+                    paths,
+                    percent,
+                    between,
+                    ..
+                } => {
+                    paths.is_none()
+                        || if between.is_empty() {
+                            *percent == 0.0
+                        } else {
+                            between.iter().all(|(p, _)| *p == 0.0)
+                        }
+                }
                 // D-605: no stroke, or none of it drawn; D-700: no earlier stroke either, or a
                 // freeze area mask named not found.
-                E::Liquify { stroke, strokes, distortion_percentage, freeze_path, .. } => {
-                    (stroke.is_empty() && strokes.is_empty()) || *distortion_percentage == 0.0 || freeze_path.as_ref().is_some_and(|p| p.is_empty())
+                E::Liquify {
+                    stroke,
+                    strokes,
+                    distortion_percentage,
+                    freeze_path,
+                    ..
+                } => {
+                    (stroke.is_empty() && strokes.is_empty())
+                        || *distortion_percentage == 0.0
+                        || freeze_path.as_ref().is_some_and(|p| p.is_empty())
                 }
                 // D-604: no bend and no distortion.
-                E::Warp { bend, horizontal_distortion, vertical_distortion, .. } => {
-                    *bend == 0.0 && *horizontal_distortion == 0.0 && *vertical_distortion == 0.0
-                }
-                E::RipplePulse { amplitude, render_bump_map, levels, .. } => {
-                    render_bump_map != "on" && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
+                E::Warp {
+                    bend,
+                    horizontal_distortion,
+                    vertical_distortion,
+                    ..
+                } => *bend == 0.0 && *horizontal_distortion == 0.0 && *vertical_distortion == 0.0,
+                E::RipplePulse {
+                    amplitude,
+                    render_bump_map,
+                    levels,
+                    ..
+                } => {
+                    render_bump_map != "on"
+                        && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
                 }
                 // D-424: no brush trail read, no width or no blobs.
-                E::GlueGun { trail, stroke_width, density, .. } => trail.is_empty() || *stroke_width == 0.0 || *density == 0.0,
+                E::GlueGun {
+                    trail,
+                    stroke_width,
+                    density,
+                    ..
+                } => trail.is_empty() || *stroke_width == 0.0 || *density == 0.0,
                 // D-391..D-393: upright at full height in its own colours; no drag; no gap.
-                E::Slant { slant, height, set_color, .. } => *slant == 0.0 && *height == 100.0 && set_color != "on",
-                E::Smear { from, to, reach, radius } => *radius == 0.0 || *reach == 0.0 || from == to,
-                E::Split { point_a, point_b, split } => *split == 0.0 || point_a == point_b,
-                E::Split2 { point_a, point_b, split_1, split_2 } => (*split_1, *split_2) == (0.0, 0.0) || point_a == point_b,
+                E::Slant {
+                    slant,
+                    height,
+                    set_color,
+                    ..
+                } => *slant == 0.0 && *height == 100.0 && set_color != "on",
+                E::Smear {
+                    from,
+                    to,
+                    reach,
+                    radius,
+                } => *radius == 0.0 || *reach == 0.0 || from == to,
+                E::Split {
+                    point_a,
+                    point_b,
+                    split,
+                } => *split == 0.0 || point_a == point_b,
+                E::Split2 {
+                    point_a,
+                    point_b,
+                    split_1,
+                    split_2,
+                } => (*split_1, *split_2) == (0.0, 0.0) || point_a == point_b,
                 // D-458: no wire, no other frame, or a flat wire taken along its own rows.
-                E::SimpleWireRemoval { point_a, point_b, removal_style, thickness, picture, .. } => {
+                E::SimpleWireRemoval {
+                    point_a,
+                    point_b,
+                    removal_style,
+                    thickness,
+                    picture,
+                    ..
+                } => {
                     *thickness <= 0.0
                         || point_a == point_b
                         || (removal_style == "frame_offset" && picture.is_none())
                         || (removal_style == "displace_horizontal" && point_a[1] == point_b[1])
                 }
                 // D-404: the original mixed back whole, or the one tile the picture itself.
-                E::Tiles { scale, center, blend } => *blend >= 100.0 || (*scale == 100.0 && *center == crate::layer_fx::PLAIN_TILE),
+                E::Tiles {
+                    scale,
+                    center,
+                    blend,
+                } => *blend >= 100.0 || (*scale == 100.0 && *center == crate::layer_fx::PLAIN_TILE),
                 // D-405: a clear area laid over the layer, as layer_fx::magnify returns at once.
-                E::Magnify { opacity, blending_mode, .. } => *opacity == 0.0 && blending_mode != "none",
+                E::Magnify {
+                    opacity,
+                    blending_mode,
+                    ..
+                } => *opacity == 0.0 && blending_mode != "none",
                 E::Spherize { radius, .. } => *radius <= 0.0,
                 // D-413: a clear pattern laid on the layer; None and Stencil Alpha still clear it.
-                E::Checkerboard { opacity, blending_mode, .. } | E::Circle { opacity, blending_mode, .. } | E::Grid { opacity, blending_mode, .. } => {
+                E::Checkerboard {
+                    opacity,
+                    blending_mode,
+                    ..
+                }
+                | E::Circle {
+                    opacity,
+                    blending_mode,
+                    ..
+                }
+                | E::Grid {
+                    opacity,
+                    blending_mode,
+                    ..
+                } => {
                     *opacity == 0.0 && !["none", "stencil_alpha"].contains(&blending_mode.as_str())
                 }
-                E::DetailUpscale { scale, reduce_noise, detail } => *scale == 100.0 && *reduce_noise <= 0.0 && *detail <= 0.0,
+                E::DetailUpscale {
+                    scale,
+                    reduce_noise,
+                    detail,
+                } => *scale == 100.0 && *reduce_noise <= 0.0 && *detail <= 0.0,
                 // D-360: the mean of two untouched copies is the layer.
-                E::CrossBlur { radius_x, radius_y, mode, .. } => {
-                    mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0
+                E::CrossBlur {
+                    radius_x,
+                    radius_y,
+                    mode,
+                    ..
+                } => {
+                    mode == "blend"
+                        && crate::effects::box_reach(*radius_x, 1.0)
+                            .max(crate::effects::box_reach(*radius_y, 1.0))
+                            == 0
                 }
                 // B-224: as each one's own function returns at once.
                 E::DisplacementMap { map, .. } => map.is_none(),
                 // D-561: only the classic light leaves a flat or unlit glass alone.
-                E::Glass { height, displacement, light_intensity, light_type, .. } => {
-                    light_type == "classic" && (*height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0))
+                E::Glass {
+                    height,
+                    displacement,
+                    light_intensity,
+                    light_type,
+                    ..
+                } => {
+                    light_type == "classic"
+                        && (*height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0))
                 }
                 // B-225: as each one's own function returns at once; a bolt off its original
                 // still clears the layer.
                 E::FourColorGradient { opacity, .. } => *opacity == 0.0,
-                E::LightSweep { width, sweep_intensity, edge_intensity, light_reception, .. } => {
-                    light_reception != "cutout" && (*width / 2.0 == 0.0 || *sweep_intensity == 0.0 && *edge_intensity == 0.0)
+                E::LightSweep {
+                    width,
+                    sweep_intensity,
+                    edge_intensity,
+                    light_reception,
+                    ..
+                } => {
+                    light_reception != "cutout"
+                        && (*width / 2.0 == 0.0
+                            || *sweep_intensity == 0.0 && *edge_intensity == 0.0)
                 }
-                E::LightningBolt { opacity, width, glow, composite, .. } => {
-                    (*opacity == 0.0 || (*width == 0.0 && *glow == 0.0)) && composite != "off"
-                }
-                E::BevelEdges { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
+                E::LightningBolt {
+                    opacity,
+                    width,
+                    glow,
+                    composite,
+                    ..
+                } => (*opacity == 0.0 || (*width == 0.0 && *glow == 0.0)) && composite != "off",
+                E::BevelEdges {
+                    edge_thickness,
+                    light_intensity,
+                    ..
+                } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
                 // B-226: as each one's own function returns at once.
                 E::BlockDissolve { completion, .. } => *completion == 0.0,
-                E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
+                E::GradientWipe {
+                    completion, map, ..
+                } => map.is_none() || *completion == 0.0,
                 // D-512: nothing wiped yet, or a layer named but not read.
-                E::ChannelWipe { completion, layer, map, .. } => *completion == 0.0 || (map.is_none() && layer.as_str() != Some("")),
+                E::ChannelWipe {
+                    completion,
+                    layer,
+                    map,
+                    ..
+                } => *completion == 0.0 || (map.is_none() && layer.as_str() != Some("")),
                 // D-403: even with no layer named; a layer named but not read leaves it as it is.
-                E::AerialHaze { amount, layer, map, .. } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
+                E::AerialHaze {
+                    amount, layer, map, ..
+                } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
                 // D-501: no plate read, none named or one named but not read.
                 E::DifferenceMatte { map, .. } => map.is_none(),
                 // D-506: a view named but not read.
@@ -1697,19 +2298,38 @@ fn card_effect(
                 // D-519: a gel named but not read.
                 E::CcSpotlight { .. } => crate::layer_fx::spot_gel(&effect).is_none(),
                 // D-509: nothing melted yet, or a layer named but not read.
-                E::GlassMelt { completion, .. } => *completion <= 0.0 || crate::layer_fx::melt_settings(&effect).is_none(),
+                E::GlassMelt { completion, .. } => {
+                    *completion <= 0.0 || crate::layer_fx::melt_settings(&effect).is_none()
+                }
                 // D-517: nothing turned yet, or a back named but not read.
-                E::Twister { completion, .. } => *completion == 0.0 || crate::layer_fx::twist_back(&effect).is_none(),
+                E::Twister { completion, .. } => {
+                    *completion == 0.0 || crate::layer_fx::twist_back(&effect).is_none()
+                }
                 // D-518: not begun, or a layer named but not read.
-                E::WarpBlend { completion, .. } => *completion <= 0.0 || crate::layer_fx::warp_settings(&effect).is_none(),
+                E::WarpBlend { completion, .. } => {
+                    *completion <= 0.0 || crate::layer_fx::warp_settings(&effect).is_none()
+                }
                 // D-531: no environment read, none named or one named but not read.
                 E::CcEnvironment { map, .. } => map.is_none(),
                 // D-611: a texture layer named but not read.
-                E::ParticleSpace { .. } | E::ParticlePlane { .. } => crate::particles::texture_missing(&effect),
+                E::ParticleSpace { .. } | E::ParticlePlane { .. } => {
+                    crate::particles::texture_missing(&effect)
+                }
                 // D-502: no foreground, or a mask named not found.
                 E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).
-                E::Transform { anchor_point, position, uniform_scale, scale_height, scale_width, skew, rotation, opacity, moments, .. } => {
+                E::Transform {
+                    anchor_point,
+                    position,
+                    uniform_scale,
+                    scale_height,
+                    scale_width,
+                    skew,
+                    rotation,
+                    opacity,
+                    moments,
+                    ..
+                } => {
                     anchor_point == position
                         && *scale_height == 100.0
                         && (uniform_scale == "on" || *scale_width == 100.0)
@@ -1726,8 +2346,16 @@ fn card_effect(
                 | E::Cryptomatte { channels, .. }
                 | E::DepthOfField { channels, .. } => channels.is_none(),
                 // D-524: no depth, no fog, or a gradient named and not read.
-                E::Fog3d { fog_opacity, gradient_layer, map, channels, .. } => {
-                    channels.is_none() || *fog_opacity == 0.0 || (gradient_layer.as_str() != Some("") && map.is_none())
+                E::Fog3d {
+                    fog_opacity,
+                    gradient_layer,
+                    map,
+                    channels,
+                    ..
+                } => {
+                    channels.is_none()
+                        || *fog_opacity == 0.0
+                        || (gradient_layer.as_str() != Some("") && map.is_none())
                 }
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
@@ -1736,53 +2364,114 @@ fn card_effect(
                 // D-508: with no path the layer is left as it is.
                 E::EnergyStroke { source, paths, .. } => source != "points" && paths.is_none(),
                 // D-420: with no levels the layer is left as it is.
-                E::AudioSpectrum { levels, .. } | E::AudioWaveform { levels, .. } => levels.is_none(),
+                E::AudioSpectrum { levels, .. } | E::AudioWaveform { levels, .. } => {
+                    levels.is_none()
+                }
                 // D-418: no mask found, nothing laid on, or the whole layer turned over.
-                E::Fill { paths, invert, opacity, .. } => {
-                    *opacity == 0.0 || paths.as_ref().is_none_or(|p| p.is_empty() && invert == "on")
+                E::Fill {
+                    paths,
+                    invert,
+                    opacity,
+                    ..
+                } => {
+                    *opacity == 0.0
+                        || paths
+                            .as_ref()
+                            .is_none_or(|p| p.is_empty() && invert == "on")
                 }
                 // D-419: all of the layer blended back.
-                E::EyedropperFill { blend_with_original, .. } => *blend_with_original == 100.0,
+                E::EyedropperFill {
+                    blend_with_original,
+                    ..
+                } => *blend_with_original == 100.0,
                 // D-440: nothing laid on, unless Fill Only clears the rest or the view is shown.
-                E::PaintBucket { opacity, blending_mode, view_threshold, .. } => {
-                    *opacity == 0.0 && blending_mode != "fill_only" && view_threshold == "off"
-                }
+                E::PaintBucket {
+                    opacity,
+                    blending_mode,
+                    view_threshold,
+                    ..
+                } => *opacity == 0.0 && blending_mode != "fill_only" && view_threshold == "off",
                 // D-441: on the layer, with no mark that covers anything.
-                E::WriteOn { paint_style, marks, .. } => paint_style == "on_original" && marks.iter().all(|m| m[2] == 0.0 || m[4] == 0.0),
+                E::WriteOn {
+                    paint_style, marks, ..
+                } => {
+                    paint_style == "on_original" && marks.iter().all(|m| m[2] == 0.0 || m[4] == 0.0)
+                }
                 // D-442: no mask found.
                 E::Scribble { masks, .. } => masks.is_none(),
                 // D-526: a font this computer cannot draw in, said each frame.
-                E::Numbers { font, .. } | E::BasicText { font, .. } => !crate::layer_fx::numbers_font_ok(font),
+                E::Numbers { font, .. } | E::BasicText { font, .. } => {
+                    !crate::layer_fx::numbers_font_ok(font)
+                }
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
             // the drawing's size say, not its settings alone. B-115: so does a Motion Tile,
             // and not the same across as down.
             let grow = match &effect {
-                E::CameraShake { amount, rotation, .. } => {
+                E::CameraShake {
+                    amount, rotation, ..
+                } => {
                     let g = crate::layer_fx::shake_reach(*amount, *rotation, size, *offset).1;
                     (g, g)
                 }
-                E::MotionTile { output_width, output_height, .. } => {
-                    crate::layer_fx::tile_growth((*output_width, *output_height), size)
-                }
+                E::MotionTile {
+                    output_width,
+                    output_height,
+                    ..
+                } => crate::layer_fx::tile_growth((*output_width, *output_height), size),
                 // D-464: by its expansions, the same both ways.
-                E::RepeatTile { expand_right, expand_left, expand_down, expand_up, .. } => {
-                    crate::layer_fx::repeat_tile_growth([*expand_right, *expand_left, *expand_down, *expand_up], size)
-                }
+                E::RepeatTile {
+                    expand_right,
+                    expand_left,
+                    expand_down,
+                    expand_up,
+                    ..
+                } => crate::layer_fx::repeat_tile_growth(
+                    [*expand_right, *expand_left, *expand_down, *expand_up],
+                    size,
+                ),
                 // D-405: a Magnify by its area, when Resize Layer is on and nothing is linked.
-                E::Magnify { center, magnification, link, size: radius, feather, resize_layer, .. } => {
-                    let g = crate::layer_fx::magnify_lens(*center, *magnification, link, [*radius, *feather], resize_layer == "on", size, *offset).3;
+                E::Magnify {
+                    center,
+                    magnification,
+                    link,
+                    size: radius,
+                    feather,
+                    resize_layer,
+                    ..
+                } => {
+                    let g = crate::layer_fx::magnify_lens(
+                        *center,
+                        *magnification,
+                        link,
+                        [*radius, *feather],
+                        resize_layer == "on",
+                        size,
+                        *offset,
+                    )
+                    .3;
                     (g, g)
                 }
                 // B-151: a Radial Shadow grows by its cast and the cast's blur, a Corner Pin
                 // by its corners; both as their own functions do.
-                E::RadialShadow { light, distance, softness, .. } => {
-                    let (_, _, _, gx, gy) = crate::layer_fx::radial_cast(*light, *distance, size, *offset);
+                E::RadialShadow {
+                    light,
+                    distance,
+                    softness,
+                    ..
+                } => {
+                    let (_, _, _, gx, gy) =
+                        crate::layer_fx::radial_cast(*light, *distance, size, *offset);
                     let r = crate::effects::kernel_radius(softness / 3.0);
                     (gx + r, gy + r)
                 }
-                E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+                E::CornerPin {
+                    upper_left,
+                    upper_right,
+                    lower_left,
+                    lower_right,
+                } => {
                     let pins = [*upper_left, *upper_right, *lower_left, *lower_right];
                     crate::layer_fx::corner_map(pins, size, *offset).map_or((0, 0), |m| m.2)
                 }
@@ -1800,16 +2489,30 @@ fn card_effect(
                     expansion_bottom,
                 } if unstretch != "on" => {
                     let pins = [*top_left, *top_right, *bottom_left, *bottom_right];
-                    let e = [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom];
-                    crate::layer_fx::power_pin_map(pins, perspective / 100.0, e, size, *offset).map_or((0, 0), |m| m.4)
+                    let e = [
+                        *expansion_top,
+                        *expansion_left,
+                        *expansion_right,
+                        *expansion_bottom,
+                    ];
+                    crate::layer_fx::power_pin_map(pins, perspective / 100.0, e, size, *offset)
+                        .map_or((0, 0), |m| m.4)
                 }
                 // D-407: an Upscale about the layer's middle.
                 E::DetailUpscale { scale, .. } => crate::layer_fx::upscale_growth(size, *scale),
                 _ => (effect.bounds_expansion(), effect.bounds_expansion()),
             };
             // B-221: its Mix is `mixed`'s, around it.
-            let instance = crate::effects::EffectInstance { effect, mix: 100.0, ..instance.clone() };
-            let fx = render::Fx { instance, origin: *offset, grow };
+            let instance = crate::effects::EffectInstance {
+                effect,
+                mix: 100.0,
+                ..instance.clone()
+            };
+            let fx = render::Fx {
+                instance,
+                origin: *offset,
+                grow,
+            };
             (!nothing).then(|| {
                 *offset = (offset.0 + grow.0, offset.1 + grow.1);
                 render::OnCard::Fx(fx)
@@ -1870,13 +2573,18 @@ pub fn card_takes(instance: &crate::effects::EffectInstance, pixels: usize) -> b
 /// that looks at its drawing before the card is asked (Bloom, Glow, Paraffin, Kira-kira, CC Ball Action), which
 /// the frame beneath is not yet, or an HSV Key, which only begins a run on a drawing the CPU made
 /// (D-224). `stack` is the plan's, its distances already the draft's (`preview::scale_plan`).
-pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)) -> Option<Vec<render::OnCard>> {
+pub fn adjust_run(
+    stack: &[crate::effects::EffectInstance],
+    size: (usize, usize),
+) -> Option<Vec<render::OnCard>> {
     use crate::effects::Effect as E;
     let mut offset = (0, 0);
     let mut run = Vec::new();
     // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it; nor does a Color
     // Stabilizer on an adjustment layer (D-376), which says so at the frame.
-    for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. } | E::ColorStabilizer { .. })) {
+    for instance in stack.iter().filter(|i| {
+        i.enabled && !matches!(i.effect, E::LightWrap { .. } | E::ColorStabilizer { .. })
+    }) {
         // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
         // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur. B-225
         // (D-344): so does a Lightning Bolt with an Alpha Obstacle, which reads the covering.
@@ -1887,7 +2595,10 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
         if first || !card_can(instance, 1.0, grown.0 * grown.1) {
             return None;
         }
-        run.extend(card_effect(instance.effect.clone(), instance, grown, &mut offset).map(|c| mixed(c, instance)));
+        run.extend(
+            card_effect(instance.effect.clone(), instance, grown, &mut offset)
+                .map(|c| mixed(c, instance)),
+        );
     }
     Some(run)
 }
@@ -1913,12 +2624,26 @@ fn resolve_layer(
     // because an export decides what to block by the frame it is writing.
     let at = posterized(comp, layer, frame);
     if at == frame {
-        return resolve_held(project, comp, layer, frame, at, root, quality, cache, log, above, card, map);
+        return resolve_held(
+            project, comp, layer, frame, at, root, quality, cache, log, above, card, map,
+        );
     }
     layer.timing().local_frame(frame)?;
     let mut inside = FrameLog::new(usize::MAX);
-    let resolved =
-        resolve_held(project, comp, layer, frame, at, root, quality, cache, &mut inside, above, card, map);
+    let resolved = resolve_held(
+        project,
+        comp,
+        layer,
+        frame,
+        at,
+        root,
+        quality,
+        cache,
+        &mut inside,
+        above,
+        card,
+        map,
+    );
     log.retime(inside, frame);
     resolved
 }
@@ -1927,14 +2652,22 @@ fn resolve_layer(
 /// valid Posterize Time of its stack in turn steps it back to its rate, counted from the
 /// composition's first frame, and never before the layer's in point. An adjustment layer holds
 /// nothing.
-pub(crate) fn posterized(comp: &crate::model::Composition, layer: &crate::model::Layer, frame: i32) -> i32 {
+pub(crate) fn posterized(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    frame: i32,
+) -> i32 {
     if layer.is_adjustment() {
         return frame;
     }
     let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
     let start = comp.start_frame as f64;
     let mut h = frame;
-    for i in layer.effects.iter().filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::PosterizeTime { .. })) {
+    for i in layer
+        .effects
+        .iter()
+        .filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::PosterizeTime { .. }))
+    {
         let now = crate::expr::effect_at(comp, &layer.id, i, h, layer.key_time(h as f64)).0;
         if !now.is_valid() {
             continue;
@@ -2036,7 +2769,11 @@ fn resolve_held(
             // B-171 (G12, D-243): the viewer keeps each inner frame it draws, in memory and on
             // disk, and draws it again only when something it was drawn from has changed.
             let key = (cache.effect_budget() > 0)
-                .then(|| inner_key(project, inner_id, root, quality, local, above, &comp.id, float, bits))
+                .then(|| {
+                    inner_key(
+                        project, inner_id, root, quality, local, above, &comp.id, float, bits,
+                    )
+                })
                 .flatten();
             if let Some(picture) = key.as_deref().and_then(|key| cache.inner_frame(key)) {
                 return Some(picture);
@@ -2074,7 +2811,12 @@ fn resolve_held(
             });
             let (picture, quiet) = drawn?;
             if let (Some(key), true) = (key, quiet) {
-                cache.store_inner(key, files, std::sync::Arc::clone(&picture), started.elapsed());
+                cache.store_inner(
+                    key,
+                    files,
+                    std::sync::Arc::clone(&picture),
+                    started.elapsed(),
+                );
             }
             Some(picture)
         };
@@ -2210,7 +2952,11 @@ fn resolve_held(
                 }
             };
             let a = cel_at(f);
-            let picture = if w > 0.0 { mix(a.as_deref(), cel_at(f + 1).as_deref(), w).map(std::sync::Arc::new) } else { a }?;
+            let picture = if w > 0.0 {
+                mix(a.as_deref(), cel_at(f + 1).as_deref(), w).map(std::sync::Arc::new)
+            } else {
+                a
+            }?;
             mixed = true;
             (picture, None)
         }
@@ -2249,12 +2995,15 @@ fn resolve_held(
         );
         let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
         return resolve_rest(
-            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map, float, bits,
+            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map,
+            float, bits,
         )
         .map(|r| ResolvedLayer { mixed, ..r });
     }
-    resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map, float, bits)
-        .map(|r| ResolvedLayer { mixed, ..r })
+    resolve_rest(
+        project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map, float, bits,
+    )
+    .map(|r| ResolvedLayer { mixed, ..r })
 }
 
 /// Document 21 step 1 for a drawn layer: which file it shows at layer-local frame `local`,
@@ -2361,7 +3110,9 @@ fn effect_now(
 ) -> crate::effects::EffectInstance {
     let (mut now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
     // D-319: Fractal Noise is held to white only in Display depth; D-445: Turbulent Noise too.
-    if let crate::effects::Effect::FractalNoise { float: f, .. } | crate::effects::Effect::TurbulentNoise { float: f, .. } = &mut now.effect {
+    if let crate::effects::Effect::FractalNoise { float: f, .. }
+    | crate::effects::Effect::TurbulentNoise { float: f, .. } = &mut now.effect
+    {
         *f = float;
     }
     // D-446: Curl Noise keeps past white only in a Float composition.
@@ -2371,12 +3122,25 @@ fn effect_now(
     // D-390: Ripple Pulse's levels, the pulse level now and at each frame of the time span
     // before, read as the layer's keys are; frames read through the layer's time stretch.
     if now.is_valid() {
-        if let crate::effects::Effect::RipplePulse { time_span, pulse_level, levels, .. } = &mut now.effect {
+        if let crate::effects::Effect::RipplePulse {
+            time_span,
+            pulse_level,
+            levels,
+            ..
+        } = &mut now.effect
+        {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             let n = (*time_span * fps + 0.5).floor() as i32;
             *levels = std::iter::once(*pulse_level)
                 .chain((1..=n).map(|j| {
-                    let then = crate::expr::effect_at(comp, &layer.id, instance, at - j, layer.key_time((at - j) as f64)).0;
+                    let then = crate::expr::effect_at(
+                        comp,
+                        &layer.id,
+                        instance,
+                        at - j,
+                        layer.key_time((at - j) as f64),
+                    )
+                    .0;
                     match then.effect {
                         crate::effects::Effect::RipplePulse { pulse_level, .. } => pulse_level,
                         _ => *pulse_level,
@@ -2386,15 +3150,33 @@ fn effect_now(
         }
         // D-424: Glue Gun's trail, the brush position now and at each frame of the time span
         // before (with time span 0, back to the layer's in point), read as Ripple Pulse's levels.
-        if let crate::effects::Effect::GlueGun { time_span, brush_position, trail, clock, .. } = &mut now.effect {
+        if let crate::effects::Effect::GlueGun {
+            time_span,
+            brush_position,
+            trail,
+            clock,
+            ..
+        } = &mut now.effect
+        {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             // ponytail: a stroke kept for ever reads every frame back to the in point, each frame;
             // keep the trail between frames if long permanent strokes grow slow.
-            let n = if *time_span == 0.0 { (at - layer.in_frame).max(0) } else { (*time_span * fps + 0.5).floor() as i32 };
+            let n = if *time_span == 0.0 {
+                (at - layer.in_frame).max(0)
+            } else {
+                (*time_span * fps + 0.5).floor() as i32
+            };
             *clock = [at as f64, fps];
             *trail = std::iter::once(*brush_position)
                 .chain((1..=n).map(|j| {
-                    let then = crate::expr::effect_at(comp, &layer.id, instance, at - j, layer.key_time((at - j) as f64)).0;
+                    let then = crate::expr::effect_at(
+                        comp,
+                        &layer.id,
+                        instance,
+                        at - j,
+                        layer.key_time((at - j) as f64),
+                    )
+                    .0;
                     match then.effect {
                         crate::effects::Effect::GlueGun { brush_position, .. } => brush_position,
                         _ => *brush_position,
@@ -2407,7 +3189,15 @@ fn effect_now(
         // ponytail: every frame reads every mark again, O(duration / spacing); keep the marks
         // between frames if long shots with fine spacing crawl.
         if let crate::effects::Effect::WriteOn {
-            brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, paint_time_properties, brush_time_properties, marks, ..
+            brush_size,
+            brush_hardness,
+            brush_opacity,
+            stroke_length,
+            brush_spacing,
+            paint_time_properties,
+            brush_time_properties,
+            marks,
+            ..
         } = &mut now.effect
         {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
@@ -2415,16 +3205,37 @@ fn effect_now(
             let step = *brush_spacing * fps;
             let n = ((u - start) / step + 1e-9).floor();
             let size_then = matches!(brush_time_properties.as_str(), "size" | "size_and_hardness");
-            let hard_then = matches!(brush_time_properties.as_str(), "hardness" | "size_and_hardness");
-            let opacity_then = matches!(paint_time_properties.as_str(), "opacity" | "color_and_opacity");
-            let (size, hard, opacity, keep) = (*brush_size, *brush_hardness, *brush_opacity, *stroke_length * fps);
+            let hard_then = matches!(
+                brush_time_properties.as_str(),
+                "hardness" | "size_and_hardness"
+            );
+            let opacity_then = matches!(
+                paint_time_properties.as_str(),
+                "opacity" | "color_and_opacity"
+            );
+            let (size, hard, opacity, keep) = (
+                *brush_size,
+                *brush_hardness,
+                *brush_opacity,
+                *stroke_length * fps,
+            );
             *marks = (0..(n + 1.0).max(0.0) as i64)
                 .map(|k| start + k as f64 * step)
                 .filter(|uk| keep <= 0.0 || u - uk < keep - 1e-9)
                 .filter_map(|uk| {
-                    let then = (start + (uk - start) * layer.time_stretch / 100.0 + 1e-9).floor() as i32;
-                    match crate::expr::effect_at(comp, &layer.id, instance, then, uk).0.effect {
-                        crate::effects::Effect::WriteOn { brush_position: p, brush_size: s, brush_hardness: h, brush_opacity: o, .. } => Some([
+                    let then =
+                        (start + (uk - start) * layer.time_stretch / 100.0 + 1e-9).floor() as i32;
+                    match crate::expr::effect_at(comp, &layer.id, instance, then, uk)
+                        .0
+                        .effect
+                    {
+                        crate::effects::Effect::WriteOn {
+                            brush_position: p,
+                            brush_size: s,
+                            brush_hardness: h,
+                            brush_opacity: o,
+                            ..
+                        } => Some([
                             p[0],
                             p[1],
                             if size_then { s } else { size },
@@ -2441,12 +3252,22 @@ fn effect_now(
         // D-633: Shatter's the same, its pieces freed and thrown again from the in point.
         // ponytail: O(frames from the in point) reads a frame; keep them between frames if long
         // shots crawl (the water's own cost dwarfs this).
-        if matches!(now.effect, crate::effects::Effect::WaveWorld { .. } | crate::effects::Effect::Shatter { .. }) {
+        if matches!(
+            now.effect,
+            crate::effects::Effect::WaveWorld { .. } | crate::effects::Effect::Shatter { .. }
+        ) {
             let mut then: Vec<Vec<f64>> = (layer.in_frame..at)
-                .map(|f| crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect.wave_numbers())
+                .map(|f| {
+                    crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64))
+                        .0
+                        .effect
+                        .wave_numbers()
+                })
                 .collect();
             then.push(now.effect.wave_numbers());
-            if let crate::effects::Effect::WaveWorld { history, fps, .. } | crate::effects::Effect::Shatter { history, fps, .. } = &mut now.effect {
+            if let crate::effects::Effect::WaveWorld { history, fps, .. }
+            | crate::effects::Effect::Shatter { history, fps, .. } = &mut now.effect
+            {
                 *history = then;
                 *fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             }
@@ -2455,19 +3276,29 @@ fn effect_now(
         // the file has none): its place, and its distance from the layer's plane over the
         // layer's scale; 0 far, drawing nothing, where it cannot be worked out. D-633: Shatter's
         // the same.
-        if let crate::effects::Effect::CardDance { view, .. } | crate::effects::Effect::Shatter { seen: view, .. } = &mut now.effect {
+        if let crate::effects::Effect::CardDance { view, .. }
+        | crate::effects::Effect::Shatter { seen: view, .. } = &mut now.effect
+        {
             let m = world_transform(comp, &layer.id, at);
             *view = match (camera_at(comp, at), m.invert()) {
                 (Some(cam), Some(inv)) => {
                     let a = inv.apply(cam.position.0, cam.position.1);
-                    [a.0, a.1, (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt()]
+                    [
+                        a.0,
+                        a.1,
+                        (world_depth(comp, &layer.id, at) - cam.depth)
+                            / (m.a * m.d - m.b * m.c).abs().sqrt(),
+                    ]
                 }
                 _ => [0.0; 3],
             };
         }
         // D-582: CC Rainfall falls by the composition frame, in seconds, as Glue Gun's clock.
         if let crate::effects::Effect::CcRainfall { clock, .. } = &mut now.effect {
-            *clock = [at as f64, comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64];
+            *clock = [
+                at as f64,
+                comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64,
+            ];
         }
         // D-442: Scribble wiggles by the layer's key time from its in point, in seconds.
         if let crate::effects::Effect::Scribble { time, .. } = &mut now.effect {
@@ -2482,7 +3313,13 @@ fn effect_now(
         }
         // D-610: Particle Space's clock, the composition camera in the layer's own pixels when
         // the file has one, and the settings at each frame from the in point when any is keyed.
-        if let crate::effects::Effect::ParticleSpace { clock, view, history, .. } = &mut now.effect {
+        if let crate::effects::Effect::ParticleSpace {
+            clock,
+            view,
+            history,
+            ..
+        } = &mut now.effect
+        {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *clock = [(at - layer.in_frame) as f64, fps];
             *view = [0.0; 4];
@@ -2490,7 +3327,8 @@ fn effect_now(
                 let m = world_transform(comp, &layer.id, at);
                 if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
                     let a = inv.apply(cam.position.0, cam.position.1);
-                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth)
+                        / (m.a * m.d - m.b * m.c).abs().sqrt();
                     *view = [1.0, a.0, a.1, away];
                 }
             }
@@ -2499,9 +3337,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::ParticleSpace { values, .. } => values,
-                            _ => unreachable!("Particle Space's settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::ParticleSpace { values, .. } => values,
+                                _ => unreachable!("Particle Space's settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2517,9 +3366,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::Bubbles { values, .. } => values,
-                            _ => unreachable!("Bubbles' settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::Bubbles { values, .. } => values,
+                                _ => unreachable!("Bubbles' settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2533,9 +3393,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::Drizzle { values, .. } => values,
-                            _ => unreachable!("Drizzle's settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::Drizzle { values, .. } => values,
+                                _ => unreachable!("Drizzle's settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2548,9 +3419,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::ParticlePlane { values, .. } => values,
-                            _ => unreachable!("Particle Plane's settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::ParticlePlane { values, .. } => values,
+                                _ => unreachable!("Particle Plane's settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2564,14 +3446,32 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
-                        .map(|f| crate::playground::numbers(&crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect))
+                        .map(|f| {
+                            crate::playground::numbers(
+                                &crate::expr::effect_at(
+                                    comp,
+                                    &layer.id,
+                                    instance,
+                                    f,
+                                    layer.key_time(f as f64),
+                                )
+                                .0
+                                .effect,
+                            )
+                        })
                         .collect(),
                 )
             });
         }
         // D-615: Particle Emitter's clock, camera and history, as Particle Space's; the history
         // of its numbers, the position too, each held inside its range.
-        if let crate::effects::Effect::ParticleEmitter { clock, view, history, .. } = &mut now.effect {
+        if let crate::effects::Effect::ParticleEmitter {
+            clock,
+            view,
+            history,
+            ..
+        } = &mut now.effect
+        {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *clock = [(at - layer.in_frame) as f64, fps];
             *view = [0.0; 4];
@@ -2579,21 +3479,40 @@ fn effect_now(
                 let m = world_transform(comp, &layer.id, at);
                 if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
                     let a = inv.apply(cam.position.0, cam.position.1);
-                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth)
+                        / (m.a * m.d - m.b * m.c).abs().sqrt();
                     *view = [1.0, a.0, a.1, away];
                 }
             }
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
-                        .map(|f| crate::particles::emitter_numbers_row(&crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect))
+                        .map(|f| {
+                            crate::particles::emitter_numbers_row(
+                                &crate::expr::effect_at(
+                                    comp,
+                                    &layer.id,
+                                    instance,
+                                    f,
+                                    layer.key_time(f as f64),
+                                )
+                                .0
+                                .effect,
+                            )
+                        })
                         .collect(),
                 )
             });
         }
         // D-616: Particle Grid's clock, camera and history, as Particle Emitter's; the history of
         // its numbers, the centre too, each held inside its range, for the Flow sums.
-        if let crate::effects::Effect::ParticleGrid { clock, view, history, .. } = &mut now.effect {
+        if let crate::effects::Effect::ParticleGrid {
+            clock,
+            view,
+            history,
+            ..
+        } = &mut now.effect
+        {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *clock = [(at - layer.in_frame) as f64, fps];
             *view = [0.0; 4];
@@ -2601,14 +3520,27 @@ fn effect_now(
                 let m = world_transform(comp, &layer.id, at);
                 if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
                     let a = inv.apply(cam.position.0, cam.position.1);
-                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth)
+                        / (m.a * m.d - m.b * m.c).abs().sqrt();
                     *view = [1.0, a.0, a.1, away];
                 }
             }
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
-                        .map(|f| crate::particles::grid_numbers_row(&crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect))
+                        .map(|f| {
+                            crate::particles::grid_numbers_row(
+                                &crate::expr::effect_at(
+                                    comp,
+                                    &layer.id,
+                                    instance,
+                                    f,
+                                    layer.key_time(f as f64),
+                                )
+                                .0
+                                .effect,
+                            )
+                        })
                         .collect(),
                 )
             });
@@ -2621,9 +3553,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::Mercury { values, .. } => values,
-                            _ => unreachable!("Mercury's settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::Mercury { values, .. } => values,
+                                _ => unreachable!("Mercury's settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2639,7 +3582,8 @@ fn effect_now(
                 let m = world_transform(comp, &layer.id, at);
                 if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
                     let a = inv.apply(cam.position.0, cam.position.1);
-                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth)
+                        / (m.a * m.d - m.b * m.c).abs().sqrt();
                     *view = [1.0, a.0, a.1, away];
                 }
             }
@@ -2652,9 +3596,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::Foam { values, .. } => values,
-                            _ => unreachable!("Foam's settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::Foam { values, .. } => values,
+                                _ => unreachable!("Foam's settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2662,7 +3617,13 @@ fn effect_now(
         }
         // D-677: Star Burst's clock, the composition camera as Particle Space's, and the
         // settings at each frame from the in point when any is keyed.
-        if let crate::effects::Effect::StarBurst { clock, view, history, .. } = &mut now.effect {
+        if let crate::effects::Effect::StarBurst {
+            clock,
+            view,
+            history,
+            ..
+        } = &mut now.effect
+        {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *clock = [(at - layer.in_frame) as f64, fps];
             *view = [0.0; 4];
@@ -2670,7 +3631,8 @@ fn effect_now(
                 let m = world_transform(comp, &layer.id, at);
                 if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
                     let a = inv.apply(cam.position.0, cam.position.1);
-                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth)
+                        / (m.a * m.d - m.b * m.c).abs().sqrt();
                     *view = [1.0, a.0, a.1, away];
                 }
             }
@@ -2678,9 +3640,20 @@ fn effect_now(
             *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
-                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
-                            crate::effects::Effect::StarBurst { values, .. } => values,
-                            _ => unreachable!("Star Burst's settings of another effect"),
+                        .map(|f| {
+                            match crate::expr::effect_at(
+                                comp,
+                                &layer.id,
+                                instance,
+                                f,
+                                layer.key_time(f as f64),
+                            )
+                            .0
+                            .effect
+                            {
+                                crate::effects::Effect::StarBurst { values, .. } => values,
+                                _ => unreachable!("Star Burst's settings of another effect"),
+                            }
                         })
                         .collect(),
                 )
@@ -2732,7 +3705,15 @@ fn effect_now(
         // D-527: Timecode's count, rules 1 and 2 of tools/timecode_reference.py: the frame, the
         // rate it is labelled at, and 1 when it drops frames. A layer with a file counts from the
         // file's first frame, and says so each frame: a timecode written in the file is not read.
-        if let crate::effects::Effect::Timecode { time_source, time_units, drop_frame, starting_frame, count, .. } = &mut now.effect {
+        if let crate::effects::Effect::Timecode {
+            time_source,
+            time_units,
+            drop_frame,
+            starting_frame,
+            count,
+            ..
+        } = &mut now.effect
+        {
             let den = comp.frame_rate.denominator() as f64;
             let fps = comp.frame_rate.numerator() as f64 / den;
             let nominal = fps.round();
@@ -2742,11 +3723,25 @@ fn effect_now(
                 "custom" => {
                     let units = time_units.floor();
                     let t = (u - layer.in_frame as f64) / fps;
-                    [starting_frame.floor() + (t * units + 1e-6).floor(), units, f64::from(drop_frame == "on")]
+                    [
+                        starting_frame.floor() + (t * units + 1e-6).floor(),
+                        units,
+                        f64::from(drop_frame == "on"),
+                    ]
                 }
-                _ => [(layer.source_time(at).unwrap_or((at - layer.in_frame) as f64) + 1e-6).floor(), nominal, ntsc],
+                _ => [
+                    (layer
+                        .source_time(at)
+                        .unwrap_or((at - layer.in_frame) as f64)
+                        + 1e-6)
+                        .floor(),
+                    nominal,
+                    ntsc,
+                ],
             };
-            if time_source == "layer_source" && matches!(layer.kind, crate::model::LayerKind::Raster) {
+            if time_source == "layer_source"
+                && matches!(layer.kind, crate::model::LayerKind::Raster)
+            {
                 log.record(
                     frame,
                     format!("{}/{} file timecode", layer.name, instance.effect.name()),
@@ -2765,7 +3760,11 @@ fn effect_now(
     }
     for (name, e) in failed {
         let what = format!("{} {name}", instance.effect.name());
-        log.record(frame, format!("{}/{what}", layer.name), e.diagnostic(&layer.name, &what, frame));
+        log.record(
+            frame,
+            format!("{}/{what}", layer.name),
+            e.diagnostic(&layer.name, &what, frame),
+        );
     }
     now
 }
@@ -2773,7 +3772,11 @@ fn effect_now(
 /// D-350: a text layer's animators as they are at `at`; one whose settings this build cannot use
 /// is left out (and said with the rest of the stack). D-373: Path Stroke's text outlines take
 /// the same.
-fn text_animators(comp: &crate::model::Composition, layer: &crate::model::Layer, at: i32) -> Vec<crate::effects::Effect> {
+fn text_animators(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    at: i32,
+) -> Vec<crate::effects::Effect> {
     layer
         .effects
         .iter()
@@ -2813,8 +3816,22 @@ fn resolve_rest(
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
     // D-291: and each setting with an expression, what it gives on that frame.
-    let mut effects: Vec<crate::effects::EffectInstance> =
-        layer.effects.iter().map(|i| effect_now(comp, layer, i, frame, at, layer.key_time(at as f64), float, log)).collect();
+    let mut effects: Vec<crate::effects::EffectInstance> = layer
+        .effects
+        .iter()
+        .map(|i| {
+            effect_now(
+                comp,
+                layer,
+                i,
+                frame,
+                at,
+                layer.key_time(at as f64),
+                float,
+                log,
+            )
+        })
+        .collect();
     // D-408: a Transform's own shutter, only with the layer's motion blur switch on and the
     // composition's blur enabled (Adobe's page): the composition's moments, or its own angle
     // centred on the frame with the composition's samples. Its settings are read at each moment
@@ -2825,19 +3842,36 @@ fn resolve_rest(
             if !now.is_valid() {
                 continue;
             }
-            let crate::effects::Effect::Transform { use_composition_shutter_angle, shutter_angle, moments, .. } = &mut now.effect else {
+            let crate::effects::Effect::Transform {
+                use_composition_shutter_angle,
+                shutter_angle,
+                moments,
+                ..
+            } = &mut now.effect
+            else {
                 continue;
             };
             let shutter = if use_composition_shutter_angle == "on" {
                 comp.motion_blur
             } else {
-                crate::model::MotionBlur { shutter_angle: *shutter_angle, shutter_phase: -*shutter_angle / 2.0, ..comp.motion_blur }
+                crate::model::MotionBlur {
+                    shutter_angle: *shutter_angle,
+                    shutter_phase: -*shutter_angle / 2.0,
+                    ..comp.motion_blur
+                }
             };
             let read: Vec<[f64; 10]> = shutter
                 .times(frame)
                 .iter()
                 .filter_map(|&t| {
-                    let then = crate::expr::effect_at(comp, &layer.id, instance, at, layer.key_time(at as f64 + t - frame as f64)).0;
+                    let then = crate::expr::effect_at(
+                        comp,
+                        &layer.id,
+                        instance,
+                        at,
+                        layer.key_time(at as f64 + t - frame as f64),
+                    )
+                    .0;
                     crate::effects::transform_moment(&then.effect)
                 })
                 .collect();
@@ -2854,14 +3888,22 @@ fn resolve_rest(
     // D-348: each pass an effect reads, from the layer's own EXR file.
     fill_passes(&mut effects, cel.as_ref(), layer, frame, step1, cache, log);
     // D-350: a text animator moves letters, which only a text layer has.
-    if layer.text.is_none() && layer.effects.iter().any(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. })) {
+    if layer.text.is_none()
+        && layer
+            .effects
+            .iter()
+            .any(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. }))
+    {
         log.record(
             frame,
             layer.name.clone(),
             Diagnostic::new(
                 DiagnosticId::TextAnimatorNoText,
                 Severity::Warning,
-                format!("Layer {} has a Text Animator but no words, so it changes nothing.", layer.name),
+                format!(
+                    "Layer {} has a Text Animator but no words, so it changes nothing.",
+                    layer.name
+                ),
                 format!("Frame {frame} is drawn without it. The animator is kept as it is."),
             )
             .with_remediation("Move the Text Animator to a text layer, or remove it."),
@@ -2910,7 +3952,11 @@ fn resolve_rest(
     }
     // D-376: nor its reference frame, so a Color Stabilizer there changes nothing.
     if layer.is_adjustment()
-        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::ColorStabilizer { .. }))
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(i.effect, crate::effects::Effect::ColorStabilizer { .. })
+        })
     {
         log.record(
             frame,
@@ -2946,7 +3992,11 @@ fn resolve_rest(
     }
     // D-650: nor the frames either side, so a Pixel Motion Blur there changes nothing.
     if layer.is_adjustment()
-        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::PixelMotionBlur { .. }))
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(i.effect, crate::effects::Effect::PixelMotionBlur { .. })
+        })
     {
         log.record(
             frame,
@@ -2962,7 +4012,9 @@ fn resolve_rest(
     }
     // D-652: nor the frames at other times, so a Timewarp there changes nothing.
     if layer.is_adjustment()
-        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::Timewarp { .. }))
+        && effects.iter().any(|i| {
+            i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::Timewarp { .. })
+        })
     {
         log.record(
             frame,
@@ -2978,7 +4030,11 @@ fn resolve_rest(
     }
     // D-653: nor the frames around, so a Warp Stabilizer there changes nothing.
     if layer.is_adjustment()
-        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::WarpStabilizer { .. }))
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(i.effect, crate::effects::Effect::WarpStabilizer { .. })
+        })
     {
         log.record(
             frame,
@@ -2994,7 +4050,14 @@ fn resolve_rest(
     }
     // D-654: nor the frames either side, so a Rolling Shutter Repair there changes nothing.
     if layer.is_adjustment()
-        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::RollingShutterRepair { .. }))
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(
+                    i.effect,
+                    crate::effects::Effect::RollingShutterRepair { .. }
+                )
+        })
     {
         log.record(
             frame,
@@ -3012,7 +4075,11 @@ fn resolve_rest(
     // layer, an adjustment layer included, and on one with a Time Remap, whose moments its rule
     // does not yet read, it leaves the layer as it is, and says so.
     if (layer.kind != crate::model::LayerKind::Composition || layer.time_remap.is_some())
-        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::ForceMotionBlur { .. }))
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(i.effect, crate::effects::Effect::ForceMotionBlur { .. })
+        })
     {
         log.record(
             frame,
@@ -3038,28 +4105,176 @@ fn resolve_rest(
         } else {
             PreviewQuality::Draft
         };
-        fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_time_difference(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_wide_time(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_force_motion_blur(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
-        fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
-        fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
-        fill_pixel_motion(&mut effects, project, root, comp, layer, at, quality, cache, log);
-        fill_timewarp(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_warp_stabilizer(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_rolling_shutter_repair(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
-        fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_maps(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_time_difference(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_echoes(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_wide_time(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_force_motion_blur(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_stats(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            cache,
+            log,
+        );
+        fill_stabilizer(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            pre,
+            float,
+            cache,
+            log,
+        );
+        fill_wire(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            cache,
+            log,
+        );
+        fill_pixel_motion(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            cache,
+            log,
+        );
+        fill_timewarp(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_warp_stabilizer(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_rolling_shutter_repair(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
+        fill_moment_maps(
+            &mut effects,
+            project,
+            root,
+            comp,
+            layer,
+            at,
+            quality,
+            step1,
+            cache,
+            log,
+        );
         fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
     // effect's settings are on the line above. A path that stands still is not copied at all.
     // D-298: nor is a mask whose feather, opacity and expansion have no keys.
-    let moving = layer.masks.iter().any(|m| !m.keys.is_empty() || !m.tracks.is_empty());
+    let moving = layer
+        .masks
+        .iter()
+        .any(|m| !m.keys.is_empty() || !m.tracks.is_empty());
     let moved: Vec<crate::mask::Mask> = if moving {
-        layer.masks.iter().map(|m| m.at_time(layer.key_time(at as f64))).collect()
+        layer
+            .masks
+            .iter()
+            .map(|m| m.at_time(layer.key_time(at as f64)))
+            .collect()
     } else {
         Vec::new()
     };
@@ -3070,8 +4285,7 @@ fn resolve_rest(
     let draft_masks: Vec<crate::mask::Mask> = if pre == 1.0 {
         Vec::new()
     } else {
-        now
-            .iter()
+        now.iter()
             .map(|m| {
                 let mut m = m.clone();
                 for p in &mut m.points {
@@ -3142,20 +4356,54 @@ fn resolve_rest(
     // paths are found the same way, every one of its kind, unless it runs between its points.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         let (mask, all_masks, source, paths, vegas, energy) = match &mut instance.effect {
-            crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } => (mask.floor(), all_masks == "on", source.as_str(), paths, false, false),
-            crate::effects::Effect::Vegas { mask, all_masks, stroke: source, paths, .. } => (mask.floor(), all_masks == "on", source.as_str(), paths, true, false),
-            crate::effects::Effect::EnergyStroke { source, paths, .. } if source != "points" => (1.0, true, source.as_str(), paths, false, true),
+            crate::effects::Effect::Stroke {
+                mask,
+                all_masks,
+                source,
+                paths,
+                ..
+            } => (
+                mask.floor(),
+                all_masks == "on",
+                source.as_str(),
+                paths,
+                false,
+                false,
+            ),
+            crate::effects::Effect::Vegas {
+                mask,
+                all_masks,
+                stroke: source,
+                paths,
+                ..
+            } => (
+                mask.floor(),
+                all_masks == "on",
+                source.as_str(),
+                paths,
+                true,
+                false,
+            ),
+            crate::effects::Effect::EnergyStroke { source, paths, .. } if source != "points" => {
+                (1.0, true, source.as_str(), paths, false, true)
+            }
             _ => continue,
         };
-        let (from, pick) = if vegas { ("Stroke", "Mask") } else { ("Path From", "Path") };
+        let (from, pick) = if vegas {
+            ("Stroke", "Mask")
+        } else {
+            ("Path From", "Path")
+        };
         {
             let (shapes, text) = (source == "shapes", source == "text");
             let outlines: Vec<Vec<(f64, f64)>> = match &layer.text {
-                Some(words) if text => crate::text::outlines(words, &text_animators(comp, layer, at))
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|c| c.into_iter().map(|(x, y)| (x / pre, y / pre)).collect())
-                    .collect(),
+                Some(words) if text => {
+                    crate::text::outlines(words, &text_animators(comp, layer, at))
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|c| c.into_iter().map(|(x, y)| (x / pre, y / pre)).collect())
+                        .collect()
+                }
                 _ => Vec::new(),
             };
             let path = |n: usize| -> Option<(Vec<(f64, f64)>, bool)> {
@@ -3163,22 +4411,51 @@ fn resolve_rest(
                     outlines.get(n).map(|c| (c.clone(), true))
                 } else if shapes {
                     let s = layer.shapes.get(n)?.at(at);
-                    s.is_renderable().then(|| (s.outline().into_iter().map(|(x, y)| (x / pre, y / pre)).collect(), s.closed))
+                    s.is_renderable().then(|| {
+                        (
+                            s.outline()
+                                .into_iter()
+                                .map(|(x, y)| (x / pre, y / pre))
+                                .collect(),
+                            s.closed,
+                        )
+                    })
                 } else {
-                    masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| (m.outline(), true))
+                    masks
+                        .get(n)
+                        .filter(|m| m.enabled && m.points.len() >= 2)
+                        .map(|m| (m.outline(), true))
                 }
             };
-            let count = if text { outlines.len() } else if shapes { layer.shapes.len() } else { masks.len() };
-            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks { (0..count).filter_map(path).collect() } else { path(mask as usize - 1).into_iter().collect() };
+            let count = if text {
+                outlines.len()
+            } else if shapes {
+                layer.shapes.len()
+            } else {
+                masks.len()
+            };
+            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks {
+                (0..count).filter_map(path).collect()
+            } else {
+                path(mask as usize - 1).into_iter().collect()
+            };
             if found.is_empty() {
                 let kind = if shapes { "shape" } else { "mask" };
                 let which = match (text, all_masks) {
                     (true, true) => "no text outline".to_string(),
                     (true, false) => format!("no text outline {mask}"),
                     (false, true) => format!("no {kind} that is on with two points or more"),
-                    (false, false) => format!("no {kind} {mask} that is on with two points or more"),
+                    (false, false) => {
+                        format!("no {kind} {mask} that is on with two points or more")
+                    }
                 };
-                let (name, what) = if energy { ("Energy Stroke", "beam") } else if vegas { ("Vegas", "stroke") } else { ("Path Stroke", "stroke") };
+                let (name, what) = if energy {
+                    ("Energy Stroke", "beam")
+                } else if vegas {
+                    ("Vegas", "stroke")
+                } else {
+                    ("Path Stroke", "stroke")
+                };
                 log.record(
                     frame,
                     layer.name.clone(),
@@ -3210,7 +4487,10 @@ fn resolve_rest(
     // D-565: an Energy Stroke's matte, every mask that is drawn whatever its mode, at the size
     // the effects run at; with none, the beam is drawn uncut and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let crate::effects::Effect::EnergyStroke { alpha_mode, matte, .. } = &mut instance.effect else {
+        let crate::effects::Effect::EnergyStroke {
+            alpha_mode, matte, ..
+        } = &mut instance.effect
+        else {
             continue;
         };
         if alpha_mode == "off" {
@@ -3219,7 +4499,10 @@ fn resolve_rest(
         let drawn: Vec<crate::mask::Mask> = masks
             .iter()
             .filter(|m| m.is_renderable())
-            .map(|m| crate::mask::Mask { mode: crate::mask::MaskMode::Add, ..m.clone() })
+            .map(|m| crate::mask::Mask {
+                mode: crate::mask::MaskMode::Add,
+                ..m.clone()
+            })
             .collect();
         if drawn.is_empty() {
             log.record(
@@ -3244,7 +4527,14 @@ fn resolve_rest(
     type Hear = Box<dyn Fn(Option<(&crate::audio::Sound, i64, usize, f64)>) -> Vec<f64>>;
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         let what = instance.effect.name().to_string();
-        let (audio_layer, path, window, levels, outline, hear): (&serde_json::Value, f64, [f64; 2], &mut Option<Vec<f64>>, &mut Option<Vec<(f64, f64)>>, Hear) = match &mut instance.effect {
+        let (audio_layer, path, window, levels, outline, hear): (
+            &serde_json::Value,
+            f64,
+            [f64; 2],
+            &mut Option<Vec<f64>>,
+            &mut Option<Vec<(f64, f64)>>,
+            Hear,
+        ) = match &mut instance.effect {
             crate::effects::Effect::AudioSpectrum {
                 audio_layer,
                 path,
@@ -3260,31 +4550,80 @@ fn resolve_rest(
             } => {
                 let bands = frequency_bands.floor() as usize;
                 let freqs: Vec<f64> = (0..bands)
-                    .map(|b| *start_frequency + (*end_frequency - *start_frequency) * (b as f64 + 0.5) / bands as f64)
+                    .map(|b| {
+                        *start_frequency
+                            + (*end_frequency - *start_frequency) * (b as f64 + 0.5) / bands as f64
+                    })
                     .collect();
                 let averaging = duration_averaging == "on";
-                let hear: Hear = Box::new(move |w| w.map_or_else(|| vec![0.0; bands], |(s, s0, count, gain)| s.levels(s0, count, &freqs, gain, averaging)));
-                (audio_layer, *path, [*audio_duration, *audio_offset], levels, outline, hear)
+                let hear: Hear = Box::new(move |w| {
+                    w.map_or_else(
+                        || vec![0.0; bands],
+                        |(s, s0, count, gain)| s.levels(s0, count, &freqs, gain, averaging),
+                    )
+                });
+                (
+                    audio_layer,
+                    *path,
+                    [*audio_duration, *audio_offset],
+                    levels,
+                    outline,
+                    hear,
+                )
             }
-            crate::effects::Effect::AudioWaveform { audio_layer, path, displayed_samples, audio_duration, audio_offset, waveform_options, levels, outline, .. } => {
+            crate::effects::Effect::AudioWaveform {
+                audio_layer,
+                path,
+                displayed_samples,
+                audio_duration,
+                audio_offset,
+                waveform_options,
+                levels,
+                outline,
+                ..
+            } => {
                 let shown = displayed_samples.floor() as usize;
                 let channel = match waveform_options.as_str() {
                     "left" => Some(0),
                     "right" => Some(1),
                     _ => None,
                 };
-                let hear: Hear = Box::new(move |w| w.map_or_else(|| vec![0.0; 2 * shown], |(s, s0, count, gain)| s.spans(s0, count, shown, gain, channel)));
-                (audio_layer, *path, [*audio_duration, *audio_offset], levels, outline, hear)
+                let hear: Hear = Box::new(move |w| {
+                    w.map_or_else(
+                        || vec![0.0; 2 * shown],
+                        |(s, s0, count, gain)| s.spans(s0, count, shown, gain, channel),
+                    )
+                });
+                (
+                    audio_layer,
+                    *path,
+                    [*audio_duration, *audio_offset],
+                    levels,
+                    outline,
+                    hear,
+                )
             }
             _ => continue,
         };
         *levels = None;
         *outline = None;
         if path.floor() >= 1.0 {
-            match masks.get(path.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2) {
+            match masks
+                .get(path.floor() as usize - 1)
+                .filter(|m| m.enabled && m.points.len() >= 2)
+            {
                 Some(m) => *outline = Some(m.outline()),
                 None => {
-                    log.record(frame, layer.name.clone(), spectrum_path_missing(&layer.name, &what, path, &format!("Frame {frame} is drawn")));
+                    log.record(
+                        frame,
+                        layer.name.clone(),
+                        spectrum_path_missing(
+                            &layer.name,
+                            &what,
+                            path,
+                            &format!("Frame {frame} is drawn"),
+                        ),
+                    );
                     continue;
                 }
             }
@@ -3295,25 +4634,64 @@ fn resolve_rest(
             continue;
         }
         let Some(heard) = comp.layer(&Id::new(named)) else {
-            log.record(frame, layer.name.clone(), crate::layer_map::missing(&layer.name, named, &format!("frame {frame} is drawn")));
+            log.record(
+                frame,
+                layer.name.clone(),
+                crate::layer_map::missing(&layer.name, named, &format!("frame {frame} is drawn")),
+            );
             continue;
         };
         if heard.kind != crate::model::LayerKind::Audio {
-            log.record(frame, layer.name.clone(), spectrum_sound_missing(&layer.name, &what, &heard.name, &format!("Frame {frame} is drawn")));
+            log.record(
+                frame,
+                layer.name.clone(),
+                spectrum_sound_missing(
+                    &layer.name,
+                    &what,
+                    &heard.name,
+                    &format!("Frame {frame} is drawn"),
+                ),
+            );
             continue;
         }
-        let window = sound_window(project, root, comp, heard, at, window, log, frame, &layer.name);
-        *levels = Some(hear(window.as_ref().map(|(s, s0, count, gain)| (&**s, *s0, *count, *gain))));
+        let window = sound_window(
+            project,
+            root,
+            comp,
+            heard,
+            at,
+            window,
+            log,
+            frame,
+            &layer.name,
+        );
+        *levels = Some(hear(
+            window
+                .as_ref()
+                .map(|(s, s0, count, gain)| (&**s, *s0, *count, *gain)),
+        ));
     }
     // D-418: each Fill's masks, chosen as Path Stroke's are (on, with two points, whatever the
     // mode), as they are at this frame and at the size the effects run at; Fill Mask 0 with All
     // Masks off is none, the whole layer. Asked for a mask and finding none, the layer is left as
     // it is and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::Fill { mask, all_masks, paths, .. } = &mut instance.effect {
-            let usable = |n: usize| masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+        if let crate::effects::Effect::Fill {
+            mask,
+            all_masks,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: usize| {
+                masks
+                    .get(n)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
             *paths = if all_masks == "on" {
-                Some((0..masks.len()).filter_map(usable).collect::<Vec<_>>()).filter(|p| !p.is_empty())
+                Some((0..masks.len()).filter_map(usable).collect::<Vec<_>>())
+                    .filter(|p| !p.is_empty())
             } else if *mask < 1.0 {
                 Some(Vec::new())
             } else {
@@ -3323,7 +4701,10 @@ fn resolve_rest(
                 let which = if all_masks == "on" {
                     "no mask that is on with two points or more".to_string()
                 } else {
-                    format!("no mask {} that is on with two points or more", mask.floor())
+                    format!(
+                        "no mask {} that is on with two points or more",
+                        mask.floor()
+                    )
                 };
                 log.record(
                     frame,
@@ -3344,15 +4725,32 @@ fn resolve_rest(
     // Foreground 0 keys nothing and says nothing; a mask named and not found leaves the layer as
     // it is and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::InnerOuterKey { foreground, background, paths, .. } = &mut instance.effect {
-            let usable = |n: f64| masks.get(n.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+        if let crate::effects::Effect::InnerOuterKey {
+            foreground,
+            background,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: f64| {
+                masks
+                    .get(n.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
             *paths = None;
             if *foreground < 1.0 {
                 continue;
             }
             let fg = usable(*foreground);
             let bg = (*background >= 1.0).then(|| usable(*background));
-            let missing = if fg.is_none() { Some(*foreground) } else if let Some(None) = bg { Some(*background) } else { None };
+            let missing = if fg.is_none() {
+                Some(*foreground)
+            } else if let Some(None) = bg {
+                Some(*background)
+            } else {
+                None
+            };
             if let Some(n) = missing {
                 log.record(
                     frame,
@@ -3379,10 +4777,25 @@ fn resolve_rest(
     // destination of 0 reshapes nothing and says nothing; a mask named and not found leaves the
     // layer as it is and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::Reshape { source_mask, destination_mask, boundary_mask, paths, .. } = &mut instance.effect {
-            let usable = |n: f64| masks.get(n.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+        if let crate::effects::Effect::Reshape {
+            source_mask,
+            destination_mask,
+            boundary_mask,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: f64| {
+                masks
+                    .get(n.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
             *paths = None;
-            let named: Vec<f64> = [*source_mask, *destination_mask, *boundary_mask].into_iter().filter(|n| *n >= 1.0).collect();
+            let named: Vec<f64> = [*source_mask, *destination_mask, *boundary_mask]
+                .into_iter()
+                .filter(|n| *n >= 1.0)
+                .collect();
             let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
             if let Some(i) = found.iter().position(Option::is_none) {
                 log.record(
@@ -3404,10 +4817,18 @@ fn resolve_rest(
     // D-700: each Liquify's freeze area mask, chosen as Reshape's are; a mask named and not
     // found is an empty outline, which leaves the layer as it is, and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::Liquify { freeze_area_mask, freeze_path, .. } = &mut instance.effect {
+        if let crate::effects::Effect::Liquify {
+            freeze_area_mask,
+            freeze_path,
+            ..
+        } = &mut instance.effect
+        {
             *freeze_path = None;
             if *freeze_area_mask >= 1.0 {
-                let found = masks.get(freeze_area_mask.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+                let found = masks
+                    .get(freeze_area_mask.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline());
                 if found.is_none() {
                     log.record(
                         frame,
@@ -3429,10 +4850,24 @@ fn resolve_rest(
     // Reshape's are. A source of 0 smears nothing and says nothing; a mask named and not found
     // leaves the layer as it is and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::MaskSmear { source_mask, boundary_mask, paths, .. } = &mut instance.effect {
-            let usable = |n: f64| masks.get(n.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+        if let crate::effects::Effect::MaskSmear {
+            source_mask,
+            boundary_mask,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: f64| {
+                masks
+                    .get(n.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
             *paths = None;
-            let named: Vec<f64> = [*source_mask, *boundary_mask].into_iter().filter(|n| *n >= 1.0).collect();
+            let named: Vec<f64> = [*source_mask, *boundary_mask]
+                .into_iter()
+                .filter(|n| *n >= 1.0)
+                .collect();
             let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
             if let Some(i) = found.iter().position(Option::is_none) {
                 log.record(
@@ -3455,13 +4890,31 @@ fn resolve_rest(
     // their modes and whether each is inverted, as they are at this frame and at the size the
     // effects run at. Finding none, the layer is left as it is and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::Scribble { scribble, mask, masks: chosen, .. } = &mut instance.effect {
-            let usable = |n: usize| masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| (m.outline(), m.mode, m.inverted));
+        if let crate::effects::Effect::Scribble {
+            scribble,
+            mask,
+            masks: chosen,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: usize| {
+                masks
+                    .get(n)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| (m.outline(), m.mode, m.inverted))
+            };
             let single = scribble == "single_mask";
-            let found: Vec<_> = if single { usable(mask.floor() as usize - 1).into_iter().collect() } else { (0..masks.len()).filter_map(usable).collect() };
+            let found: Vec<_> = if single {
+                usable(mask.floor() as usize - 1).into_iter().collect()
+            } else {
+                (0..masks.len()).filter_map(usable).collect()
+            };
             if found.is_empty() {
                 let which = if single {
-                    format!("no mask {} that is on with two points or more", mask.floor())
+                    format!(
+                        "no mask {} that is on with two points or more",
+                        mask.floor()
+                    )
                 } else {
                     "no mask that is on with two points or more".to_string()
                 };
@@ -3484,7 +4937,9 @@ fn resolve_rest(
     // three points or more, as it is at this frame and at the size the effects run at. 0 is no
     // wall and says nothing; a number naming no such mask is no wall, said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::ParticlePlayground { values, wall, .. } = &mut instance.effect {
+        if let crate::effects::Effect::ParticlePlayground { values, wall, .. } =
+            &mut instance.effect
+        {
             let n = values[crate::playground::WALL_MASK].floor();
             *wall = None;
             if n < 1.0 {
@@ -3495,13 +4950,19 @@ fn resolve_rest(
                 .filter(|m| m.enabled && m.points.len() >= 3)
                 .map(|m| m.outline().into_iter().map(|(x, y)| [x, y]).collect());
             if wall.is_none() {
-                log.record(frame, layer.name.clone(), playground_wall_missing(&layer.name, n, &format!("Frame {frame} is drawn")));
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    playground_wall_missing(&layer.name, n, &format!("Frame {frame} is drawn")),
+                );
             }
         }
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds
     // the drawing it makes (B-170).
-    let masked = masks.iter().any(|m| m.is_renderable() && m.mode != crate::mask::MaskMode::None);
+    let masked = masks
+        .iter()
+        .any(|m| m.is_renderable() && m.mode != crate::mask::MaskMode::None);
 
     // Document 21 step 3: the ordered effect stack, in layer space, after the mask and before
     // the transform.
@@ -3634,9 +5095,13 @@ fn resolve_rest(
     let hit = match &cel {
         // ponytail: an 8 bpc or 32 bpc (After Effects) stack is not cached, as the key does not
         // hold the depth; add the depth to the key if such projects come to be edited live.
-        Some((path, interpretation)) if !skip && plain => {
-            cache.effect_result(path, *interpretation, &drawn_masks, &effects[..before], divisor)
-        }
+        Some((path, interpretation)) if !skip && plain => cache.effect_result(
+            path,
+            *interpretation,
+            &drawn_masks,
+            &effects[..before],
+            divisor,
+        ),
         _ => None,
     };
     // The guard is `mask::apply`'s own first line, called here rather than restated: a mask
@@ -3712,10 +5177,16 @@ fn resolve_rest(
                     std::sync::Arc::make_mut(&mut source)
                 });
                 let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
-                let offset = crate::effects::apply_stack_at(pixels, &stack, (0, 0), bits, |at, instance, why| {
-                    bypassed.push((at, why));
-                    report(instance, why);
-                });
+                let offset = crate::effects::apply_stack_at(
+                    pixels,
+                    &stack,
+                    (0, 0),
+                    bits,
+                    |at, instance, why| {
+                        bypassed.push((at, why));
+                        report(instance, why);
+                    },
+                );
                 if plain {
                     cache.store_effect(
                         path,
@@ -3755,52 +5226,95 @@ fn resolve_rest(
     let mut on_card = Vec::new();
     for &i in &chain {
         // B-155: the buffer each is given, grown by the ones before it in the run.
-        let size = (source.width() + 2 * (offset.0 - start.0), source.height() + 2 * (offset.1 - start.1));
+        let size = (
+            source.width() + 2 * (offset.0 - start.0),
+            source.height() + 2 * (offset.1 - start.1),
+        );
         let mut effect = effects[i].effect.clone();
         effect.scale_distances(|d| d / pre);
-        on_card.extend(match effect {
-            // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
-            // so it is not left at all. One that does grows the drawing by its reach.
-            crate::effects::Effect::Bloom { threshold, radius, intensity, streaks, length, angle } => {
-                use rayon::prelude::*;
-                let lit = intensity != 0.0
-                    && source.data().par_chunks_exact(4).any(|px| crate::bloom::bright(px, threshold));
-                let lines = crate::bloom::lines(&streaks);
-                let grow = crate::bloom::reach(radius, lines, length);
-                lit.then(|| {
-                    offset = (offset.0 + grow, offset.1 + grow);
-                    render::OnCard::Bloom(render::Bloom { threshold, radius, intensity, lines, length, angle })
-                })
+        on_card.extend(
+            match effect {
+                // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
+                // so it is not left at all. One that does grows the drawing by its reach.
+                crate::effects::Effect::Bloom {
+                    threshold,
+                    radius,
+                    intensity,
+                    streaks,
+                    length,
+                    angle,
+                } => {
+                    use rayon::prelude::*;
+                    let lit = intensity != 0.0
+                        && source
+                            .data()
+                            .par_chunks_exact(4)
+                            .any(|px| crate::bloom::bright(px, threshold));
+                    let lines = crate::bloom::lines(&streaks);
+                    let grow = crate::bloom::reach(radius, lines, length);
+                    lit.then(|| {
+                        offset = (offset.0 + grow, offset.1 + grow);
+                        render::OnCard::Bloom(render::Bloom {
+                            threshold,
+                            radius,
+                            intensity,
+                            lines,
+                            length,
+                            angle,
+                        })
+                    })
+                }
+                // B-51: as a Bloom, a Glow with nothing that glows changes nothing and is not left.
+                crate::effects::Effect::Glow {
+                    based_on,
+                    threshold,
+                    colors,
+                    tolerance,
+                    radius,
+                    intensity,
+                    operation,
+                    tint,
+                    units,
+                } => {
+                    use rayon::prelude::*;
+                    let g = crate::glow::settings(
+                        &based_on, threshold, &colors, tolerance, radius, intensity, &operation,
+                        &tint, &units,
+                    );
+                    let lit = intensity != 0.0
+                        && source
+                            .data()
+                            .par_chunks_exact(4)
+                            .any(|px| crate::glow::glows(px, &g));
+                    lit.then(|| {
+                        let (sigma, long) = crate::effects::glow_reach(radius, &units);
+                        let grow = crate::effects::reach_radius(sigma, long);
+                        offset = (offset.0 + grow, offset.1 + grow);
+                        render::OnCard::Glow(g)
+                    })
+                }
+                // D-407: refused before the card is asked, as the CPU refuses it. ponytail: a memory
+                // failure in render's CPU stand-in for the card is not reported, and an adjustment
+                // layer's Upscale is not looked at here; both stop at the allocation as before.
+                crate::effects::Effect::DetailUpscale { scale, .. }
+                    if crate::layer_fx::upscale_too_large(size, scale) =>
+                {
+                    report(&effects[i], crate::effects::Bypassed::TooLarge);
+                    None
+                }
+                effect => card_effect(effect, &effects[i], size, &mut offset),
             }
-            // B-51: as a Bloom, a Glow with nothing that glows changes nothing and is not left.
-            crate::effects::Effect::Glow { based_on, threshold, colors, tolerance, radius, intensity, operation, tint, units } => {
-                use rayon::prelude::*;
-                let g = crate::glow::settings(&based_on, threshold, &colors, tolerance, radius, intensity, &operation, &tint, &units);
-                let lit = intensity != 0.0 && source.data().par_chunks_exact(4).any(|px| crate::glow::glows(px, &g));
-                lit.then(|| {
-                    let (sigma, long) = crate::effects::glow_reach(radius, &units);
-                    let grow = crate::effects::reach_radius(sigma, long);
-                    offset = (offset.0 + grow, offset.1 + grow);
-                    render::OnCard::Glow(g)
-                })
-            }
-            // D-407: refused before the card is asked, as the CPU refuses it. ponytail: a memory
-            // failure in render's CPU stand-in for the card is not reported, and an adjustment
-            // layer's Upscale is not looked at here; both stop at the allocation as before.
-            crate::effects::Effect::DetailUpscale { scale, .. } if crate::layer_fx::upscale_too_large(size, scale) => {
-                report(&effects[i], crate::effects::Bypassed::TooLarge);
-                None
-            }
-            effect => card_effect(effect, &effects[i], size, &mut offset),
-        }
-        .map(|c| mixed(c, &effects[i])));
+            .map(|c| mixed(c, &effects[i])),
+        );
     }
     // Audit W8, W9: on a frame planned for the card, the effects run above on the processor: one
     // the card does not draw and every one before it, or every one of an 8 bpc or 32 bpc stack.
     // The viewer names them beside the frame rather than saying only that the card drew it.
     if card && !layer.is_adjustment() {
         use crate::effects::Effect as E;
-        for instance in effects[..before].iter().filter(|i| i.enabled && i.is_valid() && i.has_mix() && !matches!(i.effect, E::LightWrap { .. })) {
+        for instance in effects[..before].iter().filter(|i| {
+            i.enabled && i.is_valid() && i.has_mix() && !matches!(i.effect, E::LightWrap { .. })
+        }) {
             log.ran_on_processor(instance.effect.name());
         }
     }
@@ -3819,8 +5333,14 @@ fn resolve_rest(
         };
         let owner = || crate::expr::Target::Layer(layer.id.clone());
         // D-216: keys at the layer's key time, so they stretch with it.
-        let (value, failed) =
-            crate::expr::resolve_at(comp, property, owner, prop, frame, layer.key_time(frame as f64));
+        let (value, failed) = crate::expr::resolve_at(
+            comp,
+            property,
+            owner,
+            prop,
+            frame,
+            layer.key_time(frame as f64),
+        );
         if let Some(e) = failed {
             log.record(
                 frame,
@@ -3874,7 +5394,10 @@ fn resolve_rest(
     // D-188: step 4 at each moment. When every moment is the same matrix it is taken once,
     // through that matrix (FX-MB-010).
     let moments: Vec<Option<Affine>> = if times.len() > 1 {
-        times.iter().map(|&t| moment(comp, layer, frame, t, before)).collect()
+        times
+            .iter()
+            .map(|&t| moment(comp, layer, frame, t, before))
+            .collect()
     } else {
         Vec::new()
     };
@@ -3998,7 +5521,10 @@ fn moment(
     before: Affine,
 ) -> Option<Affine> {
     let at = |prop| {
-        let property = layer.transform.get(prop).expect("the four are transform properties");
+        let property = layer
+            .transform
+            .get(prop)
+            .expect("the four are transform properties");
         let owner = || crate::expr::Target::Layer(layer.id.clone());
         crate::expr::resolve_at(comp, property, owner, prop, frame, layer.key_time(t)).0
     };
@@ -4055,9 +5581,14 @@ fn settle(
     let moments: Vec<Option<Affine>> = if d == 1 {
         resolved.moments.clone()
     } else {
-        resolved.moments.iter().map(|m| m.map(|m| m.then(Affine::scaling(1.0 / d as f64, 1.0 / d as f64)))).collect()
+        resolved
+            .moments
+            .iter()
+            .map(|m| m.map(|m| m.then(Affine::scaling(1.0 / d as f64, 1.0 / d as f64))))
+            .collect()
     };
-    resolved.source = std::sync::Arc::new(render::average(&resolved.source, &moments, width, height));
+    resolved.source =
+        std::sync::Arc::new(render::average(&resolved.source, &moments, width, height));
     resolved.transform = if d == 1 {
         Affine::IDENTITY
     } else {
@@ -4091,7 +5622,8 @@ pub fn layer_map(
     // where D-99, D-67 or D-66 runs them there and full size for a solid or a shape layer.
     let small = holder.composition_id.is_some()
         || holder.is_adjustment()
-        || (holder.kind == crate::model::LayerKind::Raster && holder.effects.iter().any(|i| i.enabled));
+        || (holder.kind == crate::model::LayerKind::Raster
+            && holder.effects.iter().any(|i| i.enabled));
     let quality = if small { quality } else { PreviewQuality::Full };
     let size = resolve_layer(
         project,
@@ -4107,7 +5639,19 @@ pub fn layer_map(
         true,
     )
     .map_or((0, 0), |r| (r.source.width(), r.source.height()));
-    setting_map(project, comp, holder, named, fit, frame, root, quality, size, &mut CelCache::none(), log)
+    setting_map(
+        project,
+        comp,
+        holder,
+        named,
+        fit,
+        frame,
+        root,
+        quality,
+        size,
+        &mut CelCache::none(),
+        log,
+    )
 }
 
 /// A layer with its effects taken off, and its masks as well unless `masks`.
@@ -4137,8 +5681,12 @@ fn fill_maps(
     log: &mut FrameLog,
 ) {
     for instance in effects.iter_mut().filter(|i| i.enabled) {
-        let named: Vec<(String, String)> =
-            instance.effect.layer_settings().into_iter().map(|(n, f)| (n.to_string(), f.to_string())).collect();
+        let named: Vec<(String, String)> = instance
+            .effect
+            .layer_settings()
+            .into_iter()
+            .map(|(n, f)| (n.to_string(), f.to_string()))
+            .collect();
         if named.is_empty() {
             continue;
         }
@@ -4158,15 +5706,39 @@ fn fill_maps(
         // D-630: Wave World reads its ground once, at the holder's in point; a layer not there is
         // said at this frame. D-613: so does Particle Playground its Explode Layer, its first.
         let read_at = |k: usize, named: &str| match instance.effect {
-            crate::effects::Effect::WaveWorld { .. } if comp.layer(&Id::new(named)).is_some() => holder.in_frame,
-            crate::effects::Effect::ParticlePlayground { .. } if k == 0 && comp.layer(&Id::new(named)).is_some() => holder.in_frame,
+            crate::effects::Effect::WaveWorld { .. } if comp.layer(&Id::new(named)).is_some() => {
+                holder.in_frame
+            }
+            crate::effects::Effect::ParticlePlayground { .. }
+                if k == 0 && comp.layer(&Id::new(named)).is_some() =>
+            {
+                holder.in_frame
+            }
             _ => frame,
         };
         // D-381: a Colorama's two, each its own map.
         let maps: Vec<_> = named
             .iter()
             .enumerate()
-            .map(|(k, (named, fit))| (!cycle).then(|| setting_map(project, comp, holder, named, fit, read_at(k, named), root, quality, size, cache, log)).flatten())
+            .map(|(k, (named, fit))| {
+                (!cycle)
+                    .then(|| {
+                        setting_map(
+                            project,
+                            comp,
+                            holder,
+                            named,
+                            fit,
+                            read_at(k, named),
+                            root,
+                            quality,
+                            size,
+                            cache,
+                            log,
+                        )
+                    })
+                    .flatten()
+            })
             .collect();
         for ((_, slot), map) in instance.effect.layer_settings_mut().into_iter().zip(maps) {
             *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
@@ -4194,7 +5766,13 @@ fn fill_time_difference(
 ) {
     let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let crate::effects::Effect::TimeDifference { layer, time_offset, map, .. } = &mut instance.effect else {
+        let crate::effects::Effect::TimeDifference {
+            layer,
+            time_offset,
+            map,
+            ..
+        } = &mut instance.effect
+        else {
             continue;
         };
         let shift = (*time_offset * fps + 1e-6).floor() as i32;
@@ -4209,8 +5787,20 @@ fn fill_time_difference(
         } else {
             named
         };
-        let picture = setting_map(project, comp, holder, &target, "center", frame + shift, root, quality, size, cache, log)
-            .unwrap_or_else(|| WorkingBuffer::transparent(size.0, size.1));
+        let picture = setting_map(
+            project,
+            comp,
+            holder,
+            &target,
+            "center",
+            frame + shift,
+            root,
+            quality,
+            size,
+            cache,
+            log,
+        )
+        .unwrap_or_else(|| WorkingBuffer::transparent(size.0, size.1));
         *map = Some(crate::layer_map::Map(std::sync::Arc::new(picture)));
     }
 }
@@ -4239,10 +5829,21 @@ fn fill_wide_time(
     log: &mut FrameLog,
 ) {
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let crate::effects::Effect::CcWideTime { forward_steps, backward_steps, native_motion_blur, picture } = &mut instance.effect else {
+        let crate::effects::Effect::CcWideTime {
+            forward_steps,
+            backward_steps,
+            native_motion_blur,
+            picture,
+        } = &mut instance.effect
+        else {
             continue;
         };
-        let unblurred = (native_motion_blur == "off" && project.compositions.iter().any(|c| c.id != comp.id && c.motion_blur.enabled)).then(|| {
+        let unblurred = (native_motion_blur == "off"
+            && project
+                .compositions
+                .iter()
+                .any(|c| c.id != comp.id && c.motion_blur.enabled))
+        .then(|| {
             let mut copy = project.clone();
             for c in copy.compositions.iter_mut().filter(|c| c.id != comp.id) {
                 c.motion_blur.enabled = false;
@@ -4258,10 +5859,25 @@ fn fill_wide_time(
         let base = (cache.effect_budget() > 0)
             .then(|| {
                 let (float, bits) = (float_depth(project, &[], comp), bits(project, &[], comp));
-                inner_key(project, &comp.id, root, quality, 0, &[], &Id::new(""), float, bits)
+                inner_key(
+                    project,
+                    &comp.id,
+                    root,
+                    quality,
+                    0,
+                    &[],
+                    &Id::new(""),
+                    float,
+                    bits,
+                )
             })
             .flatten()
-            .map(|key| format!("{key}\nCC Wide Time: layer {:?} at {size:?}, frame ", holder.id));
+            .map(|key| {
+                format!(
+                    "{key}\nCC Wide Time: layer {:?} at {size:?}, frame ",
+                    holder.id
+                )
+            });
         let mut inside = Vec::new();
         let mut fold = crate::layer_fx::EchoFold::new("blend", size);
         for at in frame - backward_steps.floor() as i32..=frame + forward_steps.floor() as i32 {
@@ -4272,8 +5888,22 @@ fn fill_wide_time(
                     let started = std::time::Instant::now();
                     let mut one = FrameLog::new(usize::MAX);
                     let (p, files) = crate::cache::files_read(|| {
-                        resolve_layer(project, comp, &drawing, at, root, quality, cache, &mut one, &mut Vec::new(), false, true)
-                            .map(|r| std::sync::Arc::new(crate::layer_map::cut(&r.source, (0, 0), size)))
+                        resolve_layer(
+                            project,
+                            comp,
+                            &drawing,
+                            at,
+                            root,
+                            quality,
+                            cache,
+                            &mut one,
+                            &mut Vec::new(),
+                            false,
+                            true,
+                        )
+                        .map(|r| {
+                            std::sync::Arc::new(crate::layer_map::cut(&r.source, (0, 0), size))
+                        })
                     });
                     if let (Some(key), Some(p), true) = (key, &p, one.is_empty()) {
                         cache.store_inner(key, files, std::sync::Arc::clone(p), started.elapsed());
@@ -4282,7 +5912,9 @@ fn fill_wide_time(
                     p
                 }
             };
-            crate::perf::time(crate::perf::Stage::EffectCcWideTime, || fold.add(p.as_deref(), 1.0));
+            crate::perf::time(crate::perf::Stage::EffectCcWideTime, || {
+                fold.add(p.as_deref(), 1.0)
+            });
         }
         let mut said = Vec::new();
         for d in inside {
@@ -4321,7 +5953,14 @@ fn fill_force_motion_blur(
         return;
     }
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let crate::effects::Effect::ForceMotionBlur { motion_blur_samples, override_native_shutter, shutter_angle, native_motion_blur, picture } = &mut instance.effect else {
+        let crate::effects::Effect::ForceMotionBlur {
+            motion_blur_samples,
+            override_native_shutter,
+            shutter_angle,
+            native_motion_blur,
+            picture,
+        } = &mut instance.effect
+        else {
             continue;
         };
         let angle = if override_native_shutter == "on" {
@@ -4331,8 +5970,17 @@ fn fill_force_motion_blur(
         } else {
             0.0
         };
-        let n = if angle == 0.0 { 1 } else { motion_blur_samples.floor() as usize };
-        let unblurred = (native_motion_blur == "off" && project.compositions.iter().any(|c| c.id != comp.id && c.motion_blur.enabled)).then(|| {
+        let n = if angle == 0.0 {
+            1
+        } else {
+            motion_blur_samples.floor() as usize
+        };
+        let unblurred = (native_motion_blur == "off"
+            && project
+                .compositions
+                .iter()
+                .any(|c| c.id != comp.id && c.motion_blur.enabled))
+        .then(|| {
             let mut copy = project.clone();
             for c in copy.compositions.iter_mut().filter(|c| c.id != comp.id) {
                 c.motion_blur.enabled = false;
@@ -4364,13 +6012,33 @@ CC Force Motion Blur: layer {:?} at {size:?}, frame {frame}, {n} moments, shutte
             for k in 0..n {
                 let by = angle / 360.0 * k as f64 / n as f64 * 100.0 / holder.time_stretch;
                 let mut draw = |cache: &mut CelCache| {
-                    resolve_layer(project, comp, &drawing, frame, root, quality, cache, &mut one, &mut Vec::new(), false, true)
-                        .map(|r| crate::layer_map::cut(&r.source, (0, 0), size))
+                    resolve_layer(
+                        project,
+                        comp,
+                        &drawing,
+                        frame,
+                        root,
+                        quality,
+                        cache,
+                        &mut one,
+                        &mut Vec::new(),
+                        false,
+                        true,
+                    )
+                    .map(|r| crate::layer_map::cut(&r.source, (0, 0), size))
                 };
-                let p = if k == 0 { draw(cache) } else { crate::model::at_moment(by, || cache.cels_only(draw)) };
-                crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || fold.add(p.as_ref(), 1.0));
+                let p = if k == 0 {
+                    draw(cache)
+                } else {
+                    crate::model::at_moment(by, || cache.cels_only(draw))
+                };
+                crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || {
+                    fold.add(p.as_ref(), 1.0)
+                });
             }
-            crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || std::sync::Arc::new(fold.finish()))
+            crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || {
+                std::sync::Arc::new(fold.finish())
+            })
         });
         if let (Some(key), true) = (key, one.is_empty()) {
             cache.store_inner(key, files, std::sync::Arc::clone(&done), started.elapsed());
@@ -4403,8 +6071,14 @@ fn fill_echoes(
     log: &mut FrameLog,
 ) {
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let crate::effects::Effect::Echo { echo_time, echoes, intensity, decay, operator, picture } =
-            &mut instance.effect
+        let crate::effects::Effect::Echo {
+            echo_time,
+            echoes,
+            intensity,
+            decay,
+            operator,
+            picture,
+        } = &mut instance.effect
         else {
             continue;
         };
@@ -4413,9 +6087,23 @@ fn fill_echoes(
         let mut fold = crate::layer_fx::EchoFold::new(operator, size);
         for k in 0..=echoes.floor() as i32 {
             let at = frame + k * echo_time.floor() as i32;
-            let p = resolve_layer(project, comp, &drawing, at, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                .map(|r| crate::layer_map::cut(&r.source, (0, 0), size));
-            crate::perf::time(crate::perf::Stage::EffectEcho, || fold.add(p.as_ref(), *intensity * decay.powi(k)));
+            let p = resolve_layer(
+                project,
+                comp,
+                &drawing,
+                at,
+                root,
+                quality,
+                cache,
+                &mut inside,
+                &mut Vec::new(),
+                false,
+                true,
+            )
+            .map(|r| crate::layer_map::cut(&r.source, (0, 0), size));
+            crate::perf::time(crate::perf::Stage::EffectEcho, || {
+                fold.add(p.as_ref(), *intensity * decay.powi(k))
+            });
         }
         let mut said = Vec::new();
         for d in inside.finish() {
@@ -4457,14 +6145,31 @@ fn fill_stats(
         let (reach, scenes) = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
             crate::effects::EffectInstance {
-                effect: crate::effects::Effect::AutoTone { temporal_smoothing, scene_detect, .. },
+                effect:
+                    crate::effects::Effect::AutoTone {
+                        temporal_smoothing,
+                        scene_detect,
+                        ..
+                    },
                 ..
-            } => (smoothing_reach(comp, *temporal_smoothing), scene_detect == "on"),
+            } => (
+                smoothing_reach(comp, *temporal_smoothing),
+                scene_detect == "on",
+            ),
             // D-564: Shadow/Highlight's, read only with Auto Amounts on.
             crate::effects::EffectInstance {
-                effect: crate::effects::Effect::ShadowHighlight { auto_amounts, temporal_smoothing, scene_detect, .. },
+                effect:
+                    crate::effects::Effect::ShadowHighlight {
+                        auto_amounts,
+                        temporal_smoothing,
+                        scene_detect,
+                        ..
+                    },
                 ..
-            } if auto_amounts == "on" => (smoothing_reach(comp, *temporal_smoothing), scene_detect == "on"),
+            } if auto_amounts == "on" => (
+                smoothing_reach(comp, *temporal_smoothing),
+                scene_detect == "on",
+            ),
             _ => continue,
         };
         if reach < 1 {
@@ -4474,8 +6179,20 @@ fn fill_stats(
         upto.effects.truncate(i);
         let mut inside = FrameLog::new(usize::MAX);
         let mut read = |m: i32| {
-            resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, false)
-                .and_then(|r| crate::frame_stats::Stats::of(&r.source))
+            resolve_layer(
+                project,
+                comp,
+                &upto,
+                m,
+                root,
+                quality,
+                cache,
+                &mut inside,
+                &mut Vec::new(),
+                false,
+                false,
+            )
+            .and_then(|r| crate::frame_stats::Stats::of(&r.source))
         };
         let own = read(frame);
         let mut counted: Vec<crate::frame_stats::Stats> = own.iter().cloned().collect();
@@ -4499,7 +6216,9 @@ fn fill_stats(
                 log.record(frame, holder.name.clone(), d);
             }
         }
-        if let crate::effects::Effect::AutoTone { stats, .. } | crate::effects::Effect::ShadowHighlight { stats, .. } = &mut effects[i].effect {
+        if let crate::effects::Effect::AutoTone { stats, .. }
+        | crate::effects::Effect::ShadowHighlight { stats, .. } = &mut effects[i].effect
+        {
             *stats = crate::frame_stats::Stats::added(&counted).map(std::sync::Arc::new);
         }
     }
@@ -4526,25 +6245,61 @@ fn fill_stabilizer(
     for i in 0..effects.len() {
         let r = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
-            crate::effects::EffectInstance { effect: crate::effects::Effect::ColorStabilizer { reference_frame, .. }, .. } => {
-                reference_frame.floor() as i32
-            }
+            crate::effects::EffectInstance {
+                effect:
+                    crate::effects::Effect::ColorStabilizer {
+                        reference_frame, ..
+                    },
+                ..
+            } => reference_frame.floor() as i32,
             _ => continue,
         };
         let mut upto = holder.clone();
         upto.effects.truncate(i);
         let mut inside = FrameLog::new(usize::MAX);
-        let mut then = effect_now(comp, holder, &holder.effects[i], frame, r, holder.key_time(r as f64), float, &mut inside);
+        let mut then = effect_now(
+            comp,
+            holder,
+            &holder.effects[i],
+            frame,
+            r,
+            holder.key_time(r as f64),
+            float,
+            &mut inside,
+        );
         if pre != 1.0 {
             then.effect.scale_distances(|d| d / pre);
         }
-        let samples = resolve_layer(project, comp, &upto, r, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-            .and_then(|p| match &then.effect {
-                crate::effects::Effect::ColorStabilizer { stabilize, black_point, mid_point, white_point, sample_size, .. } => {
-                    crate::effects::stabilizer_samples(&p.source, stabilize, [*black_point, *mid_point, *white_point], *sample_size, (0, 0))
-                }
-                _ => None,
-            });
+        let samples = resolve_layer(
+            project,
+            comp,
+            &upto,
+            r,
+            root,
+            quality,
+            cache,
+            &mut inside,
+            &mut Vec::new(),
+            false,
+            true,
+        )
+        .and_then(|p| match &then.effect {
+            crate::effects::Effect::ColorStabilizer {
+                stabilize,
+                black_point,
+                mid_point,
+                white_point,
+                sample_size,
+                ..
+            } => crate::effects::stabilizer_samples(
+                &p.source,
+                stabilize,
+                [*black_point, *mid_point, *white_point],
+                *sample_size,
+                (0, 0),
+            ),
+            _ => None,
+        });
         let mut said = Vec::new();
         for d in inside.finish() {
             if !said.contains(&d.id) {
@@ -4577,15 +6332,37 @@ fn fill_wire(
         let other = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
             crate::effects::EffectInstance {
-                effect: crate::effects::Effect::SimpleWireRemoval { removal_style, frame_offset, thickness, point_a, point_b, .. },
+                effect:
+                    crate::effects::Effect::SimpleWireRemoval {
+                        removal_style,
+                        frame_offset,
+                        thickness,
+                        point_a,
+                        point_b,
+                        ..
+                    },
                 ..
-            } if removal_style == "frame_offset" && *thickness > 0.0 && point_a != point_b => frame + frame_offset.floor() as i32,
+            } if removal_style == "frame_offset" && *thickness > 0.0 && point_a != point_b => {
+                frame + frame_offset.floor() as i32
+            }
             _ => continue,
         };
         let mut upto = holder.clone();
         upto.effects.truncate(i);
         let mut inside = FrameLog::new(usize::MAX);
-        let drawn = resolve_layer(project, comp, &upto, other, root, quality, cache, &mut inside, &mut Vec::new(), false, true);
+        let drawn = resolve_layer(
+            project,
+            comp,
+            &upto,
+            other,
+            root,
+            quality,
+            cache,
+            &mut inside,
+            &mut Vec::new(),
+            false,
+            true,
+        );
         let mut said = Vec::new();
         for d in inside.finish() {
             if !said.contains(&d.id) {
@@ -4622,7 +6399,13 @@ fn fill_pixel_motion(
         let (angle, samples) = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
             crate::effects::EffectInstance {
-                effect: crate::effects::Effect::PixelMotionBlur { shutter_control, shutter_angle, shutter_samples, .. },
+                effect:
+                    crate::effects::Effect::PixelMotionBlur {
+                        shutter_control,
+                        shutter_angle,
+                        shutter_samples,
+                        ..
+                    },
                 ..
             } => {
                 if shutter_control == "automatic" {
@@ -4640,12 +6423,28 @@ fn fill_pixel_motion(
         upto.effects.truncate(i);
         let mut inside = FrameLog::new(usize::MAX);
         let mut drawn = |at: i32, cache: &mut CelCache| {
-            resolve_layer(project, comp, &upto, at, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                .map(|r| crate::layer_map::Map(r.source.clone()))
+            resolve_layer(
+                project,
+                comp,
+                &upto,
+                at,
+                root,
+                quality,
+                cache,
+                &mut inside,
+                &mut Vec::new(),
+                false,
+                true,
+            )
+            .map(|r| crate::layer_map::Map(r.source.clone()))
         };
         let before = drawn(frame - 1, cache);
         let after = drawn(frame + 1, cache);
-        let here = if before.is_none() || after.is_none() { drawn(frame, cache) } else { None };
+        let here = if before.is_none() || after.is_none() {
+            drawn(frame, cache)
+        } else {
+            None
+        };
         let pair = match (before, after, here) {
             (Some(b), Some(a), _) => Some((b, a)),
             (b, a, Some(h)) => Some((b.unwrap_or_else(|| h.clone()), a.unwrap_or(h))),
@@ -4726,7 +6525,10 @@ fn fill_timewarp(
             if !original.tracks.contains_key(setting) {
                 return now;
             }
-            match crate::expr::effect_at(comp, &holder.id, original, k, holder.key_time(k as f64)).0.effect {
+            match crate::expr::effect_at(comp, &holder.id, original, k, holder.key_time(k as f64))
+                .0
+                .effect
+            {
                 Effect::Timewarp { speed, .. } if setting == "speed" => speed,
                 Effect::Timewarp { source_frame, .. } => source_frame,
                 _ => now,
@@ -4739,7 +6541,12 @@ fn fill_timewarp(
             }
             (t + 0.5 * speed / 100.0, speed / 100.0)
         } else {
-            (n0 as f64 + source_frame, (then(frame + 1, "source_frame", source_frame) - then(frame - 1, "source_frame", source_frame)) / 2.0)
+            (
+                n0 as f64 + source_frame,
+                (then(frame + 1, "source_frame", source_frame)
+                    - then(frame - 1, "source_frame", source_frame))
+                    / 2.0,
+            )
         };
         let held = |t: f64| {
             let t = t.clamp(n0 as f64, m1 as f64);
@@ -4756,12 +6563,18 @@ fn fill_timewarp(
         let shifts: Vec<f64> = if angle == 0.0 || samples == 0 {
             vec![0.0]
         } else {
-            (0..samples).map(|k| angle / 360.0 * ((k as f64 + 0.5) / samples as f64 - 0.5) * rate).collect()
+            (0..samples)
+                .map(|k| angle / 360.0 * ((k as f64 + 0.5) / samples as f64 - 0.5) * rate)
+                .collect()
         };
         // Step 3: the frames the moments need, each drawn once.
         let mut needed: Vec<i32> = Vec::new();
         for &d in &shifts {
-            let (a, b, _) = if method == "pixel_motion" { held(t) } else { held(t + d) };
+            let (a, b, _) = if method == "pixel_motion" {
+                held(t)
+            } else {
+                held(t + d)
+            };
             needed.push(a);
             if method != "whole_frames" {
                 needed.push(b);
@@ -4775,8 +6588,23 @@ fn fill_timewarp(
         let frames: std::collections::BTreeMap<i32, crate::WorkingBuffer> = needed
             .into_iter()
             .map(|m| {
-                let p = resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                    .map_or_else(|| crate::WorkingBuffer::transparent(size.0, size.1), |r| crate::layer_map::cut(&r.source, (0, 0), size));
+                let p = resolve_layer(
+                    project,
+                    comp,
+                    &upto,
+                    m,
+                    root,
+                    quality,
+                    cache,
+                    &mut inside,
+                    &mut Vec::new(),
+                    false,
+                    true,
+                )
+                .map_or_else(
+                    || crate::WorkingBuffer::transparent(size.0, size.1),
+                    |r| crate::layer_map::cut(&r.source, (0, 0), size),
+                );
                 (m, p)
             })
             .collect();
@@ -4789,9 +6617,20 @@ fn fill_timewarp(
         }
         // Step 5: each moment's picture, summed in order, then the mean.
         let done = crate::perf::time(crate::perf::Stage::EffectTimewarp, || {
-            let plain = |p: &crate::WorkingBuffer| p.data().chunks_exact(4).map(|q| std::array::from_fn(|c| q[c] as f64)).collect::<Vec<[f64; 4]>>();
+            let plain = |p: &crate::WorkingBuffer| {
+                p.data()
+                    .chunks_exact(4)
+                    .map(|q| std::array::from_fn(|c| q[c] as f64))
+                    .collect::<Vec<[f64; 4]>>()
+            };
             let mixed = |p: &crate::WorkingBuffer, q: &crate::WorkingBuffer, g: f64| {
-                p.data().chunks_exact(4).zip(q.data().chunks_exact(4)).map(|(u, v)| std::array::from_fn(|c| (1.0 - g) * u[c] as f64 + g * v[c] as f64)).collect::<Vec<[f64; 4]>>()
+                p.data()
+                    .chunks_exact(4)
+                    .zip(q.data().chunks_exact(4))
+                    .map(|(u, v)| {
+                        std::array::from_fn(|c| (1.0 - g) * u[c] as f64 + g * v[c] as f64)
+                    })
+                    .collect::<Vec<[f64; 4]>>()
             };
             let (a, b, f) = held(t);
             let tuning = crate::flow::Tuning {
@@ -4803,8 +6642,13 @@ fn fill_timewarp(
                 weights: [red_weight, green_weight, blue_weight],
                 correct_luminance: correct_luminance_changes == "on",
             };
-            let fields = (method == "pixel_motion" && shifts.iter().any(|d| f + d != 0.0))
-                .then(|| (crate::flow::estimate(&frames[&a], &frames[&b], &tuning), crate::flow::estimate(&frames[&b], &frames[&a], &tuning)));
+            let fields =
+                (method == "pixel_motion" && shifts.iter().any(|d| f + d != 0.0)).then(|| {
+                    (
+                        crate::flow::estimate(&frames[&a], &frames[&b], &tuning),
+                        crate::flow::estimate(&frames[&b], &frames[&a], &tuning),
+                    )
+                });
             let mut sum = vec![[0.0f64; 4]; size.0 * size.1];
             for &d in &shifts {
                 let one = match (method.as_str(), &fields) {
@@ -4826,11 +6670,16 @@ fn fill_timewarp(
                         mixed(&frames[&a], &frames[&b], g)
                     }
                 };
-                sum.iter_mut().zip(one).for_each(|(s, p)| (0..4).for_each(|c| s[c] += p[c]));
+                sum.iter_mut()
+                    .zip(one)
+                    .for_each(|(s, p)| (0..4).for_each(|c| s[c] += p[c]));
             }
             let mut out = crate::WorkingBuffer::transparent(size.0, size.1);
             let n = shifts.len() as f64;
-            out.data_mut().chunks_exact_mut(4).zip(&sum).for_each(|(o, s)| (0..4).for_each(|c| o[c] = (s[c] / n) as f32));
+            out.data_mut()
+                .chunks_exact_mut(4)
+                .zip(&sum)
+                .for_each(|(o, s)| (0..4).for_each(|c| o[c] = (s[c] / n) as f32));
             out
         });
         if let Effect::Timewarp { picture, .. } = &mut effects[i].effect {
@@ -4874,8 +6723,14 @@ fn fill_rolling_shutter_repair(
         if !effects[i].enabled || !effects[i].is_valid() {
             continue;
         }
-        let Effect::RollingShutterRepair { rolling_shutter_rate, scan_direction, method, detailed_analysis, pixel_motion_detail, .. } =
-            effects[i].effect.clone()
+        let Effect::RollingShutterRepair {
+            rolling_shutter_rate,
+            scan_direction,
+            method,
+            detailed_analysis,
+            pixel_motion_detail,
+            ..
+        } = effects[i].effect.clone()
         else {
             continue;
         };
@@ -4887,12 +6742,31 @@ fn fill_rolling_shutter_repair(
         upto.effects.truncate(i);
         let mut inside = FrameLog::new(usize::MAX);
         let mut drawn = |m: i32, cache: &mut CelCache| {
-            resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                .map_or_else(|| crate::WorkingBuffer::transparent(size.0, size.1), |p| crate::layer_map::cut(&p.source, (0, 0), size))
+            resolve_layer(
+                project,
+                comp,
+                &upto,
+                m,
+                root,
+                quality,
+                cache,
+                &mut inside,
+                &mut Vec::new(),
+                false,
+                true,
+            )
+            .map_or_else(
+                || crate::WorkingBuffer::transparent(size.0, size.1),
+                |p| crate::layer_map::cut(&p.source, (0, 0), size),
+            )
         };
         let o = drawn(n, cache);
-        let ahead = (n < m1).then(|| drawn(n + 1, cache)).filter(|q| q.data() != o.data());
-        let back = (n > n0).then(|| drawn(n - 1, cache)).filter(|q| q.data() != o.data());
+        let ahead = (n < m1)
+            .then(|| drawn(n + 1, cache))
+            .filter(|q| q.data() != o.data());
+        let back = (n > n0)
+            .then(|| drawn(n - 1, cache))
+            .filter(|q| q.data() != o.data());
         let mut said = Vec::new();
         for d in inside.finish() {
             if !said.contains(&d.id) {
@@ -4908,41 +6782,74 @@ fn fill_rolling_shutter_repair(
             // Step 3: the motion from this frame to q, in pixels.
             let motion = |q: &crate::WorkingBuffer| -> (Vec<f64>, Vec<f64>) {
                 if method == "pixel_motion" {
-                    let f = crate::flow::estimate(&o, q, &crate::flow::Tuning::added(pixel_motion_detail));
+                    let f = crate::flow::estimate(
+                        &o,
+                        q,
+                        &crate::flow::Tuning::added(pixel_motion_detail),
+                    );
                     return (f.x, f.y);
                 }
-                let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" { 100.0 } else { 50.0 });
-                let m = ws_pair_kept(&o, q, (ws_digest(&o), ws_digest(q)), &tuning, "position_scale_rotation", false);
-                let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
+                let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" {
+                    100.0
+                } else {
+                    50.0
+                });
+                let m = ws_pair_kept(
+                    &o,
+                    q,
+                    (ws_digest(&o), ws_digest(q)),
+                    &tuning,
+                    "position_scale_rotation",
+                    false,
+                );
+                let (cx, cy, d) = (
+                    w as f64 / 2.0,
+                    h as f64 / 2.0,
+                    (w as f64).hypot(h as f64) / 2.0,
+                );
                 (0..w * h)
                     .into_par_iter()
                     .map(|i| {
-                        let (px, py) = (((i % w) as f64 + 0.5 - cx) / d, ((i / w) as f64 + 0.5 - cy) / d);
+                        let (px, py) = (
+                            ((i % w) as f64 + 0.5 - cx) / d,
+                            ((i / w) as f64 + 0.5 - cy) / d,
+                        );
                         let (x, y) = ws_apply(&m, px, py);
                         ((x - px) * d, (y - py) * d)
                     })
                     .unzip()
             };
             let turned = |(x, y): &(Vec<f64>, Vec<f64>)| -> (Vec<f64>, Vec<f64>) {
-                (x.iter().map(|v| -v).collect(), y.iter().map(|v| -v).collect())
+                (
+                    x.iter().map(|v| -v).collect(),
+                    y.iter().map(|v| -v).collect(),
+                )
             };
-            let (ahead, back) = rayon::join(|| ahead.as_ref().map(motion), || back.as_ref().map(motion));
+            let (ahead, back) =
+                rayon::join(|| ahead.as_ref().map(motion), || back.as_ref().map(motion));
             let ahead = ahead.unwrap_or_else(|| turned(back.as_ref().unwrap()));
             let back = back.unwrap_or_else(|| turned(&ahead));
             // Step 4.
             let mut out = crate::WorkingBuffer::transparent(w, h);
-            out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-                let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-                let u = match scan_direction.as_str() {
-                    "bottom_to_top" => 1.0 - y / h as f64,
-                    "left_to_right" => x / w as f64,
-                    "right_to_left" => 1.0 - x / w as f64,
-                    _ => y / h as f64,
-                };
-                let tau = r * (u - 0.5);
-                let ((dx, dy), s) = if tau >= 0.0 { (&ahead, tau) } else { (&back, -tau) };
-                px.copy_from_slice(&render::sample_bilinear(&o, x + s * dx[i], y + s * dy[i]));
-            });
+            out.data_mut()
+                .par_chunks_exact_mut(4)
+                .enumerate()
+                .for_each(|(i, px)| {
+                    let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+                    let u = match scan_direction.as_str() {
+                        "bottom_to_top" => 1.0 - y / h as f64,
+                        "left_to_right" => x / w as f64,
+                        "right_to_left" => 1.0 - x / w as f64,
+                        _ => y / h as f64,
+                    };
+                    let tau = r * (u - 0.5);
+                    let ((dx, dy), s) = if tau >= 0.0 {
+                        (&ahead, tau)
+                    } else {
+                        (&back, -tau)
+                    };
+                    px.copy_from_slice(&render::sample_bilinear(&o, x + s * dx[i], y + s * dy[i]));
+                });
             out
         });
         if let Effect::RollingShutterRepair { picture, .. } = &mut effects[i].effect {
@@ -5002,15 +6909,36 @@ fn fill_warp_stabilizer(
         };
         // Step 5's window, so only the frames it needs are drawn.
         let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
-        let r = ((fps * smoothness / 200.0 + 0.5).floor() as i32).min(n - n0).min(m1 - n);
-        let (lo, hi) = if result == "no_motion" { (n0, n) } else { (n - r, n + r) };
+        let r = ((fps * smoothness / 200.0 + 0.5).floor() as i32)
+            .min(n - n0)
+            .min(m1 - n);
+        let (lo, hi) = if result == "no_motion" {
+            (n0, n)
+        } else {
+            (n - r, n + r)
+        };
         let mut upto = holder.clone();
         upto.effects.truncate(i);
         let mut inside = FrameLog::new(usize::MAX);
         let frames: Vec<crate::WorkingBuffer> = (lo..=hi)
             .map(|m| {
-                resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                    .map_or_else(|| crate::WorkingBuffer::transparent(size.0, size.1), |r| crate::layer_map::cut(&r.source, (0, 0), size))
+                resolve_layer(
+                    project,
+                    comp,
+                    &upto,
+                    m,
+                    root,
+                    quality,
+                    cache,
+                    &mut inside,
+                    &mut Vec::new(),
+                    false,
+                    true,
+                )
+                .map_or_else(
+                    || crate::WorkingBuffer::transparent(size.0, size.1),
+                    |r| crate::layer_map::cut(&r.source, (0, 0), size),
+                )
             })
             .collect();
         let mut said = Vec::new();
@@ -5022,9 +6950,17 @@ fn fill_warp_stabilizer(
         }
         let done = crate::perf::time(crate::perf::Stage::EffectWarpStabilizer, || {
             let (w, h) = size;
-            let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
+            let (cx, cy, d) = (
+                w as f64 / 2.0,
+                h as f64 / 2.0,
+                (w as f64).hypot(h as f64) / 2.0,
+            );
             // Step 3: M_k for k from lo to hi - 1.
-            let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" { 100.0 } else { 50.0 });
+            let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" {
+                100.0
+            } else {
+                50.0
+            });
             let digests: Vec<u64> = frames.iter().map(ws_digest).collect();
             let ks: Vec<usize> = (0..frames.len().saturating_sub(1)).collect();
             // ponytail: four pairs at once, each a few hundred MB at 1080p while it is worked;
@@ -5033,7 +6969,16 @@ fn fill_warp_stabilizer(
                 .chunks(4)
                 .flat_map(|four| {
                     four.par_iter()
-                        .map(|&k| ws_pair_kept(&frames[k], &frames[k + 1], (digests[k], digests[k + 1]), &tuning, &method, preserve_scale == "on"))
+                        .map(|&k| {
+                            ws_pair_kept(
+                                &frames[k],
+                                &frames[k + 1],
+                                (digests[k], digests[k + 1]),
+                                &tuning,
+                                &method,
+                                preserve_scale == "on",
+                            )
+                        })
                         .collect::<Vec<_>>()
                 })
                 .collect();
@@ -5056,7 +7001,8 @@ fn fill_warp_stabilizer(
             } else {
                 let (mut total, mut s) = (0.0, [[0.0f64; 3]; 3]);
                 for k in n - r..=n + r {
-                    let wk = (-(((k - n) * (k - n)) as f64) / (2.0 * (r as f64 / 2.0).powi(2))).exp();
+                    let wk =
+                        (-(((k - n) * (k - n)) as f64) / (2.0 * (r as f64 / 2.0).powi(2))).exp();
                     let t = towards(k);
                     total += wk;
                     for (row, tr) in s.iter_mut().zip(t) {
@@ -5070,11 +7016,17 @@ fn fill_warp_stabilizer(
             let back = ws_inverse(&steady);
             // Step 6: the largest middle rectangle the move never uncovers, and the scale.
             let fits = |s: f64| {
-                [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)].iter().all(|&(ex, ey): &(f64, f64)| {
-                    let (x, y) = ws_apply(&back, ex * s * w as f64 / 2.0 / d, ey * s * h as f64 / 2.0 / d);
-                    let (x, y) = (x * d + cx, y * d + cy);
-                    (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
-                })
+                [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)]
+                    .iter()
+                    .all(|&(ex, ey): &(f64, f64)| {
+                        let (x, y) = ws_apply(
+                            &back,
+                            ex * s * w as f64 / 2.0 / d,
+                            ey * s * h as f64 / 2.0 / d,
+                        );
+                        let (x, y) = (x * d + cx, y * d + cy);
+                        (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
+                    })
             };
             let mut s = 1.0;
             if !fits(1.0) {
@@ -5094,7 +7046,9 @@ fn fill_warp_stabilizer(
                 if s == 0.0 {
                     top
                 } else {
-                    ((1.0 - 2.0 * (action_safe_margin / 100.0)) / s).max(1.0).min(top)
+                    ((1.0 - 2.0 * (action_safe_margin / 100.0)) / s)
+                        .max(1.0)
+                        .min(top)
                 }
             } else {
                 1.0
@@ -5107,15 +7061,21 @@ fn fill_warp_stabilizer(
             }
             let crop = framing != "stabilize_only";
             let mut out = crate::WorkingBuffer::transparent(w, h);
-            out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-                let qx = cx + ((i % w) as f64 + 0.5 - cx) / zz;
-                let qy = cy + ((i / w) as f64 + 0.5 - cy) / zz;
-                if crop && ((qx - cx).abs() > s * w as f64 / 2.0 || (qy - cy).abs() > s * h as f64 / 2.0) {
-                    return;
-                }
-                let (sx, sy) = ws_apply(&back, (qx - cx) / d, (qy - cy) / d);
-                px.copy_from_slice(&render::sample_bilinear(o, sx * d + cx, sy * d + cy));
-            });
+            out.data_mut()
+                .par_chunks_exact_mut(4)
+                .enumerate()
+                .for_each(|(i, px)| {
+                    let qx = cx + ((i % w) as f64 + 0.5 - cx) / zz;
+                    let qy = cy + ((i / w) as f64 + 0.5 - cy) / zz;
+                    if crop
+                        && ((qx - cx).abs() > s * w as f64 / 2.0
+                            || (qy - cy).abs() > s * h as f64 / 2.0)
+                    {
+                        return;
+                    }
+                    let (sx, sy) = ws_apply(&back, (qx - cx) / d, (qy - cy) / d);
+                    px.copy_from_slice(&render::sample_bilinear(o, sx * d + cx, sy * d + cy));
+                });
             out
         });
         if let Effect::WarpStabilizer { picture, .. } = &mut effects[i].effect {
@@ -5140,8 +7100,21 @@ static WS_REUSED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::n
 /// none when a frame is shown again.
 // ponytail: the last 1024 moves, about 200 KB, scanned in order, for every layer and export alike;
 // a map if the scan ever shows. Pictures are told apart by a 64-bit digest.
-fn ws_pair_kept(a: &WorkingBuffer, b: &WorkingBuffer, digests: (u64, u64), tuning: &crate::flow::Tuning, method: &str, preserve: bool) -> [[f64; 3]; 3] {
-    let key = format!("{:016x} {:016x} {}x{} {tuning:?} {method} {preserve}", digests.0, digests.1, a.width(), a.height());
+fn ws_pair_kept(
+    a: &WorkingBuffer,
+    b: &WorkingBuffer,
+    digests: (u64, u64),
+    tuning: &crate::flow::Tuning,
+    method: &str,
+    preserve: bool,
+) -> [[f64; 3]; 3] {
+    let key = format!(
+        "{:016x} {:016x} {}x{} {tuning:?} {method} {preserve}",
+        digests.0,
+        digests.1,
+        a.width(),
+        a.height()
+    );
     let hit = |kept: &mut Vec<(String, [[f64; 3]; 3])>| {
         let i = kept.iter().position(|(k, _)| *k == key)?;
         let found = kept.remove(i);
@@ -5199,16 +7172,29 @@ pub fn kept_moves_reused() -> u64 {
 /// by half its diagonal, fitted three times to `flow`'s estimate, each pixel weighted by `a`'s
 /// cover and, after the first fit, by how near the fit before sent it. Two frames that are the
 /// same, or a fit that cannot be solved, give the unchanged map.
-fn ws_pair(a: &WorkingBuffer, b: &WorkingBuffer, tuning: &crate::flow::Tuning, method: &str, preserve: bool) -> [[f64; 3]; 3] {
+fn ws_pair(
+    a: &WorkingBuffer,
+    b: &WorkingBuffer,
+    tuning: &crate::flow::Tuning,
+    method: &str,
+    preserve: bool,
+) -> [[f64; 3]; 3] {
     if a.data() == b.data() {
         return WS_ONE;
     }
     let (w, h) = (a.width(), a.height());
-    let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
+    let (cx, cy, d) = (
+        w as f64 / 2.0,
+        h as f64 / 2.0,
+        (w as f64).hypot(h as f64) / 2.0,
+    );
     let field = crate::flow::estimate(a, b, tuning);
     let points: Vec<[f64; 4]> = (0..w * h)
         .map(|i| {
-            let (x, y) = (((i % w) as f64 + 0.5 - cx) / d, ((i / w) as f64 + 0.5 - cy) / d);
+            let (x, y) = (
+                ((i % w) as f64 + 0.5 - cx) / d,
+                ((i / w) as f64 + 0.5 - cy) / d,
+            );
             [x, y, x + field.x[i] / d, y + field.y[i] / d]
         })
         .collect();
@@ -5233,23 +7219,44 @@ fn ws_pair(a: &WorkingBuffer, b: &WorkingBuffer, tuning: &crate::flow::Tuning, m
 
 /// D-653: one weighted least-squares fit of `method` to the points' moves, by the normal
 /// equations; None below a weight of 4 or when they cannot be solved.
-fn ws_fit(method: &str, preserve: bool, points: &[[f64; 4]], weights: &[f64]) -> Option<[[f64; 3]; 3]> {
+fn ws_fit(
+    method: &str,
+    preserve: bool,
+    points: &[[f64; 4]],
+    weights: &[f64],
+) -> Option<[[f64; 3]; 3]> {
     let sw: f64 = weights.iter().sum();
     if sw < 4.0 {
         return None;
     }
     if method == "position" {
-        let tx = points.iter().zip(weights).map(|(p, w)| w * (p[2] - p[0])).sum::<f64>() / sw;
-        let ty = points.iter().zip(weights).map(|(p, w)| w * (p[3] - p[1])).sum::<f64>() / sw;
+        let tx = points
+            .iter()
+            .zip(weights)
+            .map(|(p, w)| w * (p[2] - p[0]))
+            .sum::<f64>()
+            / sw;
+        let ty = points
+            .iter()
+            .zip(weights)
+            .map(|(p, w)| w * (p[3] - p[1]))
+            .sum::<f64>()
+            / sw;
         return Some([[1.0, 0.0, tx], [0.0, 1.0, ty], [0.0, 0.0, 1.0]]);
     }
     let n = if method == "perspective" { 8 } else { 4 };
     let mut a = [[0.0f64; 9]; 8];
     for (&[x, y, tx, ty], &w) in points.iter().zip(weights) {
         let rows = if n == 4 {
-            [([x, -y, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], tx), ([y, x, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], ty)]
+            [
+                ([x, -y, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], tx),
+                ([y, x, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], ty),
+            ]
         } else {
-            [([x, y, 1.0, 0.0, 0.0, 0.0, -x * tx, -y * tx], tx), ([0.0, 0.0, 0.0, x, y, 1.0, -x * ty, -y * ty], ty)]
+            [
+                ([x, y, 1.0, 0.0, 0.0, 0.0, -x * tx, -y * tx], tx),
+                ([0.0, 0.0, 0.0, x, y, 1.0, -x * ty, -y * ty], ty),
+            ]
         };
         for (r, v) in rows {
             for i in 0..n {
@@ -5293,12 +7300,17 @@ fn ws_fit(method: &str, preserve: bool, points: &[[f64; 4]], weights: &[f64]) ->
 
 fn ws_apply(m: &[[f64; 3]; 3], x: f64, y: f64) -> (f64, f64) {
     let t = m[2][0] * x + m[2][1] * y + m[2][2];
-    ((m[0][0] * x + m[0][1] * y + m[0][2]) / t, (m[1][0] * x + m[1][1] * y + m[1][2]) / t)
+    (
+        (m[0][0] * x + m[0][1] * y + m[0][2]) / t,
+        (m[1][0] * x + m[1][1] * y + m[1][2]) / t,
+    )
 }
 
 /// `a` after `b`, divided through by its corner.
 fn ws_mul(a: &[[f64; 3]; 3], b: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
-    let m: [[f64; 3]; 3] = std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum::<f64>()));
+    let m: [[f64; 3]; 3] = std::array::from_fn(|i| {
+        std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum::<f64>())
+    });
     let c = m[2][2];
     m.map(|r| r.map(|v| v / c))
 }
@@ -5338,9 +7350,29 @@ fn fill_noise(
             let mut upto = holder.clone();
             upto.effects.truncate(i);
             let mut inside = FrameLog::new(usize::MAX);
-            resolve_layer(project, comp, &upto, frame, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+            resolve_layer(
+                project,
+                comp,
+                &upto,
+                frame,
+                root,
+                quality,
+                cache,
+                &mut inside,
+                &mut Vec::new(),
+                false,
+                true,
+            )
         };
-        if let crate::effects::Effect::ContourPaint { view, draw_color_fills, reduction_method, posterization_level, colors, .. } = &effects[i].effect {
+        if let crate::effects::Effect::ContourPaint {
+            view,
+            draw_color_fills,
+            reduction_method,
+            posterization_level,
+            colors,
+            ..
+        } = &effects[i].effect
+        {
             if !effects[i].enabled || !effects[i].is_valid() {
                 continue;
             }
@@ -5350,17 +7382,30 @@ fn fill_noise(
                 // D-584: the custom colours, whatever the drawing.
                 crate::layer_fx::contour_custom(colors)
             } else {
-                let (levels, k_means) = (posterization_level.floor() as usize, reduction_method == "k_means");
-                drawn(cache).map_or_else(Vec::new, |p| crate::layer_fx::contour_palette(&p.source, levels, k_means))
+                let (levels, k_means) = (
+                    posterization_level.floor() as usize,
+                    reduction_method == "k_means",
+                );
+                drawn(cache).map_or_else(Vec::new, |p| {
+                    crate::layer_fx::contour_palette(&p.source, levels, k_means)
+                })
             };
-            if let crate::effects::Effect::ContourPaint { palette: slot, .. } = &mut effects[i].effect {
+            if let crate::effects::Effect::ContourPaint { palette: slot, .. } =
+                &mut effects[i].effect
+            {
                 *slot = Some(made);
             }
             continue;
         }
         let n = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
-            crate::effects::EffectInstance { effect: crate::effects::Effect::RemoveGrain { noise_reduction, .. }, .. } => *noise_reduction,
+            crate::effects::EffectInstance {
+                effect:
+                    crate::effects::Effect::RemoveGrain {
+                        noise_reduction, ..
+                    },
+                ..
+            } => *noise_reduction,
             _ => continue,
         };
         let noise = if n > 0.0 {
@@ -5394,14 +7439,34 @@ fn fill_moment_maps(
     use rayon::prelude::*;
     let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let crate::effects::Effect::MomentMap { max_time, resolution, fit, map, picture, .. } = &mut instance.effect else {
+        let crate::effects::Effect::MomentMap {
+            max_time,
+            resolution,
+            fit,
+            map,
+            picture,
+            ..
+        } = &mut instance.effect
+        else {
             continue;
         };
         let own = match map {
             Some(m) => m.0.clone(),
             None => std::sync::Arc::new(
-                setting_map(project, comp, holder, holder.id.as_str(), fit, frame, root, quality, size, cache, log)
-                    .unwrap_or_else(|| WorkingBuffer::transparent(size.0, size.1)),
+                setting_map(
+                    project,
+                    comp,
+                    holder,
+                    holder.id.as_str(),
+                    fit,
+                    frame,
+                    root,
+                    quality,
+                    size,
+                    cache,
+                    log,
+                )
+                .unwrap_or_else(|| WorkingBuffer::transparent(size.0, size.1)),
             ),
         };
         // Document 21: Displacement Map's luminance over mid grey, seconds from now, whole
@@ -5416,7 +7481,9 @@ fn fill_moment_maps(
                         0.5
                     } else {
                         let s = [0, 1, 2].map(|c| (m[c] as f64 / a).clamp(0.0, 1.0));
-                        0.5 + a * (crate::grade::to_srgb(0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2]) - 0.5)
+                        0.5 + a
+                            * (crate::grade::to_srgb(0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2])
+                                - 0.5)
                     };
                     let q = ((2.0 * v - 1.0) * most * steps).round();
                     (q * fps / steps).floor() as i32
@@ -5433,15 +7500,31 @@ fn fill_moment_maps(
         let mut inside = FrameLog::new(usize::MAX);
         let mut out = WorkingBuffer::transparent(size.0, size.1);
         for s in wanted {
-            let Some(p) = resolve_layer(project, comp, &drawing, frame + s, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-            else {
+            let Some(p) = resolve_layer(
+                project,
+                comp,
+                &drawing,
+                frame + s,
+                root,
+                quality,
+                cache,
+                &mut inside,
+                &mut Vec::new(),
+                false,
+                true,
+            ) else {
                 continue;
             };
             // Read in place, cut to the drawing's size: outside the picture stays transparent.
             crate::perf::time(crate::perf::Stage::EffectMomentMap, || {
                 let from = order.partition_point(|&i| shifts[i as usize] < s);
                 let to = order.partition_point(|&i| shifts[i as usize] <= s);
-                let (o, q, w, h) = (out.data_mut(), p.source.data(), p.source.width(), p.source.height());
+                let (o, q, w, h) = (
+                    out.data_mut(),
+                    p.source.data(),
+                    p.source.width(),
+                    p.source.height(),
+                );
                 for &i in &order[from..to] {
                     let (x, y) = (i as usize % size.0, i as usize / size.0);
                     if x < w && y < h {
@@ -5479,7 +7562,12 @@ fn fill_passes(
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         let what = instance.effect.name().to_string();
         let (pass, slot) = match &mut instance.effect {
-            Effect::PassExtract { pass, channel, channels, .. } => (
+            Effect::PassExtract {
+                pass,
+                channel,
+                channels,
+                ..
+            } => (
                 match pass.as_str() {
                     "normals" => Pass::Normals,
                     "object_id" => Pass::ObjectId,
@@ -5489,15 +7577,38 @@ fn fill_passes(
                 },
                 channels,
             ),
-            Effect::DepthKey { channels, .. } | Effect::DepthOfField { channels, .. } | Effect::Fog3d { channels, .. } => {
-                (Pass::Depth, channels)
+            Effect::DepthKey { channels, .. }
+            | Effect::DepthOfField { channels, .. }
+            | Effect::Fog3d { channels, .. } => (Pass::Depth, channels),
+            Effect::IdKey {
+                aux_channel,
+                channels,
+                ..
             }
-            Effect::IdKey { aux_channel, channels, .. } | Effect::Identifier { aux_channel, channels, .. } => {
-                (if aux_channel == "material_id" { Pass::MaterialId } else { Pass::ObjectId }, channels)
-            }
+            | Effect::Identifier {
+                aux_channel,
+                channels,
+                ..
+            } => (
+                if aux_channel == "material_id" {
+                    Pass::MaterialId
+                } else {
+                    Pass::ObjectId
+                },
+                channels,
+            ),
             // D-522: the matte, or for "colors" the colours, worked out as the file is read.
-            Effect::Cryptomatte { layer, selection, output, channels } => (
-                Pass::Cryptomatte { layer: layer.clone(), selection: selection.clone(), colours: output == "colors" },
+            Effect::Cryptomatte {
+                layer,
+                selection,
+                output,
+                channels,
+            } => (
+                Pass::Cryptomatte {
+                    layer: layer.clone(),
+                    selection: selection.clone(),
+                    colours: output == "colors",
+                },
                 channels,
             ),
             _ => continue,
@@ -5507,7 +7618,11 @@ fn fill_passes(
                 cache.pass(path, *interpretation, &pass)
             }
             _ => Err(crate::exr_io::pass_missing(
-                format!("{what} on layer {} finds no {} to read.", holder.name, pass.word()),
+                format!(
+                    "{what} on layer {} finds no {} to read.",
+                    holder.name,
+                    pass.word()
+                ),
                 format!(
                     "Frame {frame}: D-348 reads the pass from the one EXR file the layer is drawn \
                      from, and this frame's picture is not one (a solid, text, a shape, a \
@@ -5525,7 +7640,11 @@ fn fill_passes(
                         Diagnostic::new(
                             DiagnosticId::MediaExrAdjusted,
                             Severity::Warning,
-                            format!("The {} of layer {}'s file was read, but not exactly as stored.", pass.word(), holder.name),
+                            format!(
+                                "The {} of layer {}'s file was read, but not exactly as stored.",
+                                pass.word(),
+                                holder.name
+                            ),
                             format!("non_finite: {non_finite}"),
                         ),
                     );
@@ -5548,10 +7667,26 @@ fn fill_passes(
         };
         // D-523: the depth turned into the fraction out of focus, in all four numbers, as
         // Depth of Field's Lens Blur reads its map.
-        if let Effect::DepthOfField { focal_plane, focal_plane_thickness, focal_bias, channels: Some(m), .. } = &mut instance.effect {
+        if let Effect::DepthOfField {
+            focal_plane,
+            focal_plane_thickness,
+            focal_bias,
+            channels: Some(m),
+            ..
+        } = &mut instance.effect
+        {
             let mut f = WorkingBuffer::transparent(m.0.width(), m.0.height());
-            for (o, z) in f.data_mut().chunks_exact_mut(4).zip(m.0.data().chunks_exact(4)) {
-                o.fill(crate::effects::out_of_focus(z[0] as f64, *focal_plane, *focal_plane_thickness, *focal_bias) as f32);
+            for (o, z) in f
+                .data_mut()
+                .chunks_exact_mut(4)
+                .zip(m.0.data().chunks_exact(4))
+            {
+                o.fill(crate::effects::out_of_focus(
+                    z[0] as f64,
+                    *focal_plane,
+                    *focal_plane_thickness,
+                    *focal_bias,
+                ) as f32);
             }
             *m = crate::layer_map::Map(std::sync::Arc::new(f));
         }
@@ -5586,7 +7721,12 @@ pub(crate) fn spectrum_path_missing(holder: &str, what: &str, path: f64, when: &
 
 /// D-420, D-421: EFFECT_SOUND_MISSING for an Audio Spectrum or Audio Waveform (`what`) on layer
 /// `holder` listening to layer `heard`, which holds no sound.
-pub(crate) fn spectrum_sound_missing(holder: &str, what: &str, heard: &str, when: &str) -> Diagnostic {
+pub(crate) fn spectrum_sound_missing(
+    holder: &str,
+    what: &str,
+    heard: &str,
+    when: &str,
+) -> Diagnostic {
     Diagnostic::new(
         DiagnosticId::EffectSoundMissing,
         Severity::Warning,
@@ -5613,7 +7753,11 @@ fn sound_window(
     holder: &str,
 ) -> Option<(std::sync::Arc<crate::audio::Sound>, i64, usize, f64)> {
     let n = heard.timing().local_frame(at)?;
-    let path = project.assets.iter().find(|a| a.id == heard.asset_id).and_then(|a| a.path.as_ref())?;
+    let path = project
+        .assets
+        .iter()
+        .find(|a| a.id == heard.asset_id)
+        .and_then(|a| a.path.as_ref())?;
     let sound = match crate::audio::load(&root.join(path)) {
         Ok(sound) => sound,
         Err(d) => {
@@ -5621,7 +7765,10 @@ fn sound_window(
             return None;
         }
     };
-    let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
+    let (num, den) = (
+        comp.frame_rate.numerator() as i128,
+        comp.frame_rate.denominator() as i128,
+    );
     let rate = sound.rate as f64;
     let s = (n as i128 * sound.rate as i128 * den).div_euclid(num) as i64;
     let s0 = s + (offset * rate / 1000.0 + 0.5).floor() as i64;
@@ -5676,8 +7823,23 @@ fn setting_map(
     } else {
         layer
     };
-    let picture = resolve_layer(project, comp, layer, frame, root, quality, cache, log, &mut Vec::new(), false, true)
-        .map_or_else(|| std::sync::Arc::new(WorkingBuffer::transparent(0, 0)), |resolved| resolved.source);
+    let picture = resolve_layer(
+        project,
+        comp,
+        layer,
+        frame,
+        root,
+        quality,
+        cache,
+        log,
+        &mut Vec::new(),
+        false,
+        true,
+    )
+    .map_or_else(
+        || std::sync::Arc::new(WorkingBuffer::transparent(0, 0)),
+        |resolved| resolved.source,
+    );
     crate::layer_map::fit(&picture, fit, size)
 }
 
@@ -5712,7 +7874,14 @@ fn source_frames(
     let w = t - f;
     let f = f as i32;
     let blends = layer.frame_blend && comp.frame_blending && w > 0.0;
-    Some((f, if blends && end.is_none_or(|e| f + 1 < e) { w } else { 0.0 }))
+    Some((
+        f,
+        if blends && end.is_none_or(|e| f + 1 < e) {
+            w
+        } else {
+            0.0
+        },
+    ))
 }
 
 /// D-216's mix, `a + w (b - a)` number by number, on the larger of the two sizes from the top
@@ -5732,19 +7901,26 @@ fn mix(a: Option<&WorkingBuffer>, b: Option<&WorkingBuffer>, w: f64) -> Option<W
     // B-156c: each number stands alone, so the rows are shared among the processor's threads;
     // the sum is the same one, so the bytes are too.
     use rayon::prelude::*;
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, o)| {
-        let (x, y) = (i % width, i / width);
-        let (p, q) = (px(a, x, y), px(b, x, y));
-        for c in 0..4 {
-            o[c] = (p[c] as f64 + w * (q[c] as f64 - p[c] as f64)) as f32;
-        }
-    });
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, o)| {
+            let (x, y) = (i % width, i / width);
+            let (p, q) = (px(a, x, y), px(b, x, y));
+            for c in 0..4 {
+                o[c] = (p[c] as f64 + w * (q[c] as f64 - p[c] as f64)) as f32;
+            }
+        });
     Some(out)
 }
 
 /// The first local frame past a drawn layer's exposures, or `None` for a still, which has none.
 fn raster_end(layer: &crate::model::Layer) -> Option<i32> {
-    layer.exposure_spans.iter().map(|s| s.end_frame_exclusive).max()
+    layer
+        .exposure_spans
+        .iter()
+        .map(|s| s.end_frame_exclusive)
+        .max()
 }
 
 /// D-216's Drawing Dissolve at whole local frame `f`: the local frame where the next drawing is
@@ -5755,7 +7931,9 @@ fn dissolving(layer: &crate::model::Layer, f: i32) -> Option<(i32, f64)> {
         return None;
     }
     let spans = &layer.exposure_spans;
-    let here = spans.iter().find(|s| s.start_frame <= f && f < s.end_frame_exclusive)?;
+    let here = spans
+        .iter()
+        .find(|s| s.start_frame <= f && f < s.end_frame_exclusive)?;
     let (s, e) = (here.start_frame, here.end_frame_exclusive);
     spans.iter().find(|x| x.start_frame == e)?;
     let d = (layer.drawing_dissolve as i32).min(e - s - 1);
@@ -5773,15 +7951,13 @@ fn source_at(
     match asset.kind {
         // D-71: a sound file is not a drawing. D-182: nor is a lookup file.
         AssetKind::Audio | AssetKind::Lut => Ok(None),
-        AssetKind::Still => {
-            match &asset.path {
-                Some(p) => Ok(Some(PathBuf::from(p))),
-                None => Err(schema_invalid(format!(
-                    "Still asset {} has no file path.",
-                    asset.name
-                ))),
-            }
-        }
+        AssetKind::Still => match &asset.path {
+            Some(p) => Ok(Some(PathBuf::from(p))),
+            None => Err(schema_invalid(format!(
+                "Still asset {} has no file path.",
+                asset.name
+            ))),
+        },
         AssetKind::ImageSequence => {
             let exposures = ExposureMap::new(spans).map_err(|e| {
                 schema_invalid(format!(

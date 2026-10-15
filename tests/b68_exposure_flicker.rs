@@ -38,7 +38,11 @@ fn b68_exposure_flicker() {
 
     t.heading("How far it reaches");
     let got = flicker(4.0, 1.0, 0.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = flicker(1.0, 3.0, 7.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -85,7 +89,10 @@ fn b68_exposure_flicker() {
             ("hold 101", set(flicker(0.25, 101.0, 0.0))),
             ("seed -1", set(flicker(0.25, 1.0, -1.0))),
             ("seed 100001", set(flicker(0.25, 1.0, 100001.0))),
-            ("amount keyed to 6", keys("amount", &[(0, &[0.25]), (4, &[6.0])])),
+            (
+                "amount keyed to 6",
+                keys("amount", &[(0, &[0.25]), (4, &[6.0])]),
+            ),
         ],
     );
     t.taken(
@@ -96,8 +103,14 @@ fn b68_exposure_flicker() {
                 "amount 4, hold 100 and seed 100000, the tops,",
                 set(flicker(4.0, 100.0, 100000.0)),
             ),
-            ("amount 0, hold 1 and seed 0, the bottoms,", set(flicker(0.0, 1.0, 0.0))),
-            ("hold keyed from 1 to 2", keys("hold", &[(0, &[1.0]), (4, &[2.0])])),
+            (
+                "amount 0, hold 1 and seed 0, the bottoms,",
+                set(flicker(0.0, 1.0, 0.0)),
+            ),
+            (
+                "hold keyed from 1 to 2",
+                keys("hold", &[(0, &[1.0]), (4, &[2.0])]),
+            ),
         ],
     );
 

@@ -208,7 +208,10 @@ impl SessionLog {
                 yes(r.read_ahead),
                 yes(r.exporting),
                 stages.join("; "),
-                r.warnings.join(" / ").replace('|', "\\|").replace('\n', " "),
+                r.warnings
+                    .join(" / ")
+                    .replace('|', "\\|")
+                    .replace('\n', " "),
             ));
         }
         out

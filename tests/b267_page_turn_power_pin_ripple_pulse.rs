@@ -19,7 +19,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -33,7 +34,17 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 #[allow(clippy::too_many_arguments)]
-fn page(controls: &str, at: [f64; 2], direction: f64, radius: f64, light: f64, render: &str, back: &str, opacity: f64, paper: &str) -> Effect {
+fn page(
+    controls: &str,
+    at: [f64; 2],
+    direction: f64,
+    radius: f64,
+    light: f64,
+    render: &str,
+    back: &str,
+    opacity: f64,
+    paper: &str,
+) -> Effect {
     Effect::PageTurn {
         controls: controls.into(),
         fold_position: at,
@@ -49,7 +60,17 @@ fn page(controls: &str, at: [f64; 2], direction: f64, radius: f64, light: f64, r
 }
 
 fn start_page() -> Effect {
-    page("bottom_right", [75.0, 75.0], -60.0, 30.0, -45.0, "full", "", 100.0, "#f0f0f0")
+    page(
+        "bottom_right",
+        [75.0, 75.0],
+        -60.0,
+        30.0,
+        -45.0,
+        "full",
+        "",
+        100.0,
+        "#f0f0f0",
+    )
 }
 
 fn pin(pins: [[f64; 2]; 4], perspective: f64, unstretch: &str, e: [f64; 4]) -> Effect {
@@ -69,8 +90,21 @@ fn pin(pins: [[f64; 2]; 4], perspective: f64, unstretch: &str, e: [f64; 4]) -> E
 
 const PINS: [[f64; 2]; 4] = [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]];
 
-fn ripple(center: [f64; 2], pulse_level: f64, time_span: f64, amplitude: f64, bump: &str) -> Effect {
-    Effect::RipplePulse { center, pulse_level, time_span, amplitude, render_bump_map: bump.into(), levels: Vec::new() }
+fn ripple(
+    center: [f64; 2],
+    pulse_level: f64,
+    time_span: f64,
+    amplitude: f64,
+    bump: &str,
+) -> Effect {
+    Effect::RipplePulse {
+        center,
+        pulse_level,
+        time_span,
+        amplitude,
+        render_bump_map: bump.into(),
+        levels: Vec::new(),
+    }
 }
 
 /// An effect of `type_id` with the settings `p`; for the three here, every setting `p` leaves
@@ -84,7 +118,9 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
             "top_left": [0, 0], "top_right": [100, 0], "bottom_left": [0, 100], "bottom_right": [100, 100],
             "perspective": 100, "unstretch": "off",
             "expansion_top": 0, "expansion_left": 0, "expansion_right": 0, "expansion_bottom": 0}),
-        "core.ripple_pulse" => json!({"center": [50, 50], "pulse_level": 0, "time_span": 1, "amplitude": 10, "render_bump_map": "off"}),
+        "core.ripple_pulse" => {
+            json!({"center": [50, 50], "pulse_level": 0, "time_span": 1, "amplitude": 10, "render_bump_map": "off"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -112,11 +148,22 @@ fn one_drop() -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -137,14 +184,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -171,7 +234,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -183,23 +249,56 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The street drawn plain and with each of `shots` of `type_id`, written as numbered pictures
 /// into `verification/{d} pictures/`; a row each that it draws cleanly and changes what it says
 /// it changes.
-fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+fn street(
+    t: &mut Table,
+    d: &str,
+    type_id: &str,
+    shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)],
+) {
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]));
@@ -228,8 +327,20 @@ fn changed_with_gaps(a: &[u8], b: &[u8]) -> bool {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -306,11 +417,66 @@ fn b267_page_turn() {
     t.refused(
         &mut document,
         vec![
-            ("fold radius 1000.5", set(page("bottom_right", [75.0, 75.0], -60.0, 1000.5, -45.0, "full", "", 100.0, "#f0f0f0"))),
-            ("controls \"Classic\", written with a capital", set(page("Classic", [75.0, 75.0], -60.0, 30.0, -45.0, "full", "", 100.0, "#f0f0f0"))),
-            ("render \"both\"", set(page("bottom_right", [75.0, 75.0], -60.0, 30.0, -45.0, "both", "", 100.0, "#f0f0f0"))),
-            ("paper colour \"#fff\"", set(page("bottom_right", [75.0, 75.0], -60.0, 30.0, -45.0, "full", "", 100.0, "#fff"))),
-            ("back opacity keyed to 150", keys("back_opacity", &[(0, &[100.0]), (4, &[150.0])])),
+            (
+                "fold radius 1000.5",
+                set(page(
+                    "bottom_right",
+                    [75.0, 75.0],
+                    -60.0,
+                    1000.5,
+                    -45.0,
+                    "full",
+                    "",
+                    100.0,
+                    "#f0f0f0",
+                )),
+            ),
+            (
+                "controls \"Classic\", written with a capital",
+                set(page(
+                    "Classic",
+                    [75.0, 75.0],
+                    -60.0,
+                    30.0,
+                    -45.0,
+                    "full",
+                    "",
+                    100.0,
+                    "#f0f0f0",
+                )),
+            ),
+            (
+                "render \"both\"",
+                set(page(
+                    "bottom_right",
+                    [75.0, 75.0],
+                    -60.0,
+                    30.0,
+                    -45.0,
+                    "both",
+                    "",
+                    100.0,
+                    "#f0f0f0",
+                )),
+            ),
+            (
+                "paper colour \"#fff\"",
+                set(page(
+                    "bottom_right",
+                    [75.0, 75.0],
+                    -60.0,
+                    30.0,
+                    -45.0,
+                    "full",
+                    "",
+                    100.0,
+                    "#fff",
+                )),
+            ),
+            (
+                "back opacity keyed to 150",
+                keys("back_opacity", &[(0, &[100.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -325,22 +491,51 @@ fn b267_page_turn() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_pageturn_002.json", 0), ("fx_pageturn_005.json", 0), ("fx_pageturn_008.json", 0), ("fx_pageturn_009.json", 0), ("fx_pageturn_012.json", 0), ("fx_pageturn_015.json", 0)]);
+    t.tiles(&[
+        ("fx_pageturn_002.json", 0),
+        ("fx_pageturn_005.json", 0),
+        ("fx_pageturn_008.json", 0),
+        ("fx_pageturn_009.json", 0),
+        ("fx_pageturn_012.json", 0),
+        ("fx_pageturn_015.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_pageturn", 27, &[19, 20, 21, 22, 23, 24, 25, 26, 27], is_page);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_pageturn",
+        27,
+        &[19, 20, 21, 22, 23, 24, 25, 26, 27],
+        is_page,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Page Turn",
         "core.page_turn",
         &[
-            ("as it starts (bottom right to 75, 75, radius 30)", json!({})),
-            ("classic down the middle, radius 80, lit from the right", json!({"controls": "classic", "fold_position": [50, 50], "fold_direction": 90, "fold_radius": 80, "light_direction": 90})),
-            ("the top left corner to 40, 30, radius 5, blue paper at 60", json!({"controls": "top_left", "fold_position": [40, 30], "fold_radius": 5, "back_opacity": 60, "paper_color": "#2040a0"})),
-            ("classic turned -20, radius 200, back only", json!({"controls": "classic", "fold_position": [60, 50], "fold_direction": -20, "fold_radius": 200, "render": "back"})),
-            ("the bottom right corner to the middle, its back the fourth layer", json!({"fold_position": [50, 50], "fold_radius": 20, "back_page": "layer-4"})),
+            (
+                "as it starts (bottom right to 75, 75, radius 30)",
+                json!({}),
+            ),
+            (
+                "classic down the middle, radius 80, lit from the right",
+                json!({"controls": "classic", "fold_position": [50, 50], "fold_direction": 90, "fold_radius": 80, "light_direction": 90}),
+            ),
+            (
+                "the top left corner to 40, 30, radius 5, blue paper at 60",
+                json!({"controls": "top_left", "fold_position": [40, 30], "fold_radius": 5, "back_opacity": 60, "paper_color": "#2040a0"}),
+            ),
+            (
+                "classic turned -20, radius 200, back only",
+                json!({"controls": "classic", "fold_position": [60, 50], "fold_direction": -20, "fold_radius": 200, "render": "back"}),
+            ),
+            (
+                "the bottom right corner to the middle, its back the fourth layer",
+                json!({"fold_position": [50, 50], "fold_radius": 20, "back_page": "layer-4"}),
+            ),
         ],
         is_page,
     );
@@ -417,12 +612,30 @@ fn b268_power_pin() {
     why(
         &mut t,
         &[
-            ("fx_powerpin_019.json", "Power Pin's perspective runs from 0 to 100, and this is 101."),
-            ("fx_powerpin_020.json", "Power Pin's perspective runs from 0 to 100, and this is -1."),
-            ("fx_powerpin_021.json", "Power Pin's expansion top runs from -40 to 100, and this is 101."),
-            ("fx_powerpin_022.json", "Power Pin's expansion left runs from -40 to 100, and this is -41."),
-            ("fx_powerpin_023.json", "Power Pin's unstretch is \"on\" or \"off\", and this is \"yes\"."),
-            ("fx_powerpin_024.json", "Power Pin's top left runs from -400 to 500, and this is -401."),
+            (
+                "fx_powerpin_019.json",
+                "Power Pin's perspective runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_powerpin_020.json",
+                "Power Pin's perspective runs from 0 to 100, and this is -1.",
+            ),
+            (
+                "fx_powerpin_021.json",
+                "Power Pin's expansion top runs from -40 to 100, and this is 101.",
+            ),
+            (
+                "fx_powerpin_022.json",
+                "Power Pin's expansion left runs from -40 to 100, and this is -41.",
+            ),
+            (
+                "fx_powerpin_023.json",
+                "Power Pin's unstretch is \"on\" or \"off\", and this is \"yes\".",
+            ),
+            (
+                "fx_powerpin_024.json",
+                "Power Pin's top left runs from -400 to 500, and this is -401.",
+            ),
         ],
     );
     t.shape_refused(
@@ -442,10 +655,27 @@ fn b268_power_pin() {
         &mut document,
         vec![
             ("perspective 100.5", set(pin(PINS, 100.5, "off", [0.0; 4]))),
-            ("expansion bottom -40.5", set(pin(PINS, 100.0, "off", [0.0, 0.0, 0.0, -40.5]))),
-            ("bottom left at 0, 500.5", set(pin([PINS[0], PINS[1], [0.0, 500.5], PINS[3]], 100.0, "off", [0.0; 4]))),
-            ("unstretch \"On\", written with a capital", set(pin(PINS, 100.0, "On", [0.0; 4]))),
-            ("expansion right keyed to 150", keys("expansion_right", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "expansion bottom -40.5",
+                set(pin(PINS, 100.0, "off", [0.0, 0.0, 0.0, -40.5])),
+            ),
+            (
+                "bottom left at 0, 500.5",
+                set(pin(
+                    [PINS[0], PINS[1], [0.0, 500.5], PINS[3]],
+                    100.0,
+                    "off",
+                    [0.0; 4],
+                )),
+            ),
+            (
+                "unstretch \"On\", written with a capital",
+                set(pin(PINS, 100.0, "On", [0.0; 4])),
+            ),
+            (
+                "expansion right keyed to 150",
+                keys("expansion_right", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -462,21 +692,47 @@ fn b268_power_pin() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_powerpin_002.json", 0), ("fx_powerpin_003.json", 0), ("fx_powerpin_006.json", 0), ("fx_powerpin_010.json", 0), ("fx_powerpin_013.json", 0), ("fx_powerpin_016.json", 0)]);
+    t.tiles(&[
+        ("fx_powerpin_002.json", 0),
+        ("fx_powerpin_003.json", 0),
+        ("fx_powerpin_006.json", 0),
+        ("fx_powerpin_010.json", 0),
+        ("fx_powerpin_013.json", 0),
+        ("fx_powerpin_016.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_powerpin", 25, &[1, 19, 20, 21, 22, 23, 24, 25], is_pin);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_powerpin",
+        25,
+        &[1, 19, 20, 21, 22, 23, 24, 25],
+        is_pin,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Power Pin",
         "core.power_pin",
         &[
-            ("a keystone, top pins at 25, 0 and 75, 0", json!({"top_left": [25, 0], "top_right": [75, 0]})),
-            ("the same keystone at perspective 30, expanded 20 at the top", json!({"top_left": [25, 0], "top_right": [75, 0], "perspective": 30, "expansion_top": 20})),
-            ("pins pulled past the frame, -20, -10 and 110, 120", json!({"top_left": [-20, -10], "bottom_right": [110, 120]})),
-            ("unstretched from a tilted square", json!({"top_left": [10, 5], "top_right": [90, 0], "bottom_right": [100, 90], "unstretch": "on"})),
+            (
+                "a keystone, top pins at 25, 0 and 75, 0",
+                json!({"top_left": [25, 0], "top_right": [75, 0]}),
+            ),
+            (
+                "the same keystone at perspective 30, expanded 20 at the top",
+                json!({"top_left": [25, 0], "top_right": [75, 0], "perspective": 30, "expansion_top": 20}),
+            ),
+            (
+                "pins pulled past the frame, -20, -10 and 110, 120",
+                json!({"top_left": [-20, -10], "bottom_right": [110, 120]}),
+            ),
+            (
+                "unstretched from a tilted square",
+                json!({"top_left": [10, 5], "top_right": [90, 0], "bottom_right": [100, 90], "unstretch": "on"}),
+            ),
         ],
         is_pin,
     );
@@ -555,12 +811,30 @@ fn b269_ripple_pulse() {
     why(
         &mut t,
         &[
-            ("fx_rpulse_013.json", "Ripple Pulse's pulse level runs from -1000 to 1000, and this is 1001."),
-            ("fx_rpulse_014.json", "Ripple Pulse's time span runs from 0 to 10, and this is 11."),
-            ("fx_rpulse_015.json", "Ripple Pulse's time span runs from 0 to 10, and this is -1."),
-            ("fx_rpulse_016.json", "Ripple Pulse's amplitude runs from 0 to 1000, and this is 1001."),
-            ("fx_rpulse_017.json", "Ripple Pulse's render bump map is \"on\" or \"off\", and this is \"yes\"."),
-            ("fx_rpulse_018.json", "Ripple Pulse's center runs from -1000 to 1000, and this is 1001."),
+            (
+                "fx_rpulse_013.json",
+                "Ripple Pulse's pulse level runs from -1000 to 1000, and this is 1001.",
+            ),
+            (
+                "fx_rpulse_014.json",
+                "Ripple Pulse's time span runs from 0 to 10, and this is 11.",
+            ),
+            (
+                "fx_rpulse_015.json",
+                "Ripple Pulse's time span runs from 0 to 10, and this is -1.",
+            ),
+            (
+                "fx_rpulse_016.json",
+                "Ripple Pulse's amplitude runs from 0 to 1000, and this is 1001.",
+            ),
+            (
+                "fx_rpulse_017.json",
+                "Ripple Pulse's render bump map is \"on\" or \"off\", and this is \"yes\".",
+            ),
+            (
+                "fx_rpulse_018.json",
+                "Ripple Pulse's center runs from -1000 to 1000, and this is 1001.",
+            ),
         ],
     );
     t.shape_refused(
@@ -579,38 +853,85 @@ fn b269_ripple_pulse() {
     t.refused(
         &mut document,
         vec![
-            ("pulse level -1000.5", set(ripple([50.0, 50.0], -1000.5, 1.0, 10.0, "off"))),
-            ("time span 10.5", set(ripple([50.0, 50.0], 0.0, 10.5, 10.0, "off"))),
-            ("amplitude -0.5", set(ripple([50.0, 50.0], 0.0, 1.0, -0.5, "off"))),
-            ("render bump map \"On\", written with a capital", set(ripple([50.0, 50.0], 0.0, 1.0, 10.0, "On"))),
-            ("pulse level keyed to 1500", keys("pulse_level", &[(0, &[0.0]), (4, &[1500.0])])),
+            (
+                "pulse level -1000.5",
+                set(ripple([50.0, 50.0], -1000.5, 1.0, 10.0, "off")),
+            ),
+            (
+                "time span 10.5",
+                set(ripple([50.0, 50.0], 0.0, 10.5, 10.0, "off")),
+            ),
+            (
+                "amplitude -0.5",
+                set(ripple([50.0, 50.0], 0.0, 1.0, -0.5, "off")),
+            ),
+            (
+                "render bump map \"On\", written with a capital",
+                set(ripple([50.0, 50.0], 0.0, 1.0, 10.0, "On")),
+            ),
+            (
+                "pulse level keyed to 1500",
+                keys("pulse_level", &[(0, &[0.0]), (4, &[1500.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_rpulse_001.json",
         vec![
-            ("centre 40, 60, level 30, span 0.5, amplitude 25, bump map", set(ripple([40.0, 60.0], 30.0, 0.5, 25.0, "on"))),
-            ("pulse level keyed from 0 to 20", keys("pulse_level", &[(0, &[0.0]), (4, &[20.0])])),
-            ("center keyed from 30, 50 to 70, 50", keys("center", &[(0, &[30.0, 50.0]), (4, &[70.0, 50.0])])),
+            (
+                "centre 40, 60, level 30, span 0.5, amplitude 25, bump map",
+                set(ripple([40.0, 60.0], 30.0, 0.5, 25.0, "on")),
+            ),
+            (
+                "pulse level keyed from 0 to 20",
+                keys("pulse_level", &[(0, &[0.0]), (4, &[20.0])]),
+            ),
+            (
+                "center keyed from 30, 50 to 70, 50",
+                keys("center", &[(0, &[30.0, 50.0]), (4, &[70.0, 50.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_rpulse_002.json", 4), ("fx_rpulse_003.json", 4), ("fx_rpulse_004.json", 4), ("fx_rpulse_005.json", 4), ("fx_rpulse_006.json", 4), ("fx_rpulse_008.json", 4)]);
+    t.tiles(&[
+        ("fx_rpulse_002.json", 4),
+        ("fx_rpulse_003.json", 4),
+        ("fx_rpulse_004.json", 4),
+        ("fx_rpulse_005.json", 4),
+        ("fx_rpulse_006.json", 4),
+        ("fx_rpulse_008.json", 4),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_rpulse", 19, &[1, 7, 10, 13, 14, 15, 16, 17, 18, 19], is_ripple);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_rpulse",
+        19,
+        &[1, 7, 10, 13, 14, 15, 16, 17, 18, 19],
+        is_ripple,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Ripple Pulse",
         "core.ripple_pulse",
         &[
-            ("with a moving pulse level, time span 1, amplitude 10", json!({"pulse_level": moving_level()})),
-            ("the same, time span 0.25, amplitude 40, off centre", json!({"pulse_level": moving_level(), "time_span": 0.25, "amplitude": 40, "center": [30, 60]})),
-            ("the same as a bump map, amplitude 3", json!({"pulse_level": moving_level(), "amplitude": 3, "render_bump_map": "on"})),
+            (
+                "with a moving pulse level, time span 1, amplitude 10",
+                json!({"pulse_level": moving_level()}),
+            ),
+            (
+                "the same, time span 0.25, amplitude 40, off centre",
+                json!({"pulse_level": moving_level(), "time_span": 0.25, "amplitude": 40, "center": [30, 60]}),
+            ),
+            (
+                "the same as a bump map, amplitude 3",
+                json!({"pulse_level": moving_level(), "amplitude": 3, "render_bump_map": "on"}),
+            ),
         ],
         is_ripple,
     );
@@ -664,23 +985,63 @@ fn b267_distort_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Page Turn as it starts (bottom right to 75, 75, radius 30)", Some(("core.page_turn", json!({})))),
-        ("Noise, then Power Pin, a keystone (25, 0 and 75, 0)", Some(("core.power_pin", json!({"top_left": [25, 0], "top_right": [75, 0]})))),
-        ("Noise, then Ripple Pulse, a moving level, time span 1", Some(("core.ripple_pulse", json!({"pulse_level": moving_level()})))),
-        ("Noise, then Ripple Pulse as a bump map", Some(("core.ripple_pulse", json!({"pulse_level": moving_level(), "render_bump_map": "on"})))),
+        (
+            "Noise, then Page Turn as it starts (bottom right to 75, 75, radius 30)",
+            Some(("core.page_turn", json!({}))),
+        ),
+        (
+            "Noise, then Power Pin, a keystone (25, 0 and 75, 0)",
+            Some((
+                "core.power_pin",
+                json!({"top_left": [25, 0], "top_right": [75, 0]}),
+            )),
+        ),
+        (
+            "Noise, then Ripple Pulse, a moving level, time span 1",
+            Some(("core.ripple_pulse", json!({"pulse_level": moving_level()}))),
+        ),
+        (
+            "Noise, then Ripple Pulse as a bump map",
+            Some((
+                "core.ripple_pulse",
+                json!({"pulse_level": moving_level(), "render_bump_map": "on"}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B267_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-267_timing_raw.md"));
+    let out = std::env::var("B267_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-267_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -247,7 +247,8 @@ fn b16b_exr() {
     let mut bytes = fs::read(&plain).unwrap();
     for key in [&b"dataWindow\0box2i\0"[..], &b"displayWindow\0box2i\0"[..]] {
         let at = bytes.windows(key.len()).position(|w| w == key).unwrap() + key.len() + 4;
-        bytes[at + 8..at + 16].copy_from_slice(&[99_998_i32.to_le_bytes(), 99_998_i32.to_le_bytes()].concat());
+        bytes[at + 8..at + 16]
+            .copy_from_slice(&[99_998_i32.to_le_bytes(), 99_998_i32.to_le_bytes()].concat());
     }
     let giant = std::env::temp_dir().join("b16b_giant_header.exr");
     fs::write(&giant, &bytes).unwrap();

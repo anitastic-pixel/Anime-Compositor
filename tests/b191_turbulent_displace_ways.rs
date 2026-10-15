@@ -25,8 +25,10 @@ const MAIN: &str = "comp-main";
 /// displacement and pinning words.
 fn frame(wipe: f64, ways: Option<(&str, &str)>) -> Frame {
     let t = |v: serde_json::Value| json!({"base": v, "keyframes": []});
-    let mut effects = vec![json!({"instance_id": "wipe", "type_id": "core.linear_wipe", "enabled": true,
-        "parameters": {"completion": wipe, "angle": 180, "feather": 0}})];
+    let mut effects = vec![
+        json!({"instance_id": "wipe", "type_id": "core.linear_wipe", "enabled": true,
+        "parameters": {"completion": wipe, "angle": 180, "feather": 0}}),
+    ];
     if let Some((displacement, pinning)) = ways {
         effects.push(json!({"instance_id": "push", "type_id": "core.turbulent_displace", "enabled": true,
             "parameters": {"amount": 8, "size": 30, "complexity": 2, "evolution": 0, "speed": 20, "seed": 0,
@@ -55,8 +57,15 @@ fn frame(wipe: f64, ways: Option<(&str, &str)>) -> Frame {
     });
     let loaded = persist::load_str(&shot.to_string()).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 256, &mut log)
-        .expect("the frame draws")
+    render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        256,
+        &mut log,
+    )
+    .expect("the frame draws")
 }
 
 fn alpha(f: &Frame, x: usize, y: usize) -> f32 {
@@ -67,7 +76,10 @@ fn alpha(f: &Frame, x: usize, y: usize) -> f32 {
 fn sideways_only_leaves_horizontal_bands_alone() {
     let plain = frame(50.0, None);
     let column: Vec<f32> = (0..96).map(|y| alpha(&plain, 48, y)).collect();
-    assert!(column.contains(&0.0) && column.contains(&1.0), "the band is drawn: {column:?}");
+    assert!(
+        column.contains(&0.0) && column.contains(&1.0),
+        "the band is drawn: {column:?}"
+    );
     let sideways = frame(50.0, Some(("horizontal", "none")));
     let both = frame(50.0, Some(("turbulent", "none")));
     let mut moved = 0;
@@ -75,7 +87,10 @@ fn sideways_only_leaves_horizontal_bands_alone() {
         for x in 28..68 {
             let (a, s) = (plain.pixel(x, y), sideways.pixel(x, y));
             for c in 0..4 {
-                assert!((a[c] - s[c]).abs() < 1e-5, "({x}, {y}) moved sideways: {s:?} against {a:?}");
+                assert!(
+                    (a[c] - s[c]).abs() < 1e-5,
+                    "({x}, {y}) moved sideways: {s:?} against {a:?}"
+                );
             }
             moved += usize::from((alpha(&both, x, y) - alpha(&plain, x, y)).abs() > 0.01);
         }
@@ -83,7 +98,10 @@ fn sideways_only_leaves_horizontal_bands_alone() {
     assert!(moved > 0, "pushed both ways, the band's edge moves");
     // Up and down only, the band's edge moves as well.
     let upright = frame(50.0, Some(("vertical", "none")));
-    assert!((0..96).any(|y| (alpha(&upright, 48, y) - column[y]).abs() > 0.01), "pushed up and down, it moves");
+    assert!(
+        (0..96).any(|y| (alpha(&upright, 48, y) - column[y]).abs() > 0.01),
+        "pushed up and down, it moves"
+    );
 }
 
 #[test]
@@ -96,11 +114,26 @@ fn pinned_edges_stay_put() {
             .map(|(x, y)| alpha(f, x, y))
             .fold(1.0f32, f32::min)
     };
-    assert!(edge(&free) < 0.9, "unpinned, the edge frays: {}", edge(&free));
-    assert!(edge(&pinned) > 0.99, "pinned, it does not: {}", edge(&pinned));
+    assert!(
+        edge(&free) < 0.9,
+        "unpinned, the edge frays: {}",
+        edge(&free)
+    );
+    assert!(
+        edge(&pinned) > 0.99,
+        "pinned, it does not: {}",
+        edge(&pinned)
+    );
     // Nothing is pushed past the drawing's edge when pinned.
-    assert!((0..96).all(|i| alpha(&pinned, 15, i) < 0.01 && alpha(&pinned, i, 80) < 0.01), "nothing spills");
-    assert_eq!(free.pixel(48, 48), pinned.pixel(48, 48), "the middle is pushed the same");
+    assert!(
+        (0..96).all(|i| alpha(&pinned, 15, i) < 0.01 && alpha(&pinned, i, 80) < 0.01),
+        "nothing spills"
+    );
+    assert_eq!(
+        free.pixel(48, 48),
+        pinned.pixel(48, 48),
+        "the middle is pushed the same"
+    );
 }
 
 #[test]
@@ -143,15 +176,31 @@ fn the_file_keeps_the_ways_and_reports_a_wrong_word() {
     };
     let saved = |p: serde_json::Value| {
         let loaded = persist::load_str(&shot(p)).expect("the shot reads");
-        let s: serde_json::Value =
-            serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
+        let s: serde_json::Value = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
         s["compositions"][0]["layers"][0]["effects"][0]["parameters"].clone()
     };
     let old = saved(json!({}));
-    assert!(old.get("displacement").is_none() && old.get("pinning").is_none(), "an old file stays as it was: {old}");
+    assert!(
+        old.get("displacement").is_none() && old.get("pinning").is_none(),
+        "an old file stays as it was: {old}"
+    );
     let new = saved(json!({"displacement": "vertical", "pinning": "all"}));
-    assert_eq!((&new["displacement"], &new["pinning"]), (&json!("vertical"), &json!("all")));
+    assert_eq!(
+        (&new["displacement"], &new["pinning"]),
+        (&json!("vertical"), &json!("all"))
+    );
     let loaded = persist::load_str(&shot(json!({"pinning": "some"}))).expect("the shot reads");
-    let e = &loaded.document.project().compositions[0].layer(&Id::new("art")).unwrap().effects[0].effect;
-    assert_eq!(e.why_invalid(), "Turbulent Displace's pinning is \"none\" or \"all\", and this is \"some\".");
+    let e = &loaded.document.project().compositions[0]
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect;
+    assert_eq!(
+        e.why_invalid(),
+        "Turbulent Displace's pinning is \"none\" or \"all\", and this is \"some\"."
+    );
 }

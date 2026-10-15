@@ -43,25 +43,92 @@ struct Shot {
 
 /// Each effect's name, its fixture folder and file prefix, its type and the settings it is
 /// given in the reference shot.
-fn effects() -> Vec<(&'static str, &'static str, &'static str, &'static str, serde_json::Value)> {
+fn effects() -> Vec<(
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    serde_json::Value,
+)> {
     vec![
-        ("Median", "median_smart_blur", "fx_median", "core.median", json!({"radius": 4, "operate_on_alpha": "on"})),
-        ("Smart Blur", "median_smart_blur", "fx_smart", "core.smart_blur", json!({"radius": 4, "threshold": 40})),
-        ("Roughen Edges", "roughen_edges", "fx_rough", "core.roughen_edges", json!({"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3})),
-        ("Radial Shadow", "radial_shadow", "fx_rshadow", "core.radial_shadow", json!({"color": "#203040", "opacity": 70, "light": [30, 10], "distance": 15, "softness": 8, "render": "glass_edge", "color_influence": 60, "shadow_only": "off"})),
-        ("Bevel Alpha", "bevel", "fx_bevel", "core.bevel_alpha", json!({"edge_thickness": 4, "light_angle": -45, "light_color": "#fff0d0", "light_intensity": 0.6})),
-        ("Snowfall", "snowfall", "fx_snow", "core.snowfall", json!({"color": "#ffffff", "density": 60, "spacing": 40, "size": 5, "depth": 40, "speed": 3, "wind": 0.5, "wiggle": 3, "period": 48, "seed": 5, "opacity": 90})),
-        ("Cell Pattern", "cell_pattern", "fx_cell", "core.cell_pattern", json!({"pattern": "crystals", "invert": "off", "contrast": 120, "disperse": 0.8, "size": 30, "evolution": 20, "seed": 2, "opacity": 60, "dark_color": "#102040", "light_color": "#f0e0c0", "blend": "screen"})),
-        ("Polar Coordinates", "polar_coordinates", "fx_polar", "core.polar_coordinates", json!({"interpolation": 70, "conversion": "rect_to_polar"})),
-        ("Optics Compensation", "optics_compensation", "fx_optics", "core.optics_compensation", json!({"field_of_view": 60, "reverse": "off", "orientation": "diagonal", "center": [45, 55]})),
-        ("Corner Pin", "corner_pin", "fx_pin", "core.corner_pin", json!({"upper_left": [5, 3], "upper_right": [92, 8], "lower_left": [0, 100], "lower_right": [110, 96]})),
+        (
+            "Median",
+            "median_smart_blur",
+            "fx_median",
+            "core.median",
+            json!({"radius": 4, "operate_on_alpha": "on"}),
+        ),
+        (
+            "Smart Blur",
+            "median_smart_blur",
+            "fx_smart",
+            "core.smart_blur",
+            json!({"radius": 4, "threshold": 40}),
+        ),
+        (
+            "Roughen Edges",
+            "roughen_edges",
+            "fx_rough",
+            "core.roughen_edges",
+            json!({"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}),
+        ),
+        (
+            "Radial Shadow",
+            "radial_shadow",
+            "fx_rshadow",
+            "core.radial_shadow",
+            json!({"color": "#203040", "opacity": 70, "light": [30, 10], "distance": 15, "softness": 8, "render": "glass_edge", "color_influence": 60, "shadow_only": "off"}),
+        ),
+        (
+            "Bevel Alpha",
+            "bevel",
+            "fx_bevel",
+            "core.bevel_alpha",
+            json!({"edge_thickness": 4, "light_angle": -45, "light_color": "#fff0d0", "light_intensity": 0.6}),
+        ),
+        (
+            "Snowfall",
+            "snowfall",
+            "fx_snow",
+            "core.snowfall",
+            json!({"color": "#ffffff", "density": 60, "spacing": 40, "size": 5, "depth": 40, "speed": 3, "wind": 0.5, "wiggle": 3, "period": 48, "seed": 5, "opacity": 90}),
+        ),
+        (
+            "Cell Pattern",
+            "cell_pattern",
+            "fx_cell",
+            "core.cell_pattern",
+            json!({"pattern": "crystals", "invert": "off", "contrast": 120, "disperse": 0.8, "size": 30, "evolution": 20, "seed": 2, "opacity": 60, "dark_color": "#102040", "light_color": "#f0e0c0", "blend": "screen"}),
+        ),
+        (
+            "Polar Coordinates",
+            "polar_coordinates",
+            "fx_polar",
+            "core.polar_coordinates",
+            json!({"interpolation": 70, "conversion": "rect_to_polar"}),
+        ),
+        (
+            "Optics Compensation",
+            "optics_compensation",
+            "fx_optics",
+            "core.optics_compensation",
+            json!({"field_of_view": 60, "reverse": "off", "orientation": "diagonal", "center": [45, 55]}),
+        ),
+        (
+            "Corner Pin",
+            "corner_pin",
+            "fx_pin",
+            "core.corner_pin",
+            json!({"upper_left": [5, 3], "upper_right": [92, 8], "lower_left": [0, 100], "lower_right": [110, 96]}),
+        ),
     ]
 }
 
 /// The reference shot with `type_id` on its first three layers, the second after a Drop Shadow
 /// that grows it first, so the effect runs from a corner that is not the buffer's.
 fn reference(effect: &'static str, type_id: &str, parameters: &serde_json::Value) -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let fx = |id: &str| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": parameters});
     let shadow = json!({"instance_id": "b151-s", "type_id": "core.drop_shadow", "enabled": true, "parameters": {"color": "#000000", "opacity": 60, "direction": 200, "distance": 6, "softness": 4}});
@@ -69,7 +136,8 @@ fn reference(effect: &'static str, type_id: &str, parameters: &serde_json::Value
     layers[0]["effects"] = json!([fx("b151-a")]);
     layers[1]["effects"] = json!([shadow, fx("b151-b")]);
     layers[2]["effects"] = json!([fx("b151-c")]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
+    let loaded = persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
     Shot {
         effect,
         name: format!("the reference shot with {effect}"),
@@ -89,19 +157,40 @@ fn fixtures() -> Vec<Shot> {
     for (effect, folder, prefix, type_id, _) in effects() {
         let mut files: Vec<String> = fs::read_dir(repo(&format!("Fixtures/{folder}")))
             .expect("read a fixture folder")
-            .map(|e| e.expect("a fixture file").file_name().to_string_lossy().into_owned())
+            .map(|e| {
+                e.expect("a fixture file")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .filter(|n| n.starts_with(prefix) && n.ends_with(".json"))
-            .filter(|n| fs::read_to_string(repo(&format!("Fixtures/{folder}/{n}"))).is_ok_and(|t| t.contains(type_id)))
+            .filter(|n| {
+                fs::read_to_string(repo(&format!("Fixtures/{folder}/{n}")))
+                    .is_ok_and(|t| t.contains(type_id))
+            })
             .collect();
         files.sort();
         for file in files {
             // A fixture that must not open (a malformed setting) has no frame to compare.
-            let Ok(loaded) = persist::load(&repo(&format!("Fixtures/{folder}/{file}"))) else { continue };
+            let Ok(loaded) = persist::load(&repo(&format!("Fixtures/{folder}/{file}"))) else {
+                continue;
+            };
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
-            let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
+            let (id, frames) = (
+                comp.id.clone(),
+                (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+            );
             let name = file.trim_end_matches(".json").to_string();
-            shots.push(Shot { effect, name, project, root: repo(&format!("Fixtures/{folder}")), comp: id, frames, reference: false });
+            shots.push(Shot {
+                effect,
+                name,
+                project,
+                root: repo(&format!("Fixtures/{folder}")),
+                comp: id,
+                frames,
+                reference: false,
+            });
         }
     }
     shots
@@ -112,7 +201,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -123,7 +217,16 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// has an adjustment layer, which has the CPU draw the whole frame (B-44).
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> (usize, bool) {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     let n = plan
         .layers
         .iter()
@@ -148,15 +251,29 @@ fn b151_gpu_fx() {
     let mut by_effect: BTreeMap<&str, (usize, usize, usize, u8)> = BTreeMap::new();
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     let mut shots = fixtures();
-    let references: Vec<Shot> = effects().iter().map(|(effect, _, _, type_id, p)| reference(effect, type_id, p)).collect();
+    let references: Vec<Shot> = effects()
+        .iter()
+        .map(|(effect, _, _, type_id, p)| reference(effect, type_id, p))
+        .collect();
     shots.extend(references);
     for shot in &shots {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -167,8 +284,20 @@ fn b151_gpu_fx() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let (n, adjusted) = left(shot, frame, quality);
@@ -179,7 +308,10 @@ fn b151_gpu_fx() {
                     let expected = if said_cpu.is_empty() {
                         DiagnosticId::GpuPreviewOnCpu.as_str().to_string()
                     } else {
-                        let mut ids: Vec<&str> = said_cpu.split(", ").chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
+                        let mut ids: Vec<&str> = said_cpu
+                            .split(", ")
+                            .chain([DiagnosticId::GpuPreviewOnCpu.as_str()])
+                            .collect();
                         ids.sort();
                         ids.join(", ")
                     };
@@ -210,7 +342,8 @@ fn b151_gpu_fx() {
                         (true, _, false) => "FAIL",
                         (false, true, _) => "FAIL: the CPU drew it",
                         (false, false, true) => "PASS",
-                        (false, false, false) if shot.reference && n == 0 => "FAIL: the effect was not left to the card",
+                        (false, false, false) if shot.reference && n == 0 =>
+                            "FAIL: the effect was not left to the card",
                         (false, false, false) => "FAIL",
                     }
                 );
@@ -231,8 +364,21 @@ fn b151_gpu_fx() {
                 PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
             };
             let plan = |card: bool, log: &mut FrameLog| {
-                let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-                let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
+                let make = if card {
+                    compose::plan_frame_for_card
+                } else {
+                    compose::plan_frame_at
+                };
+                let p = make(
+                    &reference.project,
+                    &reference.comp,
+                    100,
+                    &reference.root,
+                    quality,
+                    log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan");
                 preview::scale_plan(p, quality)
             };
             let a = render::render(&plan(false, &mut log), tile);
@@ -268,13 +414,17 @@ fn b151_gpu_fx() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let mut summary = String::new();
     for (effect, ..) in effects() {
         let (n, p, on_card, most) = by_effect[effect];
-        let _ = writeln!(summary, "| {effect} | {n} | {on_card} | {most} | {p} of {n} |");
+        let _ = writeln!(
+            summary,
+            "| {effect} | {n} | {on_card} | {most} | {p} of {n} |"
+        );
     }
     let s = format!(
         "# B-151: ten of the fourth batch on the GPU against the CPU\n\n\
@@ -328,13 +478,28 @@ fn b151_gpu_fx_timing() {
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
     let mut shots = vec![("None", None)];
-    shots.extend(effects().into_iter().map(|(effect, _, _, type_id, parameters)| (effect, Some(reference(effect, type_id, &parameters)))));
+    shots.extend(
+        effects()
+            .into_iter()
+            .map(|(effect, _, _, type_id, parameters)| {
+                (effect, Some(reference(effect, type_id, &parameters)))
+            }),
+    );
     for (effect, shot) in shots {
         // The plain reference shot, nothing added, as the floor.
         let shot = shot.unwrap_or_else(|| {
-            let mut plain = reference("None", "core.invert", &json!({"channel": "rgb", "amount": 100}));
-            let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-            plain.project = persist::load_str(&text).expect("the reference shot").document.project().clone();
+            let mut plain = reference(
+                "None",
+                "core.invert",
+                &json!({"channel": "rgb", "amount": 100}),
+            );
+            let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+                .expect("read the reference shot");
+            plain.project = persist::load_str(&text)
+                .expect("the reference shot")
+                .document
+                .project()
+                .clone();
             plain
         });
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
@@ -348,18 +513,52 @@ fn b151_gpu_fx_timing() {
                         let mut log = FrameLog::new(3);
                         let t = std::time::Instant::now();
                         if on_card {
-                            drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                            drop(
+                                preview::preview_frame_srgb8(
+                                    &shot.project,
+                                    &shot.comp,
+                                    frame,
+                                    &shot.root,
+                                    quality,
+                                    DEFAULT_TILE_SIZE,
+                                    &mut log,
+                                    &mut cache,
+                                    &mut gpu,
+                                )
+                                .expect("GPU frame"),
+                            );
                         } else {
-                            drop(preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame").to_srgb8_straight());
+                            drop(
+                                preview::preview_frame_cached(
+                                    &shot.project,
+                                    &shot.comp,
+                                    frame,
+                                    &shot.root,
+                                    quality,
+                                    DEFAULT_TILE_SIZE,
+                                    &mut log,
+                                    &mut cache,
+                                )
+                                .expect("CPU frame")
+                                .to_srgb8_straight(),
+                            );
                         }
                         let ms = t.elapsed().as_secs_f64() * 1000.0;
-                        if pass > 0 { times.push(ms) } else { first.push(ms) }
+                        if pass > 0 {
+                            times.push(ms)
+                        } else {
+                            first.push(ms)
+                        }
                     }
                 }
                 let _ = write!(first_row, " {:.1} |", median(first));
                 let _ = write!(again_row, " {:.1} |", median(times));
             }
-            let _ = writeln!(s, "| {effect} | {} |{first_row}{again_row}", quality.label());
+            let _ = writeln!(
+                s,
+                "| {effect} | {} |{first_row}{again_row}",
+                quality.label()
+            );
         }
     }
     fs::write(repo("verification/B-151_timing_raw.md"), s).expect("write the timing table");

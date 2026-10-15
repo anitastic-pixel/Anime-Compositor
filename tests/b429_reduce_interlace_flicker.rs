@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -44,7 +45,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=9 {
         let file = format!("fx_rif_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -52,7 +57,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ReduceInterlaceFlicker { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ReduceInterlaceFlicker { .. })
+                });
             }
         }
         t.row(
@@ -70,9 +77,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -86,7 +102,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ReduceInterlaceFlicker { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ReduceInterlaceFlicker { .. })
+                });
                 t.row(
                     &format!("the reference shot, Reduce Interlace Flicker {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -100,7 +118,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -112,8 +133,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -125,7 +158,11 @@ fn stripes() -> Vec<u8> {
     let mut b = Vec::with_capacity(STRIPES.0 * STRIPES.1 * 4);
     for y in 0..STRIPES.1 {
         for x in 0..STRIPES.0 {
-            let white = if x < STRIPES.0 / 2 { y % 2 == 0 } else { x % 2 == 0 };
+            let white = if x < STRIPES.0 / 2 {
+                y % 2 == 0
+            } else {
+                x % 2 == 0
+            };
             let v = if white { 255 } else { 0 };
             b.extend_from_slice(&[v, v, v, 255]);
         }
@@ -173,29 +210,69 @@ fn b429_reduce_interlace_flicker() {
     );
     for file in ["fx_rif_007.json", "fx_rif_008.json"] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming softness"), &why, why.contains("softness"));
+        t.row(
+            &format!("{file} is refused in a sentence naming softness"),
+            &why,
+            why.contains("softness"),
+        );
     }
-    t.shape_refused("fx_rif_001.json", "a Reduce Interlace Flicker whose softness is a word", r#"{"softness": "soft"}"#);
-    t.shape_refused("fx_rif_001.json", "a Reduce Interlace Flicker without its softness", r#"{}"#);
+    t.shape_refused(
+        "fx_rif_001.json",
+        "a Reduce Interlace Flicker whose softness is a word",
+        r#"{"softness": "soft"}"#,
+    );
+    t.shape_refused(
+        "fx_rif_001.json",
+        "a Reduce Interlace Flicker without its softness",
+        r#"{}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_rif_001.json").document;
-    let over = changed(&t, "fx_rif_001.json", |e| if let Effect::ReduceInterlaceFlicker { softness } = e { *softness = 501.0 });
+    let over = changed(&t, "fx_rif_001.json", |e| {
+        if let Effect::ReduceInterlaceFlicker { softness } = e {
+            *softness = 501.0
+        }
+    });
     t.refused(
         &mut document,
-        vec![("softness 501", set(over)), ("softness keyed to 600", keys("softness", &[(0, &[1.0]), (4, &[600.0])]))],
+        vec![
+            ("softness 501", set(over)),
+            (
+                "softness keyed to 600",
+                keys("softness", &[(0, &[1.0]), (4, &[600.0])]),
+            ),
+        ],
     );
-    let soft = changed(&t, "fx_rif_001.json", |e| if let Effect::ReduceInterlaceFlicker { softness } = e { *softness = 2.5 });
+    let soft = changed(&t, "fx_rif_001.json", |e| {
+        if let Effect::ReduceInterlaceFlicker { softness } = e {
+            *softness = 2.5
+        }
+    });
     t.taken(
         &mut document,
         "fx_rif_001.json",
-        vec![("softness 2.5", set(soft)), ("softness keyed from 0 to 2", keys("softness", &[(0, &[0.0]), (4, &[2.0])]))],
+        vec![
+            ("softness 2.5", set(soft)),
+            (
+                "softness keyed from 0 to 2",
+                keys("softness", &[(0, &[0.0]), (4, &[2.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_rif_001.json", 0), ("fx_rif_003.json", 0), ("fx_rif_004.json", 0), ("fx_rif_005.json", 2), ("fx_rif_006.json", 3)]);
+    t.tiles(&[
+        ("fx_rif_001.json", 0),
+        ("fx_rif_003.json", 0),
+        ("fx_rif_004.json", 0),
+        ("fx_rif_005.json", 2),
+        ("fx_rif_006.json", 3),
+    ]);
 
-    t.heading("On the card against the processor: within 1 level of 255, the blur left to the processor");
+    t.heading(
+        "On the card against the processor: within 1 level of 255, the blur left to the processor",
+    );
     let mut gpu = Gpu::new().expect("a usable card");
     // Gaussian Blur's one-way blur stays on the processor, so no file puts this on the card.
     let none: Vec<u32> = (1..=9).collect();
@@ -203,13 +280,30 @@ fn b429_reduce_interlace_flicker() {
     card_reference(
         &mut t,
         &mut gpu,
-        &[("as added (softness 1), left to the processor", json!({}), 0), ("softness 2.5, left to the processor", json!({"softness": 2.5}), 0)],
+        &[
+            ("as added (softness 1), left to the processor", json!({}), 0),
+            (
+                "softness 2.5, left to the processor",
+                json!({"softness": 2.5}),
+                0,
+            ),
+        ],
     );
 
     t.heading("Pictures: in `verification/D-549 pictures/`");
     let dir = repo("verification/D-549 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("stripes.png", STRIPES, &stripes());
     write("town.png", TOWN, &town());
 
@@ -234,8 +328,12 @@ fn b429_reduce_interlace_flicker() {
     let (after, said) = lines(json!({}));
     write("2_as_added.png", STRIPES, &after);
     let w = STRIPES.0;
-    let (white, black) = (at(&after, 10, 32, w).to_vec(), at(&after, 10, 33, w).to_vec());
-    let right_kept = (0..STRIPES.1).all(|y| (w / 2..w).all(|x| at(&after, x, y, w) == at(&before, x, y, w)));
+    let (white, black) = (
+        at(&after, 10, 32, w).to_vec(),
+        at(&after, 10, 33, w).to_vec(),
+    );
+    let right_kept =
+        (0..STRIPES.1).all(|y| (w / 2..w).all(|x| at(&after, x, y, w) == at(&before, x, y, w)));
     t.row(
         "2_as_added.png, as added (softness 1): the rows across on the left melt into one grey (a white row 189 and a black row 186 by hand, each within 1); the columns up and down on the right untouched byte for byte, since the blur never reaches sideways; draws cleanly",
         &format!("{said:?}, a white row {white:?}, a black row {black:?}, the right half kept: {right_kept}"),
@@ -249,7 +347,10 @@ fn b429_reduce_interlace_flicker() {
 
     let (light, said) = lines(json!({"softness": 0.3}));
     write("3_softness_0_3.png", STRIPES, &light);
-    let (lw, lb) = (at(&light, 10, 32, w)[0] as i32, at(&light, 10, 33, w)[0] as i32);
+    let (lw, lb) = (
+        at(&light, 10, 32, w)[0] as i32,
+        at(&light, 10, 33, w)[0] as i32,
+    );
     let white = [white[0] as i32];
     let black = [black[0] as i32];
     t.row(
@@ -305,22 +406,48 @@ fn b429_reduce_interlace_flicker_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Reduce Interlace Flicker as added (softness 1)", Some(json!({}))),
-        ("Noise, then Reduce Interlace Flicker softness 2.5", Some(json!({"softness": 2.5}))),
+        (
+            "Noise, then Reduce Interlace Flicker as added (softness 1)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Reduce Interlace Flicker softness 2.5",
+            Some(json!({"softness": 2.5})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B429_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-429_timing_raw.md"));
+    let out = std::env::var("B429_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-429_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

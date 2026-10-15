@@ -31,12 +31,23 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// and Draft. The files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_hair.json")).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_hair.json")).unwrap())
+            .unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = case["project"].as_str().unwrap();
-        let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-        let project = persist::load(&t.root.join(file)).unwrap().document.project().clone();
+        let frames: Vec<i32> = case["frames"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|f| f.parse().unwrap())
+            .collect();
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &frames {
@@ -44,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Hair { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Hair { .. })
+                });
             }
         }
         t.row(
@@ -62,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -78,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Hair { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Hair { .. })
+                });
                 t.row(
                     &format!("the reference shot, Hair {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// with what it warned of; `camera` the composition camera, if any.
 fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,8 +138,20 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -120,7 +159,14 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
 /// nothing.
 fn fault_of(t: &Table, file: &str) -> String {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// A Hair's settings, every one `p` leaves out as it is added.
@@ -196,10 +242,22 @@ fn b552_hair() {
     ] {
         let file = format!("fx_hair_{n:03}.json");
         let why = fault_of(&t, &file);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_hair_001.json", "a Hair whose length is a word", &parameters(&json!({"length": "long"})).to_string());
-    t.shape_refused("fx_hair_001.json", "a Hair whose constant mass is a number", &parameters(&json!({"constant_mass": 1})).to_string());
+    t.shape_refused(
+        "fx_hair_001.json",
+        "a Hair whose length is a word",
+        &parameters(&json!({"length": "long"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_hair_001.json",
+        "a Hair whose constant mass is a number",
+        &parameters(&json!({"constant_mass": 1})).to_string(),
+    );
     t.shape_refused("fx_hair_001.json", "a Hair without its hair colour", &{
         let mut p = parameters(&json!({}));
         p.as_object_mut().unwrap().remove("hair_color");
@@ -207,17 +265,30 @@ fn b552_hair() {
     });
 
     t.heading("Tiles");
-    t.tiles(&[("fx_hair_001.json", 3), ("fx_hair_002.json", 3), ("fx_hair_014.json", 3), ("fx_hair_019.json", 3)]);
+    t.tiles(&[
+        ("fx_hair_001.json", 3),
+        ("fx_hair_002.json", 3),
+        ("fx_hair_014.json", 3),
+        ("fx_hair_019.json", 3),
+    ]);
 
     t.heading("On the card (D-673)");
     let mut gpu = Gpu::new().expect("a graphics card");
-    card_fixtures(&mut t, &mut gpu, &[21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        &[21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],
+    );
     card_reference(
         &mut t,
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("a long fur: length 200, thickness 6, density 60", json!({"length": 200, "thickness": 6, "density": 60}), 3),
+            (
+                "a long fur: length 200, thickness 6, density 60",
+                json!({"length": 200, "thickness": 6, "density": 60}),
+                3,
+            ),
             (
                 "weight keyed -100 to 200, constant mass, blue",
                 json!({"length": 150, "thickness": 5, "constant_mass": "on", "hair_color": "#2050ff", "color_inheritance": 0,
@@ -233,17 +304,43 @@ fn b552_hair() {
     let street = picture(json!([]), 0, None).0;
     for (name, p) in [
         ("1_as_added", json!({})),
-        ("2_long_fur", json!({"length": 200, "thickness": 6, "density": 60})),
-        ("3_curled_up", json!({"length": 150, "thickness": 5, "density": 80, "weight": -80})),
-        ("4_blue_hair", json!({"length": 120, "thickness": 6, "density": 40, "hair_color": "#2050ff", "color_inheritance": 0})),
-        ("5_shiny", json!({"length": 200, "thickness": 8, "density": 30, "specular": 100, "roughness": 0.05})),
-        ("6_constant_mass", json!({"length": 250, "thickness": 5, "density": 20, "weight": 150, "constant_mass": "on"})),
+        (
+            "2_long_fur",
+            json!({"length": 200, "thickness": 6, "density": 60}),
+        ),
+        (
+            "3_curled_up",
+            json!({"length": 150, "thickness": 5, "density": 80, "weight": -80}),
+        ),
+        (
+            "4_blue_hair",
+            json!({"length": 120, "thickness": 6, "density": 40, "hair_color": "#2050ff", "color_inheritance": 0}),
+        ),
+        (
+            "5_shiny",
+            json!({"length": 200, "thickness": 8, "density": 30, "specular": 100, "roughness": 0.05}),
+        ),
+        (
+            "6_constant_mass",
+            json!({"length": 250, "thickness": 5, "density": 20, "weight": 150, "constant_mass": "on"}),
+        ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), 0, None);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
@@ -276,25 +373,50 @@ fn b552_hair_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Hair as added", Some(json!({}))),
-        ("Noise, then Hair, a long fur: length 200, thickness 6, density 60", Some(json!({"length": 200, "thickness": 6, "density": 60}))),
+        (
+            "Noise, then Hair, a long fur: length 200, thickness 6, density 60",
+            Some(json!({"length": 200, "thickness": 6, "density": 60})),
+        ),
         (
             "Noise, then Hair, weight keyed -100 to 200, constant mass",
-            Some(json!({"constant_mass": "on", "weight": {"base": 0, "keyframes": [{"frame": 0, "value": -100, "interp": "linear"}, {"frame": 239, "value": 200, "interp": "linear"}]}})),
+            Some(
+                json!({"constant_mass": "on", "weight": {"base": 0, "keyframes": [{"frame": 0, "value": -100, "interp": "linear"}, {"frame": 239, "value": 200, "interp": "linear"}]}}),
+            ),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B552_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-552_timing_raw.md"));
+    let out = std::env::var("B552_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-552_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

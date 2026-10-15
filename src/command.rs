@@ -17,8 +17,8 @@
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::keykind::{self, Side};
 use crate::model::{
-    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteMode, MatteReference,
-    Project, Prop, Stroke, Value,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer,
+    MatteMode, MatteReference, Project, Prop, Stroke, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 
@@ -740,10 +740,12 @@ impl Command {
                 .and_then(|l| l.effects.iter().find(|e| &e.instance_id == instance_id))
                 .map(|e| self.effect_label(e.effect.name()))
                 .unwrap_or_else(|| self.label()),
-            Command::SetLayerSource { asset, .. } => match before.assets.iter().find(|a| &a.id == asset) {
-                Some(a) => format!("Replace the layer's source with {}", a.name),
-                None => self.label(),
-            },
+            Command::SetLayerSource { asset, .. } => {
+                match before.assets.iter().find(|a| &a.id == asset) {
+                    Some(a) => format!("Replace the layer's source with {}", a.name),
+                    None => self.label(),
+                }
+            }
             _ => self.label(),
         }
     }
@@ -816,13 +818,26 @@ impl Command {
                 None => "Clear the sketch".to_string(),
             },
             Command::SetSketchLook { locked: true, .. } => "Lock a sketch layer".to_string(),
-            Command::SetSketchLook { opacity, .. } => format!("Set a sketch layer's opacity to {}%", (opacity * 100.0).round()),
+            Command::SetSketchLook { opacity, .. } => format!(
+                "Set a sketch layer's opacity to {}%",
+                (opacity * 100.0).round()
+            ),
             Command::MoveSketchLayer { .. } => "Reorder the sketch layers".to_string(),
-            Command::RemoveSketchStrokes { strokes, .. } if strokes.len() == 1 => "Erase a sketch stroke".to_string(),
-            Command::RemoveSketchStrokes { strokes, .. } => format!("Erase {} sketch strokes", strokes.len()),
-            Command::MoveSketchStrokes { strokes, .. } if strokes.len() == 1 => "Move a sketch stroke".to_string(),
-            Command::MoveSketchStrokes { strokes, .. } => format!("Move {} sketch strokes", strokes.len()),
-            Command::SetLayerSource { asset, .. } => format!("Replace the layer's source with {asset}"),
+            Command::RemoveSketchStrokes { strokes, .. } if strokes.len() == 1 => {
+                "Erase a sketch stroke".to_string()
+            }
+            Command::RemoveSketchStrokes { strokes, .. } => {
+                format!("Erase {} sketch strokes", strokes.len())
+            }
+            Command::MoveSketchStrokes { strokes, .. } if strokes.len() == 1 => {
+                "Move a sketch stroke".to_string()
+            }
+            Command::MoveSketchStrokes { strokes, .. } => {
+                format!("Move {} sketch strokes", strokes.len())
+            }
+            Command::SetLayerSource { asset, .. } => {
+                format!("Replace the layer's source with {asset}")
+            }
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
                 n => format!("Set the layer's label to colour {n}"),
@@ -895,7 +910,9 @@ impl Command {
                 Some(id) => format!("Set matte to {id}"),
                 None => "Clear matte".to_string(),
             },
-            Command::SetMatteMode { mode, .. } => format!("Set matte mode to {}", mode.as_str().replace('_', " ")),
+            Command::SetMatteMode { mode, .. } => {
+                format!("Set matte mode to {}", mode.as_str().replace('_', " "))
+            }
             Command::SetParent { parent, .. } => match parent {
                 Some(id) => format!("Set parent to {id}"),
                 None => "Clear parent".to_string(),
@@ -920,7 +937,11 @@ impl Command {
                 0 => "Clear the key drawings".to_string(),
                 _ => format!(
                     "Set the key drawings to {}",
-                    drawings.iter().map(u32::to_string).collect::<Vec<_>>().join(", ")
+                    drawings
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ),
             },
             Command::SetMasks { masks, .. } => match masks.len() {
@@ -1196,8 +1217,13 @@ impl Command {
             ) if mine != theirs || my_setting != their_setting => return false,
             // D-202: one effect's Mix is one control, and another effect's is another.
             (
-                Command::SetEffectMix { instance_id: mine, .. },
-                Command::SetEffectMix { instance_id: theirs, .. },
+                Command::SetEffectMix {
+                    instance_id: mine, ..
+                },
+                Command::SetEffectMix {
+                    instance_id: theirs,
+                    ..
+                },
             ) if mine != theirs => return false,
             _ => {}
         }
@@ -1320,7 +1346,10 @@ fn timed_mut<'a>(
     let layer = layer_mut(project, comp_id, layer_id)?;
     if !(matches!(layer.kind, Raster) || !drawn && matches!(layer.kind, Composition)) {
         return Err(reject(
-            &format!("\"{}\" has no frames of its own to time this way.", layer.name),
+            &format!(
+                "\"{}\" has no frames of its own to time this way.",
+                layer.name
+            ),
             "D-216: a stretch and frame mix are for a drawn or composition layer, a drawing \
              dissolve for a drawn one.",
         ));
@@ -1395,9 +1424,16 @@ fn mask_change(was: &[crate::mask::Mask], now: &[crate::mask::Mask]) -> String {
     if a.keys != b.keys {
         let moved = a.keys.iter().zip(&b.keys).find(|(x, y)| x.frame != y.frame);
         if let Some((x, y)) = moved {
-            return format!("Move {name}'s path key from frame {} to {}", x.frame, y.frame);
+            return format!(
+                "Move {name}'s path key from frame {} to {}",
+                x.frame, y.frame
+            );
         }
-        let eased = a.keys.iter().zip(&b.keys).find(|(x, y)| x.interp != y.interp);
+        let eased = a
+            .keys
+            .iter()
+            .zip(&b.keys)
+            .find(|(x, y)| x.interp != y.interp);
         if let Some((_, y)) = eased {
             return format!("Change the ease on {name}'s path key at frame {}", y.frame);
         }
@@ -1408,13 +1444,30 @@ fn mask_change(was: &[crate::mask::Mask], now: &[crate::mask::Mask]) -> String {
             .find(|(x, y)| x.points != y.points)
             .map(|(x, y)| (x, y, x.frame));
         return match at {
-            Some((x, y, frame)) if x.points.iter().zip(&y.points).filter(|(p, q)| p != q).count() == 1 => {
+            Some((x, y, frame))
+                if x.points
+                    .iter()
+                    .zip(&y.points)
+                    .filter(|(p, q)| p != q)
+                    .count()
+                    == 1 =>
+            {
                 format!("Move a point of {name} at frame {frame}")
             }
             Some((x, y, frame))
-                if x.points.iter().zip(&y.points).filter(|(p, q)| p != q).count() < y.points.len() =>
+                if x.points
+                    .iter()
+                    .zip(&y.points)
+                    .filter(|(p, q)| p != q)
+                    .count()
+                    < y.points.len() =>
             {
-                let n = x.points.iter().zip(&y.points).filter(|(p, q)| p != q).count();
+                let n = x
+                    .points
+                    .iter()
+                    .zip(&y.points)
+                    .filter(|(p, q)| p != q)
+                    .count();
                 format!("Move {n} points of {name} at frame {frame}")
             }
             Some((_, _, frame)) => format!("Move {name}'s path at frame {frame}"),
@@ -1422,7 +1475,12 @@ fn mask_change(was: &[crate::mask::Mask], now: &[crate::mask::Mask]) -> String {
         };
     }
     if a.points != b.points {
-        let moved = a.points.iter().zip(&b.points).filter(|(p, q)| p != q).count();
+        let moved = a
+            .points
+            .iter()
+            .zip(&b.points)
+            .filter(|(p, q)| p != q)
+            .count();
         // B-24i: several points can be dragged together now, so the entry counts them. All of
         // them is the whole path, which is what a person would call it.
         return match moved {
@@ -1612,7 +1670,11 @@ impl Document {
             label: if commands.len() == 1 {
                 first.label_in(&before)
             } else {
-                format!("{} and {} more", first.label_in(&before), commands.len() - 1)
+                format!(
+                    "{} and {} more",
+                    first.label_in(&before),
+                    commands.len() - 1
+                )
             },
             affected: commands.iter().flat_map(Command::affected).collect(),
             source_revision: self.revision - 1,
@@ -1865,12 +1927,16 @@ fn sketch_mut<'a>(
     comp: &'a mut crate::model::Composition,
     sketch: &Id,
 ) -> Result<&'a mut crate::model::SketchLayer, Diagnostic> {
-    comp.sketches.iter_mut().find(|s| s.id == *sketch).ok_or_else(|| {
-        missing(
-            format!("There is no sketch layer {sketch} in this composition."),
-            "A sketch command names the sketch layer it changes; that ID is not present.".to_string(),
-        )
-    })
+    comp.sketches
+        .iter_mut()
+        .find(|s| s.id == *sketch)
+        .ok_or_else(|| {
+            missing(
+                format!("There is no sketch layer {sketch} in this composition."),
+                "A sketch command names the sketch layer it changes; that ID is not present."
+                    .to_string(),
+            )
+        })
 }
 
 /// D-283: the sketch layer a change to its drawing names, refused while it is locked.
@@ -1881,7 +1947,10 @@ fn sketch_unlocked<'a>(
     let layer = sketch_mut(comp, sketch)?;
     if layer.locked {
         return Err(reject(
-            &format!("{} is locked. Unlock it to change what is drawn on it.", layer.name),
+            &format!(
+                "{} is locked. Unlock it to change what is drawn on it.",
+                layer.name
+            ),
             "D-283: a locked sketch layer takes no strokes, erasing, moving, clearing or deleting.",
         ));
     }
@@ -1891,9 +1960,17 @@ fn sketch_unlocked<'a>(
 /// D-282, D-284: strokes named by their place in a layer's list: at least one, each there once.
 fn check_strokes(layer: &crate::model::SketchLayer, strokes: &[usize]) -> Result<(), Diagnostic> {
     let mut seen = std::collections::BTreeSet::new();
-    if strokes.is_empty() || strokes.iter().any(|&i| i >= layer.strokes.len() || !seen.insert(i)) {
+    if strokes.is_empty()
+        || strokes
+            .iter()
+            .any(|&i| i >= layer.strokes.len() || !seen.insert(i))
+    {
         return Err(reject(
-            &format!("{} has {} strokes; name each stroke once, from 0 to one less than that.", layer.name, layer.strokes.len()),
+            &format!(
+                "{} has {} strokes; name each stroke once, from 0 to one less than that.",
+                layer.name,
+                layer.strokes.len()
+            ),
             "D-282: a stroke is named by its place in its layer's list.",
         ));
     }
@@ -1905,7 +1982,10 @@ fn check_strokes(layer: &crate::model::SketchLayer, strokes: &[usize]) -> Result
 fn check_stroke(stroke: &Stroke) -> Result<(), Diagnostic> {
     if !crate::model::SKETCH_TOOLS.contains(&stroke.tool.as_str()) {
         return Err(reject(
-            &format!("There is no sketch tool called {}; the tools are brush, pencil and eraser.", stroke.tool),
+            &format!(
+                "There is no sketch tool called {}; the tools are brush, pencil and eraser.",
+                stroke.tool
+            ),
             "D-261: a stroke is drawn with the brush, the pencil or the eraser.",
         ));
     }
@@ -1929,7 +2009,8 @@ fn check_stroke(stroke: &Stroke) -> Result<(), Diagnostic> {
         ));
     }
     if !stroke.pressure.is_empty()
-        && (stroke.pressure.len() != stroke.points.len() || stroke.pressure.iter().any(|p| !(0.0..=1.0).contains(p)))
+        && (stroke.pressure.len() != stroke.points.len()
+            || stroke.pressure.iter().any(|p| !(0.0..=1.0).contains(p)))
     {
         return Err(reject(
             "A stroke's pressure is one number from 0 to 1 for each point, or none.",
@@ -2090,7 +2171,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         } else {
             return Err(missing(
                 format!("{item} is not in this project."),
-                "A label names a composition or a footage item; that ID is not present.".to_string(),
+                "A label names a composition or a footage item; that ID is not present."
+                    .to_string(),
             ));
         }
         return Ok(());
@@ -2296,7 +2378,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     || !layer.shapes.is_empty())
             {
                 return Err(reject(
-                    &format!("\"{}\" is a null, which carries nothing that is drawn.", layer.name),
+                    &format!(
+                        "\"{}\" is a null, which carries nothing that is drawn.",
+                        layer.name
+                    ),
                     "D-82: a null has no mask, effect, matte, drawing or blend mode.",
                 ));
             }
@@ -2317,7 +2402,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             if let Some(p) = layer.text.as_ref().and_then(|t| t.problem()) {
-                return Err(reject(&format!("That text cannot be made: it needs {p}."), "D-263."));
+                return Err(reject(
+                    &format!("That text cannot be made: it needs {p}."),
+                    "D-263.",
+                ));
             }
             let asset_known =
                 layer.has_no_drawing() || project.assets.iter().any(|a| a.id == layer.asset_id);
@@ -2557,7 +2645,13 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         Command::SetFrameBlending { value, .. } => {
             comp_mut(project, &comp_id)?.frame_blending = *value;
         }
-        Command::SetSketchLayer { sketch, name, visible, whole_cut, .. } => {
+        Command::SetSketchLayer {
+            sketch,
+            name,
+            visible,
+            whole_cut,
+            ..
+        } => {
             let comp = comp_mut(project, &comp_id)?;
             let layer = match comp.sketches.iter().position(|s| s.id == *sketch) {
                 Some(i) => &mut comp.sketches[i],
@@ -2586,7 +2680,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         }
         Command::AddSketchStroke { sketch, stroke, .. } => {
             check_stroke(stroke)?;
-            sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?.strokes.push(stroke.clone());
+            sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?
+                .strokes
+                .push(stroke.clone());
         }
         Command::ClearSketch { sketch, frame, .. } => {
             let layer = sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?;
@@ -2595,7 +2691,12 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 None => layer.strokes.clear(),
             }
         }
-        Command::SetSketchLook { sketch, opacity, locked, .. } => {
+        Command::SetSketchLook {
+            sketch,
+            opacity,
+            locked,
+            ..
+        } => {
             if !(0.0..=1.0).contains(opacity) {
                 return Err(reject(
                     "A sketch layer's opacity is from 0 to 1.",
@@ -2615,11 +2716,17 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "D-283: place 0 is the bottom of the list.",
                 ));
             }
-            let from = comp.sketches.iter().position(|s| s.id == *sketch).expect("just found");
+            let from = comp
+                .sketches
+                .iter()
+                .position(|s| s.id == *sketch)
+                .expect("just found");
             let layer = comp.sketches.remove(from);
             comp.sketches.insert(*to, layer);
         }
-        Command::RemoveSketchStrokes { sketch, strokes, .. } => {
+        Command::RemoveSketchStrokes {
+            sketch, strokes, ..
+        } => {
             let layer = sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?;
             check_strokes(layer, strokes)?;
             let mut i = 0;
@@ -2628,7 +2735,12 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 !strokes.contains(&(i - 1))
             });
         }
-        Command::MoveSketchStrokes { sketch, strokes, by, .. } => {
+        Command::MoveSketchStrokes {
+            sketch,
+            strokes,
+            by,
+            ..
+        } => {
             if !by.iter().all(|v| v.is_finite()) {
                 return Err(reject(
                     "A move is two numbers.",
@@ -2644,8 +2756,14 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 }
             }
         }
-        Command::SetLayerSource { layer_id, asset, .. } => {
-            let found = project.assets.iter().find(|a| &a.id == asset).map(|a| (a.kind, a.name.clone()));
+        Command::SetLayerSource {
+            layer_id, asset, ..
+        } => {
+            let found = project
+                .assets
+                .iter()
+                .find(|a| &a.id == asset)
+                .map(|a| (a.kind, a.name.clone()));
             let Some((kind, name)) = found else {
                 return Err(reject(
                     &format!("There is no imported item called {asset}."),
@@ -2654,7 +2772,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             };
             let layer = layer_mut(project, &comp_id, layer_id)?;
             let fits = match layer.kind {
-                crate::model::LayerKind::Raster => matches!(kind, AssetKind::Still | AssetKind::ImageSequence),
+                crate::model::LayerKind::Raster => {
+                    matches!(kind, AssetKind::Still | AssetKind::ImageSequence)
+                }
                 crate::model::LayerKind::Audio => kind == AssetKind::Audio,
                 _ => {
                     return Err(reject(
@@ -2673,7 +2793,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             if &layer.asset_id == asset {
-                return Err(reject(&format!("{} already shows {name}.", layer.name), "D-734"));
+                return Err(reject(
+                    &format!("{} already shows {name}.", layer.name),
+                    "D-734",
+                ));
             }
             layer.asset_id = asset.clone();
         }
@@ -2738,19 +2861,23 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             // all but normal.
             layer.blend_mode = *mode;
         }
-        Command::SetText {
-            layer_id, text, ..
-        } => {
+        Command::SetText { layer_id, text, .. } => {
             let layer = layer_mut(project, &comp_id, layer_id)?;
             if layer.text.is_none() {
                 return Err(reject(
-                    &format!("\"{}\" is not a text layer, so it has no words.", layer.name),
+                    &format!(
+                        "\"{}\" is not a text layer, so it has no words.",
+                        layer.name
+                    ),
                     "D-263: only a text layer carries a text record.",
                 ));
             }
             // Refused, not clamped: a size taken and drawn as another would be a silent change.
             if let Some(p) = text.problem() {
-                return Err(reject(&format!("That text cannot be drawn: it needs {p}."), "D-263."));
+                return Err(reject(
+                    &format!("That text cannot be drawn: it needs {p}."),
+                    "D-263.",
+                ));
             }
             layer.text = Some(text.clone());
         }
@@ -3250,7 +3377,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                         DiagnosticId::MatteReferenceMissing,
                         Severity::Error,
                         format!("{name} has no matte, so it has no matte mode to set."),
-                        "D-293: the mode belongs to a matte. Choose the matte layer first.".to_string(),
+                        "D-293: the mode belongs to a matte. Choose the matte layer first."
+                            .to_string(),
                     ));
                 }
             }
@@ -3517,7 +3645,11 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 // D-294: a key's outline is refused for crossing just as the path's is. P-26 set
                 // a crossing wedge as a key, which the layer then drew unmasked on those frames.
                 let crossing = std::iter::once(m.vertices())
-                    .chain(m.keys.iter().map(|k| k.points.iter().map(|p| p.point).collect()))
+                    .chain(
+                        m.keys
+                            .iter()
+                            .map(|k| k.points.iter().map(|p| p.point).collect()),
+                    )
                     .position(|v| !crate::mask::is_simple(&v));
                 if let Some(at) = crossing {
                     let which = match at {
@@ -3576,7 +3708,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             let layer = layer_mut(project, &comp_id, layer_id)?;
             if layer.kind != crate::model::LayerKind::Shape {
                 return Err(reject(
-                    &format!("\"{}\" is not a shape layer, so it has no shapes.", layer.name),
+                    &format!(
+                        "\"{}\" is not a shape layer, so it has no shapes.",
+                        layer.name
+                    ),
                     "D-78: only a shape layer carries a list of shapes.",
                 ));
             }
@@ -3600,9 +3735,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     .keys
                     .iter()
                     .find(|k| s.keys.iter().filter(|o| o.frame == k.frame).count() > 1);
-                let problem = s
-                    .problem()
-                    .or_else(|| twice.map(|k| format!("one key to a frame, not two at {}", k.frame)));
+                let problem = s.problem().or_else(|| {
+                    twice.map(|k| format!("one key to a frame, not two at {}", k.frame))
+                });
                 if let Some(p) = problem {
                     return Err(Diagnostic::new(
                         DiagnosticId::CommandInvalidValue,
@@ -3632,8 +3767,13 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 return Err(invalid_effect(why));
             }
             // D-642: a sound effect's numbers take keys only.
-            if effect.effect.is_sound() && effect.tracks.values().any(|t| t[0].expression().is_some()) {
-                return Err(invalid_effect(format!("{}'s numbers take keys only, not an expression.", effect.effect.name())));
+            if effect.effect.is_sound()
+                && effect.tracks.values().any(|t| t[0].expression().is_some())
+            {
+                return Err(invalid_effect(format!(
+                    "{}'s numbers take keys only, not an expression.",
+                    effect.effect.name()
+                )));
             }
             lookup_file_known(project, &effect.effect)?;
             let layer = layer_mut(project, &comp_id, layer_id)?;
@@ -3659,7 +3799,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .unwrap_or(layer.effects.len())
                 .min(layer.effects.len());
             layer.effects.insert(at, effect.clone());
-            effect_cycle(project.composition(&comp_id).expect("checked above"), layer_id)?;
+            effect_cycle(
+                project.composition(&comp_id).expect("checked above"),
+                layer_id,
+            )?;
         }
         Command::RemoveEffect {
             layer_id,
@@ -3752,7 +3895,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 .with_remediation("Remove the effect and add the one you want."));
             }
             existing.effect = effect.clone();
-            effect_cycle(project.composition(&comp_id).expect("checked above"), layer_id)?;
+            effect_cycle(
+                project.composition(&comp_id).expect("checked above"),
+                layer_id,
+            )?;
         }
         Command::SetEffectKeys {
             layer_id,
@@ -3912,10 +4058,19 @@ fn lookup_file_known(project: &Project, effect: &crate::effects::Effect) -> Resu
         Some(lut) => Err(Diagnostic::new(
             DiagnosticId::EffectParameterInvalid,
             Severity::Error,
-            format!("{} cannot use {lut}: it is not a lookup file of this project.", effect.name()),
-            format!("D-182: {}'s {setting} is the id of an asset of kind lut, or empty.", effect.name()),
+            format!(
+                "{} cannot use {lut}: it is not a lookup file of this project.",
+                effect.name()
+            ),
+            format!(
+                "D-182: {}'s {setting} is the id of an asset of kind lut, or empty.",
+                effect.name()
+            ),
         )
-        .with_remediation(format!("Choose the {} file on the effect's card.", crate::lut::file_kind(effect)))),
+        .with_remediation(format!(
+            "Choose the {} file on the effect's card.",
+            crate::lut::file_kind(effect)
+        ))),
     }
 }
 

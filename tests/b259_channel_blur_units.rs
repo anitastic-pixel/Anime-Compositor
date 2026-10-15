@@ -39,8 +39,10 @@ fn channel_blur(rgba: [f64; 4], units: &str) -> Effect {
 
 /// The street (`town.png` in `dir`) with `effect`, 8-bit straight.
 fn picture(dir: &Path, effect: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J =
-        serde_json::from_str(&fs::read_to_string(repo("Fixtures/channel_blur/fx_chblur_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/channel_blur/fx_chblur_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -52,9 +54,20 @@ fn picture(dir: &Path, effect: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = json!([effect]);
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -99,34 +112,79 @@ fn b259_channel_blur_units() {
         "fx_chblur_024.json",
     ]);
     let saved = t.saved_parameters("fx_chblur_001.json");
-    t.row("fx_chblur_001.json, a Channel Blur with no units as before D-380, is saved without units", &saved.to_string(), saved.get("units").is_none());
+    t.row(
+        "fx_chblur_001.json, a Channel Blur with no units as before D-380, is saved without units",
+        &saved.to_string(),
+        saved.get("units").is_none(),
+    );
     let saved = t.saved_parameters("fx_chblur_015.json");
-    t.row("A Channel Blur in Blurriness is saved as units: blurriness", &saved.to_string(), saved["units"] == "blurriness");
+    t.row(
+        "A Channel Blur in Blurriness is saved as units: blurriness",
+        &saved.to_string(),
+        saved["units"] == "blurriness",
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_chblur_001.json").document;
     t.refused(
         &mut document,
         vec![
-            ("units \"pixels\"", set(channel_blur([3.0, 0.0, 0.0, 0.0], "pixels"))),
-            ("units \"Blurriness\", written with a capital", set(channel_blur([3.0, 0.0, 0.0, 0.0], "Blurriness"))),
+            (
+                "units \"pixels\"",
+                set(channel_blur([3.0, 0.0, 0.0, 0.0], "pixels")),
+            ),
+            (
+                "units \"Blurriness\", written with a capital",
+                set(channel_blur([3.0, 0.0, 0.0, 0.0], "Blurriness")),
+            ),
         ],
     );
-    t.taken(&mut document, "fx_chblur_001.json", vec![("FX-CHBLUR-001 set to Blurriness 6/0/15/3,", set(channel_blur([6.0, 0.0, 15.0, 3.0], "blurriness")))]);
-    let blurriness: J =
-        serde_json::from_str(&fs::read_to_string(t.root.join("expected_channel_blur_blurriness.json")).unwrap()).unwrap();
+    t.taken(
+        &mut document,
+        "fx_chblur_001.json",
+        vec![(
+            "FX-CHBLUR-001 set to Blurriness 6/0/15/3,",
+            set(channel_blur([6.0, 0.0, 15.0, 3.0], "blurriness")),
+        )],
+    );
+    let blurriness: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("expected_channel_blur_blurriness.json")).unwrap(),
+    )
+    .unwrap();
     let mut document = t.load("fx_chblur_001.json").document;
-    document.apply(set(channel_blur([6.0, 0.0, 15.0, 3.0], "blurriness"))).unwrap();
-    let d = effect_table::largest_difference(&t.render(&document, 0, 64), &blurriness["cases"]["FX-CHBLUR-016"]["frames"]["0"]);
-    t.row("FX-CHBLUR-001 set to Blurriness 6/0/15/3 by the command draws FX-CHBLUR-016's frame", &format!("largest difference {d:.1e}"), d <= 2e-5);
+    document
+        .apply(set(channel_blur([6.0, 0.0, 15.0, 3.0], "blurriness")))
+        .unwrap();
+    let d = effect_table::largest_difference(
+        &t.render(&document, 0, 64),
+        &blurriness["cases"]["FX-CHBLUR-016"]["frames"]["0"],
+    );
+    t.row(
+        "FX-CHBLUR-001 set to Blurriness 6/0/15/3 by the command draws FX-CHBLUR-016's frame",
+        &format!("largest difference {d:.1e}"),
+        d <= 2e-5,
+    );
     let mut document = t.load("fx_chblur_015.json").document;
-    document.apply(keys("red_blurriness", &[(0, &[0.0]), (4, &[20.0])])).unwrap();
-    let d = effect_table::largest_difference(&t.render(&document, 2, 64), &blurriness["cases"]["FX-CHBLUR-022"]["frames"]["2"]);
-    t.row("FX-CHBLUR-015 with Red keyed 0 to 20 by the command draws FX-CHBLUR-022's frame 2", &format!("largest difference {d:.1e}"), d <= 2e-5);
+    document
+        .apply(keys("red_blurriness", &[(0, &[0.0]), (4, &[20.0])]))
+        .unwrap();
+    let d = effect_table::largest_difference(
+        &t.render(&document, 2, 64),
+        &blurriness["cases"]["FX-CHBLUR-022"]["frames"]["2"],
+    );
+    t.row(
+        "FX-CHBLUR-015 with Red keyed 0 to 20 by the command draws FX-CHBLUR-022's frame 2",
+        &format!("largest difference {d:.1e}"),
+        d <= 2e-5,
+    );
 
     t.heading("The preview card");
     match Gpu::new() {
-        Err(why) => t.row("The card draws Blurriness", &format!("NOT RUN: no usable card ({why})"), false),
+        Err(why) => t.row(
+            "The card draws Blurriness",
+            &format!("NOT RUN: no usable card ({why})"),
+            false,
+        ),
         Ok(mut gpu) => {
             for (name, frame) in [
                 ("fx_chblur_001.json", 0),
@@ -143,11 +201,41 @@ fn b259_channel_blur_units() {
                 for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
                     let mut cache = CelCache::viewer();
                     let mut log = FrameLog::new(3);
-                    let cpu = preview::preview_frame_cached(&project, &comp, frame, &t.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache).unwrap().to_srgb8_straight();
+                    let cpu = preview::preview_frame_cached(
+                        &project,
+                        &comp,
+                        frame,
+                        &t.root,
+                        quality,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                    )
+                    .unwrap()
+                    .to_srgb8_straight();
                     let mut log = FrameLog::new(3);
-                    let (card, ..) = preview::preview_frame_srgb8(&project, &comp, frame, &t.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).unwrap();
-                    let on_cpu = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-                    let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+                    let (card, ..) = preview::preview_frame_srgb8(
+                        &project,
+                        &comp,
+                        frame,
+                        &t.root,
+                        quality,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .unwrap();
+                    let on_cpu = log
+                        .finish()
+                        .iter()
+                        .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+                    let worst = cpu
+                        .iter()
+                        .zip(&card)
+                        .map(|(a, b)| a.abs_diff(*b))
+                        .max()
+                        .unwrap_or(0);
                     t.row(
                         &format!("{name} frame {frame} at {quality:?}: drawn on the card, within 1 level of 255 of the CPU"),
                         &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
@@ -162,14 +250,32 @@ fn b259_channel_blur_units() {
     let dir = repo("verification/D-380 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     write("town.png", &town());
     let mut drawn = Vec::new();
     for (name, effect, what) in [
-        ("built_1_sigma_red_20.png", chblur_json([20.0, 0.0, 0.0, 0.0], ""), "Red Blurriness 20 in an old file (Sigma): red smeared far past the houses"),
-        ("built_2_blurriness_red_20.png", chblur_json([20.0, 0.0, 0.0, 0.0], "blurriness"), "Red Blurriness 20 in Blurriness, as After Effects reads it (sigma 6): a red fringe"),
-        ("built_3_sigma_all_10.png", chblur_json([10.0; 4], ""), "all four at 10 in Sigma: very soft"),
-        ("built_4_blurriness_all_10.png", chblur_json([10.0; 4], "blurriness"), "all four at 10 in Blurriness: softened, the windows still there"),
+        (
+            "built_1_sigma_red_20.png",
+            chblur_json([20.0, 0.0, 0.0, 0.0], ""),
+            "Red Blurriness 20 in an old file (Sigma): red smeared far past the houses",
+        ),
+        (
+            "built_2_blurriness_red_20.png",
+            chblur_json([20.0, 0.0, 0.0, 0.0], "blurriness"),
+            "Red Blurriness 20 in Blurriness, as After Effects reads it (sigma 6): a red fringe",
+        ),
+        (
+            "built_3_sigma_all_10.png",
+            chblur_json([10.0; 4], ""),
+            "all four at 10 in Sigma: very soft",
+        ),
+        (
+            "built_4_blurriness_all_10.png",
+            chblur_json([10.0; 4], "blurriness"),
+            "all four at 10 in Blurriness: softened, the windows still there",
+        ),
         (
             "built_5_gaussian_blurriness_10.png",
             json!({ "instance_id": "fx-0-0", "type_id": "core.gaussian_blur", "enabled": true, "parameters": { "sigma_px": 10.0, "units": "blurriness" } }),
@@ -178,17 +284,36 @@ fn b259_channel_blur_units() {
     ] {
         let (bytes, said) = picture(&dir, effect);
         write(name, &bytes);
-        t.row(&format!("{name}, {what}; draws cleanly"), &format!("{said:?}"), said.is_empty());
+        t.row(
+            &format!("{name}, {what}; draws cleanly"),
+            &format!("{said:?}"),
+            said.is_empty(),
+        );
         drawn.push(bytes);
     }
-    let worst = |a: &[u8], b: &[u8]| a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+    let worst = |a: &[u8], b: &[u8]| {
+        a.iter()
+            .zip(b)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0)
+    };
     let d = worst(&drawn[3], &drawn[4]);
     t.row("Channel Blur with all four at Blurriness 10 is Gaussian Blur at Blurriness 10, within 1 level", &format!("largest difference {d} of 255"), d <= 1);
     let d = worst(&drawn[1], &drawn[0]);
-    t.row("Blurriness 20 is not Sigma 20 (the old file keeps the old look)", &format!("largest difference {d} of 255"), d > 20);
+    t.row(
+        "Blurriness 20 is not Sigma 20 (the old file keeps the old look)",
+        &format!("largest difference {d} of 255"),
+        d > 20,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_chblur_016.json", 0), ("fx_chblur_017.json", 0), ("fx_chblur_019.json", 0), ("fx_chblur_022.json", 2)]);
+    t.tiles(&[
+        ("fx_chblur_016.json", 0),
+        ("fx_chblur_017.json", 0),
+        ("fx_chblur_019.json", 0),
+        ("fx_chblur_022.json", 2),
+    ]);
 
     t.finish("D-380_channel_blur_units_table.md");
 }

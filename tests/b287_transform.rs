@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -28,9 +29,24 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, render, OutputDepth};
 
 /// The Transforms the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -64,7 +80,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=32 {
         let file = format!("fx_xform_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -90,9 +110,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -120,13 +149,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the street, frame `frame`, drawn on the processor, straight 8-bit, with what it
 /// warned of; with `blur`, the layer's switch on and the composition's blur at 180 degrees.
 fn picture(dir: &Path, effects: J, blur: bool, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
     comp["height"] = J::from(TOWN.1);
     if blur {
-        comp["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 16});
+        comp["motion_blur"] =
+            json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 16});
     }
     let layer = &mut comp["layers"][0];
     let middle = json!([TOWN.0 as f64 / 2.0, TOWN.1 as f64 / 2.0]);
@@ -138,8 +171,20 @@ fn picture(dir: &Path, effects: J, blur: bool, frame: i32) -> (Vec<u8>, Vec<Stri
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -166,7 +211,9 @@ fn b287_transform() {
     t.row(
         "fx_xform_019.json is saved with its twelve settings, its own shutter as written",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 12 && saved["use_composition_shutter_angle"] == "off" && saved["shutter_angle"] == 360.0,
+        saved.as_object().unwrap().len() == 12
+            && saved["use_composition_shutter_angle"] == "off"
+            && saved["shutter_angle"] == 360.0,
     );
     for (file, want) in [
         ("fx_xform_026.json", "skew"),
@@ -178,7 +225,11 @@ fn b287_transform() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
     t.shape_refused("fx_xform_001.json", "a Transform whose rotation is a word", r##"{"anchor_point": [50, 50], "position": [50, 50], "uniform_scale": "on", "scale_height": 100, "scale_width": 100, "skew": 0, "skew_axis": 0, "rotation": "some", "opacity": 100, "use_composition_shutter_angle": "on", "shutter_angle": 0, "sampling": "bilinear"}"##);
     t.shape_refused("fx_xform_001.json", "a Transform without its position", r##"{"anchor_point": [50, 50], "uniform_scale": "on", "scale_height": 100, "scale_width": 100, "skew": 0, "skew_axis": 0, "rotation": 0, "opacity": 100, "use_composition_shutter_angle": "on", "shutter_angle": 0, "sampling": "bilinear"}"##);
@@ -186,20 +237,38 @@ fn b287_transform() {
 
     t.heading("Commands");
     let mut document = t.load("fx_xform_001.json").document;
-    let skew = changed(&t, "fx_xform_001.json", |e| if let Effect::Transform { skew, .. } = e { *skew = 86.0 });
-    let fade = changed(&t, "fx_xform_001.json", |e| if let Effect::Transform { opacity, .. } = e { *opacity = 101.0 });
-    let near = changed(&t, "fx_xform_001.json", |e| if let Effect::Transform { sampling, .. } = e { *sampling = "nearest".into() });
+    let skew = changed(&t, "fx_xform_001.json", |e| {
+        if let Effect::Transform { skew, .. } = e {
+            *skew = 86.0
+        }
+    });
+    let fade = changed(&t, "fx_xform_001.json", |e| {
+        if let Effect::Transform { opacity, .. } = e {
+            *opacity = 101.0
+        }
+    });
+    let near = changed(&t, "fx_xform_001.json", |e| {
+        if let Effect::Transform { sampling, .. } = e {
+            *sampling = "nearest".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("skew 86", set(skew)),
             ("opacity 101", set(fade)),
             ("sampling nearest", set(near)),
-            ("rotation keyed to 4000", keys("rotation", &[(0, &[0.0]), (4, &[4000.0])])),
+            (
+                "rotation keyed to 4000",
+                keys("rotation", &[(0, &[0.0]), (4, &[4000.0])]),
+            ),
         ],
     );
     let turn = changed(&t, "fx_xform_001.json", |e| {
-        if let Effect::Transform { rotation, sampling, .. } = e {
+        if let Effect::Transform {
+            rotation, sampling, ..
+        } = e
+        {
             *rotation = 30.0;
             *sampling = "bicubic".into();
         }
@@ -209,7 +278,10 @@ fn b287_transform() {
         "fx_xform_001.json",
         vec![
             ("rotation 30, bicubic", set(turn)),
-            ("position keyed from (50, 50) to (100, 50)", keys("position", &[(0, &[50.0, 50.0]), (4, &[100.0, 50.0])])),
+            (
+                "position keyed from (50, 50) to (100, 50)",
+                keys("position", &[(0, &[50.0, 50.0]), (4, &[100.0, 50.0])]),
+            ),
         ],
     );
 
@@ -229,28 +301,53 @@ fn b287_transform() {
     let mut gpu = Gpu::new().expect("a usable card");
     // As added (001, 025) leaves nothing to draw; through the shutter (016, 019 to 022) the
     // layer is drawn on the processor, as D-188 draws every blurred layer; refused (026 to 032).
-    let none: Vec<u32> = [1, 16, 19, 20, 21, 22, 25].into_iter().chain(26..=32).collect();
+    let none: Vec<u32> = [1, 16, 19, 20, 21, 22, 25]
+        .into_iter()
+        .chain(26..=32)
+        .collect();
     card_fixtures(&mut t, &mut gpu, &none);
     card_reference(
         &mut t,
         &mut gpu,
         &[
             ("turned 15 degrees", json!({"rotation": 15}), 3),
-            ("skewed 20 along 30, scaled 80 by 120, bicubic", json!({"skew": 20, "skew_axis": 30, "uniform_scale": "off", "scale_height": 80, "scale_width": 120, "sampling": "bicubic"}), 3),
-            ("moved to (60, 40) round (45, 55) at opacity 70", json!({"anchor_point": [45, 55], "position": [60, 40], "opacity": 70}), 3),
+            (
+                "skewed 20 along 30, scaled 80 by 120, bicubic",
+                json!({"skew": 20, "skew_axis": 30, "uniform_scale": "off", "scale_height": 80, "scale_width": 120, "sampling": "bicubic"}),
+                3,
+            ),
+            (
+                "moved to (60, 40) round (45, 55) at opacity 70",
+                json!({"anchor_point": [45, 55], "position": [60, 40], "opacity": 70}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-408 pictures/`");
     let dir = repo("verification/D-408 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let street = |p: J| picture(&dir, json!([fx("fx-0-0", &p)]), false, 0);
     let clear = |p: &[u8]| p.chunks_exact(4).filter(|q| q[3] == 0).count();
     let (before, said) = picture(&dir, json!([]), false, 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({}));
     t.row(
         "as added changes nothing: the street byte for byte; draws cleanly",
@@ -294,7 +391,13 @@ fn b287_transform() {
     let (blurred, said) = picture(&dir, slide, true, 2);
     write("6_sliding_blurred.png", &blurred);
     // Sideways contrast: the summed difference between each pixel and the one to its right.
-    let edges = |p: &[u8]| p.chunks_exact(4).collect::<Vec<_>>().windows(2).map(|w| w[0][0].abs_diff(w[1][0]) as u64).sum::<u64>();
+    let edges = |p: &[u8]| {
+        p.chunks_exact(4)
+            .collect::<Vec<_>>()
+            .windows(2)
+            .map(|w| w[0][0].abs_diff(w[1][0]) as u64)
+            .sum::<u64>()
+    };
     t.row(
         "5_sliding_sharp.png and 6_sliding_blurred.png, the street sliding right through frame 2, without and with motion blur: the blurred one smeared sideways, its edges softer; both draw cleanly",
         &format!("{said_sharp:?} {said:?}, sideways contrast {} against {}", edges(&blurred), edges(&sharp)),
@@ -329,22 +432,50 @@ fn b287_transform_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Transform turned 15 degrees (bilinear)", Some(json!({"rotation": 15}))),
-        ("Noise, then Transform skewed 20, scaled 80 by 120, bicubic", Some(json!({"skew": 20, "uniform_scale": "off", "scale_height": 80, "scale_width": 120, "sampling": "bicubic"}))),
+        (
+            "Noise, then Transform turned 15 degrees (bilinear)",
+            Some(json!({"rotation": 15})),
+        ),
+        (
+            "Noise, then Transform skewed 20, scaled 80 by 120, bicubic",
+            Some(
+                json!({"skew": 20, "uniform_scale": "off", "scale_height": 80, "scale_width": 120, "sampling": "bicubic"}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B287_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-287_timing_raw.md"));
+    let out = std::env::var("B287_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-287_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

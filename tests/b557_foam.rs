@@ -30,12 +30,23 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// and Draft. The files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_foam.json")).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_foam.json")).unwrap())
+            .unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = case["project"].as_str().unwrap();
-        let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-        let project = persist::load(&t.root.join(file)).unwrap().document.project().clone();
+        let frames: Vec<i32> = case["frames"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|f| f.parse().unwrap())
+            .collect();
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &frames {
@@ -43,7 +54,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Foam { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Foam { .. })
+                });
             }
         }
         t.row(
@@ -61,9 +74,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -77,7 +99,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Foam { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Foam { .. })
+                });
                 t.row(
                     &format!("the reference shot, Foam {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -92,7 +116,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// with what it warned of; `camera` the composition camera, if any.
 fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,8 +137,20 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -119,7 +158,14 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
 /// nothing.
 fn fault_of(t: &Table, file: &str) -> String {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// A Foam's settings, every one `p` leaves out as it is added.
@@ -203,10 +249,22 @@ fn b557_foam() {
     ] {
         let file = format!("fx_foam_{n:03}.json");
         let why = fault_of(&t, &file);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_foam_001.json", "a Foam whose size is a word", &parameters(&json!({"size": "big"})).to_string());
-    t.shape_refused("fx_foam_001.json", "a Foam whose view is a number", &parameters(&json!({"view": 1})).to_string());
+    t.shape_refused(
+        "fx_foam_001.json",
+        "a Foam whose size is a word",
+        &parameters(&json!({"size": "big"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_foam_001.json",
+        "a Foam whose view is a number",
+        &parameters(&json!({"view": 1})).to_string(),
+    );
     t.shape_refused("fx_foam_001.json", "a Foam without its bubble texture", &{
         let mut p = parameters(&json!({}));
         p.as_object_mut().unwrap().remove("bubble_texture");
@@ -214,7 +272,12 @@ fn b557_foam() {
     });
 
     t.heading("Tiles");
-    t.tiles(&[("fx_foam_001.json", 24), ("fx_foam_016.json", 12), ("fx_foam_028.json", 24), ("fx_foam_031.json", 24)]);
+    t.tiles(&[
+        ("fx_foam_001.json", 24),
+        ("fx_foam_016.json", 12),
+        ("fx_foam_028.json", 24),
+        ("fx_foam_031.json", 24),
+    ]);
 
     t.heading("On the card (D-678)");
     let mut gpu = Gpu::new().expect("a graphics card");
@@ -224,8 +287,16 @@ fn b557_foam() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("Rendered, bigger bubbles, the Layer texture with a reflection", json!({"view": "rendered", "size": 3, "producer_x_size": 0.3, "producer_y_size": 0.3, "bubble_texture": "layer", "reflection_strength": 0.5}), 3),
-            ("Rendered, production rate keyed 0 to 2, Solid New on Top", json!({"view": "rendered", "blend_mode": "solid_new_on_top", "production_rate": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 2, "interp": "linear"}]}}), 3),
+            (
+                "Rendered, bigger bubbles, the Layer texture with a reflection",
+                json!({"view": "rendered", "size": 3, "producer_x_size": 0.3, "producer_y_size": 0.3, "bubble_texture": "layer", "reflection_strength": 0.5}),
+                3,
+            ),
+            (
+                "Rendered, production rate keyed 0 to 2, Solid New on Top",
+                json!({"view": "rendered", "blend_mode": "solid_new_on_top", "production_rate": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 2, "interp": "linear"}]}}),
+                3,
+            ),
         ],
     );
 
@@ -235,17 +306,48 @@ fn b557_foam() {
     let street = picture(json!([]), 0, None).0;
     for (name, p, frame) in [
         ("1_as_added_frame_24", json!({}), 24),
-        ("2_rendered_close_look", json!({"view": "rendered", "size": 3, "producer_x_size": 0.3, "producer_y_size": 0.3}), 48),
-        ("3_crowded_bubblegum", json!({"view": "rendered", "producer_x_size": 0.3, "producer_y_size": 0.3, "size": 5, "production_rate": 2, "bubble_texture": "bubblegum"}), 48),
-        ("4_the_street_in_every_bubble", json!({"view": "rendered", "producer_x_size": 0.3, "producer_y_size": 0.3, "size": 6, "bubble_texture": "layer", "reflection_strength": 0.5}), 48),
-        ("5_windy_and_wandering", json!({"view": "rendered", "size": 3, "producer_x_size": 0.3, "producer_y_size": 0.3, "wind_speed": 4, "wind_direction": 45, "turbulence": 3}), 48),
-        ("6_spit_new_on_top", json!({"view": "rendered", "producer_x_size": 0.3, "producer_y_size": 0.3, "size": 4, "bubble_texture": "spit", "blend_mode": "solid_new_on_top"}), 48),
+        (
+            "2_rendered_close_look",
+            json!({"view": "rendered", "size": 3, "producer_x_size": 0.3, "producer_y_size": 0.3}),
+            48,
+        ),
+        (
+            "3_crowded_bubblegum",
+            json!({"view": "rendered", "producer_x_size": 0.3, "producer_y_size": 0.3, "size": 5, "production_rate": 2, "bubble_texture": "bubblegum"}),
+            48,
+        ),
+        (
+            "4_the_street_in_every_bubble",
+            json!({"view": "rendered", "producer_x_size": 0.3, "producer_y_size": 0.3, "size": 6, "bubble_texture": "layer", "reflection_strength": 0.5}),
+            48,
+        ),
+        (
+            "5_windy_and_wandering",
+            json!({"view": "rendered", "size": 3, "producer_x_size": 0.3, "producer_y_size": 0.3, "wind_speed": 4, "wind_direction": 45, "turbulence": 3}),
+            48,
+        ),
+        (
+            "6_spit_new_on_top",
+            json!({"view": "rendered", "producer_x_size": 0.3, "producer_y_size": 0.3, "size": 4, "bubble_texture": "spit", "blend_mode": "solid_new_on_top"}),
+            48,
+        ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), frame, None);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png, frame {frame}: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
@@ -283,17 +385,37 @@ fn b557_foam_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B557_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-557_timing_raw.md"));
+    let out = std::env::var("B557_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-557_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

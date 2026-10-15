@@ -14,7 +14,9 @@ pub(crate) fn missing(holder: &str, named: &str, when: &str) -> Diagnostic {
     Diagnostic::new(
         DiagnosticId::EffectLayerMissing,
         Severity::Warning,
-        format!("An effect on layer {holder} reads layer {named}, which is not in this composition."),
+        format!(
+            "An effect on layer {holder} reads layer {named}, which is not in this composition."
+        ),
         format!("The setting is kept as written; {when} without the effect."),
     )
     .with_remediation("Choose a layer of this composition, or undo the delete that took it.")
@@ -22,7 +24,11 @@ pub(crate) fn missing(holder: &str, named: &str, when: &str) -> Diagnostic {
 
 /// The `size` rectangle of `picture` whose corner is at `origin`: a picture an effect grew, cut
 /// back to what it was before (D-189's step 1). What lies outside `picture` is transparent.
-pub(crate) fn cut(picture: &WorkingBuffer, origin: (usize, usize), size: (usize, usize)) -> WorkingBuffer {
+pub(crate) fn cut(
+    picture: &WorkingBuffer,
+    origin: (usize, usize),
+    size: (usize, usize),
+) -> WorkingBuffer {
     let mut out = WorkingBuffer::transparent(size.0, size.1);
     let (w, h) = (picture.width(), picture.height());
     let across = size.0.min(w.saturating_sub(origin.0));
@@ -38,7 +44,11 @@ pub(crate) fn cut(picture: &WorkingBuffer, origin: (usize, usize), size: (usize,
 /// `center`, `tile` or `stretch`. An empty picture fits to transparent. `None` for any other
 /// word: the effect holding it is refused by its own setting check before it asks.
 /// D-375: `whole`, which no setting writes, is the picture as it is, for Color Link.
-pub(crate) fn fit(picture: &WorkingBuffer, word: &str, size: (usize, usize)) -> Option<WorkingBuffer> {
+pub(crate) fn fit(
+    picture: &WorkingBuffer,
+    word: &str,
+    size: (usize, usize),
+) -> Option<WorkingBuffer> {
     if word == "whole" {
         return Some(picture.clone());
     }
@@ -55,36 +65,41 @@ pub(crate) fn fit(picture: &WorkingBuffer, word: &str, size: (usize, usize)) -> 
     let dy = (fh as i64 - h as i64).div_euclid(2);
     let src = picture.data();
     let at = |x: usize, y: usize| &src[(y * w + x) * 4..][..4];
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = (i % fw, i / fw);
-        match word {
-            "center" => {
-                let (sx, sy) = (x as i64 - dx, y as i64 - dy);
-                if (0..w as i64).contains(&sx) && (0..h as i64).contains(&sy) {
-                    px.copy_from_slice(at(sx as usize, sy as usize));
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = (i % fw, i / fw);
+            match word {
+                "center" => {
+                    let (sx, sy) = (x as i64 - dx, y as i64 - dy);
+                    if (0..w as i64).contains(&sx) && (0..h as i64).contains(&sy) {
+                        px.copy_from_slice(at(sx as usize, sy as usize));
+                    }
+                }
+                "tile" => {
+                    let sx = (x as i64 - dx).rem_euclid(w as i64) as usize;
+                    let sy = (y as i64 - dy).rem_euclid(h as i64) as usize;
+                    px.copy_from_slice(at(sx, sy));
+                }
+                _ => {
+                    // Stretch: the pixel's centre read at the same fraction of the picture, held
+                    // within its outer pixels, bilinear in premultiplied light.
+                    let u =
+                        ((x as f64 + 0.5) * w as f64 / fw as f64 - 0.5).clamp(0.0, (w - 1) as f64);
+                    let v =
+                        ((y as f64 + 0.5) * h as f64 / fh as f64 - 0.5).clamp(0.0, (h - 1) as f64);
+                    let (i0, j0) = (u.floor() as usize, v.floor() as usize);
+                    let (i1, j1) = ((i0 + 1).min(w - 1), (j0 + 1).min(h - 1));
+                    let (fu, fv) = (u - i0 as f64, v - j0 as f64);
+                    for (c, out) in px.iter_mut().enumerate() {
+                        let top = at(i0, j0)[c] as f64 * (1.0 - fu) + at(i1, j0)[c] as f64 * fu;
+                        let bottom = at(i0, j1)[c] as f64 * (1.0 - fu) + at(i1, j1)[c] as f64 * fu;
+                        *out = (top * (1.0 - fv) + bottom * fv) as f32;
+                    }
                 }
             }
-            "tile" => {
-                let sx = (x as i64 - dx).rem_euclid(w as i64) as usize;
-                let sy = (y as i64 - dy).rem_euclid(h as i64) as usize;
-                px.copy_from_slice(at(sx, sy));
-            }
-            _ => {
-                // Stretch: the pixel's centre read at the same fraction of the picture, held
-                // within its outer pixels, bilinear in premultiplied light.
-                let u = ((x as f64 + 0.5) * w as f64 / fw as f64 - 0.5).clamp(0.0, (w - 1) as f64);
-                let v = ((y as f64 + 0.5) * h as f64 / fh as f64 - 0.5).clamp(0.0, (h - 1) as f64);
-                let (i0, j0) = (u.floor() as usize, v.floor() as usize);
-                let (i1, j1) = ((i0 + 1).min(w - 1), (j0 + 1).min(h - 1));
-                let (fu, fv) = (u - i0 as f64, v - j0 as f64);
-                for (c, out) in px.iter_mut().enumerate() {
-                    let top = at(i0, j0)[c] as f64 * (1.0 - fu) + at(i1, j0)[c] as f64 * fu;
-                    let bottom = at(i0, j1)[c] as f64 * (1.0 - fu) + at(i1, j1)[c] as f64 * fu;
-                    *out = (top * (1.0 - fv) + bottom * fv) as f32;
-                }
-            }
-        }
-    });
+        });
     Some(out)
 }
 

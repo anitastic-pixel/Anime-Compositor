@@ -35,8 +35,14 @@ use anime_compositor::{persist, png_out, render, OutputDepth};
 /// What a frame warned of, the card's own `GPU_PREVIEW_ON_CPU` left out, and whether it said that.
 fn said(log: FrameLog) -> (String, bool) {
     let all = log.finish();
-    let refused = all.iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-    let mut ids: Vec<&str> = all.iter().map(|d| d.id.as_str()).filter(|id| *id != DiagnosticId::GpuPreviewOnCpu.as_str()).collect();
+    let refused = all
+        .iter()
+        .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+    let mut ids: Vec<&str> = all
+        .iter()
+        .map(|d| d.id.as_str())
+        .filter(|id| *id != DiagnosticId::GpuPreviewOnCpu.as_str())
+        .collect();
     ids.sort();
     ids.dedup();
     (ids.join(", "), refused)
@@ -48,9 +54,24 @@ fn is_ours(c: &render::OnCard) -> bool {
 }
 
 /// The wipes the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_ours(c.unmixed())).count()
         // An adjustment layer's run is made from its stack when the card draws it.
         + plan.layers
@@ -64,17 +85,48 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let (said_cpu, _) = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let (said_gpu, refused) = said(log);
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// A Channel Wipe with the settings `p`, every one `p` leaves out as it is added.
@@ -99,7 +151,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, prefix: &str, count: u32, none: O
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{prefix}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card, mut exact) = (0, false, true, 0, true);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -125,14 +181,29 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, prefix: &str, count: u32, none: O
 
 /// The reference shot with each effect `make` makes on its first three layers, frames 0, 100
 /// and 239 at Full and Draft, on the card against the processor; 3 on the card each frame.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, make: fn(&str, &J) -> J, settings: &[(&str, J)]) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    make: fn(&str, &J) -> J,
+    settings: &[(&str, J)],
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -159,14 +230,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, make: fn(&str, &J) -
 
 /// The files of `t.root`'s `expected` whose layers read each other, each refused as written.
 fn loads(t: &mut Table, expected: &str) {
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join(expected)).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join(expected)).unwrap()).unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
         let got = persist::load(&t.root.join(file)).err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
@@ -176,7 +250,10 @@ fn loads(t: &mut Table, expected: &str) {
 /// showing `2_reveal.png` beneath it, drawn on the processor, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_street.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-reveal");
@@ -198,17 +275,37 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     reveal["enabled"] = J::from(false);
     reveal["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().insert(0, reveal);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("reveal"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("reveal"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Set the `holder` layer's first effect (the fixtures' own names).
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's first effect, linearly.
@@ -218,7 +315,14 @@ fn keys_holder(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -279,11 +383,23 @@ fn b392_channel_wipe() {
         ("fx_cwipe_032.json", "layer"),
     ] {
         let why = holder_effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let whole = r#""layer": "", "fit": "stretch", "softness": 10, "property": "luminance", "blur": 0, "invert": "off""#;
-    t.shape_refused("fx_cwipe_001.json", "a Channel Wipe whose completion is a word", &format!(r#"{{{whole}, "completion": "half"}}"#));
-    t.shape_refused("fx_cwipe_001.json", "a Channel Wipe without its completion", &format!(r#"{{{whole}}}"#));
+    t.shape_refused(
+        "fx_cwipe_001.json",
+        "a Channel Wipe whose completion is a word",
+        &format!(r#"{{{whole}, "completion": "half"}}"#),
+    );
+    t.shape_refused(
+        "fx_cwipe_001.json",
+        "a Channel Wipe without its completion",
+        &format!(r#"{{{whole}}}"#),
+    );
     t.shape_refused(
         "fx_cwipe_001.json",
         "a Channel Wipe without its property",
@@ -297,22 +413,47 @@ fn b392_channel_wipe() {
         f(&mut e);
         e
     };
-    let over = with(&|e| if let Effect::ChannelWipe { completion, .. } = e { *completion = 101.0 });
-    let blurred = with(&|e| if let Effect::ChannelWipe { blur, .. } = e { *blur = 120.0 });
-    let value = with(&|e| if let Effect::ChannelWipe { property, .. } = e { *property = "value".to_string() });
-    let hue = with(&|e| if let Effect::ChannelWipe { layer, property, blur, .. } = e {
-        *layer = J::from("");
-        *property = "hue".to_string();
-        *blur = 6.0;
+    let over = with(&|e| {
+        if let Effect::ChannelWipe { completion, .. } = e {
+            *completion = 101.0
+        }
+    });
+    let blurred = with(&|e| {
+        if let Effect::ChannelWipe { blur, .. } = e {
+            *blur = 120.0
+        }
+    });
+    let value = with(&|e| {
+        if let Effect::ChannelWipe { property, .. } = e {
+            *property = "value".to_string()
+        }
+    });
+    let hue = with(&|e| {
+        if let Effect::ChannelWipe {
+            layer,
+            property,
+            blur,
+            ..
+        } = e
+        {
+            *layer = J::from("");
+            *property = "hue".to_string();
+            *blur = 6.0;
+        }
     });
     // Draft halves the blur, a distance; the completion and the softness are not distances.
-    let mut draft = with(&|e| if let Effect::ChannelWipe { blur, softness, .. } = e {
-        (*blur, *softness) = (8.0, 30.0);
+    let mut draft = with(&|e| {
+        if let Effect::ChannelWipe { blur, softness, .. } = e {
+            (*blur, *softness) = (8.0, 30.0);
+        }
     });
     draft.scale_distances(|d| d * 0.5);
-    let halved = draft == with(&|e| if let Effect::ChannelWipe { blur, softness, .. } = e {
-        (*blur, *softness) = (4.0, 30.0);
-    });
+    let halved = draft
+        == with(&|e| {
+            if let Effect::ChannelWipe { blur, softness, .. } = e {
+                (*blur, *softness) = (4.0, 30.0);
+            }
+        });
     let grows = with(&|_| {}).bounds_expansion();
     refused(
         &mut t,
@@ -321,7 +462,10 @@ fn b392_channel_wipe() {
             ("completion 101", set_holder(over)),
             ("blur 120", set_holder(blurred)),
             ("property \"value\"", set_holder(value)),
-            ("blur keyed to 600", keys_holder("blur", &[(0, 0.0), (4, 600.0)])),
+            (
+                "blur keyed to 600",
+                keys_holder("blur", &[(0, 0.0), (4, 600.0)]),
+            ),
         ],
     );
     taken(
@@ -330,7 +474,10 @@ fn b392_channel_wipe() {
         "fx_cwipe_008.json",
         vec![
             ("the layer itself read in hue, blur 6", set_holder(hue)),
-            ("completion keyed from 0 to 100", keys_holder("completion", &[(0, 0.0), (4, 100.0)])),
+            (
+                "completion keyed from 0 to 100",
+                keys_holder("completion", &[(0, 0.0), (4, 100.0)]),
+            ),
         ],
     );
     t.row(
@@ -338,7 +485,11 @@ fn b392_channel_wipe() {
         &format!("{draft:?}"),
         halved,
     );
-    t.row("a wipe never grows the drawing's bounds", &grows.to_string(), grows == 0);
+    t.row(
+        "a wipe never grows the drawing's bounds",
+        &grows.to_string(),
+        grows == 0,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[
@@ -388,19 +539,29 @@ fn b392_channel_wipe() {
     t.heading("Gradient Wipe unchanged on the card: its files and B-226's four reference settings");
     card_fixtures(&mut t, &mut gpu, "fx_gwipe", 28, None);
     t.root = own;
-    let wipe = |fit: &str, completion: f64, softness: f64, invert: &str| {
-        json!({"layer": "layer-4", "fit": fit, "completion": completion, "softness": softness, "invert": invert})
-    };
+    let wipe = |fit: &str, completion: f64, softness: f64, invert: &str| json!({"layer": "layer-4", "fit": fit, "completion": completion, "softness": softness, "invert": invert});
     card_reference(
         &mut t,
         &mut gpu,
         "Gradient Wipe",
         gwipe,
         &[
-            ("layer 4 stretched, completion 50, softness 0", wipe("stretch", 50.0, 0.0, "off")),
-            ("layer 4 stretched, completion 30, softness 25, inverted", wipe("stretch", 30.0, 25.0, "on")),
-            ("layer 4 centred, completion 70, softness 100", wipe("center", 70.0, 100.0, "off")),
-            ("layer 4 tiled, completion 45, softness 10", wipe("tile", 45.0, 10.0, "off")),
+            (
+                "layer 4 stretched, completion 50, softness 0",
+                wipe("stretch", 50.0, 0.0, "off"),
+            ),
+            (
+                "layer 4 stretched, completion 30, softness 25, inverted",
+                wipe("stretch", 30.0, 25.0, "on"),
+            ),
+            (
+                "layer 4 centred, completion 70, softness 100",
+                wipe("center", 70.0, 100.0, "off"),
+            ),
+            (
+                "layer 4 tiled, completion 45, softness 10",
+                wipe("tile", 45.0, 10.0, "off"),
+            ),
         ],
     );
 
@@ -408,17 +569,25 @@ fn b392_channel_wipe() {
     let dir = repo("verification/D-512 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     // The street, and as another gradient, the street in its opposite colours.
     let street = town();
-    let opposite: Vec<u8> = street.chunks_exact(4).flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2], p[3]]).collect();
+    let opposite: Vec<u8> = street
+        .chunks_exact(4)
+        .flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2], p[3]])
+        .collect();
     write("1_street.png", &street);
     write("2_reveal.png", &opposite);
     let px = |v: &[u8], i: usize| v[i * 4..i * 4 + 4].to_vec();
     let kept = |v: &[u8]| (0..w * h).filter(|&i| px(v, i) == px(&street, i)).count();
     let clear = |v: &[u8]| (0..w * h).filter(|&i| v[i * 4 + 3] == 0).count();
 
-    let (half, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "softness": 0}))]));
+    let (half, said) = picture(
+        &dir,
+        json!([fx("fx-0-0", &json!({"completion": 50, "softness": 0}))]),
+    );
     write("3_itself_luminance_half.png", &half);
     t.row(
         "3_itself_luminance_half.png, the street read in its own luminance at completion 50, softness 0: the dark half of the street clear, the light half exactly as it was, nothing between; draws cleanly",
@@ -426,7 +595,13 @@ fn b392_channel_wipe() {
         said.is_empty() && kept(&half) > w * h / 10 && clear(&half) > w * h / 10 && kept(&half) + clear(&half) == w * h,
     );
 
-    let (hue, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "softness": 20, "property": "hue"}))]));
+    let (hue, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &json!({"completion": 50, "softness": 20, "property": "hue"})
+        )]),
+    );
     write("4_itself_hue_soft.png", &hue);
     t.row(
         "4_itself_hue_soft.png, the same read in hue, softness 20: other parts go first (reds and oranges before blues), soft edges between; draws cleanly",
@@ -435,7 +610,10 @@ fn b392_channel_wipe() {
     );
 
     let (sharp, _) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50}))]));
-    let (blurred, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "blur": 20}))]));
+    let (blurred, said) = picture(
+        &dir,
+        json!([fx("fx-0-0", &json!({"completion": 50, "blur": 20}))]),
+    );
     write("5_itself_luminance_blur.png", &blurred);
     t.row(
         "5_itself_luminance_blur.png, luminance at completion 50 with blur 20: the cleared shapes rounded into soft blobs, not following every detail; draws cleanly",
@@ -460,7 +638,10 @@ fn b392_channel_wipe() {
         said.is_empty() && clear(&done) == w * h,
     );
 
-    let (gone, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "layer": "gone"}))]));
+    let (gone, said) = picture(
+        &dir,
+        json!([fx("fx-0-0", &json!({"completion": 50, "layer": "gone"}))]),
+    );
     t.row(
         "a gradient layer not in the composition: the street exactly as it was, with the warning",
         &format!("{said:?}, {} pixels changed", distance(&gone, &street).1),
@@ -473,40 +654,73 @@ fn b392_channel_wipe() {
 /// The effect in `file` (on `holder`, or the adjustment layer in 024).
 fn holder_effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    let layer = d.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().find(|l| l.effects.iter().any(|e| matches!(e.effect, Effect::ChannelWipe { .. })));
-    layer.expect("a layer with a Channel Wipe").effects[0].effect.clone()
+    let layer = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| {
+            l.effects
+                .iter()
+                .any(|e| matches!(e.effect, Effect::ChannelWipe { .. }))
+        });
+    layer.expect("a layer with a Channel Wipe").effects[0]
+        .effect
+        .clone()
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    )
 }
 
-fn refused(t: &mut Table, document: &mut anime_compositor::command::Document, commands: Vec<(&str, Command)>) {
+fn refused(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    commands: Vec<(&str, Command)>,
+) {
     let held = everything(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
-fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file: &str, commands: Vec<(&str, Command)>) {
+fn taken(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    file: &str,
+    commands: Vec<(&str, Command)>,
+) {
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
@@ -534,22 +748,50 @@ fn b392_channel_wipe_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Channel Wipe, completion 50 (as added otherwise)", Some(json!({"completion": 50}))),
-        ("Noise, then Channel Wipe, completion 50, layer 4 in hue, softness 20, blur 6", Some(json!({"completion": 50, "layer": "layer-4", "property": "hue", "softness": 20, "blur": 6}))),
+        (
+            "Noise, then Channel Wipe, completion 50 (as added otherwise)",
+            Some(json!({"completion": 50})),
+        ),
+        (
+            "Noise, then Channel Wipe, completion 50, layer 4 in hue, softness 20, blur 6",
+            Some(
+                json!({"completion": 50, "layer": "layer-4", "property": "hue", "softness": 20, "blur": 6}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B392_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-392_timing_raw.md"));
+    let out = std::env::var("B392_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-392_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -97,20 +97,29 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
         ));
     };
     // D-349: the four channels drawn: the file's R, G, B and A, or its Blender layer's.
-    let prefix = if colour.is_empty() { blender.unwrap_or_default() } else { String::new() };
+    let prefix = if colour.is_empty() {
+        blender.unwrap_or_default()
+    } else {
+        String::new()
+    };
     let drawn = ["R", "G", "B", "A"].map(|c| format!("{prefix}{c}"));
     // D-349: a depth, normals, object id or material id pass is read by the effects, not ignored.
-    let read_by_effects: Vec<String> = [Pass::Depth, Pass::Normals, Pass::ObjectId, Pass::MaterialId]
-        .iter()
-        .filter_map(|p| pass_channels(&names, p))
-        .flatten()
-        // D-522: and a Cryptomatte layer's ranks.
-        .chain(crypto_channels(&names))
-        .collect();
+    let read_by_effects: Vec<String> =
+        [Pass::Depth, Pass::Normals, Pass::ObjectId, Pass::MaterialId]
+            .iter()
+            .filter_map(|p| pass_channels(&names, p))
+            .flatten()
+            // D-522: and a Cryptomatte layer's ranks.
+            .chain(crypto_channels(&names))
+            .collect();
     let ignored: Vec<String> = names
         .iter()
         .filter(|n| {
-            let used = if colour.is_empty() { drawn.contains(n) } else { *n == "A" || colour.contains(&n.as_str()) };
+            let used = if colour.is_empty() {
+                drawn.contains(n)
+            } else {
+                *n == "A" || colour.contains(&n.as_str())
+            };
             !used && !read_by_effects.contains(n)
         })
         .cloned()
@@ -206,7 +215,12 @@ fn checked(path: &Path) -> Result<MetaData, Diagnostic> {
     ) {
         return Err(refused(path, "htj2k", "The file is HTJ2K compressed."));
     }
-    if header.channels.list.iter().any(|c| c.sampling != Vec2(1, 1)) {
+    if header
+        .channels
+        .list
+        .iter()
+        .any(|c| c.sampling != Vec2(1, 1))
+    {
         return Err(refused(
             path,
             "subsampled",
@@ -217,7 +231,10 @@ fn checked(path: &Path) -> Result<MetaData, Diagnostic> {
     // more used to ask for hundreds of GB and end the program.
     let largest = crate::media::LARGEST_DRAWING_PIXELS;
     for (what, size) in [
-        ("display window", header.shared_attributes.display_window.size),
+        (
+            "display window",
+            header.shared_attributes.display_window.size,
+        ),
         ("data window", header.layer_size),
     ] {
         if size.0 as u64 * size.1 as u64 > largest {
@@ -316,7 +333,11 @@ pub enum Pass {
     Named(String),
     /// D-522: a Cryptomatte layer (`""` the first), the names picked (commas between), and
     /// whether the ids' colours are wanted rather than the matte.
-    Cryptomatte { layer: String, selection: String, colours: bool },
+    Cryptomatte {
+        layer: String,
+        selection: String,
+        colours: bool,
+    },
 }
 
 impl Pass {
@@ -365,12 +386,21 @@ pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
                 if !["n", "normal", "normals"].contains(&last(&layer).as_str()) {
                     return None;
                 }
-                let find = |p: &str| names.iter().find(|m| split(m) == (layer.clone(), p.to_string())).cloned();
+                let find = |p: &str| {
+                    names
+                        .iter()
+                        .find(|m| split(m) == (layer.clone(), p.to_string()))
+                        .cloned()
+                };
                 Some([find(parts[0])?, find(parts[1])?, find(parts[2])?])
             })
         }),
         Pass::ObjectId | Pass::MaterialId => {
-            let words = if *pass == Pass::ObjectId { &OBJECT_IDS[..] } else { &MATERIAL_IDS[..] };
+            let words = if *pass == Pass::ObjectId {
+                &OBJECT_IDS[..]
+            } else {
+                &MATERIAL_IDS[..]
+            };
             let found: Vec<&String> = names
                 .iter()
                 .filter(|n| {
@@ -387,7 +417,9 @@ pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
         }
         Pass::Named(text) => {
             let wanted: Vec<&str> = text.split(',').map(str::trim).collect();
-            if !matches!(wanted.len(), 1 | 3 | 4) || wanted.iter().any(|w| !names.iter().any(|n| n == w)) {
+            if !matches!(wanted.len(), 1 | 3 | 4)
+                || wanted.iter().any(|w| !names.iter().any(|n| n == w))
+            {
                 return None;
             }
             let at = |i: usize| wanted[i % wanted.len()].to_string();
@@ -417,18 +449,40 @@ fn blender_colour(names: &[String]) -> Option<String> {
             (["R", "G", "B"].contains(&part) && word == "Combined").then_some(layer)
         })
         .collect();
-    let chosen = layers.iter().find(|l| **l == "Composite.Combined").or(layers.first())?;
+    let chosen = layers
+        .iter()
+        .find(|l| **l == "Composite.Combined")
+        .or(layers.first())?;
     Some(format!("{chosen}."))
 }
 
 /// D-349: the names an object id's layer goes by (Blender, Cinema 4D, V-Ray and others).
-pub const OBJECT_IDS: [&str; 5] = ["indexob", "objectid", "objid", "objectindex", "vrayobjectid"];
+pub const OBJECT_IDS: [&str; 5] = [
+    "indexob",
+    "objectid",
+    "objid",
+    "objectindex",
+    "vrayobjectid",
+];
 /// D-349: the names a material id's layer goes by.
-pub const MATERIAL_IDS: [&str; 6] = ["indexma", "materialid", "matid", "mtlid", "materialindex", "vraymtlid"];
+pub const MATERIAL_IDS: [&str; 6] = [
+    "indexma",
+    "materialid",
+    "matid",
+    "mtlid",
+    "materialindex",
+    "vraymtlid",
+];
 
 /// D-348: `EFFECT_CHANNEL_MISSING`, said on each frame an effect finds no pass to read.
 pub fn pass_missing(title: String, detail: String) -> Diagnostic {
-    Diagnostic::new(DiagnosticId::EffectChannelMissing, Severity::Warning, title, detail).with_remediation(
+    Diagnostic::new(
+        DiagnosticId::EffectChannelMissing,
+        Severity::Warning,
+        title,
+        detail,
+    )
+    .with_remediation(
         "Render the file again with the pass saved in it, or put the effect on a layer whose EXR \
          file holds it. The effect's settings are kept; until then it changes nothing.",
     )
@@ -443,8 +497,18 @@ pub fn pass_missing(title: String, detail: String) -> Diagnostic {
 pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Diagnostic> {
     let meta = checked(path)?;
     let header = &meta.headers[0];
-    let names: Vec<String> = header.channels.list.iter().map(|c| c.name.to_string()).collect();
-    if let Pass::Cryptomatte { layer, selection, colours } = pass {
+    let names: Vec<String> = header
+        .channels
+        .list
+        .iter()
+        .map(|c| c.name.to_string())
+        .collect();
+    if let Pass::Cryptomatte {
+        layer,
+        selection,
+        colours,
+    } = pass
+    {
         return read_cryptomatte(path, header, &names, pass, layer, selection, *colours);
     }
     let Some(chosen) = pass_channels(&names, pass) else {
@@ -481,7 +545,11 @@ pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Dia
             v
         } else {
             non_finite += 1;
-            if v.is_nan() { 0.0 } else { f32::MAX.copysign(v) }
+            if v.is_nan() {
+                0.0
+            } else {
+                f32::MAX.copysign(v)
+            }
         };
     }
     Ok((buffer, non_finite))
@@ -493,7 +561,9 @@ pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Dia
 pub fn crypto_layers(names: &[String]) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
     for n in names {
-        let Some((prefix, part)) = n.rsplit_once('.') else { continue };
+        let Some((prefix, part)) = n.rsplit_once('.') else {
+            continue;
+        };
         if part.eq_ignore_ascii_case("r") && prefix.len() > 2 && prefix.ends_with("00") {
             let t = &prefix[..prefix.len() - 2];
             if !found.iter().any(|f| f == t) {
@@ -513,7 +583,9 @@ fn crypto_channels(names: &[String]) -> Vec<String> {
         .filter(|n| {
             n.rsplit_once('.').is_some_and(|(prefix, _)| {
                 layers.iter().any(|t| {
-                    prefix.strip_prefix(t.as_str()).is_some_and(|d| d.len() >= 2 && d.bytes().all(|b| b.is_ascii_digit()))
+                    prefix
+                        .strip_prefix(t.as_str())
+                        .is_some_and(|d| d.len() >= 2 && d.bytes().all(|b| b.is_ascii_digit()))
                 })
             })
         })
@@ -530,7 +602,10 @@ fn murmur3_32(data: &[u8]) -> u32 {
     let chunks = data.chunks_exact(4);
     let tail = chunks.remainder();
     for c in chunks {
-        h = (h ^ mix(u32::from_le_bytes([c[0], c[1], c[2], c[3]]))).rotate_left(13).wrapping_mul(5).wrapping_add(0xe654_6b64);
+        h = (h ^ mix(u32::from_le_bytes([c[0], c[1], c[2], c[3]])))
+            .rotate_left(13)
+            .wrapping_mul(5)
+            .wrapping_add(0xe654_6b64);
     }
     if !tail.is_empty() {
         h ^= mix(tail.iter().rev().fold(0u32, |k, b| (k << 8) | *b as u32));
@@ -558,7 +633,11 @@ pub fn crypto_id(name: &str) -> f32 {
 /// scatters, as (bits 0-7 over 255, bits 8-15 over 255, bits 16-22 over 127).
 fn crypto_colour(v: f32) -> [f64; 3] {
     let b = v.to_bits();
-    [(b & 255) as f64 / 255.0, ((b >> 8) & 255) as f64 / 255.0, ((b >> 16) & 127) as f64 / 127.0]
+    [
+        (b & 255) as f64 / 255.0,
+        ((b >> 8) & 255) as f64 / 255.0,
+        ((b >> 16) & 127) as f64 / 127.0,
+    ]
 }
 
 /// D-522: the matte (each of the three numbers the summed coverage of the ids picked, held in 0
@@ -582,7 +661,9 @@ fn read_cryptomatte(
     let chosen = if w.is_empty() {
         layers.first()
     } else {
-        layers.iter().find(|t| t.to_lowercase() == w || t.rsplit('.').next().unwrap_or("").to_lowercase() == w)
+        layers.iter().find(|t| {
+            t.to_lowercase() == w || t.rsplit('.').next().unwrap_or("").to_lowercase() == w
+        })
     };
     let Some(t) = chosen else {
         return Err(pass_missing(
@@ -592,13 +673,23 @@ fn read_cryptomatte(
                  T00.g, T00.b, T00.a, T01.r and on, as Psyop's Cryptomatte specification names \
                  them; an empty layer name takes the first, and a name is matched whole or by its \
                  last dotted word, case ignored.",
-                if layers.is_empty() { "none".to_string() } else { layers.join(", ") }
+                if layers.is_empty() {
+                    "none".to_string()
+                } else {
+                    layers.join(", ")
+                }
             ),
         ));
     };
     let part = |kk: usize, p: &str| {
         let level = format!("{t}{kk:02}");
-        names.iter().find(|n| n.rsplit_once('.').is_some_and(|(pre, q)| pre == level && q.to_lowercase() == p)).cloned()
+        names
+            .iter()
+            .find(|n| {
+                n.rsplit_once('.')
+                    .is_some_and(|(pre, q)| pre == level && q.to_lowercase() == p)
+            })
+            .cloned()
     };
     let mut pairs = Vec::new();
     let mut kk = 0;
@@ -616,7 +707,12 @@ fn read_cryptomatte(
     let layer = &file.layer_data[0];
     let get = |n: &String| values(layer, n).expect("a channel the header names");
     let planes: Vec<(Vec<f32>, Vec<f32>)> = pairs.iter().map(|(i, c)| (get(i), get(c))).collect();
-    let picked: Vec<f32> = selection.split(',').map(str::trim).filter(|s| !s.is_empty()).map(crypto_id).collect();
+    let picked: Vec<f32> = selection
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(crypto_id)
+        .collect();
     let n = layer.size.0 * layer.size.1;
     let mut non_finite = 0;
     let mut out = [vec![0f32; n], vec![0f32; n], vec![0f32; n]];
@@ -648,7 +744,16 @@ fn read_cryptomatte(
         }
     }
     let display = header.shared_attributes.display_window;
-    let (data, _) = place(display, layer, out.map(Some).into_iter().chain([None]).collect::<Vec<_>>().try_into().expect("four"));
+    let (data, _) = place(
+        display,
+        layer,
+        out.map(Some)
+            .into_iter()
+            .chain([None])
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("four"),
+    );
     let mut buffer = WorkingBuffer::transparent(display.size.0, display.size.1);
     for (i, (o, v)) in buffer.data_mut().iter_mut().zip(data).enumerate() {
         *o = if i % 4 == 3 { 1.0 } else { v };
@@ -688,7 +793,11 @@ pub fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
 /// [`write`]'s file, as bytes, for D-231's export, which encodes frames side by side and writes
 /// them in order.
-pub fn encode(buffer: &WorkingBuffer, samples: ExrSamples, rate: FrameRate) -> Result<Vec<u8>, String> {
+pub fn encode(
+    buffer: &WorkingBuffer,
+    samples: ExrSamples,
+    rate: FrameRate,
+) -> Result<Vec<u8>, String> {
     let (w, h) = (buffer.width(), buffer.height());
     let channel = |name: &str, k: usize| {
         let values = buffer.data().iter().skip(k).step_by(4).copied();
@@ -723,7 +832,10 @@ pub fn encode(buffer: &WorkingBuffer, samples: ExrSamples, rate: FrameRate) -> R
     let mut image = Image::from_layer(layer);
     image.attributes.chromaticities = Some(rec709());
     let mut file = std::io::Cursor::new(Vec::new());
-    image.write().to_buffered(&mut file).map_err(|e| e.to_string())?;
+    image
+        .write()
+        .to_buffered(&mut file)
+        .map_err(|e| e.to_string())?;
     Ok(file.into_inner())
 }
 

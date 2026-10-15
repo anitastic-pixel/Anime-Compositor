@@ -59,7 +59,10 @@ fn card() -> Vec<u8> {
 /// enlarged three times.
 fn picture(dir: &Path, art: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/block_dissolve/fx_bdissolve_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/block_dissolve/fx_bdissolve_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from(art);
@@ -73,9 +76,20 @@ fn picture(dir: &Path, art: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>)
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -89,7 +103,8 @@ fn picture(dir: &Path, art: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>)
 
 /// One Block Dissolve as a layer's `effects`, from its settings as the file writes them.
 fn one(parameters: J) -> J {
-    let mut p = serde_json::json!({ "completion": 0, "block_width": 1, "block_height": 1, "feather": 0 });
+    let mut p =
+        serde_json::json!({ "completion": 0, "block_width": 1, "block_height": 1, "feather": 0 });
     for (k, v) in parameters.as_object().unwrap() {
         p[k] = v.clone();
     }
@@ -114,7 +129,11 @@ fn b149_block_dissolve() {
 
     t.heading("How far it reaches");
     let got = dissolve(50.0, 4.0, 4.0, 40.0).bounds_expansion();
-    t.row("Block Dissolve grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "Block Dissolve grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = dissolve(40.0, 12.0, 6.0, 3.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -139,7 +158,11 @@ fn b149_block_dissolve() {
             .map(String::as_str)
             .collect::<Vec<_>>(),
     );
-    t.shape_refused("fx_bdissolve_003.json", "no `feather` at all", r#"{"completion": 50, "block_width": 4, "block_height": 4}"#);
+    t.shape_refused(
+        "fx_bdissolve_003.json",
+        "no `feather` at all",
+        r#"{"completion": 50, "block_width": 4, "block_height": 4}"#,
+    );
     t.shape_refused(
         "fx_bdissolve_003.json",
         "a block width that is a list",
@@ -156,18 +179,36 @@ fn b149_block_dissolve() {
             ("block width 0.5", set(dissolve(50.0, 0.5, 4.0, 0.0))),
             ("block height 10001", set(dissolve(50.0, 4.0, 10001.0, 0.0))),
             ("feather -1", set(dissolve(50.0, 4.0, 4.0, -1.0))),
-            ("completion keyed to 150", keys("completion", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "completion keyed to 150",
+                keys("completion", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_bdissolve_003.json",
         vec![
-            ("every number at its bottom,", set(dissolve(0.0, 1.0, 1.0, 0.0))),
-            ("every number at its top,", set(dissolve(100.0, 10000.0, 10000.0, 10000.0))),
-            ("completion keyed from 0 to 100", keys("completion", &[(0, &[0.0]), (4, &[100.0])])),
-            ("block width keyed from 1 to 20", keys("block_width", &[(0, &[1.0]), (4, &[20.0])])),
-            ("feather keyed from 0 to 10", keys("feather", &[(0, &[0.0]), (4, &[10.0])])),
+            (
+                "every number at its bottom,",
+                set(dissolve(0.0, 1.0, 1.0, 0.0)),
+            ),
+            (
+                "every number at its top,",
+                set(dissolve(100.0, 10000.0, 10000.0, 10000.0)),
+            ),
+            (
+                "completion keyed from 0 to 100",
+                keys("completion", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
+            (
+                "block width keyed from 1 to 20",
+                keys("block_width", &[(0, &[1.0]), (4, &[20.0])]),
+            ),
+            (
+                "feather keyed from 0 to 10",
+                keys("feather", &[(0, &[0.0]), (4, &[10.0])]),
+            ),
         ],
     );
 
@@ -181,12 +222,22 @@ fn b149_block_dissolve() {
         ("fx_bdissolve_013.json", 0),
     ]);
 
-    t.heading("Pictures: a made-up title card, in `verification/B-149 pictures/`, three times enlarged");
+    t.heading(
+        "Pictures: a made-up title card, in `verification/B-149 pictures/`, three times enlarged",
+    );
     let dir = effect_table::repo("verification/B-149 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     let art = card();
     write("card.png", &art, 1);
@@ -215,7 +266,11 @@ fn b149_block_dissolve() {
         }
         c
     };
-    let empty_stays = |bytes: &[u8]| art.chunks(4).zip(bytes.chunks(4)).all(|(a, b)| a[3] > 0 || b[3] == 0);
+    let empty_stays = |bytes: &[u8]| {
+        art.chunks(4)
+            .zip(bytes.chunks(4))
+            .all(|(a, b)| a[3] > 0 || b[3] == 0)
+    };
     let mut drawn = std::collections::HashMap::new();
     let mut sheet = |name: &str, settings: J, says: &str, want: &dyn Fn(&Count) -> bool| {
         let (bytes, big, said) = picture(&dir, "card.png", one(settings));
@@ -232,7 +287,12 @@ fn b149_block_dissolve() {
         drawn.insert(name.to_string(), bytes);
     };
     let share = |c: &Count| c.gone as f64 / shown as f64;
-    sheet("card_start.png", serde_json::json!({}), "as it starts: the card as it was", &|c| c.kept == shown);
+    sheet(
+        "card_start.png",
+        serde_json::json!({}),
+        "as it starts: the card as it was",
+        &|c| c.kept == shown,
+    );
     sheet(
         "card_quarter.png",
         serde_json::json!({ "completion": 25, "block_width": 10, "block_height": 10 }),
@@ -276,7 +336,11 @@ fn b149_block_dissolve() {
         &|c| c.gone == shown,
     );
     let gone = |name: &str| -> Vec<bool> { drawn[name].chunks(4).map(|p| p[3] == 0).collect() };
-    let (quarter, half, three) = (gone("card_quarter.png"), gone("card_half.png"), gone("card_three_quarters.png"));
+    let (quarter, half, three) = (
+        gone("card_quarter.png"),
+        gone("card_half.png"),
+        gone("card_three_quarters.png"),
+    );
     let never_back = |a: &[bool], b: &[bool]| a.iter().zip(b).all(|(x, y)| !x || *y);
     t.row(
         "every pixel gone at 25 is gone at 50, and every one gone at 50 is gone at 75: a block once gone stays gone",

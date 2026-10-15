@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -45,7 +46,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=24 {
         let file = format!("fx_skey_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -53,7 +58,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ScreenKey { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ScreenKey { .. })
+                });
             }
         }
         t.row(
@@ -71,9 +78,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -87,7 +103,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ScreenKey { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ScreenKey { .. })
+                });
                 t.row(
                     &format!("the reference shot, Screen Key {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -101,7 +119,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -113,8 +134,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -137,7 +170,9 @@ fn portrait() -> Vec<u8> {
             } else if r < 1.0 {
                 // The spill, from none 14 pixels in to 60% of the screen at the edge.
                 let spill = (1.0 - (1.0 - r) * 70.0 / 14.0).clamp(0.0, 1.0) * 0.6;
-                std::array::from_fn(|c| (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8)
+                std::array::from_fn(|c| {
+                    (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8
+                })
             } else {
                 SCREEN
             };
@@ -191,7 +226,11 @@ fn b420_screen_key() {
         ("fx_skey_024.json", "screen colour"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_skey_001.json",
@@ -211,18 +250,34 @@ fn b420_screen_key() {
 
     t.heading("Commands");
     let mut document = t.load("fx_skey_001.json").document;
-    let over = changed(&t, "fx_skey_001.json", |e| if let Effect::ScreenKey { screen_gain, .. } = e { *screen_gain = 201.0 });
-    let word = changed(&t, "fx_skey_001.json", |e| if let Effect::ScreenKey { view, .. } = e { *view = "Status".into() });
+    let over = changed(&t, "fx_skey_001.json", |e| {
+        if let Effect::ScreenKey { screen_gain, .. } = e {
+            *screen_gain = 201.0
+        }
+    });
+    let word = changed(&t, "fx_skey_001.json", |e| {
+        if let Effect::ScreenKey { view, .. } = e {
+            *view = "Status".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("screen gain 201", set(over)),
             ("view \"Status\"", set(word)),
-            ("softness keyed to 300", keys("softness", &[(0, &[0.0]), (4, &[300.0])])),
+            (
+                "softness keyed to 300",
+                keys("softness", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
         ],
     );
     let picked = changed(&t, "fx_skey_001.json", |e| {
-        if let Effect::ScreenKey { screen_color, clip_white, .. } = e {
+        if let Effect::ScreenKey {
+            screen_color,
+            clip_white,
+            ..
+        } = e
+        {
             *screen_color = "#28b43c".into();
             *clip_white = 70.0;
         }
@@ -231,8 +286,14 @@ fn b420_screen_key() {
         &mut document,
         "fx_skey_001.json",
         vec![
-            ("the green screen's colour picked, clip white 70", set(picked)),
-            ("clip black keyed from 0 to 40", keys("clip_black", &[(0, &[0.0]), (4, &[40.0])])),
+            (
+                "the green screen's colour picked, clip white 70",
+                set(picked),
+            ),
+            (
+                "clip black keyed from 0 to 40",
+                keys("clip_black", &[(0, &[0.0]), (4, &[40.0])]),
+            ),
         ],
     );
 
@@ -254,22 +315,47 @@ fn b420_screen_key() {
     // Left to the processor: a hard clip (007), the status view (013), shrink or grow (014,
     // 015, 019), softness (016) and the edge refine (017); the refused ones (020 to 024) leave
     // nothing.
-    let none: Vec<u32> = [7, 13, 14, 15, 16, 17, 19].into_iter().chain(20..=24).collect();
+    let none: Vec<u32> = [7, 13, 14, 15, 16, 17, 19]
+        .into_iter()
+        .chain(20..=24)
+        .collect();
     card_fixtures(&mut t, &mut gpu, &none);
     card_reference(
         &mut t,
         &mut gpu,
         &[
-            ("screen colour orange, gain 120, clip 10 to 90", json!({"screen_color": "#ff8000", "screen_gain": 120, "clip_black": 10, "clip_white": 90}), 3),
-            ("screen colour sky blue, balance 95, the screen matte", json!({"view": "screen_matte", "screen_color": "#3070e0", "screen_balance": 95}), 3),
-            ("screen colour orange, shrink 2 and softness 2, left to the processor", json!({"screen_color": "#ff8000", "shrink_grow": -2, "softness": 2}), 0),
+            (
+                "screen colour orange, gain 120, clip 10 to 90",
+                json!({"screen_color": "#ff8000", "screen_gain": 120, "clip_black": 10, "clip_white": 90}),
+                3,
+            ),
+            (
+                "screen colour sky blue, balance 95, the screen matte",
+                json!({"view": "screen_matte", "screen_color": "#3070e0", "screen_balance": 95}),
+                3,
+            ),
+            (
+                "screen colour orange, shrink 2 and softness 2, left to the processor",
+                json!({"screen_color": "#ff8000", "shrink_grow": -2, "softness": 2}),
+                0,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-540 pictures/`");
     let dir = repo("verification/D-540 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("portrait.png", TOWN, &portrait());
     let shot = |p: J| picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "portrait.png", TOWN, json!([]));
@@ -287,7 +373,11 @@ fn b420_screen_key() {
     // as added it keeps 1 - 130 / 255 of its covering, 125.
     let (after, said) = shot(json!({}));
     write("2_as_added.png", TOWN, &after);
-    let (s, f, sh) = (cover(&after, screen), cover(&after, face), cover(&after, shirt));
+    let (s, f, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, shirt),
+    );
     t.row(
         "2_as_added.png, as added (screen colour pure green): the screen, less saturated than pure green, half see-through (covering 125 by hand); the face and the shirt whole; draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, shirt {sh}"),
@@ -300,7 +390,12 @@ fn b420_screen_key() {
     let picked = json!({"screen_color": "#28b43c"});
     let (after, said) = shot(picked.clone());
     write("3_picked.png", TOWN, &after);
-    let (s, f, sh, e) = (cover(&after, screen), px(&after, face), px(&after, shirt), px(&after, edge));
+    let (s, f, sh, e) = (
+        cover(&after, screen),
+        px(&after, face),
+        px(&after, shirt),
+        px(&after, edge),
+    );
     t.row(
         "3_picked.png, the screen colour picked from the screen: the screen see-through; the face's middle and the shirt untouched; the spilled edge pixel partly see-through (covering 175 by hand) with its green spill taken out (green 134 or 135 by hand, red 156 and blue 113 kept); draws cleanly",
         &format!("{said:?}, screen {s}, face {f:?}, shirt {sh:?}, spilled {e:?}"),
@@ -355,7 +450,11 @@ fn b420_screen_key() {
     edged["edge_refine"] = J::from(3);
     let (after, said) = shot(edged);
     write("7_edge.png", TOWN, &after);
-    let (s, f, sh) = (cover(&after, screen), px(&after, face), cover(&after, shirt));
+    let (s, f, sh) = (
+        cover(&after, screen),
+        px(&after, face),
+        cover(&after, shirt),
+    );
     t.row(
         "7_edge.png, then shrink 2 pixels, softness 1.5 and edge refine 3: the screen still see-through, the face's middle and the shirt still whole, the face's edge pulled in and softened; draws cleanly",
         &format!("{said:?}, screen {s}, face {f:?}, shirt {sh}"),
@@ -396,17 +495,37 @@ fn b420_screen_key_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B420_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-420_timing_raw.md"));
+    let out = std::env::var("B420_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-420_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

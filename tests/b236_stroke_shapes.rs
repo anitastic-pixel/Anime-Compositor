@@ -34,11 +34,20 @@ fn star(cx: f64, cy: f64, outer: f64, inner: f64) -> Vec<(f64, f64)> {
 }
 
 /// The picture's open path: a zigzag of four straight legs.
-const ZIGZAG: [(f64, f64); 5] = [(60.0, 200.0), (160.0, 80.0), (260.0, 200.0), (360.0, 80.0), (420.0, 140.0)];
+const ZIGZAG: [(f64, f64); 5] = [
+    (60.0, 200.0),
+    (160.0, 80.0),
+    (260.0, 200.0),
+    (360.0, 80.0),
+    (420.0, 140.0),
+];
 
 /// A shape of straight segments, no fill and no stroke of its own.
 fn shape_of(points: &[(f64, f64)], closed: bool) -> J {
-    let points: Vec<J> = points.iter().map(|&(x, y)| json!({"point": [x, y], "in": [0, 0], "out": [0, 0]})).collect();
+    let points: Vec<J> = points
+        .iter()
+        .map(|&(x, y)| json!({"point": [x, y], "in": [0, 0], "out": [0, 0]}))
+        .collect();
     json!({"name": "Shape 1", "enabled": true, "closed": closed, "path": {"base": {"points": points}, "keyframes": []}, "fill": null, "stroke": null})
 }
 
@@ -101,14 +110,23 @@ fn picture_project(shapes: J, parameters: &J) -> Project {
             }]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the picture's project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the picture's project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// The picture at `frame` on the processor, and what was said.
 fn picture(dir: &Path, project: &Project, frame: i32) -> (Vec<u8>, Vec<String>) {
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(project, &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn =
+        render_frame(project, &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -116,7 +134,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -124,9 +147,24 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 }
 
 /// The Path Strokes the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -136,18 +174,49 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// Frames side by side, a white gap between.
@@ -181,18 +250,39 @@ fn b236_stroke_shapes() {
     t.fixtures("expected_stroke_shapes.json");
 
     t.heading("The file");
-    let files: Vec<String> = (47..=61).map(|n| format!("fx_stroke_{n:03}.json")).collect();
+    let files: Vec<String> = (47..=61)
+        .map(|n| format!("fx_stroke_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
     let saved = t.saved_parameters("fx_stroke_001.json");
-    t.row("Path From Masks, the default, is not written: D-356's files save as they were", &saved.to_string(), saved.get("source").is_none());
+    t.row(
+        "Path From Masks, the default, is not written: D-356's files save as they were",
+        &saved.to_string(),
+        saved.get("source").is_none(),
+    );
     let saved = t.saved_parameters("fx_stroke_049.json");
-    t.row("Path From Shape Paths is written \"shapes\"", &saved.to_string(), saved.get("source") == Some(&json!("shapes")));
+    t.row(
+        "Path From Shape Paths is written \"shapes\"",
+        &saved.to_string(),
+        saved.get("source") == Some(&json!("shapes")),
+    );
     let why = effect_of(&t.load("fx_stroke_061.json").document).why_invalid();
     let said = "Path Stroke's source is \"masks\", \"shapes\" or \"text\", and this is \"layer\".";
-    t.row("fx_stroke_061.json is refused in a sentence", &why, why == said);
+    t.row(
+        "fx_stroke_061.json is refused in a sentence",
+        &why,
+        why == said,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_stroke_049.json").document;
@@ -202,15 +292,38 @@ fn b236_stroke_shapes() {
         change(&mut e);
         e
     };
-    t.refused(&mut document, vec![("Path From \"layer\"", set(with(&|e| if let Effect::Stroke { source, .. } = e { *source = "layer".into() })))]);
+    t.refused(
+        &mut document,
+        vec![(
+            "Path From \"layer\"",
+            set(with(&|e| {
+                if let Effect::Stroke { source, .. } = e {
+                    *source = "layer".into()
+                }
+            })),
+        )],
+    );
     t.taken(
         &mut document,
         "fx_stroke_049.json",
-        vec![("End 50, Path From Masks,", set(with(&|e| if let Effect::Stroke { end, source, .. } = e { *end = 50.0; *source = "masks".into() })))],
+        vec![(
+            "End 50, Path From Masks,",
+            set(with(&|e| {
+                if let Effect::Stroke { end, source, .. } = e {
+                    *end = 50.0;
+                    *source = "masks".into()
+                }
+            })),
+        )],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_stroke_048.json", 0), ("fx_stroke_049.json", 0), ("fx_stroke_054.json", 2), ("fx_stroke_055.json", 0)]);
+    t.tiles(&[
+        ("fx_stroke_048.json", 0),
+        ("fx_stroke_049.json", 0),
+        ("fx_stroke_054.json", 2),
+        ("fx_stroke_055.json", 0),
+    ]);
 
     // A shape layer has no drawing, and the card is handed effects on drawings only (B-46's
     // `cel.is_some()` in `compose::resolve_rest`), so every effect on a shape layer, Path Stroke
@@ -222,7 +335,11 @@ fn b236_stroke_shapes() {
     let fixture_root = effect_table::repo("Fixtures/stroke");
     for n in 47..=60 {
         let file = format!("fx_stroke_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -244,17 +361,38 @@ fn b236_stroke_shapes() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
     let street = town();
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &street).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &street,
+    )
+    .unwrap();
     let points = star(240.0, 135.0, 115.0, 48.0);
     let star_shape = json!([shape_of(&points, true)]);
-    let write_on = stroke_of(json!({"end": keyed(0.0, 100.0), "color": "#ff8800", "brush_size": 8, "brush_hardness": 60}));
+    let write_on = stroke_of(
+        json!({"end": keyed(0.0, 100.0), "color": "#ff8800", "brush_size": 8, "brush_hardness": 60}),
+    );
     let open = |closed: bool| json!([shape_of(&ZIGZAG, closed)]);
     let zig = stroke_of(json!({"color": "#ff8800", "brush_size": 8, "brush_hardness": 60}));
     for (what, project) in [
-        ("the star written on (End keyed 0 to 100)", picture_project(star_shape.clone(), &write_on)),
+        (
+            "the star written on (End keyed 0 to 100)",
+            picture_project(star_shape.clone(), &write_on),
+        ),
         ("the open zigzag", picture_project(open(false), &zig)),
         ("the zigzag closed", picture_project(open(true), &zig)),
-        ("the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image", picture_project(star_shape.clone(), &stroke_of(json!({"brush_size": 30, "brush_hardness": 0, "spacing": 100, "paint_style": "reveal"})))),
+        (
+            "the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image",
+            picture_project(
+                star_shape.clone(),
+                &stroke_of(
+                    json!({"brush_size": 30, "brush_hardness": 0, "spacing": 100, "paint_style": "reveal"}),
+                ),
+            ),
+        ),
     ] {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 12, 24] {
@@ -272,8 +410,15 @@ fn b236_stroke_shapes() {
     t.heading("Pictures: the town under a shape layer, in `verification/D-357 pictures/`");
     // Pixels changed, and how many of them are further from the path than the brush reaches.
     let changed = |b: &[u8], path: &[(f64, f64)], closed: bool, reach: f64| {
-        let all: Vec<usize> = (0..w * h).filter(|&i| b[i * 4..][..4] != street[i * 4..][..4]).collect();
-        let off = all.iter().filter(|&&i| path_distance(path, closed, (i % w) as f64 + 0.5, (i / w) as f64 + 0.5) > reach).count();
+        let all: Vec<usize> = (0..w * h)
+            .filter(|&i| b[i * 4..][..4] != street[i * 4..][..4])
+            .collect();
+        let off = all
+            .iter()
+            .filter(|&&i| {
+                path_distance(path, closed, (i % w) as f64 + 0.5, (i / w) as f64 + 0.5) > reach
+            })
+            .count();
         (all.len(), off)
     };
     let project = picture_project(star_shape, &write_on);
@@ -283,11 +428,27 @@ fn b236_stroke_shapes() {
         let (all, off) = changed(&bytes, &points, true, 5.0);
         ok &= said.is_empty() && off == 0;
         counts.push(all);
-        png_out::write_rgba(&dir.join(format!("star_f{frame:02}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("star_f{frame:02}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         frames.push(bytes);
     }
     let (wide, bytes) = strip(&frames);
-    png_out::write_rgba(&dir.join("star_strip.png"), wide, h, OutputDepth::Eight, &[], &bytes).unwrap();
+    png_out::write_rgba(
+        &dir.join("star_strip.png"),
+        wide,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
     t.row(
         "star_strip.png (frames 0, 6, 12, 18 and 24, each also alone as star_fNN.png), a five-pointed star drawn as a shape, End keyed from 0 to 100: \
          the orange line draws itself round the star clockwise from the top point; nothing changes off the star",
@@ -297,7 +458,15 @@ fn b236_stroke_shapes() {
     let mut drawn = Vec::new();
     for (name, closed) in [("open", false), ("closed", true)] {
         let (bytes, said) = picture(&dir, &picture_project(open(closed), &zig), 0);
-        png_out::write_rgba(&dir.join(format!("zigzag_{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("zigzag_{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let (all, off) = changed(&bytes, &ZIGZAG, closed, 5.0);
         t.row(
             &format!("zigzag_{name}.png, a zigzag of four legs drawn as a shape, {name}: nothing changes off its path"),
@@ -331,7 +500,8 @@ fn b236_stroke_shapes_timing() {
 
     let cpu = std::env::var("B236_CPU").is_ok();
     let mut gpu = Gpu::new().expect("a usable card");
-    let mut s = format!(
+    let mut s =
+        format!(
         "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: {}\n\n\
          | Shot | Quality | First | Again |\n|---|---|---:|---:|\n",
         gpu.about(),
@@ -356,7 +526,8 @@ fn b236_stroke_shapes_timing() {
         ("Noise, then Path Stroke from shapes, All Masks, Brush Size 24, Spacing 0", Some(stroke_of(json!({"all_masks": "on", "brush_size": 24, "spacing": 0})))),
         ("Noise, then Path Stroke from shapes, All Masks, Brush Size 60, Hardness 0, Spacing 100", Some(stroke_of(json!({"all_masks": "on", "brush_size": 60, "brush_hardness": 0, "spacing": 100})))),
     ];
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     for (name, e) in shots {
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         let c = &mut j["compositions"][0];
@@ -373,15 +544,47 @@ fn b236_stroke_shapes_timing() {
         obj.insert("name".into(), json!("paths"));
         obj.insert("kind".into(), json!("shape"));
         obj.insert("masks".into(), json!([]));
-        obj.insert("shapes".into(), json!([circle(960.0, 540.0, 400.0), circle(560.0, 400.0, 220.0), circle(1400.0, 620.0, 300.0)]));
+        obj.insert(
+            "shapes".into(),
+            json!([
+                circle(960.0, 540.0, 400.0),
+                circle(560.0, 400.0, 220.0),
+                circle(1400.0, 620.0, 300.0)
+            ]),
+        );
         obj.insert("effects".into(), e.map_or(json!([]), |p| json!([{"instance_id": "s", "type_id": "core.stroke", "enabled": true, "parameters": p}])));
         layers.push(shape);
-        c["layer_order"].as_array_mut().unwrap().push(json!("paths"));
-        let project = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone();
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        c["layer_order"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("paths"));
+        let project = persist::load_str(&j.to_string())
+            .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+            .document
+            .project()
+            .clone();
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B236_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-236_timing_raw.md"));
+    let out = std::env::var("B236_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-236_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

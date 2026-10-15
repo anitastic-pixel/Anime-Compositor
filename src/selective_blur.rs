@@ -95,21 +95,31 @@ pub(crate) fn selective_color_blur(
         .collect();
     let mut out = enc.clone();
     // The original's five passes, each reading what the one before wrote.
-    for (reach, across) in [(r, true), (r, false), (r / 4, true), (r / 16, false), (r / 64, true)] {
+    for (reach, across) in [
+        (r, true),
+        (r, false),
+        (r / 4, true),
+        (r / 16, false),
+        (r / 64, true),
+    ] {
         if reach > 0 {
             out = pass(&out, &chosen, w, h, &tbl, reach, across);
         }
     }
     // Back to working values, alpha unchanged (D-87; the original makes it opaque). A pixel
     // whose colour came out as it went in keeps its value exactly.
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        if chosen[i] && out[i] != enc[i] {
-            let a = px[3];
-            for c in 0..3 {
-                px[c] = srgb_to_linear(out[i][c]) * a;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            if chosen[i] && out[i] != enc[i] {
+                let a = px[3];
+                for c in 0..3 {
+                    px[c] = srgb_to_linear(out[i][c]) * a;
+                }
             }
-        }
-    });
+        });
 }
 
 /// One pass along the rows (`across`) or the columns. Each chosen pixel becomes the weighted

@@ -69,7 +69,10 @@ pub(crate) fn drop_shadow(
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
-            let (x, y) = ((i % ow) as isize - g as isize, (i / ow) as isize - g as isize);
+            let (x, y) = (
+                (i % ow) as isize - g as isize,
+                (i / ow) as isize - g as isize,
+            );
             let a = sample_bilinear(
                 &covering,
                 (x + r) as f64 + 0.5 - distance * ux,
@@ -134,11 +137,19 @@ pub(crate) fn radial_shadow(
         .for_each(|(i, px)| {
             let x = (i % cw) as f64 - gx as f64 + 0.5;
             let y = (i / cw) as f64 - gy as f64 + 0.5;
-            px.copy_from_slice(&sample_bilinear(drawing, lx + (x - lx) / k, ly + (y - ly) / k));
+            px.copy_from_slice(&sample_bilinear(
+                drawing,
+                lx + (x - lx) / k,
+                ly + (y - ly) / k,
+            ));
         });
     let r = blur(&mut cast, softness / 3.0);
     let (ex, ey) = (gx + r, gy + r);
-    let (op, f, c) = (opacity / 100.0, influence / 100.0, color.map(crate::grade::to_linear));
+    let (op, f, c) = (
+        opacity / 100.0,
+        influence / 100.0,
+        color.map(crate::grade::to_linear),
+    );
     let ow = cast.width();
     let mut out = WorkingBuffer::transparent(ow, cast.height());
     let shade = &cast;
@@ -160,7 +171,11 @@ pub(crate) fn radial_shadow(
             let d = if shadow_only {
                 [0.0; 4]
             } else {
-                at(drawing, (i % ow) as isize - ex as isize, (i / ow) as isize - ey as isize)
+                at(
+                    drawing,
+                    (i % ow) as isize - ex as isize,
+                    (i / ow) as isize - ey as isize,
+                )
             };
             for j in 0..4 {
                 px[j] = (d[j] as f64 + shadow[j] * (1.0 - d[3] as f64)) as f32;
@@ -214,7 +229,13 @@ fn iris_measure(dx: f64, dy: f64, n: usize, roundness: f64, rotation: f64, aspec
 /// D-121: each row of the iris's whole steps, its offset and its first and last step across. A
 /// step exactly on the edge counts, with a billionth of a pixel of slack. The iris is convex,
 /// so each row is one run.
-pub(crate) fn iris_runs(radius: f64, n: usize, roundness: f64, rotation: f64, aspect: f64) -> Vec<[isize; 3]> {
+pub(crate) fn iris_runs(
+    radius: f64,
+    n: usize,
+    roundness: f64,
+    rotation: f64,
+    aspect: f64,
+) -> Vec<[isize; 3]> {
     const SLACK: f64 = 1e-9;
     if radius < 1.0 {
         return vec![[0, 0, 0]];
@@ -248,13 +269,24 @@ pub(crate) struct Iris {
 /// outside the layer, which grows by the iris's reach rounded up on every side, returned;
 /// `repeat` holds each column and row inside it, and it does not grow. Each row of the iris is
 /// one run, summed from the row's running totals. The settings are already valid.
-pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, iris: &Iris) -> usize {
+pub(crate) fn lens_blur(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    repeat: bool,
+    iris: &Iris,
+) -> usize {
     let g = if repeat {
         0
     } else {
         lens_reach(radius, iris.aspect).ceil() as usize
     };
-    let runs = iris_runs(radius, iris.blades, iris.roundness, iris.rotation, iris.aspect);
+    let runs = iris_runs(
+        radius,
+        iris.blades,
+        iris.roundness,
+        iris.rotation,
+        iris.aspect,
+    );
     let n = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64;
     let (w, h) = (source.width() as isize, source.height() as isize);
     let (src, sums, empty) = lens_rows(source, iris);
@@ -282,7 +314,10 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
                 let (s, row) = (&sums[sy as usize], sy as usize * w as usize * 4);
                 if !repeat {
                     // Only the pixels whose run meets the row, where it is never empty.
-                    let (first, last) = ((lo + g as isize).max(0), (w - 1 + hi + g as isize).min(ow as isize - 1));
+                    let (first, last) = (
+                        (lo + g as isize).max(0),
+                        (w - 1 + hi + g as isize).min(ow as isize - 1),
+                    );
                     for ox in first..=last {
                         let x = ox - g as isize;
                         let (l, r) = ((x - hi).max(0) as usize, (x - lo).min(w - 1) as usize);
@@ -329,7 +364,10 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
 /// gain is above 0; each row's running totals, `sums[y][x]` the sum of its first x pixels; and
 /// which rows have nothing on them (P-21: such a row adds only +0 to sums that started at +0).
 #[allow(clippy::type_complexity)]
-fn lens_rows<'a>(source: &'a WorkingBuffer, iris: &Iris) -> (std::borrow::Cow<'a, [f32]>, Vec<Vec<[f64; 4]>>, Vec<bool>) {
+fn lens_rows<'a>(
+    source: &'a WorkingBuffer,
+    iris: &Iris,
+) -> (std::borrow::Cow<'a, [f32]>, Vec<Vec<[f64; 4]>>, Vec<bool>) {
     let w = source.width();
     let src = if iris.gain > 0.0 {
         let (m, at) = ((1.0 + iris.gain) as f32, (iris.threshold / 100.0) as f32);
@@ -357,7 +395,10 @@ fn lens_rows<'a>(source: &'a WorkingBuffer, iris: &Iris) -> (std::borrow::Cow<'a
             s
         })
         .collect();
-    let empty: Vec<bool> = src.par_chunks(w.max(1) * 4).map(|row| row.iter().all(|&v| v == 0.0)).collect();
+    let empty: Vec<bool> = src
+        .par_chunks(w.max(1) * 4)
+        .map(|row| row.iter().all(|&v| v == 0.0))
+        .collect();
     (src, sums, empty)
 }
 
@@ -374,7 +415,15 @@ pub(crate) struct LensMap {
 pub(crate) fn lens_levels(radius: f64, iris: &Iris) -> Vec<Vec<[isize; 3]>> {
     let big = (radius.ceil() as usize).max(1);
     (0..=big)
-        .map(|j| iris_runs(radius * (j as f64 / big as f64), iris.blades, iris.roundness, iris.rotation, iris.aspect))
+        .map(|j| {
+            iris_runs(
+                radius * (j as f64 / big as f64),
+                iris.blades,
+                iris.roundness,
+                iris.rotation,
+                iris.aspect,
+            )
+        })
         .collect()
 }
 
@@ -445,7 +494,8 @@ pub(crate) fn lens_blur_map(
                 if repeat {
                     let left = (b.min(-1) - a + 1).max(0) as f64;
                     let right = (b - a.max(w) + 1).max(0) as f64;
-                    acc[i] += left * src[row + i] as f64 + right * src[row + (w as usize - 1) * 4 + i] as f64;
+                    acc[i] += left * src[row + i] as f64
+                        + right * src[row + (w as usize - 1) * 4 + i] as f64;
                 }
             }
         }
@@ -453,36 +503,39 @@ pub(crate) fn lens_blur_map(
     };
     let ow = (w + 2 * g) as usize;
     let mut out = WorkingBuffer::transparent(ow, (h + 2 * g) as usize);
-    out.data_mut().par_chunks_mut(ow * 4).enumerate().for_each(|(oy, line)| {
-        let y = oy as isize - g;
-        for (ox, px) in line.chunks_exact_mut(4).enumerate() {
-            let x = ox as isize - g;
-            let s = if mw > 0 && mh > 0 {
-                let mx = (x - origin.0 as isize).clamp(0, mw - 1);
-                let my = (y - origin.1 as isize).clamp(0, mh - 1);
-                lens_level(&map.data()[(my * mw + mx) as usize * 4..][..4], read, big)
-            } else {
-                lens_level(&[0.0; 4], read, big)
-            };
-            let j = (s.floor() as usize).min(big);
-            let t = s - j as f64;
-            let mut acc = mean(&levels[j], counts[j], x, y);
-            if t > 0.0 {
-                let next = mean(&levels[j + 1], counts[j + 1], x, y);
+    out.data_mut()
+        .par_chunks_mut(ow * 4)
+        .enumerate()
+        .for_each(|(oy, line)| {
+            let y = oy as isize - g;
+            for (ox, px) in line.chunks_exact_mut(4).enumerate() {
+                let x = ox as isize - g;
+                let s = if mw > 0 && mh > 0 {
+                    let mx = (x - origin.0 as isize).clamp(0, mw - 1);
+                    let my = (y - origin.1 as isize).clamp(0, mh - 1);
+                    lens_level(&map.data()[(my * mw + mx) as usize * 4..][..4], read, big)
+                } else {
+                    lens_level(&[0.0; 4], read, big)
+                };
+                let j = (s.floor() as usize).min(big);
+                let t = s - j as f64;
+                let mut acc = mean(&levels[j], counts[j], x, y);
+                if t > 0.0 {
+                    let next = mean(&levels[j + 1], counts[j + 1], x, y);
+                    for i in 0..4 {
+                        acc[i] += t * (next[i] - acc[i]);
+                    }
+                }
+                if iris.gain > 0.0 {
+                    for i in 0..3 {
+                        acc[i] = acc[i].min(acc[3]);
+                    }
+                }
                 for i in 0..4 {
-                    acc[i] += t * (next[i] - acc[i]);
+                    px[i] = acc[i] as f32;
                 }
             }
-            if iris.gain > 0.0 {
-                for i in 0..3 {
-                    acc[i] = acc[i].min(acc[3]);
-                }
-            }
-            for i in 0..4 {
-                px[i] = acc[i] as f32;
-            }
-        }
-    });
+        });
     *source = out;
     g as usize
 }
@@ -587,9 +640,12 @@ pub(crate) fn outline(
         });
     }
     let mut ring = WorkingBuffer::transparent(bw, bh);
-    ring.data_mut().par_chunks_exact_mut(4).zip(&band).for_each(|(px, &a)| {
-        px[3] = a;
-    });
+    ring.data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(&band)
+        .for_each(|(px, &a)| {
+            px[3] = a;
+        });
     let g = n + blur(&mut ring, softness / 3.0);
     let (k, c) = (opacity / 100.0, color.map(crate::grade::to_linear));
     let ow = ring.width();
@@ -598,7 +654,10 @@ pub(crate) fn outline(
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
-            let (x, y) = ((i % ow) as isize - g as isize, (i / ow) as isize - g as isize);
+            let (x, y) = (
+                (i % ow) as isize - g as isize,
+                (i / ow) as isize - g as isize,
+            );
             let d = at(drawing, x, y);
             let rest = px[3] as f64 * k * (1.0 - d[3] as f64);
             for j in 0..3 {
@@ -687,14 +746,22 @@ pub(crate) fn lens_chromatic_aberration(
                 1.0
             } else {
                 let rho = (dx * dx + dy * dy).sqrt() / rc;
-                if rho > 0.0 { rho.powf(e) } else { 0.0 }
+                if rho > 0.0 {
+                    rho.powf(e)
+                } else {
+                    0.0
+                }
             };
             let mut chans = [[0.0f32; 4]; 3];
             for c in 0..3 {
                 let (s, n) = (scales[c], counts[c]);
                 let mut total = [0.0f32; 4];
                 for j in 0..n {
-                    let t = if n > 1 { j as f64 / (n - 1) as f64 - 0.5 } else { 0.0 };
+                    let t = if n > 1 {
+                        j as f64 / (n - 1) as f64 - 0.5
+                    } else {
+                        0.0
+                    };
                     let q = if offset {
                         let m = amount * (t * fringe_blur * s.abs() - s);
                         sample_bilinear(&drawing, x + ux * m, y + uy * m)
@@ -781,13 +848,20 @@ pub(crate) fn distance_gradation(
             let f: Vec<f64> = (0..ph)
                 .map(|y| {
                     let inside = x >= 1 && y >= 1 && x <= w && y <= h;
-                    if inside && drawing.pixel(x - 1, y - 1)[3] >= 0.5 { far } else { 0.0 }
+                    if inside && drawing.pixel(x - 1, y - 1)[3] >= 0.5 {
+                        far
+                    } else {
+                        0.0
+                    }
                 })
                 .collect();
             squared_distances(&f)
         })
         .collect();
-    let (g, mix) = (color.map(crate::grade::to_linear), crate::grade::mixer(blend));
+    let (g, mix) = (
+        color.map(crate::grade::to_linear),
+        crate::grade::mixer(blend),
+    );
     source
         .data_mut()
         .par_chunks_mut(w * 4)
@@ -831,7 +905,14 @@ pub(crate) fn light_rays(
         }
     });
     crate::blurs::radial_blur(&mut rays, false, length, center, false, None);
-    add_rays(source, &rays, intensity, color.map(crate::grade::to_linear), false, 0);
+    add_rays(
+        source,
+        &rays,
+        intensity,
+        color.map(crate::grade::to_linear),
+        false,
+        0,
+    );
 }
 
 /// D-422: Light Burst. The whole layer is the light, zoomed about `center` by `sweep` with
@@ -875,12 +956,22 @@ pub(crate) fn cc_light_rays(
     }
     let mut rays = source.clone();
     let w = rays.width();
-    rays.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let m = light_share(((i % w) as f64 + 0.5 - center.0, (i / w) as f64 + 0.5 - center.1), radius, square);
-        for v in px.iter_mut() {
-            *v = (*v as f64 * m) as f32;
-        }
-    });
+    rays.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let m = light_share(
+                (
+                    (i % w) as f64 + 0.5 - center.0,
+                    (i / w) as f64 + 0.5 - center.1,
+                ),
+                radius,
+                square,
+            );
+            for v in px.iter_mut() {
+                *v = (*v as f64 * m) as f32;
+            }
+        });
     crate::blurs::radial_blur(&mut rays, false, 100.0, center, false, None);
     crate::blurs::radial_blur(&mut rays, true, turn, center, false, None);
     let c = tint.map_or([1.0; 3], |c| c.map(crate::grade::to_linear));
@@ -902,7 +993,14 @@ fn light_share(d: (f64, f64), radius: f64, square: Option<(f64, f64)>) -> f64 {
 /// colour, the covering min(1, O.a + `intensity` R.a); with `from_alpha`, R's covering stands
 /// for its colour. D-423's other modes lay Q = `intensity` C R, covering a = min(1, `intensity`
 /// R.a), on O: 1 over it, Q + O (1 - a); 2 screened, O + Q - O Q; 3 the larger.
-fn add_rays(source: &mut WorkingBuffer, rays: &WorkingBuffer, intensity: f64, c: [f64; 3], from_alpha: bool, mode: u8) {
+fn add_rays(
+    source: &mut WorkingBuffer,
+    rays: &WorkingBuffer,
+    intensity: f64,
+    c: [f64; 3],
+    from_alpha: bool,
+    mode: u8,
+) {
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -1005,7 +1103,10 @@ pub(crate) fn offset(source: &mut WorkingBuffer, shift: [f64; 2]) {
     let (i0, j0) = (i0 as i64, j0 as i64);
     let drawing = source.clone();
     let p = |x: i64, y: i64| {
-        drawing.pixel(x.rem_euclid(w as i64) as usize, y.rem_euclid(h as i64) as usize)
+        drawing.pixel(
+            x.rem_euclid(w as i64) as usize,
+            y.rem_euclid(h as i64) as usize,
+        )
     };
     source
         .data_mut()
@@ -1081,7 +1182,11 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
 /// D-449: Block Load's pass under way at `completion` (0 to 100) with `scans` (its whole part):
 /// the power of two its blocks are wide, whether the picture before it is empty (Start Cleared's
 /// first pass), and how far through it is. None when every pass is done, the layer as it is.
-pub(crate) fn block_load_pass(completion: f64, scans: f64, cleared: bool) -> Option<(i32, bool, f64)> {
+pub(crate) fn block_load_pass(
+    completion: f64,
+    scans: f64,
+    cleared: bool,
+) -> Option<(i32, bool, f64)> {
     let n = scans.floor() as i32;
     let first = if cleared { 0 } else { 1 };
     let t = n + 1 - first;
@@ -1107,7 +1212,15 @@ pub(crate) fn block_load_edge(h: usize, oy: usize, size: f64, f: f64) -> usize {
 /// pass before, blocks twice as wide, or nothing before Start Cleared's first pass. The layer
 /// never grows.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn block_load(source: &mut WorkingBuffer, completion: f64, scans: f64, cleared: bool, bilinear: bool, pixel: f64, origin: (usize, usize)) {
+pub(crate) fn block_load(
+    source: &mut WorkingBuffer,
+    completion: f64,
+    scans: f64,
+    cleared: bool,
+    bilinear: bool,
+    pixel: f64,
+    origin: (usize, usize),
+) {
     let Some((e, empty, f)) = block_load_pass(completion, scans, cleared) else {
         return;
     };
@@ -1145,7 +1258,11 @@ pub(crate) fn hex_tile_setup(
     origin: (usize, usize),
 ) -> Vec<f64> {
     let (cx, cy) = crate::effects::radial_center(center, size, origin);
-    let (ox, oy) = if lock { crate::effects::radial_center([50.0, 50.0], size, origin) } else { (cx, cy) };
+    let (ox, oy) = if lock {
+        crate::effects::radial_center([50.0, 50.0], size, origin)
+    } else {
+        (cx, cy)
+    };
     let a = rotate.to_radians();
     let r3 = 3.0f64.sqrt();
     let mode = match render {
@@ -1191,7 +1308,11 @@ pub(crate) fn hex_tile_at(k: &[f64], x: f64, y: f64) -> (f64, f64) {
     let rf = u * k[7] + v * k[8];
     let t = [qf, -qf - rf, rf];
     let mut r = t.map(|e| (e + 0.5).floor());
-    let g = [(r[0] - t[0]).abs(), (r[1] - t[1]).abs(), (r[2] - t[2]).abs()];
+    let g = [
+        (r[0] - t[0]).abs(),
+        (r[1] - t[1]).abs(),
+        (r[2] - t[2]).abs(),
+    ];
     if g[0] > g[1] && g[0] > g[2] {
         r[0] = -r[1] - r[2];
     } else if g[1] > g[2] {
@@ -1227,7 +1348,10 @@ pub(crate) fn hex_tile_at(k: &[f64], x: f64, y: f64) -> (f64, f64) {
         }
     }
     let m = k[11];
-    (k[0] + c * lu - s * lv + m * (c * mu - s * mv), k[1] + s * lu + c * lv + m * (s * mu + c * mv))
+    (
+        k[0] + c * lu - s * lv + m * (c * mu - s * mv),
+        k[1] + s * lu + c * lv + m * (s * mu + c * mv),
+    )
 }
 
 /// D-461: after After Effects' CC HexTile. Each pixel reads `hex_tile_at`'s place, folded back
@@ -1250,7 +1374,11 @@ pub(crate) fn hex_tile(source: &mut WorkingBuffer, k: &[f64]) {
         .enumerate()
         .for_each(|(i, px)| {
             let (sx, sy) = hex_tile_at(k, (i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            px.copy_from_slice(&sample_bilinear(drawing, fold(sx, w as f64), fold(sy, h as f64)));
+            px.copy_from_slice(&sample_bilinear(
+                drawing,
+                fold(sx, w as f64),
+                fold(sy, h as f64),
+            ));
         });
     *source = out;
 }
@@ -1262,17 +1390,29 @@ const BURN_CHAR: f64 = 0.02;
 
 /// D-460: Burn Film's numbers for a picture `w` by `h`: the seed's mix, then the burn front, the
 /// diagonal, and the seven burn points' x, y and delay, the centre first (document 21).
-pub(crate) fn burn_film_setup((w, h): (usize, usize), burn: f64, center: [f64; 2], seed: f64) -> (u64, Vec<f64>) {
+pub(crate) fn burn_film_setup(
+    (w, h): (usize, usize),
+    burn: f64,
+    center: [f64; 2],
+    seed: f64,
+) -> (u64, Vec<f64>) {
     let base = crate::grade::mix(seed.floor() as u64);
     let (w, h) = (w as f64, h as f64);
     let d = w.hypot(h);
     let (cx, cy) = (center[0] / 100.0 * w, center[1] / 100.0 * h);
-    let far = [(0.0, 0.0), (w, 0.0), (0.0, h), (w, h)].iter().map(|&(x, y)| (x - cx).hypot(y - cy)).fold(0.0, f64::max);
+    let far = [(0.0, 0.0), (w, 0.0), (0.0, h), (w, h)]
+        .iter()
+        .map(|&(x, y)| (x - cx).hypot(y - cy))
+        .fold(0.0, f64::max);
     let s = burn / 100.0 * (far / d + BURN_ROUGH + BURN_SCORCH + BURN_CHAR) - BURN_SCORCH;
     let mut k = vec![s, d, cx, cy, 0.0];
     for i in 1..=6 {
         let u = |ch| crate::grade::unit(base, i, 0, -1, ch);
-        k.extend([(u(0) + 1.0) / 2.0 * w, (u(1) + 1.0) / 2.0 * h, 0.25 + 0.125 * (u(2) + 1.0)]);
+        k.extend([
+            (u(0) + 1.0) / 2.0 * w,
+            (u(1) + 1.0) / 2.0 * h,
+            0.25 + 0.125 * (u(2) + 1.0),
+        ]);
     }
     (base, k)
 }
@@ -1288,29 +1428,36 @@ pub(crate) fn burn_film(source: &mut WorkingBuffer, burn: f64, center: [f64; 2],
     }
     let (base, k) = burn_film_setup((w, h), burn, center, seed);
     let (s, d) = (k[0], k[1]);
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, line)| {
-        let py = y as f64 + 0.5;
-        for (x, px) in line.chunks_mut(4).enumerate() {
-            let qx = x as f64 + 0.5;
-            let near = k[2..].chunks(3).map(|q| (qx - q[0]).hypot(py - q[1]) / d + q[2]).fold(f64::INFINITY, f64::min);
-            let n = crate::grade::fractal(base, 0, (qx / (d / 10.0), py / (d / 10.0), 0.0), 6);
-            let g = near + BURN_ROUGH * (n + 1.0) / 2.0 - s;
-            if g >= BURN_SCORCH {
-                continue;
-            }
-            if g >= 0.0 {
-                let t = g / BURN_SCORCH;
-                for c in px[..3].iter_mut() {
-                    *c = (*c as f64 * t) as f32;
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, line)| {
+            let py = y as f64 + 0.5;
+            for (x, px) in line.chunks_mut(4).enumerate() {
+                let qx = x as f64 + 0.5;
+                let near = k[2..]
+                    .chunks(3)
+                    .map(|q| (qx - q[0]).hypot(py - q[1]) / d + q[2])
+                    .fold(f64::INFINITY, f64::min);
+                let n = crate::grade::fractal(base, 0, (qx / (d / 10.0), py / (d / 10.0), 0.0), 6);
+                let g = near + BURN_ROUGH * (n + 1.0) / 2.0 - s;
+                if g >= BURN_SCORCH {
+                    continue;
                 }
-            } else if g > -BURN_CHAR {
-                px[3] = (px[3] as f64 * (1.0 + g / BURN_CHAR)) as f32;
-                px[..3].fill(0.0);
-            } else {
-                px.fill(0.0);
+                if g >= 0.0 {
+                    let t = g / BURN_SCORCH;
+                    for c in px[..3].iter_mut() {
+                        *c = (*c as f64 * t) as f32;
+                    }
+                } else if g > -BURN_CHAR {
+                    px[3] = (px[3] as f64 * (1.0 + g / BURN_CHAR)) as f32;
+                    px[..3].fill(0.0);
+                } else {
+                    px.fill(0.0);
+                }
             }
-        }
-    });
+        });
 }
 
 /// Blocks `size` wide as D-144's Mosaic lays them, flat, or when `bilinear` each pixel the blend,
@@ -1348,7 +1495,11 @@ fn block_picture(source: &mut WorkingBuffer, size: f64, bilinear: bool, (ox, oy)
         for (c, r) in runs.iter().enumerate() {
             for p in r.clone() {
                 let p = p as f64 + 0.5;
-                let (a, b) = if p < centre(c) { (c.wrapping_sub(1), c) } else { (c, c + 1) };
+                let (a, b) = if p < centre(c) {
+                    (c.wrapping_sub(1), c)
+                } else {
+                    (c, c + 1)
+                };
                 out.push(if a == usize::MAX {
                     (0, 0, 0.0)
                 } else if b >= runs.len() {
@@ -1387,7 +1538,13 @@ pub(crate) fn picture_luma(p: [f32; 4]) -> f64 {
 /// D-145: each pixel that shows lit by the difference in picture luma `relief` pixels ahead of
 /// it along `direction` and as far behind, each read between pixels with the point held inside
 /// the layer; grey, or with `color` laid over its own colours. The settings are already valid.
-pub(crate) fn emboss(source: &mut WorkingBuffer, direction: f64, relief: f64, contrast: f64, color: bool) {
+pub(crate) fn emboss(
+    source: &mut WorkingBuffer,
+    direction: f64,
+    relief: f64,
+    contrast: f64,
+    color: bool,
+) {
     let (w, h) = (source.width(), source.height());
     let (ux, uy) = crate::blurs::along(direction);
     let (dx, dy) = (relief * ux, relief * uy);
@@ -1423,7 +1580,12 @@ pub(crate) fn emboss(source: &mut WorkingBuffer, direction: f64, relief: f64, co
 
 /// D-213: each shown pixel moved toward `light`, linear, by `intensity` times its slope when the
 /// slope is above 0, or toward black by it when below, its covering unchanged.
-fn bevel_shade(source: &mut WorkingBuffer, slope: impl Fn(usize, usize) -> f64 + Sync, light: [f64; 3], intensity: f64) {
+fn bevel_shade(
+    source: &mut WorkingBuffer,
+    slope: impl Fn(usize, usize) -> f64 + Sync,
+    light: [f64; 3],
+    intensity: f64,
+) {
     let w = source.width();
     source
         .data_mut()
@@ -1448,12 +1610,21 @@ fn bevel_shade(source: &mut WorkingBuffer, slope: impl Fn(usize, usize) -> f64 +
 
 /// D-213: Bevel Alpha. The slope from the covering blurred at sigma `thickness / 2`, by central
 /// differences, 0 beyond the blur. The settings are already valid.
-pub(crate) fn bevel_alpha(source: &mut WorkingBuffer, thickness: f64, angle: f64, light: [f64; 3], intensity: f64) {
+pub(crate) fn bevel_alpha(
+    source: &mut WorkingBuffer,
+    thickness: f64,
+    angle: f64,
+    light: [f64; 3],
+    intensity: f64,
+) {
     if thickness <= 0.0 || intensity <= 0.0 {
         return;
     }
     let mut cover = source.clone();
-    cover.data_mut().par_chunks_exact_mut(4).for_each(|px| px[..3].fill(0.0));
+    cover
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .for_each(|px| px[..3].fill(0.0));
     let r = blur(&mut cover, thickness / 2.0) as isize;
     let (bw, bh) = (cover.width() as isize, cover.height() as isize);
     let data = cover.data();
@@ -1510,17 +1681,38 @@ pub(crate) fn glass(
     let w = source.width();
     let mut bump = WorkingBuffer::transparent(w, source.height());
     let from = source.data();
-    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let q = match map {
-            Some((m, (ox, oy))) => {
-                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
-                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
-            }
-            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
-        };
-        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
-    });
-    let r = if softness > 0.0 { blur(&mut bump, softness / 2.0) as isize } else { 0 };
+    bump.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let q = match map {
+                Some((m, (ox, oy))) => {
+                    let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                    if mx < m.width() && my < m.height() {
+                        m.pixel(mx, my)
+                    } else {
+                        [0.0; 4]
+                    }
+                }
+                None => [
+                    from[i * 4],
+                    from[i * 4 + 1],
+                    from[i * 4 + 2],
+                    from[i * 4 + 3],
+                ],
+            };
+            px[3] = (crate::grade::phase_of(property, &q)
+                * if property == "alpha" {
+                    1.0
+                } else {
+                    q[3] as f64
+                }) as f32;
+        });
+    let r = if softness > 0.0 {
+        blur(&mut bump, softness / 2.0) as isize
+    } else {
+        0
+    };
     let (bw, bh) = (bump.width() as isize, bump.height() as isize);
     let data = bump.data();
     let at = |x: isize, y: isize| {
@@ -1536,53 +1728,86 @@ pub(crate) fn glass(
         .into_par_iter()
         .map(|i| {
             let (x, y) = ((i % w) as isize, (i / w) as isize);
-            ((at(x + 1, y) - at(x - 1, y)) / 2.0 * k, (at(x, y + 1) - at(x, y - 1)) / 2.0 * k)
+            (
+                (at(x + 1, y) - at(x - 1, y)) / 2.0 * k,
+                (at(x, y + 1) - at(x, y - 1)) / 2.0 * k,
+            )
         })
         .collect();
     if displacement != 0.0 {
         let still = source.clone();
-        source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-            let (nx, ny) = slope[i];
-            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            px.copy_from_slice(&sample_bilinear(&still, x + displacement * nx, y + displacement * ny));
-        });
+        source
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, px)| {
+                let (nx, ny) = slope[i];
+                let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+                px.copy_from_slice(&sample_bilinear(
+                    &still,
+                    x + displacement * nx,
+                    y + displacement * ny,
+                ));
+            });
     }
-    if let Some(GlassLight { point, height: light_height, shares: [ambient, diffuse, specular, roughness, metal] }) = full {
+    if let Some(GlassLight {
+        point,
+        height: light_height,
+        shares: [ambient, diffuse, specular, roughness, metal],
+    }) = full
+    {
         let unit = |v: [f64; 3]| {
             let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-            if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+            if l > 0.0 {
+                v.map(|c| c / l)
+            } else {
+                [0.0; 3]
+            }
         };
         let (ux, uy) = crate::blurs::along(angle);
         let distant = unit([100.0 * ux, 100.0 * uy, light_height]);
-        source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-            let a = px[3] as f64;
-            if a <= 0.0 {
-                px.fill(0.0);
-                return;
-            }
-            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            let color = [0, 1, 2].map(|c| px[c] as f64 / a);
-            let (nx, ny) = slope[i];
-            let n = unit([-nx, -ny, 1.0]);
-            let l = match point {
-                Some((lx, ly)) => unit([lx - x, ly - y, light_height]),
-                None => distant,
-            };
-            let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
-            let rz = 2.0 * nl * n[2] - l[2];
-            let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
-            for c in 0..3 {
-                let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
-                    + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
-                px[c] = (lit * a) as f32;
-            }
-        });
+        source
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, px)| {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    px.fill(0.0);
+                    return;
+                }
+                let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+                let color = [0, 1, 2].map(|c| px[c] as f64 / a);
+                let (nx, ny) = slope[i];
+                let n = unit([-nx, -ny, 1.0]);
+                let l = match point {
+                    Some((lx, ly)) => unit([lx - x, ly - y, light_height]),
+                    None => distant,
+                };
+                let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+                let rz = 2.0 * nl * n[2] - l[2];
+                let shine = if nl > 0.0 && rz > 0.0 {
+                    rz.powf(1.0 / roughness)
+                } else {
+                    0.0
+                };
+                for c in 0..3 {
+                    let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                        + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+                    px[c] = (lit * a) as f32;
+                }
+            });
     } else if intensity > 0.0 {
         let (ux, uy) = crate::blurs::along(angle);
-        bevel_shade(source, |x, y| {
-            let (nx, ny) = slope[y * w + x];
-            (-(nx * ux + ny * uy)).clamp(-1.0, 1.0)
-        }, light, intensity);
+        bevel_shade(
+            source,
+            |x, y| {
+                let (nx, ny) = slope[y * w + x];
+                (-(nx * ux + ny * uy)).clamp(-1.0, 1.0)
+            },
+            light,
+            intensity,
+        );
     }
 }
 
@@ -1621,73 +1846,124 @@ pub(crate) fn vector_blur(
     let n = amount.ceil() as i64;
     let fading = matches!(kind, "natural" | "perpendicular" | "direction_fading");
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let ((ux, uy), size) = if kind.starts_with("direction") {
-            (crate::blurs::along(angle + 360.0 * ridge * at(x, y)), amount)
-        } else {
-            let (gx, gy) = ((at(x + 1, y) - at(x - 1, y)) / 2.0, (at(x, y + 1) - at(x, y - 1)) / 2.0);
-            let g = (gx * gx + gy * gy).sqrt();
-            if g < FLAT {
-                return;
-            }
-            let turn = (angle + if kind == "perpendicular" { 90.0 } else { 0.0 }).to_radians();
-            let (c, s, ux, uy) = (turn.cos(), turn.sin(), gx / g, gy / g);
-            let size = if kind == "constant" || ridge == 0.0 {
-                amount
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let ((ux, uy), size) = if kind.starts_with("direction") {
+                (
+                    crate::blurs::along(angle + 360.0 * ridge * at(x, y)),
+                    amount,
+                )
             } else {
-                amount * 100.0 * g / ((100.0 * g).powi(2) + ridge * ridge).sqrt()
+                let (gx, gy) = (
+                    (at(x + 1, y) - at(x - 1, y)) / 2.0,
+                    (at(x, y + 1) - at(x, y - 1)) / 2.0,
+                );
+                let g = (gx * gx + gy * gy).sqrt();
+                if g < FLAT {
+                    return;
+                }
+                let turn = (angle + if kind == "perpendicular" { 90.0 } else { 0.0 }).to_radians();
+                let (c, s, ux, uy) = (turn.cos(), turn.sin(), gx / g, gy / g);
+                let size = if kind == "constant" || ridge == 0.0 {
+                    amount
+                } else {
+                    amount * 100.0 * g / ((100.0 * g).powi(2) + ridge * ridge).sqrt()
+                };
+                ((ux * c - uy * s, ux * s + uy * c), size)
             };
-            ((ux * c - uy * s, ux * s + uy * c), size)
-        };
-        let (mut acc, mut total) = ([0.0f64; 4], 0.0);
-        for k in if kind == "direction_fading" { 0 } else { -n }..=n {
-            let t = k as f64 / n as f64;
-            let weight = if fading { 1.0 - t.abs() } else { 1.0 };
-            if weight == 0.0 {
-                continue;
+            let (mut acc, mut total) = ([0.0f64; 4], 0.0);
+            for k in if kind == "direction_fading" { 0 } else { -n }..=n {
+                let t = k as f64 / n as f64;
+                let weight = if fading { 1.0 - t.abs() } else { 1.0 };
+                if weight == 0.0 {
+                    continue;
+                }
+                let s = sample_bilinear(
+                    &still,
+                    x as f64 + 0.5 + t * size * ux,
+                    y as f64 + 0.5 + t * size * uy,
+                );
+                for c in 0..4 {
+                    acc[c] += weight * s[c] as f64;
+                }
+                total += weight;
             }
-            let s = sample_bilinear(&still, x as f64 + 0.5 + t * size * ux, y as f64 + 0.5 + t * size * uy);
             for c in 0..4 {
-                acc[c] += weight * s[c] as f64;
+                px[c] = (acc[c] / total) as f32;
             }
-            total += weight;
-        }
-        for c in 0..4 {
-            px[c] = (acc[c] / total) as f32;
-        }
-    });
+        });
 }
 
 /// D-336/D-462/D-463: Vector Blur's, Mr. Smoothie's and Plastic's height, in the alpha of a buffer: the
 /// `property` phase of the drawing, or of `map` lying on it with its corner at the given origin
 /// (clear outside it), times the covering unless the property is alpha, blurred at sigma
 /// `softness / 2` with nothing outside. The buffer is grown by the reach it returns.
-fn flow_height(source: &WorkingBuffer, map: Option<(&WorkingBuffer, (usize, usize))>, property: &str, softness: f64) -> (WorkingBuffer, isize) {
+fn flow_height(
+    source: &WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    property: &str,
+    softness: f64,
+) -> (WorkingBuffer, isize) {
     let w = source.width();
     let mut height = WorkingBuffer::transparent(w, source.height());
     let from = source.data();
-    height.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let q = match map {
-            Some((m, (ox, oy))) => {
-                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
-                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
-            }
-            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
-        };
-        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
-    });
-    let r = if softness > 0.0 { blur(&mut height, softness / 2.0) as isize } else { 0 };
+    height
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let q = match map {
+                Some((m, (ox, oy))) => {
+                    let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                    if mx < m.width() && my < m.height() {
+                        m.pixel(mx, my)
+                    } else {
+                        [0.0; 4]
+                    }
+                }
+                None => [
+                    from[i * 4],
+                    from[i * 4 + 1],
+                    from[i * 4 + 2],
+                    from[i * 4 + 3],
+                ],
+            };
+            px[3] = (crate::grade::phase_of(property, &q)
+                * if property == "alpha" {
+                    1.0
+                } else {
+                    q[3] as f64
+                }) as f32;
+        });
+    let r = if softness > 0.0 {
+        blur(&mut height, softness / 2.0) as isize
+    } else {
+        0
+    };
     (height, r)
 }
 
 /// D-462: Mr. Smoothie's numbers for a buffer `size` whose drawing's corner is at `origin`: the
 /// phase over 360, the colour loop's place in [`crate::effects::MR_SMOOTHIE_LOOPS`], Sample A's x
 /// and y and Sample B's in the buffer, and a 0 for the card's rounded products.
-pub(crate) fn mr_smoothie_setup(phase: f64, color_loop: &str, a: [f64; 2], b: [f64; 2], size: (usize, usize), origin: (usize, usize)) -> [f64; 7] {
+pub(crate) fn mr_smoothie_setup(
+    phase: f64,
+    color_loop: &str,
+    a: [f64; 2],
+    b: [f64; 2],
+    size: (usize, usize),
+    origin: (usize, usize),
+) -> [f64; 7] {
     let (ax, ay) = crate::effects::radial_center(a, size, origin);
     let (bx, by) = crate::effects::radial_center(b, size, origin);
-    let lp = crate::effects::MR_SMOOTHIE_LOOPS.iter().position(|l| *l == color_loop).unwrap_or(2);
+    let lp = crate::effects::MR_SMOOTHIE_LOOPS
+        .iter()
+        .position(|l| *l == color_loop)
+        .unwrap_or(2);
     [phase / 360.0, lp as f64, ax, ay, bx, by, 0.0]
 }
 
@@ -1697,7 +1973,13 @@ pub(crate) fn mr_smoothie_setup(phase: f64, color_loop: &str, a: [f64; 2], b: [f
 /// ABA 1 - |2t - 1|, BAB |2t - 1|), and each pixel takes the straight colour of the bilinear
 /// sample there, held inside the pixel centres, times its own covering. `k` from
 /// `mr_smoothie_setup`; the card's `smoothie` pass works the same products in the same order.
-pub(crate) fn mr_smoothie(source: &mut WorkingBuffer, map: Option<(&WorkingBuffer, (usize, usize))>, property: &str, smoothness: f64, k: &[f64; 7]) {
+pub(crate) fn mr_smoothie(
+    source: &mut WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    property: &str,
+    smoothness: f64,
+    k: &[f64; 7],
+) {
     let (w, h) = (source.width(), source.height());
     if w == 0 || h == 0 {
         return;
@@ -1706,30 +1988,42 @@ pub(crate) fn mr_smoothie(source: &mut WorkingBuffer, map: Option<(&WorkingBuffe
     let (bw, data) = (height.width() as isize, height.data());
     let (fw, fh) = (w as f64, h as f64);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3] as f64;
-        if a <= 0.0 {
-            px.copy_from_slice(&[0.0; 4]);
-            return;
-        }
-        let (x, y) = ((i % w) as isize + r, (i / w) as isize + r);
-        let v = (data[((y * bw + x) * 4 + 3) as usize] as f64).clamp(0.0, 1.0);
-        let mut t = v + k[0];
-        if t < 0.0 || t > 1.0 {
-            t -= t.floor();
-        }
-        let s = match k[1] as u8 {
-            0 => t,
-            1 => 1.0 - t,
-            2 => 1.0 - (2.0 * t - 1.0).abs(),
-            _ => (2.0 * t - 1.0).abs(),
-        };
-        let q = sample_bilinear(&still, (k[2] + s * (k[4] - k[2])).clamp(0.5, fw - 0.5), (k[3] + s * (k[5] - k[3])).clamp(0.5, fh - 0.5));
-        let qa = q[3] as f64;
-        for c in 0..3 {
-            px[c] = if qa > 0.0 { (q[c] as f64 / qa * a) as f32 } else { 0.0 };
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                px.copy_from_slice(&[0.0; 4]);
+                return;
+            }
+            let (x, y) = ((i % w) as isize + r, (i / w) as isize + r);
+            let v = (data[((y * bw + x) * 4 + 3) as usize] as f64).clamp(0.0, 1.0);
+            let mut t = v + k[0];
+            if t < 0.0 || t > 1.0 {
+                t -= t.floor();
+            }
+            let s = match k[1] as u8 {
+                0 => t,
+                1 => 1.0 - t,
+                2 => 1.0 - (2.0 * t - 1.0).abs(),
+                _ => (2.0 * t - 1.0).abs(),
+            };
+            let q = sample_bilinear(
+                &still,
+                (k[2] + s * (k[4] - k[2])).clamp(0.5, fw - 0.5),
+                (k[3] + s * (k[5] - k[3])).clamp(0.5, fh - 0.5),
+            );
+            let qa = q[3] as f64;
+            for c in 0..3 {
+                px[c] = if qa > 0.0 {
+                    (q[c] as f64 / qa * a) as f32
+                } else {
+                    0.0
+                };
+            }
+        });
 }
 
 /// D-463: Plastic, after After Effects' CC Plastic (document 21). The bump is `flow_height` at
@@ -1744,7 +2038,13 @@ pub(crate) fn plastic(
     map: Option<(&WorkingBuffer, (usize, usize))>,
     property: &str,
     (softness, height, lo, hi): (f64, f64, f64, f64),
-    (point, direction, light_height, light, intensity): (Option<(f64, f64)>, f64, f64, [f64; 3], f64),
+    (point, direction, light_height, light, intensity): (
+        Option<(f64, f64)>,
+        f64,
+        f64,
+        [f64; 3],
+        f64,
+    ),
     ambient_light: [f64; 3],
     [ambient, diffuse, dust, specular, roughness, metal]: [f64; 6],
 ) {
@@ -1756,46 +2056,74 @@ pub(crate) fn plastic(
     let (bw, bh, data) = (bump.width() as isize, bump.height() as isize, bump.data());
     let cut = |v: f64| {
         if hi == lo {
-            if v >= lo { 1.0 } else { 0.0 }
+            if v >= lo {
+                1.0
+            } else {
+                0.0
+            }
         } else {
             ((v - lo) / (hi - lo)).clamp(0.0, 1.0)
         }
     };
     let at = |x: isize, y: isize| {
         let (bx, by) = (x + r, y + r);
-        cut(if bx < 0 || by < 0 || bx >= bw || by >= bh { 0.0 } else { data[((by * bw + bx) * 4 + 3) as usize] as f64 })
+        cut(if bx < 0 || by < 0 || bx >= bw || by >= bh {
+            0.0
+        } else {
+            data[((by * bw + bx) * 4 + 3) as usize] as f64
+        })
     };
     let k = height / 100.0 * 1.25 * softness.max(1.0);
     let unit = |v: [f64; 3]| {
         let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+        if l > 0.0 {
+            v.map(|c| c / l)
+        } else {
+            [0.0; 3]
+        }
     };
     let (ux, uy) = crate::blurs::along(direction);
     let distant = unit([100.0 * ux, 100.0 * uy, light_height]);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3] as f64;
-        if a <= 0.0 {
-            px.fill(0.0);
-            return;
-        }
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let color = [0, 1, 2].map(|c| px[c] as f64 / a);
-        let (gx, gy) = ((at(x + 1, y) - at(x - 1, y)) / 2.0, (at(x, y + 1) - at(x, y - 1)) / 2.0);
-        let n = unit([-k * gx, -k * gy, 1.0]);
-        let l = match point {
-            Some((lx, ly)) => unit([lx - (x as f64 + 0.5), ly - (y as f64 + 0.5), light_height]),
-            None => distant,
-        };
-        let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
-        let dusty = if nl > 0.0 { nl / (nl + n[2]) } else { 0.0 };
-        let rz = 2.0 * nl * n[2] - l[2];
-        let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
-        for c in 0..3 {
-            let lit = color[c] * (ambient * ambient_light[c] + diffuse * intensity * light[c] * nl.max(0.0) + dust * intensity * light[c] * dusty)
-                + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
-            px[c] = (lit * a) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let color = [0, 1, 2].map(|c| px[c] as f64 / a);
+            let (gx, gy) = (
+                (at(x + 1, y) - at(x - 1, y)) / 2.0,
+                (at(x, y + 1) - at(x, y - 1)) / 2.0,
+            );
+            let n = unit([-k * gx, -k * gy, 1.0]);
+            let l = match point {
+                Some((lx, ly)) => {
+                    unit([lx - (x as f64 + 0.5), ly - (y as f64 + 0.5), light_height])
+                }
+                None => distant,
+            };
+            let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+            let dusty = if nl > 0.0 { nl / (nl + n[2]) } else { 0.0 };
+            let rz = 2.0 * nl * n[2] - l[2];
+            let shine = if nl > 0.0 && rz > 0.0 {
+                rz.powf(1.0 / roughness)
+            } else {
+                0.0
+            };
+            for c in 0..3 {
+                let lit = color[c]
+                    * (ambient * ambient_light[c]
+                        + diffuse * intensity * light[c] * nl.max(0.0)
+                        + dust * intensity * light[c] * dusty)
+                    + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+                px[c] = (lit * a) as f32;
+            }
+        });
 }
 
 /// D-377: Bend It, this program's own reading of CycoreFX's CC Bend It. The bar from `start` to
@@ -1808,7 +2136,14 @@ pub(crate) fn plastic(
 /// and on straight past it; 3 (mirror) bends the bar's own stretch back to -L, read at (-u, v).
 /// `extended` carries the drawing on straight past End. Bend 0 is the straight bar. The settings
 /// are already valid.
-pub(crate) fn bend_it(source: &mut WorkingBuffer, bend: f64, start: (f64, f64), end: (f64, f64), prestart: u8, extended: bool) {
+pub(crate) fn bend_it(
+    source: &mut WorkingBuffer,
+    bend: f64,
+    start: (f64, f64),
+    end: (f64, f64),
+    prestart: u8,
+    extended: bool,
+) {
     let length = (end.0 - start.0).hypot(end.1 - start.1);
     if length == 0.0 {
         return;
@@ -1822,71 +2157,98 @@ pub(crate) fn bend_it(source: &mut WorkingBuffer, bend: f64, start: (f64, f64), 
     // The frame turned `phi` along the arc: its point on the bar's line, its t and n.
     let frame = |phi: f64| {
         let (s, c) = phi.sin_cos();
-        let (t, n) = ((tx * c + nx * s, ty * c + ny * s), (nx * c - tx * s, ny * c - ty * s));
+        let (t, n) = (
+            (tx * c + nx * s, ty * c + ny * s),
+            (nx * c - tx * s, ny * c - ty * s),
+        );
         ((cx - r * n.0, cy - r * n.1), t, n)
     };
     let lo = if prestart >= 2 { -length } else { 0.0 };
     let w = source.width();
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let mut acc = [0.0f64; 4];
-        let mut lay = |(sx, sy): (f64, f64)| {
-            let s = sample_bilinear(&still, sx, sy);
-            let k = 1.0 - acc[3];
-            for c in 0..4 {
-                acc[c] += k * s[c] as f64;
-            }
-        };
-        let (a, b) = ((x - start.0) * tx + (y - start.1) * ty, (x - start.0) * nx + (y - start.1) * ny);
-        if bend == 0.0 {
-            if (0.0..=length).contains(&a) || (a > length && extended) || (a < 0.0 && (prestart == 1 || prestart == 2)) {
-                lay((x, y));
-            } else if (-length..0.0).contains(&a) && prestart == 3 {
-                lay(from(-a, b));
-            }
-        } else {
-            let tail = |phi: f64| {
-                let ((ox, oy), t, n) = frame(phi);
-                ((x - ox) * t.0 + (y - oy) * t.1, (x - ox) * n.0 + (y - oy) * n.1)
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let mut acc = [0.0f64; 4];
+            let mut lay = |(sx, sy): (f64, f64)| {
+                let s = sample_bilinear(&still, sx, sy);
+                let k = 1.0 - acc[3];
+                for c in 0..4 {
+                    acc[c] += k * s[c] as f64;
+                }
             };
-            if extended {
-                let (a2, b2) = tail(theta);
-                if a2 > 0.0 {
-                    lay(from(length + a2, b2));
+            let (a, b) = (
+                (x - start.0) * tx + (y - start.1) * ty,
+                (x - start.0) * nx + (y - start.1) * ny,
+            );
+            if bend == 0.0 {
+                if (0.0..=length).contains(&a)
+                    || (a > length && extended)
+                    || (a < 0.0 && (prestart == 1 || prestart == 2))
+                {
+                    lay((x, y));
+                } else if (-length..0.0).contains(&a) && prestart == 3 {
+                    lay(from(-a, b));
+                }
+            } else {
+                let tail = |phi: f64| {
+                    let ((ox, oy), t, n) = frame(phi);
+                    (
+                        (x - ox) * t.0 + (y - oy) * t.1,
+                        (x - ox) * n.0 + (y - oy) * n.1,
+                    )
+                };
+                if extended {
+                    let (a2, b2) = tail(theta);
+                    if a2 > 0.0 {
+                        lay(from(length + a2, b2));
+                    }
+                }
+                let (qx, qy) = (x - cx, y - cy);
+                let first = (-(qx * tx + qy * ty)).atan2(qx * nx + qy * ny);
+                let size = qx.hypot(qy);
+                let k = theta / length;
+                let (lo_phi, hi_phi) = if k > 0.0 {
+                    (k * lo, k * length)
+                } else {
+                    (k * length, k * lo)
+                };
+                let pi = std::f64::consts::PI;
+                let (j0, j1) = (
+                    ((lo_phi - first) / pi).floor() as i64 - 1,
+                    ((hi_phi - first) / pi).ceil() as i64 + 1,
+                );
+                // Farthest along first: u = phi / k rises with j when k is above 0.
+                let mut j = if k > 0.0 { j1 } else { j0 };
+                while (j0..=j1).contains(&j) {
+                    let phi = first + j as f64 * pi;
+                    let u = phi / k;
+                    let v = r + if j.rem_euclid(2) == 0 { size } else { -size };
+                    if lo <= u && u <= length {
+                        lay(if u < 0.0 && prestart == 3 {
+                            from(-u, v)
+                        } else {
+                            from(u, v)
+                        });
+                    }
+                    j += if k > 0.0 { -1 } else { 1 };
+                }
+                if prestart == 1 && a < 0.0 {
+                    lay((x, y));
+                } else if prestart == 2 {
+                    let (a2, b2) = tail(-theta);
+                    if a2 < 0.0 {
+                        lay(from(-length + a2, b2));
+                    }
                 }
             }
-            let (qx, qy) = (x - cx, y - cy);
-            let first = (-(qx * tx + qy * ty)).atan2(qx * nx + qy * ny);
-            let size = qx.hypot(qy);
-            let k = theta / length;
-            let (lo_phi, hi_phi) = if k > 0.0 { (k * lo, k * length) } else { (k * length, k * lo) };
-            let pi = std::f64::consts::PI;
-            let (j0, j1) = (((lo_phi - first) / pi).floor() as i64 - 1, ((hi_phi - first) / pi).ceil() as i64 + 1);
-            // Farthest along first: u = phi / k rises with j when k is above 0.
-            let mut j = if k > 0.0 { j1 } else { j0 };
-            while (j0..=j1).contains(&j) {
-                let phi = first + j as f64 * pi;
-                let u = phi / k;
-                let v = r + if j.rem_euclid(2) == 0 { size } else { -size };
-                if lo <= u && u <= length {
-                    lay(if u < 0.0 && prestart == 3 { from(-u, v) } else { from(u, v) });
-                }
-                j += if k > 0.0 { -1 } else { 1 };
+            for c in 0..4 {
+                px[c] = acc[c] as f32;
             }
-            if prestart == 1 && a < 0.0 {
-                lay((x, y));
-            } else if prestart == 2 {
-                let (a2, b2) = tail(-theta);
-                if a2 < 0.0 {
-                    lay(from(-length + a2, b2));
-                }
-            }
-        }
-        for c in 0..4 {
-            px[c] = acc[c] as f32;
-        }
-    });
+        });
 }
 
 /// D-378: Bender, this program's own reading of CycoreFX's CC Bender. Each pixel at `s` along
@@ -1894,7 +2256,13 @@ pub(crate) fn bend_it(source: &mut WorkingBuffer, bend: f64, start: (f64, f64), 
 /// drawing `d(s)` back across the axis, `d` by `style` from `amount` pixels: bend A s^2 from the
 /// Base, straight on past the Top; marilyn A sin^2(pi s) and sharp A (1 - |2s - 1|) between the
 /// points; boxer A (3s^2 - 2s^3), A past the Top. The settings are already valid.
-pub(crate) fn bender(source: &mut WorkingBuffer, amount: f64, style: &str, base: (f64, f64), top: (f64, f64)) {
+pub(crate) fn bender(
+    source: &mut WorkingBuffer,
+    amount: f64,
+    style: &str,
+    base: (f64, f64),
+    top: (f64, f64),
+) {
     let length = (top.0 - base.0).hypot(top.1 - base.1);
     if length == 0.0 || amount == 0.0 {
         return;
@@ -1903,13 +2271,21 @@ pub(crate) fn bender(source: &mut WorkingBuffer, amount: f64, style: &str, base:
     let (nx, ny) = (-uy, ux);
     let w = source.width();
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let d = bender_push(style, amount, ((x - base.0) * ux + (y - base.1) * uy) / length);
-        if d != 0.0 {
-            px.copy_from_slice(&sample_bilinear(&still, x - d * nx, y - d * ny));
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let d = bender_push(
+                style,
+                amount,
+                ((x - base.0) * ux + (y - base.1) * uy) / length,
+            );
+            if d != 0.0 {
+                px.copy_from_slice(&sample_bilinear(&still, x - d * nx, y - d * ny));
+            }
+        });
 }
 
 /// D-378: Bender's push at `s` along the axis, `a` its amount.
@@ -1933,44 +2309,65 @@ pub(crate) fn bender_push(style: &str, a: f64, s: f64) -> f64 {
 /// drawing at P + sum (P - K)(m - 1), mirrored round the buffer when `tile`, transparent outside
 /// it otherwise, and a pixel averages `n` by `n` such points across it. Both strengths 0 is the
 /// drawing. The settings are already valid.
-pub(crate) fn flow_motion(source: &mut WorkingBuffer, knots: [((f64, f64), f64); 2], sigma: f64, tile: bool, n: usize) {
+pub(crate) fn flow_motion(
+    source: &mut WorkingBuffer,
+    knots: [((f64, f64), f64); 2],
+    sigma: f64,
+    tile: bool,
+    n: usize,
+) {
     if knots.iter().all(|k| k.1 == 0.0) {
         return;
     }
     let w = source.width();
     let s2 = sigma * sigma;
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x0, y0) = ((i % w) as f64, (i / w) as f64);
-        let mut sum = [0.0f64; 4];
-        for j in 0..n {
-            for k in 0..n {
-                let (x, y) = (x0 + (k as f64 + 0.5) / n as f64, y0 + (j as f64 + 0.5) / n as f64);
-                let (mut sx, mut sy) = (x, y);
-                for &((kx, ky), a) in &knots {
-                    if a != 0.0 {
-                        let (dx, dy) = (x - kx, y - ky);
-                        let m = flow_scale(a, s2 / (s2 + dx * dx + dy * dy));
-                        sx += dx * (m - 1.0);
-                        sy += dy * (m - 1.0);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x0, y0) = ((i % w) as f64, (i / w) as f64);
+            let mut sum = [0.0f64; 4];
+            for j in 0..n {
+                for k in 0..n {
+                    let (x, y) = (
+                        x0 + (k as f64 + 0.5) / n as f64,
+                        y0 + (j as f64 + 0.5) / n as f64,
+                    );
+                    let (mut sx, mut sy) = (x, y);
+                    for &((kx, ky), a) in &knots {
+                        if a != 0.0 {
+                            let (dx, dy) = (x - kx, y - ky);
+                            let m = flow_scale(a, s2 / (s2 + dx * dx + dy * dy));
+                            sx += dx * (m - 1.0);
+                            sy += dy * (m - 1.0);
+                        }
+                    }
+                    let p = if tile {
+                        sample_mirrored(&still, sx, sy)
+                    } else {
+                        sample_bilinear(&still, sx, sy)
+                    };
+                    for c in 0..4 {
+                        sum[c] += p[c] as f64;
                     }
                 }
-                let p = if tile { sample_mirrored(&still, sx, sy) } else { sample_bilinear(&still, sx, sy) };
-                for c in 0..4 {
-                    sum[c] += p[c] as f64;
-                }
             }
-        }
-        let nn = (n * n) as f64;
-        for c in 0..4 {
-            px[c] = (sum[c] / nn) as f32;
-        }
-    });
+            let nn = (n * n) as f64;
+            for c in 0..4 {
+                px[c] = (sum[c] / nn) as f32;
+            }
+        });
 }
 
 /// D-385: a knot's scale, `a` its strength and `g` its weight at the point.
 pub(crate) fn flow_scale(a: f64, g: f64) -> f64 {
-    if a >= 0.0 { 1.0 + a * g } else { 1.0 / (1.0 - a * g) }
+    if a >= 0.0 {
+        1.0 + a * g
+    } else {
+        1.0 / (1.0 - a * g)
+    }
 }
 
 /// D-385: `sample_bilinear` of the buffer repeated round itself, every other copy turned over:
@@ -2006,7 +2403,14 @@ fn sample_mirrored(src: &WorkingBuffer, x: f64, y: f64) -> [f32; 4] {
 /// back by `turn` radians (clockwise on the screen) and divided by `scale` across and down, is
 /// where it reads the drawing from that centre, transparent outside the tile's own square when
 /// `cut`. A scale of 0 draws nothing. The settings are already valid.
-pub(crate) fn griddler(source: &mut WorkingBuffer, scale: (f64, f64), tile: f64, turn: f64, cut: bool, origin: (usize, usize)) {
+pub(crate) fn griddler(
+    source: &mut WorkingBuffer,
+    scale: (f64, f64),
+    tile: f64,
+    turn: f64,
+    cut: bool,
+    origin: (usize, usize),
+) {
     if scale == (1.0, 1.0) && turn == 0.0 {
         return;
     }
@@ -2018,18 +2422,25 @@ pub(crate) fn griddler(source: &mut WorkingBuffer, scale: (f64, f64), tile: f64,
     let (sin, cos) = turn.sin_cos();
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
-        let (cx, cy) = (((x / tile).floor() + 0.5) * tile, ((y / tile).floor() + 0.5) * tile);
-        let (qx, qy) = (x - cx, y - cy);
-        let ux = (qx * cos + qy * sin) / scale.0;
-        let uy = (qy * cos - qx * sin) / scale.1;
-        if cut && (ux.abs() > tile / 2.0 || uy.abs() > tile / 2.0) {
-            px.fill(0.0);
-        } else {
-            px.copy_from_slice(&sample_bilinear(&still, ox + cx + ux, oy + cy + uy));
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
+            let (cx, cy) = (
+                ((x / tile).floor() + 0.5) * tile,
+                ((y / tile).floor() + 0.5) * tile,
+            );
+            let (qx, qy) = (x - cx, y - cy);
+            let ux = (qx * cos + qy * sin) / scale.0;
+            let uy = (qy * cos - qx * sin) / scale.1;
+            if cut && (ux.abs() > tile / 2.0 || uy.abs() > tile / 2.0) {
+                px.fill(0.0);
+            } else {
+                px.copy_from_slice(&sample_bilinear(&still, ox + cx + ux, oy + cy + uy));
+            }
+        });
 }
 
 /// D-387: Fisheye, this program's own reading of CycoreFX's CC Lens. A pixel `r` from `center`,
@@ -2044,31 +2455,42 @@ pub(crate) fn fisheye(source: &mut WorkingBuffer, center: (f64, f64), radius: f6
         return;
     }
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (dx, dy) = ((i % w) as f64 + 0.5 - center.0, (i / w) as f64 + 0.5 - center.1);
-        let r = dx.hypot(dy);
-        let cover = (radius - r + 0.5).clamp(0.0, 1.0);
-        if cover == 0.0 {
-            px.fill(0.0);
-            return;
-        }
-        let k = if r == 0.0 {
-            0.0
-        } else {
-            let rho = (r / radius).min(1.0);
-            fisheye_curve(c, rho) / rho
-        };
-        let p = sample_bilinear(&still, center.0 + dx * k, center.1 + dy * k);
-        for ch in 0..4 {
-            px[ch] = (p[ch] as f64 * cover) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (dx, dy) = (
+                (i % w) as f64 + 0.5 - center.0,
+                (i / w) as f64 + 0.5 - center.1,
+            );
+            let r = dx.hypot(dy);
+            let cover = (radius - r + 0.5).clamp(0.0, 1.0);
+            if cover == 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            let k = if r == 0.0 {
+                0.0
+            } else {
+                let rho = (r / radius).min(1.0);
+                fisheye_curve(c, rho) / rho
+            };
+            let p = sample_bilinear(&still, center.0 + dx * k, center.1 + dy * k);
+            for ch in 0..4 {
+                px[ch] = (p[ch] as f64 * cover) as f32;
+            }
+        });
 }
 
 /// D-387: how far out a point rho of the way out reads, `c` the convergence over 100.
 pub(crate) fn fisheye_curve(c: f64, rho: f64) -> f64 {
     use std::f64::consts::PI;
-    if c >= 0.0 { rho + c * (2.0 * rho.asin() / PI - rho) } else { rho - c * ((PI * rho / 2.0).sin() - rho) }
+    if c >= 0.0 {
+        rho + c * (2.0 * rho.asin() / PI - rho)
+    } else {
+        rho - c * ((PI * rho / 2.0).sin() - rho)
+    }
 }
 
 /// D-379: Blobbylize, this program's own reading of CycoreFX's CC Blobbylize. The blob's height
@@ -2092,16 +2514,33 @@ pub(crate) fn blobbylize(
     let w = source.width();
     let mut bump = WorkingBuffer::transparent(w, source.height());
     let from = source.data();
-    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let q = match map {
-            Some((m, (ox, oy))) => {
-                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
-                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
-            }
-            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
-        };
-        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
-    });
+    bump.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let q = match map {
+                Some((m, (ox, oy))) => {
+                    let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                    if mx < m.width() && my < m.height() {
+                        m.pixel(mx, my)
+                    } else {
+                        [0.0; 4]
+                    }
+                }
+                None => [
+                    from[i * 4],
+                    from[i * 4 + 1],
+                    from[i * 4 + 2],
+                    from[i * 4 + 3],
+                ],
+            };
+            px[3] = (crate::grade::phase_of(property, &q)
+                * if property == "alpha" {
+                    1.0
+                } else {
+                    q[3] as f64
+                }) as f32;
+        });
     let mut spread = source.clone();
     let r = if softness > 0.0 {
         blur(&mut spread, softness / 2.0);
@@ -2122,39 +2561,62 @@ pub(crate) fn blobbylize(
     let k = 1.25 * softness.max(1.0);
     let unit = |v: [f64; 3]| {
         let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+        if l > 0.0 {
+            v.map(|c| c / l)
+        } else {
+            [0.0; 3]
+        }
     };
     let (ux, uy) = crate::blurs::along(direction);
     let distant = unit([100.0 * ux, 100.0 * uy, height]);
     let still = source.clone();
     let from = still.data();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let a = if cut >= 1.0 { 0.0 } else { ((at(x, y) - cut) / (1.0 - cut)).clamp(0.0, 1.0) };
-        if a == 0.0 {
-            px.fill(0.0);
-            return;
-        }
-        let o = &from[i * 4..i * 4 + 4];
-        let b = ((y + r) * bw + x + r) as usize * 4;
-        let kk = [0, 1, 2, 3].map(|c| o[c] as f64 + (1.0 - o[3] as f64) * spread[b + c] as f64);
-        let color = if kk[3] > 0.0 { [kk[0] / kk[3], kk[1] / kk[3], kk[2] / kk[3]] } else { [0.0; 3] };
-        let (gx, gy) = ((at(x + 1, y) - at(x - 1, y)) / 2.0, (at(x, y + 1) - at(x, y - 1)) / 2.0);
-        let n = unit([-k * gx, -k * gy, 1.0]);
-        let l = match point {
-            Some((lx, ly)) => unit([lx - (x as f64 + 0.5), ly - (y as f64 + 0.5), height]),
-            None => distant,
-        };
-        let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
-        let rz = 2.0 * nl * n[2] - l[2];
-        let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
-        for c in 0..3 {
-            let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
-                + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
-            px[c] = (lit * a) as f32;
-        }
-        px[3] = a as f32;
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let a = if cut >= 1.0 {
+                0.0
+            } else {
+                ((at(x, y) - cut) / (1.0 - cut)).clamp(0.0, 1.0)
+            };
+            if a == 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            let o = &from[i * 4..i * 4 + 4];
+            let b = ((y + r) * bw + x + r) as usize * 4;
+            let kk = [0, 1, 2, 3].map(|c| o[c] as f64 + (1.0 - o[3] as f64) * spread[b + c] as f64);
+            let color = if kk[3] > 0.0 {
+                [kk[0] / kk[3], kk[1] / kk[3], kk[2] / kk[3]]
+            } else {
+                [0.0; 3]
+            };
+            let (gx, gy) = (
+                (at(x + 1, y) - at(x - 1, y)) / 2.0,
+                (at(x, y + 1) - at(x, y - 1)) / 2.0,
+            );
+            let n = unit([-k * gx, -k * gy, 1.0]);
+            let l = match point {
+                Some((lx, ly)) => unit([lx - (x as f64 + 0.5), ly - (y as f64 + 0.5), height]),
+                None => distant,
+            };
+            let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+            let rz = 2.0 * nl * n[2] - l[2];
+            let shine = if nl > 0.0 && rz > 0.0 {
+                rz.powf(1.0 / roughness)
+            } else {
+                0.0
+            };
+            for c in 0..3 {
+                let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                    + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+                px[c] = (lit * a) as f32;
+            }
+            px[3] = a as f32;
+        });
 }
 
 /// D-424: Glue Gun's blobs at the frame `clock[0]` (`clock[1]` frames a second), oldest first.
@@ -2162,7 +2624,12 @@ pub(crate) fn blobbylize(
 /// many as the time span holds. Blob k, born at frame k / `density`, lies where the brush was
 /// then, the trail joined by straight lines; with `wobble` (width, height, turns a second) it
 /// swings by a sine a step out of its neighbours'. No trail or no density, no blobs.
-pub(crate) fn glue_blobs(trail: &[(f64, f64)], [f, fps]: [f64; 2], d: f64, wobble: Option<(f64, f64, f64)>) -> Vec<(f64, f64)> {
+pub(crate) fn glue_blobs(
+    trail: &[(f64, f64)],
+    [f, fps]: [f64; 2],
+    d: f64,
+    wobble: Option<(f64, f64, f64)>,
+) -> Vec<(f64, f64)> {
     use std::f64::consts::PI;
     if d == 0.0 || trail.is_empty() {
         return Vec::new();
@@ -2180,7 +2647,10 @@ pub(crate) fn glue_blobs(trail: &[(f64, f64)], [f, fps]: [f64; 2], d: f64, wobbl
             let (mut x, mut y) = if j >= n {
                 trail[n]
             } else {
-                (trail[j].0 + (trail[j + 1].0 - trail[j].0) * t, trail[j].1 + (trail[j + 1].1 - trail[j].1) * t)
+                (
+                    trail[j].0 + (trail[j + 1].0 - trail[j].0) * t,
+                    trail[j].1 + (trail[j + 1].1 - trail[j].1) * t,
+                )
             };
             if let Some((ww, wh, s)) = wobble {
                 let now = f / fps;
@@ -2231,52 +2701,71 @@ pub(crate) fn glue_gun(
     let bands = glue_bands(blobs, big, h);
     let unit = |v: [f64; 3]| {
         let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+        if l > 0.0 {
+            v.map(|c| c / l)
+        } else {
+            [0.0; 3]
+        }
     };
     let (ux, uy) = crate::blurs::along(direction);
     let distant = unit([100.0 * ux, 100.0 * uy, height]);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let (mut f, mut gx, mut gy) = (0.0, 0.0, 0.0);
-        for &b in &bands[i / w / 16] {
-            let (cx, cy) = blobs[b as usize];
-            let (dx, dy) = (x - cx, y - cy);
-            let q = (dx * dx + dy * dy) / (big * big);
-            if q < 1.0 {
-                f += (1.0 - q) * (1.0 - q);
-                gx += -4.0 * (1.0 - q) * dx / (big * big);
-                gy += -4.0 * (1.0 - q) * dy / (big * big);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (mut f, mut gx, mut gy) = (0.0, 0.0, 0.0);
+            for &b in &bands[i / w / 16] {
+                let (cx, cy) = blobs[b as usize];
+                let (dx, dy) = (x - cx, y - cy);
+                let q = (dx * dx + dy * dy) / (big * big);
+                if q < 1.0 {
+                    f += (1.0 - q) * (1.0 - q);
+                    gx += -4.0 * (1.0 - q) * dx / (big * big);
+                    gy += -4.0 * (1.0 - q) * dy / (big * big);
+                }
             }
-        }
-        let g = (gx * gx + gy * gy).sqrt();
-        let (a, n) = if g > 0.0 {
-            let s = (f - t0) / g;
-            let m = (1.0 - s / r).clamp(0.0, 1.0);
-            ((s + 0.5).clamp(0.0, 1.0), [-m * gx / g, -m * gy / g, (1.0 - m * m).sqrt()])
-        } else {
-            (if f > t0 { 1.0 } else { 0.0 }, [0.0, 0.0, 1.0])
-        };
-        if a == 0.0 {
-            return;
-        }
-        let seen = sample_bilinear(&still, x - look * n[0], y - look * n[1]).map(f64::from);
-        let color = if seen[3] > 0.0 { [seen[0] / seen[3], seen[1] / seen[3], seen[2] / seen[3]] } else { [0.0; 3] };
-        let l = match point {
-            Some((lx, ly)) => unit([lx - x, ly - y, height]),
-            None => distant,
-        };
-        let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
-        let rz = 2.0 * nl * n[2] - l[2];
-        let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
-        let under = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
-        for c in 0..3 {
-            let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
-                + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
-            px[c] = (lit * a + (1.0 - a) * under[c]) as f32;
-        }
-        px[3] = (a + (1.0 - a) * under[3]) as f32;
-    });
+            let g = (gx * gx + gy * gy).sqrt();
+            let (a, n) = if g > 0.0 {
+                let s = (f - t0) / g;
+                let m = (1.0 - s / r).clamp(0.0, 1.0);
+                (
+                    (s + 0.5).clamp(0.0, 1.0),
+                    [-m * gx / g, -m * gy / g, (1.0 - m * m).sqrt()],
+                )
+            } else {
+                (if f > t0 { 1.0 } else { 0.0 }, [0.0, 0.0, 1.0])
+            };
+            if a == 0.0 {
+                return;
+            }
+            let seen = sample_bilinear(&still, x - look * n[0], y - look * n[1]).map(f64::from);
+            let color = if seen[3] > 0.0 {
+                [seen[0] / seen[3], seen[1] / seen[3], seen[2] / seen[3]]
+            } else {
+                [0.0; 3]
+            };
+            let l = match point {
+                Some((lx, ly)) => unit([lx - x, ly - y, height]),
+                None => distant,
+            };
+            let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+            let rz = 2.0 * nl * n[2] - l[2];
+            let shine = if nl > 0.0 && rz > 0.0 {
+                rz.powf(1.0 / roughness)
+            } else {
+                0.0
+            };
+            let under = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+            for c in 0..3 {
+                let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                    + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+                px[c] = (lit * a + (1.0 - a) * under[c]) as f32;
+            }
+            px[3] = (a + (1.0 - a) * under[3]) as f32;
+        });
 }
 
 /// D-425: Threads. The buffer woven into a cloth about `center`, in its pixels, turned by
@@ -2294,29 +2783,46 @@ pub(crate) fn threads(
 ) {
     let w = source.width();
     let half = (coverage * size.0 / 2.0, coverage * size.1 / 2.0);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let dx = (i % w) as f64 + 0.5 - center.0;
-        let dy = (i / w) as f64 + 0.5 - center.1;
-        let (u, v) = (dx * c + dy * s, -dx * s + dy * c);
-        let (ti, tj) = ((u / size.0).floor(), (v / size.1).floor());
-        let warp = thread(u - (ti + 0.5) * size.0, half.0, texture);
-        let weft = thread(v - (tj + 0.5) * size.1, half.1, texture);
-        let (up, down) = if (ti + tj).rem_euclid(2.0 * n) < n { (warp, weft) } else { (weft, warp) };
-        let g = if up.3 > 0.0 { (1.0 - (up.2.abs() - up.3) / up.3).clamp(0.0, 1.0) } else { 0.0 };
-        let k = up.0 * up.1 + down.0 * down.1 * (1.0 - shadowing * (1.0 + g) / 2.0) * (1.0 - up.0);
-        let a = up.0 + down.0 * (1.0 - up.0);
-        for v in &mut px[..3] {
-            *v = (*v as f64 * k) as f32;
-        }
-        px[3] = (px[3] as f64 * a) as f32;
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let dx = (i % w) as f64 + 0.5 - center.0;
+            let dy = (i / w) as f64 + 0.5 - center.1;
+            let (u, v) = (dx * c + dy * s, -dx * s + dy * c);
+            let (ti, tj) = ((u / size.0).floor(), (v / size.1).floor());
+            let warp = thread(u - (ti + 0.5) * size.0, half.0, texture);
+            let weft = thread(v - (tj + 0.5) * size.1, half.1, texture);
+            let (up, down) = if (ti + tj).rem_euclid(2.0 * n) < n {
+                (warp, weft)
+            } else {
+                (weft, warp)
+            };
+            let g = if up.3 > 0.0 {
+                (1.0 - (up.2.abs() - up.3) / up.3).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let k =
+                up.0 * up.1 + down.0 * down.1 * (1.0 - shadowing * (1.0 + g) / 2.0) * (1.0 - up.0);
+            let a = up.0 + down.0 * (1.0 - up.0);
+            for v in &mut px[..3] {
+                *v = (*v as f64 * k) as f32;
+            }
+            px[3] = (px[3] as f64 * a) as f32;
+        });
 }
 
 /// D-425: a thread's share of the pixel `e` from its middle, its shade by `texture`, `e` and
 /// its half width.
 fn thread(e: f64, half: f64, texture: f64) -> (f64, f64, f64, f64) {
     let share = ((e + 0.5).min(half) - (e - 0.5).max(-half)).max(0.0);
-    let shade = if half > 0.0 { 1.0 - texture * (e / half).powi(2).min(1.0) } else { 1.0 };
+    let shade = if half > 0.0 {
+        1.0 - texture * (e / half).powi(2).min(1.0)
+    } else {
+        1.0
+    };
     (share, shade, e, half)
 }
 
@@ -2368,8 +2874,17 @@ pub(crate) const FLARE_LENSES: [(&str, &[[f64; 8]]); 3] = [
 /// D-426: the lens's parts placed for this drawing, (kind, x, y, R, w, n, red, green, blue), in
 /// pixels, the colour times `brightness`: the flare at `flare`, the middle at `middle`, the
 /// diagonal `size`. Handed as they are to the card.
-pub(crate) fn flare_parts(lens: &str, flare: (f64, f64), middle: (f64, f64), size: f64, brightness: f64) -> Vec<[f64; 9]> {
-    let parts = FLARE_LENSES.iter().find(|(l, _)| *l == lens).map_or(&[][..], |(_, p)| p);
+pub(crate) fn flare_parts(
+    lens: &str,
+    flare: (f64, f64),
+    middle: (f64, f64),
+    size: f64,
+    brightness: f64,
+) -> Vec<[f64; 9]> {
+    let parts = FLARE_LENSES
+        .iter()
+        .find(|(l, _)| *l == lens)
+        .map_or(&[][..], |(_, p)| p);
     parts
         .iter()
         .map(|&[kind, t, r, w, n, red, green, blue]| {
@@ -2391,44 +2906,61 @@ pub(crate) fn flare_parts(lens: &str, flare: (f64, f64), middle: (f64, f64), siz
 /// D-426: Lens Flare. The light of the placed `parts` added to each pixel, its covering raised by
 /// the light's brightest channel, the result kept by `keep` (1 - Blend With Original) against the
 /// pixel as it was. D-545: with `dirt`, the light first has the dirt matted by it on top.
-pub(crate) fn lens_flare(source: &mut WorkingBuffer, parts: &[[f64; 9]], keep: f64, dirt: Option<&crate::soft_glow::Dirt>) {
+pub(crate) fn lens_flare(
+    source: &mut WorkingBuffer,
+    parts: &[[f64; 9]],
+    keep: f64,
+    dirt: Option<&crate::soft_glow::Dirt>,
+) {
     let (w, h) = (source.width(), source.height());
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let mut light = [0.0f64; 3];
-        for &[kind, cx, cy, big, edge, n, red, green, blue] in parts {
-            let (dx, dy) = (x - cx, y - cy);
-            let d = dx.hypot(dy);
-            let v = match kind as u8 {
-                0 => (-(d / big).powi(2)).exp(),
-                1 => (-((d - big) / edge).powi(2)).exp(),
-                2 => ((big - d) / edge + 0.5).clamp(0.0, 1.0),
-                _ => {
-                    let a = if d > 0.0 { dy.atan2(dx) } else { 0.0 };
-                    (-d / big).exp() * ((1.0 + (n * a).cos()) / 2.0).powf(edge)
-                }
-            };
-            light[0] += red * v;
-            light[1] += green * v;
-            light[2] += blue * v;
-        }
-        if let Some(d) = dirt {
-            let (x, y) = ((i % w) as isize, (i / w) as isize);
-            light = d.lit(light.map(|v| v as f32), d.at(x, y, w, h)).map(f64::from);
-        }
-        let a = px[3] as f64;
-        let lifted = a + (1.0 - a) * light[0].max(light[1]).max(light[2]).min(1.0);
-        for c in 0..3 {
-            px[c] = (px[c] as f64 + keep * light[c]) as f32;
-        }
-        px[3] = (a + keep * (lifted - a)) as f32;
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let mut light = [0.0f64; 3];
+            for &[kind, cx, cy, big, edge, n, red, green, blue] in parts {
+                let (dx, dy) = (x - cx, y - cy);
+                let d = dx.hypot(dy);
+                let v = match kind as u8 {
+                    0 => (-(d / big).powi(2)).exp(),
+                    1 => (-((d - big) / edge).powi(2)).exp(),
+                    2 => ((big - d) / edge + 0.5).clamp(0.0, 1.0),
+                    _ => {
+                        let a = if d > 0.0 { dy.atan2(dx) } else { 0.0 };
+                        (-d / big).exp() * ((1.0 + (n * a).cos()) / 2.0).powf(edge)
+                    }
+                };
+                light[0] += red * v;
+                light[1] += green * v;
+                light[2] += blue * v;
+            }
+            if let Some(d) = dirt {
+                let (x, y) = ((i % w) as isize, (i / w) as isize);
+                light = d
+                    .lit(light.map(|v| v as f32), d.at(x, y, w, h))
+                    .map(f64::from);
+            }
+            let a = px[3] as f64;
+            let lifted = a + (1.0 - a) * light[0].max(light[1]).max(light[2]).min(1.0);
+            for c in 0..3 {
+                px[c] = (px[c] as f64 + keep * light[c]) as f32;
+            }
+            px[3] = (a + keep * (lifted - a)) as f32;
+        });
 }
 
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.
-pub(crate) fn bevel_edges(source: &mut WorkingBuffer, thickness: f64, angle: f64, light: [f64; 3], intensity: f64) {
+pub(crate) fn bevel_edges(
+    source: &mut WorkingBuffer,
+    thickness: f64,
+    angle: f64,
+    light: [f64; 3],
+    intensity: f64,
+) {
     let (w, h) = (source.width() as f64, source.height() as f64);
     let t = thickness * w.min(h);
     if t <= 0.0 || intensity <= 0.0 {
@@ -2464,7 +2996,11 @@ pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) 
         return;
     }
     let (w, h) = (source.width() as i64, source.height() as i64);
-    let lumas: Vec<f64> = source.data().par_chunks_exact(4).map(|p| picture_luma([p[0], p[1], p[2], p[3]])).collect();
+    let lumas: Vec<f64> = source
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| picture_luma([p[0], p[1], p[2], p[3]]))
+        .collect();
     let at = |x: i64, y: i64| lumas[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize];
     let t = amount / 100.0;
     source
@@ -2500,8 +3036,15 @@ pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) 
 /// above and each row's first number on the left, over `divider`, made positive when
 /// `absolute`, held inside 0 to 1. The middle pixel alone, over a divider of the same, leaves
 /// the layer as it is. The settings are already valid.
-pub(crate) fn kernel(source: &mut WorkingBuffer, grid: [[f64; 3]; 3], divider: f64, absolute: bool) {
-    if grid.map(|row| row.map(|v| v / divider)) == [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]] {
+pub(crate) fn kernel(
+    source: &mut WorkingBuffer,
+    grid: [[f64; 3]; 3],
+    divider: f64,
+    absolute: bool,
+) {
+    if grid.map(|row| row.map(|v| v / divider))
+        == [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]
+    {
         return;
     }
     let (w, h) = (source.width() as i64, source.height() as i64);
@@ -2544,7 +3087,6 @@ pub(crate) fn kernel(source: &mut WorkingBuffer, grid: [[f64; 3]; 3], divider: f
         });
 }
 
-
 /// D-147: each pixel that shows pushed `amount` percent further from its colour blurred at
 /// sigma `radius`, both as written, the blur divided by its own covering. D-317: a channel
 /// nearer its blur than `threshold` levels of 255 is left alone. The settings are already valid.
@@ -2571,7 +3113,11 @@ pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64, thre
                 let ba = b[3] as f64;
                 for c in 0..3 {
                     let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
-                    let eb = if ba > 0.0 { crate::grade::to_srgb((b[c] as f64 / ba).clamp(0.0, 1.0)) } else { e };
+                    let eb = if ba > 0.0 {
+                        crate::grade::to_srgb((b[c] as f64 / ba).clamp(0.0, 1.0))
+                    } else {
+                        e
+                    };
                     if (e - eb).abs() < t {
                         continue;
                     }
@@ -2581,7 +3127,6 @@ pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64, thre
             }
         });
 }
-
 
 /// D-148: each pixel that shows moved `amount` percent of the way toward its colour laid with
 /// `blend` under the picture blurred at a third of `radius`, the blur divided by its own
@@ -2640,7 +3185,6 @@ pub(crate) fn diffusion(
         });
 }
 
-
 /// D-149: each pixel read from a place pushed `height` pixels across a wave `width` pixels
 /// long running along `direction`, at `phase` degrees, fixed to the drawing's own space (its
 /// corner at `origin` in `source`). With transparent edges the layer first grows by the height
@@ -2674,7 +3218,11 @@ pub(crate) fn wave_warp(
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let s = tx * (x - ox) + ty * (y - oy);
             let a = tau * s / width + phi;
-            let v = if triangle { a.sin().asin() * 2.0 / std::f64::consts::PI } else { a.sin() };
+            let v = if triangle {
+                a.sin().asin() * 2.0 / std::f64::consts::PI
+            } else {
+                a.sin()
+            };
             let mut sx = x - height * v * nx;
             let mut sy = y - height * v * ny;
             if repeat {
@@ -2687,11 +3235,17 @@ pub(crate) fn wave_warp(
     g
 }
 
-
 /// D-150: each pixel read from a place pushed toward or away from `center`, a point in the
 /// buffer, by `amplitude` pixels across rings `wavelength` apart at `phase` degrees, dying away
 /// to nothing `fade` pixels out unless fade is 0. The settings are already valid.
-pub(crate) fn ripple(source: &mut WorkingBuffer, center: (f64, f64), amplitude: f64, wavelength: f64, phase: f64, fade: f64) {
+pub(crate) fn ripple(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    amplitude: f64,
+    wavelength: f64,
+    phase: f64,
+    fade: f64,
+) {
     if amplitude == 0.0 {
         return;
     }
@@ -2709,7 +3263,11 @@ pub(crate) fn ripple(source: &mut WorkingBuffer, center: (f64, f64), amplitude: 
             if d == 0.0 {
                 return;
             }
-            let f = if fade == 0.0 { 1.0 } else { (1.0 - d / fade).max(0.0) };
+            let f = if fade == 0.0 {
+                1.0
+            } else {
+                (1.0 - d / fade).max(0.0)
+            };
             let k = (std::f64::consts::TAU * d / wavelength - phi).sin() * f;
             if k == 0.0 {
                 return;
@@ -2718,7 +3276,6 @@ pub(crate) fn ripple(source: &mut WorkingBuffer, center: (f64, f64), amplitude: 
             px.copy_from_slice(&sample_bilinear(&drawing, x + s * vx, y + s * vy));
         });
 }
-
 
 /// D-151: each pixel within `radius` of `center`, a point in the buffer, read from a place
 /// turned back round it by `angle` degrees times the square of how near the centre it is, so a
@@ -2748,7 +3305,6 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
             px.copy_from_slice(&sample_bilinear(&drawing, center.0 + sx, center.1 + sy));
         });
 }
-
 
 /// D-407: After Effects' largest layer side. An Upscale that would grow the layer past it is not
 /// drawn, and says so (document 28's EFFECT_LAYER_TOO_LARGE).
@@ -2799,7 +3355,12 @@ pub(crate) fn upscale_too_large((w, h): (usize, usize), scale: f64) -> bool {
 /// to 0..1 and each colour to 0..covering. Returns the growth on each side, or `Err` when the
 /// grown layer is larger than this build can hold (too wide or tall, or its memory cannot be
 /// had). The settings are already valid.
-pub(crate) fn detail_upscale(source: &mut WorkingBuffer, scale: f64, reduce_noise: f64, detail: f64) -> Result<(usize, usize), ()> {
+pub(crate) fn detail_upscale(
+    source: &mut WorkingBuffer,
+    scale: f64,
+    reduce_noise: f64,
+    detail: f64,
+) -> Result<(usize, usize), ()> {
     if scale == 100.0 && reduce_noise <= 0.0 && detail <= 0.0 {
         return Ok((0, 0));
     }
@@ -2810,7 +3371,11 @@ pub(crate) fn detail_upscale(source: &mut WorkingBuffer, scale: f64, reduce_nois
     let (gx, gy) = upscale_growth((w, h), scale);
     let (bw, bh) = (w + 2 * gx, h + 2 * gy);
     let s = scale / 100.0;
-    let r = if detail > 0.0 { kernel_radius(s / 2.0) } else { 0 };
+    let r = if detail > 0.0 {
+        kernel_radius(s / 2.0)
+    } else {
+        0
+    };
     // ponytail: a probe of the buffers below, given back before they are made; one that fails
     // after it still stops the program as any allocation does.
     let floats = 4 * (h * bw + 2 * bw * bh + (bw + 2 * r) * (bh + 2 * r));
@@ -2828,51 +3393,60 @@ pub(crate) fn detail_upscale(source: &mut WorkingBuffer, scale: f64, reduce_nois
     };
     let (sw, sd) = (src.width(), src.data());
     let taps = |n: usize, big: usize| -> Vec<(i64, [f32; 6])> {
-        (0..big).map(|x| {
-            let (first, k) = lanczos_taps(n, big, s, x);
-            (first, k.map(|v| v as f32))
-        })
-        .collect()
+        (0..big)
+            .map(|x| {
+                let (first, k) = lanczos_taps(n, big, s, x);
+                (first, k.map(|v| v as f32))
+            })
+            .collect()
     };
     let (cols, rows) = (taps(w, bw), taps(h, bh));
     let mut mid = vec![0.0f32; h * bw * 4];
-    mid.par_chunks_exact_mut(bw * 4).enumerate().for_each(|(y, row)| {
-        for (px, (first, k)) in row.chunks_exact_mut(4).zip(&cols) {
-            for (i, kv) in k.iter().enumerate() {
-                let xx = first + i as i64;
-                if xx < 0 || xx >= w as i64 {
+    mid.par_chunks_exact_mut(bw * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (px, (first, k)) in row.chunks_exact_mut(4).zip(&cols) {
+                for (i, kv) in k.iter().enumerate() {
+                    let xx = first + i as i64;
+                    if xx < 0 || xx >= w as i64 {
+                        continue;
+                    }
+                    let o = ((y + r0) * sw + xx as usize + r0) * 4;
+                    for c in 0..4 {
+                        px[c] += kv * sd[o + c];
+                    }
+                }
+            }
+        });
+    let mut out = WorkingBuffer::transparent(bw, bh);
+    out.data_mut()
+        .par_chunks_exact_mut(bw * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let (first, k) = rows[y];
+            for (j, kv) in k.iter().enumerate() {
+                let yy = first + j as i64;
+                if yy < 0 || yy >= h as i64 {
                     continue;
                 }
-                let o = ((y + r0) * sw + xx as usize + r0) * 4;
-                for c in 0..4 {
-                    px[c] += kv * sd[o + c];
+                for (o, v) in row.iter_mut().zip(&mid[yy as usize * bw * 4..][..bw * 4]) {
+                    *o += kv * v;
                 }
             }
-        }
-    });
-    let mut out = WorkingBuffer::transparent(bw, bh);
-    out.data_mut().par_chunks_exact_mut(bw * 4).enumerate().for_each(|(y, row)| {
-        let (first, k) = rows[y];
-        for (j, kv) in k.iter().enumerate() {
-            let yy = first + j as i64;
-            if yy < 0 || yy >= h as i64 {
-                continue;
-            }
-            for (o, v) in row.iter_mut().zip(&mid[yy as usize * bw * 4..][..bw * 4]) {
-                *o += kv * v;
-            }
-        }
-    });
+        });
     if detail > 0.0 {
         let a = (detail / 50.0) as f32;
         let mut b = out.clone();
         let r = blur(&mut b, s / 2.0);
         let (gw, gd) = (b.width(), b.data());
-        out.data_mut().par_chunks_exact_mut(bw * 4).enumerate().for_each(|(y, row)| {
-            for (o, v) in row.iter_mut().zip(&gd[((y + r) * gw + r) * 4..][..bw * 4]) {
-                *o += a * (*o - v);
-            }
-        });
+        out.data_mut()
+            .par_chunks_exact_mut(bw * 4)
+            .enumerate()
+            .for_each(|(y, row)| {
+                for (o, v) in row.iter_mut().zip(&gd[((y + r) * gw + r) * 4..][..bw * 4]) {
+                    *o += a * (*o - v);
+                }
+            });
     }
     out.data_mut().par_chunks_exact_mut(4).for_each(|px| {
         let al = px[3].max(0.0).min(1.0);
@@ -2906,15 +3480,28 @@ pub(crate) fn spherize(source: &mut WorkingBuffer, radius: f64, center: (f64, f6
                 return;
             }
             let rho = d / radius;
-            let k = if d == 0.0 { 0.0 } else { 2.0 * rho.asin() / std::f64::consts::PI / rho };
-            px.copy_from_slice(&sample_bilinear(&drawing, center.0 + k * vx, center.1 + k * vy));
+            let k = if d == 0.0 {
+                0.0
+            } else {
+                2.0 * rho.asin() / std::f64::consts::PI / rho
+            };
+            px.copy_from_slice(&sample_bilinear(
+                &drawing,
+                center.0 + k * vx,
+                center.1 + k * vy,
+            ));
         });
 }
 
 /// D-152: each pixel within `radius` of `center`, a point in the buffer, read from a place
 /// drawn toward the centre when `height` is above 0, a swell, or pushed away from it when
 /// below, a pinch, most at the middle. The settings are already valid.
-pub(crate) fn bulge(source: &mut WorkingBuffer, [radius, vertical, taper]: [f64; 3], height: f64, center: (f64, f64)) {
+pub(crate) fn bulge(
+    source: &mut WorkingBuffer,
+    [radius, vertical, taper]: [f64; 3],
+    height: f64,
+    center: (f64, f64),
+) {
     if height == 0.0 || radius <= 0.0 {
         return;
     }
@@ -2951,10 +3538,13 @@ pub(crate) fn bulge(source: &mut WorkingBuffer, [radius, vertical, taper]: [f64;
                 height
             };
             let m = (1.0 - h * t * t / 2.0).max(0.0);
-            px.copy_from_slice(&sample_bilinear(&drawing, center.0 + m * vx, center.1 + m * vy));
+            px.copy_from_slice(&sample_bilinear(
+                &drawing,
+                center.0 + m * vx,
+                center.1 + m * vy,
+            ));
         });
 }
-
 
 /// D-153: a straight line through `center`, a point in the buffer, turned by `angle` degrees
 /// clockwise from straight up and down. Pixels on its kept side stay exactly; the rest take the
@@ -2973,23 +3563,26 @@ pub(crate) fn mirror(source: &mut WorkingBuffer, angle: f64, center: (f64, f64))
             if d >= 0.0 {
                 return;
             }
-            px.copy_from_slice(&sample_bilinear(&drawing, x - 2.0 * d * nx, y - 2.0 * d * ny));
+            px.copy_from_slice(&sample_bilinear(
+                &drawing,
+                x - 2.0 * d * nx,
+                y - 2.0 * d * ny,
+            ));
         });
 }
-
 
 /// D-153's normal, u(angle + 90) with u(t) = (sin t, -cos t), exact at whole quarter turns.
 /// B-107's card takes the same.
 pub(crate) fn mirror_normal(angle: f64) -> (f64, f64) {
     let theta = angle + 90.0;
     if theta.rem_euclid(90.0) == 0.0 {
-        [(0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0)][((theta / 90.0).floor() as i64).rem_euclid(4) as usize]
+        [(0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0)]
+            [((theta / 90.0).floor() as i64).rem_euclid(4) as usize]
     } else {
         let (sin, cos) = theta.to_radians().sin_cos();
         (sin, -cos)
     }
 }
-
 
 /// D-154: how far a Motion Tile of `size` per cent grows a `w` by `h` drawing across and down,
 /// on each side; nothing for an empty drawing. B-115: the card's plan asks it too.
@@ -3006,7 +3599,12 @@ pub(crate) fn tile_growth(size: (f64, f64), (w, h): (usize, usize)) -> (usize, u
 /// and on the top, the same as on the right and the bottom. The settings are already valid.
 /// D-304: `tile`, the tiles' centre in per cent of the buffer and their width and height in per
 /// cent; at (50, 50), 100 and 100 it is D-154's tile, the buffer itself.
-pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: bool, tile: ([f64; 2], f64, f64)) -> (usize, usize) {
+pub(crate) fn motion_tile(
+    source: &mut WorkingBuffer,
+    size: (f64, f64),
+    mirror: bool,
+    tile: ([f64; 2], f64, f64),
+) -> (usize, usize) {
     let (w, h) = (source.width(), source.height());
     let (gx, gy) = tile_growth(size, (w, h));
     if tile != (PLAIN_TILE, 100.0, 100.0) {
@@ -3020,7 +3618,11 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
     let tile = |i: usize, g: usize, n: usize| {
         let i = i as isize - g as isize;
         let (k, j) = (i.div_euclid(n as isize), i.rem_euclid(n as isize) as usize);
-        if mirror && k % 2 != 0 { n - 1 - j } else { j }
+        if mirror && k % 2 != 0 {
+            n - 1 - j
+        } else {
+            j
+        }
     };
     let ow = w + 2 * gx;
     let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
@@ -3052,8 +3654,15 @@ pub(crate) fn repeat_tile_growth(expand: [f64; 4], (w, h): (usize, usize)) -> (u
 /// top and bottom expansions in whole pixels, and the blend as a share, 0 under Unfold, None and
 /// Slide, which ignore it. The card's warp mode 101 reads the same six.
 pub(crate) fn repeat_tile_setup(expand: [f64; 4], tiling: &str, blend: f64) -> [f64; 6] {
-    let t = crate::effects::REPEAT_TILE_TILINGS.iter().position(|m| *m == tiling).unwrap_or(3);
-    let b = if ["unfold", "none", "slide"].contains(&tiling) { 0.0 } else { blend / 100.0 };
+    let t = crate::effects::REPEAT_TILE_TILINGS
+        .iter()
+        .position(|m| *m == tiling)
+        .unwrap_or(3);
+    let b = if ["unfold", "none", "slide"].contains(&tiling) {
+        0.0
+    } else {
+        blend / 100.0
+    };
     let e = expand.map(f64::ceil);
     [t as f64, e[1], e[0], e[3], e[2], b]
 }
@@ -3095,7 +3704,12 @@ fn repeat_way(mode: usize, i: i64, j: i64) -> u32 {
 /// D-464: the input pixel Repeat Tile's output place (x, y), counted from the input's corner,
 /// reads, or None where the output is clear; `k` from `repeat_tile_setup`. Every choice is made
 /// in whole numbers, so the card's warp mode 101 makes the same ones.
-pub(crate) fn repeat_tile_at(k: &[f64; 6], x: i64, y: i64, (w, h): (i64, i64)) -> Option<(usize, usize)> {
+pub(crate) fn repeat_tile_at(
+    k: &[f64; 6],
+    x: i64,
+    y: i64,
+    (w, h): (i64, i64),
+) -> Option<(usize, usize)> {
     let mode = k[0] as usize;
     if x < -(k[1] as i64) || x >= w + k[2] as i64 || y < -(k[3] as i64) || y >= h + k[4] as i64 {
         return None;
@@ -3107,12 +3721,20 @@ pub(crate) fn repeat_tile_at(k: &[f64; 6], x: i64, y: i64, (w, h): (i64, i64)) -
         return ((0..w).contains(&x) && (0..h).contains(&y)).then_some((x as usize, y as usize));
     }
     let j = y.div_euclid(h);
-    let x = if mode == 15 && j.rem_euclid(2) == 1 { x - w / 2 } else { x };
+    let x = if mode == 15 && j.rem_euclid(2) == 1 {
+        x - w / 2
+    } else {
+        x
+    };
     let i = x.div_euclid(w);
     let (lx, ly) = (x - i * w, y - j * h);
     let o = repeat_way(mode, i, j);
     let q = |t: i64, n: i64, m: i64| (2 * t + 1) * m / (2 * n);
-    let (mut u, mut v) = if o & 4 != 0 { (q(ly, h, w), q(lx, w, h)) } else { (lx, ly) };
+    let (mut u, mut v) = if o & 4 != 0 {
+        (q(ly, h, w), q(lx, w, h))
+    } else {
+        (lx, ly)
+    };
     if o & 1 != 0 {
         u = w - 1 - u;
     }
@@ -3166,7 +3788,8 @@ pub(crate) fn repeat_tile(source: &mut WorkingBuffer, k: &[f64; 6]) -> (usize, u
             let (u2, v2) = ((u + w / 2) % w, (v + h / 2) % h);
             let (a, b, c, e) = (at(u, v), at(u2, v), at(u, v2), at(u2, v2));
             for n in 0..4 {
-                px[n] = (1.0 - wy) * ((1.0 - wx) * a[n] + wx * b[n]) + wy * ((1.0 - wx) * c[n] + wx * e[n]);
+                px[n] = (1.0 - wy) * ((1.0 - wx) * a[n] + wx * b[n])
+                    + wy * ((1.0 - wx) * c[n] + wx * e[n]);
             }
         });
     *source = out;
@@ -3177,7 +3800,10 @@ pub(crate) fn repeat_tile(source: &mut WorkingBuffer, k: &[f64; 6]) -> (usize, u
 /// its Grain's place in `SCATTER_GRAINS`, 0 both ways, 1 across only, 2 down only. The card's
 /// warp mode 102 reads the same two.
 pub(crate) fn scatter_setup(amount: f64, grain: &str) -> [u32; 2] {
-    let g = crate::effects::SCATTER_GRAINS.iter().position(|m| *m == grain).unwrap_or(0);
+    let g = crate::effects::SCATTER_GRAINS
+        .iter()
+        .position(|m| *m == grain)
+        .unwrap_or(0);
     [(amount + 0.5).floor().max(0.0) as u32, g as u32]
 }
 
@@ -3186,7 +3812,10 @@ pub(crate) fn scatter_setup(amount: f64, grain: &str) -> [u32; 2] {
 /// the frame and the direction. The card's warp mode 102 works it the same way.
 pub(crate) fn scatter_move(k: [u32; 2], x: u32, y: u32, f: i32) -> (i64, i64) {
     let hash = |d: u32| {
-        let mut t = x.wrapping_mul(0x9E37_79B1) ^ y.wrapping_mul(0x85EB_CA77) ^ (f as u32).wrapping_mul(0xC2B2_AE3D) ^ d.wrapping_mul(0x27D4_EB2F);
+        let mut t = x.wrapping_mul(0x9E37_79B1)
+            ^ y.wrapping_mul(0x85EB_CA77)
+            ^ (f as u32).wrapping_mul(0xC2B2_AE3D)
+            ^ d.wrapping_mul(0x27D4_EB2F);
         t ^= t >> 15;
         t = t.wrapping_mul(0x2C1B_3C6D);
         t ^= t >> 12;
@@ -3194,8 +3823,16 @@ pub(crate) fn scatter_move(k: [u32; 2], x: u32, y: u32, f: i32) -> (i64, i64) {
         t ^ (t >> 15)
     };
     let span = 2 * k[0] + 1;
-    let dx = if k[1] == 2 { 0 } else { (hash(0) % span) as i64 - k[0] as i64 };
-    let dy = if k[1] == 1 { 0 } else { (hash(1) % span) as i64 - k[0] as i64 };
+    let dx = if k[1] == 2 {
+        0
+    } else {
+        (hash(0) % span) as i64 - k[0] as i64
+    };
+    let dy = if k[1] == 1 {
+        0
+    } else {
+        (hash(1) % span) as i64 - k[0] as i64
+    };
     (dx, dy)
 }
 
@@ -3228,11 +3865,19 @@ pub(crate) fn scatter(source: &mut WorkingBuffer, k: [u32; 2], f: i32) {
 /// point (document 21): always when the period is at most the duration, in the first `duration`
 /// seconds of each period, or when the frame's random draw from the seed is below the
 /// probability.
-pub(crate) fn strobe_on(duration: f64, period: f64, probability: f64, seed: f64, time: f64, count: i64) -> bool {
+pub(crate) fn strobe_on(
+    duration: f64,
+    period: f64,
+    probability: f64,
+    seed: f64,
+    time: f64,
+    count: i64,
+) -> bool {
     if period <= duration || time - period * (time / period).floor() < duration {
         return true;
     }
-    let mut h = (count as u32).wrapping_mul(0x9E37_79B1) ^ (seed.floor() as u32).wrapping_mul(0x85EB_CA77);
+    let mut h =
+        (count as u32).wrapping_mul(0x9E37_79B1) ^ (seed.floor() as u32).wrapping_mul(0x85EB_CA77);
     h ^= h >> 15;
     h = h.wrapping_mul(0x2C1B_3C6D);
     h ^= h >> 12;
@@ -3245,8 +3890,18 @@ pub(crate) fn strobe_on(duration: f64, period: f64, probability: f64, seed: f64,
 /// over 100, the operator's place in `STROBE_LIGHT_OPERATORS`, and 1 for Makes Layer
 /// Transparent. The card's warp mode 103 reads the same six.
 pub(crate) fn strobe_setup(colour: [f64; 3], blend: f64, strobe: &str, op: &str) -> [f64; 6] {
-    let o = crate::effects::STROBE_LIGHT_OPERATORS.iter().position(|m| *m == op).unwrap_or(0);
-    [colour[0], colour[1], colour[2], blend / 100.0, o as f64, (strobe == "transparent") as u8 as f64]
+    let o = crate::effects::STROBE_LIGHT_OPERATORS
+        .iter()
+        .position(|m| *m == op)
+        .unwrap_or(0);
+    [
+        colour[0],
+        colour[1],
+        colour[2],
+        blend / 100.0,
+        o as f64,
+        (strobe == "transparent") as u8 as f64,
+    ]
 }
 
 /// D-466: Strobe Light's operator `op` (its place in `STROBE_LIGHT_OPERATORS`) on the straight
@@ -3255,7 +3910,9 @@ pub(crate) fn strobe_setup(colour: [f64; 3], blend: f64, strobe: &str, op: &str)
 pub(crate) fn strobe_operate(op: usize, c: [f64; 3], s: [f64; 3]) -> [f64; 3] {
     let luma = |v: [f64; 3]| 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
     let level = |v: f64| (255.0 * v.clamp(0.0, 1.0) + 0.5).floor() as u32;
-    let bits = |f: fn(u32, u32) -> u32| -> [f64; 3] { std::array::from_fn(|i| f(level(c[i]), level(s[i])) as f64 / 255.0) };
+    let bits = |f: fn(u32, u32) -> u32| -> [f64; 3] {
+        std::array::from_fn(|i| f(level(c[i]), level(s[i])) as f64 / 255.0)
+    };
     let each = |f: fn(f64, f64) -> f64| -> [f64; 3] { std::array::from_fn(|i| f(c[i], s[i])) };
     let r = match op {
         0 => s,
@@ -3268,8 +3925,20 @@ pub(crate) fn strobe_operate(op: usize, c: [f64; 3], s: [f64; 3]) -> [f64; 3] {
         7 => bits(|a, b| a ^ b),
         8 => each(f64::min),
         9 => each(f64::max),
-        10 => if luma(s) < luma(c) { s } else { c },
-        _ => if luma(s) > luma(c) { s } else { c },
+        10 => {
+            if luma(s) < luma(c) {
+                s
+            } else {
+                c
+            }
+        }
+        _ => {
+            if luma(s) > luma(c) {
+                s
+            } else {
+                c
+            }
+        }
     };
     r.map(|v| v.clamp(0.0, 1.0))
 }
@@ -3301,7 +3970,12 @@ pub(crate) fn strobe_light(source: &mut WorkingBuffer, k: [f64; 6]) {
 /// luminance of the texture `map` (the drawing's size, its corner at the given place) one pixel
 /// ahead and behind along `direction`, each sample held inside the pixel centres, times
 /// `contrast` over 2. The colours, covering and size are kept. The settings are already valid.
-pub(crate) fn texturize(source: &mut WorkingBuffer, map: (&WorkingBuffer, (usize, usize)), direction: f64, contrast: f64) {
+pub(crate) fn texturize(
+    source: &mut WorkingBuffer,
+    map: (&WorkingBuffer, (usize, usize)),
+    direction: f64,
+    contrast: f64,
+) {
     let (w, h) = (source.width(), source.height());
     if w == 0 || h == 0 {
         return;
@@ -3311,26 +3985,37 @@ pub(crate) fn texturize(source: &mut WorkingBuffer, map: (&WorkingBuffer, (usize
     let (fw, fh) = (w as f64, h as f64);
     let hold = |x: f64, y: f64| (x.max(0.5).min(fw - 0.5), y.max(0.5).min(fh - 0.5));
     let k = contrast / 2.0;
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3] as f64;
-        if a <= 0.0 {
-            return;
-        }
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let (ax, ay) = hold(x + ux, y + uy);
-        let (bx, by) = hold(x - ux, y - uy);
-        let v = (sample_bilinear(&height, ax, ay)[3] as f64 - sample_bilinear(&height, bx, by)[3] as f64) * k;
-        for c in 0..3 {
-            let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)) + v;
-            px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (ax, ay) = hold(x + ux, y + uy);
+            let (bx, by) = hold(x - ux, y - uy);
+            let v = (sample_bilinear(&height, ax, ay)[3] as f64
+                - sample_bilinear(&height, bx, by)[3] as f64)
+                * k;
+            for c in 0..3 {
+                let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)) + v;
+                px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
+            }
+        });
 }
 
 /// D-470: Contour Paint's numbers (document 21): the tensor's blur, (0.5 + 4.5 `cleanliness` /
 /// 100) `px`; the turn `offset` degrees as its cosine and sine, exact at whole quarter turns; and
 /// with `quantize` q above 0 the directions (cos kq, sin kq), k = 0 to ceil(180 / q) - 1.
-pub(crate) fn contour_setup(cleanliness: f64, offset: f64, quantize: f64, px: f64) -> (f64, (f64, f64), Vec<(f64, f64)>) {
+pub(crate) fn contour_setup(
+    cleanliness: f64,
+    offset: f64,
+    quantize: f64,
+    px: f64,
+) -> (f64, (f64, f64), Vec<(f64, f64)>) {
     let sigma = (0.5 + 4.5 * cleanliness / 100.0) * px;
     let q = offset.rem_euclid(360.0);
     let turn = if q == 0.0 {
@@ -3347,7 +4032,14 @@ pub(crate) fn contour_setup(cleanliness: f64, offset: f64, quantize: f64, px: f6
     // ponytail: one direction per step, so a tiny Quantize (0.01 is 18000 directions) is slow
     // on the processor; work the nearest by its angle if that is ever used.
     let ways = if quantize > 0.0 {
-        (0..(180.0 / quantize).ceil() as usize).map(|k| ((k as f64 * quantize).to_radians().cos(), (k as f64 * quantize).to_radians().sin())).collect()
+        (0..(180.0 / quantize).ceil() as usize)
+            .map(|k| {
+                (
+                    (k as f64 * quantize).to_radians().cos(),
+                    (k as f64 * quantize).to_radians().sin(),
+                )
+            })
+            .collect()
     } else {
         Vec::new()
     };
@@ -3358,15 +4050,27 @@ pub(crate) fn contour_setup(cleanliness: f64, offset: f64, quantize: f64, px: f6
 /// `stylization` / 100) `px`.
 pub(crate) fn contour_weights(stylization: f64, px: f64) -> Vec<f64> {
     let s = (0.5 + 7.5 * stylization / 100.0) * px;
-    (1..=(2.0 * s).ceil() as usize).map(|k| (-((k * k) as f64) / (2.0 * s * s)).exp()).collect()
+    (1..=(2.0 * s).ceil() as usize)
+        .map(|k| (-((k * k) as f64) / (2.0 * s * s)).exp())
+        .collect()
 }
 
 /// D-470: the flow and its strength from the blurred tensor (a, b, c): Line Blur's tangent, made
 /// one long (none where its length is 0), turned by `turn`, then snapped to the first of `ways`
 /// nearest it; the strength min(1, 4 sqrt(r)).
-pub(crate) fn contour_tangent(a: f64, b: f64, c: f64, turn: (f64, f64), ways: &[(f64, f64)]) -> [f64; 3] {
+pub(crate) fn contour_tangent(
+    a: f64,
+    b: f64,
+    c: f64,
+    turn: (f64, f64),
+    ways: &[(f64, f64)],
+) -> [f64; 3] {
     let r = ((a - c) * (a - c) + 4.0 * b * b).sqrt();
-    let (tx, ty) = if a >= c { (b, -(a - c + r) / 2.0) } else { (-(c - a + r) / 2.0, b) };
+    let (tx, ty) = if a >= c {
+        (b, -(a - c + r) / 2.0)
+    } else {
+        (-(c - a + r) / 2.0, b)
+    };
     let n = (tx * tx + ty * ty).sqrt();
     let e = (4.0 * r.sqrt()).min(1.0);
     if n == 0.0 {
@@ -3390,27 +4094,57 @@ pub(crate) fn contour_tangent(a: f64, b: f64, c: f64, turn: (f64, f64), ways: &[
 /// with its corner at the given origin: CC Vector Blur's luminance, Sobel's slopes over 8 with
 /// each neighbour held inside, the tensor (gx², gx gy, gy²) blurred by D-109's held Gaussian of
 /// `sigma`, then [`contour_tangent`].
-pub(crate) fn contour_flow(source: &WorkingBuffer, map: Option<(&WorkingBuffer, (usize, usize))>, sigma: f64, turn: (f64, f64), ways: &[(f64, f64)]) -> Vec<[f64; 3]> {
+pub(crate) fn contour_flow(
+    source: &WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    sigma: f64,
+    turn: (f64, f64),
+    ways: &[(f64, f64)],
+) -> Vec<[f64; 3]> {
     let (w, h) = (source.width(), source.height());
     let (lum, _) = flow_height(source, map, "luminance", 0.0);
     let l = lum.data();
-    let at = |x: isize, y: isize| l[(y.clamp(0, h as isize - 1) as usize * w + x.clamp(0, w as isize - 1) as usize) * 4 + 3] as f64;
+    let at = |x: isize, y: isize| {
+        l[(y.clamp(0, h as isize - 1) as usize * w + x.clamp(0, w as isize - 1) as usize) * 4 + 3]
+            as f64
+    };
     let mut tensor = WorkingBuffer::transparent(w, h);
-    tensor.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let gx = (at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x - 1, y) - at(x - 1, y + 1)) / 8.0;
-        let gy = (at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x, y - 1) - at(x + 1, y - 1)) / 8.0;
-        px[0] = (gx * gx) as f32;
-        px[1] = (gx * gy) as f32;
-        px[2] = (gy * gy) as f32;
-    });
+    tensor
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let gx = (at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1)
+                - at(x - 1, y - 1)
+                - 2.0 * at(x - 1, y)
+                - at(x - 1, y + 1))
+                / 8.0;
+            let gy = (at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1)
+                - at(x - 1, y - 1)
+                - 2.0 * at(x, y - 1)
+                - at(x + 1, y - 1))
+                / 8.0;
+            px[0] = (gx * gx) as f32;
+            px[1] = (gx * gy) as f32;
+            px[2] = (gy * gy) as f32;
+        });
     crate::effects::held_blur(&mut tensor, sigma);
-    tensor.data().par_chunks_exact(4).map(|p| contour_tangent(p[0] as f64, p[1] as f64, p[2] as f64, turn, ways)).collect()
+    tensor
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| contour_tangent(p[0] as f64, p[1] as f64, p[2] as f64, turn, ways))
+        .collect()
 }
 
 /// D-470: the flow at (x, y) for a walk facing `d`: the bilinear mix of the flow at the four
 /// pixels round it, each held inside and turned to face `d` first.
-fn contour_way(field: &[[f64; 3]], (w, h): (usize, usize), (x, y): (f64, f64), d: (f64, f64)) -> (f64, f64) {
+fn contour_way(
+    field: &[[f64; 3]],
+    (w, h): (usize, usize),
+    (x, y): (f64, f64),
+    d: (f64, f64),
+) -> (f64, f64) {
     let (fx, fy) = (x - 0.5, y - 0.5);
     let (x0, y0) = (fx.floor(), fy.floor());
     let (ux, uy) = (fx - x0, fy - y0);
@@ -3432,46 +4166,62 @@ fn contour_way(field: &[[f64; 3]], (w, h): (usize, usize), (x, y): (f64, f64), d
 /// centre both ways, a pixel a step, held inside the pixel centres, sampling the picture at the
 /// `weights`, turning to the flow where it stands, ending where that has no length; the pass is
 /// O + e (S - O), S the weighted mean with the pixel at 1. With `keep` the covering is kept.
-pub(crate) fn contour_smear(source: &mut WorkingBuffer, field: &[[f64; 3]], weights: &[f64], keep: bool) {
+pub(crate) fn contour_smear(
+    source: &mut WorkingBuffer,
+    field: &[[f64; 3]],
+    weights: &[f64],
+    keep: bool,
+) {
     let (w, h) = (source.width(), source.height());
     let (fw, fh) = (w as f64, h as f64);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let [tx, ty, e] = field[i];
-        if tx == 0.0 && ty == 0.0 {
-            return;
-        }
-        let p: [f64; 4] = std::array::from_fn(|c| px[c] as f64);
-        let (mut acc, mut total) = (p, 1.0);
-        for side in [1.0, -1.0] {
-            let mut pt = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            let mut d = (side * tx, side * ty);
-            for &wt in weights {
-                pt = ((pt.0 + d.0).clamp(0.5, fw - 0.5), (pt.1 + d.1).clamp(0.5, fh - 0.5));
-                let s = sample_bilinear(&still, pt.0, pt.1);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let [tx, ty, e] = field[i];
+            if tx == 0.0 && ty == 0.0 {
+                return;
+            }
+            let p: [f64; 4] = std::array::from_fn(|c| px[c] as f64);
+            let (mut acc, mut total) = (p, 1.0);
+            for side in [1.0, -1.0] {
+                let mut pt = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+                let mut d = (side * tx, side * ty);
+                for &wt in weights {
+                    pt = (
+                        (pt.0 + d.0).clamp(0.5, fw - 0.5),
+                        (pt.1 + d.1).clamp(0.5, fh - 0.5),
+                    );
+                    let s = sample_bilinear(&still, pt.0, pt.1);
+                    for c in 0..4 {
+                        acc[c] += s[c] as f64 * wt;
+                    }
+                    total += wt;
+                    let m = contour_way(field, (w, h), pt, d);
+                    let ln = (m.0 * m.0 + m.1 * m.1).sqrt();
+                    if ln <= 1e-6 {
+                        break;
+                    }
+                    d = (m.0 / ln, m.1 / ln);
+                }
+            }
+            let res: [f64; 4] = std::array::from_fn(|c| p[c] + e * (acc[c] / total - p[c]));
+            if keep {
+                for c in 0..3 {
+                    px[c] = if res[3] > 0.0 {
+                        (res[c] / res[3] * p[3]) as f32
+                    } else {
+                        0.0
+                    };
+                }
+            } else {
                 for c in 0..4 {
-                    acc[c] += s[c] as f64 * wt;
+                    px[c] = res[c] as f32;
                 }
-                total += wt;
-                let m = contour_way(field, (w, h), pt, d);
-                let ln = (m.0 * m.0 + m.1 * m.1).sqrt();
-                if ln <= 1e-6 {
-                    break;
-                }
-                d = (m.0 / ln, m.1 / ln);
             }
-        }
-        let res: [f64; 4] = std::array::from_fn(|c| p[c] + e * (acc[c] / total - p[c]));
-        if keep {
-            for c in 0..3 {
-                px[c] = if res[3] > 0.0 { (res[c] / res[3] * p[3]) as f32 } else { 0.0 };
-            }
-        } else {
-            for c in 0..4 {
-                px[c] = res[c] as f32;
-            }
-        }
-    });
+        });
 }
 
 /// D-470: the encoded straight colour of a covered pixel.
@@ -3495,7 +4245,11 @@ fn contour_nearest(palette: &[[f64; 3]], v: &[f64; 3]) -> usize {
 /// sampled every g pixels, g = max(1, floor(sqrt(w h / 4096))), cut by Heckbert's median cut to
 /// `levels` boxes and each box's mean, then with `k_means` moved 8 times to the mean of the
 /// samples nearest each. Empty where nothing is covered.
-pub(crate) fn contour_palette(source: &WorkingBuffer, levels: usize, k_means: bool) -> Vec<[f64; 3]> {
+pub(crate) fn contour_palette(
+    source: &WorkingBuffer,
+    levels: usize,
+    k_means: bool,
+) -> Vec<[f64; 3]> {
     let (w, h) = (source.width(), source.height());
     let g = (((w * h) as f64 / 4096.0).sqrt().floor() as usize).max(1);
     let mut samples = Vec::new();
@@ -3511,13 +4265,22 @@ pub(crate) fn contour_palette(source: &WorkingBuffer, levels: usize, k_means: bo
         return Vec::new();
     }
     let spans = |b: &[[f64; 3]]| -> [f64; 3] {
-        std::array::from_fn(|c| b.iter().map(|v| v[c]).fold(f64::NEG_INFINITY, f64::max) - b.iter().map(|v| v[c]).fold(f64::INFINITY, f64::min))
+        std::array::from_fn(|c| {
+            b.iter().map(|v| v[c]).fold(f64::NEG_INFINITY, f64::max)
+                - b.iter().map(|v| v[c]).fold(f64::INFINITY, f64::min)
+        })
     };
     let widest = |s: [f64; 3]| (0..3).fold(0, |m, c| if s[c] > s[m] { c } else { m });
     let mut boxes = vec![samples.clone()];
     while boxes.len() < levels {
         let all: Vec<[f64; 3]> = boxes.iter().map(|b| spans(b)).collect();
-        let i = (0..boxes.len()).fold(0, |m, j| if all[j][widest(all[j])] > all[m][widest(all[m])] { j } else { m });
+        let i = (0..boxes.len()).fold(0, |m, j| {
+            if all[j][widest(all[j])] > all[m][widest(all[m])] {
+                j
+            } else {
+                m
+            }
+        });
         let ch = widest(all[i]);
         if all[i][ch] <= 0.0 {
             break;
@@ -3528,7 +4291,9 @@ pub(crate) fn contour_palette(source: &WorkingBuffer, levels: usize, k_means: bo
         boxes.insert(i, b);
         boxes.insert(i + 1, upper);
     }
-    let mean = |b: &[[f64; 3]]| -> [f64; 3] { std::array::from_fn(|c| b.iter().map(|v| v[c]).sum::<f64>() / b.len() as f64) };
+    let mean = |b: &[[f64; 3]]| -> [f64; 3] {
+        std::array::from_fn(|c| b.iter().map(|v| v[c]).sum::<f64>() / b.len() as f64)
+    };
     let mut palette: Vec<[f64; 3]> = boxes.iter().map(|b| mean(b)).collect();
     if k_means {
         for _ in 0..8 {
@@ -3552,7 +4317,11 @@ pub(crate) fn contour_palette(source: &WorkingBuffer, levels: usize, k_means: bo
 
 /// D-584: Contour Paint's custom colours as its palette, each `#rrggbb` its encoded colour.
 pub(crate) fn contour_custom(colors: &[String]) -> Vec<[f64; 3]> {
-    colors.iter().filter_map(|c| crate::selective_blur::parse_hex(c)).map(|b| b.map(|v| v as f64 / 255.0)).collect()
+    colors
+        .iter()
+        .filter_map(|c| crate::selective_blur::parse_hex(c))
+        .map(|b| b.map(|v| v as f64 / 255.0))
+        .collect()
 }
 
 /// D-584: an encoded colour as unscaled CIE L*a*b*, D-400's, for CIE76's colour difference.
@@ -3565,22 +4334,36 @@ pub(crate) fn contour_lab(v: [f64; 3]) -> [f64; 3] {
 /// lies from `low` to `high` takes the palette colour nearest its encoded straight colour, at its
 /// covering; elsewhere it is kept, or cleared with `only`. D-584: `perceptual`, nearest in CIE
 /// L*a*b* ([`contour_lab`]) instead.
-pub(crate) fn contour_fill(source: &mut WorkingBuffer, field: &[[f64; 3]], palette: &[[f64; 3]], (low, high): (f64, f64), only: bool, perceptual: bool) {
-    let linear: Vec<[f64; 3]> = palette.iter().map(|q| q.map(crate::grade::to_linear)).collect();
+pub(crate) fn contour_fill(
+    source: &mut WorkingBuffer,
+    field: &[[f64; 3]],
+    palette: &[[f64; 3]],
+    (low, high): (f64, f64),
+    only: bool,
+    perceptual: bool,
+) {
+    let linear: Vec<[f64; 3]> = palette
+        .iter()
+        .map(|q| q.map(crate::grade::to_linear))
+        .collect();
     let key = |v: [f64; 3]| if perceptual { contour_lab(v) } else { v };
     let keys: Vec<[f64; 3]> = palette.iter().map(|&q| key(q)).collect();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3] as f64;
-        let v = 100.0 * field[i][2];
-        if a > 0.0 && low <= v && v <= high {
-            let q = linear[contour_nearest(&keys, &key(contour_encoded(px, a)))];
-            for c in 0..3 {
-                px[c] = (q[c] * a) as f32;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            let v = 100.0 * field[i][2];
+            if a > 0.0 && low <= v && v <= high {
+                let q = linear[contour_nearest(&keys, &key(contour_encoded(px, a)))];
+                for c in 0..3 {
+                    px[c] = (q[c] * a) as f32;
+                }
+            } else if only {
+                px.copy_from_slice(&[0.0; 4]);
             }
-        } else if only {
-            px.copy_from_slice(&[0.0; 4]);
-        }
-    });
+        });
 }
 
 /// D-470: Contour Paint's Edge Map view (document 21): each pixel opaque grey, its flow strength
@@ -3592,31 +4375,41 @@ pub(crate) fn contour_fill(source: &mut WorkingBuffer, field: &[[f64; 3]], palet
 pub(crate) fn contour_edges(source: &mut WorkingBuffer, field: &[[f64; 3]], px: f64, heads: bool) {
     let (w, h) = (source.width(), source.height());
     let cell = 12.0 * px;
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, out)| {
-        let g = crate::grade::to_linear(field[i][2]);
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let (cx, cy) = (((x / cell).floor() + 0.5) * cell, ((y / cell).floor() + 0.5) * cell);
-        let (qx, qy) = ((cx.floor() as usize).min(w - 1), (cy.floor() as usize).min(h - 1));
-        let [tx, ty, e] = field[qy * w + qx];
-        let mut c = [g, g, g];
-        if tx != 0.0 || ty != 0.0 {
-            let half = 0.4 * cell;
-            let (vx, vy) = (x - cx, y - cy);
-            let along = (vx * tx + vy * ty).clamp(-half, half);
-            let mut d = ((vx - along * tx).powi(2) + (vy - along * ty).powi(2)).sqrt();
-            if heads {
-                let (wx, wy) = (vx - half * tx, vy - half * ty);
-                for sg in [1.0, -1.0] {
-                    let (bx, by) = (-tx * C30 + ty * sg * 0.5, -tx * sg * 0.5 - ty * C30);
-                    let a = (wx * bx + wy * by).clamp(0.0, 0.2 * cell);
-                    d = d.min(((wx - a * bx).powi(2) + (wy - a * by).powi(2)).sqrt());
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, out)| {
+            let g = crate::grade::to_linear(field[i][2]);
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (cx, cy) = (
+                ((x / cell).floor() + 0.5) * cell,
+                ((y / cell).floor() + 0.5) * cell,
+            );
+            let (qx, qy) = (
+                (cx.floor() as usize).min(w - 1),
+                (cy.floor() as usize).min(h - 1),
+            );
+            let [tx, ty, e] = field[qy * w + qx];
+            let mut c = [g, g, g];
+            if tx != 0.0 || ty != 0.0 {
+                let half = 0.4 * cell;
+                let (vx, vy) = (x - cx, y - cy);
+                let along = (vx * tx + vy * ty).clamp(-half, half);
+                let mut d = ((vx - along * tx).powi(2) + (vy - along * ty).powi(2)).sqrt();
+                if heads {
+                    let (wx, wy) = (vx - half * tx, vy - half * ty);
+                    for sg in [1.0, -1.0] {
+                        let (bx, by) = (-tx * C30 + ty * sg * 0.5, -tx * sg * 0.5 - ty * C30);
+                        let a = (wx * bx + wy * by).clamp(0.0, 0.2 * cell);
+                        d = d.min(((wx - a * bx).powi(2) + (wy - a * by).powi(2)).sqrt());
+                    }
                 }
+                let cov = e * (1.0 - d / px).clamp(0.0, 1.0);
+                c = [0.0, 1.0, 1.0].map(|k| g + cov * (k - g));
             }
-            let cov = e * (1.0 - d / px).clamp(0.0, 1.0);
-            c = [0.0, 1.0, 1.0].map(|k| g + cov * (k - g));
-        }
-        out.copy_from_slice(&[c[0] as f32, c[1] as f32, c[2] as f32, 1.0]);
-    });
+            out.copy_from_slice(&[c[0] as f32, c[1] as f32, c[2] as f32, 1.0]);
+        });
 }
 
 /// D-585: cos 30 degrees, as tools/contour_paint_reference.py writes it.
@@ -3632,7 +4425,11 @@ pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], bl
     motion_tile(source, (100.0, 100.0), false, (center, scale, scale));
     if let Some(original) = original {
         let b = (blend / 100.0) as f32;
-        source.data_mut().par_iter_mut().zip(original.data().par_iter()).for_each(|(t, o)| *t = *t * (1.0 - b) + *o * b);
+        source
+            .data_mut()
+            .par_iter_mut()
+            .zip(original.data().par_iter())
+            .for_each(|(t, o)| *t = *t * (1.0 - b) + *o * b);
     }
 }
 
@@ -3650,10 +4447,22 @@ pub(crate) fn magnify_lens(
 ) -> ((f64, f64), f64, f64, usize) {
     let m = magnification / 100.0;
     let r = if link == "none" { size } else { size * m };
-    let f = if link == "size_feather" { feather * m } else { feather };
+    let f = if link == "size_feather" {
+        feather * m
+    } else {
+        feather
+    };
     let (cx, cy) = crate::effects::radial_center(center, dims, origin);
     let (w, h) = (dims.0 as f64, dims.1 as f64);
-    let g = if resize && link == "none" { 0f64.max(r - cx).max(cx + r - w).max(r - cy).max(cy + r - h).ceil() as usize } else { 0 };
+    let g = if resize && link == "none" {
+        0f64.max(r - cx)
+            .max(cx + r - w)
+            .max(r - cy)
+            .max(cy + r - h)
+            .ceil() as usize
+    } else {
+        0
+    };
     ((cx, cy), r, f, g)
 }
 
@@ -3674,7 +4483,15 @@ pub(crate) fn magnify(
         return 0;
     }
     let (w, h) = (source.width(), source.height());
-    let ((cx, cy), r, f, g) = magnify_lens(center, magnification, link, [size, feather], resize, (w, h), origin);
+    let ((cx, cy), r, f, g) = magnify_lens(
+        center,
+        magnification,
+        link,
+        [size, feather],
+        resize,
+        (w, h),
+        origin,
+    );
     let m = magnification / 100.0;
     let jit = 1.0 - 1.0 / m;
     let base = crate::grade::mix(0);
@@ -3688,39 +4505,47 @@ pub(crate) fn magnify(
             [0.0; 4]
         }
     };
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(n, px)| {
-        let (i, j) = ((n % gw) as i64 - g as i64, (n / gw) as i64 - g as i64);
-        let (vx, vy) = (i as f64 + 0.5 - cx, j as f64 + 0.5 - cy);
-        let (d, inside) = if shape == "square" {
-            let d = vx.abs().max(vy.abs());
-            (d, d <= r)
-        } else {
-            let s = vx * vx + vy * vy;
-            (s.sqrt(), s <= r * r)
-        };
-        let k = if f == 0.0 { f64::from(u8::from(inside)) } else { ((r - d) / f).clamp(0.0, 1.0) };
-        let mut a = [0.0f32; 4];
-        if k > 0.0 {
-            let (mut qx, mut qy) = (cx + vx / m, cy + vy / m);
-            let p = if scaling == "soft" {
-                sample_bilinear(&drawing, qx, qy)
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(n, px)| {
+            let (i, j) = ((n % gw) as i64 - g as i64, (n / gw) as i64 - g as i64);
+            let (vx, vy) = (i as f64 + 0.5 - cx, j as f64 + 0.5 - cy);
+            let (d, inside) = if shape == "square" {
+                let d = vx.abs().max(vy.abs());
+                (d, d <= r)
             } else {
-                if scaling == "scatter" {
-                    // Noise's hash at the pixel's place in the drawing, so it stays with it.
-                    let (hx, hy) = (i - origin.0 as i64, j - origin.1 as i64);
-                    qx += jit * crate::grade::unit(base, hx, hy, 0, 0);
-                    qy += jit * crate::grade::unit(base, hx, hy, 0, 1);
-                }
-                read(qx.floor() as i64, qy.floor() as i64)
+                let s = vx * vx + vy * vy;
+                (s.sqrt(), s <= r * r)
             };
-            let weight = (k * (opacity / 100.0)) as f32;
-            a = p.map(|v| v * weight);
-        }
-        px.copy_from_slice(&match mode {
-            Some(mode) => crate::composite::blend_pixel(mode, a, read(i, j)),
-            None => a,
+            let k = if f == 0.0 {
+                f64::from(u8::from(inside))
+            } else {
+                ((r - d) / f).clamp(0.0, 1.0)
+            };
+            let mut a = [0.0f32; 4];
+            if k > 0.0 {
+                let (mut qx, mut qy) = (cx + vx / m, cy + vy / m);
+                let p = if scaling == "soft" {
+                    sample_bilinear(&drawing, qx, qy)
+                } else {
+                    if scaling == "scatter" {
+                        // Noise's hash at the pixel's place in the drawing, so it stays with it.
+                        let (hx, hy) = (i - origin.0 as i64, j - origin.1 as i64);
+                        qx += jit * crate::grade::unit(base, hx, hy, 0, 0);
+                        qy += jit * crate::grade::unit(base, hx, hy, 0, 1);
+                    }
+                    read(qx.floor() as i64, qy.floor() as i64)
+                };
+                let weight = (k * (opacity / 100.0)) as f32;
+                a = p.map(|v| v * weight);
+            }
+            px.copy_from_slice(&match mode {
+                Some(mode) => crate::composite::blend_pixel(mode, a, read(i, j)),
+                None => a,
+            });
         });
-    });
     g
 }
 
@@ -3728,18 +4553,28 @@ pub(crate) fn magnify(
 /// covering at its centre, in the buffer's pixels; times `opacity`, a share, it is the pattern
 /// in `color` (linear, premultiplied), laid on the pixel by `blend` (document 21's layer blend,
 /// as a layer's blend mode lays a layer) or, for "none", replacing it.
-pub(crate) fn lay_pattern(source: &mut WorkingBuffer, cover: impl Fn(f64, f64) -> f64 + Sync, color: [f64; 3], opacity: f64, blend: &str) {
+pub(crate) fn lay_pattern(
+    source: &mut WorkingBuffer,
+    cover: impl Fn(f64, f64) -> f64 + Sync,
+    color: [f64; 3],
+    opacity: f64,
+    blend: &str,
+) {
     let w = source.width();
     let mode = crate::model::BlendMode::from_str(blend);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(n, px)| {
-        let k = cover((n % w) as f64 + 0.5, (n / w) as f64 + 0.5) * opacity;
-        let s = [color[0] * k, color[1] * k, color[2] * k, k].map(|v| v as f32);
-        let out = match mode {
-            Some(mode) => crate::composite::blend_pixel(mode, s, [px[0], px[1], px[2], px[3]]),
-            None => s,
-        };
-        px.copy_from_slice(&out);
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(n, px)| {
+            let k = cover((n % w) as f64 + 0.5, (n / w) as f64 + 0.5) * opacity;
+            let s = [color[0] * k, color[1] * k, color[2] * k, k].map(|v| v as f32);
+            let out = match mode {
+                Some(mode) => crate::composite::blend_pixel(mode, s, [px[0], px[1], px[2], px[3]]),
+                None => s,
+            };
+            px.copy_from_slice(&out);
+        });
 }
 
 /// D-413: Checkerboard's anchor in a buffer `dims` whose drawing's corner is at `origin`, and
@@ -3769,7 +4604,12 @@ pub(crate) fn checker_cells(
 /// anchor `a`. On each axis the distance to the nearer cell edge over `ramps`, half of
 /// max(feather, 1), held to 1 and signed by the cell; the covering is (1 + fx fy) / 2, 1 in the
 /// cell that starts at the anchor and every second one from it, a half on an edge.
-pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f64, f64), [rx, ry]: [f64; 2]) -> f64 {
+pub(crate) fn checker_cover(
+    (x, y): (f64, f64),
+    (ax, ay): (f64, f64),
+    (w, h): (f64, f64),
+    [rx, ry]: [f64; 2],
+) -> f64 {
     let axis = |x: f64, a: f64, w: f64, half: f64| {
         let u = (x - a) / w;
         let i = u.floor();
@@ -3786,7 +4626,11 @@ pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f
 /// dy = y + 0.5 - py; or, when no centre does, the one pixel holding the point. Returns the area's
 /// pixel count, wherever they lie (those past the buffer count as clear), and its rows inside the
 /// buffer as [row, first column, last column].
-pub(crate) fn eyedropper_rows((px, py): (f64, f64), r: f64, (w, h): (usize, usize)) -> (f64, Vec<[usize; 3]>) {
+pub(crate) fn eyedropper_rows(
+    (px, py): (f64, f64),
+    r: f64,
+    (w, h): (usize, usize),
+) -> (f64, Vec<[usize; 3]>) {
     let mut rows = Vec::new();
     let keep = |rows: &mut Vec<[usize; 3]>, y: f64, x0: f64, x1: f64| {
         let (a, b) = (x0.max(0.0), x1.min(w as f64 - 1.0));
@@ -3837,8 +4681,16 @@ fn eyedropper_row(source: &WorkingBuffer, [y, x0, x1]: [usize; 3]) -> [f64; 8] {
 /// sums added in order: Skip Empty the straight colours over those that show, All over all n,
 /// All Premultiplied the premultiplied over n (each with A 1), Including Alpha A = P.a / n and
 /// c = P.rgb / P.a; black where nothing is there to divide by.
-pub(crate) fn eyedropper_colour(source: &WorkingBuffer, rows: &[[usize; 3]], n: f64, average: &str) -> [f64; 4] {
-    let each: Vec<[f64; 8]> = rows.par_iter().map(|&r| eyedropper_row(source, r)).collect();
+pub(crate) fn eyedropper_colour(
+    source: &WorkingBuffer,
+    rows: &[[usize; 3]],
+    n: f64,
+    average: &str,
+) -> [f64; 4] {
+    let each: Vec<[f64; 8]> = rows
+        .par_iter()
+        .map(|&r| eyedropper_row(source, r))
+        .collect();
     let mut s = [0.0; 8];
     for r in &each {
         for (a, b) in s.iter_mut().zip(r) {
@@ -3894,7 +4746,10 @@ pub(crate) fn bucket_matches(source: &WorkingBuffer, b: &Bucket) -> Option<(Vec<
         if a <= 0.0 {
             ([0.0; 3], 0.0)
         } else {
-            ([0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))), a)
+            (
+                [0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))),
+                a,
+            )
         }
     };
     let (e0, a0) = values(&source.data()[seed * 4..seed * 4 + 4]);
@@ -3905,7 +4760,9 @@ pub(crate) fn bucket_matches(source: &WorkingBuffer, b: &Bucket) -> Option<(Vec<
         .map(|p| {
             let (e, a) = values(p);
             let d = match b.selector {
-                "color_and_alpha" => (0..3).map(|c| (e[c] * a - e0[c] * a0).abs()).fold((a - a0).abs(), f64::max),
+                "color_and_alpha" => (0..3)
+                    .map(|c| (e[c] * a - e0[c] * a0).abs())
+                    .fold((a - a0).abs(), f64::max),
                 "straight_color" => (0..3).map(|c| (e[c] - e0[c]).abs()).fold(0.0, f64::max),
                 "transparency" => a,
                 "opacity" => 1.0 - a,
@@ -3929,8 +4786,16 @@ fn bucket_distances(got: &[bool], (w, h): (usize, usize), want: bool) -> Vec<f64
             let f: Vec<f64> = (0..ph)
                 .map(|y| {
                     let inside = x >= 1 && y >= 1 && x <= w && y <= h;
-                    let is = if inside { got[(y - 1) * w + x - 1] } else { false };
-                    if is == want { 0.0 } else { far }
+                    let is = if inside {
+                        got[(y - 1) * w + x - 1]
+                    } else {
+                        false
+                    };
+                    if is == want {
+                        0.0
+                    } else {
+                        far
+                    }
                 })
                 .collect();
             squared_distances(&f)
@@ -3960,7 +4825,12 @@ pub(crate) fn bucket_area(source: &WorkingBuffer, b: &Bucket) -> Vec<f32> {
             let mut todo = std::collections::VecDeque::from([seed]);
             while let Some(k) = todo.pop_front() {
                 let (x, y) = (k % w, k / w);
-                let near = [(x > 0).then(|| k - 1), (x + 1 < w).then(|| k + 1), (y > 0).then(|| k - w), (y + 1 < h).then(|| k + w)];
+                let near = [
+                    (x > 0).then(|| k - 1),
+                    (x + 1 < w).then(|| k + 1),
+                    (y > 0).then(|| k - w),
+                    (y + 1 < h).then(|| k + w),
+                ];
                 for n in near.into_iter().flatten() {
                     if ok[n] && !got[n] {
                         got[n] = true;
@@ -3976,42 +4846,72 @@ pub(crate) fn bucket_area(source: &WorkingBuffer, b: &Bucket) -> Vec<f32> {
     let keep: Vec<bool> = match b.stroke {
         "spread" => {
             let d = bucket_distances(&got, (w, h), true);
-            got.iter().zip(&d).map(|(&g, d)| g || d.sqrt() <= b.radius).collect()
+            got.iter()
+                .zip(&d)
+                .map(|(&g, d)| g || d.sqrt() <= b.radius)
+                .collect()
         }
         "choke" => {
             let d = bucket_distances(&got, (w, h), false);
-            got.iter().zip(&d).map(|(&g, d)| g && d.sqrt() > b.radius).collect()
+            got.iter()
+                .zip(&d)
+                .map(|(&g, d)| g && d.sqrt() > b.radius)
+                .collect()
         }
         "stroke" => {
             let d = bucket_distances(&got, (w, h), false);
-            got.iter().zip(&d).map(|(&g, d)| g && d.sqrt() <= b.width).collect()
+            got.iter()
+                .zip(&d)
+                .map(|(&g, d)| g && d.sqrt() <= b.width)
+                .collect()
         }
         _ => got,
     };
-    keep.into_iter().map(|g| if g { 1.0 } else { 0.0 }).collect()
+    keep.into_iter()
+        .map(|g| if g { 1.0 } else { 0.0 })
+        .collect()
 }
 
 /// D-440: the blur's taps: for feather document 21's Gaussian, sigma softness / 2; else a box
 /// three pixels wide.
 pub(crate) fn bucket_taps(b: &Bucket) -> Vec<f32> {
-    if b.stroke == "feather" { crate::effects::gaussian_weights(b.softness / 2.0) } else { vec![1.0 / 3.0; 3] }
+    if b.stroke == "feather" {
+        crate::effects::gaussian_weights(b.softness / 2.0)
+    } else {
+        vec![1.0 / 3.0; 3]
+    }
 }
 
 /// D-440: Paint Bucket. With `view` every pixel opaque, white where it matches and black
 /// elsewhere; else the area blurred across then down, its edges held, times `opacity` (and the
 /// pixel's own alpha for straight_color) laid in `color` (linear) by `blend` as
 /// [`lay_pattern`] lays a pattern, fill_only replacing the pixel.
-pub(crate) fn paint_bucket(source: &mut WorkingBuffer, b: &Bucket, view: bool, color: [f64; 3], opacity: f64, blend: &str) {
+pub(crate) fn paint_bucket(
+    source: &mut WorkingBuffer,
+    b: &Bucket,
+    view: bool,
+    color: [f64; 3],
+    opacity: f64,
+    blend: &str,
+) {
     let (w, h) = (source.width(), source.height());
     if view {
         let ok = bucket_matches(source, b).map_or_else(|| vec![false; w * h], |(ok, _)| ok);
-        source.data_mut().par_chunks_exact_mut(4).zip(ok).for_each(|(p, g)| {
-            p.copy_from_slice(&if g { [1.0; 4] } else { [0.0, 0.0, 0.0, 1.0] });
-        });
+        source
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(ok)
+            .for_each(|(p, g)| {
+                p.copy_from_slice(&if g { [1.0; 4] } else { [0.0, 0.0, 0.0, 1.0] });
+            });
         return;
     }
     let mut field = WorkingBuffer::transparent(w, h);
-    for (p, v) in field.data_mut().chunks_exact_mut(4).zip(bucket_area(source, b)) {
+    for (p, v) in field
+        .data_mut()
+        .chunks_exact_mut(4)
+        .zip(bucket_area(source, b))
+    {
         p[0] = v;
     }
     let taps = bucket_taps(b);
@@ -4025,7 +4925,13 @@ pub(crate) fn paint_bucket(source: &mut WorkingBuffer, b: &Bucket, view: bool, c
         .map(|(m, p)| m[0] as f64 * if straight { p[3] as f64 } else { 1.0 })
         .collect();
     let blend = if blend == "fill_only" { "none" } else { blend };
-    lay_pattern(source, |x, y| cover[y as usize * w + x as usize], color, opacity, blend);
+    lay_pattern(
+        source,
+        |x, y| cover[y as usize * w + x as usize],
+        color,
+        opacity,
+        blend,
+    );
 }
 
 /// D-418: Fill's feathers as the taps across and down (document 21's Gaussian, sigma feather / 2)
@@ -4040,12 +4946,23 @@ pub(crate) fn fill_taps(feathers: [f64; 2]) -> ([Vec<f32>; 2], usize) {
 /// side, row by row: each path, moved into the buffer by `origin`, covered as ADR-016 covers a
 /// mask (`mask::scanline_field`), the paths joined as a mask's Add joins them,
 /// 1 - (1 - m1)(1 - m2)...
-pub(crate) fn fill_cover(paths: &[Vec<(f64, f64)>], (ox, oy): (usize, usize), (w, h): (usize, usize), r: usize) -> Vec<f32> {
+pub(crate) fn fill_cover(
+    paths: &[Vec<(f64, f64)>],
+    (ox, oy): (usize, usize),
+    (w, h): (usize, usize),
+    r: usize,
+) -> Vec<f32> {
     let (fw, fh) = (w + 2 * r, h + 2 * r);
     let mut rest = vec![1.0f32; fw * fh];
     for path in paths {
-        let moved: Vec<(f64, f64)> = path.iter().map(|&(x, y)| (x + ox as f64, y + oy as f64)).collect();
-        for (v, m) in rest.iter_mut().zip(crate::mask::scanline_field(&moved, fw, fh, r)) {
+        let moved: Vec<(f64, f64)> = path
+            .iter()
+            .map(|&(x, y)| (x + ox as f64, y + oy as f64))
+            .collect();
+        for (v, m) in rest
+            .iter_mut()
+            .zip(crate::mask::scanline_field(&moved, fw, fh, r))
+        {
             *v *= 1.0 - m;
         }
     }
@@ -4057,7 +4974,15 @@ pub(crate) fn fill_cover(paths: &[Vec<(f64, f64)>], (ox, oy): (usize, usize), (w
 /// feathered across and down, each with its edges held: the covering reaches `r` past the
 /// buffer, so every pixel reads it as it lies on the plane. Invert makes it 1 - m; with
 /// k = m * opacity each premultiplied pixel P becomes P (1 - k) + C P.a k, its alpha kept.
-pub(crate) fn fill(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64)>], origin: (usize, usize), feathers: [f64; 2], color: [f64; 3], invert: bool, opacity: f64) {
+pub(crate) fn fill(
+    source: &mut WorkingBuffer,
+    paths: &[Vec<(f64, f64)>],
+    origin: (usize, usize),
+    feathers: [f64; 2],
+    color: [f64; 3],
+    invert: bool,
+    opacity: f64,
+) {
     let (w, h) = (source.width(), source.height());
     let ([tx, ty], r) = fill_taps(feathers);
     let field = (!paths.is_empty()).then(|| {
@@ -4071,14 +4996,20 @@ pub(crate) fn fill(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64)>], origin
         grown
     });
     let fw = w + 2 * r;
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, p)| {
-        let m = field.as_ref().map_or(1.0, |f| f.data()[((i / w + r) * fw + i % w + r) * 4] as f64);
-        let k = if invert { 1.0 - m } else { m } * opacity;
-        let a = p[3] as f64;
-        for (c, v) in p[..3].iter_mut().enumerate() {
-            *v = (*v as f64 * (1.0 - k) + color[c] * a * k) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, p)| {
+            let m = field
+                .as_ref()
+                .map_or(1.0, |f| f.data()[((i / w + r) * fw + i % w + r) * 4] as f64);
+            let k = if invert { 1.0 - m } else { m } * opacity;
+            let a = p[3] as f64;
+            for (c, v) in p[..3].iter_mut().enumerate() {
+                *v = (*v as f64 * (1.0 - k) + color[c] * a * k) as f32;
+            }
+        });
 }
 
 /// D-502: the Chebyshev distance from every pixel to the nearest one of `region` equal to
@@ -4089,7 +5020,10 @@ fn chessboard(region: &[u8], want: u8, (w, h): (usize, usize)) -> Option<Vec<u32
         return None;
     }
     let far = u32::MAX / 2;
-    let mut d: Vec<u32> = region.iter().map(|&r| if r == want { 0 } else { far }).collect();
+    let mut d: Vec<u32> = region
+        .iter()
+        .map(|&r| if r == want { 0 } else { far })
+        .collect();
     for y in 0..h {
         for x in 0..w {
             let mut v = d[y * w + x];
@@ -4129,7 +5063,17 @@ fn chessboard(region: &[u8], want: u8, (w, h): (usize, usize)) -> Option<Vec<u32
 /// and gone pixels, the edge colour taken back out; then the matte is thinned, feathered and
 /// thresholded and mixed back with the picture by `blend` (a share). The layer never grows.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64)>], origin: (usize, usize), radius: f64, thin: f64, feather: f64, threshold: f64, invert: bool, blend: f64) {
+pub(crate) fn inner_outer_key(
+    source: &mut WorkingBuffer,
+    paths: &[Vec<(f64, f64)>],
+    origin: (usize, usize),
+    radius: f64,
+    thin: f64,
+    feather: f64,
+    threshold: f64,
+    invert: bool,
+    blend: f64,
+) {
     let (w, h) = (source.width(), source.height());
     let n = w * h;
     if n == 0 || paths.is_empty() {
@@ -4161,7 +5105,9 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
                 }
                 let py = y as f64 - oy + 0.5;
                 for x in x0..=x1 as usize {
-                    if !row[x] && crate::mask::distance_to_segment(a, b, x as f64 - ox + 0.5, py) <= radius {
+                    if !row[x]
+                        && crate::mask::distance_to_segment(a, b, x as f64 - ox + 0.5, py) <= radius
+                    {
                         row[x] = true;
                     }
                 }
@@ -4180,7 +5126,13 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
                 (None, None) => unreachable!(),
             };
             let (k, g) = if invert { (g, k) } else { (k, g) };
-            if k { 1 } else if g { 2 } else { 0 }
+            if k {
+                1
+            } else if g {
+                2
+            } else {
+                0
+            }
         })
         .collect();
     // Summed-area tables of each set's premultiplied colour and alpha, (w + 1) by (h + 1): each
@@ -4188,17 +5140,20 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
     let table = |want: u8| {
         let mut s = vec![[0.0f64; 4]; (w + 1) * (h + 1)];
         let data = source.data();
-        s.par_chunks_mut(w + 1).skip(1).enumerate().for_each(|(y, out)| {
-            let mut row = [0.0f64; 4];
-            for x in 0..w {
-                if region[y * w + x] == want {
-                    for c in 0..4 {
-                        row[c] += data[(y * w + x) * 4 + c] as f64;
+        s.par_chunks_mut(w + 1)
+            .skip(1)
+            .enumerate()
+            .for_each(|(y, out)| {
+                let mut row = [0.0f64; 4];
+                for x in 0..w {
+                    if region[y * w + x] == want {
+                        for c in 0..4 {
+                            row[c] += data[(y * w + x) * 4 + c] as f64;
+                        }
                     }
+                    out[x + 1] = row;
                 }
-                out[x + 1] = row;
-            }
-        });
+            });
         for y in 1..h {
             let (done, rest) = s.split_at_mut((y + 1) * (w + 1));
             let above = &done[y * (w + 1)..];
@@ -4208,11 +5163,19 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
         }
         s
     };
-    let ((dk, sk), (dg, sg)) = rayon::join(|| (chessboard(&region, 1, (w, h)), table(1)), || (chessboard(&region, 2, (w, h)), table(2)));
+    let ((dk, sk), (dg, sg)) = rayon::join(
+        || (chessboard(&region, 1, (w, h)), table(1)),
+        || (chessboard(&region, 2, (w, h)), table(2)),
+    );
     // E_S: the straight colour of the set's pixels in the square of half-side d about (x, y).
     let mean = |s: &[[f64; 4]], d: u32, x: usize, y: usize| -> [f64; 3] {
         let d = d as usize;
-        let (x0, y0, x1, y1) = (x.saturating_sub(d), y.saturating_sub(d), (x + d + 1).min(w), (y + d + 1).min(h));
+        let (x0, y0, x1, y1) = (
+            x.saturating_sub(d),
+            y.saturating_sub(d),
+            (x + d + 1).min(w),
+            (y + d + 1).min(h),
+        );
         let at = |x: usize, y: usize| s[y * (w + 1) + x];
         let (a, b, c, e) = (at(x1, y1), at(x0, y1), at(x1, y0), at(x0, y0));
         let sum: [f64; 4] = [0, 1, 2, 3].map(|k| a[k] - b[k] - c[k] + e[k]);
@@ -4230,7 +5193,11 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
             let (x, y) = (i % w, i / w);
             let p = &data[i * 4..i * 4 + 4];
             let a = p[3] as f64;
-            let c: [f64; 3] = if a > 0.0 { [p[0] as f64 / a, p[1] as f64 / a, p[2] as f64 / a] } else { [0.0; 3] };
+            let c: [f64; 3] = if a > 0.0 {
+                [p[0] as f64 / a, p[1] as f64 / a, p[2] as f64 / a]
+            } else {
+                [0.0; 3]
+            };
             let f = dk.as_ref().map_or([0.0; 3], |d| mean(&sk, d[i], x, y));
             let b = dg.as_ref().map_or([0.0; 3], |d| mean(&sg, d[i], x, y));
             let al = match (region[i], &dk, &dg) {
@@ -4242,7 +5209,8 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
                     let v = [f[0] - b[0], f[1] - b[1], f[2] - b[2]];
                     let vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
                     if vv > 1e-12 {
-                        (((c[0] - b[0]) * v[0] + (c[1] - b[1]) * v[1] + (c[2] - b[2]) * v[2]) / vv).clamp(0.0, 1.0)
+                        (((c[0] - b[0]) * v[0] + (c[1] - b[1]) * v[1] + (c[2] - b[2]) * v[2]) / vv)
+                            .clamp(0.0, 1.0)
                     } else {
                         g[i] as f64 / (k[i] + g[i]) as f64
                     }
@@ -4250,7 +5218,9 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
             };
             let fc = match region[i] {
                 1 => c,
-                0 if al > 0.0 => [0, 1, 2].map(|k| ((c[k] - (1.0 - al) * b[k]) / al).clamp(0.0, 1.0)),
+                0 if al > 0.0 => {
+                    [0, 1, 2].map(|k| ((c[k] - (1.0 - al) * b[k]) / al).clamp(0.0, 1.0))
+                }
                 _ => f,
             };
             (al, fc)
@@ -4263,29 +5233,41 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
         let runs = disc_runs(thin.abs());
         let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
         let mut wide = m.clone();
-        let mut out = vec![if thin > 0.0 { f32::INFINITY } else { f32::NEG_INFINITY }; n];
+        let mut out = vec![
+            if thin > 0.0 {
+                f32::INFINITY
+            } else {
+                f32::NEG_INFINITY
+            };
+            n
+        ];
         for k in 0..=top {
             if k > 0 {
                 // Each row's extreme within k, from its extreme within k - 1.
                 let prev = wide.clone();
-                wide.par_chunks_mut(w).zip(prev.par_chunks(w)).for_each(|(row, was)| {
-                    for x in 0..w {
-                        let mut v = was[x];
-                        if x > 0 {
-                            v = pick(v, was[x - 1]);
+                wide.par_chunks_mut(w)
+                    .zip(prev.par_chunks(w))
+                    .for_each(|(row, was)| {
+                        for x in 0..w {
+                            let mut v = was[x];
+                            if x > 0 {
+                                v = pick(v, was[x - 1]);
+                            }
+                            if x + 1 < w {
+                                v = pick(v, was[x + 1]);
+                            }
+                            row[x] = v;
                         }
-                        if x + 1 < w {
-                            v = pick(v, was[x + 1]);
-                        }
-                        row[x] = v;
-                    }
-                });
+                    });
             }
             for &(dy, _) in runs.iter().filter(|&&(_, hw)| hw == k) {
                 out.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
                     let sy = y as isize + dy;
                     if sy >= 0 && (sy as usize) < h {
-                        for (o, &v) in row.iter_mut().zip(&wide[sy as usize * w..(sy as usize + 1) * w]) {
+                        for (o, &v) in row
+                            .iter_mut()
+                            .zip(&wide[sy as usize * w..(sy as usize + 1) * w])
+                        {
                             *o = pick(*o, v);
                         }
                     }
@@ -4300,27 +5282,51 @@ pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64
         for (p, &v) in b.data_mut().chunks_exact_mut(4).zip(&m) {
             p[0] = v;
         }
-        crate::effects::held_blur_axes(&mut b, &crate::effects::gaussian_weights(feather / 2.0), (true, true));
+        crate::effects::held_blur_axes(
+            &mut b,
+            &crate::effects::gaussian_weights(feather / 2.0),
+            (true, true),
+        );
         m = b.data().chunks_exact(4).map(|p| p[0]).collect();
     }
     let q = threshold / 100.0;
-    source.data_mut().par_chunks_exact_mut(4).zip(worked.par_iter()).zip(m.par_iter()).for_each(|((p, (_, fc)), &v)| {
-        let v = v as f64;
-        let v = if q < 1.0 { ((v - q) / (1.0 - q)).clamp(0.0, 1.0) } else if v >= 1.0 { 1.0 } else { 0.0 };
-        let a = p[3] as f64;
-        let out = [a * v * fc[0], a * v * fc[1], a * v * fc[2], a * v];
-        for (c, o) in p.iter_mut().zip(out) {
-            *c = (o * (1.0 - blend) + *c as f64 * blend) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(worked.par_iter())
+        .zip(m.par_iter())
+        .for_each(|((p, (_, fc)), &v)| {
+            let v = v as f64;
+            let v = if q < 1.0 {
+                ((v - q) / (1.0 - q)).clamp(0.0, 1.0)
+            } else if v >= 1.0 {
+                1.0
+            } else {
+                0.0
+            };
+            let a = p[3] as f64;
+            let out = [a * v * fc[0], a * v * fc[1], a * v * fc[2], a * v];
+            for (c, o) in p.iter_mut().zip(out) {
+                *c = (o * (1.0 - blend) + *c as f64 * blend) as f32;
+            }
+        });
 }
 
 /// D-417: Grid's covering at `(x, y)`, in the buffer's pixels, cells `(w, h)` from the anchor
 /// `a`, lines `border` thick along the cells' edges. On each axis the share of a box `ramps`
 /// wide (max(feather, 1)) about the pixel that falls inside the two nearest lines, held to 1;
 /// the covering is gx + gy - gx gy, 1 minus that when `invert`.
-pub(crate) fn grid_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f64, f64), border: f64, [rx, ry]: [f64; 2], invert: bool) -> f64 {
-    let line = |d: f64, r: f64| (((d + r / 2.0).min(border / 2.0) - (d - r / 2.0).max(-border / 2.0)) / r).clamp(0.0, 1.0);
+pub(crate) fn grid_cover(
+    (x, y): (f64, f64),
+    (ax, ay): (f64, f64),
+    (w, h): (f64, f64),
+    border: f64,
+    [rx, ry]: [f64; 2],
+    invert: bool,
+) -> f64 {
+    let line = |d: f64, r: f64| {
+        (((d + r / 2.0).min(border / 2.0) - (d - r / 2.0).max(-border / 2.0)) / r).clamp(0.0, 1.0)
+    };
     let axis = |x: f64, a: f64, w: f64, r: f64| {
         let u = (x - a) / w;
         let t = u - u.floor();
@@ -4328,7 +5334,11 @@ pub(crate) fn grid_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f64,
     };
     let (gx, gy) = (axis(x, ax, w, rx), axis(y, ay, h, ry));
     let c = gx + gy - gx * gy;
-    if invert { 1.0 - c } else { c }
+    if invert {
+        1.0 - c
+    } else {
+        c
+    }
 }
 
 /// D-414: Circle's ring, `[outer, inner, outer ramp, inner ramp]`: the radii it runs between
@@ -4336,7 +5346,12 @@ pub(crate) fn grid_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f64,
 /// between the radius and the edge radius; "thickness" inward from the radius; the two
 /// "*_radius" edges read the thickness (and, for "thickness_feather_radius", the feathers) as
 /// per cent of the radius.
-pub(crate) fn circle_ring(radius: f64, edge: &str, edge_thickness: f64, [outer, inner]: [f64; 2]) -> [f64; 4] {
+pub(crate) fn circle_ring(
+    radius: f64,
+    edge: &str,
+    edge_thickness: f64,
+    [outer, inner]: [f64; 2],
+) -> [f64; 4] {
     let share = |v: f64| v * radius / 100.0;
     let (t, fo, fi) = match edge {
         "thickness_radius" => (share(edge_thickness), outer, inner),
@@ -4354,13 +5369,22 @@ pub(crate) fn circle_ring(radius: f64, edge: &str, edge_thickness: f64, [outer, 
 /// D-414: Circle's covering at `(x, y)`, in the buffer's pixels, centre `c`: a straight ramp
 /// on the outer radius, times one on the inner when it is past 0, each centred on its edge;
 /// 1 minus that when `invert`.
-pub(crate) fn circle_cover((x, y): (f64, f64), c: (f64, f64), [ro, ri, fo, fi]: [f64; 4], invert: bool) -> f64 {
+pub(crate) fn circle_cover(
+    (x, y): (f64, f64),
+    c: (f64, f64),
+    [ro, ri, fo, fi]: [f64; 4],
+    invert: bool,
+) -> f64 {
     let d = (x - c.0).hypot(y - c.1);
     let mut k = ((ro - d) / fo + 0.5).clamp(0.0, 1.0);
     if ri > 0.0 {
         k *= ((d - ri) / fi + 0.5).clamp(0.0, 1.0);
     }
-    if invert { 1.0 - k } else { k }
+    if invert {
+        1.0 - k
+    } else {
+        k
+    }
 }
 
 /// D-207 (Beam) and D-415 (Ellipse): a line `2 r` thick seen `d` from its middle, `softness` per
@@ -4387,7 +5411,13 @@ pub(crate) fn ellipse_distance(u: f64, v: f64, a: f64, b: f64) -> f64 {
 /// D-415: After Effects' Ellipse. Its outline, `thickness` pixels across, drawn as Beam's line
 /// is (`line_profile`), over the layer or `alone`. `c` the centre in the buffer's pixels, `a`
 /// and `b` the half axes.
-pub(crate) fn ellipse(source: &mut WorkingBuffer, c: (f64, f64), [a, b, thickness, softness]: [f64; 4], [inside, outside]: [[f64; 3]; 2], alone: bool) {
+pub(crate) fn ellipse(
+    source: &mut WorkingBuffer,
+    c: (f64, f64),
+    [a, b, thickness, softness]: [f64; 4],
+    [inside, outside]: [[f64; 3]; 2],
+    alone: bool,
+) {
     let w = source.width();
     let r = thickness / 2.0;
     source
@@ -4399,7 +5429,8 @@ pub(crate) fn ellipse(source: &mut WorkingBuffer, c: (f64, f64), [a, b, thicknes
             let (k, q) = line_profile(d, r, softness);
             let keep = if alone { 0.0 } else { 1.0 - k };
             for ch in 0..3 {
-                px[ch] = (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * k) as f32;
+                px[ch] =
+                    (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * k) as f32;
             }
             px[3] = (px[3] as f64 * keep + k) as f32;
         });
@@ -4428,7 +5459,14 @@ impl Marks {
         let reach = self.r + (2.0 * self.r * self.softness / 100.0).max(1.0) / 2.0;
         self.pieces
             .iter()
-            .map(|p| [p[0].min(p[2]) - reach, p[0].max(p[2]) + reach, p[1].min(p[3]) - reach, p[1].max(p[3]) + reach])
+            .map(|p| {
+                [
+                    p[0].min(p[2]) - reach,
+                    p[0].max(p[2]) + reach,
+                    p[1].min(p[3]) - reach,
+                    p[1].max(p[3]) + reach,
+                ]
+            })
             .collect()
     }
 
@@ -4439,8 +5477,13 @@ impl Marks {
             return bands;
         }
         for (j, b) in boxes.iter().enumerate() {
-            let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
-            for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+            let rows = (b[2] - 0.5).floor().max(0.0) as usize
+                ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
+            for band in bands
+                .iter_mut()
+                .take(rows.end() / 16 + 1)
+                .skip(rows.start() / 16)
+            {
                 band.push(j as u32);
             }
         }
@@ -4452,7 +5495,11 @@ impl Marks {
 fn piece_distance(p: &Piece, x: f64, y: f64) -> f64 {
     let (dx, dy) = (p[2] - p[0], p[3] - p[1]);
     let l2 = dx * dx + dy * dy;
-    let t = if l2 == 0.0 { 0.0 } else { (((x - p[0]) * dx + (y - p[1]) * dy) / l2).clamp(0.0, 1.0) };
+    let t = if l2 == 0.0 {
+        0.0
+    } else {
+        (((x - p[0]) * dx + (y - p[1]) * dy) / l2).clamp(0.0, 1.0)
+    };
     let (ex, ey) = (x - p[0] - t * dx, y - p[1] - t * dy);
     (ex * ex + ey * ey).sqrt()
 }
@@ -4466,67 +5513,92 @@ pub(crate) fn draw_marks(source: &mut WorkingBuffer, m: &Marks) {
     let w = source.width();
     let boxes = m.boxes();
     let bands = Marks::bands(&boxes, source.height());
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let (mut acc, mut total, mut weight, mut clear) = ([0.0f64; 4], [0.0f64; 3], 0.0, 1.0);
-        let mut lay = |d: f64, p: &Piece| {
-            let (c, q) = line_profile(d, m.r, m.softness);
-            for ch in 0..3 {
-                let l = (1.0 - q) * p[5 + ch] + q * p[8 + ch];
-                if m.blend {
-                    total[ch] += l * c;
-                } else {
-                    acc[ch] = l * c + acc[ch] * (1.0 - c);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (mut acc, mut total, mut weight, mut clear) = ([0.0f64; 4], [0.0f64; 3], 0.0, 1.0);
+            let mut lay = |d: f64, p: &Piece| {
+                let (c, q) = line_profile(d, m.r, m.softness);
+                for ch in 0..3 {
+                    let l = (1.0 - q) * p[5 + ch] + q * p[8 + ch];
+                    if m.blend {
+                        total[ch] += l * c;
+                    } else {
+                        acc[ch] = l * c + acc[ch] * (1.0 - c);
+                    }
                 }
-            }
-            if m.blend {
-                weight += c;
-                clear *= 1.0 - c;
-            } else {
-                acc[3] = c + acc[3] * (1.0 - c);
-            }
-        };
-        let mut best: Option<(f64, usize)> = None;
-        for &j in &bands[i / w / 16] {
-            let (j, b) = (j as usize, boxes[j as usize]);
-            if x <= b[0] || x >= b[1] || y <= b[2] || y >= b[3] {
-                continue;
+                if m.blend {
+                    weight += c;
+                    clear *= 1.0 - c;
+                } else {
+                    acc[3] = c + acc[3] * (1.0 - c);
+                }
+            };
+            let mut best: Option<(f64, usize)> = None;
+            for &j in &bands[i / w / 16] {
+                let (j, b) = (j as usize, boxes[j as usize]);
+                if x <= b[0] || x >= b[1] || y <= b[2] || y >= b[3] {
+                    continue;
+                }
+                if let Some((d, k)) = best {
+                    if m.pieces[k][4] != m.pieces[j][4] {
+                        lay(d, &m.pieces[k]);
+                        best = None;
+                    }
+                }
+                let d = piece_distance(&m.pieces[j], x, y);
+                if best.is_none_or(|(e, _)| d < e) {
+                    best = Some((d, j));
+                }
             }
             if let Some((d, k)) = best {
-                if m.pieces[k][4] != m.pieces[j][4] {
-                    lay(d, &m.pieces[k]);
-                    best = None;
+                lay(d, &m.pieces[k]);
+            }
+            if m.blend {
+                acc[3] = 1.0 - clear;
+                for ch in 0..3 {
+                    acc[ch] = if weight > 0.0 {
+                        total[ch] / weight * acc[3]
+                    } else {
+                        0.0
+                    };
                 }
             }
-            let d = piece_distance(&m.pieces[j], x, y);
-            if best.is_none_or(|(e, _)| d < e) {
-                best = Some((d, j));
+            let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+            let out = match m.how {
+                1 => acc,
+                2 => [
+                    p[0] + acc[0],
+                    p[1] + acc[1],
+                    p[2] + acc[2],
+                    (p[3] + acc[3]).min(1.0),
+                ],
+                _ => std::array::from_fn(|ch| acc[ch] + p[ch] * (1.0 - acc[3])),
+            };
+            for ch in 0..4 {
+                px[ch] = out[ch] as f32;
             }
-        }
-        if let Some((d, k)) = best {
-            lay(d, &m.pieces[k]);
-        }
-        if m.blend {
-            acc[3] = 1.0 - clear;
-            for ch in 0..3 {
-                acc[ch] = if weight > 0.0 { total[ch] / weight * acc[3] } else { 0.0 };
-            }
-        }
-        let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
-        let out = match m.how {
-            1 => acc,
-            2 => [p[0] + acc[0], p[1] + acc[1], p[2] + acc[2], (p[3] + acc[3]).min(1.0)],
-            _ => std::array::from_fn(|ch| acc[ch] + p[ch] * (1.0 - acc[3])),
-        };
-        for ch in 0..4 {
-            px[ch] = out[ch] as f32;
-        }
-    });
+        });
 }
 
 /// One piece from `a` to `b` of mark `group`, coloured `inside` and `outside`.
 fn piece(a: (f64, f64), b: (f64, f64), group: usize, [inside, outside]: [[f64; 3]; 2]) -> Piece {
-    [a.0, a.1, b.0, b.1, group as f64, inside[0], inside[1], inside[2], outside[0], outside[1], outside[2]]
+    [
+        a.0,
+        a.1,
+        b.0,
+        b.1,
+        group as f64,
+        inside[0],
+        inside[1],
+        inside[2],
+        outside[0],
+        outside[1],
+        outside[2],
+    ]
 }
 
 /// D-420 (and D-421): the marks through each band's tips, `feet` each band's foot and facing,
@@ -4534,7 +5606,14 @@ fn piece(a: (f64, f64), b: (f64, f64), group: usize, [inside, outside]: [[f64; 3
 /// back (Side B). Digital: a piece from foot to tip, or tip to tip for both sides; Analog Lines:
 /// one line through each side's tips, band b's colours from tip b to tip b + 1 (and from the
 /// last to the first when closed); Analog Dots: a dot at each tip, band by band.
-pub(crate) fn mark_pieces(feet: &[((f64, f64), (f64, f64))], closed: bool, heights: &[f64], colours: &[[[f64; 3]; 2]], display: &str, side: &str) -> Vec<Piece> {
+pub(crate) fn mark_pieces(
+    feet: &[((f64, f64), (f64, f64))],
+    closed: bool,
+    heights: &[f64],
+    colours: &[[[f64; 3]; 2]],
+    display: &str,
+    side: &str,
+) -> Vec<Piece> {
     let sides: &[f64] = match side {
         "side_a" => &[1.0],
         "side_b" => &[-1.0],
@@ -4549,7 +5628,11 @@ pub(crate) fn mark_pieces(feet: &[((f64, f64), (f64, f64))], closed: bool, heigh
     match display {
         "digital" => {
             for b in 0..n {
-                let (p, q) = if sides.len() == 2 { (tip(b, -1.0), tip(b, 1.0)) } else { (feet[b].0, tip(b, sides[0])) };
+                let (p, q) = if sides.len() == 2 {
+                    (tip(b, -1.0), tip(b, 1.0))
+                } else {
+                    (feet[b].0, tip(b, sides[0]))
+                };
                 out.push(piece(p, q, b, colours[b]));
             }
         }
@@ -4585,7 +5668,11 @@ pub(crate) fn mark_pieces(feet: &[((f64, f64), (f64, f64))], closed: bool, heigh
 /// to its left; round Start Point from straight up, clockwise (Use Polar Path); or round the
 /// mask Path names. Each band's colours are turned round the hue by Hue Interpolation times its
 /// share, counted from the loudest band with Dynamic Hue Phase and folded with Color Symmetry.
-pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usize), (ox, oy): (usize, usize)) -> Option<Marks> {
+pub(crate) fn spectrum_marks(
+    effect: &crate::effects::Effect,
+    size: (usize, usize),
+    (ox, oy): (usize, usize),
+) -> Option<Marks> {
     let crate::effects::Effect::AudioSpectrum {
         start_point,
         end_point,
@@ -4610,10 +5697,27 @@ pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usiz
         return None;
     };
     let bands = levels.len();
-    let (feet, closed) = sound_feet(bands, outline.as_deref(), use_polar_path == "on", [*start_point, *end_point], size, (ox, oy));
+    let (feet, closed) = sound_feet(
+        bands,
+        outline.as_deref(),
+        use_polar_path == "on",
+        [*start_point, *end_point],
+        size,
+        (ox, oy),
+    );
     let heights: Vec<f64> = levels.iter().map(|a| maximum_height * a.min(1.0)).collect();
     let loudest = if dynamic_hue_phase == "on" {
-        levels.iter().enumerate().fold((0, f64::NEG_INFINITY), |(m, top), (b, &a)| if a > top { (b, a) } else { (m, top) }).0
+        levels
+            .iter()
+            .enumerate()
+            .fold((0, f64::NEG_INFINITY), |(m, top), (b, &a)| {
+                if a > top {
+                    (b, a)
+                } else {
+                    (m, top)
+                }
+            })
+            .0
     } else {
         0
     };
@@ -4630,13 +5734,24 @@ pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usiz
     let colours: Vec<[[f64; 3]; 2]> = (0..bands)
         .map(|b| {
             let u = (((b + bands - loudest) % bands) as f64 + 0.5) / bands as f64;
-            let u = if color_symmetry == "on" { 1.0 - (2.0 * u - 1.0).abs() } else { u };
+            let u = if color_symmetry == "on" {
+                1.0 - (2.0 * u - 1.0).abs()
+            } else {
+                u
+            };
             let turn = hue_interpolation * u;
             [turned(inside_color, turn), turned(outside_color, turn)]
         })
         .collect();
     Some(Marks {
-        pieces: mark_pieces(&feet, closed, &heights, &colours, display_options, side_options),
+        pieces: mark_pieces(
+            &feet,
+            closed,
+            &heights,
+            &colours,
+            display_options,
+            side_options,
+        ),
         r: thickness / 2.0,
         softness: *softness,
         how: if composite == "on" { 0 } else { 1 },
@@ -4648,23 +5763,46 @@ pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usiz
 /// whether the way is closed: round the mask `outline` (the drawing's own pixels); round the
 /// first of `points` from straight up, clockwise (`polar`); or along the line from the first of
 /// `points` to the second, facing to its left.
-fn sound_feet(n: usize, outline: Option<&[(f64, f64)]>, polar: bool, [start, end]: [[f64; 2]; 2], size: (usize, usize), (ox, oy): (usize, usize)) -> (Vec<((f64, f64), (f64, f64))>, bool) {
+fn sound_feet(
+    n: usize,
+    outline: Option<&[(f64, f64)]>,
+    polar: bool,
+    [start, end]: [[f64; 2]; 2],
+    size: (usize, usize),
+    (ox, oy): (usize, usize),
+) -> (Vec<((f64, f64), (f64, f64))>, bool) {
     let t: Vec<f64> = (0..n).map(|b| (b as f64 + 0.5) / n as f64).collect();
     match outline {
         Some(o) => {
-            let o: Vec<(f64, f64)> = o.iter().map(|&(x, y)| (x + ox as f64, y + oy as f64)).collect();
-            (t.iter().map(|&u| crate::along::point_along(&o, u)).collect(), true)
+            let o: Vec<(f64, f64)> = o
+                .iter()
+                .map(|&(x, y)| (x + ox as f64, y + oy as f64))
+                .collect();
+            (
+                t.iter()
+                    .map(|&u| crate::along::point_along(&o, u))
+                    .collect(),
+                true,
+            )
         }
         None if polar => {
             let p = crate::effects::radial_center(start, size, (ox, oy));
             let at = |u: f64| -std::f64::consts::PI / 2.0 + 2.0 * std::f64::consts::PI * u;
-            (t.iter().map(|&u| (p, (at(u).cos(), at(u).sin()))).collect(), true)
+            (
+                t.iter().map(|&u| (p, (at(u).cos(), at(u).sin()))).collect(),
+                true,
+            )
         }
         None => {
             let p = crate::effects::radial_center(start, size, (ox, oy));
             let q = crate::effects::radial_center(end, size, (ox, oy));
             let n = crate::along::facing(q.0 - p.0, q.1 - p.1);
-            (t.iter().map(|&u| ((p.0 + u * (q.0 - p.0), p.1 + u * (q.1 - p.1)), n)).collect(), false)
+            (
+                t.iter()
+                    .map(|&u| ((p.0 + u * (q.0 - p.0), p.1 + u * (q.1 - p.1)), n))
+                    .collect(),
+                false,
+            )
         }
     }
 }
@@ -4730,7 +5868,10 @@ impl FractalView {
             j: view(*julia_center, *julia_magnification),
             m_limit: mandelbrot_escape_limit.floor() as u32,
             j_limit: julia_escape_limit.floor() as u32,
-            palette: crate::effects::FRACTAL_PALETTES.iter().position(|p| p == palette).unwrap_or(0) as u8,
+            palette: crate::effects::FRACTAL_PALETTES
+                .iter()
+                .position(|p| p == palette)
+                .unwrap_or(0) as u8,
             hue: *hue,
             steps: (cycle_steps.floor() as i64).max(1),
             offset: cycle_offset.floor() as i64,
@@ -4748,8 +5889,16 @@ impl FractalView {
     /// step of z^n costing n - 1 of z^2's. The card made 2.1e10 a second on B-295's
     /// measurement (RTX 4070 Ti SUPER), all in one dispatch, which Windows stops at 2 seconds.
     pub(crate) fn card_work(&self, pixels: usize) -> f64 {
-        let samples = 5 + if self.factor > 1 { self.factor * self.factor } else { 0 } + self.overlay as u32;
-        pixels as f64 * samples as f64 * self.m_limit.max(self.j_limit) as f64 * (self.power - 1) as f64
+        let samples =
+            5 + if self.factor > 1 {
+                self.factor * self.factor
+            } else {
+                0
+            } + self.overlay as u32;
+        pixels as f64
+            * samples as f64
+            * self.m_limit.max(self.j_limit) as f64
+            * (self.power - 1) as f64
     }
 
     /// The bands a palette has, so its colours can be worked once.
@@ -4777,12 +5926,26 @@ impl FractalView {
         let e = match self.palette {
             3 if (b < 0) == self.transparency => return clear,
             3 => crate::grade::from_hls(self.hue.rem_euclid(360.0), 0.5, 1.0),
-            _ if b < 0 => return if self.transparency { clear } else { [0.0, 0.0, 0.0, 1.0] },
+            _ if b < 0 => {
+                return if self.transparency {
+                    clear
+                } else {
+                    [0.0, 0.0, 0.0, 1.0]
+                }
+            }
             0 => {
                 let s = self.steps;
-                crate::grade::from_hls((self.hue + (45 * (b / s)) as f64).rem_euclid(360.0), (b % s + 1) as f64 / (s + 1) as f64, 1.0)
+                crate::grade::from_hls(
+                    (self.hue + (45 * (b / s)) as f64).rem_euclid(360.0),
+                    (b % s + 1) as f64 / (s + 1) as f64,
+                    1.0,
+                )
             }
-            1 => crate::grade::from_hls((self.hue + (360 * b) as f64 / self.steps as f64).rem_euclid(360.0), 0.5, 1.0),
+            1 => crate::grade::from_hls(
+                (self.hue + (360 * b) as f64 / self.steps as f64).rem_euclid(360.0),
+                0.5,
+                1.0,
+            ),
             _ => [b as f64; 3],
         };
         let [r, g, bl] = e.map(crate::grade::to_linear);
@@ -4791,7 +5954,11 @@ impl FractalView {
 
     /// Step 3's count at the drawing point `(x, y)`, -1 inside; `size` the drawing's.
     fn count(&self, x: f64, y: f64, size: (f64, f64)) -> i64 {
-        let (view, limit) = if self.julia { (self.j, self.j_limit) } else { (self.m, self.m_limit) };
+        let (view, limit) = if self.julia {
+            (self.j, self.j_limit)
+        } else {
+            (self.m, self.m_limit)
+        };
         let mut p = fractal_point(x, y, view, size);
         if self.inverse {
             match fractal_invert(p) {
@@ -4802,16 +5969,30 @@ impl FractalView {
         if self.julia {
             return fractal_escape(p, [self.m[0], self.m[1]], self.power, limit);
         }
-        let z0 = if self.over_julia { [self.j[0], self.j[1]] } else { [0.0, 0.0] };
+        let z0 = if self.over_julia {
+            [self.j[0], self.j[1]]
+        } else {
+            [0.0, 0.0]
+        };
         fractal_escape(z0, p, self.power, limit)
     }
 
     /// Step 8's opposite set at `(x, y)`: whether it is inside.
     fn opposite_inside(&self, x: f64, y: f64, size: (f64, f64)) -> bool {
         if self.julia {
-            fractal_escape([0.0, 0.0], fractal_point(x, y, self.m, size), self.power, self.m_limit) < 0
+            fractal_escape(
+                [0.0, 0.0],
+                fractal_point(x, y, self.m, size),
+                self.power,
+                self.m_limit,
+            ) < 0
         } else {
-            fractal_escape(fractal_point(x, y, self.j, size), [self.m[0], self.m[1]], self.power, self.j_limit) < 0
+            fractal_escape(
+                fractal_point(x, y, self.j, size),
+                [self.m[0], self.m[1]],
+                self.power,
+                self.j_limit,
+            ) < 0
         }
     }
 }
@@ -4821,7 +6002,11 @@ impl FractalView {
 /// `None` when it filled in none. Digital: a piece from the least to the greatest; Analog Lines
 /// and Dots: the greatest where the top bit of mix(mix(seed) ^ j) is set, else the least, drawn
 /// as Audio Spectrum's Side A.
-pub(crate) fn waveform_marks(effect: &crate::effects::Effect, size: (usize, usize), origin: (usize, usize)) -> Option<Marks> {
+pub(crate) fn waveform_marks(
+    effect: &crate::effects::Effect,
+    size: (usize, usize),
+    origin: (usize, usize),
+) -> Option<Marks> {
     let crate::effects::Effect::AudioWaveform {
         start_point,
         end_point,
@@ -4841,8 +6026,16 @@ pub(crate) fn waveform_marks(effect: &crate::effects::Effect, size: (usize, usiz
         return None;
     };
     let shown = levels.len() / 2;
-    let (feet, closed) = sound_feet(shown, outline.as_deref(), false, [*start_point, *end_point], size, origin);
-    let colours = [inside_color, outside_color].map(|c| crate::effects::encoded(c).map(crate::grade::to_linear));
+    let (feet, closed) = sound_feet(
+        shown,
+        outline.as_deref(),
+        false,
+        [*start_point, *end_point],
+        size,
+        origin,
+    );
+    let colours = [inside_color, outside_color]
+        .map(|c| crate::effects::encoded(c).map(crate::grade::to_linear));
     let pieces = if display_options == "digital" {
         (0..shown)
             .map(|j| {
@@ -4853,10 +6046,27 @@ pub(crate) fn waveform_marks(effect: &crate::effects::Effect, size: (usize, usiz
             .collect()
     } else {
         let seed = crate::grade::mix(random_seed.floor() as u64);
-        let heights: Vec<f64> = (0..shown).map(|j| maximum_height * levels[2 * j + (crate::grade::mix(seed ^ j as u64) >> 63) as usize]).collect();
-        mark_pieces(&feet, closed, &heights, &vec![colours; shown], display_options, "side_a")
+        let heights: Vec<f64> = (0..shown)
+            .map(|j| {
+                maximum_height * levels[2 * j + (crate::grade::mix(seed ^ j as u64) >> 63) as usize]
+            })
+            .collect();
+        mark_pieces(
+            &feet,
+            closed,
+            &heights,
+            &vec![colours; shown],
+            display_options,
+            "side_a",
+        )
     };
-    Some(Marks { pieces, r: thickness / 2.0, softness: *softness, how: if composite == "on" { 2 } else { 1 }, blend: false })
+    Some(Marks {
+        pieces,
+        r: thickness / 2.0,
+        softness: *softness,
+        how: if composite == "on" { 2 } else { 1 },
+        blend: false,
+    })
 }
 
 /// D-416: the drawing point `(x, y)` in the view `[cx, cy, u]`, the imaginary part up.
@@ -4899,12 +6109,18 @@ pub(crate) fn fractal(source: &mut WorkingBuffer, origin: (usize, usize), v: &Fr
     let gw = w + 2;
     let bands: Vec<i64> = (0..gw * (h + 2))
         .into_par_iter()
-        .map(|i| at(((i % gw) as i64 - 1 - ox) as f64 + 0.5, ((i / gw) as i64 - 1 - oy) as f64 + 0.5))
+        .map(|i| {
+            at(
+                ((i % gw) as i64 - 1 - ox) as f64 + 0.5,
+                ((i / gw) as i64 - 1 - oy) as f64 + 0.5,
+            )
+        })
         .collect();
     let f = v.factor;
     let (cx, cy) = ((size.0 as i64) / 2, (size.1 as i64) / 2);
     let arm = 2.max(size.1 as i64 / 20);
-    let cross = |x: i64, y: i64| (y == cy && (x - cx).abs() <= arm) || (x == cx && (y - cy).abs() <= arm);
+    let cross =
+        |x: i64, y: i64| (y == cy && (x - cx).abs() <= arm) || (x == cx && (y - cy).abs() <= arm);
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -4918,7 +6134,10 @@ pub(crate) fn fractal(source: &mut WorkingBuffer, origin: (usize, usize), v: &Fr
                 let mut total = [0.0; 4];
                 for bb in 0..f {
                     for aa in 0..f {
-                        let s = colour(at(x0 as f64 + (aa as f64 + 0.5) / f as f64, y0 as f64 + (bb as f64 + 0.5) / f as f64));
+                        let s = colour(at(
+                            x0 as f64 + (aa as f64 + 0.5) / f as f64,
+                            y0 as f64 + (bb as f64 + 0.5) / f as f64,
+                        ));
                         for c in 0..4 {
                             total[c] += s[c];
                         }
@@ -4954,7 +6173,12 @@ pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 /// points across it, enough that a shrunk tile skips none of the buffer's pixels; each point
 /// is the bilinear sample of the buffer where the tile it lands in reads, held inside the
 /// buffer's pixel centres, as D-109's held sample is.
-fn sized_tile(source: &mut WorkingBuffer, (gx, gy): (usize, usize), mirror: bool, (center, tw, th): ([f64; 2], f64, f64)) {
+fn sized_tile(
+    source: &mut WorkingBuffer,
+    (gx, gy): (usize, usize),
+    mirror: bool,
+    (center, tw, th): ([f64; 2], f64, f64),
+) {
     let (w, h) = (source.width(), source.height());
     if w == 0 || h == 0 {
         return;
@@ -4967,7 +6191,11 @@ fn sized_tile(source: &mut WorkingBuffer, (gx, gy): (usize, usize), mirror: bool
         let u = p - (c / 100.0 * n - t / 2.0);
         let k = (u / t).floor();
         let f = u - k * t;
-        let f = if mirror && k.rem_euclid(2.0) != 0.0 { t - f } else { f };
+        let f = if mirror && k.rem_euclid(2.0) != 0.0 {
+            t - f
+        } else {
+            f
+        };
         (f / s).clamp(0.5, n - 0.5)
     };
     // ponytail: at most 16 points a side, so a tile below 6 per cent may shimmer; an area
@@ -5045,7 +6273,9 @@ pub(crate) fn square_to_quad([a, b, c, d]: Ring) -> [[f64; 3]; 3] {
 }
 
 /// D-198: `m`'s adjugate, the map back, and its determinant.
-pub(crate) fn adjugate([[m0, m1, m2], [m3, m4, m5], [m6, m7, m8]]: [[f64; 3]; 3]) -> ([[f64; 3]; 3], f64) {
+pub(crate) fn adjugate(
+    [[m0, m1, m2], [m3, m4, m5], [m6, m7, m8]]: [[f64; 3]; 3],
+) -> ([[f64; 3]; 3], f64) {
     let adj = [
         [m4 * m8 - m5 * m7, m2 * m7 - m1 * m8, m1 * m5 - m2 * m4],
         [m5 * m6 - m3 * m8, m0 * m8 - m2 * m6, m2 * m3 - m0 * m5],
@@ -5059,10 +6289,15 @@ pub(crate) fn adjugate([[m0, m1, m2], [m3, m4, m5], [m6, m7, m8]]: [[f64; 3]; 3]
 /// with its corner at (`ox`, `oy`), across and down, rounded up.
 fn ring_growth(ring: &Ring, (dw, dh): (f64, f64), (ox, oy): (f64, f64)) -> (usize, usize) {
     let past = |lo: f64, hi: f64, v: [f64; 4]| {
-        let (min, max) = v.iter().fold((f64::MAX, f64::MIN), |(n, x), v| (n.min(*v), x.max(*v)));
+        let (min, max) = v
+            .iter()
+            .fold((f64::MAX, f64::MIN), |(n, x), v| (n.min(*v), x.max(*v)));
         (lo - min).max(max - hi).ceil().max(0.0) as usize
     };
-    (past(-ox, dw + ox, ring.map(|p| p.0)), past(-oy, dh + oy, ring.map(|p| p.1)))
+    (
+        past(-ox, dw + ox, ring.map(|p| p.0)),
+        past(-oy, dh + oy, ring.map(|p| p.1)),
+    )
 }
 
 /// D-389: `m` at the square's (u, v): the point, and the third row, at most 0 at or past the
@@ -5103,7 +6338,10 @@ fn unbilinear([a, b, c, d]: &Ring, x: (f64, f64)) -> Option<(f64, f64)> {
     let root = disc.sqrt();
     let q = -0.5 * (k1 + if k1 < 0.0 { -root } else { root });
     let mut best: Option<(f64, f64, f64)> = None;
-    for v in [if k2 != 0.0 { q / k2 } else { f64::INFINITY }, if q != 0.0 { k0 / q } else { f64::INFINITY }] {
+    for v in [
+        if k2 != 0.0 { q / k2 } else { f64::INFINITY },
+        if q != 0.0 { k0 / q } else { f64::INFINITY },
+    ] {
         if !v.is_finite() {
             continue;
         }
@@ -5126,7 +6364,12 @@ fn unbilinear([a, b, c, d]: &Ring, x: (f64, f64)) -> Option<(f64, f64)> {
 /// left, top right, bottom right, bottom left; `None` for corners that are not a ring, or a
 /// corner carried to or past the horizon. `pins` top left, top right, bottom left, bottom right,
 /// per cent; `expansion` top, left, right, bottom, per cent.
-pub(crate) fn power_pin_ring([tl, tr, bl, br]: [[f64; 2]; 4], p: f64, [top, left, right, bottom]: [f64; 4], (dw, dh): (f64, f64)) -> Option<Ring> {
+pub(crate) fn power_pin_ring(
+    [tl, tr, bl, br]: [[f64; 2]; 4],
+    p: f64,
+    [top, left, right, bottom]: [f64; 4],
+    (dw, dh): (f64, f64),
+) -> Option<Ring> {
     let ring = [tl, tr, br, bl].map(|q| (q[0] / 100.0 * dw, q[1] / 100.0 * dh));
     if !convex(&ring) {
         return None;
@@ -5134,7 +6377,10 @@ pub(crate) fn power_pin_ring([tl, tr, bl, br]: [[f64; 2]; 4], p: f64, [top, left
     let m = square_to_quad(ring);
     let (l, t, r, b) = (left / 100.0, top / 100.0, right / 100.0, bottom / 100.0);
     let mut q = ring;
-    for (k, (u, v)) in [(-l, -t), (1.0 + r, -t), (1.0 + r, 1.0 + b), (-l, 1.0 + b)].into_iter().enumerate() {
+    for (k, (u, v)) in [(-l, -t), (1.0 + r, -t), (1.0 + r, 1.0 + b), (-l, 1.0 + b)]
+        .into_iter()
+        .enumerate()
+    {
         // Both maps carry the square's own corner to its pin, exactly.
         if (u == 0.0 || u == 1.0) && (v == 0.0 || v == 1.0) {
             continue;
@@ -5144,7 +6390,11 @@ pub(crate) fn power_pin_ring([tl, tr, bl, br]: [[f64; 2]; 4], p: f64, [top, left
             return None;
         }
         let (bx, by) = bilinear_map(&ring, u, v);
-        q[k] = if p > 0.0 { (p * x + (1.0 - p) * bx, p * y + (1.0 - p) * by) } else { (bx, by) };
+        q[k] = if p > 0.0 {
+            (p * x + (1.0 - p) * bx, p * y + (1.0 - p) * by)
+        } else {
+            (bx, by)
+        };
     }
     convex(&q).then_some(q)
 }
@@ -5188,7 +6438,8 @@ pub(crate) fn power_pin(
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
     let p = perspective;
-    let Some((q, mq, adj, det, (gx, gy))) = power_pin_map(pins, p, expansion, (w, h), origin) else {
+    let Some((q, mq, adj, det, (gx, gy))) = power_pin_map(pins, p, expansion, (w, h), origin)
+    else {
         *source = WorkingBuffer::transparent(w, h);
         return (0, 0);
     };
@@ -5197,50 +6448,60 @@ pub(crate) fn power_pin(
     // A point in the drawing's space; far off, or not a number, reads nothing.
     let read = |x: f64, y: f64| {
         let (sx, sy) = (x + ox, y + oy);
-        (sx > -1.0 && sx < wf + 1.0 && sy > -1.0 && sy < hf + 1.0).then(|| sample_bilinear(drawing, sx, sy))
+        (sx > -1.0 && sx < wf + 1.0 && sy > -1.0 && sy < hf + 1.0)
+            .then(|| sample_bilinear(drawing, sx, sy))
     };
     if unstretch {
         let mut out = WorkingBuffer::transparent(w, h);
-        out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-            let (u, v) = (((i % w) as f64 + 0.5 - ox) / dw, ((i / w) as f64 + 0.5 - oy) / dh);
-            let (mut x, mut y) = bilinear_map(&q, u, v);
-            if p > 0.0 {
-                let (hx, hy, t) = homogeneous(&mq, u, v);
-                if t <= 0.0 {
-                    return;
+        out.data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, px)| {
+                let (u, v) = (
+                    ((i % w) as f64 + 0.5 - ox) / dw,
+                    ((i / w) as f64 + 0.5 - oy) / dh,
+                );
+                let (mut x, mut y) = bilinear_map(&q, u, v);
+                if p > 0.0 {
+                    let (hx, hy, t) = homogeneous(&mq, u, v);
+                    if t <= 0.0 {
+                        return;
+                    }
+                    (x, y) = (p * hx + (1.0 - p) * x, p * hy + (1.0 - p) * y);
                 }
-                (x, y) = (p * hx + (1.0 - p) * x, p * hy + (1.0 - p) * y);
-            }
-            if let Some(s) = read(x, y) {
-                px.copy_from_slice(&s);
-            }
-        });
+                if let Some(s) = read(x, y) {
+                    px.copy_from_slice(&s);
+                }
+            });
         *source = out;
         return (0, 0);
     }
     let ow = w + 2 * gx;
     let (left, top) = ((origin.0 + gx) as f64, (origin.1 + gy) as f64);
     let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let x = ((i % ow) as f64 + 0.5 - left, (i / ow) as f64 + 0.5 - top);
-        let (mut u, mut v) = (0.0, 0.0);
-        if p > 0.0 {
-            let [uu, vv, t] = adj.map(|r| r[0] * x.0 + r[1] * x.1 + r[2]);
-            if t * det <= 0.0 {
-                return;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let x = ((i % ow) as f64 + 0.5 - left, (i / ow) as f64 + 0.5 - top);
+            let (mut u, mut v) = (0.0, 0.0);
+            if p > 0.0 {
+                let [uu, vv, t] = adj.map(|r| r[0] * x.0 + r[1] * x.1 + r[2]);
+                if t * det <= 0.0 {
+                    return;
+                }
+                (u, v) = (p * (uu / t), p * (vv / t));
             }
-            (u, v) = (p * (uu / t), p * (vv / t));
-        }
-        if p < 1.0 {
-            let Some((bu, bv)) = unbilinear(&q, x) else {
-                return;
-            };
-            (u, v) = (u + (1.0 - p) * bu, v + (1.0 - p) * bv);
-        }
-        if let Some(s) = read(u * dw, v * dh) {
-            px.copy_from_slice(&s);
-        }
-    });
+            if p < 1.0 {
+                let Some((bu, bv)) = unbilinear(&q, x) else {
+                    return;
+                };
+                (u, v) = (u + (1.0 - p) * bu, v + (1.0 - p) * bv);
+            }
+            if let Some(s) = read(u * dw, v * dh) {
+                px.copy_from_slice(&s);
+            }
+        });
     *source = out;
     (gx, gy)
 }
@@ -5268,53 +6529,63 @@ pub(crate) fn page_turn(
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let still = source.clone();
     let r = radius;
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let x = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
-        let d = x.0 * n.0 + x.1 * n.1 - off;
-        let at = |s: f64| (x.0 + (s - d) * n.0, x.1 + (s - d) * n.1);
-        let page = |s: f64| {
-            let q = at(s);
-            sample_bilinear(&still, q.0 + ox, q.1 + oy).map(|v| v as f64)
-        };
-        let turned = |s: f64, shade: f64| {
-            let f = page(s);
-            let q = at(s);
-            let m = match back {
-                Some(b) => sample_bilinear(b, q.0, q.1).map(|v| v as f64),
-                None => [paper[0], paper[1], paper[2], 1.0],
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let x = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
+            let d = x.0 * n.0 + x.1 * n.1 - off;
+            let at = |s: f64| (x.0 + (s - d) * n.0, x.1 + (s - d) * n.1);
+            let page = |s: f64| {
+                let q = at(s);
+                sample_bilinear(&still, q.0 + ox, q.1 + oy).map(|v| v as f64)
             };
-            let mut out = [0.0; 4];
-            for c in 0..3 {
-                out[c] = (f[3] * opacity * m[c] + (1.0 - opacity * m[3]) * f[c]) * shade;
+            let turned = |s: f64, shade: f64| {
+                let f = page(s);
+                let q = at(s);
+                let m = match back {
+                    Some(b) => sample_bilinear(b, q.0, q.1).map(|v| v as f64),
+                    None => [paper[0], paper[1], paper[2], 1.0],
+                };
+                let mut out = [0.0; 4];
+                for c in 0..3 {
+                    out[c] = (f[3] * opacity * m[c] + (1.0 - opacity * m[3]) * f[c]) * shade;
+                }
+                out[3] = f[3];
+                out
+            };
+            let (top, under) = if d > r || (r == 0.0 && d >= 0.0) {
+                ([0.0; 4], [0.0; 4])
+            } else if d >= 0.0 {
+                let t = (d / r).min(1.0);
+                let shade = (l * t + (1.0 - t * t).sqrt()).clamp(0.0, 1.0);
+                (turned(r * (PI - t.asin()), shade), page(r * t.asin()))
+            } else {
+                (turned(PI * r - d, 1.0), page(d))
+            };
+            let out = match render {
+                1 => under,
+                2 => top,
+                _ => [0, 1, 2, 3].map(|c| top[c] + (1.0 - top[3]) * under[c]),
+            };
+            for c in 0..4 {
+                px[c] = out[c] as f32;
             }
-            out[3] = f[3];
-            out
-        };
-        let (top, under) = if d > r || (r == 0.0 && d >= 0.0) {
-            ([0.0; 4], [0.0; 4])
-        } else if d >= 0.0 {
-            let t = (d / r).min(1.0);
-            let shade = (l * t + (1.0 - t * t).sqrt()).clamp(0.0, 1.0);
-            (turned(r * (PI - t.asin()), shade), page(r * t.asin()))
-        } else {
-            (turned(PI * r - d, 1.0), page(d))
-        };
-        let out = match render {
-            1 => under,
-            2 => top,
-            _ => [0, 1, 2, 3].map(|c| top[c] + (1.0 - top[3]) * under[c]),
-        };
-        for c in 0..4 {
-            px[c] = out[c] as f32;
-        }
-    });
+        });
 }
 
 /// D-390: Ripple Pulse's push at `u` frames of travel out, the levels' changes joined by
 /// straight lines, the newest inside 1/2 and none past n + 1/2.
 pub(crate) fn ripple_push(levels: &[f64], u: f64) -> f64 {
     let n = levels.len() - 1;
-    let g = |j: usize| if j < n { levels[j] - levels[j + 1] } else { 0.0 };
+    let g = |j: usize| {
+        if j < n {
+            levels[j] - levels[j + 1]
+        } else {
+            0.0
+        }
+    };
     if u <= 0.5 {
         return g(0);
     }
@@ -5342,48 +6613,76 @@ pub(crate) fn ripple_height(levels: &[f64], u: f64) -> f64 {
 /// the buffer, reaching `big` pixels out after the whole history. Each pixel reads the drawing
 /// `amplitude` / 10 times the push away from the centre, or with `bump` the rings' heights,
 /// opaque grey. The settings are already valid and `levels` holds at least one.
-pub(crate) fn ripple_pulse(source: &mut WorkingBuffer, center: (f64, f64), big: f64, levels: &[f64], amplitude: f64, bump: bool) {
+pub(crate) fn ripple_pulse(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    big: f64,
+    levels: &[f64],
+    amplitude: f64,
+    bump: bool,
+) {
     let w = source.width();
     let n = (levels.len() - 1) as f64;
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let (dx, dy) = (x - center.0, y - center.1);
-        let r = dx.hypot(dy);
-        let u = n * r / big;
-        if bump {
-            let v = (0.5 + amplitude * (ripple_height(levels, u) - levels[levels.len() - 1]) / 2000.0).clamp(0.0, 1.0) as f32;
-            px.copy_from_slice(&[v, v, v, 1.0]);
-            return;
-        }
-        if r == 0.0 {
-            return;
-        }
-        let s = amplitude / 10.0 * ripple_push(levels, u);
-        px.copy_from_slice(&sample_bilinear(&still, x - s * dx / r, y - s * dy / r));
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (dx, dy) = (x - center.0, y - center.1);
+            let r = dx.hypot(dy);
+            let u = n * r / big;
+            if bump {
+                let v = (0.5
+                    + amplitude * (ripple_height(levels, u) - levels[levels.len() - 1]) / 2000.0)
+                    .clamp(0.0, 1.0) as f32;
+                px.copy_from_slice(&[v, v, v, 1.0]);
+                return;
+            }
+            if r == 0.0 {
+                return;
+            }
+            let s = amplitude / 10.0 * ripple_push(levels, u);
+            px.copy_from_slice(&sample_bilinear(&still, x - s * dx / r, y - s * dy / r));
+        });
 }
 
 /// D-391: Slant, this program's own reading of CycoreFX's CC Slant. A pixel's centre v below the
 /// level line `floor` (in the buffer) reads the buffer at (x + v `tan`, floor + v / `s`), `tan`
 /// the slant's tangent and `s` the height scale; `s` 0 draws nothing. With `color`, linear, the
 /// colour replaces the picture's under its coverage. The settings are already valid.
-pub(crate) fn slant(source: &mut WorkingBuffer, floor: f64, tan: f64, s: f64, color: Option<[f64; 3]>) {
+pub(crate) fn slant(
+    source: &mut WorkingBuffer,
+    floor: f64,
+    tan: f64,
+    s: f64,
+    color: Option<[f64; 3]>,
+) {
     let w = source.width();
     if s <= 0.0 {
         source.data_mut().fill(0.0);
         return;
     }
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let v = y - floor;
-        let p = sample_bilinear(&still, x + v * tan, floor + v / s);
-        match color {
-            Some(c) => px.copy_from_slice(&[(c[0] * p[3] as f64) as f32, (c[1] * p[3] as f64) as f32, (c[2] * p[3] as f64) as f32, p[3]]),
-            None => px.copy_from_slice(&p),
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let v = y - floor;
+            let p = sample_bilinear(&still, x + v * tan, floor + v / s);
+            match color {
+                Some(c) => px.copy_from_slice(&[
+                    (c[0] * p[3] as f64) as f32,
+                    (c[1] * p[3] as f64) as f32,
+                    (c[2] * p[3] as f64) as f32,
+                    p[3],
+                ]),
+                None => px.copy_from_slice(&p),
+            }
+        });
 }
 
 /// D-392: Smear, this program's own reading of CycoreFX's CC Smear. A pixel's centre P, s =
@@ -5398,16 +6697,20 @@ pub(crate) fn smear(source: &mut WorkingBuffer, from: (f64, f64), v: (f64, f64),
         return;
     }
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let s = (((x - from.0) * v.0 + (y - from.1) * v.1) / v2).clamp(0.0, 1.0);
-        let rho = (x - from.0 - s * v.0).hypot(y - from.1 - s * v.1);
-        if rho >= radius {
-            return;
-        }
-        let k = (1.0 - (rho / radius).powi(2)).powi(2) * s;
-        px.copy_from_slice(&sample_bilinear(&still, x - k * v.0, y - k * v.1));
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let s = (((x - from.0) * v.0 + (y - from.1) * v.1) / v2).clamp(0.0, 1.0);
+            let rho = (x - from.0 - s * v.0).hypot(y - from.1 - s * v.1);
+            if rho >= radius {
+                return;
+            }
+            let k = (1.0 - (rho / radius).powi(2)).powi(2) * s;
+            px.copy_from_slice(&sample_bilinear(&still, x - k * v.0, y - k * v.1));
+        });
 }
 
 /// D-393: Split, this program's own reading of CycoreFX's CC Split. Along `a` to `b`, length L,
@@ -5426,28 +6729,40 @@ pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), sp
     }
     let (ux, uy) = ((b.0 - a.0) / length, (b.1 - a.1) / length);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5 - a.0, (i / w) as f64 + 0.5 - a.1);
-        let along = x * ux + y * uy;
-        let d = y * ux - x * uy;
-        let t = along / length;
-        let wave = if (0.0..=1.0).contains(&t) { (std::f64::consts::PI * t).sin() } else { 0.0 };
-        let (g1, g2) = (split[0] / 2.0 * wave, split[1] / 2.0 * wave);
-        // For d < 0 this is the mirror of d > 0, each step exact under a change of sign.
-        let cover = 1.0 - ((d + 0.5).min(g2) - (d - 0.5).max(-g1)).max(0.0);
-        let g = if d >= 0.0 { g2 } else { g1 };
-        let m = d.abs();
-        let far = g + length / 2.0;
-        let p = if m >= far {
-            sample_bilinear(&still, x + a.0, y + a.1)
-        } else {
-            let k = if m >= g { d.signum() * (m - g) * far / (far - g) } else { 0.0 };
-            sample_bilinear(&still, a.0 + along * ux - k * uy, a.1 + along * uy + k * ux)
-        };
-        for ch in 0..4 {
-            px[ch] = (p[ch] as f64 * cover) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5 - a.0, (i / w) as f64 + 0.5 - a.1);
+            let along = x * ux + y * uy;
+            let d = y * ux - x * uy;
+            let t = along / length;
+            let wave = if (0.0..=1.0).contains(&t) {
+                (std::f64::consts::PI * t).sin()
+            } else {
+                0.0
+            };
+            let (g1, g2) = (split[0] / 2.0 * wave, split[1] / 2.0 * wave);
+            // For d < 0 this is the mirror of d > 0, each step exact under a change of sign.
+            let cover = 1.0 - ((d + 0.5).min(g2) - (d - 0.5).max(-g1)).max(0.0);
+            let g = if d >= 0.0 { g2 } else { g1 };
+            let m = d.abs();
+            let far = g + length / 2.0;
+            let p = if m >= far {
+                sample_bilinear(&still, x + a.0, y + a.1)
+            } else {
+                let k = if m >= g {
+                    d.signum() * (m - g) * far / (far - g)
+                } else {
+                    0.0
+                };
+                sample_bilinear(&still, a.0 + along * ux - k * uy, a.1 + along * uy + k * ux)
+            };
+            for ch in 0..4 {
+                px[ch] = (p[ch] as f64 * cover) as f32;
+            }
+        });
 }
 
 /// D-458: CC Simple Wire Removal, this program's own reading of CycoreFX's (document 21). Along
@@ -5461,7 +6776,14 @@ pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), sp
 /// wire lying flat alone. Samples are held inside the buffer's pixel centres (D-109's repeat).
 /// `numbers`: thickness, slope, mirror blend. Thickness 0, `a` on `b`, or "frame_offset" with no
 /// `other` leaves the buffer as it was. The settings are already valid.
-pub(crate) fn wire_removal(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), style: &str, numbers: [f64; 3], other: Option<&WorkingBuffer>) {
+pub(crate) fn wire_removal(
+    source: &mut WorkingBuffer,
+    a: (f64, f64),
+    b: (f64, f64),
+    style: &str,
+    numbers: [f64; 3],
+    other: Option<&WorkingBuffer>,
+) {
     let [thickness, slope, mirror] = numbers;
     let length = (b.0 - a.0).hypot(b.1 - a.1);
     if length == 0.0 || thickness <= 0.0 || (style == "frame_offset" && other.is_none()) {
@@ -5478,46 +6800,60 @@ pub(crate) fn wire_removal(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f
     let m = mirror / 100.0;
     let (w, ht) = (source.width(), source.height());
     let still = source.clone();
-    let held = |x: f64, y: f64| sample_bilinear(&still, x.clamp(0.5, w as f64 - 0.5), y.clamp(0.5, ht as f64 - 0.5));
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (cx, cy) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let (x, y) = (cx - a.0, cy - a.1);
-        let along = x * ux + y * uy;
-        let d = x * nx + y * ny;
-        let t = along / length;
-        let q = d.abs();
-        if !(0.0..=1.0).contains(&t) || q >= e {
-            return;
-        }
-        let weight = if q <= h { 1.0 } else { 1.0 - (q - h) / r };
-        let rr: [f64; 4] = match style {
-            "fade" => [0.0; 4],
-            "frame_offset" => {
-                let o = other.expect("frame_offset with no picture returned above");
-                let p = if i % w < o.width() && i / w < o.height() { o.pixel(i % w, i / w) } else { [0.0; 4] };
-                p.map(f64::from)
+    let held = |x: f64, y: f64| {
+        sample_bilinear(
+            &still,
+            x.clamp(0.5, w as f64 - 0.5),
+            y.clamp(0.5, ht as f64 - 0.5),
+        )
+    };
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (cx, cy) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (x, y) = (cx - a.0, cy - a.1);
+            let along = x * ux + y * uy;
+            let d = x * nx + y * ny;
+            let t = along / length;
+            let q = d.abs();
+            if !(0.0..=1.0).contains(&t) || q >= e {
+                return;
             }
-            _ => {
-                let at = |k: f64| {
-                    if style == "displace" {
-                        held(a.0 + along * ux + k * nx, a.1 + along * uy + k * ny)
+            let weight = if q <= h { 1.0 } else { 1.0 - (q - h) / r };
+            let rr: [f64; 4] = match style {
+                "fade" => [0.0; 4],
+                "frame_offset" => {
+                    let o = other.expect("frame_offset with no picture returned above");
+                    let p = if i % w < o.width() && i / w < o.height() {
+                        o.pixel(i % w, i / w)
                     } else {
-                        held(cx + (k - d) / nx, cy)
-                    }
-                };
-                let s = if d >= 0.0 { 1.0 } else { -1.0 };
-                let (lo, hi, mir) = (at(-e), at(e), at(s * (2.0 * e - q)));
-                let f = (d + e) / (2.0 * e);
-                std::array::from_fn(|ch| {
-                    let inter = lo[ch] as f64 + (hi[ch] as f64 - lo[ch] as f64) * f;
-                    inter + (mir[ch] as f64 - inter) * m
-                })
+                        [0.0; 4]
+                    };
+                    p.map(f64::from)
+                }
+                _ => {
+                    let at = |k: f64| {
+                        if style == "displace" {
+                            held(a.0 + along * ux + k * nx, a.1 + along * uy + k * ny)
+                        } else {
+                            held(cx + (k - d) / nx, cy)
+                        }
+                    };
+                    let s = if d >= 0.0 { 1.0 } else { -1.0 };
+                    let (lo, hi, mir) = (at(-e), at(e), at(s * (2.0 * e - q)));
+                    let f = (d + e) / (2.0 * e);
+                    std::array::from_fn(|ch| {
+                        let inter = lo[ch] as f64 + (hi[ch] as f64 - lo[ch] as f64) * f;
+                        inter + (mir[ch] as f64 - inter) * m
+                    })
+                }
+            };
+            for ch in 0..4 {
+                px[ch] = (px[ch] as f64 * (1.0 - weight) + rr[ch] * weight) as f32;
             }
-        };
-        for ch in 0..4 {
-            px[ch] = (px[ch] as f64 * (1.0 - weight) + rr[ch] * weight) as f32;
-        }
-    });
+        });
 }
 
 /// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
@@ -5525,7 +6861,11 @@ pub(crate) fn wire_removal(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f
 /// cent of the drawing's width and height. Returns how far it grew on the left and on the top,
 /// the same as on the right and the bottom. Crossed, bent-in or in-line corners leave the
 /// buffer clear. The settings are already valid.
-pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin: (usize, usize)) -> (usize, usize) {
+pub(crate) fn corner_pin(
+    source: &mut WorkingBuffer,
+    pins: [[f64; 2]; 4],
+    origin: (usize, usize),
+) -> (usize, usize) {
     if pins == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]] {
         return (0, 0);
     }
@@ -5566,7 +6906,13 @@ pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin
 /// and its spokes into columns, `interpolation` per cent of the way. The buffer keeps its size.
 /// The settings are already valid. D-320: the rings are ellipses that touch the drawing's sides,
 /// or with `circle` circles, the outermost half the shorter side across.
-pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, to_polar: bool, circle: bool, origin: (usize, usize)) {
+pub(crate) fn polar_coordinates(
+    source: &mut WorkingBuffer,
+    interpolation: f64,
+    to_polar: bool,
+    circle: bool,
+    origin: (usize, usize),
+) {
     let k = interpolation / 100.0;
     if k == 0.0 {
         return;
@@ -5577,7 +6923,11 @@ pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, 
     let turn = std::f64::consts::TAU;
     // The half-axes, and each as a share of the drawing's half, exactly 1 for the ellipse so
     // D-201's sums are unchanged.
-    let (rx, ry) = if circle { (dw.min(dh) / 2.0, dw.min(dh) / 2.0) } else { (dw / 2.0, dh / 2.0) };
+    let (rx, ry) = if circle {
+        (dw.min(dh) / 2.0, dw.min(dh) / 2.0)
+    } else {
+        (dw / 2.0, dh / 2.0)
+    };
     let (fx, fy) = (rx / (dw / 2.0), ry / (dh / 2.0));
     let mut out = WorkingBuffer::transparent(w, h);
     let drawing = &*source;
@@ -5593,7 +6943,10 @@ pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, 
                 (phi / turn * dw, nx.hypot(ny) * dh)
             } else {
                 let (a, v) = (turn * x / dw, y / dh);
-                (dw / 2.0 * (1.0 + v * a.sin() * fx), dh / 2.0 * (1.0 - v * a.cos() * fy))
+                (
+                    dw / 2.0 * (1.0 + v * a.sin() * fx),
+                    dh / 2.0 * (1.0 - v * a.cos() * fy),
+                )
             };
             let (qx, qy) = (x + k * (sx - x), y + k * (sy - y));
             px.copy_from_slice(&if to_polar {
@@ -5618,8 +6971,14 @@ pub(crate) fn kaleidoscope(
 ) {
     let (w, h) = (source.width(), source.height());
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
-    let (cx, cy) = (center[0] / 100.0 * (w as f64 - 2.0 * ox), center[1] / 100.0 * (h as f64 - 2.0 * oy));
-    let (wedge, rot) = (std::f64::consts::TAU / segments.floor(), rotation.to_radians());
+    let (cx, cy) = (
+        center[0] / 100.0 * (w as f64 - 2.0 * ox),
+        center[1] / 100.0 * (h as f64 - 2.0 * oy),
+    );
+    let (wedge, rot) = (
+        std::f64::consts::TAU / segments.floor(),
+        rotation.to_radians(),
+    );
     // A buffer coordinate folded into 0..n by mirroring at the edges, then held inside the
     // pixel centres.
     let fold = |u: f64, n: f64| {
@@ -5632,14 +6991,25 @@ pub(crate) fn kaleidoscope(
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
-            let (dx, dy) = ((i % w) as f64 + 0.5 - ox - cx, (i / w) as f64 + 0.5 - oy - cy);
+            let (dx, dy) = (
+                (i % w) as f64 + 0.5 - ox - cx,
+                (i / w) as f64 + 0.5 - oy - cy,
+            );
             let theta = dx.atan2(-dy) - rot;
             let k = (theta / wedge).floor();
             let t = theta - k * wedge;
-            let t = if mirror && k.rem_euclid(2.0) == 1.0 { wedge - t } else { t };
+            let t = if mirror && k.rem_euclid(2.0) == 1.0 {
+                wedge - t
+            } else {
+                t
+            };
             let (s, phi) = (dx.hypot(dy) * 100.0 / size, rot + t);
             let (sx, sy) = (cx + s * phi.sin() + ox, cy - s * phi.cos() + oy);
-            px.copy_from_slice(&sample_bilinear(drawing, fold(sx, w as f64), fold(sy, h as f64)));
+            px.copy_from_slice(&sample_bilinear(
+                drawing,
+                fold(sx, w as f64),
+                fold(sy, h as f64),
+            ));
         });
     *source = out;
 }
@@ -5714,7 +7084,13 @@ pub(crate) fn roughen_edges(
     let base = crate::grade::mix(seed.floor() as u64);
     let input = source.clone();
     let a = |x: f64, y: f64| sample_bilinear(&input, x, y)[3] as f64;
-    let least = |x: f64, y: f64, e: f64| a(x, y).min(a(x + e, y)).min(a(x - e, y)).min(a(x, y + e)).min(a(x, y - e));
+    let least = |x: f64, y: f64, e: f64| {
+        a(x, y)
+            .min(a(x + e, y))
+            .min(a(x - e, y))
+            .min(a(x, y + e))
+            .min(a(x, y - e))
+    };
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -5725,7 +7101,12 @@ pub(crate) fn roughen_edges(
                 return;
             }
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            let f = crate::grade::fractal(base, 0, ((x - ox) / size, (y - oy) / size, z), octaves as usize);
+            let f = crate::grade::fractal(
+                base,
+                0,
+                ((x - ox) / size, (y - oy) / size, z),
+                octaves as usize,
+            );
             let e = border * (0.5 + f).clamp(0.0, 1.0);
             let m = least(x, y, e);
             let k = m / p;
@@ -5765,13 +7146,18 @@ pub(crate) fn beam(
         .enumerate()
         .for_each(|(i, px)| {
             let (x, y) = ((i % w) as f64 + 0.5 - ax, (i / w) as f64 + 0.5 - ay);
-            let t = if l2 == 0.0 { 0.0 } else { ((x * dx + y * dy) / l2).clamp(0.0, 1.0) };
+            let t = if l2 == 0.0 {
+                0.0
+            } else {
+                ((x * dx + y * dy) / l2).clamp(0.0, 1.0)
+            };
             let d = (x - t * dx).hypot(y - t * dy);
             let r = (t0 + (a + t * l) * (t1 - t0)) / 2.0;
             let (c, q) = line_profile(d, r, softness);
             let keep = if alone { 0.0 } else { 1.0 - c };
             for ch in 0..3 {
-                px[ch] = (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * c) as f32;
+                px[ch] =
+                    (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * c) as f32;
             }
             px[3] = (px[3] as f64 * keep + c) as f32;
         });
@@ -5824,7 +7210,13 @@ pub(crate) fn linear_wipe(
         return;
     }
     let w = source.width();
-    let ((ux, uy), edge) = linear_edge(completion, angle, feather, (source.width(), source.height()), origin);
+    let ((ux, uy), edge) = linear_edge(
+        completion,
+        angle,
+        feather,
+        (source.width(), source.height()),
+        origin,
+    );
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
@@ -5847,18 +7239,25 @@ pub(crate) fn linear_wipe(
         });
 }
 
-
 /// D-155's direction across and where its edge is, for the drawing whose corner is at `origin` in
 /// a buffer `w` by `h`. B-107's card takes the same.
-pub(crate) fn linear_edge(completion: f64, angle: f64, feather: f64, (w, h): (usize, usize), origin: (usize, usize)) -> ((f64, f64), f64) {
+pub(crate) fn linear_edge(
+    completion: f64,
+    angle: f64,
+    feather: f64,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> ((f64, f64), f64) {
     let (w0, h0) = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
     let (ux, uy) = crate::blurs::along(angle);
     let corners = [0.0, ux * w0, uy * h0, ux * w0 + uy * h0];
     let low = corners.iter().copied().fold(f64::INFINITY, f64::min);
     let high = corners.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    ((ux, uy), low - feather / 2.0 + completion / 100.0 * (high - low + feather))
+    (
+        (ux, uy),
+        low - feather / 2.0 + completion / 100.0 * (high - low + feather),
+    )
 }
-
 
 /// D-156: every pixel the hand of a clock has swept past gone, `completion` per cent of a turn
 /// from `start_angle` round `center`, a point in the drawing's own pixels, whose corner is at
@@ -5882,10 +7281,17 @@ pub(crate) fn radial_wipe(
     }
     let turn = |a: f64| {
         let a = a.rem_euclid(360.0);
-        if a >= 360.0 { 0.0 } else { a }
+        if a >= 360.0 {
+            0.0
+        } else {
+            a
+        }
     };
     let w = source.width();
-    let (w0, h0) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
+    let (w0, h0) = (
+        (w - 2 * origin.0) as f64,
+        (source.height() - 2 * origin.1) as f64,
+    );
     let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
     let edge = completion / 100.0 * (360.0 + feather) - feather / 2.0;
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
@@ -5894,11 +7300,24 @@ pub(crate) fn radial_wipe(
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
-            let (vx, vy) = ((i % w) as f64 - ox + 0.5 - cx, (i / w) as f64 - oy + 0.5 - cy);
-            let screen = if vx == 0.0 && vy == 0.0 { 0.0 } else { turn(vx.atan2(-vy).to_degrees()) };
+            let (vx, vy) = (
+                (i % w) as f64 - ox + 0.5 - cx,
+                (i / w) as f64 - oy + 0.5 - cy,
+            );
+            let screen = if vx == 0.0 && vy == 0.0 {
+                0.0
+            } else {
+                turn(vx.atan2(-vy).to_degrees())
+            };
             let a = turn(screen - start_angle);
             let swept = match wipe {
-                1 => if a > 0.0 { 360.0 - a } else { 0.0 },
+                1 => {
+                    if a > 0.0 {
+                        360.0 - a
+                    } else {
+                        0.0
+                    }
+                }
                 2 => 2.0 * a.min(360.0 - a),
                 _ => a,
             };
@@ -5914,7 +7333,6 @@ pub(crate) fn radial_wipe(
             }
         });
 }
-
 
 /// D-157: the drawing, whose corner is at `origin` in the buffer, cut into slats `width` pixels
 /// across, turned by `angle`, each cleared from one edge `completion` per cent of the way, the
@@ -5960,7 +7378,6 @@ pub(crate) fn venetian_blinds(
         });
 }
 
-
 /// D-214: the drawing, whose corner is at `origin` in the buffer, cut into blocks `block_width`
 /// by `block_height` from that corner, past its edges too, each gone once `completion` per cent
 /// passes its number from D-119's hash; each pixel keeps the share of the square `feather` across
@@ -5998,7 +7415,9 @@ pub(crate) fn block_dissolve(
             let (cx, cy) = (x as f64 - ox + 0.5, y as f64 - oy + 0.5);
             let k = if feather > 0.0 {
                 let col = &down[x * (ny + 1)..(x + 1) * (ny + 1)];
-                ((upto(col, cy + half, j0, bh) - upto(col, cy - half, j0, bh)) / (feather * feather)).clamp(0.0, 1.0)
+                ((upto(col, cy + half, j0, bh) - upto(col, cy - half, j0, bh))
+                    / (feather * feather))
+                    .clamp(0.0, 1.0)
             } else {
                 kept((cx / bw).floor() as i64, (cy / bh).floor() as i64)
             };
@@ -6062,11 +7481,13 @@ pub(crate) fn dissolve_down(
         }
     });
     let mut down = vec![0.0; w * (ny + 1)];
-    down.par_chunks_mut(ny + 1).enumerate().for_each(|(x, col)| {
-        for r in 0..ny {
-            col[r + 1] = col[r] + across[r * w + x];
-        }
-    });
+    down.par_chunks_mut(ny + 1)
+        .enumerate()
+        .for_each(|(x, col)| {
+            for r in 0..ny {
+                col[r + 1] = col[r] + across[r * w + x];
+            }
+        });
     (j0, ny, down)
 }
 
@@ -6090,7 +7511,14 @@ pub(crate) fn iris_wipe(
         return;
     }
     let w = source.width();
-    let ((cx, cy), r) = iris_circle(completion, center, feather, invert, (source.width(), source.height()), origin);
+    let ((cx, cy), r) = iris_circle(
+        completion,
+        center,
+        feather,
+        invert,
+        (source.width(), source.height()),
+        origin,
+    );
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
@@ -6112,10 +7540,16 @@ pub(crate) fn iris_wipe(
         });
 }
 
-
 /// D-158's centre, in the drawing's own pixels, and radius, for the drawing whose corner is at
 /// `origin` in a buffer `w` by `h`. B-107's card takes the same.
-pub(crate) fn iris_circle(completion: f64, center: [f64; 2], feather: f64, invert: bool, (w, h): (usize, usize), origin: (usize, usize)) -> ((f64, f64), f64) {
+pub(crate) fn iris_circle(
+    completion: f64,
+    center: [f64; 2],
+    feather: f64,
+    invert: bool,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> ((f64, f64), f64) {
     let (w0, h0) = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
     let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
     let far = [(0.0, 0.0), (0.0, h0), (w0, 0.0), (w0, h0)]
@@ -6123,9 +7557,11 @@ pub(crate) fn iris_circle(completion: f64, center: [f64; 2], feather: f64, inver
         .map(|&(a, b)| (cx - a).hypot(cy - b))
         .fold(0.0, f64::max);
     let cc = completion / 100.0;
-    ((cx, cy), if invert { cc } else { 1.0 - cc } * (far + feather) - feather / 2.0)
+    (
+        (cx, cy),
+        if invert { cc } else { 1.0 - cc } * (far + feather) - feather / 2.0,
+    )
 }
-
 
 /// D-159: the covering shrunk (`choke` > 0) or spread (`choke` < 0) over the whole steps within
 /// `|choke|` of each pixel, Outline's disc: shrinking, each covered pixel takes the least
@@ -6183,28 +7619,34 @@ pub(crate) fn simple_choker(source: &mut WorkingBuffer, choke: f64) -> usize {
         });
     }
     if !spread {
-        source.data_mut().par_chunks_exact_mut(4).zip(&band).for_each(|(px, &a)| {
-            if px[3] == 0.0 {
-                return;
-            }
-            let k = a as f64 / px[3] as f64;
-            for v in &mut px[..3] {
-                *v = (*v as f64 * k) as f32;
-            }
-            px[3] = a;
-        });
+        source
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(&band)
+            .for_each(|(px, &a)| {
+                if px[3] == 0.0 {
+                    return;
+                }
+                let k = a as f64 / px[3] as f64;
+                for v in &mut px[..3] {
+                    *v = (*v as f64 * k) as f32;
+                }
+                px[3] = a;
+            });
         return 0;
     }
     // Each row's running sums of the four channels, so a disc row's sum is one difference.
     let data = source.data();
     let mut sums = vec![0.0f64; h * (w + 1) * 4];
-    sums.par_chunks_mut((w + 1) * 4).enumerate().for_each(|(sy, line)| {
-        for sx in 0..w {
-            for j in 0..4 {
-                line[(sx + 1) * 4 + j] = line[sx * 4 + j] + data[(sy * w + sx) * 4 + j] as f64;
+    sums.par_chunks_mut((w + 1) * 4)
+        .enumerate()
+        .for_each(|(sy, line)| {
+            for sx in 0..w {
+                for j in 0..4 {
+                    line[(sx + 1) * 4 + j] = line[sx * 4 + j] + data[(sy * w + sx) * 4 + j] as f64;
+                }
             }
-        }
-    });
+        });
     let mut out = WorkingBuffer::transparent(bw, bh);
     let drawing = &*source;
     out.data_mut()
@@ -6212,7 +7654,10 @@ pub(crate) fn simple_choker(source: &mut WorkingBuffer, choke: f64) -> usize {
         .zip(&band)
         .enumerate()
         .for_each(|(i, (px, &a))| {
-            let (x, y) = ((i % bw) as isize - g as isize, (i / bw) as isize - g as isize);
+            let (x, y) = (
+                (i % bw) as isize - g as isize,
+                (i / bw) as isize - g as isize,
+            );
             let p = at(drawing, x, y);
             if p[3] > 0.0 {
                 let k = a as f64 / p[3] as f64;
@@ -6246,7 +7691,6 @@ pub(crate) fn simple_choker(source: &mut WorkingBuffer, choke: f64) -> usize {
     g
 }
 
-
 /// D-160: manga focus lines, wedges rushing in toward `center` (in `source`'s pixels), laid on
 /// every covered pixel in `color` (linear) by the blend mix, normal. The numbers are `[count,
 /// thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity]`, already held; count, seed
@@ -6259,7 +7703,18 @@ pub(crate) fn speed_lines(
     [count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity]: [f64; 8],
     frame: i32,
 ) {
-    let lines = speed_line_list([count, thickness, inner, inner_jitter, angle_jitter, seed, hold], frame);
+    let lines = speed_line_list(
+        [
+            count,
+            thickness,
+            inner,
+            inner_jitter,
+            angle_jitter,
+            seed,
+            hold,
+        ],
+        frame,
+    );
     let widest = lines.iter().map(|l| l.1).fold(0.0, f64::max);
     let (n, k, w) = (lines.len(), opacity / 100.0, source.width());
     let lines = &lines;
@@ -6271,12 +7726,16 @@ pub(crate) fn speed_lines(
             if px[3] == 0.0 {
                 return;
             }
-            let (vx, vy) = ((i % w) as f64 + 0.5 - center.0, (i / w) as f64 + 0.5 - center.1);
+            let (vx, vy) = (
+                (i % w) as f64 + 0.5 - center.0,
+                (i / w) as f64 + 0.5 - center.1,
+            );
             let d = vx.hypot(vy);
             let alpha = vx.atan2(-vy).to_degrees().rem_euclid(360.0);
             let one = |&(theta, h, r): &(f64, f64, f64)| {
                 let turn = (alpha - theta).rem_euclid(360.0);
-                ((h - turn.min(360.0 - turn)) * std::f64::consts::PI / 180.0 * d + 0.5).clamp(0.0, 1.0)
+                ((h - turn.min(360.0 - turn)) * std::f64::consts::PI / 180.0 * d + 0.5)
+                    .clamp(0.0, 1.0)
                     * (d - r + 0.5).clamp(0.0, 1.0)
             };
             // A line more than `reach` degrees round gives nothing here, so each way's walk from
@@ -6306,7 +7765,6 @@ pub(crate) fn speed_lines(
         });
 }
 
-
 /// D-160's lines at `frame`, each (angle, half-width, inner edge), in angle order, from the first
 /// seven of [`speed_lines`]' numbers. B-107's card takes the same.
 pub(crate) fn speed_line_list(
@@ -6320,7 +7778,8 @@ pub(crate) fn speed_line_list(
         .map(|k| {
             let u = |ch| crate::grade::unit(base, k, 0, m, ch);
             (
-                (360.0 / count as f64 * (k as f64 + 0.5 * angle_jitter / 100.0 * u(0))).rem_euclid(360.0),
+                (360.0 / count as f64 * (k as f64 + 0.5 * angle_jitter / 100.0 * u(0)))
+                    .rem_euclid(360.0),
                 thickness / 2.0 * (1.0 + 0.5 * u(1)),
                 inner * (1.0 + inner_jitter / 100.0 * u(2)),
             )
@@ -6329,7 +7788,6 @@ pub(crate) fn speed_line_list(
     lines.sort_by(|a, b| a.0.total_cmp(&b.0));
     lines
 }
-
 
 /// D-161: the pixels D-89's bright test lights, streaked `floor(length)` pixels out along
 /// `floor(points)` arms spread evenly round from `angle`, each step's light fading as
@@ -6362,20 +7820,29 @@ pub(crate) fn cross_glare(
     let arms: Vec<(f64, f64)> = (0..n as usize)
         .map(|j| crate::blurs::along(angle + 360.0 * j as f64 / n))
         .collect();
-    let fade: Vec<f64> = (1..=l).map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2)).collect();
+    let fade: Vec<f64> = (1..=l)
+        .map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2))
+        .collect();
     let total: f64 = fade.iter().sum();
-    let steps: Vec<(f64, f64)> = fade.iter().enumerate().map(|(t, f)| ((t + 1) as f64, f / total)).collect();
+    let steps: Vec<(f64, f64)> = fade
+        .iter()
+        .enumerate()
+        .map(|(t, f)| ((t + 1) as f64, f / total))
+        .collect();
     // P-22: a sample whose four pixels are all dark adds exactly nothing, so it is skipped, and a
     // pixel with no lit pixel within reach skips its whole sum. `lit` counts the lit pixels above
     // and left of each place; `near[(y0 + 1)(sw + 1) + x0 + 1]` marks the places (x0, y0), from
     // -1, whose pixels x0..=x0 + 1, y0..=y0 + 1 hold any light.
     let (sw, sh) = (source.width(), source.height());
     let mut lit = vec![0u32; (sw + 1) * (sh + 1)];
-    lit[sw + 1..].par_chunks_mut(sw + 1).enumerate().for_each(|(y, line)| {
-        for x in 0..sw {
-            line[x + 1] = line[x] + light.pixel(x, y).iter().any(|&v| v != 0.0) as u32;
-        }
-    });
+    lit[sw + 1..]
+        .par_chunks_mut(sw + 1)
+        .enumerate()
+        .for_each(|(y, line)| {
+            for x in 0..sw {
+                line[x + 1] = line[x] + light.pixel(x, y).iter().any(|&v| v != 0.0) as u32;
+            }
+        });
     for y in 1..=sh {
         let (above, line) = lit[(y - 1) * (sw + 1)..(y + 1) * (sw + 1)].split_at_mut(sw + 1);
         for (v, a) in line.iter_mut().zip(above.iter()) {
@@ -6436,7 +7903,6 @@ pub(crate) fn cross_glare(
     l
 }
 
-
 /// D-162: the drawing moved by `amount` times Noise's hash and turned by `rotation` degrees times
 /// it, about its centre, one jolt per `hold` frames of `frame`. The layer grows by `amount sqrt(2)`
 /// plus the turned corners' swing on every side, returned; amount 0 and rotation 0 change
@@ -6462,37 +7928,55 @@ pub(crate) fn camera_shake(
         .for_each(|(i, px)| {
             let vx = (i % ow) as f64 + 0.5 - g as f64 - cx - dx;
             let vy = (i / ow) as f64 + 0.5 - g as f64 - cy - dy;
-            px.copy_from_slice(&sample_bilinear(drawing, cx + vx * cb + vy * sb, cy - vx * sb + vy * cb));
+            px.copy_from_slice(&sample_bilinear(
+                drawing,
+                cx + vx * cb + vy * sb,
+                cy - vx * sb + vy * cb,
+            ));
         });
     *source = out;
     g
 }
 
-
 /// D-162's jolt at `frame`: the move across and down, and the turn's sine and cosine. B-107's
 /// card takes the same.
-pub(crate) fn shake_jolt([amount, rotation, hold, seed]: [f64; 4], frame: i32) -> (f64, f64, f64, f64) {
+pub(crate) fn shake_jolt(
+    [amount, rotation, hold, seed]: [f64; 4],
+    frame: i32,
+) -> (f64, f64, f64, f64) {
     let m = (frame as i64).div_euclid(hold.floor() as i64);
     let u = |ch| crate::grade::unit(crate::grade::mix(seed.floor() as u64), m, 0, 0, ch);
     let (sb, cb) = (rotation * u(2)).to_radians().sin_cos();
     (amount * u(0), amount * u(1), sb, cb)
 }
 
-
 /// D-162's centre, the drawing's own, and the growth, for a buffer `w` by `h` whose drawing's
 /// corner is at `origin`. Compose and B-107's card take the same.
-pub(crate) fn shake_reach(amount: f64, rotation: f64, (w, h): (usize, usize), origin: (usize, usize)) -> ((f64, f64), usize) {
+pub(crate) fn shake_reach(
+    amount: f64,
+    rotation: f64,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> ((f64, f64), usize) {
     let (cx, cy) = (
         origin.0 as f64 + (w - 2 * origin.0) as f64 / 2.0,
         origin.1 as f64 + (h - 2 * origin.1) as f64 / 2.0,
     );
-    let rho = [(0.0, 0.0), (w as f64, 0.0), (0.0, h as f64), (w as f64, h as f64)]
-        .iter()
-        .map(|&(x, y): &(f64, f64)| (x - cx).hypot(y - cy))
-        .fold(0.0, f64::max);
-    ((cx, cy), (amount * std::f64::consts::SQRT_2 + 2.0 * rho * (rotation.to_radians() / 2.0).sin()).ceil() as usize)
+    let rho = [
+        (0.0, 0.0),
+        (w as f64, 0.0),
+        (0.0, h as f64),
+        (w as f64, h as f64),
+    ]
+    .iter()
+    .map(|&(x, y): &(f64, f64)| (x - cx).hypot(y - cy))
+    .fold(0.0, f64::max);
+    (
+        (cx, cy),
+        (amount * std::f64::consts::SQRT_2 + 2.0 * rho * (rotation.to_radians() / 2.0).sin()).ceil()
+            as usize,
+    )
 }
-
 
 /// D-163: falling rain, a field of `spacing`-pixel cells turned along `direction` and slid
 /// `speed` pixels a frame, each cell holding a streak by Noise's hash of the seed; the strongest
@@ -6525,11 +8009,16 @@ pub(crate) fn rain(
             if a == 0.0 {
                 return;
             }
-            let (x, y) = ((i % w) as f64 - origin.0 as f64 + 0.5, (i / w) as f64 - origin.1 as f64 + 0.5);
+            let (x, y) = (
+                (i % w) as f64 - origin.0 as f64 + 0.5,
+                (i / w) as f64 - origin.1 as f64 + 0.5,
+            );
             let (fa, fb) = (nx * x + ny * y, tx * x + ty * y - fall);
             let mut q = 0.0f64;
             for ci in ((fa - r) / spacing).floor() as i64..=((fa + r) / spacing).floor() as i64 {
-                for cj in ((fb - half - r) / spacing).floor() as i64..=((fb + half + r) / spacing).floor() as i64 {
+                for cj in ((fb - half - r) / spacing).floor() as i64
+                    ..=((fb + half + r) / spacing).floor() as i64
+                {
                     let u = |ch| crate::grade::unit(base, ci, cj, 0, ch);
                     if (u(0) + 1.0) / 2.0 >= density / 100.0 {
                         continue;
@@ -6548,7 +8037,6 @@ pub(crate) fn rain(
             }
         });
 }
-
 
 /// D-582: CC Rainfall, rain with depth drawn by the effect itself (document 21). Each drop i
 /// takes five numbers by Noise's hash of the seed: its depth in the volume, so its scale F / (F +
@@ -6575,7 +8063,10 @@ pub(crate) fn cc_rainfall(
     origin: (usize, usize),
 ) {
     let (bw, bh) = (source.width(), source.height());
-    let (w0, h0) = (bw as f64 - 2.0 * origin.0 as f64, bh as f64 - 2.0 * origin.1 as f64);
+    let (w0, h0) = (
+        bw as f64 - 2.0 * origin.0 as f64,
+        bh as f64 - 2.0 * origin.1 as f64,
+    );
     if bw == 0 || w0 <= 0.0 || rate <= 0.0 {
         return;
     }
@@ -6601,8 +8092,21 @@ pub(crate) fn cc_rainfall(
             let q = u(3) + vy * tau / r;
             let hy = top + (q - q.floor()) * r;
             let x0 = w0 * (1.5 * u(4) - 0.25);
-            let hx = if vy > 0.0 { x0 + (vx / vy) * ((q - q.floor()) * r - r / 2.0) } else { x0 };
-            Some([d, i as f64, hx, hy, hx - lx, hy - ly, ws, opacity / 100.0 * s])
+            let hx = if vy > 0.0 {
+                x0 + (vx / vy) * ((q - q.floor()) * r - r / 2.0)
+            } else {
+                x0
+            };
+            Some([
+                d,
+                i as f64,
+                hx,
+                hy,
+                hx - lx,
+                hy - ly,
+                ws,
+                opacity / 100.0 * s,
+            ])
         })
         .collect();
     if list.is_empty() && with_original {
@@ -6629,12 +8133,25 @@ pub(crate) fn cc_rainfall(
                     let ll = dx * dx + dy * dy;
                     for (bx, r) in rain.iter_mut().enumerate().take(hi).skip(lo) {
                         let x = bx as f64 - ox + 0.5;
-                        let t = if ll == 0.0 { 0.0 } else { (((x - tx) * dx + (y - ty) * dy) / ll).clamp(0.0, 1.0) };
+                        let t = if ll == 0.0 {
+                            0.0
+                        } else {
+                            (((x - tx) * dx + (y - ty) * dy) / ll).clamp(0.0, 1.0)
+                        };
                         let delta = (x - (tx + t * dx)).hypot(y - (ty + t * dy));
-                        let cover = if ws >= 1.0 { (ws / 2.0 + 0.5 - delta).clamp(0.0, 1.0) } else { ws * (1.0 - delta).clamp(0.0, 1.0) };
+                        let cover = if ws >= 1.0 {
+                            (ws / 2.0 + 0.5 - delta).clamp(0.0, 1.0)
+                        } else {
+                            ws * (1.0 - delta).clamp(0.0, 1.0)
+                        };
                         let a = strength * cover;
                         if a > 0.0 {
-                            *r = [color[0] * a + r[0] * (1.0 - a), color[1] * a + r[1] * (1.0 - a), color[2] * a + r[2] * (1.0 - a), a + r[3] * (1.0 - a)];
+                            *r = [
+                                color[0] * a + r[0] * (1.0 - a),
+                                color[1] * a + r[1] * (1.0 - a),
+                                color[2] * a + r[2] * (1.0 - a),
+                                a + r[3] * (1.0 - a),
+                            ];
                         }
                     }
                 }
@@ -6659,11 +8176,20 @@ pub(crate) fn cc_rainfall(
 
 /// D-204: Snowfall's three planes, nearest first: each one's cell, largest radius, sway, and how
 /// far it has drifted and fallen by `frame`. B-151: the card falls the same way.
-pub(crate) fn snow_planes([spacing, size, depth, speed, wind, wiggle]: [f64; 6], frame: i32) -> [[f64; 5]; 3] {
+pub(crate) fn snow_planes(
+    [spacing, size, depth, speed, wind, wiggle]: [f64; 6],
+    frame: i32,
+) -> [[f64; 5]; 3] {
     let f = frame as f64;
     [0, 1, 2].map(|l| {
         let z = 1.0 - depth / 100.0 * l as f64 / 3.0;
-        [spacing * z, size * z / 2.0, wiggle * z, wind * z * f, speed * z * f]
+        [
+            spacing * z,
+            size * z / 2.0,
+            wiggle * z,
+            wind * z * f,
+            speed * z * f,
+        ]
     })
 }
 
@@ -6703,12 +8229,18 @@ pub(crate) fn snowfall(
             if a == 0.0 {
                 return;
             }
-            let (x, y) = ((i % w) as f64 - origin.0 as f64 + 0.5, (i / w) as f64 - origin.1 as f64 + 0.5);
+            let (x, y) = (
+                (i % w) as f64 - origin.0 as f64 + 0.5,
+                (i / w) as f64 - origin.1 as f64 + 0.5,
+            );
             let mut q = 0.0f64;
             for (l, &[s, rmax, wz, drift, fall]) in planes.iter().enumerate() {
                 let (fa, fb, reach) = (x - drift, y - fall, rmax + 0.5);
-                for ci in ((fa - reach - wz) / s).floor() as i64..=((fa + reach + wz) / s).floor() as i64 {
-                    for cj in ((fb - reach) / s).floor() as i64..=((fb + reach) / s).floor() as i64 {
+                for ci in
+                    ((fa - reach - wz) / s).floor() as i64..=((fa + reach + wz) / s).floor() as i64
+                {
+                    for cj in ((fb - reach) / s).floor() as i64..=((fb + reach) / s).floor() as i64
+                    {
                         let u = |ch| (crate::grade::unit(base, ci, cj, l as i64, ch) + 1.0) / 2.0;
                         if u(0) >= density / 100.0 {
                             continue;
@@ -6746,7 +8278,12 @@ pub(crate) fn kira_kira(
     let g = size.ceil() as usize;
     let (sw, sh) = (source.width(), source.height());
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
-    let stars = kira_stars(source, [threshold, spacing, density, size, twinkle, period, seed], frame, origin);
+    let stars = kira_stars(
+        source,
+        [threshold, spacing, density, size, twinkle, period, seed],
+        frame,
+        origin,
+    );
     let arms = kira_arms(angle, star);
     let light = |&[cx, cy, r, tau]: &[f64; 4], px: f64, py: f64| {
         let (dx, dy, h) = (px - cx, py - cy, 0.5 + r / 32.0);
@@ -6772,30 +8309,33 @@ pub(crate) fn kira_kira(
     let (gx, gy) = (g as f64 + ox, g as f64 + oy);
     let mut out = WorkingBuffer::transparent(w, sh + 2 * g);
     let drawing = &*source;
-    out.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(y, line)| {
-        let py = y as f64 - gy + 0.5;
-        let mut lit = vec![0.0f64; w];
-        let first = stars.partition_point(|s| s[1] <= py - most);
-        for s in stars[first..].iter().take_while(|s| s[1] < py + most) {
-            let e = reach(s[2]);
-            if (py - s[1]).abs() >= e {
-                continue;
+    out.data_mut()
+        .par_chunks_exact_mut(4 * w)
+        .enumerate()
+        .for_each(|(y, line)| {
+            let py = y as f64 - gy + 0.5;
+            let mut lit = vec![0.0f64; w];
+            let first = stars.partition_point(|s| s[1] <= py - most);
+            for s in stars[first..].iter().take_while(|s| s[1] < py + most) {
+                let e = reach(s[2]);
+                if (py - s[1]).abs() >= e {
+                    continue;
+                }
+                let x0 = (s[0] + gx - 0.5 - e).floor().max(0.0) as usize;
+                let x1 = ((s[0] + gx - 0.5 + e).ceil() + 1.0).clamp(0.0, w as f64) as usize;
+                for x in x0..x1 {
+                    lit[x] = lit[x].max(light(s, x as f64 - gx + 0.5, py));
+                }
             }
-            let x0 = (s[0] + gx - 0.5 - e).floor().max(0.0) as usize;
-            let x1 = ((s[0] + gx - 0.5 + e).ceil() + 1.0).clamp(0.0, w as f64) as usize;
-            for x in x0..x1 {
-                lit[x] = lit[x].max(light(s, x as f64 - gx + 0.5, py));
+            for (x, px) in line.chunks_exact_mut(4).enumerate() {
+                let o = at(drawing, x as isize - g as isize, y as isize - g as isize);
+                let s = k * lit[x];
+                for ch in 0..3 {
+                    px[ch] = (o[ch] as f64 + s * color[ch]) as f32;
+                }
+                px[3] = (o[3] as f64 + s * (1.0 - o[3] as f64)) as f32;
             }
-        }
-        for (x, px) in line.chunks_exact_mut(4).enumerate() {
-            let o = at(drawing, x as isize - g as isize, y as isize - g as isize);
-            let s = k * lit[x];
-            for ch in 0..3 {
-                px[ch] = (o[ch] as f64 + s * color[ch]) as f32;
-            }
-            px[3] = (o[3] as f64 + s * (1.0 - o[3] as f64)) as f32;
-        }
-    });
+        });
     *source = out;
     g
 }
@@ -6830,7 +8370,9 @@ pub(crate) fn kira_stars(
         .filter(|(_, px)| crate::bloom::white(px, threshold))
         .fold(Cells::new, |mut m, (i, _)| {
             let (x, y) = ((i % sw) as f64 - ox + 0.5, (i / sw) as f64 - oy + 0.5);
-            let e = m.entry(((x / spacing).floor() as i64, (y / spacing).floor() as i64)).or_default();
+            let e = m
+                .entry(((x / spacing).floor() as i64, (y / spacing).floor() as i64))
+                .or_default();
             *e = (e.0 + x, e.1 + y, e.2 + 1.0);
             m
         })
@@ -6851,7 +8393,8 @@ pub(crate) fn kira_stars(
                 return None;
             }
             let (phi, beta) = ((u(1) + 1.0) / 2.0, 0.6 + 0.2 * (u(2) + 1.0));
-            let beat = 0.5 + 0.5 * (2.0 * std::f64::consts::PI * (frame as f64 / period + phi)).cos();
+            let beat =
+                0.5 + 0.5 * (2.0 * std::f64::consts::PI * (frame as f64 / period + phi)).cos();
             let tau = 1.0 - twinkle / 100.0 * (1.0 - beat);
             let r = size * beta * tau;
             (r > 0.0).then_some([x / n, y / n, r, tau])
@@ -6886,43 +8429,59 @@ pub(crate) fn lightning_bolt(
         return;
     }
     let size = (source.width(), source.height());
-    let segs = bolt_list(size, ends, [jagged, detail, branches, hold, seed], (kind, [turbulence, decay, conductivity], forks), (blocks, outside, around), frame);
+    let segs = bolt_list(
+        size,
+        ends,
+        [jagged, detail, branches, hold, seed],
+        (kind, [turbulence, decay, conductivity], forks),
+        (blocks, outside, around),
+        frame,
+    );
     // Each segment's box: nothing past its reach from the line is lit.
     let boxes: Vec<[f64; 4]> = segs
         .iter()
         .map(|s| {
             let w = s[4].max(s[5]);
             let e = (w * width / 2.0 + 0.5).max(w * glow);
-            [s[0].min(s[2]) - e, s[0].max(s[2]) + e, s[1].min(s[3]) - e, s[1].max(s[3]) + e]
+            [
+                s[0].min(s[2]) - e,
+                s[0].max(s[2]) + e,
+                s[1].min(s[3]) - e,
+                s[1].max(s[3]) + e,
+            ]
         })
         .collect();
     let (w, k) = (source.width(), opacity / 100.0);
     // ponytail: every segment is tested against every row, and a wide glow lights a wide box per
     // segment, so detail 8 with branches 100 and glow 500 is slow; bin segments by row if needed.
-    source.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(y, line)| {
-        let py = y as f64 + 0.5;
-        let mut lit = vec![(0.0f64, 0.0f64); w];
-        for (s, b) in segs.iter().zip(&boxes) {
-            if py <= b[2] || py >= b[3] {
-                continue;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4 * w)
+        .enumerate()
+        .for_each(|(y, line)| {
+            let py = y as f64 + 0.5;
+            let mut lit = vec![(0.0f64, 0.0f64); w];
+            for (s, b) in segs.iter().zip(&boxes) {
+                if py <= b[2] || py >= b[3] {
+                    continue;
+                }
+                let x0 = (b[0] - 0.5).floor().max(0.0) as usize;
+                let x1 = ((b[1] - 0.5).ceil() + 1.0).clamp(0.0, w as f64) as usize;
+                for (x, l) in lit.iter_mut().enumerate().take(x1).skip(x0) {
+                    let (c, g) = bolt_light(s, width, glow, soft, x as f64 + 0.5, py);
+                    *l = (l.0.max(c), l.1.max(g));
+                }
             }
-            let x0 = (b[0] - 0.5).floor().max(0.0) as usize;
-            let x1 = ((b[1] - 0.5).ceil() + 1.0).clamp(0.0, w as f64) as usize;
-            for (x, l) in lit.iter_mut().enumerate().take(x1).skip(x0) {
-                let (c, g) = bolt_light(s, width, glow, soft, x as f64 + 0.5, py);
-                *l = (l.0.max(c), l.1.max(g));
+            for (px, &(c, g)) in line.chunks_exact_mut(4).zip(&lit) {
+                if c == 0.0 && g == 0.0 {
+                    continue;
+                }
+                for ch in 0..3 {
+                    px[ch] = (px[ch] as f64 + k * (c * core[ch] + (1.0 - c) * g * halo[ch])) as f32;
+                }
+                px[3] = (px[3] as f64 + k * (c + (1.0 - c) * g) * (1.0 - px[3] as f64)) as f32;
             }
-        }
-        for (px, &(c, g)) in line.chunks_exact_mut(4).zip(&lit) {
-            if c == 0.0 && g == 0.0 {
-                continue;
-            }
-            for ch in 0..3 {
-                px[ch] = (px[ch] as f64 + k * (c * core[ch] + (1.0 - c) * g * halo[ch])) as f32;
-            }
-            px[3] = (px[3] as f64 + k * (c + (1.0 - c) * g) * (1.0 - px[3] as f64)) as f32;
-        }
-    });
+        });
 }
 
 /// D-190's segments for a frame, each `[px, py, qx, qy, wP, wQ]` in a buffer `size`: what
@@ -6941,22 +8500,44 @@ pub(crate) fn bolt_list(
     let (n, base) = (conductivity.floor(), crate::grade::mix(seed.floor() as u64));
     let t = conductivity - n;
     let s = t * t * (3.0 - 2.0 * t);
-    let below = if n == 0.0 { base } else { crate::grade::mix(base ^ n as u64) };
+    let below = if n == 0.0 {
+        base
+    } else {
+        crate::grade::mix(base ^ n as u64)
+    };
     let above = crate::grade::mix(base ^ (n as u64 + 1));
     let r = |key: i64, b: i64, j: u64| {
         let v = crate::grade::unit(below, key, b, m, j);
-        if s == 0.0 { v } else { v + s * (crate::grade::unit(above, key, b, m, j) - v) }
+        if s == 0.0 {
+            v
+        } else {
+            v + s * (crate::grade::unit(above, key, b, m, j) - v)
+        }
     };
     let blocked = |x: f64, y: f64| {
         let (i, j) = (x.floor(), y.floor());
-        if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 { blocks[j as usize * size.0 + i as usize] } else { outside }
+        if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 {
+            blocks[j as usize * size.0 + i as usize]
+        } else {
+            outside
+        }
     };
-    let route = (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
-    let mut segs = bolt_segments((kind, forks), ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
+    let route =
+        (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
+    let mut segs = bolt_segments(
+        (kind, forks),
+        ends,
+        [jagged, branches, turbulence, decay],
+        detail.floor() as u32,
+        &r,
+        route,
+    );
     if !blocks.is_empty() {
         segs = bolt_stop(segs, &blocked, route.is_some());
     }
-    segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect()
+    segs.into_iter()
+        .map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq])
+        .collect()
 }
 
 /// D-190's segment `[px, py, qx, qy, wP, wQ]`: its core and glow at the point (x, y). The core is
@@ -6965,7 +8546,11 @@ pub(crate) fn bolt_list(
 fn bolt_light(s: &[f64; 6], width: f64, glow: f64, soft: bool, x: f64, y: f64) -> (f64, f64) {
     let (dx, dy) = (s[2] - s[0], s[3] - s[1]);
     let l2 = dx * dx + dy * dy;
-    let t = if l2 == 0.0 { 0.0 } else { (((x - s[0]) * dx + (y - s[1]) * dy) / l2).clamp(0.0, 1.0) };
+    let t = if l2 == 0.0 {
+        0.0
+    } else {
+        (((x - s[0]) * dx + (y - s[1]) * dy) / l2).clamp(0.0, 1.0)
+    };
     let d = (x - s[0] - t * dx).hypot(y - s[1] - t * dy);
     let w = s[4] + t * (s[5] - s[4]);
     let half = w * width / 2.0;
@@ -6975,12 +8560,23 @@ fn bolt_light(s: &[f64; 6], width: f64, glow: f64, soft: bool, x: f64, y: f64) -
             let a = u.abs().min(half);
             u.signum() * (a - a * a / (2.0 * half))
         };
-        if half > 0.0 { rise(d + 0.5) - rise(d - 0.5) } else { 0.0 }
+        if half > 0.0 {
+            rise(d + 0.5) - rise(d - 0.5)
+        } else {
+            0.0
+        }
     } else {
         ((d + 0.5).min(half) - (d - 0.5).max(-half)).clamp(0.0, 1.0)
     };
     let r = w * glow;
-    (core, if d < r { w * (1.0 - d / r).powi(2) } else { 0.0 })
+    (
+        core,
+        if d < r {
+            w * (1.0 - d / r).powi(2)
+        } else {
+            0.0
+        },
+    )
 }
 
 /// A segment of D-190's bolt: (P, Q, wP, wQ, depth, bolt, key, the bolt it forks from). A key and
@@ -7033,7 +8629,10 @@ fn bolt_segments(
         _ => vec![one(o, d, 0)],
     };
     if let Some((blocked, size)) = around {
-        segs = segs.into_iter().flat_map(|root| bolt_pieces(root, blocked, size)).collect();
+        segs = segs
+            .into_iter()
+            .flat_map(|root| bolt_pieces(root, blocked, size))
+            .collect();
     }
     // D-338: each main bolt's own way, by its name.
     let ways: Vec<(i64, (f64, f64), (f64, f64))> = segs.iter().map(|s| (s.5, s.0, s.1)).collect();
@@ -7046,8 +8645,12 @@ fn bolt_segments(
                 out.push((p, q, wp, wq, depth, b, key, parent));
                 continue;
             }
-            let a = r(key, b, 0) * jagged / 100.0 * l / 2.0 * (1.0 + turbulence / 100.0 * i as f64 / 2.0);
-            let mut mid = ((p.0 + q.0) / 2.0 - dy / l * a, (p.1 + q.1) / 2.0 + dx / l * a);
+            let a = r(key, b, 0) * jagged / 100.0 * l / 2.0
+                * (1.0 + turbulence / 100.0 * i as f64 / 2.0);
+            let mut mid = (
+                (p.0 + q.0) / 2.0 - dy / l * a,
+                (p.1 + q.1) / 2.0 + dx / l * a,
+            );
             if let Some((blocked, _)) = around.filter(|_| depth == 0) {
                 if !(bolt_clear(p, mid, blocked) && bolt_clear(mid, q, blocked)) {
                     mid = ((p.0 + q.0) / 2.0, (p.1 + q.1) / 2.0);
@@ -7056,7 +8659,9 @@ fn bolt_segments(
             let wm = (wp + wq) / 2.0;
             out.push((p, mid, wp, wm, depth, b, 2 * key, parent));
             out.push((mid, q, wm, wq, depth, b, 2 * key + 1, parent));
-            if depth < 3 && (r(key, b, 1) + 1.0) / 2.0 < branches / 100.0 * (1.0 + turbulence / 100.0) {
+            if depth < 3
+                && (r(key, b, 1) + 1.0) / 2.0 < branches / 100.0 * (1.0 + turbulence / 100.0)
+            {
                 let mut way = (dx / l, dy / l);
                 if kind == "strike" {
                     let (tx, ty) = (d.0 - mid.0, d.1 - mid.1);
@@ -7068,22 +8673,44 @@ fn bolt_segments(
                 let side = if r(key, b, 3) < 0.0 { -1.0 } else { 1.0 };
                 let w0 = if kind == "breaking" { wm } else { wm / 2.0 };
                 // D-338: the main bolt's own way, and how much of it is left past the fork.
-                let run = ways.iter().find(|w| w.0 == b).filter(|_| forks != "short" && depth == 0 && i < 3).and_then(|&(_, o, e)| {
-                    let (ux, uy) = (e.0 - o.0, e.1 - o.1);
-                    let ul = ux.hypot(uy);
-                    let u = (ux / ul, uy / ul);
-                    let left = (e.0 - mid.0) * u.0 + (e.1 - mid.1) * u.1;
-                    (ul > 0.0 && left > 0.0).then_some((u, left))
-                });
+                let run = ways
+                    .iter()
+                    .find(|w| w.0 == b)
+                    .filter(|_| forks != "short" && depth == 0 && i < 3)
+                    .and_then(|&(_, o, e)| {
+                        let (ux, uy) = (e.0 - o.0, e.1 - o.1);
+                        let ul = ux.hypot(uy);
+                        let u = (ux / ul, uy / ul);
+                        let left = (e.0 - mid.0) * u.0 + (e.1 - mid.1) * u.1;
+                        (ul > 0.0 && left > 0.0).then_some((u, left))
+                    });
                 if let Some((u, left)) = run {
                     let v = turn(u, (10.0 + 10.0 * (r(key, b, 2) + 1.0)) * side);
                     let lb = kd * left / (v.0 * u.0 + v.1 * u.1);
                     let ws = if forks == "full" { wm } else { w0 };
-                    out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), ws, ws * kd, depth + 1, 1024 * b + key, 1, b));
+                    out.push((
+                        mid,
+                        (mid.0 + v.0 * lb, mid.1 + v.1 * lb),
+                        ws,
+                        ws * kd,
+                        depth + 1,
+                        1024 * b + key,
+                        1,
+                        b,
+                    ));
                 } else {
                     let v = turn(way, (15.0 + 15.0 * (r(key, b, 2) + 1.0)) * side);
                     let lb = l * (0.3 + 0.15 * (r(key, b, 4) + 1.0));
-                    out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), w0, 0.0, depth + 1, 1024 * b + key, 1, b));
+                    out.push((
+                        mid,
+                        (mid.0 + v.0 * lb, mid.1 + v.1 * lb),
+                        w0,
+                        0.0,
+                        depth + 1,
+                        1024 * b + key,
+                        1,
+                        b,
+                    ));
                 }
             }
         }
@@ -7096,7 +8723,12 @@ fn bolt_segments(
 /// or less apart.
 fn bolt_walk(p: (f64, f64), q: (f64, f64)) -> (usize, impl Fn(usize) -> (f64, f64)) {
     let n = ((q.0 - p.0).hypot(q.1 - p.1).ceil() as usize).max(1);
-    (n, move |j: usize| (p.0 + (q.0 - p.0) * (j as f64 / n as f64), p.1 + (q.1 - p.1) * (j as f64 / n as f64)))
+    (n, move |j: usize| {
+        (
+            p.0 + (q.0 - p.0) * (j as f64 / n as f64),
+            p.1 + (q.1 - p.1) * (j as f64 / n as f64),
+        )
+    })
 }
 
 /// D-329: no point of D-324's walk from `p` to `q` blocks.
@@ -7113,10 +8745,21 @@ fn bolt_clear(p: (f64, f64), q: (f64, f64), blocked: &dyn Fn(f64, f64) -> bool) 
 /// the end's (or to the nearest the search reaches), pulled straight wherever the line is clear.
 // ponytail: one search over the whole layer per start bolt, and the straightening tests every
 // later point, O(cells^2) on a long way; fine at a few bolts, bound the search if it shows.
-fn bolt_pieces(root: BoltSeg, blocked: &dyn Fn(f64, f64) -> bool, (w, h): (usize, usize)) -> Vec<BoltSeg> {
+fn bolt_pieces(
+    root: BoltSeg,
+    blocked: &dyn Fn(f64, f64) -> bool,
+    (w, h): (usize, usize),
+) -> Vec<BoltSeg> {
     let (o, d, _, kd, _, b, _, _) = root;
-    let cell = |p: (f64, f64)| (p.0.floor().clamp(0.0, w as f64 - 1.0) as i64, p.1.floor().clamp(0.0, h as f64 - 1.0) as i64);
-    let free = |(i, j): (i64, i64)| i >= 0 && i < w as i64 && j >= 0 && j < h as i64 && !blocked(i as f64 + 0.5, j as f64 + 0.5);
+    let cell = |p: (f64, f64)| {
+        (
+            p.0.floor().clamp(0.0, w as f64 - 1.0) as i64,
+            p.1.floor().clamp(0.0, h as f64 - 1.0) as i64,
+        )
+    };
+    let free = |(i, j): (i64, i64)| {
+        i >= 0 && i < w as i64 && j >= 0 && j < h as i64 && !blocked(i as f64 + 0.5, j as f64 + 0.5)
+    };
     let at = |(i, j): (i64, i64)| j as usize * w + i as usize;
     let (s, t) = (cell(o), cell(d));
     if !free(s) {
@@ -7127,10 +8770,24 @@ fn bolt_pieces(root: BoltSeg, blocked: &dyn Fn(f64, f64) -> bool, (w, h): (usize
     parent[at(s)] = at(s);
     let (mut queue, mut best) = (std::collections::VecDeque::from([s]), s);
     'search: while s != t {
-        let Some((ci, cj)) = queue.pop_front() else { break };
-        for (di, dj) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)] {
+        let Some((ci, cj)) = queue.pop_front() else {
+            break;
+        };
+        for (di, dj) in [
+            (1, 0),
+            (-1, 0),
+            (0, 1),
+            (0, -1),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
+        ] {
             let n = (ci + di, cj + dj);
-            if !free(n) || parent[at(n)] != usize::MAX || (di != 0 && dj != 0 && !(free((ci + di, cj)) && free((ci, cj + dj)))) {
+            if !free(n)
+                || parent[at(n)] != usize::MAX
+                || (di != 0 && dj != 0 && !(free((ci + di, cj)) && free((ci, cj + dj))))
+            {
                 continue;
             }
             parent[at(n)] = at((ci, cj));
@@ -7152,7 +8809,12 @@ fn bolt_pieces(root: BoltSeg, blocked: &dyn Fn(f64, f64) -> bool, (w, h): (usize
     way.reverse();
     let middle = |(i, j): (i64, i64)| (i as f64 + 0.5, j as f64 + 0.5);
     let mut pts = vec![o];
-    pts.extend(way.iter().skip(1).take(way.len().saturating_sub(2)).map(|&c| middle(c)));
+    pts.extend(
+        way.iter()
+            .skip(1)
+            .take(way.len().saturating_sub(2))
+            .map(|&c| middle(c)),
+    );
     pts.push(if best == t { d } else { middle(best) });
     let mut kept = vec![pts[0]];
     let mut i = 0;
@@ -7164,14 +8826,25 @@ fn bolt_pieces(root: BoltSeg, blocked: &dyn Fn(f64, f64) -> bool, (w, h): (usize
         kept.push(pts[j]);
         i = j;
     }
-    let lengths: Vec<f64> = kept.windows(2).map(|e| (e[1].0 - e[0].0).hypot(e[1].1 - e[0].1)).collect();
+    let lengths: Vec<f64> = kept
+        .windows(2)
+        .map(|e| (e[1].0 - e[0].0).hypot(e[1].1 - e[0].1))
+        .collect();
     let total: f64 = lengths.iter().sum();
     let mut along = 0.0;
     let mut out = Vec::with_capacity(lengths.len());
     for (k, e) in kept.windows(2).enumerate() {
-        let ws = if k == 0 { 1.0 } else { 1.0 + (kd - 1.0) * along / total };
+        let ws = if k == 0 {
+            1.0
+        } else {
+            1.0 + (kd - 1.0) * along / total
+        };
         along += lengths[k];
-        let we = if k == lengths.len() - 1 { kd } else { 1.0 + (kd - 1.0) * along / total };
+        let we = if k == lengths.len() - 1 {
+            kd
+        } else {
+            1.0 + (kd - 1.0) * along / total
+        };
         let bp = if k == 0 { b } else { b - 8 * k as i64 };
         out.push((e[0], e[1], ws, we, 0, bp, 1, bp));
     }
@@ -7182,7 +8855,11 @@ fn bolt_pieces(root: BoltSeg, blocked: &dyn Fn(f64, f64) -> bool, (w, h): (usize
 /// less apart, ends at the first point `blocked`; the rest of it goes, and so does every fork
 /// whose start is no longer on what is left of its parent. D-329: with `keep_main` the main bolts
 /// (depth 0), already routed round, are left whole.
-fn bolt_stop(segs: Vec<BoltSeg>, blocked: impl Fn(f64, f64) -> bool, keep_main: bool) -> Vec<BoltSeg> {
+fn bolt_stop(
+    segs: Vec<BoltSeg>,
+    blocked: impl Fn(f64, f64) -> bool,
+    keep_main: bool,
+) -> Vec<BoltSeg> {
     use std::collections::{HashMap, HashSet};
     let mut kept: HashMap<i64, Vec<(f64, f64)>> = HashMap::new();
     let (mut done, mut started) = (HashSet::new(), HashSet::new());
@@ -7211,7 +8888,16 @@ fn bolt_stop(segs: Vec<BoltSeg>, blocked: impl Fn(f64, f64) -> bool, keep_main: 
                     done.insert(b);
                     if j > 0 {
                         let x = at(j);
-                        out.push((p, x, wp, wp + j as f64 / n as f64 * (wq - wp), dd, b, key, parent));
+                        out.push((
+                            p,
+                            x,
+                            wp,
+                            wp + j as f64 / n as f64 * (wq - wp),
+                            dd,
+                            b,
+                            key,
+                            parent,
+                        ));
                         mine.extend([p, x]);
                     }
                 }
@@ -7241,7 +8927,10 @@ pub(crate) fn compound_blur(
     let sigmas: Vec<f64> = (0..w * h)
         .into_par_iter()
         .map(|i| {
-            let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
+            let (x, y) = (
+                (i % w).wrapping_sub(origin.0),
+                (i / w).wrapping_sub(origin.1),
+            );
             let v = if x < mw && y < mh {
                 let p = &map.data()[(y * mw + x) * 4..][..3];
                 let luma = 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
@@ -7274,19 +8963,23 @@ pub(crate) fn compound_blur(
     for k in 0..=segment(top) {
         let (lo, hi) = (levels[k], levels[k + 1]);
         let high = blurred(hi);
-        out.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-            for (x, o) in row.chunks_mut(4).enumerate() {
-                let i = y * w + x;
-                let s = sigmas[i];
-                if segment(s) == k {
-                    let t = (s - lo) / (hi - lo);
-                    for c in 0..4 {
-                        let (a, b) = (low.data()[i * 4 + c] as f64, high.data()[i * 4 + c] as f64);
-                        o[c] = (a + t * (b - a)) as f32;
+        out.data_mut()
+            .par_chunks_mut(w * 4)
+            .enumerate()
+            .for_each(|(y, row)| {
+                for (x, o) in row.chunks_mut(4).enumerate() {
+                    let i = y * w + x;
+                    let s = sigmas[i];
+                    if segment(s) == k {
+                        let t = (s - lo) / (hi - lo);
+                        for c in 0..4 {
+                            let (a, b) =
+                                (low.data()[i * 4 + c] as f64, high.data()[i * 4 + c] as f64);
+                            o[c] = (a + t * (b - a)) as f32;
+                        }
                     }
                 }
-            }
-        });
+            });
         low = high;
     }
     *source = out;
@@ -7326,7 +9019,9 @@ pub(crate) fn displacement_map(
             "red" => c[0],
             "green" => c[1],
             "blue" => c[2],
-            "luminance" => crate::grade::to_srgb(0.2126 * straight[0] + 0.7152 * straight[1] + 0.0722 * straight[2]),
+            "luminance" => crate::grade::to_srgb(
+                0.2126 * straight[0] + 0.7152 * straight[1] + 0.0722 * straight[2],
+            ),
             "hue" => crate::grade::to_hsl(c)[0] / 360.0,
             "saturation" => crate::grade::to_hsl(c)[1],
             _ => crate::grade::to_hsl(c)[2],
@@ -7335,46 +9030,65 @@ pub(crate) fn displacement_map(
     };
     let samples = spectrum.map(|(a, n)| chromatic_samples(a, n.max(2)));
     let top = spectrum.map_or(1.0, |(a, _)| a.iter().fold(0.0f64, |t, v| t.max(v.abs())));
-    let g = if expand && !wrap { (most[0].abs().max(most[1].abs()) * top).ceil() as usize } else { 0 };
+    let g = if expand && !wrap {
+        (most[0].abs().max(most[1].abs()) * top).ceil() as usize
+    } else {
+        0
+    };
     let from = std::mem::replace(source, WorkingBuffer::transparent(0, 0));
     let (w, h) = (from.width(), from.height());
     let (mw, mh) = (map.width(), map.height());
     let mut out = WorkingBuffer::transparent(w + 2 * g, h + 2 * g);
     let (ox, oy) = ((origin.0 + g) as i64, (origin.1 + g) as i64);
-    out.data_mut().par_chunks_mut((w + 2 * g) * 4).enumerate().for_each(|(y, row)| {
-        for (x, o) in row.chunks_mut(4).enumerate() {
-            let (mx, my) = (x as i64 - ox, y as i64 - oy);
-            let m = if mx >= 0 && my >= 0 && (mx as usize) < mw && (my as usize) < mh {
-                map.pixel(mx as usize, my as usize)
-            } else if g > 0 && mw > 0 && mh > 0 {
-                map.pixel(mx.clamp(0, mw as i64 - 1) as usize, my.clamp(0, mh as i64 - 1) as usize)
-            } else {
-                [0.0; 4]
-            };
-            let read = |sx: f64, sy: f64| if wrap { wrapped(&from, (w, h), sx, sy) } else { sample_bilinear(&from, sx, sy) };
-            let dx = (2.0 * value(words[0], m) - 1.0) * most[0];
-            let dy = (2.0 * value(words[1], m) - 1.0) * most[1];
-            let (cx, cy) = (x as f64 + 0.5 - g as f64, y as f64 + 0.5 - g as f64);
-            match &samples {
-                None => o.copy_from_slice(&read(x as f64 + 0.5 + dx - g as f64, y as f64 + 0.5 + dy - g as f64)),
-                Some(samples) => {
-                    let (mut sum, mut total, mut cover) = ([0.0f64; 3], [0.0f64; 3], 0.0f32);
-                    for (a, wt) in samples {
-                        let p = read(cx + a * dx, cy + a * dy);
-                        for c in 0..3 {
-                            sum[c] += wt[c] * p[c] as f64;
-                            total[c] += wt[c];
+    out.data_mut()
+        .par_chunks_mut((w + 2 * g) * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, o) in row.chunks_mut(4).enumerate() {
+                let (mx, my) = (x as i64 - ox, y as i64 - oy);
+                let m = if mx >= 0 && my >= 0 && (mx as usize) < mw && (my as usize) < mh {
+                    map.pixel(mx as usize, my as usize)
+                } else if g > 0 && mw > 0 && mh > 0 {
+                    map.pixel(
+                        mx.clamp(0, mw as i64 - 1) as usize,
+                        my.clamp(0, mh as i64 - 1) as usize,
+                    )
+                } else {
+                    [0.0; 4]
+                };
+                let read = |sx: f64, sy: f64| {
+                    if wrap {
+                        wrapped(&from, (w, h), sx, sy)
+                    } else {
+                        sample_bilinear(&from, sx, sy)
+                    }
+                };
+                let dx = (2.0 * value(words[0], m) - 1.0) * most[0];
+                let dy = (2.0 * value(words[1], m) - 1.0) * most[1];
+                let (cx, cy) = (x as f64 + 0.5 - g as f64, y as f64 + 0.5 - g as f64);
+                match &samples {
+                    None => o.copy_from_slice(&read(
+                        x as f64 + 0.5 + dx - g as f64,
+                        y as f64 + 0.5 + dy - g as f64,
+                    )),
+                    Some(samples) => {
+                        let (mut sum, mut total, mut cover) = ([0.0f64; 3], [0.0f64; 3], 0.0f32);
+                        for (a, wt) in samples {
+                            let p = read(cx + a * dx, cy + a * dy);
+                            for c in 0..3 {
+                                sum[c] += wt[c] * p[c] as f64;
+                                total[c] += wt[c];
+                            }
+                            cover = cover.max(p[3]);
                         }
-                        cover = cover.max(p[3]);
+                        for c in 0..3 {
+                            o[c] = (sum[c] / total[c]) as f32;
+                        }
+                        o[3] = cover;
                     }
-                    for c in 0..3 {
-                        o[c] = (sum[c] / total[c]) as f32;
-                    }
-                    o[3] = cover;
                 }
             }
-        }
-    });
+        });
     *source = out;
     g
 }
@@ -7386,8 +9100,19 @@ pub(crate) fn chromatic_samples(a: [f64; 3], n: usize) -> Vec<(f64, [f64; 3])> {
     (0..n)
         .map(|i| {
             let t = i as f64 / (n - 1) as f64;
-            let share = if t <= 0.5 { a[0] + (a[1] - a[0]) * 2.0 * t } else { a[1] + (a[2] - a[1]) * (2.0 * t - 1.0) };
-            (share, [(1.0 - 2.0 * t).max(0.0), 1.0 - (2.0 * t - 1.0).abs(), (2.0 * t - 1.0).max(0.0)])
+            let share = if t <= 0.5 {
+                a[0] + (a[1] - a[0]) * 2.0 * t
+            } else {
+                a[1] + (a[2] - a[1]) * (2.0 * t - 1.0)
+            };
+            (
+                share,
+                [
+                    (1.0 - 2.0 * t).max(0.0),
+                    1.0 - (2.0 * t - 1.0).abs(),
+                    (2.0 * t - 1.0).max(0.0),
+                ],
+            )
         })
         .collect()
 }
@@ -7400,7 +9125,10 @@ fn wrapped(src: &WorkingBuffer, (w, h): (usize, usize), x: f64, y: f64) -> [f32;
     let mut out = [0.0f32; 4];
     for (dy, wy) in [(0.0, 1.0 - uy), (1.0, uy)] {
         for (dx, wx) in [(0.0, 1.0 - ux), (1.0, ux)] {
-            let px = src.pixel((x0 + dx).rem_euclid(w as f64) as usize, (y0 + dy).rem_euclid(h as f64) as usize);
+            let px = src.pixel(
+                (x0 + dx).rem_euclid(w as f64) as usize,
+                (y0 + dy).rem_euclid(h as f64) as usize,
+            );
             for i in 0..4 {
                 out[i] += px[i] * (wx * wy) as f32;
             }
@@ -7459,58 +9187,95 @@ pub(crate) fn gradient_wipe(
     let itself = map.is_none().then(|| source.clone());
     let (map, origin) = match map {
         Some(m) => (m, origin),
-        None => (itself.as_ref().expect("cloned when there is no map"), (0, 0)),
+        None => (
+            itself.as_ref().expect("cloned when there is no map"),
+            (0, 0),
+        ),
     };
     let (mw, mh) = (map.width(), map.height());
     let read = |i: usize| {
-        let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
-        if x < mw && y < mh { wipe_reading(property, map.pixel(x, y)) } else { 0.0 }
+        let (x, y) = (
+            (i % w).wrapping_sub(origin.0),
+            (i / w).wrapping_sub(origin.1),
+        );
+        if x < mw && y < mh {
+            wipe_reading(property, map.pixel(x, y))
+        } else {
+            0.0
+        }
     };
     let field = (blur > 0.0).then(|| {
         let mut f = WorkingBuffer::transparent(w, h);
-        f.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| px[3] = read(i) as f32);
-        crate::effects::held_blur_axes(&mut f, &crate::effects::gaussian_weights(blur / 2.0), (true, true));
+        f.data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, px)| px[3] = read(i) as f32);
+        crate::effects::held_blur_axes(
+            &mut f,
+            &crate::effects::gaussian_weights(blur / 2.0),
+            (true, true),
+        );
         f
     });
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let v = match &field {
-            Some(f) => f.data()[i * 4 + 3] as f64,
-            None => read(i),
-        };
-        let v = if invert { 1.0 - v } else { v };
-        let k = if s > 0.0 {
-            ((v - edge) / s + 0.5).clamp(0.0, 1.0)
-        } else if v >= edge {
-            1.0
-        } else {
-            0.0
-        };
-        for p in px.iter_mut() {
-            *p = (*p as f64 * k) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let v = match &field {
+                Some(f) => f.data()[i * 4 + 3] as f64,
+                None => read(i),
+            };
+            let v = if invert { 1.0 - v } else { v };
+            let k = if s > 0.0 {
+                ((v - edge) / s + 0.5).clamp(0.0, 1.0)
+            } else if v >= edge {
+                1.0
+            } else {
+                0.0
+            };
+            for p in px.iter_mut() {
+                *p = (*p as f64 * k) as f32;
+            }
+        });
 }
 
 /// D-403: Aerial Haze. Each pixel moved toward `haze`, a linear colour, by `amount` (0 to 1) in
 /// premultiplied light, times the picture luma of the matte under it when there is one; the
 /// matte lies on the layer's own picture, which sits at its origin in `source`, and reads black
 /// outside it. The covering never changes.
-pub(crate) fn aerial_haze(source: &mut WorkingBuffer, matte: Option<(&WorkingBuffer, (usize, usize))>, haze: [f64; 3], amount: f64) {
+pub(crate) fn aerial_haze(
+    source: &mut WorkingBuffer,
+    matte: Option<(&WorkingBuffer, (usize, usize))>,
+    haze: [f64; 3],
+    amount: f64,
+) {
     let w = source.width();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let v = match matte {
-            None => 1.0,
-            Some((map, origin)) => {
-                let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
-                if x < map.width() && y < map.height() { picture_luma(map.pixel(x, y)) } else { 0.0 }
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let v = match matte {
+                None => 1.0,
+                Some((map, origin)) => {
+                    let (x, y) = (
+                        (i % w).wrapping_sub(origin.0),
+                        (i / w).wrapping_sub(origin.1),
+                    );
+                    if x < map.width() && y < map.height() {
+                        picture_luma(map.pixel(x, y))
+                    } else {
+                        0.0
+                    }
+                }
+            };
+            let (k, a) = (amount * v, px[3] as f64);
+            for c in 0..3 {
+                let q = px[c] as f64;
+                px[c] = (q + k * (haze[c] * a - q)) as f32;
             }
-        };
-        let (k, a) = (amount * v, px[3] as f64);
-        for c in 0..3 {
-            let q = px[c] as f64;
-            px[c] = (q + k * (haze[c] * a - q)) as f32;
-        }
-    });
+        });
 }
 
 /// D-524: Fog 3D's shares at each pixel of the drawing, from the depth z compose read and, with
@@ -7542,25 +9307,46 @@ pub(crate) fn fog_shares(e: &crate::effects::Effect) -> Option<WorkingBuffer> {
         (_, Some(m)) => Some(m.0.as_ref()),
         _ => return None,
     };
-    let (o, c, d) = (fog_opacity / 100.0, layer_contribution / 100.0, scattering_density / 10.0);
+    let (o, c, d) = (
+        fog_opacity / 100.0,
+        layer_contribution / 100.0,
+        scattering_density / 10.0,
+    );
     let behind = foggy_background == "on";
     let (w, h) = (depth.0.width(), depth.0.height());
     let mut out = WorkingBuffer::transparent(w, h);
-    out.data_mut().par_chunks_exact_mut(4).zip(depth.0.data().par_chunks_exact(4)).enumerate().for_each(|(i, (px, z))| {
-        let z = z[0] as f64;
-        let t = if end == start {
-            if z >= *start { 1.0 } else { 0.0 }
-        } else {
-            ((z - start) / (end - start)).clamp(0.0, 1.0)
-        };
-        let f = if d == 0.0 { t } else { (1.0 - (-d * t).exp()) / (1.0 - (-d).exp()) };
-        let g = gradient.map_or(1.0, |m| {
-            let (x, y) = (i % w, i / w);
-            1.0 - c + c * if x < m.width() && y < m.height() { picture_luma(m.pixel(x, y)) } else { 0.0 }
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(depth.0.data().par_chunks_exact(4))
+        .enumerate()
+        .for_each(|(i, (px, z))| {
+            let z = z[0] as f64;
+            let t = if end == start {
+                if z >= *start {
+                    1.0
+                } else {
+                    0.0
+                }
+            } else {
+                ((z - start) / (end - start)).clamp(0.0, 1.0)
+            };
+            let f = if d == 0.0 {
+                t
+            } else {
+                (1.0 - (-d * t).exp()) / (1.0 - (-d).exp())
+            };
+            let g = gradient.map_or(1.0, |m| {
+                let (x, y) = (i % w, i / w);
+                1.0 - c
+                    + c * if x < m.width() && y < m.height() {
+                        picture_luma(m.pixel(x, y))
+                    } else {
+                        0.0
+                    }
+            });
+            px[0] = (f * g * o) as f32;
+            px[1] = if behind { (g * o) as f32 } else { 0.0 };
         });
-        px[0] = (f * g * o) as f32;
-        px[1] = if behind { (g * o) as f32 } else { 0.0 };
-    });
     Some(out)
 }
 
@@ -7568,20 +9354,29 @@ pub(crate) fn fog_shares(e: &crate::effects::Effect) -> Option<WorkingBuffer> {
 /// fog colour `fog` (linear) by F as Aerial Haze moves it, and what does not cover the pixel lets
 /// B of the fog behind it show, (rgb + F (fog a - rgb) + (1 - a) B fog, a + (1 - a) B). Outside
 /// the shares nothing changes.
-pub(crate) fn fog_3d(source: &mut WorkingBuffer, shares: &WorkingBuffer, origin: (usize, usize), fog: [f64; 3]) {
+pub(crate) fn fog_3d(
+    source: &mut WorkingBuffer,
+    shares: &WorkingBuffer,
+    origin: (usize, usize),
+    fog: [f64; 3],
+) {
     let w = source.width();
     let s = shares.data();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let Some(j) = pass_at(shares, i, w, origin) else {
-            return;
-        };
-        let (f, b, a) = (s[j] as f64, s[j + 1] as f64, px[3] as f64);
-        for c in 0..3 {
-            let q = px[c] as f64;
-            px[c] = (q + f * (fog[c] * a - q) + (1.0 - a) * b * fog[c]) as f32;
-        }
-        px[3] = (a + (1.0 - a) * b) as f32;
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let Some(j) = pass_at(shares, i, w, origin) else {
+                return;
+            };
+            let (f, b, a) = (s[j] as f64, s[j + 1] as f64, px[3] as f64);
+            for c in 0..3 {
+                let q = px[c] as f64;
+                px[c] = (q + f * (fog[c] * a - q) + (1.0 - a) * b * fog[c]) as f32;
+            }
+            px[3] = (a + (1.0 - a) * b) as f32;
+        });
 }
 
 /// D-501: Difference Matte. Each pixel compared with the plate `map` under it (the plate lies
@@ -7623,7 +9418,10 @@ pub(crate) fn difference_matte(
         .into_par_iter()
         .map(|i| {
             let (x, y) = ((i % w) as isize, (i / w) as isize);
-            let (a, b) = (straight(at(s, x + r, y + r)), straight(at(m, x - ox + r, y - oy + r)));
+            let (a, b) = (
+                straight(at(s, x + r, y + r)),
+                straight(at(m, x - ox + r, y - oy + r)),
+            );
             let d = 100.0 * (0..4).map(|c| (a[c] - b[c]).abs()).fold(0.0, f64::max);
             if softness > 0.0 {
                 ((d - tolerance) / softness).clamp(0.0, 1.0)
@@ -7634,14 +9432,18 @@ pub(crate) fn difference_matte(
             }
         })
         .collect();
-    source.data_mut().par_chunks_exact_mut(4).zip(shares).for_each(|(px, k)| {
-        if matte {
-            let g = (crate::grade::to_linear(k) * px[3] as f64) as f32;
-            px[..3].fill(g);
-        } else {
-            px.iter_mut().for_each(|v| *v = (*v as f64 * k) as f32);
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(shares)
+        .for_each(|(px, k)| {
+            if matte {
+                let g = (crate::grade::to_linear(k) * px[3] as f64) as f32;
+                px[..3].fill(g);
+            } else {
+                px.iter_mut().for_each(|v| *v = (*v as f64 * k) as f32);
+            }
+        });
 }
 
 /// D-521: Time Difference. Each pixel against the target `map` under it (the target lies on the
@@ -7650,7 +9452,14 @@ pub(crate) fn difference_matte(
 /// `1 + contrast / 10`, taken whole (`absolute`, so no difference is black) or about mid grey,
 /// and held within 0 and 1: `e`. The covering is chosen by `alpha`, an index into
 /// [`crate::effects::TDIFF_ALPHAS`]; the colour is `e`'s (white for the last), premultiplied.
-pub(crate) fn time_difference(source: &mut WorkingBuffer, map: &WorkingBuffer, origin: (usize, usize), contrast: f64, absolute: bool, alpha: usize) {
+pub(crate) fn time_difference(
+    source: &mut WorkingBuffer,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    contrast: f64,
+    absolute: bool,
+    alpha: usize,
+) {
     let straight = |p: [f32; 4]| -> [f64; 4] {
         let a = p[3] as f64;
         if a <= 0.0 {
@@ -7662,29 +9471,44 @@ pub(crate) fn time_difference(source: &mut WorkingBuffer, map: &WorkingBuffer, o
     let gain = 1.0 + contrast / 10.0;
     let w = source.width();
     let (ox, oy) = (origin.0 as isize, origin.1 as isize);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let (s, m) = (straight([px[0], px[1], px[2], px[3]]), straight(at(map, x - ox, y - oy)));
-        let e: [f64; 4] = std::array::from_fn(|c| {
-            let d = s[c] - m[c];
-            if absolute { (gain * d.abs()).clamp(0.0, 1.0) } else { (0.5 + gain * d / 2.0).clamp(0.0, 1.0) }
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let (s, m) = (
+                straight([px[0], px[1], px[2], px[3]]),
+                straight(at(map, x - ox, y - oy)),
+            );
+            let e: [f64; 4] = std::array::from_fn(|c| {
+                let d = s[c] - m[c];
+                if absolute {
+                    (gain * d.abs()).clamp(0.0, 1.0)
+                } else {
+                    (0.5 + gain * d / 2.0).clamp(0.0, 1.0)
+                }
+            });
+            let (hi, lo) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
+            let a = match alpha {
+                0 => s[3],
+                1 => m[3],
+                2 => (s[3] + m[3]) / 2.0,
+                3 => s[3].max(m[3]),
+                4 => 1.0,
+                5 => (hi + lo) / 2.0,
+                6 => hi,
+                _ => e[3],
+            };
+            for c in 0..3 {
+                px[c] = (if alpha == 8 {
+                    a
+                } else {
+                    crate::grade::to_linear(e[c]) * a
+                }) as f32;
+            }
+            px[3] = a as f32;
         });
-        let (hi, lo) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
-        let a = match alpha {
-            0 => s[3],
-            1 => m[3],
-            2 => (s[3] + m[3]) / 2.0,
-            3 => s[3].max(m[3]),
-            4 => 1.0,
-            5 => (hi + lo) / 2.0,
-            6 => hi,
-            _ => e[3],
-        };
-        for c in 0..3 {
-            px[c] = (if alpha == 8 { a } else { crate::grade::to_linear(e[c]) * a }) as f32;
-        }
-        px[3] = a as f32;
-    });
 }
 
 /// D-506: 3D Glasses for one frame: each view's map, `None` for the layer itself, already
@@ -7717,7 +9541,10 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     else {
         return None;
     };
-    fn view<'a>(name: &serde_json::Value, map: &'a Option<crate::layer_map::Map>) -> Option<Option<&'a WorkingBuffer>> {
+    fn view<'a>(
+        name: &serde_json::Value,
+        map: &'a Option<crate::layer_map::Map>,
+    ) -> Option<Option<&'a WorkingBuffer>> {
         match map {
             Some(m) => Some(Some(&*m.0)),
             None => (name.as_str() == Some("")).then_some(None),
@@ -7732,7 +9559,9 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
         convergence: *scene_convergence,
         alignment: *vertical_alignment,
         percent: units == "percent",
-        view: crate::effects::GLASSES_VIEWS.iter().position(|v| v == three_d_view)?,
+        view: crate::effects::GLASSES_VIEWS
+            .iter()
+            .position(|v| v == three_d_view)?,
         balance: *balance,
     })
 }
@@ -7752,7 +9581,16 @@ pub(crate) struct Warp<'a> {
 /// D-518: [`Warp`] from a Warp Blend whose settings are valid, or `None` when a layer is named but
 /// was not read, which leaves the layer as it is.
 pub(crate) fn warp_settings(e: &crate::effects::Effect) -> Option<Warp<'_>> {
-    let crate::effects::Effect::WarpBlend { completion, layer_to_reveal, reactor, smoothness, warp_amount, warp_direction, blend_span, map } = e
+    let crate::effects::Effect::WarpBlend {
+        completion,
+        layer_to_reveal,
+        reactor,
+        smoothness,
+        warp_amount,
+        warp_direction,
+        blend_span,
+        map,
+    } = e
     else {
         return None;
     };
@@ -7764,10 +9602,14 @@ pub(crate) fn warp_settings(e: &crate::effects::Effect) -> Option<Warp<'_>> {
     Some(Warp {
         reveal,
         completion: *completion,
-        reactor: crate::effects::WARP_BLEND_REACTORS.iter().position(|r| r == reactor)?,
+        reactor: crate::effects::WARP_BLEND_REACTORS
+            .iter()
+            .position(|r| r == reactor)?,
         smoothness: *smoothness,
         amount: *warp_amount,
-        direction: crate::effects::WARP_BLEND_DIRECTIONS.iter().position(|d| d == warp_direction)?,
+        direction: crate::effects::WARP_BLEND_DIRECTIONS
+            .iter()
+            .position(|d| d == warp_direction)?,
         span: *blend_span,
     })
 }
@@ -7793,7 +9635,10 @@ fn reactor_of(kind: usize, a: &[f32; 4], b: &[f32; 4]) -> f64 {
         0 => (la + lb) / 2.0,
         1 => ((la - 0.5).abs() - (lb - 0.5).abs()).abs(),
         2 => (la - lb).abs(),
-        _ => ["red", "green", "blue"].iter().map(|c| (ph(c, a) - ph(c, b)).abs()).fold(0.0, f64::max),
+        _ => ["red", "green", "blue"]
+            .iter()
+            .map(|c| (ph(c, a) - ph(c, b)).abs())
+            .fold(0.0, f64::max),
     }
 }
 
@@ -7812,17 +9657,32 @@ pub(crate) fn warp_blend(source: &mut WorkingBuffer, g: &Warp, origin: (usize, u
     let (w, h) = (source.width(), source.height());
     let mut bump = WorkingBuffer::transparent(w, h);
     let from = source.data();
-    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]];
-        let b = g.reveal.map_or([0.0; 4], |m| on_drawing(m, i, w, origin));
-        px[3] = reactor_of(g.reactor, &a, &b) as f32;
-    });
+    bump.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = [
+                from[i * 4],
+                from[i * 4 + 1],
+                from[i * 4 + 2],
+                from[i * 4 + 3],
+            ];
+            let b = g.reveal.map_or([0.0; 4], |m| on_drawing(m, i, w, origin));
+            px[3] = reactor_of(g.reactor, &a, &b) as f32;
+        });
     if g.smoothness > 0.0 {
-        crate::effects::held_blur_axes(&mut bump, &crate::effects::gaussian_weights(g.smoothness / 2.0), (true, true));
+        crate::effects::held_blur_axes(
+            &mut bump,
+            &crate::effects::gaussian_weights(g.smoothness / 2.0),
+            (true, true),
+        );
     }
     let data = bump.data();
     let at = |x: isize, y: isize| {
-        let (x, y) = (x.clamp(0, w as isize - 1) as usize, y.clamp(0, h as isize - 1) as usize);
+        let (x, y) = (
+            x.clamp(0, w as isize - 1) as usize,
+            y.clamp(0, h as isize - 1) as usize,
+        );
         data[(y * w + x) * 4 + 3] as f64
     };
     let gain = 1.25 * g.smoothness.max(1.0);
@@ -7831,23 +9691,31 @@ pub(crate) fn warp_blend(source: &mut WorkingBuffer, g: &Warp, origin: (usize, u
     let t = if g.direction == 1 { 1.0 } else { -1.0 };
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let mut dx = g.amount * (at(x + 1, y) - at(x - 1, y)) / 2.0 * gain;
-        let mut dy = g.amount * (at(x, y + 1) - at(x, y - 1)) / 2.0 * gain;
-        if g.direction == 2 {
-            (dx, dy) = (-dy, dx);
-        }
-        let (sx, sy) = (x as f64 + 0.5, y as f64 + 0.5);
-        let a = sample_bilinear(&still, sx + c * dx, sy + c * dy);
-        let b = match g.reveal {
-            Some(r) if m > 0.0 => sample_bilinear(r, sx + t * (1.0 - c) * dx - ox, sy + t * (1.0 - c) * dy - oy),
-            _ => [0.0; 4],
-        };
-        for k in 0..4 {
-            px[k] = ((1.0 - m) * a[k] as f64 + m * b[k] as f64) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let mut dx = g.amount * (at(x + 1, y) - at(x - 1, y)) / 2.0 * gain;
+            let mut dy = g.amount * (at(x, y + 1) - at(x, y - 1)) / 2.0 * gain;
+            if g.direction == 2 {
+                (dx, dy) = (-dy, dx);
+            }
+            let (sx, sy) = (x as f64 + 0.5, y as f64 + 0.5);
+            let a = sample_bilinear(&still, sx + c * dx, sy + c * dy);
+            let b = match g.reveal {
+                Some(r) if m > 0.0 => sample_bilinear(
+                    r,
+                    sx + t * (1.0 - c) * dx - ox,
+                    sy + t * (1.0 - c) * dy - oy,
+                ),
+                _ => [0.0; 4],
+            };
+            for k in 0..4 {
+                px[k] = ((1.0 - m) * a[k] as f64 + m * b[k] as f64) as f32;
+            }
+        });
 }
 
 /// D-517: Twister's back for one frame: `Some(None)` with none named, `Some(Some(map))` when it
@@ -7866,13 +9734,32 @@ pub(crate) fn twist_back(e: &crate::effects::Effect) -> Option<Option<&WorkingBu
 /// centre (two), the axis's cosine and sine, the largest distance of a corner along the axis,
 /// twice the completion as a share, 1 with shading, and 1 with a back.
 pub(crate) fn twist_numbers(e: &crate::effects::Effect, back: bool, w0: f64, h0: f64) -> [f64; 8] {
-    let crate::effects::Effect::Twister { completion, shading, center, axis, .. } = e else {
+    let crate::effects::Effect::Twister {
+        completion,
+        shading,
+        center,
+        axis,
+        ..
+    } = e
+    else {
         unreachable!("Twister's numbers of another effect")
     };
     let (sn, cs) = axis.to_radians().sin_cos();
     let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
-    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| ((x - cx) * cs + (y - cy) * sn).abs()).fold(0.0, f64::max);
-    [cx, cy, cs, sn, far, 2.0 * (completion / 100.0), (shading == "on") as u8 as f64, back as u8 as f64]
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)]
+        .iter()
+        .map(|&(x, y)| ((x - cx) * cs + (y - cy) * sn).abs())
+        .fold(0.0, f64::max);
+    [
+        cx,
+        cy,
+        cs,
+        sn,
+        far,
+        2.0 * (completion / 100.0),
+        (shading == "on") as u8 as f64,
+        back as u8 as f64,
+    ]
 }
 
 /// D-517: at the own point (x, y), cos theta of the strip there and the point it reads, in the
@@ -7891,7 +9778,12 @@ fn twist_from(k: &[f64; 8], x: f64, y: f64) -> (f64, f64, f64) {
 /// strip faces the viewer, the back where it is turned over, clear edge on; shading multiplies
 /// the colour by |cos theta|. Never grows; at completion 0 returns at once (compose leaves it off
 /// the card then).
-pub(crate) fn twister(source: &mut WorkingBuffer, e: &crate::effects::Effect, back: Option<&WorkingBuffer>, (ox, oy): (usize, usize)) {
+pub(crate) fn twister(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    back: Option<&WorkingBuffer>,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::Twister { completion, .. } if *completion == 0.0) {
         return;
     }
@@ -7899,30 +9791,45 @@ pub(crate) fn twister(source: &mut WorkingBuffer, e: &crate::effects::Effect, ba
     let k = twist_numbers(e, back.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
     let still = source.clone();
     let (fx, fy) = (ox as f64, oy as f64);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (c, x, y) = twist_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5);
-        let mut p = match back {
-            _ if c > 0.0 => sample_bilinear(&still, x + fx, y + fy),
-            Some(m) if c < 0.0 => sample_bilinear(m, x, y),
-            _ => [0.0; 4],
-        };
-        if k[6] == 1.0 {
-            for ch in &mut p[..3] {
-                *ch = (*ch as f64 * c.abs()) as f32;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (c, x, y) = twist_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5);
+            let mut p = match back {
+                _ if c > 0.0 => sample_bilinear(&still, x + fx, y + fy),
+                Some(m) if c < 0.0 => sample_bilinear(m, x, y),
+                _ => [0.0; 4],
+            };
+            if k[6] == 1.0 {
+                for ch in &mut p[..3] {
+                    *ch = (*ch as f64 * c.abs()) as f32;
+                }
             }
-        }
-        px.copy_from_slice(&p);
-    });
+            px.copy_from_slice(&p);
+        });
 }
 
 /// D-516: Stretch Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the direction's cosine and sine, and the scale as a factor.
 pub(crate) fn stretch_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 5] {
-    let crate::effects::Effect::StretchWipe { scale, center, direction } = e else {
+    let crate::effects::Effect::StretchWipe {
+        scale,
+        center,
+        direction,
+    } = e
+    else {
         unreachable!("Stretch Wipe's numbers of another effect")
     };
     let (sn, cs) = direction.to_radians().sin_cos();
-    [center[0] / 100.0 * w0, center[1] / 100.0 * h0, cs, sn, scale / 100.0]
+    [
+        center[0] / 100.0 * w0,
+        center[1] / 100.0 * h0,
+        cs,
+        sn,
+        scale / 100.0,
+    ]
 }
 
 /// D-516: where the own point (x, y) is read from past the line through the centre, in the
@@ -7940,7 +9847,11 @@ fn stretch_from(k: &[f64; 5], x: f64, y: f64) -> Option<(f64, f64)> {
 /// D-516: after CycoreFX's CC Scale Wipe, the rule ours (document 21); `(ox, oy)` the drawing's
 /// corner in the buffer. Never grows; at scale 100 returns at once (compose leaves it off the
 /// card then).
-pub(crate) fn stretch_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn stretch_wipe(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::StretchWipe { scale, .. } if *scale == 100.0) {
         return;
     }
@@ -7948,22 +9859,42 @@ pub(crate) fn stretch_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effec
     let k = stretch_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
     let still = source.clone();
     let (fx, fy) = (ox as f64, oy as f64);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        if let Some((x, y)) = stretch_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5) {
-            px.copy_from_slice(&sample_bilinear(&still, x + fx, y + fy));
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            if let Some((x, y)) =
+                stretch_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5)
+            {
+                px.copy_from_slice(&sample_bilinear(&still, x + fx, y + fy));
+            }
+        });
 }
 
 /// D-515: Push Iris's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the largest distance of a corner from it, the hole's radius, and 1 reversed.
 pub(crate) fn push_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 5] {
-    let crate::effects::Effect::PushIris { completion, center, reverse } = e else {
+    let crate::effects::Effect::PushIris {
+        completion,
+        center,
+        reverse,
+    } = e
+    else {
         unreachable!("Push Iris's numbers of another effect")
     };
     let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
-    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| (x - cx).hypot(y - cy)).fold(0.0, f64::max);
-    [cx, cy, far, completion / 100.0 * far, (reverse == "on") as u8 as f64]
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)]
+        .iter()
+        .map(|&(x, y)| (x - cx).hypot(y - cy))
+        .fold(0.0, f64::max);
+    [
+        cx,
+        cy,
+        far,
+        completion / 100.0 * far,
+        (reverse == "on") as u8 as f64,
+    ]
 }
 
 /// D-515: where the own point (x, y) is read from, in the drawing's own space, or None where it
@@ -7991,7 +9922,11 @@ fn push_from(k: &[f64; 5], x: f64, y: f64) -> Option<(f64, f64)> {
 /// D-515: after CycoreFX's CC Radial ScaleWipe, the rule ours (document 21); `(ox, oy)` the
 /// drawing's corner in the buffer. Never grows; at completion 0 returns at once (compose leaves
 /// it off the card then).
-pub(crate) fn push_iris(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn push_iris(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::PushIris { completion, .. } if *completion == 0.0) {
         return;
     }
@@ -7999,13 +9934,17 @@ pub(crate) fn push_iris(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
     let k = push_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
     let still = source.clone();
     let (fx, fy) = (ox as f64, oy as f64);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let p = match push_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5) {
-            Some((x, y)) => sample_bilinear(&still, x + fx, y + fy),
-            None => [0.0; 4],
-        };
-        px.copy_from_slice(&p);
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let p = match push_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5) {
+                Some((x, y)) => sample_bilinear(&still, x + fx, y + fy),
+                None => [0.0; 4],
+            };
+            px.copy_from_slice(&p);
+        });
 }
 
 /// D-514: Stripe Sweep's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
@@ -8013,17 +9952,48 @@ pub(crate) fn push_iris(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
 /// sweep and across it, the thickness, the number of lines, the overlap (the slant as a share of
 /// 99), each line's share of the transition, the completion as a share, and 1 flipped.
 pub(crate) fn stripe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 12] {
-    let crate::effects::Effect::StripeSweep { completion, direction, thickness, slant, flip } = e else {
+    let crate::effects::Effect::StripeSweep {
+        completion,
+        direction,
+        thickness,
+        slant,
+        flip,
+    } = e
+    else {
         unreachable!("Stripe Sweep's numbers of another effect")
     };
     let (sn, cs) = direction.to_radians().sin_cos();
-    let corners = [(-w0 / 2.0, -h0 / 2.0), (w0 / 2.0, -h0 / 2.0), (-w0 / 2.0, h0 / 2.0), (w0 / 2.0, h0 / 2.0)];
-    let along = corners.iter().map(|&(x, y)| (x * cs + y * sn).abs()).fold(0.0, f64::max);
-    let across = corners.iter().map(|&(x, y)| (-x * sn + y * cs).abs()).fold(0.0, f64::max);
+    let corners = [
+        (-w0 / 2.0, -h0 / 2.0),
+        (w0 / 2.0, -h0 / 2.0),
+        (-w0 / 2.0, h0 / 2.0),
+        (w0 / 2.0, h0 / 2.0),
+    ];
+    let along = corners
+        .iter()
+        .map(|&(x, y)| (x * cs + y * sn).abs())
+        .fold(0.0, f64::max);
+    let across = corners
+        .iter()
+        .map(|&(x, y)| (-x * sn + y * cs).abs())
+        .fold(0.0, f64::max);
     let n = (2.0 * across / thickness).ceil().max(1.0);
     let o = slant / 99.0;
     let s = 1.0 / (1.0 + (n - 1.0) * (1.0 - o));
-    [w0 / 2.0, h0 / 2.0, cs, sn, along, across, *thickness, n, o, s, completion / 100.0, (flip == "on") as u8 as f64]
+    [
+        w0 / 2.0,
+        h0 / 2.0,
+        cs,
+        sn,
+        along,
+        across,
+        *thickness,
+        n,
+        o,
+        s,
+        completion / 100.0,
+        (flip == "on") as u8 as f64,
+    ]
 }
 
 /// D-514: where the own point (x, y) is along its line, 0 to 1, and how far that line has gone;
@@ -8034,24 +10004,39 @@ fn stripe_place(k: &[f64; 12], x: f64, y: f64) -> (f64, f64) {
     let i = ((v + k[5]) / k[6]).floor().min(k[7] - 1.0);
     let t = (u + k[4]) / (2.0 * k[4]);
     let t = if k[11] == 1.0 { 1.0 - t } else { t };
-    (t, ((k[10] - i * k[9] * (1.0 - k[8])) / k[9]).clamp(0.0, 1.0))
+    (
+        t,
+        ((k[10] - i * k[9] * (1.0 - k[8])) / k[9]).clamp(0.0, 1.0),
+    )
 }
 
 /// D-514: after CycoreFX's CC Line Sweep, the rule ours (document 21); `(ox, oy)` the drawing's
 /// corner in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the
 /// card then).
-pub(crate) fn stripe_sweep(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn stripe_sweep(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::StripeSweep { completion, .. } if *completion == 0.0) {
         return;
     }
     let (w, h) = (source.width(), source.height());
     let k = stripe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (t, p) = stripe_place(&k, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
-        if t < p {
-            px.fill(0.0);
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (t, p) = stripe_place(
+                &k,
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            );
+            if t < p {
+                px.fill(0.0);
+            }
+        });
 }
 
 /// D-513: Glow Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
@@ -8060,15 +10045,45 @@ pub(crate) fn stripe_sweep(source: &mut WorkingBuffer, e: &crate::effects::Effec
 /// as a share, 1 reversed, 1 with the light's colour from the layer, and the light's linear
 /// colour (three).
 pub(crate) fn glow_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 14] {
-    let crate::effects::Effect::GlowWipe { completion, center, intensity, direction, shape, color_from_source, color, reverse } = e else {
+    let crate::effects::Effect::GlowWipe {
+        completion,
+        center,
+        intensity,
+        direction,
+        shape,
+        color_from_source,
+        color,
+        reverse,
+    } = e
+    else {
         unreachable!("Glow Wipe's numbers of another effect")
     };
     let (sn, cs) = direction.to_radians().sin_cos();
-    let mode = crate::effects::GLOW_SHAPES.iter().position(|s| s == shape).expect("Glow Wipe's shape was checked");
+    let mode = crate::effects::GLOW_SHAPES
+        .iter()
+        .position(|s| s == shape)
+        .expect("Glow Wipe's shape was checked");
     let c = crate::effects::encoded(color).map(crate::grade::to_linear);
-    let mut k = [center[0] / 100.0 * w0, center[1] / 100.0 * h0, cs, sn, mode as f64, 0.0, 0.0, 0.0, intensity / 100.0,
-        (reverse == "on") as u8 as f64, (color_from_source == "on") as u8 as f64, c[0], c[1], c[2]];
-    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| glow_distance(&k, x, y)).fold(0.0, f64::max);
+    let mut k = [
+        center[0] / 100.0 * w0,
+        center[1] / 100.0 * h0,
+        cs,
+        sn,
+        mode as f64,
+        0.0,
+        0.0,
+        0.0,
+        intensity / 100.0,
+        (reverse == "on") as u8 as f64,
+        (color_from_source == "on") as u8 as f64,
+        c[0],
+        c[1],
+        c[2],
+    ];
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)]
+        .iter()
+        .map(|&(x, y)| glow_distance(&k, x, y))
+        .fold(0.0, f64::max);
     let b = far / 10.0;
     k[5] = far;
     k[6] = b;
@@ -8100,32 +10115,58 @@ fn glow_pixel(k: &[f64; 14], p: [f64; 4], x: f64, y: f64) -> [f64; 4] {
         ([k[11] * g, k[12] * g, k[13] * g], g.min(1.0))
     };
     let qa = p[3] * keep;
-    [p[0] * keep + l[0], p[1] * keep + l[1], p[2] * keep + l[2], qa + (1.0 - qa) * cover]
+    [
+        p[0] * keep + l[0],
+        p[1] * keep + l[1],
+        p[2] * keep + l[2],
+        qa + (1.0 - qa) * cover,
+    ]
 }
 
 /// D-513: after CycoreFX's CC Light Wipe, the rule ours (document 21); `(ox, oy)` the drawing's
 /// corner in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the
 /// card then).
-pub(crate) fn glow_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn glow_wipe(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::GlowWipe { completion, .. } if *completion == 0.0) {
         return;
     }
     let (w, h) = (source.width(), source.height());
     let k = glow_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
-        let out = glow_pixel(&k, p, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
-        for (v, o) in px.iter_mut().zip(out) {
-            *v = o as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+            let out = glow_pixel(
+                &k,
+                p,
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            );
+            for (v, o) in px.iter_mut().zip(out) {
+                *v = o as f32;
+            }
+        });
 }
 
 /// D-511: Teeth Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the direction's cosine and sine, the teeth's height and width, how far each
 /// part has moved, and the shape (an index into `effects::TEETH_SHAPES`).
 pub(crate) fn teeth_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 8] {
-    let crate::effects::Effect::TeethWipe { completion, center, direction, height, width, shape } = e else {
+    let crate::effects::Effect::TeethWipe {
+        completion,
+        center,
+        direction,
+        height,
+        width,
+        shape,
+    } = e
+    else {
         unreachable!("Teeth Wipe's numbers of another effect")
     };
     let (sn, cs) = direction.to_radians().sin_cos();
@@ -8134,8 +10175,20 @@ pub(crate) fn teeth_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f6
         .iter()
         .map(|&(x, y)| (-(x - cx) * sn + (y - cy) * cs).abs())
         .fold(0.0, f64::max);
-    let mode = crate::effects::TEETH_SHAPES.iter().position(|s| s == shape).expect("Teeth Wipe's shape was checked");
-    [cx, cy, cs, sn, *height, *width, completion / 100.0 * (height / 2.0 + far), mode as f64]
+    let mode = crate::effects::TEETH_SHAPES
+        .iter()
+        .position(|s| s == shape)
+        .expect("Teeth Wipe's shape was checked");
+    [
+        cx,
+        cy,
+        cs,
+        sn,
+        *height,
+        *width,
+        completion / 100.0 * (height / 2.0 + far),
+        mode as f64,
+    ]
 }
 
 /// D-511: how far across the cut the own point (x, y) is read from: `Some(o)` in the first
@@ -8164,21 +10217,29 @@ fn teeth_side(k: &[f64; 8], x: f64, y: f64) -> Option<f64> {
 /// D-511: after CycoreFX's CC Jaws, the rule ours (document 21); `(ox, oy)` the drawing's corner
 /// in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the card
 /// then).
-pub(crate) fn teeth_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn teeth_wipe(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::TeethWipe { completion, .. } if *completion == 0.0) {
         return;
     }
     let (w, h) = (source.width(), source.height());
     let k = teeth_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let p = match teeth_side(&k, x - ox as f64, y - oy as f64) {
-            Some(m) => sample_bilinear(&still, x + m * -k[3], y + m * k[2]),
-            None => [0.0; 4],
-        };
-        px.copy_from_slice(&p);
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let p = match teeth_side(&k, x - ox as f64, y - oy as f64) {
+                Some(m) => sample_bilinear(&still, x + m * -k[3], y + m * k[2]),
+                None => [0.0; 4],
+            };
+            px.copy_from_slice(&p);
+        });
 }
 
 /// D-510: how long each tile takes to go, a share of the whole transition (document 21).
@@ -8189,13 +10250,39 @@ const TILE_SPREAD: f64 = 0.25;
 /// completion share, the shape (an index into `effects::TILE_SHAPES`), 1 when reversed, and the
 /// border.
 pub(crate) fn tile_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 10] {
-    let crate::effects::Effect::TileWipe { completion, center, rotation, border, tiles, shape, reverse } = e else {
+    let crate::effects::Effect::TileWipe {
+        completion,
+        center,
+        rotation,
+        border,
+        tiles,
+        shape,
+        reverse,
+    } = e
+    else {
         unreachable!("Tile Wipe's numbers of another effect")
     };
     let (sn, cs) = rotation.to_radians().sin_cos();
-    let mode = crate::effects::TILE_SHAPES.iter().position(|s| s == shape).expect("Tile Wipe's shape was checked");
-    let mut k = [center[0] / 100.0 * w0, center[1] / 100.0 * h0, cs, sn, w0 / tiles, 0.0, completion / 100.0, mode as f64, (reverse == "on") as u8 as f64, *border];
-    k[5] = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| tile_measure(&k, tile_turn(&k, x, y))).fold(0.0, f64::max);
+    let mode = crate::effects::TILE_SHAPES
+        .iter()
+        .position(|s| s == shape)
+        .expect("Tile Wipe's shape was checked");
+    let mut k = [
+        center[0] / 100.0 * w0,
+        center[1] / 100.0 * h0,
+        cs,
+        sn,
+        w0 / tiles,
+        0.0,
+        completion / 100.0,
+        mode as f64,
+        (reverse == "on") as u8 as f64,
+        *border,
+    ];
+    k[5] = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)]
+        .iter()
+        .map(|&(x, y)| tile_measure(&k, tile_turn(&k, x, y)))
+        .fold(0.0, f64::max);
     k
 }
 
@@ -8220,7 +10307,11 @@ fn tile_keep(k: &[f64; 10], x: f64, y: f64) -> f64 {
     let s = k[4];
     let t = ((q.0 / s + 0.5).floor() * s, (q.1 / s + 0.5).floor() * s);
     let m = (q.0 - t.0).abs().max((q.1 - t.1).abs());
-    let mut u = if k[5] > 0.0 { (tile_measure(k, t) / k[5]).min(1.0) } else { 0.0 };
+    let mut u = if k[5] > 0.0 {
+        (tile_measure(k, t) / k[5]).min(1.0)
+    } else {
+        0.0
+    };
     if k[8] == 1.0 {
         u = 1.0 - u;
     }
@@ -8239,25 +10330,43 @@ fn tile_keep(k: &[f64; 10], x: f64, y: f64) -> f64 {
 /// D-510: after CycoreFX's CC Grid Wipe, the rule ours (document 21); `(ox, oy)` the drawing's
 /// corner in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the
 /// card then), so a pixel on a tile's side is never lost.
-pub(crate) fn tile_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn tile_wipe(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     if matches!(e, crate::effects::Effect::TileWipe { completion, .. } if *completion == 0.0) {
         return;
     }
     let (w, h) = (source.width(), source.height());
     let k = tile_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let f = tile_keep(&k, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5) as f32;
-        for v in px.iter_mut() {
-            *v *= f;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let f = tile_keep(
+                &k,
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            ) as f32;
+            for v in px.iter_mut() {
+                *v *= f;
+            }
+        });
 }
 
 /// D-519: CC Spotlight's gel for one frame: `Some(None)` for a Light render or with no gel named,
 /// `Some(Some(map))` when it was read, and `None` when a gel is named but was not read, which
 /// leaves the layer as it is.
 pub(crate) fn spot_gel(e: &crate::effects::Effect) -> Option<Option<&WorkingBuffer>> {
-    let crate::effects::Effect::CcSpotlight { render, gel_layer, gel_map, .. } = e else {
+    let crate::effects::Effect::CcSpotlight {
+        render,
+        gel_layer,
+        gel_map,
+        ..
+    } = e
+    else {
         return None;
     };
     if !render.starts_with("gel_") {
@@ -8276,19 +10385,46 @@ pub(crate) fn spot_gel(e: &crate::effects::Effect) -> Option<Option<&WorkingBuff
 /// axis and an opening). D-519: 1 with a gel read, the axis's unit a (three), the gel's across e1
 /// (three) and down e2 (three), the tangent of the half opening held at 89 degrees, half the
 /// larger side, and the drawing's middle (two).
-pub(crate) fn spotlight_numbers(e: &crate::effects::Effect, gel: bool, w0: f64, h0: f64) -> [f64; 28] {
-    let crate::effects::Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render, .. } = e else {
+pub(crate) fn spotlight_numbers(
+    e: &crate::effects::Effect,
+    gel: bool,
+    w0: f64,
+    h0: f64,
+) -> [f64; 28] {
+    let crate::effects::Effect::CcSpotlight {
+        from,
+        to,
+        height,
+        cone_angle,
+        edge_softness,
+        color,
+        intensity,
+        render,
+        ..
+    } = e
+    else {
         unreachable!("CC Spotlight's numbers of another effect")
     };
-    let f = [from[0] / 100.0 * w0, from[1] / 100.0 * h0, -height / 100.0 * w0];
+    let f = [
+        from[0] / 100.0 * w0,
+        from[1] / 100.0 * h0,
+        -height / 100.0 * w0,
+    ];
     let a = [to[0] / 100.0 * w0 - f[0], to[1] / 100.0 * h0 - f[1], -f[2]];
     let o = cone_angle.to_radians() / 2.0;
     let c = crate::effects::encoded(color).map(crate::grade::to_linear);
-    let mode = crate::effects::SPOT_RENDERS.iter().position(|r| r == render).expect("CC Spotlight's render was checked");
+    let mode = crate::effects::SPOT_RENDERS
+        .iter()
+        .position(|r| r == render)
+        .expect("CC Spotlight's render was checked");
     let lit = if a == [0.0; 3] || o == 0.0 { 0.0 } else { 1.0 };
     let unit = |v: [f64; 3]| {
         let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-        if n > 0.0 { v.map(|c| c / n) } else { v }
+        if n > 0.0 {
+            v.map(|c| c / n)
+        } else {
+            v
+        }
     };
     let u = unit(a);
     let mut e1 = [1.0 - u[0] * u[0], -u[0] * u[1], -u[0] * u[2]];
@@ -8296,11 +10432,40 @@ pub(crate) fn spotlight_numbers(e: &crate::effects::Effect, gel: bool, w0: f64, 
         e1 = [-u[1] * u[0], 1.0 - u[1] * u[1], -u[1] * u[2]];
     }
     let e1 = unit(e1);
-    let e2 = [u[1] * e1[2] - u[2] * e1[1], u[2] * e1[0] - u[0] * e1[2], u[0] * e1[1] - u[1] * e1[0]];
+    let e2 = [
+        u[1] * e1[2] - u[2] * e1[1],
+        u[2] * e1[0] - u[0] * e1[2],
+        u[0] * e1[1] - u[1] * e1[0],
+    ];
     [
-        (mode % 4) as f64, f[0], f[1], f[2], a[0], a[1], a[2], o, o * (1.0 - edge_softness / 100.0), intensity / 100.0, c[0], c[1], c[2], lit,
-        gel as u8 as f64, u[0], u[1], u[2], e1[0], e1[1], e1[2], e2[0], e2[1], e2[2],
-        o.min(89f64.to_radians()).tan(), w0.max(h0) / 2.0, w0 / 2.0, h0 / 2.0,
+        (mode % 4) as f64,
+        f[0],
+        f[1],
+        f[2],
+        a[0],
+        a[1],
+        a[2],
+        o,
+        o * (1.0 - edge_softness / 100.0),
+        intensity / 100.0,
+        c[0],
+        c[1],
+        c[2],
+        lit,
+        gel as u8 as f64,
+        u[0],
+        u[1],
+        u[2],
+        e1[0],
+        e1[1],
+        e1[2],
+        e2[0],
+        e2[1],
+        e2[2],
+        o.min(89f64.to_radians()).tan(),
+        w0.max(h0) / 2.0,
+        w0 / 2.0,
+        h0 / 2.0,
     ]
 }
 
@@ -8310,7 +10475,10 @@ fn spot_gel_point(k: &[f64; 28], x: f64, y: f64) -> (f64, f64) {
     let d = [x - k[1], y - k[2], -k[3]];
     let dot = |v: &[f64]| d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
     let s = dot(&k[15..18]) * k[24];
-    (k[26] + dot(&k[18..21]) / s * k[25], k[27] + dot(&k[21..24]) / s * k[25])
+    (
+        k[26] + dot(&k[18..21]) / s * k[25],
+        k[27] + dot(&k[21..24]) / s * k[25],
+    )
 }
 
 /// D-507: the light's share at the own point (x, y) (document 21).
@@ -8319,8 +10487,14 @@ fn spot_share(k: &[f64; 28], x: f64, y: f64) -> f64 {
         return 0.0;
     }
     let (a, d) = ([k[4], k[5], k[6]], [x - k[1], y - k[2], -k[3]]);
-    let cr = [a[1] * d[2] - a[2] * d[1], a[2] * d[0] - a[0] * d[2], a[0] * d[1] - a[1] * d[0]];
-    let th = (cr[0] * cr[0] + cr[1] * cr[1] + cr[2] * cr[2]).sqrt().atan2(a[0] * d[0] + a[1] * d[1] + a[2] * d[2]);
+    let cr = [
+        a[1] * d[2] - a[2] * d[1],
+        a[2] * d[0] - a[0] * d[2],
+        a[0] * d[1] - a[1] * d[0],
+    ];
+    let th = (cr[0] * cr[0] + cr[1] * cr[1] + cr[2] * cr[2])
+        .sqrt()
+        .atan2(a[0] * d[0] + a[1] * d[1] + a[2] * d[2]);
     let (o, n) = (k[7], k[8]);
     if th <= n {
         1.0
@@ -8335,48 +10509,91 @@ fn spot_share(k: &[f64; 28], x: f64, y: f64) -> f64 {
 /// D-507: after CycoreFX's CC Spotlight, the rule ours (document 21); `(ox, oy)` the drawing's
 /// corner in the buffer. D-519: `gel` the map lying on the drawing at its corner; where the light
 /// falls its colour is multiplied by the gel over white. Never grows.
-pub(crate) fn cc_spotlight(source: &mut WorkingBuffer, e: &crate::effects::Effect, gel: Option<&WorkingBuffer>, (ox, oy): (usize, usize)) {
+pub(crate) fn cc_spotlight(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    gel: Option<&WorkingBuffer>,
+    (ox, oy): (usize, usize),
+) {
     let (w, h) = (source.width(), source.height());
     let k = spotlight_numbers(e, gel.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
     let s = k[9];
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
-        let f = spot_share(&k, x, y);
-        let q = f * s;
-        let mut c = [k[10], k[11], k[12]];
-        if let Some(m) = gel.filter(|_| f > 0.0) {
-            let (gx, gy) = spot_gel_point(&k, x, y);
-            let g = sample_bilinear(m, gx, gy);
-            for (j, v) in c.iter_mut().enumerate() {
-                *v *= (1.0 - g[3] as f64) + g[j] as f64;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = (
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            );
+            let f = spot_share(&k, x, y);
+            let q = f * s;
+            let mut c = [k[10], k[11], k[12]];
+            if let Some(m) = gel.filter(|_| f > 0.0) {
+                let (gx, gy) = spot_gel_point(&k, x, y);
+                let g = sample_bilinear(m, gx, gy);
+                for (j, v) in c.iter_mut().enumerate() {
+                    *v *= (1.0 - g[3] as f64) + g[j] as f64;
+                }
             }
-        }
-        let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
-        let out = match k[0] as usize {
-            0 => [c[0] * q, c[1] * q, c[2] * q, q.min(1.0)],
-            1 => [p[0] + c[0] * q * p[3], p[1] + c[1] * q * p[3], p[2] + c[2] * q * p[3], p[3]],
-            2 => [p[0] + c[0] * q, p[1] + c[1] * q, p[2] + c[2] * q, p[3] + (1.0 - p[3]) * q.min(1.0)],
-            _ => {
-                let dark = (1.0 - f) * (1.0 - s.min(1.0));
-                [p[0] * (dark + f * c[0]), p[1] * (dark + f * c[1]), p[2] * (dark + f * c[2]), p[3]]
+            let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+            let out = match k[0] as usize {
+                0 => [c[0] * q, c[1] * q, c[2] * q, q.min(1.0)],
+                1 => [
+                    p[0] + c[0] * q * p[3],
+                    p[1] + c[1] * q * p[3],
+                    p[2] + c[2] * q * p[3],
+                    p[3],
+                ],
+                2 => [
+                    p[0] + c[0] * q,
+                    p[1] + c[1] * q,
+                    p[2] + c[2] * q,
+                    p[3] + (1.0 - p[3]) * q.min(1.0),
+                ],
+                _ => {
+                    let dark = (1.0 - f) * (1.0 - s.min(1.0));
+                    [
+                        p[0] * (dark + f * c[0]),
+                        p[1] * (dark + f * c[1]),
+                        p[2] * (dark + f * c[2]),
+                        p[3],
+                    ]
+                }
+            };
+            for (v, o) in px.iter_mut().zip(out) {
+                *v = o as f32;
             }
-        };
-        for (v, o) in px.iter_mut().zip(out) {
-            *v = o as f32;
-        }
-    });
+        });
 }
 
 /// D-531: CC Environment's numbers for a drawing `w0` by `h0` and an environment `ew` by `eh`,
 /// shared with the card: the mapping (an index into `effects::ENV_MAPPINGS`), 1 for four rays a
 /// pixel (Filter Environment on a spherical map) else 0, the view's turn M = Ry(pan) Rx(tilt)
 /// Rz(roll) by rows (nine), W/2, H/2, the focal length F, `ew` and `eh`.
-pub(crate) fn environment_numbers(e: &crate::effects::Effect, w0: f64, h0: f64, (ew, eh): (usize, usize)) -> [f64; 16] {
-    let crate::effects::Effect::CcEnvironment { mapping, horizontal_pan, tilt, roll, field_of_view, filter_environment, .. } = e else {
+pub(crate) fn environment_numbers(
+    e: &crate::effects::Effect,
+    w0: f64,
+    h0: f64,
+    (ew, eh): (usize, usize),
+) -> [f64; 16] {
+    let crate::effects::Effect::CcEnvironment {
+        mapping,
+        horizontal_pan,
+        tilt,
+        roll,
+        field_of_view,
+        filter_environment,
+        ..
+    } = e
+    else {
         unreachable!("CC Environment's numbers of another effect")
     };
     type M3 = [[f64; 3]; 3];
-    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let mul = |a: M3, b: M3| -> M3 {
+        std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum()))
+    };
     let (sr, cr) = roll.to_radians().sin_cos();
     let (st, ct) = tilt.to_radians().sin_cos();
     let (sp, cp) = horizontal_pan.to_radians().sin_cos();
@@ -8384,7 +10601,10 @@ pub(crate) fn environment_numbers(e: &crate::effects::Effect, w0: f64, h0: f64, 
     let rx = [[1.0, 0.0, 0.0], [0.0, ct, -st], [0.0, st, ct]];
     let ry = [[cp, 0.0, sp], [0.0, 1.0, 0.0], [-sp, 0.0, cp]];
     let m = mul(ry, mul(rx, rz));
-    let mode = crate::effects::ENV_MAPPINGS.iter().position(|r| r == mapping).expect("CC Environment's mapping was checked");
+    let mode = crate::effects::ENV_MAPPINGS
+        .iter()
+        .position(|r| r == mapping)
+        .expect("CC Environment's mapping was checked");
     let four = mode == 0 && filter_environment == "on";
     [
         mode as f64,
@@ -8427,7 +10647,11 @@ fn environment_tap(env: &WorkingBuffer, u: f64, v: f64, wrap: bool) -> [f64; 4] 
             if wx == 0.0 {
                 continue;
             }
-            let sx = if wrap { (x0 + dx).rem_euclid(w) } else { (x0 + dx).clamp(0, w - 1) };
+            let sx = if wrap {
+                (x0 + dx).rem_euclid(w)
+            } else {
+                (x0 + dx).clamp(0, w - 1)
+            };
             let px = env.pixel(sx as usize, sy as usize);
             for i in 0..4 {
                 out[i] += px[i] as f64 * wx * wy;
@@ -8440,7 +10664,8 @@ fn environment_tap(env: &WorkingBuffer, u: f64, v: f64, wrap: bool) -> [f64; 4] 
 /// D-531: the environment's colour along the ray through the drawing's point (x, y) (document 21).
 fn environment_look(env: &WorkingBuffer, k: &[f64; 16], x: f64, y: f64) -> [f64; 4] {
     let c = [x - k[11], y - k[12], k[13]];
-    let d: [f64; 3] = std::array::from_fn(|i| k[2 + 3 * i] * c[0] + k[3 + 3 * i] * c[1] + k[4 + 3 * i] * c[2]);
+    let d: [f64; 3] =
+        std::array::from_fn(|i| k[2 + 3 * i] * c[0] + k[3 + 3 * i] * c[1] + k[4 + 3 * i] * c[2]);
     let n = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
     let [dx, dy, dz] = d.map(|q| q / n);
     let (ew, eh) = (k[14], k[15]);
@@ -8452,23 +10677,44 @@ fn environment_look(env: &WorkingBuffer, k: &[f64; 16], x: f64, y: f64) -> [f64;
         }
         1 => {
             let s = (dx * dx + dy * dy).sqrt();
-            let q = if s == 0.0 { 0.0 } else { dz.clamp(-1.0, 1.0).acos() / (std::f64::consts::PI * s) };
-            environment_tap(env, ew * (1.0 + dx * q) / 2.0, eh * (1.0 + dy * q) / 2.0, false)
+            let q = if s == 0.0 {
+                0.0
+            } else {
+                dz.clamp(-1.0, 1.0).acos() / (std::f64::consts::PI * s)
+            };
+            environment_tap(
+                env,
+                ew * (1.0 + dx * q) / 2.0,
+                eh * (1.0 + dy * q) / 2.0,
+                false,
+            )
         }
         _ => {
             let (ax, ay, az) = (dx.abs(), dy.abs(), dz.abs());
             let (col, row, a, b) = if ax >= ay && ax >= az {
-                if dx > 0.0 { (2.0, 1.0, -dz / dx, dy / dx) } else { (0.0, 1.0, dz / ax, dy / ax) }
+                if dx > 0.0 {
+                    (2.0, 1.0, -dz / dx, dy / dx)
+                } else {
+                    (0.0, 1.0, dz / ax, dy / ax)
+                }
             } else if ay >= az {
-                if dy < 0.0 { (1.0, 0.0, dx / ay, dz / ay) } else { (1.0, 2.0, dx / dy, -dz / dy) }
+                if dy < 0.0 {
+                    (1.0, 0.0, dx / ay, dz / ay)
+                } else {
+                    (1.0, 2.0, dx / dy, -dz / dy)
+                }
             } else if dz > 0.0 {
                 (1.0, 1.0, dx / dz, dy / dz)
             } else {
                 (1.0, 3.0, dx / az, -dy / az)
             };
             let (fw, fh) = (ew / 3.0, eh / 4.0);
-            let u = (fw * (col + (a + 1.0) / 2.0)).max(col * fw + 0.5).min((col + 1.0) * fw - 0.5);
-            let v = (fh * (row + (b + 1.0) / 2.0)).max(row * fh + 0.5).min((row + 1.0) * fh - 0.5);
+            let u = (fw * (col + (a + 1.0) / 2.0))
+                .max(col * fw + 0.5)
+                .min((col + 1.0) * fw - 0.5);
+            let v = (fh * (row + (b + 1.0) / 2.0))
+                .max(row * fh + 0.5)
+                .min((row + 1.0) * fh - 0.5);
             environment_tap(env, u, v, false)
         }
     }
@@ -8477,38 +10723,51 @@ fn environment_look(env: &WorkingBuffer, k: &[f64; 16], x: f64, y: f64) -> [f64;
 /// D-531: after CycoreFX's CC Environment, the rule ours (document 21): the environment read
 /// round a view turned by pan, tilt and roll, filling the layer's shape, whose drawing's corner
 /// is at `(ox, oy)` in the buffer. Never grows.
-pub(crate) fn cc_environment(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn cc_environment(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::CcEnvironment { map: Some(map), .. } = e else {
         unreachable!("CC Environment drawn with no environment read")
     };
     let env = &*map.0;
     let (w, h) = (source.width(), source.height());
-    let k = environment_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64, (env.width(), env.height()));
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3];
-        if a == 0.0 {
-            px.fill(0.0);
-            return;
-        }
-        let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
-        let got = if k[1] == 1.0 {
-            let mut sum = [0.0; 4];
-            for sy in [-0.25, 0.25] {
-                for sx in [-0.25, 0.25] {
-                    let t = environment_look(env, &k, x + 0.5 + sx, y + 0.5 + sy);
-                    for j in 0..4 {
-                        sum[j] += t[j];
+    let k = environment_numbers(
+        e,
+        (w - 2 * ox) as f64,
+        (h - 2 * oy) as f64,
+        (env.width(), env.height()),
+    );
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3];
+            if a == 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
+            let got = if k[1] == 1.0 {
+                let mut sum = [0.0; 4];
+                for sy in [-0.25, 0.25] {
+                    for sx in [-0.25, 0.25] {
+                        let t = environment_look(env, &k, x + 0.5 + sx, y + 0.5 + sy);
+                        for j in 0..4 {
+                            sum[j] += t[j];
+                        }
                     }
                 }
+                sum.map(|s| s / 4.0)
+            } else {
+                environment_look(env, &k, x + 0.5, y + 0.5)
+            };
+            for (p, g) in px.iter_mut().zip(got) {
+                *p = (g * a as f64) as f32;
             }
-            sum.map(|s| s / 4.0)
-        } else {
-            environment_look(env, &k, x + 0.5, y + 0.5)
-        };
-        for (p, g) in px.iter_mut().zip(got) {
-            *p = (g * a as f64) as f32;
-        }
-    });
+        });
 }
 
 /// D-530: CC Cylinder's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
@@ -8529,7 +10788,9 @@ pub(crate) fn cylinder_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> 
         _ => unreachable!("CC Cylinder's numbers of another effect"),
     };
     type M3 = [[f64; 3]; 3];
-    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let mul = |a: M3, b: M3| -> M3 {
+        std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum()))
+    };
     let (sx, cx) = rotation_x.to_radians().sin_cos();
     let (sy, cy) = rotation_y.to_radians().sin_cos();
     let (sz, cz) = rotation_z.to_radians().sin_cos();
@@ -8537,16 +10798,31 @@ pub(crate) fn cylinder_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> 
     let ry = [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]];
     let rz = [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]];
     let m = mul(rz, mul(ry, rx));
-    let own = |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let own =
+        |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
     // A 50 mm lens on a 36 mm frame.
     let eye = [w0 / 2.0, h0 / 2.0, -w0 * 50.0 / 36.0];
-    let c = [position[0] * w0 / 100.0, position[1] * h0 / 100.0, position_z * w0 / 100.0];
+    let c = [
+        position[0] * w0 / 100.0,
+        position[1] * h0 / 100.0,
+        position_z * w0 / 100.0,
+    ];
     let o = own([eye[0] - c[0], eye[1] - c[1], eye[2] - c[2]]);
-    let (el, g) = ((light_height * 0.9).to_radians(), light_direction.to_radians());
+    let (el, g) = (
+        (light_height * 0.9).to_radians(),
+        light_direction.to_radians(),
+    );
     let l = own([el.cos() * g.sin(), -el.cos() * g.cos(), -el.sin()]);
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
-    let mode = crate::effects::CYLINDER_RENDERS.iter().position(|r| r == render).expect("CC Cylinder's render was checked");
-    let power = if *roughness > 0.0 { 2.0 / (roughness / 100.0).powi(2) } else { 0.0 };
+    let mode = crate::effects::CYLINDER_RENDERS
+        .iter()
+        .position(|r| r == render)
+        .expect("CC Cylinder's render was checked");
+    let power = if *roughness > 0.0 {
+        2.0 / (roughness / 100.0).powi(2)
+    } else {
+        0.0
+    };
     [
         mode as f64,
         eye[0],
@@ -8585,63 +10861,102 @@ pub(crate) fn cylinder_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> 
 /// D-530: one hit's lit colour from its premultiplied sample `c`, its normal along `hit` in the
 /// cylinder's own space (the hit itself on CC Sphere's, D-532, its axial part 0 on CC Cylinder's)
 /// on the ray `v`, the inside's normal turned round (document 21).
-fn cylinder_shade(k: &[f64; 31], c: [f64; 4], hit: [f64; 3], v: [f64; 3], inside: bool) -> [f64; 4] {
+fn cylinder_shade(
+    k: &[f64; 31],
+    c: [f64; 4],
+    hit: [f64; 3],
+    v: [f64; 3],
+    inside: bool,
+) -> [f64; 4] {
     let sg = if inside { -1.0 } else { 1.0 };
     let n = hit.map(|q| sg * q / k[16]);
     let lv = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     let hv = [k[17] - v[0] / lv, k[18] - v[1] / lv, k[19] - v[2] / lv];
     let hl = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
     let nl = n[0] * k[17] + n[1] * k[18] + n[2] * k[19];
-    let s = if k[28] > 0.0 && nl > 0.0 && hl > 0.0 { ((n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) / hl).max(0.0).powf(k[28]) } else { 0.0 };
+    let s = if k[28] > 0.0 && nl > 0.0 && hl > 0.0 {
+        ((n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) / hl)
+            .max(0.0)
+            .powf(k[28])
+    } else {
+        0.0
+    };
     let (diff, spec) = (k[25] * k[20] * nl.max(0.0), k[26] * k[20] * s);
-    let lit = |j: usize| c[j] * (k[24] + diff * k[21 + j]) + spec * (k[27] * c[j] + (1.0 - k[27]) * k[21 + j] * c[3]);
+    let lit = |j: usize| {
+        c[j] * (k[24] + diff * k[21 + j]) + spec * (k[27] * c[j] + (1.0 - k[27]) * k[21 + j] * c[3])
+    };
     [lit(0), lit(1), lit(2), c[3]]
 }
 
 /// D-530: after CycoreFX's CC Cylinder, the rule ours (document 21): the drawing, whose corner is
 /// at `(ox, oy)` in the buffer, wrapped round a lit open cylinder seen by a fixed eye; one ray a
 /// pixel. Never grows.
-pub(crate) fn cc_cylinder(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn cc_cylinder(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let (w, h) = (source.width(), source.height());
     let (dw, dh) = (w - 2 * ox, h - 2 * oy);
     let k = cylinder_numbers(e, dw as f64, dh as f64);
     let mut out = WorkingBuffer::transparent(w, h);
     let drawing = &*source;
     let (o, r, mode) = ([k[13], k[14], k[15]], k[16], k[0] as usize);
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let d = [(i % w) as f64 - ox as f64 + 0.5 - k[1], (i / w) as f64 - oy as f64 + 0.5 - k[2], -k[3]];
-        let v: [f64; 3] = std::array::from_fn(|n| k[4 + n] * d[0] + k[7 + n] * d[1] + k[10 + n] * d[2]);
-        let a = v[0] * v[0] + v[2] * v[2];
-        let b = o[0] * v[0] + o[2] * v[2];
-        let disc = b * b - a * (o[0] * o[0] + o[2] * o[2] - r * r);
-        if r == 0.0 || a == 0.0 || disc < 0.0 {
-            return;
-        }
-        let sq = disc.sqrt();
-        let mut got = [0.0f64; 4];
-        // The inside first, the outside laid over it.
-        for (t, inside) in [((-b + sq) / a, true), ((-b - sq) / a, false)] {
-            let hy = o[1] + t * v[1];
-            if (inside && mode == 1) || (!inside && mode == 2) || !(t > 0.0 && hy.abs() <= k[30] / 2.0) {
-                continue;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let d = [
+                (i % w) as f64 - ox as f64 + 0.5 - k[1],
+                (i / w) as f64 - oy as f64 + 0.5 - k[2],
+                -k[3],
+            ];
+            let v: [f64; 3] =
+                std::array::from_fn(|n| k[4 + n] * d[0] + k[7 + n] * d[1] + k[10 + n] * d[2]);
+            let a = v[0] * v[0] + v[2] * v[2];
+            let b = o[0] * v[0] + o[2] * v[2];
+            let disc = b * b - a * (o[0] * o[0] + o[2] * o[2] - r * r);
+            if r == 0.0 || a == 0.0 || disc < 0.0 {
+                return;
             }
-            let hit = [o[0] + t * v[0], hy, o[2] + t * v[2]];
-            let phi = hit[0].atan2(-hit[2]);
-            let s = sample_round(drawing, k[29] / 2.0 + phi / std::f64::consts::TAU * k[29], hy + k[30] / 2.0 + oy as f64, dw as isize, ox as isize);
-            let lit = cylinder_shade(&k, s.map(f64::from), [hit[0], 0.0, hit[2]], v, inside);
-            got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
-        }
-        for (p, g) in px.iter_mut().zip(got) {
-            *p = g as f32;
-        }
-    });
+            let sq = disc.sqrt();
+            let mut got = [0.0f64; 4];
+            // The inside first, the outside laid over it.
+            for (t, inside) in [((-b + sq) / a, true), ((-b - sq) / a, false)] {
+                let hy = o[1] + t * v[1];
+                if (inside && mode == 1)
+                    || (!inside && mode == 2)
+                    || !(t > 0.0 && hy.abs() <= k[30] / 2.0)
+                {
+                    continue;
+                }
+                let hit = [o[0] + t * v[0], hy, o[2] + t * v[2]];
+                let phi = hit[0].atan2(-hit[2]);
+                let s = sample_round(
+                    drawing,
+                    k[29] / 2.0 + phi / std::f64::consts::TAU * k[29],
+                    hy + k[30] / 2.0 + oy as f64,
+                    dw as isize,
+                    ox as isize,
+                );
+                let lit = cylinder_shade(&k, s.map(f64::from), [hit[0], 0.0, hit[2]], v, inside);
+                got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
+            }
+            for (p, g) in px.iter_mut().zip(got) {
+                *p = g as f32;
+            }
+        });
     *source = out;
 }
 
 /// D-532: after CycoreFX's CC Sphere, the rule ours (document 21): the drawing, whose corner is
 /// at `(ox, oy)` in the buffer, wrapped round a lit sphere as a map of the world, seen by CC
 /// Cylinder's fixed eye and lit by its light; one ray a pixel. Never grows.
-pub(crate) fn cc_sphere(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn cc_sphere(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let (w, h) = (source.width(), source.height());
     let (dw, dh) = (w - 2 * ox, h - 2 * oy);
     let k = cylinder_numbers(e, dw as f64, dh as f64);
@@ -8649,41 +10964,57 @@ pub(crate) fn cc_sphere(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
     let drawing = &*source;
     let (o, r, mode) = ([k[13], k[14], k[15]], k[16], k[0] as usize);
     let dot = |p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let d = [(i % w) as f64 - ox as f64 + 0.5 - k[1], (i / w) as f64 - oy as f64 + 0.5 - k[2], -k[3]];
-        let v: [f64; 3] = std::array::from_fn(|n| k[4 + n] * d[0] + k[7 + n] * d[1] + k[10 + n] * d[2]);
-        let (a, b) = (dot(v, v), dot(o, v));
-        let disc = b * b - a * (dot(o, o) - r * r);
-        if r == 0.0 || disc < 0.0 {
-            return;
-        }
-        let sq = disc.sqrt();
-        let mut got = [0.0f64; 4];
-        // The inside first, the outside laid over it.
-        for (t, inside) in [((-b + sq) / a, true), ((-b - sq) / a, false)] {
-            if (inside && mode == 1) || (!inside && mode == 2) || !(t > 0.0) {
-                continue;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let d = [
+                (i % w) as f64 - ox as f64 + 0.5 - k[1],
+                (i / w) as f64 - oy as f64 + 0.5 - k[2],
+                -k[3],
+            ];
+            let v: [f64; 3] =
+                std::array::from_fn(|n| k[4 + n] * d[0] + k[7 + n] * d[1] + k[10 + n] * d[2]);
+            let (a, b) = (dot(v, v), dot(o, v));
+            let disc = b * b - a * (dot(o, o) - r * r);
+            if r == 0.0 || disc < 0.0 {
+                return;
             }
-            let hit: [f64; 3] = std::array::from_fn(|n| o[n] + t * v[n]);
-            let phi = hit[0].atan2(-hit[2]);
-            let lat = hit[1].atan2((hit[0] * hit[0] + hit[2] * hit[2]).sqrt());
-            // The taps' rows held to the drawing: the same as the row held half a pixel in.
-            let y = (k[30] / 2.0 + lat / std::f64::consts::PI * k[30]).clamp(0.5, k[30] - 0.5);
-            let s = sample_round(drawing, k[29] / 2.0 + phi / std::f64::consts::TAU * k[29], y + oy as f64, dw as isize, ox as isize);
-            let lit = cylinder_shade(&k, s.map(f64::from), hit, v, inside);
-            got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
-        }
-        for (p, g) in px.iter_mut().zip(got) {
-            *p = g as f32;
-        }
-    });
+            let sq = disc.sqrt();
+            let mut got = [0.0f64; 4];
+            // The inside first, the outside laid over it.
+            for (t, inside) in [((-b + sq) / a, true), ((-b - sq) / a, false)] {
+                if (inside && mode == 1) || (!inside && mode == 2) || !(t > 0.0) {
+                    continue;
+                }
+                let hit: [f64; 3] = std::array::from_fn(|n| o[n] + t * v[n]);
+                let phi = hit[0].atan2(-hit[2]);
+                let lat = hit[1].atan2((hit[0] * hit[0] + hit[2] * hit[2]).sqrt());
+                // The taps' rows held to the drawing: the same as the row held half a pixel in.
+                let y = (k[30] / 2.0 + lat / std::f64::consts::PI * k[30]).clamp(0.5, k[30] - 0.5);
+                let s = sample_round(
+                    drawing,
+                    k[29] / 2.0 + phi / std::f64::consts::TAU * k[29],
+                    y + oy as f64,
+                    dw as isize,
+                    ox as isize,
+                );
+                let lit = cylinder_shade(&k, s.map(f64::from), hit, v, inside);
+                got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
+            }
+            for (p, g) in px.iter_mut().zip(got) {
+                *p = g as f32;
+            }
+        });
     *source = out;
 }
 
 type M3 = [[f64; 3]; 3];
 
 fn m3_mul(a: &M3, b: &M3) -> M3 {
-    std::array::from_fn(|i| std::array::from_fn(|j| a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j]))
+    std::array::from_fn(|i| {
+        std::array::from_fn(|j| a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j])
+    })
 }
 
 fn m3_apply(m: &M3, v: [f64; 3]) -> [f64; 3] {
@@ -8726,7 +11057,11 @@ fn rodrigues(v: [f64; 3], a: [f64; 3], theta: f64) -> [f64; 3] {
     let k = a.map(|c| c / n);
     let t = theta.to_radians();
     let (c, s) = (t.cos(), t.sin());
-    let cr = [k[1] * v[2] - k[2] * v[1], k[2] * v[0] - k[0] * v[2], k[0] * v[1] - k[1] * v[0]];
+    let cr = [
+        k[1] * v[2] - k[2] * v[1],
+        k[2] * v[0] - k[0] * v[2],
+        k[0] * v[1] - k[1] * v[0],
+    ];
     let d = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
     std::array::from_fn(|i| v[i] * c + cr[i] * s + k[i] * d * (1.0 - c))
 }
@@ -8737,7 +11072,11 @@ pub(crate) const BALL_HEAD: usize = 6;
 /// D-551: CC Ball Action's balls, shared with the card: L and Hv (three each), then for each ball
 /// drawn, farthest first, its centre X and Y and radius R in the drawing's own space and its
 /// colour, linear (six). `source` is the layer, its drawing's corner at `(ox, oy)` (document 21).
-pub(crate) fn ball_numbers(source: &WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
+pub(crate) fn ball_numbers(
+    source: &WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) -> Vec<f64> {
     let crate::effects::Effect::CcBallAction {
         scatter,
         rotation_axis,
@@ -8771,7 +11110,9 @@ pub(crate) fn ball_numbers(source: &WorkingBuffer, e: &crate::effects::Effect, (
                 return None;
             }
             let col = [data[at] as f64, data[at + 1] as f64, data[at + 2] as f64];
-            let un: [f64; 7] = std::array::from_fn(|ch| crate::grade::unit(base, i as i64, j as i64, 0, ch as u64));
+            let un: [f64; 7] = std::array::from_fn(|ch| {
+                crate::grade::unit(base, i as i64, j as i64, 0, ch as u64)
+            });
             let mut u = [un[0], un[1], un[2]];
             if *instability_state != 0.0 {
                 u = rodrigues(u, [un[3], un[4], un[5]], *instability_state);
@@ -8796,13 +11137,36 @@ pub(crate) fn ball_numbers(source: &WorkingBuffer, e: &crate::effects::Effect, (
             };
             let m = if twist_property == "fast_top" {
                 let phi = (twist_angle * f).to_radians();
-                m3_mul(&ball_turn(rotation_axis, *rotation), &m3_mul(&m3_turn(1, 2.0 * phi), &m3_turn(0, phi)))
+                m3_mul(
+                    &ball_turn(rotation_axis, *rotation),
+                    &m3_mul(&m3_turn(1, 2.0 * phi), &m3_turn(0, phi)),
+                )
             } else {
                 ball_turn(rotation_axis, rotation + twist_angle * f)
             };
-            let q = m3_apply(&m, [x - cx + scatter * u[0], y - cy + scatter * u[1], scatter * u[2]]);
+            let q = m3_apply(
+                &m,
+                [
+                    x - cx + scatter * u[0],
+                    y - cy + scatter * u[1],
+                    scatter * u[2],
+                ],
+            );
             let d = z + q[2];
-            (d > z / 100.0).then(|| (d, cell, [cx + q[0] * z / d, cy + q[1] * z / d, r * z / d, col[0], col[1], col[2]]))
+            (d > z / 100.0).then(|| {
+                (
+                    d,
+                    cell,
+                    [
+                        cx + q[0] * z / d,
+                        cy + q[1] * z / d,
+                        r * z / d,
+                        col[0],
+                        col[1],
+                        col[2],
+                    ],
+                )
+            })
         })
         .collect();
     balls.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
@@ -8824,7 +11188,11 @@ fn ball_cover(b: &[f64], x: f64, y: f64) -> f64 {
 fn ball_shade(head: &[f64], b: &[f64], x: f64, y: f64) -> [f64; 3] {
     let (dx, dy) = ((x - b[0]) / b[2], (y - b[1]) / b[2]);
     let q = dx * dx + dy * dy;
-    let n = if q >= 1.0 { [dx / q.sqrt(), dy / q.sqrt(), 0.0] } else { [dx, dy, -(1.0 - q).sqrt()] };
+    let n = if q >= 1.0 {
+        [dx / q.sqrt(), dy / q.sqrt(), 0.0]
+    } else {
+        [dx, dy, -(1.0 - q).sqrt()]
+    };
     let dif = (n[0] * head[0] + n[1] * head[1] + n[2] * head[2]).max(0.0);
     let mut sp = (n[0] * head[3] + n[1] * head[4] + n[2] * head[5]).max(0.0);
     for _ in 0..5 {
@@ -8863,7 +11231,11 @@ pub(crate) fn ball_pixel(k: &[f64], first: u32, second: u32, x: f64, y: f64) -> 
 /// D-551: after CycoreFX's CC Ball Action, the rule ours (document 21): the drawing as a grid of
 /// lit balls, turned, twisted and scattered in a fake 3D with its own eye and light (P0-12: no
 /// comp camera). `(ox, oy)` the drawing's corner in the buffer. Never grows.
-pub(crate) fn cc_ball_action(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn cc_ball_action(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let (w, h) = (source.width(), source.height());
     let k = ball_numbers(source, e, (ox, oy));
     // The first and second balls at each pixel, numbered 1 up; laid farthest first, so each
@@ -8883,12 +11255,22 @@ pub(crate) fn cc_ball_action(source: &mut WorkingBuffer, e: &crate::effects::Eff
             }
         }
     }
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let out = ball_pixel(&k, first[i], second[i], (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
-        for (v, o) in px.iter_mut().zip(out) {
-            *v = o as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let out = ball_pixel(
+                &k,
+                first[i],
+                second[i],
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            );
+            for (v, o) in px.iter_mut().zip(out) {
+                *v = o as f32;
+            }
+        });
 }
 
 /// D-634: After Effects' Corner Pins camera, the rule ours (document 21): the camera that shows
@@ -8900,8 +11282,15 @@ pub(crate) fn cc_ball_action(source: &mut WorkingBuffer, e: &crate::effects::Eff
 /// the eye to where the camera sees it (as a turn M does); A^-1, taking a pixel's
 /// (x + 1/2 - w0/2, y + 1/2 - h0/2, F) to the ray's direction (as M^T does); and F in pixels.
 /// None where nothing is drawn. The pins as added give o = (0, 0, -F) and A the identity.
-pub(crate) fn corner_camera(w0: f64, h0: f64, pins: [[f64; 2]; 4], focal_length: f64, auto: bool) -> Option<([f64; 3], [[f64; 3]; 3], [[f64; 3]; 3], f64)> {
-    let [p0, p1, p3, p2] = pins.map(|p| [p[0] * w0 / 100.0 - w0 / 2.0, p[1] * h0 / 100.0 - h0 / 2.0]);
+pub(crate) fn corner_camera(
+    w0: f64,
+    h0: f64,
+    pins: [[f64; 2]; 4],
+    focal_length: f64,
+    auto: bool,
+) -> Option<([f64; 3], [[f64; 3]; 3], [[f64; 3]; 3], f64)> {
+    let [p0, p1, p3, p2] =
+        pins.map(|p| [p[0] * w0 / 100.0 - w0 / 2.0, p[1] * h0 / 100.0 - h0 / 2.0]);
     let det2 = |a: [f64; 2], b: [f64; 2]| a[0] * b[1] - b[0] * a[1];
     let d1 = [p1[0] - p2[0], p1[1] - p2[1]];
     let d2 = [p3[0] - p2[0], p3[1] - p2[1]];
@@ -8915,7 +11304,11 @@ pub(crate) fn corner_camera(w0: f64, h0: f64, pins: [[f64; 2]; 4], focal_length:
     let c1 = [p3[0] - p0[0] + hh * p3[0], p3[1] - p0[1] + hh * p3[1], hh];
     let h1 = c0.map(|q| q / w0);
     let h2 = c1.map(|q| q / h0);
-    let h3 = [(c0[0] + c1[0]) / 2.0 + p0[0], (c0[1] + c1[1]) / 2.0 + p0[1], (c0[2] + c1[2]) / 2.0 + 1.0];
+    let h3 = [
+        (c0[0] + c1[0]) / 2.0 + p0[0],
+        (c0[1] + c1[1]) / 2.0 + p0[1],
+        (c0[2] + c1[2]) / 2.0 + 1.0,
+    ];
     let mut f = w0 * focal_length / 36.0;
     if auto && h1[2] * h2[2] != 0.0 {
         let ff = -(h1[0] * h2[0] + h1[1] * h2[1]) / (h1[2] * h2[2]);
@@ -8924,7 +11317,11 @@ pub(crate) fn corner_camera(w0: f64, h0: f64, pins: [[f64; 2]; 4], focal_length:
             f = ff.sqrt();
         }
     }
-    let (a1, a2, t) = ([h1[0] / f, h1[1] / f, h1[2]], [h2[0] / f, h2[1] / f, h2[2]], [h3[0] / f, h3[1] / f, h3[2]]);
+    let (a1, a2, t) = (
+        [h1[0] / f, h1[1] / f, h1[2]],
+        [h2[0] / f, h2[1] / f, h2[2]],
+        [h3[0] / f, h3[1] / f, h3[2]],
+    );
     if t[2] == 0.0 {
         return None;
     }
@@ -8933,10 +11330,22 @@ pub(crate) fn corner_camera(w0: f64, h0: f64, pins: [[f64; 2]; 4], focal_length:
     let s = 2.0 / (n1 + n2) * t[2].signum();
     let (a1, a2, t) = (a1.map(|q| q * s), a2.map(|q| q * s), t.map(|q| q * s));
     let (n1, n2) = (s.abs() * n1, s.abs() * n2);
-    let cr = [a1[1] * a2[2] - a1[2] * a2[1], a1[2] * a2[0] - a1[0] * a2[2], a1[0] * a2[1] - a1[1] * a2[0]];
+    let cr = [
+        a1[1] * a2[2] - a1[2] * a2[1],
+        a1[2] * a2[0] - a1[0] * a2[2],
+        a1[0] * a2[1] - a1[1] * a2[0],
+    ];
     let cn = norm(cr);
-    let a3 = if cn == 0.0 { [0.0; 3] } else { cr.map(|q| q / cn * (n1 * n2).sqrt()) };
-    let a = [[a1[0], a2[0], a3[0]], [a1[1], a2[1], a3[1]], [a1[2], a2[2], a3[2]]];
+    let a3 = if cn == 0.0 {
+        [0.0; 3]
+    } else {
+        cr.map(|q| q / cn * (n1 * n2).sqrt())
+    };
+    let a = [
+        [a1[0], a2[0], a3[0]],
+        [a1[1], a2[1], a3[1]],
+        [a1[2], a2[2], a3[2]],
+    ];
     // The inverse by cofactors; none where the determinant is 0.
     let co = |r: usize, c: usize| {
         let (r0, r1, c0, c1) = ((r + 1) % 3, (r + 2) % 3, (c + 1) % 3, (c + 2) % 3);
@@ -8967,11 +11376,17 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
         unreachable!("Card Wipe's numbers of another effect")
     };
     let r = (rows + 0.5).floor();
-    let c = if rows_columns == "columns_follow_rows" { r } else { (columns + 0.5).floor() };
+    let c = if rows_columns == "columns_follow_rows" {
+        r
+    } else {
+        (columns + 0.5).floor()
+    };
     let (cw, ch) = (w0 / c, h0 / r);
     let (hx, hy) = (card_scale * cw / 2.0, card_scale * ch / 2.0);
     type M3 = [[f64; 3]; 3];
-    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let mul = |a: M3, b: M3| -> M3 {
+        std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum()))
+    };
     let (sx, cx) = x_rotation.to_radians().sin_cos();
     let (sy, cy) = y_rotation.to_radians().sin_cos();
     let (sz, cz) = z_rotation.to_radians().sin_cos();
@@ -8979,29 +11394,77 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
     let ry = [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]];
     let rz = [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]];
     let m = mul(rz, mul(ry, rx));
-    let own = |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
-    let lp = [light_position[0] * w0 / 100.0 - w0 / 2.0, light_position[1] * h0 / 100.0 - h0 / 2.0, -light_depth * w0];
+    let own =
+        |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let lp = [
+        light_position[0] * w0 / 100.0 - w0 / 2.0,
+        light_position[1] * h0 / 100.0 - h0 / 2.0,
+        -light_depth * w0,
+    ];
     // D-634: Corner Pins puts the eye and the rays where the pins say, with no turn, so the light
     // stays on the layer; the ray's turn is A^-1 by columns, as M^T is.
     let (f, o, m, pl, drawn) = if camera_system == "corner_pins" {
-        let pins = [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner];
+        let pins = [
+            *upper_left_corner,
+            *upper_right_corner,
+            *lower_left_corner,
+            *lower_right_corner,
+        ];
         match corner_camera(w0, h0, pins, *focal_length, auto_focal_length == "on") {
-            Some((o, _, ai, f)) => (f, o, std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])), lp, true),
+            Some((o, _, ai, f)) => (
+                f,
+                o,
+                std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])),
+                lp,
+                true,
+            ),
             None => (w0 * focal_length / 36.0, [0.0; 3], m, lp, false),
         }
     } else {
         let f = w0 * focal_length / 36.0;
-        (f, own([xy_position[0] * w0 / 100.0 - w0 / 2.0, xy_position[1] * h0 / 100.0 - h0 / 2.0, -z_position * f]), m, own(lp), true)
+        (
+            f,
+            own([
+                xy_position[0] * w0 / 100.0 - w0 / 2.0,
+                xy_position[1] * h0 / 100.0 - h0 / 2.0,
+                -z_position * f,
+            ]),
+            m,
+            own(lp),
+            true,
+        )
     };
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let mut k = vec![c, r, cw, ch, hx, hy, w0, h0, f, o[0], o[1], o[2]];
     k.extend(m.iter().flatten());
-    k.extend([if light_type == "point" { 1.0 } else { 0.0 }, pl[0], pl[1], pl[2], *light_intensity, lc[0], lc[1], lc[2]]);
-    k.extend([*ambient_light, *diffuse_reflection, *specular_reflection, *highlight_sharpness]);
-    k.extend([if back_map.is_some() { 1.0 } else { 0.0 }, if drawn { *card_scale } else { 0.0 }, hx.max(hy)]);
+    k.extend([
+        if light_type == "point" { 1.0 } else { 0.0 },
+        pl[0],
+        pl[1],
+        pl[2],
+        *light_intensity,
+        lc[0],
+        lc[1],
+        lc[2],
+    ]);
+    k.extend([
+        *ambient_light,
+        *diffuse_reflection,
+        *specular_reflection,
+        *highlight_sharpness,
+    ]);
+    k.extend([
+        if back_map.is_some() { 1.0 } else { 0.0 },
+        if drawn { *card_scale } else { 0.0 },
+        hx.max(hy),
+    ]);
     let seed = crate::grade::mix(random_seed.floor() as u64);
     let g = |a: usize, b: usize, ch: u64| crate::grade::unit(seed, a as i64, b as i64, 0, ch);
-    let (tr, done, wide) = (*timing_randomness, transition_completion / 100.0, transition_width / 100.0);
+    let (tr, done, wide) = (
+        *timing_randomness,
+        transition_completion / 100.0,
+        transition_width / 100.0,
+    );
     let grad = gradient_map.as_ref().map(|m| &*m.0);
     let (cols, rows) = (c as usize, r as usize);
     k.reserve(3 * cols * rows);
@@ -9020,7 +11483,11 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
                 "gradient" => grad.map_or(0.0, |p| {
                     let px = ((a as f64 + 0.5) * cw).floor().min(w0 - 1.0) as usize;
                     let py = ((b as f64 + 0.5) * ch).floor().min(h0 - 1.0) as usize;
-                    if px < p.width() && py < p.height() { picture_luma(p.pixel(px, py)) } else { 0.0 }
+                    if px < p.width() && py < p.height() {
+                        picture_luma(p.pixel(px, py))
+                    } else {
+                        0.0
+                    }
                 }),
                 _ => u,
             };
@@ -9035,12 +11502,24 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
             let axis = match flip_axis.as_str() {
                 "x" => 0.0,
                 "y" => 1.0,
-                _ => if g(a, b, 1) < 0.0 { 0.0 } else { 1.0 },
+                _ => {
+                    if g(a, b, 1) < 0.0 {
+                        0.0
+                    } else {
+                        1.0
+                    }
+                }
             };
             let sign = match flip_direction.as_str() {
                 "positive" => 1.0,
                 "negative" => -1.0,
-                _ => if g(a, b, 2) < 0.0 { -1.0 } else { 1.0 },
+                _ => {
+                    if g(a, b, 2) < 0.0 {
+                        -1.0
+                    } else {
+                        1.0
+                    }
+                }
             };
             let (s, cs) = (sign * p * std::f64::consts::PI).sin_cos();
             k.extend([axis, s, cs]);
@@ -9055,7 +11534,10 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
 fn card_span(lo: f64, hi: f64, size: f64, half_page: f64, reach: f64, n: f64) -> (usize, usize) {
     let first = ((lo + half_page - reach) / size - 0.5).floor() - 1.0;
     let last = ((hi + half_page + reach) / size - 0.5).ceil() + 1.0;
-    (first.clamp(0.0, n) as usize, (last + 1.0).clamp(0.0, n) as usize)
+    (
+        first.clamp(0.0, n) as usize,
+        (last + 1.0).clamp(0.0, n) as usize,
+    )
 }
 
 /// D-580: After Effects' Card Wipe, the rule ours (document 21): the drawing, whose corner is at
@@ -9064,7 +11546,11 @@ fn card_span(lo: f64, hi: f64, size: f64, half_page: f64, reach: f64, n: f64) ->
 /// share of the back picture, or is clear. One ray a pixel, the nearest card it meets winning.
 /// Only the cards near the ray are tried: every card lies within its half size of the drawing's
 /// plane, so a ray meets one only where it crosses that slab. Never grows.
-pub(crate) fn card_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn card_wipe(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::CardWipe { back_map, .. } = e else {
         unreachable!("Card Wipe of another effect")
     };
@@ -9079,89 +11565,117 @@ pub(crate) fn card_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
     let dot = |p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
     let unit = |p: [f64; 3]| {
         let n = dot(p, p).sqrt();
-        if n == 0.0 { [0.0; 3] } else { p.map(|q| q / n) }
-    };
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        if sc == 0.0 {
-            return;
+        if n == 0.0 {
+            [0.0; 3]
+        } else {
+            p.map(|q| q / n)
         }
-        let d = [(i % w) as f64 - ox as f64 + 0.5 - w0 / 2.0, (i / w) as f64 - oy as f64 + 0.5 - h0 / 2.0, k[8]];
-        let v: [f64; 3] = std::array::from_fn(|n| k[12 + n] * d[0] + k[15 + n] * d[1] + k[18 + n] * d[2]);
-        // The slab, a little thicker than the cards reach, and the cards over its crossing.
-        let zm = zmax * 1.001 + 1e-9;
-        let ((a0, a1), (b0, b1)) = if v[2] != 0.0 {
-            let (ta, tb) = ((-zm - o[2]) / v[2], (zm - o[2]) / v[2]);
-            let (t0, t1) = (ta.min(tb).max(0.0), ta.max(tb));
-            if t1 < t0 {
+    };
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            if sc == 0.0 {
                 return;
             }
-            let (xa, xb) = (o[0] + t0 * v[0], o[0] + t1 * v[0]);
-            let (ya, yb) = (o[1] + t0 * v[1], o[1] + t1 * v[1]);
-            (card_span(xa.min(xb), xa.max(xb), cw, w0 / 2.0, hx, cols), card_span(ya.min(yb), ya.max(yb), ch, h0 / 2.0, hy, rows))
-        } else if o[2].abs() > zm {
-            return;
-        } else {
-            ((0, cols as usize), (0, rows as usize))
-        };
-        // The nearest hit, the first card in rows then columns where two tie.
-        let mut best: Option<(f64, usize, [f64; 2], bool, [f64; 2])> = None;
-        for b in b0..b1 {
-            for a in a0..a1 {
-                let at = 36 + 3 * (b * cols as usize + a);
-                let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
-                let (cx, cy) = ((a as f64 + 0.5) * cw, (b as f64 + 0.5) * ch);
-                let q = [o[0] - (cx - w0 / 2.0), o[1] - (cy - h0 / 2.0), o[2]];
-                let inv = |p: [f64; 3]| {
-                    if axis == 0.0 {
-                        [p[0], c * p[1] + s * p[2], -s * p[1] + c * p[2]]
-                    } else {
-                        [c * p[0] - s * p[2], p[1], s * p[0] + c * p[2]]
+            let d = [
+                (i % w) as f64 - ox as f64 + 0.5 - w0 / 2.0,
+                (i / w) as f64 - oy as f64 + 0.5 - h0 / 2.0,
+                k[8],
+            ];
+            let v: [f64; 3] =
+                std::array::from_fn(|n| k[12 + n] * d[0] + k[15 + n] * d[1] + k[18 + n] * d[2]);
+            // The slab, a little thicker than the cards reach, and the cards over its crossing.
+            let zm = zmax * 1.001 + 1e-9;
+            let ((a0, a1), (b0, b1)) = if v[2] != 0.0 {
+                let (ta, tb) = ((-zm - o[2]) / v[2], (zm - o[2]) / v[2]);
+                let (t0, t1) = (ta.min(tb).max(0.0), ta.max(tb));
+                if t1 < t0 {
+                    return;
+                }
+                let (xa, xb) = (o[0] + t0 * v[0], o[0] + t1 * v[0]);
+                let (ya, yb) = (o[1] + t0 * v[1], o[1] + t1 * v[1]);
+                (
+                    card_span(xa.min(xb), xa.max(xb), cw, w0 / 2.0, hx, cols),
+                    card_span(ya.min(yb), ya.max(yb), ch, h0 / 2.0, hy, rows),
+                )
+            } else if o[2].abs() > zm {
+                return;
+            } else {
+                ((0, cols as usize), (0, rows as usize))
+            };
+            // The nearest hit, the first card in rows then columns where two tie.
+            let mut best: Option<(f64, usize, [f64; 2], bool, [f64; 2])> = None;
+            for b in b0..b1 {
+                for a in a0..a1 {
+                    let at = 36 + 3 * (b * cols as usize + a);
+                    let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
+                    let (cx, cy) = ((a as f64 + 0.5) * cw, (b as f64 + 0.5) * ch);
+                    let q = [o[0] - (cx - w0 / 2.0), o[1] - (cy - h0 / 2.0), o[2]];
+                    let inv = |p: [f64; 3]| {
+                        if axis == 0.0 {
+                            [p[0], c * p[1] + s * p[2], -s * p[1] + c * p[2]]
+                        } else {
+                            [c * p[0] - s * p[2], p[1], s * p[0] + c * p[2]]
+                        }
+                    };
+                    let (o2, d2) = (inv(q), inv(v));
+                    if d2[2] == 0.0 {
+                        continue;
                     }
-                };
-                let (o2, d2) = (inv(q), inv(v));
-                if d2[2] == 0.0 {
-                    continue;
-                }
-                let t = -o2[2] / d2[2];
-                if t <= 0.0 || best.is_some_and(|(bt, ..)| t >= bt) {
-                    continue;
-                }
-                let (lx, ly) = (o2[0] + t * d2[0], o2[1] + t * d2[1]);
-                if lx.abs() <= hx && ly.abs() <= hy {
-                    best = Some((t, at, [lx, ly], d2[2] > 0.0, [cx, cy]));
+                    let t = -o2[2] / d2[2];
+                    if t <= 0.0 || best.is_some_and(|(bt, ..)| t >= bt) {
+                        continue;
+                    }
+                    let (lx, ly) = (o2[0] + t * d2[0], o2[1] + t * d2[1]);
+                    if lx.abs() <= hx && ly.abs() <= hy {
+                        best = Some((t, at, [lx, ly], d2[2] > 0.0, [cx, cy]));
+                    }
                 }
             }
-        }
-        let Some((t, at, [lx, ly], front, [cx, cy])) = best else {
-            return;
-        };
-        let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
-        let p = if front {
-            sample_bilinear(drawing, cx + lx / sc + ox as f64, cy + ly / sc + oy as f64)
-        } else {
-            match back {
-                None => [0.0; 4],
-                Some(b) if axis == 1.0 => sample_bilinear(b, cx - lx / sc, cy + ly / sc),
-                Some(b) => sample_bilinear(b, cx + lx / sc, cy - ly / sc),
+            let Some((t, at, [lx, ly], front, [cx, cy])) = best else {
+                return;
+            };
+            let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
+            let p = if front {
+                sample_bilinear(drawing, cx + lx / sc + ox as f64, cy + ly / sc + oy as f64)
+            } else {
+                match back {
+                    None => [0.0; 4],
+                    Some(b) if axis == 1.0 => sample_bilinear(b, cx - lx / sc, cy + ly / sc),
+                    Some(b) => sample_bilinear(b, cx + lx / sc, cy - ly / sc),
+                }
             }
-        }
-        .map(f64::from);
-        let pl = [k[22], k[23], k[24]];
-        let hit: [f64; 3] = std::array::from_fn(|n| o[n] + t * v[n]);
-        let lv = unit(if k[21] == 0.0 { pl } else { std::array::from_fn(|n| pl[n] - hit[n]) });
-        let n = if axis == 0.0 { [0.0, s, -c] } else { [-s, 0.0, -c] };
-        let n = if front { n } else { n.map(|q| -q) };
-        let vv = unit(v.map(|q| -q));
-        let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
-        let nl = dot(n, lv);
-        let hn = dot(hv, hv).sqrt();
-        let sp = if nl > 0.0 && hn > 0.0 { (dot(n, hv) / hn).max(0.0).powf(k[32]) } else { 0.0 };
-        let (i_, a_, d_, s_) = (k[25], k[29], k[30], k[31]);
-        for j in 0..3 {
-            px[j] = (p[j] * (a_ + d_ * i_ * k[26 + j] * nl.max(0.0)) + s_ * i_ * sp * k[26 + j] * p[3]) as f32;
-        }
-        px[3] = p[3] as f32;
-    });
+            .map(f64::from);
+            let pl = [k[22], k[23], k[24]];
+            let hit: [f64; 3] = std::array::from_fn(|n| o[n] + t * v[n]);
+            let lv = unit(if k[21] == 0.0 {
+                pl
+            } else {
+                std::array::from_fn(|n| pl[n] - hit[n])
+            });
+            let n = if axis == 0.0 {
+                [0.0, s, -c]
+            } else {
+                [-s, 0.0, -c]
+            };
+            let n = if front { n } else { n.map(|q| -q) };
+            let vv = unit(v.map(|q| -q));
+            let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
+            let nl = dot(n, lv);
+            let hn = dot(hv, hv).sqrt();
+            let sp = if nl > 0.0 && hn > 0.0 {
+                (dot(n, hv) / hn).max(0.0).powf(k[32])
+            } else {
+                0.0
+            };
+            let (i_, a_, d_, s_) = (k[25], k[29], k[30], k[31]);
+            for j in 0..3 {
+                px[j] = (p[j] * (a_ + d_ * i_ * k[26 + j] * nl.max(0.0))
+                    + s_ * i_ * sp * k[26 + j] * p[3]) as f32;
+            }
+            px[3] = p[3] as f32;
+        });
     *source = out;
 }
 
@@ -9192,40 +11706,48 @@ pub(crate) fn three_d_glasses(source: &mut WorkingBuffer, g: &Glasses, (ox, oy):
     };
     let luma = |p: [f64; 4]| 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
     let view = crate::effects::GLASSES_VIEWS[g.view];
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
-        let out = match view {
-            "side_by_side" if 2.0 * x < w0 => read(0, 2.0 * x + 1.0, y + 0.5),
-            "side_by_side" => read(1, 2.0 * x + 1.0 - w0, y + 0.5),
-            "over_under" if 2.0 * y < h0 => read(0, x + 0.5, 2.0 * y + 1.0),
-            "over_under" => read(1, x + 0.5, 2.0 * y + 1.0 - h0),
-            _ => {
-                let mut l = read(0, x + 0.5 - c / 2.0, y + 0.5 + v / 2.0);
-                let mut r = read(1, x + 0.5 + c / 2.0, y + 0.5 - v / 2.0);
-                if view == "interlace" {
-                    if (y as i64).rem_euclid(2) == 0 { l } else { r }
-                } else {
-                    if view.starts_with("balanced") {
-                        for k in 0..4 {
-                            let m = (l[k] + r[k]) / 2.0;
-                            l[k] = m + g.balance * (l[k] - m);
-                            r[k] = m + g.balance * (r[k] - m);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
+            let out = match view {
+                "side_by_side" if 2.0 * x < w0 => read(0, 2.0 * x + 1.0, y + 0.5),
+                "side_by_side" => read(1, 2.0 * x + 1.0 - w0, y + 0.5),
+                "over_under" if 2.0 * y < h0 => read(0, x + 0.5, 2.0 * y + 1.0),
+                "over_under" => read(1, x + 0.5, 2.0 * y + 1.0 - h0),
+                _ => {
+                    let mut l = read(0, x + 0.5 - c / 2.0, y + 0.5 + v / 2.0);
+                    let mut r = read(1, x + 0.5 + c / 2.0, y + 0.5 - v / 2.0);
+                    if view == "interlace" {
+                        if (y as i64).rem_euclid(2) == 0 {
+                            l
+                        } else {
+                            r
                         }
+                    } else {
+                        if view.starts_with("balanced") {
+                            for k in 0..4 {
+                                let m = (l[k] + r[k]) / 2.0;
+                                l[k] = m + g.balance * (l[k] - m);
+                                r[k] = m + g.balance * (r[k] - m);
+                            }
+                        }
+                        let a = l[3].max(r[3]).clamp(0.0, 1.0);
+                        let rgb = match view {
+                            "red_green" | "balanced_red_green" => [luma(r), luma(l), 0.0],
+                            "balanced_colored_red_blue" => [r[0], l[1], l[2]],
+                            _ => [luma(r), luma(l), luma(l)],
+                        };
+                        [rgb[0].max(0.0), rgb[1].max(0.0), rgb[2].max(0.0), a]
                     }
-                    let a = l[3].max(r[3]).clamp(0.0, 1.0);
-                    let rgb = match view {
-                        "red_green" | "balanced_red_green" => [luma(r), luma(l), 0.0],
-                        "balanced_colored_red_blue" => [r[0], l[1], l[2]],
-                        _ => [luma(r), luma(l), luma(l)],
-                    };
-                    [rgb[0].max(0.0), rgb[1].max(0.0), rgb[2].max(0.0), a]
                 }
+            };
+            for k in 0..4 {
+                px[k] = out[k] as f32;
             }
-        };
-        for k in 0..4 {
-            px[k] = out[k] as f32;
-        }
-    });
+        });
 }
 
 /// D-509: Glass Melt for one frame: the gradient's map, `None` for the layer itself; the reveal's
@@ -9256,7 +11778,10 @@ pub(crate) fn melt_settings(e: &crate::effects::Effect) -> Option<Melt<'_>> {
     else {
         return None;
     };
-    fn read<'a>(name: &serde_json::Value, map: &'a Option<crate::layer_map::Map>) -> Option<Option<&'a WorkingBuffer>> {
+    fn read<'a>(
+        name: &serde_json::Value,
+        map: &'a Option<crate::layer_map::Map>,
+    ) -> Option<Option<&'a WorkingBuffer>> {
         match map {
             Some(m) => Some(Some(&*m.0)),
             None => (name.as_str() == Some("")).then_some(None),
@@ -9275,7 +11800,11 @@ pub(crate) fn melt_settings(e: &crate::effects::Effect) -> Option<Melt<'_>> {
 /// pixel `i` of a buffer `w` wide, transparent outside it.
 fn on_drawing(map: &WorkingBuffer, i: usize, w: usize, (ox, oy): (usize, usize)) -> [f32; 4] {
     let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
-    if mx < map.width() && my < map.height() { map.pixel(mx, my) } else { [0.0; 4] }
+    if mx < map.width() && my < map.height() {
+        map.pixel(mx, my)
+    } else {
+        [0.0; 4]
+    }
 }
 
 /// D-509: Glass Melt, after CycoreFX's CC Glass Wipe, the rule ours
@@ -9294,46 +11823,68 @@ pub(crate) fn glass_melt(source: &mut WorkingBuffer, g: &Melt, origin: (usize, u
     let (w, h) = (source.width(), source.height());
     let mut bump = WorkingBuffer::transparent(w, h);
     let from = source.data();
-    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let q = match g.gradient {
-            Some(m) => on_drawing(m, i, w, origin),
-            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
-        };
-        px[3] = (crate::grade::phase_of("luminance", &q) * q[3] as f64) as f32;
-    });
+    bump.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let q = match g.gradient {
+                Some(m) => on_drawing(m, i, w, origin),
+                None => [
+                    from[i * 4],
+                    from[i * 4 + 1],
+                    from[i * 4 + 2],
+                    from[i * 4 + 3],
+                ],
+            };
+            px[3] = (crate::grade::phase_of("luminance", &q) * q[3] as f64) as f32;
+        });
     if g.softness > 0.0 {
-        crate::effects::held_blur_axes(&mut bump, &crate::effects::gaussian_weights(g.softness / 2.0), (true, true));
+        crate::effects::held_blur_axes(
+            &mut bump,
+            &crate::effects::gaussian_weights(g.softness / 2.0),
+            (true, true),
+        );
     }
     let data = bump.data();
     let at = |x: isize, y: isize| {
-        let (x, y) = (x.clamp(0, w as isize - 1) as usize, y.clamp(0, h as isize - 1) as usize);
+        let (x, y) = (
+            x.clamp(0, w as isize - 1) as usize,
+            y.clamp(0, h as isize - 1) as usize,
+        );
         data[(y * w + x) * 4 + 3] as f64
     };
     let gain = 1.25 * g.softness.max(1.0);
     let edge = -MELT_BAND / 2.0 + g.completion / 100.0 * (1.0 + MELT_BAND);
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let still = source.clone();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let dx = g.amount * (at(x + 1, y) - at(x - 1, y)) / 2.0 * gain;
-        let dy = g.amount * (at(x, y + 1) - at(x, y - 1)) / 2.0 * gain;
-        let k = ((at(x, y) - edge) / MELT_BAND + 0.5).clamp(0.0, 1.0);
-        let (sx, sy) = (x as f64 + 0.5, y as f64 + 0.5);
-        let o = sample_bilinear(&still, sx + (1.0 - k) * dx, sy + (1.0 - k) * dy);
-        let r = match g.reveal {
-            Some(m) if k < 1.0 => sample_bilinear(m, sx - k * dx - ox, sy - k * dy - oy),
-            _ => [0.0; 4],
-        };
-        for c in 0..4 {
-            px[c] = (k * o[c] as f64 + (1.0 - k) * r[c] as f64) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let dx = g.amount * (at(x + 1, y) - at(x - 1, y)) / 2.0 * gain;
+            let dy = g.amount * (at(x, y + 1) - at(x, y - 1)) / 2.0 * gain;
+            let k = ((at(x, y) - edge) / MELT_BAND + 0.5).clamp(0.0, 1.0);
+            let (sx, sy) = (x as f64 + 0.5, y as f64 + 0.5);
+            let o = sample_bilinear(&still, sx + (1.0 - k) * dx, sy + (1.0 - k) * dy);
+            let r = match g.reveal {
+                Some(m) if k < 1.0 => sample_bilinear(m, sx - k * dx - ox, sy - k * dy - oy),
+                _ => [0.0; 4],
+            };
+            for c in 0..4 {
+                px[c] = (k * o[c] as f64 + (1.0 - k) * r[c] as f64) as f32;
+            }
+        });
 }
 
 /// D-348: the pass's pixel under the drawing's pixel `i` of a buffer `w` wide with the drawing's
 /// top-left at `origin`, as an index into `pass`'s data, or `None` outside the drawing.
 fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> Option<usize> {
-    let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
+    let (x, y) = (
+        (i % w).wrapping_sub(origin.0),
+        (i / w).wrapping_sub(origin.1),
+    );
     (x < pass.width() && y < pass.height()).then(|| (y * pass.width() + x) * 4)
 }
 
@@ -9355,31 +11906,35 @@ pub(crate) fn pass_extract(
 ) {
     let w = source.width();
     let p = pass.data();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let Some(j) = pass_at(pass, i, w, origin) else {
-            px.fill(0.0);
-            return;
-        };
-        let a = (p[j + 3] as f64).clamp(0.0, 1.0);
-        if a <= 0.0 {
-            px.fill(0.0);
-            return;
-        }
-        for c in 0..3 {
-            let v = p[j + c] as f64;
-            let v = if unmult { v / a } else { v };
-            let o = if white != black {
-                (v - black) / (white - black)
-            } else if v >= white {
-                1.0
-            } else {
-                0.0
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let Some(j) = pass_at(pass, i, w, origin) else {
+                px.fill(0.0);
+                return;
             };
-            let o = if invert { 1.0 - o } else { o };
-            px[c] = (if clamp { o.clamp(0.0, 1.0) } else { o } * a) as f32;
-        }
-        px[3] = a as f32;
-    });
+            let a = (p[j + 3] as f64).clamp(0.0, 1.0);
+            if a <= 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            for c in 0..3 {
+                let v = p[j + c] as f64;
+                let v = if unmult { v / a } else { v };
+                let o = if white != black {
+                    (v - black) / (white - black)
+                } else if v >= white {
+                    1.0
+                } else {
+                    0.0
+                };
+                let o = if invert { 1.0 - o } else { o };
+                px[c] = (if clamp { o.clamp(0.0, 1.0) } else { o } * a) as f32;
+            }
+            px[3] = a as f32;
+        });
 }
 
 /// D-348: Depth Key. The drawing kept where its depth is at least `depth`, with a soft edge
@@ -9394,24 +11949,28 @@ pub(crate) fn depth_key(
 ) {
     let w = source.width();
     let p = pass.data();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let Some(j) = pass_at(pass, i, w, origin) else {
-            px.fill(0.0);
-            return;
-        };
-        let z = p[j] as f64;
-        let k = if feather > 0.0 {
-            ((z - depth) / feather + 0.5).clamp(0.0, 1.0)
-        } else if z >= depth {
-            1.0
-        } else {
-            0.0
-        };
-        let k = if invert { 1.0 - k } else { k };
-        for v in px.iter_mut() {
-            *v = (*v as f64 * k) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let Some(j) = pass_at(pass, i, w, origin) else {
+                px.fill(0.0);
+                return;
+            };
+            let z = p[j] as f64;
+            let k = if feather > 0.0 {
+                ((z - depth) / feather + 0.5).clamp(0.0, 1.0)
+            } else if z >= depth {
+                1.0
+            } else {
+                0.0
+            };
+            let k = if invert { 1.0 - k } else { k };
+            for v in px.iter_mut() {
+                *v = (*v as f64 * k) as f32;
+            }
+        });
 }
 
 /// D-349: ID Key. The drawing kept where its id is within a half of `id`, or the other way with
@@ -9425,12 +11984,20 @@ pub(crate) fn id_key(
     invert: bool,
 ) {
     let mut matte = WorkingBuffer::transparent(pass.width(), pass.height());
-    matte.data_mut().par_chunks_exact_mut(4).zip(pass.data().par_chunks_exact(4)).for_each(|(m, p)| {
-        let hit = (p[0] as f64 - id).abs() < 0.5;
-        m.fill(if hit != invert { 1.0 } else { 0.0 });
-    });
+    matte
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(pass.data().par_chunks_exact(4))
+        .for_each(|(m, p)| {
+            let hit = (p[0] as f64 - id).abs() < 0.5;
+            m.fill(if hit != invert { 1.0 } else { 0.0 });
+        });
     if feather > 0.0 {
-        crate::effects::held_blur_axes(&mut matte, &crate::effects::gaussian_weights(feather), (true, true));
+        crate::effects::held_blur_axes(
+            &mut matte,
+            &crate::effects::gaussian_weights(feather),
+            (true, true),
+        );
     }
     keep_by(source, &matte, origin);
 }
@@ -9442,7 +12009,15 @@ pub(crate) fn id_key(
 /// (or the random value alone); a 24-hour time of the value in hours; a date the value's days
 /// after 1 January 1995; a hexadecimal number of the value x 65,536.
 pub(crate) fn numbers_shown(e: &crate::effects::Effect) -> String {
-    let crate::effects::Effect::Numbers { kind, random_values, value, decimal_places, clock: [t, fps], .. } = e else {
+    let crate::effects::Effect::Numbers {
+        kind,
+        random_values,
+        value,
+        decimal_places,
+        clock: [t, fps],
+        ..
+    } = e
+    else {
         return String::new();
     };
     let random = random_values == "on";
@@ -9463,23 +12038,57 @@ pub(crate) fn numbers_shown(e: &crate::effects::Effect) -> String {
             let s = format!("{:.d$}", v.abs());
             let (whole, rest) = s.split_at(s.find('.').unwrap_or(s.len()));
             let s = format!("{whole:0>5}{rest}");
-            if v < 0.0 { unsigned(format!("-{s}")) } else { s }
+            if v < 0.0 {
+                unsigned(format!("-{s}"))
+            } else {
+                s
+            }
         }
         "timecode_30" | "timecode_25" | "timecode_24" => {
             let rate: i64 = kind[9..].parse().unwrap_or(30);
             let when = if random { v } else { t + v };
             let f = (when.abs() * rate as f64 + 1e-6).floor() as i64;
-            let s = format!("{:02}:{:02}:{:02}:{:02}", f / (rate * 3600), f / (rate * 60) % 60, f / rate % 60, f % rate);
-            if when < 0.0 && f > 0 { format!("-{s}") } else { s }
+            let s = format!(
+                "{:02}:{:02}:{:02}:{:02}",
+                f / (rate * 3600),
+                f / (rate * 60) % 60,
+                f / rate % 60,
+                f % rate
+            );
+            if when < 0.0 && f > 0 {
+                format!("-{s}")
+            } else {
+                s
+            }
         }
         "time" => {
             let m = ((v * 60.0 + 1e-6).floor() as i64).rem_euclid(1440);
             format!("{:02}:{:02}", m / 60, m % 60)
         }
         "numerical_date" | "short_date" | "long_date" => {
-            const MONTHS: [&str; 12] =
-                ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            const DAYS: [&str; 7] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const MONTHS: [&str; 12] = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ];
+            const DAYS: [&str; 7] = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+            ];
             // Days from 1 January 1970, which was a Thursday; 1 January 1995 is day 9131.
             let z = (v + 1e-6).floor() as i64 + 9131;
             let (y, m, day) = civil_from_days(z);
@@ -9487,7 +12096,10 @@ pub(crate) fn numbers_shown(e: &crate::effects::Effect) -> String {
             match kind.as_str() {
                 "numerical_date" => format!("{m}/{day}/{y}"),
                 "short_date" => format!("{} {day}, {y}", &month[..3]),
-                _ => format!("{}, {month} {day}, {y}", DAYS[(z + 4).rem_euclid(7) as usize]),
+                _ => format!(
+                    "{}, {month} {day}, {y}",
+                    DAYS[(z + 4).rem_euclid(7) as usize]
+                ),
             }
         }
         _ => {
@@ -9522,16 +12134,34 @@ pub(crate) fn numbers_font_ok(font: &str) -> bool {
 /// the stroke picture S (the same in the stroke colour with D-264's stroke round it), laid as
 /// the display says: F; F over S; S x (1 - F's alpha); or that over F. `None` when the font
 /// cannot be drawn.
-pub(crate) fn numbers_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+pub(crate) fn numbers_picture(
+    e: &crate::effects::Effect,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<WorkingBuffer> {
     numbers_words(e, &numbers_shown(e), (w, h), origin)
 }
 
 /// D-473: Basic Text's picture `w` by `h` with the drawing at `origin`: [`numbers_words`] of its
 /// text with proportional spacing on, its other settings Numbers' own; an empty text draws
 /// nothing. `None` when the font cannot be drawn.
-pub(crate) fn basic_text_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+pub(crate) fn basic_text_picture(
+    e: &crate::effects::Effect,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<WorkingBuffer> {
     let crate::effects::Effect::BasicText {
-        text, position, display, fill_color, stroke_color, stroke_width, size, tracking, composite_on_original, font, alignment,
+        text,
+        position,
+        display,
+        fill_color,
+        stroke_color,
+        stroke_width,
+        size,
+        tracking,
+        composite_on_original,
+        font,
+        alignment,
     } = e
     else {
         return None;
@@ -9565,9 +12195,24 @@ pub(crate) fn basic_text_picture(e: &crate::effects::Effect, (w, h): (usize, usi
 /// so words that stay the same from frame to frame are drawn once.
 // ponytail: four 1080p pictures, about 130 MB, as `text::drawn` keeps; key by layer if a project
 // shows more Numbers or Timecode words than that redrawing on every frame.
-fn numbers_words(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+fn numbers_words(
+    e: &crate::effects::Effect,
+    s: &str,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<WorkingBuffer> {
     let crate::effects::Effect::Numbers {
-        position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, font, alignment, ..
+        position,
+        display,
+        fill_color,
+        stroke_color,
+        stroke_width,
+        size,
+        tracking,
+        proportional_spacing,
+        font,
+        alignment,
+        ..
     } = e
     else {
         return None;
@@ -9600,9 +12245,24 @@ fn numbers_words(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), or
 }
 
 /// [`numbers_words`] drawn afresh.
-fn numbers_drawn(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+fn numbers_drawn(
+    e: &crate::effects::Effect,
+    s: &str,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<WorkingBuffer> {
     let crate::effects::Effect::Numbers {
-        position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, font, alignment, ..
+        position,
+        display,
+        fill_color,
+        stroke_color,
+        stroke_width,
+        size,
+        tracking,
+        proportional_spacing,
+        font,
+        alignment,
+        ..
     } = e
     else {
         return None;
@@ -9610,28 +12270,51 @@ fn numbers_drawn(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), or
     let (px, py) = crate::effects::radial_center(*position, (w, h), origin);
     let align = crate::text::Align::parse(alignment)?;
     let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
-    let base = crate::text::Text { font: font.clone(), size: *size, ..Default::default() };
-    let texts = |color: [f64; 3], stroke: Option<crate::text::Stroke>| -> Option<Vec<crate::text::Text>> {
-        if proportional_spacing == "on" {
-            return Some(vec![crate::text::Text { text: s.to_string(), color, at: [px, py], align, tracking: *tracking, stroke, ..base.clone() }]);
-        }
-        let cell = ('0'..='9').map(|c| crate::text::advance(font, *size, c)).try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
-        let a = *tracking / 1000.0 * *size;
-        let n = s.chars().count() as f64;
-        let line = n * cell + (n - 1.0) * a;
-        let x0 = match align {
-            crate::text::Align::Center => px - line / 2.0,
-            crate::text::Align::Right => px - line,
-            _ => px,
-        };
-        s.chars()
-            .enumerate()
-            .map(|(i, ch)| {
-                let x = x0 + i as f64 * (cell + a) + (cell - crate::text::advance(font, *size, ch)?) / 2.0;
-                Some(crate::text::Text { text: ch.to_string(), color, at: [x, py], stroke: stroke.clone(), ..base.clone() })
-            })
-            .collect()
+    let base = crate::text::Text {
+        font: font.clone(),
+        size: *size,
+        ..Default::default()
     };
+    let texts =
+        |color: [f64; 3], stroke: Option<crate::text::Stroke>| -> Option<Vec<crate::text::Text>> {
+            if proportional_spacing == "on" {
+                return Some(vec![crate::text::Text {
+                    text: s.to_string(),
+                    color,
+                    at: [px, py],
+                    align,
+                    tracking: *tracking,
+                    stroke,
+                    ..base.clone()
+                }]);
+            }
+            let cell = ('0'..='9')
+                .map(|c| crate::text::advance(font, *size, c))
+                .try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
+            let a = *tracking / 1000.0 * *size;
+            let n = s.chars().count() as f64;
+            let line = n * cell + (n - 1.0) * a;
+            let x0 = match align {
+                crate::text::Align::Center => px - line / 2.0,
+                crate::text::Align::Right => px - line,
+                _ => px,
+            };
+            s.chars()
+                .enumerate()
+                .map(|(i, ch)| {
+                    let x = x0
+                        + i as f64 * (cell + a)
+                        + (cell - crate::text::advance(font, *size, ch)?) / 2.0;
+                    Some(crate::text::Text {
+                        text: ch.to_string(),
+                        color,
+                        at: [x, py],
+                        stroke: stroke.clone(),
+                        ..base.clone()
+                    })
+                })
+                .collect()
+        };
     let draw = |texts: Vec<crate::text::Text>| -> Option<WorkingBuffer> {
         let mut out = WorkingBuffer::transparent(w, h);
         for t in &texts {
@@ -9641,27 +12324,46 @@ fn numbers_drawn(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), or
             out.data_mut()[top * w * 4..(top + part.height()) * w * 4]
                 .par_chunks_exact_mut(4)
                 .zip(part.data().par_chunks_exact(4))
-                .for_each(|(d, s)| d.copy_from_slice(&crate::composite::over_pixel([s[0], s[1], s[2], s[3]], [d[0], d[1], d[2], d[3]])));
+                .for_each(|(d, s)| {
+                    d.copy_from_slice(&crate::composite::over_pixel(
+                        [s[0], s[1], s[2], s[3]],
+                        [d[0], d[1], d[2], d[3]],
+                    ))
+                });
         }
         Some(out)
     };
     let fill = draw(texts(linear(fill_color), None)?)?;
     if *stroke_width <= 0.0 || display == "fill_only" {
-        return Some(if display == "stroke_only" { WorkingBuffer::transparent(w, h) } else { fill });
+        return Some(if display == "stroke_only" {
+            WorkingBuffer::transparent(w, h)
+        } else {
+            fill
+        });
     }
     let stroke_color = linear(stroke_color);
-    let mut stroke = draw(texts(stroke_color, Some(crate::text::Stroke { color: stroke_color, width: *stroke_width }))?)?;
+    let mut stroke = draw(texts(
+        stroke_color,
+        Some(crate::text::Stroke {
+            color: stroke_color,
+            width: *stroke_width,
+        }),
+    )?)?;
     if display == "fill_over_stroke" {
         crate::composite::over(&fill, &mut stroke).ok()?;
         return Some(stroke);
     }
     // The ring outside the letters: the stroke where the fill does not cover.
-    stroke.data_mut().par_chunks_exact_mut(4).zip(fill.data().par_chunks_exact(4)).for_each(|(px, f)| {
-        let k = 1.0 - f[3] as f64;
-        for v in px.iter_mut() {
-            *v = (*v as f64 * k) as f32;
-        }
-    });
+    stroke
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(fill.data().par_chunks_exact(4))
+        .for_each(|(px, f)| {
+            let k = 1.0 - f[3] as f64;
+            for v in px.iter_mut() {
+                *v = (*v as f64 * k) as f32;
+            }
+        });
     if display == "stroke_only" {
         return Some(stroke);
     }
@@ -9676,7 +12378,12 @@ fn numbers_drawn(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), or
 /// hh:mm:ss:ff, with drop frame R / 15 frame numbers left out at each minute but every tenth and
 /// a semicolon before the frames.
 pub(crate) fn timecode_shown(e: &crate::effects::Effect) -> String {
-    let crate::effects::Effect::Timecode { display_format, count: [f, rate, drop], .. } = e else {
+    let crate::effects::Effect::Timecode {
+        display_format,
+        count: [f, rate, drop],
+        ..
+    } = e
+    else {
         return String::new();
     };
     let sign = if *f < 0.0 { "-" } else { "" };
@@ -9685,7 +12392,11 @@ pub(crate) fn timecode_shown(e: &crate::effects::Effect) -> String {
     match display_format.as_str() {
         "frames" => format!("{sign}{f:05}"),
         "feet_frames_35mm" | "feet_frames_16mm" => {
-            let per = if display_format == "feet_frames_35mm" { 16 } else { 40 };
+            let per = if display_format == "feet_frames_35mm" {
+                16
+            } else {
+                40
+            };
             format!("{sign}{:04}+{:02}", f / per, f % per)
         }
         _ => {
@@ -9694,10 +12405,21 @@ pub(crate) fn timecode_shown(e: &crate::effects::Effect) -> String {
                 let d = rate / 15;
                 let per_ten = 600 * rate - 9 * d;
                 let (tens, m) = (f / per_ten, f % per_ten);
-                f += 9 * d * tens + if m > d { d * ((m - d) / (60 * rate - d)) } else { 0 };
+                f += 9 * d * tens
+                    + if m > d {
+                        d * ((m - d) / (60 * rate - d))
+                    } else {
+                        0
+                    };
                 sep = ';';
             }
-            format!("{sign}{:02}:{:02}:{:02}{sep}{:02}", f / (rate * 3600), f / (rate * 60) % 60, f / rate % 60, f % rate)
+            format!(
+                "{sign}{:02}:{:02}:{:02}{sep}{:02}",
+                f / (rate * 3600),
+                f / (rate * 60) % 60,
+                f / rate % 60,
+                f % rate
+            )
         }
     }
 }
@@ -9708,8 +12430,21 @@ pub(crate) fn timecode_shown(e: &crate::effects::Effect) -> String {
 /// on the position), over the box with show box on: the line's cells and size / 5 round them,
 /// up to the top of the font's "0", each edge at the nearest whole pixel, in the box colour at
 /// the opacity. `None` when the bundled font cannot be read.
-pub(crate) fn timecode_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
-    let crate::effects::Effect::Timecode { text_position, text_size, text_color, show_box, box_color, opacity, .. } = e else {
+pub(crate) fn timecode_picture(
+    e: &crate::effects::Effect,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<WorkingBuffer> {
+    let crate::effects::Effect::Timecode {
+        text_position,
+        text_size,
+        text_color,
+        show_box,
+        box_color,
+        opacity,
+        ..
+    } = e
+    else {
         return None;
     };
     let font = crate::text::Text::BUNDLED_FONT;
@@ -9737,19 +12472,28 @@ pub(crate) fn timecode_picture(e: &crate::effects::Effect, (w, h): (usize, usize
         return Some(words);
     }
     let (px, py) = crate::effects::radial_center(*text_position, (w, h), origin);
-    let cell = ('0'..='9').map(|c| crate::text::advance(font, *text_size, c)).try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
+    let cell = ('0'..='9')
+        .map(|c| crate::text::advance(font, *text_size, c))
+        .try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
     let line = s.chars().count() as f64 * cell;
     let x0 = px - line / 2.0;
     let (p, k) = (*text_size / 5.0, crate::text::top(font, *text_size, '0')?);
     let edge = |v: f64, most: usize| ((v + 0.5).floor().max(0.0) as usize).min(most);
-    let (l, r, t, b) = (edge(x0 - p, w), edge(x0 + line + p, w), edge(py - k - p, h), edge(py + p, h));
+    let (l, r, t, b) = (
+        edge(x0 - p, w),
+        edge(x0 + line + p, w),
+        edge(py - k - p, h),
+        edge(py + p, h),
+    );
     let a = *opacity / 100.0;
     let c = crate::effects::encoded(box_color).map(crate::grade::to_linear);
     let fill = [c[0] * a, c[1] * a, c[2] * a, a].map(|v| v as f32);
     let mut out = WorkingBuffer::transparent(w, h);
     if l < r {
         for y in t..b {
-            out.data_mut()[(y * w + l) * 4..(y * w + r) * 4].chunks_exact_mut(4).for_each(|q| q.copy_from_slice(&fill));
+            out.data_mut()[(y * w + l) * 4..(y * w + r) * 4]
+                .chunks_exact_mut(4)
+                .for_each(|q| q.copy_from_slice(&fill));
         }
     }
     crate::composite::over(&words, &mut out).ok()?;
@@ -9763,21 +12507,24 @@ pub(crate) fn timecode_picture(e: &crate::effects::Effect, (w, h): (usize, usize
 /// (1 or 0) in the first number, for [`keep_by`].
 pub(crate) fn identifier(pass: &WorkingBuffer, id: f64, output: &str) -> WorkingBuffer {
     let mut out = WorkingBuffer::transparent(pass.width(), pass.height());
-    out.data_mut().par_chunks_exact_mut(4).zip(pass.data().par_chunks_exact(4)).for_each(|(px, p)| {
-        let v = p[0] as f64;
-        let rgb = match output {
-            "colors" => {
-                let h = ((v + 0.5).floor() * 0.618033988749895).rem_euclid(1.0);
-                hsv(h, 0.7, 0.9).map(crate::grade::to_linear)
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(pass.data().par_chunks_exact(4))
+        .for_each(|(px, p)| {
+            let v = p[0] as f64;
+            let rgb = match output {
+                "colors" => {
+                    let h = ((v + 0.5).floor() * 0.618033988749895).rem_euclid(1.0);
+                    hsv(h, 0.7, 0.9).map(crate::grade::to_linear)
+                }
+                "raw" => [crate::grade::to_linear((v / 255.0).clamp(0.0, 1.0)); 3],
+                _ => [if (v - id).abs() < 0.5 { 1.0 } else { 0.0 }; 3],
+            };
+            for c in 0..3 {
+                px[c] = rgb[c] as f32;
             }
-            "raw" => [crate::grade::to_linear((v / 255.0).clamp(0.0, 1.0)); 3],
-            _ => [if (v - id).abs() < 0.5 { 1.0 } else { 0.0 }; 3],
-        };
-        for c in 0..3 {
-            px[c] = rgb[c] as f32;
-        }
-        px[3] = 1.0;
-    });
+            px[3] = 1.0;
+        });
     out
 }
 
@@ -9801,17 +12548,28 @@ fn hsv(h: f64, s: f64, v: f64) -> [f64; 3] {
 pub(crate) fn keep_by(source: &mut WorkingBuffer, matte: &WorkingBuffer, origin: (usize, usize)) {
     let w = source.width();
     let m = matte.data();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let k = pass_at(matte, i, w, origin).map_or(0.0, |j| m[j] as f64);
-        for v in px.iter_mut() {
-            *v = (*v as f64 * k) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let k = pass_at(matte, i, w, origin).map_or(0.0, |j| m[j] as f64);
+            for v in px.iter_mut() {
+                *v = (*v as f64 * k) as f32;
+            }
+        });
 }
 
 /// D-195: Echo's operators, as the file writes them.
-pub(crate) const ECHO_OPERATORS: [&str; 7] =
-    ["add", "maximum", "minimum", "screen", "composite_in_back", "composite_in_front", "blend"];
+pub(crate) const ECHO_OPERATORS: [&str; 7] = [
+    "add",
+    "maximum",
+    "minimum",
+    "screen",
+    "composite_in_back",
+    "composite_in_front",
+    "blend",
+];
 
 /// D-195: Echo's copies put together one at a time, so no more than one is held: each `P_k` in
 /// turn with its weight `I D^k`, then [`EchoFold::finish`].
@@ -9828,7 +12586,11 @@ impl EchoFold {
         if operator == "screen" {
             out.data_mut().fill(1.0);
         }
-        EchoFold { operator: operator.to_string(), out, count: 0 }
+        EchoFold {
+            operator: operator.to_string(),
+            out,
+            count: 0,
+        }
     }
 
     /// `p` is `P_k`, `None` where the layer shows nothing; it is the size the fold was made at.
@@ -9840,23 +12602,33 @@ impl EchoFold {
             return;
         }
         let fold: fn(&mut [f32], [f32; 4], bool) = match self.operator.as_str() {
-            "maximum" => |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].max(q[c]) }),
-            "minimum" => |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].min(q[c]) }),
+            "maximum" => {
+                |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].max(q[c]) })
+            }
+            "minimum" => {
+                |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].min(q[c]) })
+            }
             "screen" => |r, q, _| (0..4).for_each(|c| r[c] *= 1.0 - q[c].clamp(0.0, 1.0)),
             // What is there so far over the new copy, or the new copy over it.
             "composite_in_back" => |r, q, _| {
                 let a = r[3];
                 (0..4).for_each(|c| r[c] += (1.0 - a) * q[c])
             },
-            "composite_in_front" => |r, q, _| (0..4).for_each(|c| r[c] = q[c] + (1.0 - q[3]) * r[c]),
+            "composite_in_front" => {
+                |r, q, _| (0..4).for_each(|c| r[c] = q[c] + (1.0 - q[3]) * r[c])
+            }
             _ => |r, q, _| (0..4).for_each(|c| r[c] += q[c]),
         };
         let w = weight as f32;
         let src = p.map(|p| p.data());
-        self.out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, r)| {
-            let q = src.map_or([0.0; 4], |s| std::array::from_fn(|c| s[i * 4 + c] * w));
-            fold(r, q, first);
-        });
+        self.out
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, r)| {
+                let q = src.map_or([0.0; 4], |s| std::array::from_fn(|c| s[i * 4 + c] * w));
+                fold(r, q, first);
+            });
     }
 
     pub(crate) fn finish(mut self) -> WorkingBuffer {
@@ -9883,7 +12655,8 @@ pub(crate) fn lay(source: &mut WorkingBuffer, picture: &WorkingBuffer, (ox, oy):
     data.fill(0.0);
     for y in 0..rows {
         let to = ((oy + y) * w + ox) * 4;
-        data[to..to + across * 4].copy_from_slice(&picture.data()[y * picture.width() * 4..][..across * 4]);
+        data[to..to + across * 4]
+            .copy_from_slice(&picture.data()[y * picture.width() * 4..][..across * 4]);
     }
 }
 
@@ -9911,8 +12684,14 @@ pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (u
         return;
     }
     let w = source.width();
-    let (dw, dh) = ((w - 2 * origin.0) as f64, (source.height() - 2 * origin.1) as f64);
-    let (cx, cy) = (origin.0 as f64 + s.center[0] / 100.0 * dw, origin.1 as f64 + s.center[1] / 100.0 * dh);
+    let (dw, dh) = (
+        (w - 2 * origin.0) as f64,
+        (source.height() - 2 * origin.1) as f64,
+    );
+    let (cx, cy) = (
+        origin.0 as f64 + s.center[0] / 100.0 * dw,
+        origin.1 as f64 + s.center[1] / 100.0 * dh,
+    );
     let (nx, ny) = crate::blurs::along(s.direction + 90.0);
     let least = if s.edge > 0.0 && r > 0.0 {
         least_covering(source, s.thickness.floor() as usize)
@@ -9938,7 +12717,11 @@ pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (u
                 "smooth" => 0.0,
                 _ => (r + 0.5 - d).clamp(0.0, 1.0),
             };
-            let edge = if p > 0.0 && !least.is_empty() { s.edge / 100.0 * (a - least[i] as f64) / a } else { 0.0 };
+            let edge = if p > 0.0 && !least.is_empty() {
+                s.edge / 100.0 * (a - least[i] as f64) / a
+            } else {
+                0.0
+            };
             let l = p * (s.sweep / 100.0 + edge);
             if l == 0.0 && !cutout {
                 return;
@@ -9946,7 +12729,9 @@ pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (u
             let m = l.min(1.0);
             match s.reception {
                 "add" => (0..3).for_each(|j| px[j] = (px[j] as f64 + l * a * light[j]) as f32),
-                "composite" => (0..3).for_each(|j| px[j] = (px[j] as f64 + m * (a * light[j] - px[j] as f64)) as f32),
+                "composite" => (0..3).for_each(|j| {
+                    px[j] = (px[j] as f64 + m * (a * light[j] - px[j] as f64)) as f32
+                }),
                 _ => {
                     (0..3).for_each(|j| px[j] = (m * a * light[j]) as f32);
                     px[3] = (m * a) as f32;
@@ -9966,7 +12751,10 @@ fn least_covering(source: &WorkingBuffer, k: usize) -> Vec<f32> {
     rows.par_chunks_mut(w).enumerate().for_each(|(y, line)| {
         let src = &alpha[y * w..(y + 1) * w];
         for x in k..w.saturating_sub(k) {
-            line[x] = src[x - k..=x + k].iter().copied().fold(f32::INFINITY, f32::min);
+            line[x] = src[x - k..=x + k]
+                .iter()
+                .copied()
+                .fold(f32::INFINITY, f32::min);
         }
     });
     let mut out = vec![0.0f32; w * h];
@@ -10017,36 +12805,40 @@ pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
     let a = 360.0 / n;
     let apothem = (std::f64::consts::PI / n).cos();
     let w = source.width();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let mut t = 1.0;
-        for &(cx, cy, r, theta, h, g) in &waves {
-            let (qx, qy) = (x - cx, y - cy);
-            let q = qx.hypot(qy);
-            // A profile reaches h + 0.5 from the outline at most; the outline runs between the
-            // edges' middles, r cos(180 / n) out, and the corners, r out.
-            if q < r * apothem - h - 0.5 || q * apothem > r * apothem + h + 0.5 {
-                continue;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let mut t = 1.0;
+            for &(cx, cy, r, theta, h, g) in &waves {
+                let (qx, qy) = (x - cx, y - cy);
+                let q = qx.hypot(qy);
+                // A profile reaches h + 0.5 from the outline at most; the outline runs between the
+                // edges' middles, r cos(180 / n) out, and the corners, r out.
+                if q < r * apothem - h - 0.5 || q * apothem > r * apothem + h + 0.5 {
+                    continue;
+                }
+                let phi = qx.atan2(-qy).to_degrees();
+                let delta = phi - theta - a * (((phi - theta) / a).floor() + 0.5);
+                let d = (q * delta.to_radians().cos() - r * apothem).abs();
+                let p = match s.profile {
+                    "square" => ((d + 0.5).min(h) - (d - 0.5).max(-h)).clamp(0.0, 1.0),
+                    "triangle" => (1.0 - d / h).max(0.0),
+                    _ if d < h => (90.0 * d / h).to_radians().cos(),
+                    _ => 0.0,
+                };
+                t *= 1.0 - g * p;
             }
-            let phi = qx.atan2(-qy).to_degrees();
-            let delta = phi - theta - a * (((phi - theta) / a).floor() + 0.5);
-            let d = (q * delta.to_radians().cos() - r * apothem).abs();
-            let p = match s.profile {
-                "square" => ((d + 0.5).min(h) - (d - 0.5).max(-h)).clamp(0.0, 1.0),
-                "triangle" => (1.0 - d / h).max(0.0),
-                _ if d < h => (90.0 * d / h).to_radians().cos(),
-                _ => 0.0,
-            };
-            t *= 1.0 - g * p;
-        }
-        if t == 1.0 {
-            return;
-        }
-        for j in 0..3 {
-            px[j] = (t * px[j] as f64 + (1.0 - t) * s.color[j]) as f32;
-        }
-        px[3] = (t * px[3] as f64 + 1.0 - t) as f32;
-    });
+            if t == 1.0 {
+                return;
+            }
+            for j in 0..3 {
+                px[j] = (t * px[j] as f64 + (1.0 - t) * s.color[j]) as f32;
+            }
+            px[3] = (t * px[3] as f64 + 1.0 - t) as f32;
+        });
 }
 
 /// D-200's waves alive at the frame, oldest first: (centre x, centre y, corner radius, first
@@ -10086,16 +12878,37 @@ pub(crate) fn radio_wave_list(s: &RadioWaves) -> Vec<(f64, f64, f64, f64, f64, f
 /// inverse of T(P) R(rotation) K(skew, axis) S(across, down) T(-A), as `[a, b, c, d, e, f]` with
 /// the source at (a x + b y + c, d x + e y + f), or `None` when it cannot be undone (a scale of
 /// 0). R turns clockwise on the screen; K slides along the skew axis by the skew's tangent.
-pub(crate) fn transform_map(m: &[f64; 10], size: (usize, usize), origin: (usize, usize)) -> Option<[f64; 6]> {
+pub(crate) fn transform_map(
+    m: &[f64; 10],
+    size: (usize, usize),
+    origin: (usize, usize),
+) -> Option<[f64; 6]> {
     let (ax, ay) = crate::effects::radial_center([m[0], m[1]], size, origin);
     let (px, py) = crate::effects::radial_center([m[2], m[3]], size, origin);
-    let mul = |a: [f64; 4], b: [f64; 4]| [a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3]];
+    let mul = |a: [f64; 4], b: [f64; 4]| {
+        [
+            a[0] * b[0] + a[1] * b[2],
+            a[0] * b[1] + a[1] * b[3],
+            a[2] * b[0] + a[3] * b[2],
+            a[2] * b[1] + a[3] * b[3],
+        ]
+    };
     let turn = |deg: f64| {
         let (s, c) = deg.to_radians().sin_cos();
         [c, -s, s, c]
     };
-    let shear = if m[6] == 0.0 { [1.0, 0.0, 0.0, 1.0] } else { mul(mul(turn(m[7]), [1.0, -m[6].to_radians().tan(), 0.0, 1.0]), turn(-m[7])) };
-    let l = mul(mul(turn(m[8]), shear), [m[5] / 100.0, 0.0, 0.0, m[4] / 100.0]);
+    let shear = if m[6] == 0.0 {
+        [1.0, 0.0, 0.0, 1.0]
+    } else {
+        mul(
+            mul(turn(m[7]), [1.0, -m[6].to_radians().tan(), 0.0, 1.0]),
+            turn(-m[7]),
+        )
+    };
+    let l = mul(
+        mul(turn(m[8]), shear),
+        [m[5] / 100.0, 0.0, 0.0, m[4] / 100.0],
+    );
     let det = l[0] * l[3] - l[1] * l[2];
     if det == 0.0 || !det.is_finite() {
         return None;
@@ -10145,13 +12958,22 @@ pub(crate) fn sample_bicubic(src: &WorkingBuffer, x: f64, y: f64) -> [f32; 4] {
             }
         }
     }
-    [out[0].max(0.0), out[1].max(0.0), out[2].max(0.0), out[3].clamp(0.0, 1.0)]
+    [
+        out[0].max(0.0),
+        out[1].max(0.0),
+        out[2].max(0.0),
+        out[3].clamp(0.0, 1.0),
+    ]
 }
 
 /// D-408: the layer drawn through each moment's map (`None` draws nothing) times its opacity
 /// (0 to 1), the moments summed in order and divided by their number once. The buffer keeps its
 /// size. One moment through the unchanged map at full opacity leaves it as it is.
-pub(crate) fn transform(source: &mut WorkingBuffer, moments: &[(Option<[f64; 6]>, f64)], bicubic: bool) {
+pub(crate) fn transform(
+    source: &mut WorkingBuffer,
+    moments: &[(Option<[f64; 6]>, f64)],
+    bicubic: bool,
+) {
     if let [(Some([1.0, 0.0, 0.0, 0.0, 1.0, 0.0]), 1.0)] = moments {
         return;
     }
@@ -10166,9 +12988,15 @@ pub(crate) fn transform(source: &mut WorkingBuffer, moments: &[(Option<[f64; 6]>
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let mut sum = [0.0f32; 4];
             for (map, opacity) in moments {
-                let Some([a, b, c, d, e, f]) = *map else { continue };
+                let Some([a, b, c, d, e, f]) = *map else {
+                    continue;
+                };
                 let (sx, sy) = (a * x + b * y + c, d * x + e * y + f);
-                let s = if bicubic { sample_bicubic(drawing, sx, sy) } else { sample_bilinear(drawing, sx, sy) };
+                let s = if bicubic {
+                    sample_bicubic(drawing, sx, sy)
+                } else {
+                    sample_bilinear(drawing, sx, sy)
+                };
                 for k in 0..4 {
                     sum[k] += s[k] * *opacity as f32;
                 }
@@ -10185,7 +13013,11 @@ pub(crate) fn transform(source: &mut WorkingBuffer, moments: &[(Option<[f64; 6]>
 /// precision: the water run on its grid from the layer's in point (after the pre-roll) to this
 /// frame through the settings history compose filled, then drawn as a grey height map over the
 /// drawing in its place. The layer's own picture is not used. The settings are already valid.
-pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn wave_world(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::WaveWorld {
         render_dry_areas,
         grid_res_downsamples,
@@ -10218,7 +13050,11 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     let (w, h) = (source.width(), source.height());
     let (lw, lh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
     let now = e.wave_numbers();
-    let samples: Vec<&[f64]> = if history.is_empty() { vec![&now] } else { history.iter().map(Vec::as_slice).collect() };
+    let samples: Vec<&[f64]> = if history.is_empty() {
+        vec![&now]
+    } else {
+        history.iter().map(Vec::as_slice).collect()
+    };
     let (k0, kn) = (samples[0], samples[samples.len() - 1]);
     let r = *fps;
     let tau = 2.0 * std::f64::consts::PI;
@@ -10236,12 +13072,19 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     // Step 3: the ground's luma per cell, rows then columns.
     let g: Vec<f64> = (0..n * m)
         .map(|c| match ground_map {
-            Some(map) => picture_luma(sample_bilinear(&map.0, ((c % n) as f64 + 0.5) * dx * lw, ((c / n) as f64 + 0.5) * dy * lw)),
+            Some(map) => picture_luma(sample_bilinear(
+                &map.0,
+                ((c % n) as f64 + 0.5) * dx * lw,
+                ((c / n) as f64 + 0.5) * dy * lw,
+            )),
             None => 0.0,
         })
         .collect();
     let steps_for = |ks: &[&[f64]]| {
-        let cmax = ks.iter().map(|k| k[SPEED] * (2.0 * k[HEIGHT]).sqrt()).fold(f64::MIN, f64::max);
+        let cmax = ks
+            .iter()
+            .map(|k| k[SPEED] * (2.0 * k[HEIGHT]).sqrt())
+            .fold(f64::MIN, f64::max);
         ((1.6 * cmax / (r * dx.min(dy))).ceil() as usize).max(4)
     };
     // Step 6: a producer's weight per cell and its drive.
@@ -10257,7 +13100,10 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         let th = k[o + 4].to_radians();
         let (co, si) = (th.cos(), th.sin());
         for (c, wc) in out.iter_mut().enumerate() {
-            let (ox, oy) = (((c % n) as f64 + 0.5) * dx - cx, ((c / n) as f64 + 0.5) * dy - cy);
+            let (ox, oy) = (
+                ((c % n) as f64 + 0.5) * dx - cx,
+                ((c / n) as f64 + 0.5) * dy - cy,
+            );
             let (a, b) = (ox * co + oy * si, -ox * si + oy * co);
             if types[p] == "ring" {
                 let rr = (2.0 * a / wd).powi(2) + (2.0 * b / ht).powi(2);
@@ -10360,7 +13206,13 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         for s in 0..total {
             let sa = (s as f64 - total as f64) / (r * q0 as f64);
             let sb = (s as f64 + 1.0 - total as f64) / (r * q0 as f64);
-            one(k0, k0, [big_t(0, sa), big_t(1, sa)], [big_t(0, sb), big_t(1, sb)], 1.0 / (r * q0 as f64));
+            one(
+                k0,
+                k0,
+                [big_t(0, sa), big_t(1, sa)],
+                [big_t(0, sb), big_t(1, sb)],
+                1.0 / (r * q0 as f64),
+            );
         }
     }
     // The frame intervals; the frequency's running sum at each sample.
@@ -10380,7 +13232,9 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         let (fa, fb) = (samples[j][PROD[p] + 6], samples[j + 1][PROD[p] + 6]);
         tsum[p][j] + tau / r * (fa * f + (fb - fa) * f * f / 2.0)
     };
-    let lerp = |a: &[f64], b: &[f64], f: f64| -> Vec<f64> { a.iter().zip(b).map(|(x, y)| x + (y - x) * f).collect() };
+    let lerp = |a: &[f64], b: &[f64], f: f64| -> Vec<f64> {
+        a.iter().zip(b).map(|(x, y)| x + (y - x) * f).collect()
+    };
     for j in 0..count {
         let (sa, sb) = (samples[j], samples[j + 1]);
         let q = steps_for(&[sa, sb]);
@@ -10390,7 +13244,11 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             let last = i + 1 == q;
             let kb = if last { sb.to_vec() } else { lerp(sa, sb, fb) };
             let ta = [big_t(0, j, fa), big_t(1, j, fa)];
-            let tb = if last { [tsum[0][j + 1], tsum[1][j + 1]] } else { [big_t(0, j, fb), big_t(1, j, fb)] };
+            let tb = if last {
+                [tsum[0][j + 1], tsum[1][j + 1]]
+            } else {
+                [big_t(0, j, fb), big_t(1, j, fb)]
+            };
             one(&ka, &kb, ta, tb, 1.0 / (r * q as f64));
         }
     }
@@ -10411,7 +13269,11 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             (lw / 2.0 - 0.5 + a2, lh / 2.0 - 0.5 + b2 * st - z * ct)
         };
         let point = |c: usize| {
-            seen(((c % n) as f64 + 0.5) * lw / n as f64 - lw / 2.0, ((c / n) as f64 + 0.5) * lh / m as f64 - lh / 2.0, hh[c] * kn[WIRE + 2] * lw / 10.0)
+            seen(
+                ((c % n) as f64 + 0.5) * lw / n as f64 - lw / 2.0,
+                ((c / n) as f64 + 0.5) * lh / m as f64 - lh / 2.0,
+                hh[c] * kn[WIRE + 2] * lw / 10.0,
+            )
         };
         let mut lit = vec![false; lwu * lhu];
         let mut draw = |a: (f64, f64), b: (f64, f64)| {
@@ -10420,7 +13282,10 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
                 let (lo, hi) = ((lo - 1.0).floor().max(0.0), hi.ceil().min(len as f64 - 1.0));
                 (lo <= hi).then(|| (lo as usize, hi as usize))
             };
-            let (Some((x0, x1)), Some((y0, y1))) = (span(a.0.min(b.0), a.0.max(b.0), lwu), span(a.1.min(b.1), a.1.max(b.1), lhu)) else {
+            let (Some((x0, x1)), Some((y0, y1))) = (
+                span(a.0.min(b.0), a.0.max(b.0), lwu),
+                span(a.1.min(b.1), a.1.max(b.1), lhu),
+            ) else {
                 return;
             };
             let (ex, ey) = (b.0 - a.0, b.1 - a.1);
@@ -10428,7 +13293,11 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             for y in y0..=y1 {
                 for x in x0..=x1 {
                     let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
-                    let f = if ll == 0.0 { 0.0 } else { (((cx - a.0) * ex + (cy - a.1) * ey) / ll).clamp(0.0, 1.0) };
+                    let f = if ll == 0.0 {
+                        0.0
+                    } else {
+                        (((cx - a.0) * ex + (cy - a.1) * ey) / ll).clamp(0.0, 1.0)
+                    };
                     if (cx - a.0 - f * ex).hypot(cy - a.1 - f * ey) < 0.5 {
                         lit[y * lwu + x] = true;
                     }
@@ -10448,7 +13317,9 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             }
         }
         let mut out = WorkingBuffer::transparent(w, h);
-        let put = |out: &mut WorkingBuffer, x: usize, y: usize, c: [f32; 4]| out.data_mut()[(y * w + x) * 4..][..4].copy_from_slice(&c);
+        let put = |out: &mut WorkingBuffer, x: usize, y: usize, c: [f32; 4]| {
+            out.data_mut()[(y * w + x) * 4..][..4].copy_from_slice(&c)
+        };
         for (k, &on) in lit.iter().enumerate() {
             if on {
                 put(&mut out, ox + k % lwu, oy + k / lwu, [1.0; 4]);
@@ -10459,9 +13330,23 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             if kn[o + 5] == 0.0 {
                 continue;
             }
-            let (sx, sy) = seen(kn[o] * lw / 100.0 - lw / 2.0, kn[o + 1] * lh / 100.0 - lh / 2.0, 0.0);
+            let (sx, sy) = seen(
+                kn[o] * lw / 100.0 - lw / 2.0,
+                kn[o + 1] * lh / 100.0 - lh / 2.0,
+                0.0,
+            );
             let (fx, fy) = (sx.floor(), sy.floor());
-            for (dx, dy) in [(-2.0, 0.0), (-1.0, 0.0), (0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (0.0, -2.0), (0.0, -1.0), (0.0, 1.0), (0.0, 2.0)] {
+            for (dx, dy) in [
+                (-2.0, 0.0),
+                (-1.0, 0.0),
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (2.0, 0.0),
+                (0.0, -2.0),
+                (0.0, -1.0),
+                (0.0, 1.0),
+                (0.0, 2.0),
+            ] {
                 let (x, y) = (fx + dx, fy + dy);
                 if x >= 0.0 && y >= 0.0 && x < lw && y < lh {
                     put(&mut out, ox + x as usize, oy + y as usize, colour);
@@ -10478,35 +13363,42 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         let (i0, j0) = (gx.floor() as usize, gy.floor() as usize);
         let (i1, j1) = ((i0 + 1).min(n - 1), (j0 + 1).min(m - 1));
         let (fx, fy) = (gx - i0 as f64, gy - j0 as f64);
-        (v[j0 * n + i0] * (1.0 - fx) + v[j0 * n + i1] * fx) * (1.0 - fy) + (v[j1 * n + i0] * (1.0 - fx) + v[j1 * n + i1] * fx) * fy
+        (v[j0 * n + i0] * (1.0 - fx) + v[j0 * n + i1] * fx) * (1.0 - fy)
+            + (v[j1 * n + i0] * (1.0 - fx) + v[j1 * n + i1] * fx) * fy
     };
     let transparent = render_dry_areas == "transparent";
     let mut out = WorkingBuffer::transparent(w, h);
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as isize - ox as isize, (i / w) as isize - oy as isize);
-        if x < 0 || y < 0 || x >= lw as isize || y >= lh as isize {
-            return;
-        }
-        let gx = (x as f64 + 0.5) * n as f64 / lw - 0.5;
-        let gy = (y as f64 + 0.5) * m as f64 / lh - 0.5;
-        let dd = bilerp(&d, gx, gy);
-        let mut hv = bilerp(&hh, gx, gy);
-        if dd <= 0.0 {
-            if transparent {
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = (
+                (i % w) as isize - ox as isize,
+                (i / w) as isize - oy as isize,
+            );
+            if x < 0 || y < 0 || x >= lw as isize || y >= lh as isize {
                 return;
             }
-            hv = 0.0;
-        }
-        let v = (kn[BRIGHT] + kn[CONTRAST] * hv).clamp(0.0, 1.0);
-        let grey = v.powf(1.0 / kn[GAMMA]);
-        let a = if kn[HEIGHT] > 0.0 {
-            (1.0 - kn[CLEAR] * (1.0 - dd.max(0.0) / kn[HEIGHT])).clamp(0.0, 1.0)
-        } else {
-            (1.0 - kn[CLEAR]).clamp(0.0, 1.0)
-        };
-        let lin = crate::grade::to_linear(grey) * a;
-        px.copy_from_slice(&[lin as f32, lin as f32, lin as f32, a as f32]);
-    });
+            let gx = (x as f64 + 0.5) * n as f64 / lw - 0.5;
+            let gy = (y as f64 + 0.5) * m as f64 / lh - 0.5;
+            let dd = bilerp(&d, gx, gy);
+            let mut hv = bilerp(&hh, gx, gy);
+            if dd <= 0.0 {
+                if transparent {
+                    return;
+                }
+                hv = 0.0;
+            }
+            let v = (kn[BRIGHT] + kn[CONTRAST] * hv).clamp(0.0, 1.0);
+            let grey = v.powf(1.0 / kn[GAMMA]);
+            let a = if kn[HEIGHT] > 0.0 {
+                (1.0 - kn[CLEAR] * (1.0 - dd.max(0.0) / kn[HEIGHT])).clamp(0.0, 1.0)
+            } else {
+                (1.0 - kn[CLEAR]).clamp(0.0, 1.0)
+            };
+            let lin = crate::grade::to_linear(grey) * a;
+            px.copy_from_slice(&[lin as f32, lin as f32, lin as f32, a as f32]);
+        });
     *source = out;
 }
 
@@ -10514,7 +13406,11 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 /// bottom (the drawing, or a layer read whole) placed, blurred and seen through a water surface
 /// whose waves come from a layer's luma, brightened where the waves gather the light, under a lit
 /// surface colour that can mirror a placed sky. Never grows. The settings are already valid.
-pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn caustics(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::Caustics {
         bottom_layer,
         bottom_map,
@@ -10563,11 +13459,19 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
     // Step 1: the pictures, each (width, height, premultiplied pixels by rows).
     let whole = |m: &crate::layer_map::Map| {
         let b = &m.0;
-        let pixels = (0..b.width() * b.height()).map(|i| px(b.pixel(i % b.width(), i / b.width()))).collect::<Vec<_>>();
+        let pixels = (0..b.width() * b.height())
+            .map(|i| px(b.pixel(i % b.width(), i / b.width())))
+            .collect::<Vec<_>>();
         (b.width(), b.height(), pixels)
     };
     let bottom_q = if bottom_layer.as_str() == Some("") {
-        (lw, lh, (0..lw * lh).map(|i| px(source.pixel(ox + i % lw, oy + i / lw))).collect())
+        (
+            lw,
+            lh,
+            (0..lw * lh)
+                .map(|i| px(source.pixel(ox + i % lw, oy + i / lw)))
+                .collect(),
+        )
     } else {
         bottom_map.as_ref().map(whole).unwrap_or((0, 0, Vec::new()))
     };
@@ -10586,7 +13490,11 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
             _ => None,
         }
     };
-    let placed = |(qw, qh, q): &(usize, usize, Vec<[f64; 4]>), s: f64, mode: &str, fit: &str| -> Vec<[f64; 4]> {
+    let placed = |(qw, qh, q): &(usize, usize, Vec<[f64; 4]>),
+                  s: f64,
+                  mode: &str,
+                  fit: &str|
+     -> Vec<[f64; 4]> {
         if *qw == 0 || *qh == 0 {
             return vec![[0.0; 4]; lw * lh];
         }
@@ -10594,9 +13502,15 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
             .into_par_iter()
             .map(|i| {
                 let (x, y) = ((i % lw) as f64, (i / lw) as f64);
-                let (a, b) = ((x + 0.5 - wf / 2.0) / s + wf / 2.0, (y + 0.5 - hf / 2.0) / s + hf / 2.0);
+                let (a, b) = (
+                    (x + 0.5 - wf / 2.0) / s + wf / 2.0,
+                    (y + 0.5 - hf / 2.0) / s + hf / 2.0,
+                );
                 let (u, v) = if fit == "center" {
-                    (a - ((lw as i64 - *qw as i64).div_euclid(2)) as f64 - 0.5, b - ((lh as i64 - *qh as i64).div_euclid(2)) as f64 - 0.5)
+                    (
+                        a - ((lw as i64 - *qw as i64).div_euclid(2)) as f64 - 0.5,
+                        b - ((lh as i64 - *qh as i64).div_euclid(2)) as f64 - 0.5,
+                    )
                 } else {
                     (a * *qw as f64 / wf - 0.5, b * *qh as f64 / hf - 0.5)
                 };
@@ -10605,7 +13519,10 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
                 let mut p = [0.0; 4];
                 for (dj, wv) in [(0, 1.0 - fv), (1, fv)] {
                     for (di, wu) in [(0, 1.0 - fu), (1, fu)] {
-                        if let (Some(ii), Some(jj)) = (wrap(i0 as i64 + di, *qw as i64, mode), wrap(j0 as i64 + dj, *qh as i64, mode)) {
+                        if let (Some(ii), Some(jj)) = (
+                            wrap(i0 as i64 + di, *qw as i64, mode),
+                            wrap(j0 as i64 + dj, *qh as i64, mode),
+                        ) {
                             let s = q[jj * qw + ii];
                             for c in 0..4 {
                                 p[c] += s[c] * wu * wv;
@@ -10626,7 +13543,9 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
             return v.to_vec();
         }
         let r = (3.0 * sigma).ceil() as i64;
-        let t: Vec<f64> = (-r..=r).map(|i| (-((i * i) as f64) / (2.0 * sigma * sigma)).exp()).collect();
+        let t: Vec<f64> = (-r..=r)
+            .map(|i| (-((i * i) as f64) / (2.0 * sigma * sigma)).exp())
+            .collect();
         let total: f64 = t.iter().sum();
         let t: Vec<f64> = t.iter().map(|v| v / total).collect();
         let pass = |v: &[[f64; N]], across: bool| -> Vec<[f64; N]> {
@@ -10637,7 +13556,11 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
                     let mut s = [0.0; N];
                     for (k, tk) in t.iter().enumerate() {
                         let o = k as i64 - r;
-                        let j = if across { y * lw as i64 + (x + o).clamp(0, lw as i64 - 1) } else { (y + o).clamp(0, lh as i64 - 1) * lw as i64 + x };
+                        let j = if across {
+                            y * lw as i64 + (x + o).clamp(0, lw as i64 - 1)
+                        } else {
+                            (y + o).clamp(0, lh as i64 - 1) * lw as i64 + x
+                        };
                         for c in 0..N {
                             s[c] += tk * v[j as usize][c];
                         }
@@ -10648,15 +13571,32 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
         };
         pass(&pass(v, true), false)
     }
-    let bottom = gaussian(&placed(&bottom_q, *bottom_scaling, bottom_repeat_mode, bottom_fit), lw, lh, bottom_blur * wf / 1000.0);
-    let sky = sky_map.as_ref().map(|m| placed(&whole(m), *sky_scaling, sky_repeat_mode, sky_fit));
+    let bottom = gaussian(
+        &placed(&bottom_q, *bottom_scaling, bottom_repeat_mode, bottom_fit),
+        lw,
+        lh,
+        bottom_blur * wf / 1000.0,
+    );
+    let sky = sky_map
+        .as_ref()
+        .map(|m| placed(&whole(m), *sky_scaling, sky_repeat_mode, sky_fit));
     let held = |p: &[[f64; 4]], sx: f64, sy: f64| {
-        let (u, v) = ((sx - 0.5).clamp(0.0, wf - 1.0), (sy - 0.5).clamp(0.0, hf - 1.0));
+        let (u, v) = (
+            (sx - 0.5).clamp(0.0, wf - 1.0),
+            (sy - 0.5).clamp(0.0, hf - 1.0),
+        );
         let (i0, j0) = (u.floor() as usize, v.floor() as usize);
         let (i1, j1) = ((i0 + 1).min(lw - 1), (j0 + 1).min(lh - 1));
         let (fu, fv) = (u - i0 as f64, v - j0 as f64);
-        let (a, b, c, d) = (p[j0 * lw + i0], p[j0 * lw + i1], p[j1 * lw + i0], p[j1 * lw + i1]);
-        std::array::from_fn::<f64, 4, _>(|k| (a[k] * (1.0 - fu) + b[k] * fu) * (1.0 - fv) + (c[k] * (1.0 - fu) + d[k] * fu) * fv)
+        let (a, b, c, d) = (
+            p[j0 * lw + i0],
+            p[j0 * lw + i1],
+            p[j1 * lw + i0],
+            p[j1 * lw + i1],
+        );
+        std::array::from_fn::<f64, 4, _>(|k| {
+            (a[k] * (1.0 - fu) + b[k] * fu) * (1.0 - fv) + (c[k] * (1.0 - fu) + d[k] * fu) * fv
+        })
     };
     let diffs = |v: &[f64], x: usize, y: usize| {
         (
@@ -10670,12 +13610,19 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
         .map(|i| match surface_map {
             Some(m) => {
                 let (x, y) = (i % lw, i / lw);
-                [if x < m.0.width() && y < m.0.height() { picture_luma(m.0.pixel(x, y)) } else { 0.0 }]
+                [if x < m.0.width() && y < m.0.height() {
+                    picture_luma(m.0.pixel(x, y))
+                } else {
+                    0.0
+                }]
             }
             None => [0.5],
         })
         .collect();
-    let z: Vec<f64> = gaussian(&lum, lw, lh, smoothing * wf / 1000.0).iter().map(|l| wave_height * (l[0] - 0.5) * wf / 4.0).collect();
+    let z: Vec<f64> = gaussian(&lum, lw, lh, smoothing * wf / 1000.0)
+        .iter()
+        .map(|l| wave_height * (l[0] - 0.5) * wf / 4.0)
+        .collect();
     let normals: Vec<[f64; 3]> = (0..lw * lh)
         .map(|i| {
             let (gx, gy) = diffs(&z, i % lw, i / lw);
@@ -10699,41 +13646,73 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
     // Steps 6 to 10, each pixel of the layer.
     let lin = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
     let (sc, lc) = (lin(surface_color), lin(light_color));
-    let (op, si, conv, cs) = (*surface_opacity, *sky_intensity, *sky_convergence, *caustics_strength);
-    let lp = [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_height * wf];
+    let (op, si, conv, cs) = (
+        *surface_opacity,
+        *sky_intensity,
+        *sky_convergence,
+        *caustics_strength,
+    );
+    let lp = [
+        light_position[0] * wf / 100.0 - wf / 2.0,
+        light_position[1] * hf / 100.0 - hf / 2.0,
+        -light_height * wf,
+    ];
     let point = light_type == "point";
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, o)| {
-        let (bx, by) = (i % w, i / w);
-        if bx < ox || by < oy || bx >= ox + lw || by >= oy + lh {
-            return;
-        }
-        let (x, y) = (bx - ox, by - oy);
-        let j = y * lw + x;
-        let n = normals[j];
-        let (dxx, dxy) = diffs(&offx, x, y);
-        let (dyx, dyy) = diffs(&offy, x, y);
-        let det = (1.0 + dxx) * (1.0 + dyy) - dxy * dyx;
-        let m = 1.0 + cs * (1.0 / det.abs().max(0.1) - 1.0);
-        let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
-        let b = held(&bottom, cx + offx[j], cy + offy[j]);
-        let r = match &sky {
-            Some(sky) => held(sky, cx + conv * wf / 2.0 * (-2.0 * n[2] * n[0]), cy + conv * wf / 2.0 * (-2.0 * n[2] * n[1])),
-            None => [0.0; 4],
-        };
-        let s: [f64; 3] = std::array::from_fn(|c| sc[c] * (1.0 - si * r[3]) + si * r[c]);
-        let pl = if point { [lp[0] - (cx - wf / 2.0), lp[1] - (cy - hf / 2.0), lp[2]] } else { lp };
-        let len = (pl[0] * pl[0] + pl[1] * pl[1] + pl[2] * pl[2]).sqrt();
-        let lv = if len == 0.0 { [0.0; 3] } else { pl.map(|q| q / len) };
-        let hv = [lv[0], lv[1], lv[2] - 1.0];
-        let nl = n[0] * lv[0] + n[1] * lv[1] + n[2] * lv[2];
-        let hn = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
-        let sp = if nl > 0.0 && hn > 0.0 { ((n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) / hn).max(0.0).powf(*highlight_sharpness) } else { 0.0 };
-        for c in 0..3 {
-            let lit = s[c] * (ambient_light + diffuse_reflection * light_intensity * lc[c] * nl.max(0.0)) + specular_reflection * light_intensity * sp * lc[c];
-            o[c] = (b[c] * m * (1.0 - op) + lit * op) as f32;
-        }
-        o[3] = (b[3] * (1.0 - op) + op) as f32;
-    });
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, o)| {
+            let (bx, by) = (i % w, i / w);
+            if bx < ox || by < oy || bx >= ox + lw || by >= oy + lh {
+                return;
+            }
+            let (x, y) = (bx - ox, by - oy);
+            let j = y * lw + x;
+            let n = normals[j];
+            let (dxx, dxy) = diffs(&offx, x, y);
+            let (dyx, dyy) = diffs(&offy, x, y);
+            let det = (1.0 + dxx) * (1.0 + dyy) - dxy * dyx;
+            let m = 1.0 + cs * (1.0 / det.abs().max(0.1) - 1.0);
+            let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
+            let b = held(&bottom, cx + offx[j], cy + offy[j]);
+            let r = match &sky {
+                Some(sky) => held(
+                    sky,
+                    cx + conv * wf / 2.0 * (-2.0 * n[2] * n[0]),
+                    cy + conv * wf / 2.0 * (-2.0 * n[2] * n[1]),
+                ),
+                None => [0.0; 4],
+            };
+            let s: [f64; 3] = std::array::from_fn(|c| sc[c] * (1.0 - si * r[3]) + si * r[c]);
+            let pl = if point {
+                [lp[0] - (cx - wf / 2.0), lp[1] - (cy - hf / 2.0), lp[2]]
+            } else {
+                lp
+            };
+            let len = (pl[0] * pl[0] + pl[1] * pl[1] + pl[2] * pl[2]).sqrt();
+            let lv = if len == 0.0 {
+                [0.0; 3]
+            } else {
+                pl.map(|q| q / len)
+            };
+            let hv = [lv[0], lv[1], lv[2] - 1.0];
+            let nl = n[0] * lv[0] + n[1] * lv[1] + n[2] * lv[2];
+            let hn = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
+            let sp = if nl > 0.0 && hn > 0.0 {
+                ((n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) / hn)
+                    .max(0.0)
+                    .powf(*highlight_sharpness)
+            } else {
+                0.0
+            };
+            for c in 0..3 {
+                let lit = s[c]
+                    * (ambient_light + diffuse_reflection * light_intensity * lc[c] * nl.max(0.0))
+                    + specular_reflection * light_intensity * sp * lc[c];
+                o[c] = (b[c] * m * (1.0 - op) + lit * op) as f32;
+            }
+            o[3] = (b[3] * (1.0 - op) + op) as f32;
+        });
     *source = out;
 }
 
@@ -10747,7 +13726,11 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
 /// eye is tried everywhere. Never grows.
 /// ponytail: every card's numbers are held at once, about 100 bytes a card, so 1000 by 1000
 /// cards hold about 100 MB; work them a band at a time if that bites.
-pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn card_dance(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     #[rustfmt::skip]
     let crate::effects::Effect::CardDance { rows_columns, rows, columns, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, rotation_order, transformation_order, sources, multipliers, offsets, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, view, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
     else {
@@ -10762,16 +13745,32 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     let mut out = WorkingBuffer::transparent(w, h);
     let comp_camera = camera_system == "comp_camera";
     // D-634: the Corner Pins camera; nothing is drawn where it has none.
-    let pinned = (camera_system == "corner_pins")
-        .then(|| corner_camera(lw as f64, lh as f64, [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner], *focal_length, auto_focal_length == "on"));
+    let pinned = (camera_system == "corner_pins").then(|| {
+        corner_camera(
+            lw as f64,
+            lh as f64,
+            [
+                *upper_left_corner,
+                *upper_right_corner,
+                *lower_left_corner,
+                *lower_right_corner,
+            ],
+            *focal_length,
+            auto_focal_length == "on",
+        )
+    });
     if lw == 0 || lh == 0 || (comp_camera && !(view[2] > 0.0)) || matches!(pinned, Some(None)) {
         *source = out;
         return;
     }
     let (wf, hf) = (lw as f64, lh as f64);
-    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
-    let app = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[i][j] * v[j]).sum()) };
-    let app_t = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let mul = |a: M3, b: M3| -> M3 {
+        std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum()))
+    };
+    let app =
+        |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[i][j] * v[j]).sum()) };
+    let app_t =
+        |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
     let rot = |axis: u8, deg: f64| -> M3 {
         let (s, c) = deg.to_radians().sin_cos();
         match axis {
@@ -10781,11 +13780,21 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         }
     };
     let dot = |p: V3, q: V3| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
-    let cross = |a: V3, b: V3| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let cross = |a: V3, b: V3| {
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+    };
     let det3 = |a: V3, b: V3, c: V3| dot(a, cross(b, c));
     let unit = |p: V3| {
         let n = dot(p, p).sqrt();
-        if n == 0.0 { [0.0; 3] } else { p.map(|q| q / n) }
+        if n == 0.0 {
+            [0.0; 3]
+        } else {
+            p.map(|q| q / n)
+        }
     };
 
     // Step 4: the camera's turn M, the eye o, and the ray through pixel (x, y),
@@ -10794,24 +13803,55 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     // y + 1/2 - centre y, f), and the light's place is L^T of its own; all three are the turn,
     // but Corner Pins (D-634) has A, A^-1 by columns and none, so its light stays on the layer.
     let (m, rt, lt, o, centre, f) = if let Some(Some((o, a, ai, f))) = pinned {
-        (a, std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])), I3, o, [wf / 2.0, hf / 2.0], f)
+        (
+            a,
+            std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])),
+            I3,
+            o,
+            [wf / 2.0, hf / 2.0],
+            f,
+        )
     } else if comp_camera {
         let [ax, ay, away] = *view;
-        (I3, I3, I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
+        (
+            I3,
+            I3,
+            I3,
+            [ax - wf / 2.0, ay - hf / 2.0, -away],
+            [ax, ay],
+            away,
+        )
     } else {
-        let m = mul(rot(b'z', *camera_z_rotation), mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)));
+        let m = mul(
+            rot(b'z', *camera_z_rotation),
+            mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)),
+        );
         let f = wf * focal_length / 36.0;
-        let o = app_t(&m, [camera_xy_position[0] * wf / 100.0 - wf / 2.0, camera_xy_position[1] * hf / 100.0 - hf / 2.0, -camera_z_position * f]);
+        let o = app_t(
+            &m,
+            [
+                camera_xy_position[0] * wf / 100.0 - wf / 2.0,
+                camera_xy_position[1] * hf / 100.0 - hf / 2.0,
+                -camera_z_position * f,
+            ],
+        );
         (m, m, m, o, [wf / 2.0, hf / 2.0], f)
     };
 
     // Steps 1 to 3: the cards, rows then columns, each its first two axes, its middle from the
     // layer's middle, the sign of its scales and its home centre.
     let r = (rows + 0.5).floor();
-    let c = if rows_columns == "columns_follow_rows" { r } else { (columns + 0.5).floor() };
+    let c = if rows_columns == "columns_follow_rows" {
+        r
+    } else {
+        (columns + 0.5).floor()
+    };
     let (cw, ch) = (wf / c, hf / r);
     let cols = c as usize;
-    let grads = [(gradient_layer_1, gradient_map_1), (gradient_layer_2, gradient_map_2)];
+    let grads = [
+        (gradient_layer_1, gradient_map_1),
+        (gradient_layer_2, gradient_map_2),
+    ];
     let drawing = &*source;
     let pixel_of = |n: usize, gx: usize, gy: usize| -> [f32; 4] {
         let (name, map) = grads[n];
@@ -10819,7 +13859,13 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             drawing.pixel(ox + gx, oy + gy)
         } else {
             // A layer named but not read (not in the composition, or not begun) is clear.
-            map.as_ref().map_or([0.0; 4], |m| if gx < m.0.width() && gy < m.0.height() { m.0.pixel(gx, gy) } else { [0.0; 4] })
+            map.as_ref().map_or([0.0; 4], |m| {
+                if gx < m.0.width() && gy < m.0.height() {
+                    m.0.pixel(gx, gy)
+                } else {
+                    [0.0; 4]
+                }
+            })
         }
     };
     let value = |word: &str, px: &[[f32; 4]; 2]| -> f64 {
@@ -10846,14 +13892,26 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     let deck: Vec<Card> = (0..r as usize * cols)
         .into_par_iter()
         .map(|i| {
-            let (cx, cy) = ((((i % cols) as f64) + 0.5) * cw, (((i / cols) as f64) + 0.5) * ch);
-            let (gx, gy) = (cx.floor().min(wf - 1.0) as usize, cy.floor().min(hf - 1.0) as usize);
+            let (cx, cy) = (
+                (((i % cols) as f64) + 0.5) * cw,
+                (((i / cols) as f64) + 0.5) * ch,
+            );
+            let (gx, gy) = (
+                cx.floor().min(wf - 1.0) as usize,
+                cy.floor().min(hf - 1.0) as usize,
+            );
             let px = [pixel_of(0, gx, gy), pixel_of(1, gx, gy)];
             let num: [f64; 8] = std::array::from_fn(|t| {
-                if sources[t] == "none" { offsets[t] } else { (2.0 * value(&sources[t], &px) - 1.0) * multipliers[t] + offsets[t] }
+                if sources[t] == "none" {
+                    offsets[t]
+                } else {
+                    (2.0 * value(&sources[t], &px) - 1.0) * multipliers[t] + offsets[t]
+                }
             });
             let sm = [[num[6], 0.0, 0.0], [0.0, num[7], 0.0], [0.0, 0.0, 1.0]];
-            let rm = order.iter().fold(I3, |acc, &a| mul(rot(a, num[3 + (a - b'x') as usize]), acc));
+            let rm = order
+                .iter()
+                .fold(I3, |acc, &a| mul(rot(a, num[3 + (a - b'x') as usize]), acc));
             let (mut am, mut b) = (I3, [0.0; 3]);
             for step in transformation_order.split('_') {
                 match step {
@@ -10867,7 +13925,13 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
                 a0: [am[0][0], am[1][0], am[2][0]],
                 a1: [am[0][1], am[1][1], am[2][1]],
                 base: [b[0] + cx - wf / 2.0, b[1] + cy - hf / 2.0, b[2]],
-                s: if sxy > 0.0 { 1.0 } else if sxy < 0.0 { -1.0 } else { 0.0 },
+                s: if sxy > 0.0 {
+                    1.0
+                } else if sxy < 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                },
                 cx,
                 cy,
             }
@@ -10883,14 +13947,19 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         let mut hi = [f64::NEG_INFINITY; 2];
         let (mut behind, mut gone) = (0, 0);
         for (u, v) in [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)] {
-            let p: V3 = std::array::from_fn(|n| card.base[n] + card.a0[n] * u * cw + card.a1[n] * v * ch - o[n]);
+            let p: V3 = std::array::from_fn(|n| {
+                card.base[n] + card.a0[n] * u * cw + card.a1[n] * v * ch - o[n]
+            });
             let q = app(&m, p);
             if !(q[2] > 1e-9 * f) {
                 behind += 1;
                 gone += usize::from(!(q[2] > 0.0));
                 continue;
             }
-            for (n, at) in [(0, centre[0] + f * q[0] / q[2] + ox as f64), (1, centre[1] + f * q[1] / q[2] + oy as f64)] {
+            for (n, at) in [
+                (0, centre[0] + f * q[0] / q[2] + ox as f64),
+                (1, centre[1] + f * q[1] / q[2] + oy as f64),
+            ] {
                 lo[n] = lo[n].min(at);
                 hi[n] = hi[n].max(at);
             }
@@ -10906,7 +13975,12 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         // Pixel X's centre is at X + 1/2 on the screen.
         let span = |lo: f64, hi: f64, n: usize| -> Option<(usize, usize)> {
             let (a, b) = ((lo - 1.5).floor(), (hi + 0.5).ceil());
-            (b >= 0.0 && a < n as f64).then(|| (a.max(0.0) as usize / TILE, (b.min(n as f64 - 1.0) as usize) / TILE))
+            (b >= 0.0 && a < n as f64).then(|| {
+                (
+                    a.max(0.0) as usize / TILE,
+                    (b.min(n as f64 - 1.0) as usize) / TILE,
+                )
+            })
         };
         if let (Some((x0, x1)), Some((y0, y1))) = (span(lo[0], hi[0], w), span(lo[1], hi[1], h)) {
             for row in tiles[y0 * tx..(y1 + 1) * tx].chunks_exact_mut(tx) {
@@ -10919,55 +13993,86 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 
     // Steps 5 to 8, per pixel.
     let back = back_map.as_ref().map(|m| &*m.0);
-    let pl = app_t(&lt, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
+    let pl = app_t(
+        &lt,
+        [
+            light_position[0] * wf / 100.0 - wf / 2.0,
+            light_position[1] * hf / 100.0 - hf / 2.0,
+            -light_depth * wf,
+        ],
+    );
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let point = light_type == "point";
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (bx, by) = (i % w, i / w);
-        let v = app_t(&rt, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
-        let nv = v.map(|q| -q);
-        let mut best: Option<(f64, usize, f64, f64)> = None;
-        for &k in tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere) {
-            let (k, card) = (k as usize, &deck[k as usize]);
-            let det = det3(card.a0, card.a1, nv);
-            if det == 0.0 {
-                continue;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (bx, by) = (i % w, i / w);
+            let v = app_t(
+                &rt,
+                [
+                    bx as f64 - ox as f64 + 0.5 - centre[0],
+                    by as f64 - oy as f64 + 0.5 - centre[1],
+                    f,
+                ],
+            );
+            let nv = v.map(|q| -q);
+            let mut best: Option<(f64, usize, f64, f64)> = None;
+            for &k in tiles[(by / TILE) * tx + bx / TILE]
+                .iter()
+                .chain(&everywhere)
+            {
+                let (k, card) = (k as usize, &deck[k as usize]);
+                let det = det3(card.a0, card.a1, nv);
+                if det == 0.0 {
+                    continue;
+                }
+                let rhs: V3 = std::array::from_fn(|n| o[n] - card.base[n]);
+                let t = det3(card.a0, card.a1, rhs) / det;
+                if t <= 0.0 || best.is_some_and(|(bt, bk, ..)| t > bt || (t == bt && k > bk)) {
+                    continue;
+                }
+                let (lx, ly) = (det3(rhs, card.a1, nv) / det, det3(card.a0, rhs, nv) / det);
+                if lx.abs() <= cw / 2.0 && ly.abs() <= ch / 2.0 {
+                    best = Some((t, k, lx, ly));
+                }
             }
-            let rhs: V3 = std::array::from_fn(|n| o[n] - card.base[n]);
-            let t = det3(card.a0, card.a1, rhs) / det;
-            if t <= 0.0 || best.is_some_and(|(bt, bk, ..)| t > bt || (t == bt && k > bk)) {
-                continue;
+            let Some((t, k, lx, ly)) = best else {
+                return;
+            };
+            let card = &deck[k];
+            let nn = cross(card.a0, card.a1);
+            let front = card.s * dot(v, nn) > 0.0;
+            let p = if front {
+                sample_bilinear(drawing, card.cx + lx + ox as f64, card.cy + ly + oy as f64)
+            } else {
+                back.map_or([0.0; 4], |b| sample_bilinear(b, card.cx - lx, card.cy + ly))
             }
-            let (lx, ly) = (det3(rhs, card.a1, nv) / det, det3(card.a0, rhs, nv) / det);
-            if lx.abs() <= cw / 2.0 && ly.abs() <= ch / 2.0 {
-                best = Some((t, k, lx, ly));
+            .map(f64::from);
+            let n = unit(nn).map(|q| if front { -card.s * q } else { card.s * q });
+            let hit: V3 = std::array::from_fn(|n| o[n] + t * v[n]);
+            let lv = unit(if point {
+                std::array::from_fn(|n| pl[n] - hit[n])
+            } else {
+                pl
+            });
+            let vv = unit(nv);
+            let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
+            let nl = dot(n, lv);
+            let hn = dot(hv, hv).sqrt();
+            let sp = if nl > 0.0 && hn > 0.0 {
+                (dot(n, hv) / hn).max(0.0).powf(*highlight_sharpness)
+            } else {
+                0.0
+            };
+            for j in 0..3 {
+                px[j] = (p[j]
+                    * (ambient_light + diffuse_reflection * light_intensity * lc[j] * nl.max(0.0))
+                    + specular_reflection * light_intensity * sp * lc[j] * p[3])
+                    as f32;
             }
-        }
-        let Some((t, k, lx, ly)) = best else {
-            return;
-        };
-        let card = &deck[k];
-        let nn = cross(card.a0, card.a1);
-        let front = card.s * dot(v, nn) > 0.0;
-        let p = if front {
-            sample_bilinear(drawing, card.cx + lx + ox as f64, card.cy + ly + oy as f64)
-        } else {
-            back.map_or([0.0; 4], |b| sample_bilinear(b, card.cx - lx, card.cy + ly))
-        }
-        .map(f64::from);
-        let n = unit(nn).map(|q| if front { -card.s * q } else { card.s * q });
-        let hit: V3 = std::array::from_fn(|n| o[n] + t * v[n]);
-        let lv = unit(if point { std::array::from_fn(|n| pl[n] - hit[n]) } else { pl });
-        let vv = unit(nv);
-        let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
-        let nl = dot(n, lv);
-        let hn = dot(hv, hv).sqrt();
-        let sp = if nl > 0.0 && hn > 0.0 { (dot(n, hv) / hn).max(0.0).powf(*highlight_sharpness) } else { 0.0 };
-        for j in 0..3 {
-            px[j] = (p[j] * (ambient_light + diffuse_reflection * light_intensity * lc[j] * nl.max(0.0)) + specular_reflection * light_intensity * sp * lc[j] * p[3]) as f32;
-        }
-        px[3] = p[3] as f32;
-    });
+            px[3] = p[3] as f32;
+        });
     *source = out;
 }
 
@@ -10985,7 +14090,11 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 /// ponytail: the release walk is pieces x steps up to the release, every frame from the in point
 /// (a 10-minute keyed sweep at Glass 60 is about 10^8 sphere tests a frame), and the flight is
 /// summed step by step; Wave World's checkpoint idea if long shots crawl.
-pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn shatter(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     #[rustfmt::skip]
     let crate::effects::Effect::Shatter { view, render, pattern, custom_shatter_map, custom_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, gradient_layer, gradient_map, invert_gradient, tumble_axis, color, opacity, front_mode, side_mode, back_mode, front_layer, front_map, side_layer, side_map, back_layer, back_map, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, seen, history, fps, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
     else {
@@ -11012,18 +14121,37 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     let mut out = WorkingBuffer::transparent(w, h);
     let comp_camera = camera_system == "comp_camera";
     // D-634: the Corner Pins camera; nothing is drawn where it has none.
-    let pinned = (camera_system == "corner_pins")
-        .then(|| corner_camera(lw as f64, lh as f64, [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner], *focal_length, auto_focal_length == "on"));
+    let pinned = (camera_system == "corner_pins").then(|| {
+        corner_camera(
+            lw as f64,
+            lh as f64,
+            [
+                *upper_left_corner,
+                *upper_right_corner,
+                *lower_left_corner,
+                *lower_right_corner,
+            ],
+            *focal_length,
+            auto_focal_length == "on",
+        )
+    });
     // D-635: the front wireframes are seen straight on, with no camera.
     let front = view.starts_with("wireframe_front");
-    if lw == 0 || lh == 0 || (!front && ((comp_camera && !(seen[2] > 0.0)) || matches!(pinned, Some(None)))) {
+    if lw == 0
+        || lh == 0
+        || (!front && ((comp_camera && !(seen[2] > 0.0)) || matches!(pinned, Some(None))))
+    {
         *source = out;
         return;
     }
     let (wf, hf) = (lw as f64, lh as f64);
-    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
-    let app = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[i][j] * v[j]).sum()) };
-    let app_t = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let mul = |a: M3, b: M3| -> M3 {
+        std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum()))
+    };
+    let app =
+        |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[i][j] * v[j]).sum()) };
+    let app_t =
+        |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
     let rot = |axis: u8, deg: f64| -> M3 {
         let (s, c) = deg.to_radians().sin_cos();
         match axis {
@@ -11035,7 +14163,11 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     let dot = |p: V3, q: V3| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
     let unit = |p: V3| {
         let n = dot(p, p).sqrt();
-        if n == 0.0 { [0.0; 3] } else { p.map(|q| q / n) }
+        if n == 0.0 {
+            [0.0; 3]
+        } else {
+            p.map(|q| q / n)
+        }
     };
     let hash = |i: u64, a: u64| crate::expr::unit(crate::expr::mix(i, a));
 
@@ -11044,14 +14176,38 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     // y + 1/2 - centre y, f), and the light's place is L^T of its own; all three are the turn,
     // but Corner Pins (D-634) has A, A^-1 by columns and none, so its light stays on the layer.
     let (m, rt, lt, o, centre, f) = if let Some(Some((o, a, ai, f))) = pinned {
-        (a, std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])), I3, o, [wf / 2.0, hf / 2.0], f)
+        (
+            a,
+            std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])),
+            I3,
+            o,
+            [wf / 2.0, hf / 2.0],
+            f,
+        )
     } else if comp_camera {
         let [ax, ay, away] = *seen;
-        (I3, I3, I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
+        (
+            I3,
+            I3,
+            I3,
+            [ax - wf / 2.0, ay - hf / 2.0, -away],
+            [ax, ay],
+            away,
+        )
     } else {
-        let m = mul(rot(b'z', *camera_z_rotation), mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)));
+        let m = mul(
+            rot(b'z', *camera_z_rotation),
+            mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)),
+        );
         let f = wf * focal_length / 36.0;
-        let o = app_t(&m, [camera_xy_position[0] * wf / 100.0 - wf / 2.0, camera_xy_position[1] * hf / 100.0 - hf / 2.0, -camera_z_position * f]);
+        let o = app_t(
+            &m,
+            [
+                camera_xy_position[0] * wf / 100.0 - wf / 2.0,
+                camera_xy_position[1] * hf / 100.0 - hf / 2.0,
+                -camera_z_position * f,
+            ],
+        );
         (m, m, m, o, [wf / 2.0, hf / 2.0], f)
     };
 
@@ -11069,12 +14225,22 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                 let p = if custom_shatter_map.as_str() == Some("") {
                     drawing.pixel(ox + x, oy + y)
                 } else {
-                    custom_map.as_ref().map_or([0.0; 4], |m| if x < m.0.width() && y < m.0.height() { m.0.pixel(x, y) } else { [0.0; 4] })
+                    custom_map.as_ref().map_or([0.0; 4], |m| {
+                        if x < m.0.width() && y < m.0.height() {
+                            m.0.pixel(x, y)
+                        } else {
+                            [0.0; 4]
+                        }
+                    })
                 };
                 if (p[3] as f64) < 0.5 {
                     return 8;
                 }
-                (0..3).map(|c| u8::from(crate::grade::to_srgb((p[c] as f64).clamp(0.0, 1.0)) >= 0.5) << c).sum::<u8>()
+                (0..3)
+                    .map(|c| {
+                        u8::from(crate::grade::to_srgb((p[c] as f64).clamp(0.0, 1.0)) >= 0.5) << c
+                    })
+                    .sum::<u8>()
             })
             .collect();
         let mut stack = Vec::new();
@@ -11088,7 +14254,12 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             stack.push(i);
             while let Some(c) = stack.pop() {
                 let (x, y) = (c % lw, c / lw);
-                let near = [(x + 1 < lw).then(|| c + 1), (x > 0).then(|| c - 1), (y + 1 < lh).then(|| c + lw), (y > 0).then(|| c - lw)];
+                let near = [
+                    (x + 1 < lw).then(|| c + 1),
+                    (x > 0).then(|| c - 1),
+                    (y + 1 < lh).then(|| c + lw),
+                    (y > 0).then(|| c - lw),
+                ];
                 for nb in near.into_iter().flatten() {
                     if colour[nb] == colour[i] && owner[nb] == NONE {
                         owner[nb] = n;
@@ -11102,7 +14273,12 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
         let (s, c) = (-direction).to_radians().sin_cos();
         let sc = repetitions / wf;
         let kind = pattern.as_str();
-        let glass = |i: i64, j: i64, a: u64| crate::expr::unit(crate::expr::mix(crate::expr::mix(i as u64, j as u64), 100 + a));
+        let glass = |i: i64, j: i64, a: u64| {
+            crate::expr::unit(crate::expr::mix(
+                crate::expr::mix(i as u64, j as u64),
+                100 + a,
+            ))
+        };
         let keys: Vec<(u8, i64, i64)> = (0..lw * lh)
             .into_par_iter()
             .map(|i| {
@@ -11122,7 +14298,11 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                         (0, fl((qx + 0.7 * r as f64) / 2.0), r)
                     }
                     "triangles_1" => (u8::from(qx - qx.floor() > qy - qy.floor()), fl(qx), fl(qy)),
-                    "triangles_2" => (u8::from((b - b.floor()) + (a - a.floor()) > 1.0), fl(b), fl(a)),
+                    "triangles_2" => (
+                        u8::from((b - b.floor()) + (a - a.floor()) > 1.0),
+                        fl(b),
+                        fl(a),
+                    ),
                     "rhombus" => (0, fl(qx + qy), fl(qx - qy)),
                     "hexagons" => {
                         let mut best = (f64::INFINITY, 0, 0);
@@ -11179,7 +14359,8 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                         for (di, dj) in [(0, 0), (3, 0), (0, 3), (3, 3)] {
                             let (si, sj) = (3 * fl(cb / 3.0) + di, 3 * fl(ca / 3.0) + dj);
                             let (db, da) = (cb - si as f64, ca - sj as f64);
-                            if (db + da / 2.0) * (db + da / 2.0) + (da * r3) * (da * r3) < 1.3 * 1.3 {
+                            if (db + da / 2.0) * (db + da / 2.0) + (da * r3) * (da * r3) < 1.3 * 1.3
+                            {
                                 key = (2, si, sj);
                             }
                         }
@@ -11210,13 +14391,26 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                         // the other.
                         let (i, j) = (fl(qx), fl(qy));
                         let mut key = (0, i, j);
-                        for (ei, ej, vertical) in [(i, j, true), (i - 1, j, true), (i, j, false), (i, j - 1, false)] {
+                        for (ei, ej, vertical) in [
+                            (i, j, true),
+                            (i - 1, j, true),
+                            (i, j, false),
+                            (i, j - 1, false),
+                        ] {
                             let first = glass(ei, ej, if vertical { 2 } else { 3 }) < 0.5;
                             let s = if first { 1.0 } else { -1.0 };
                             let (kx, ky, owner) = if vertical {
-                                (ei as f64 + 1.0 + 0.1 * s, ej as f64 + 0.5, if first { (ei, ej) } else { (ei + 1, ej) })
+                                (
+                                    ei as f64 + 1.0 + 0.1 * s,
+                                    ej as f64 + 0.5,
+                                    if first { (ei, ej) } else { (ei + 1, ej) },
+                                )
                             } else {
-                                (ei as f64 + 0.5, ej as f64 + 1.0 + 0.1 * s, if first { (ei, ej) } else { (ei, ej + 1) })
+                                (
+                                    ei as f64 + 0.5,
+                                    ej as f64 + 1.0 + 0.1 * s,
+                                    if first { (ei, ej) } else { (ei, ej + 1) },
+                                )
                             };
                             if (qx - kx) * (qx - kx) + (qy - ky) * (qy - ky) < 0.04 {
                                 key = (0, owner.0, owner.1);
@@ -11233,7 +14427,12 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                         }
                         let k = cx.div_euclid(4);
                         let rx = cx - 4 * k;
-                        (2 * odd as u8 + u8::from(!((ry == 0 && rx <= 2) || (ry == 1 && rx == 0))), k, band)
+                        (
+                            2 * odd as u8
+                                + u8::from(!((ry == 0 && rx <= 2) || (ry == 1 && rx == 0))),
+                            k,
+                            band,
+                        )
                     }
                     "eggs" | "crescents" | "carpenters_wheel" => {
                         let (i, j) = (fl(qx), fl(qy));
@@ -11249,11 +14448,23 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                                     corner
                                 }
                             }
-                            "crescents" => (u8::from(rr < 0.45 * 0.45 && (u - 0.2) * (u - 0.2) + v * v >= 0.4 * 0.4), i, j),
+                            "crescents" => (
+                                u8::from(
+                                    rr < 0.45 * 0.45 && (u - 0.2) * (u - 0.2) + v * v >= 0.4 * 0.4,
+                                ),
+                                i,
+                                j,
+                            ),
                             _ if rr < 0.12 * 0.12 => (8, i, j),
                             _ if rr < 0.45 * 0.45 => {
                                 let pi = std::f64::consts::PI;
-                                ((8.0 * (v.atan2(u) + pi) / (2.0 * pi)).floor().rem_euclid(8.0) as u8, i, j)
+                                (
+                                    (8.0 * (v.atan2(u) + pi) / (2.0 * pi))
+                                        .floor()
+                                        .rem_euclid(8.0) as u8,
+                                    i,
+                                    j,
+                                )
                             }
                             _ => corner,
                         }
@@ -11264,7 +14475,8 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                         for dj in -2..=2 {
                             for di in -2..=2 {
                                 let (ci, cj) = (fl(qx) + di, fl(qy) + dj);
-                                let (sx, sy) = (ci as f64 + glass(ci, cj, 0), cj as f64 + glass(ci, cj, 1));
+                                let (sx, sy) =
+                                    (ci as f64 + glass(ci, cj, 0), cj as f64 + glass(ci, cj, 1));
                                 let d2 = (qx - sx) * (qx - sx) + (qy - sy) * (qy - sy);
                                 if d2 < best.0 {
                                     best = (d2, ci, cj);
@@ -11295,8 +14507,17 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             continue;
         }
         let (x, y, k) = (i % lw, i / lw, k as usize);
-        sum[k] = (sum[k].0 + (x as f64 + 0.5), sum[k].1 + (y as f64 + 0.5), sum[k].2 + 1);
-        bbox[k] = [bbox[k][0].min(x), bbox[k][1].max(x), bbox[k][2].min(y), bbox[k][3].max(y)];
+        sum[k] = (
+            sum[k].0 + (x as f64 + 0.5),
+            sum[k].1 + (y as f64 + 0.5),
+            sum[k].2 + 1,
+        );
+        bbox[k] = [
+            bbox[k][0].min(x),
+            bbox[k][1].max(x),
+            bbox[k][2].min(y),
+            bbox[k][3].max(y),
+        ];
     }
     let mut start = vec![0usize; count + 1];
     for k in 0..count {
@@ -11310,12 +14531,19 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             fill[k as usize] += 1;
         }
     }
-    let balance: Vec<(f64, f64)> = sum.iter().map(|&(sx, sy, n)| (sx / n as f64, sy / n as f64)).collect();
+    let balance: Vec<(f64, f64)> = sum
+        .iter()
+        .map(|&(sx, sy, n)| (sx / n as f64, sy / n as f64))
+        .collect();
 
     // Step 3: the numbers at every step, four a frame from the in point, the timed ones read in
     // a straight line between frames.
     let now = e.wave_numbers();
-    let samples: Vec<&[f64]> = if history.is_empty() { vec![&now] } else { history.iter().map(Vec::as_slice).collect() };
+    let samples: Vec<&[f64]> = if history.is_empty() {
+        vec![&now]
+    } else {
+        history.iter().map(Vec::as_slice).collect()
+    };
     let last = 4 * (samples.len() - 1);
     let timed = |m: usize| -> [f64; 18] {
         let (fr, part) = (m / 4, (m % 4) as f64 / 4.0);
@@ -11325,10 +14553,21 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     let steps: Vec<[f64; 18]> = (0..=last).map(timed).collect();
     let at = |m: usize, n: usize| steps[m][n - 5];
     // The release reads only the forces and the threshold: unchanged throughout, step 0 says all.
-    let walk = if samples.iter().all(|s| s[5..=THRESHOLD] == samples[0][5..=THRESHOLD]) { 0 } else { last };
+    let walk = if samples
+        .iter()
+        .all(|s| s[5..=THRESHOLD] == samples[0][5..=THRESHOLD])
+    {
+        0
+    } else {
+        last
+    };
     let force_centre = |m: usize, n: usize| -> V3 {
         let p = FORCE[n];
-        [at(m, p) * wf / 100.0 - wf / 2.0, at(m, p + 1) * hf / 100.0 - hf / 2.0, -at(m, p + 2) * wf]
+        [
+            at(m, p) * wf / 100.0 - wf / 2.0,
+            at(m, p + 1) * hf / 100.0 - hf / 2.0,
+            -at(m, p + 2) * wf,
+        ]
     };
 
     // Step 4: the release, (step, force) or none.
@@ -11342,13 +14581,29 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             }
             let (bx, by) = balance[k];
             let v = (!gradient_none).then(|| {
-                let (gx, gy) = ((bx.floor() as usize).min(lw - 1), (by.floor() as usize).min(lh - 1));
-                let p = gradient_map.as_ref().map_or([0.0; 4], |m| if gx < m.0.width() && gy < m.0.height() { m.0.pixel(gx, gy) } else { [0.0; 4] });
+                let (gx, gy) = (
+                    (bx.floor() as usize).min(lw - 1),
+                    (by.floor() as usize).min(lh - 1),
+                );
+                let p = gradient_map.as_ref().map_or([0.0; 4], |m| {
+                    if gx < m.0.width() && gy < m.0.height() {
+                        m.0.pixel(gx, gy)
+                    } else {
+                        [0.0; 4]
+                    }
+                });
                 let v = picture_luma(p);
-                if invert_gradient == "on" { 1.0 - v } else { v }
+                if invert_gradient == "on" {
+                    1.0 - v
+                } else {
+                    v
+                }
             });
             let [x0, x1, y0, y1] = bbox[k];
-            let (lo, hi) = ([x0 as f64 + 0.5 - wf / 2.0, y0 as f64 + 0.5 - hf / 2.0], [x1 as f64 + 0.5 - wf / 2.0, y1 as f64 + 0.5 - hf / 2.0]);
+            let (lo, hi) = (
+                [x0 as f64 + 0.5 - wf / 2.0, y0 as f64 + 0.5 - hf / 2.0],
+                [x1 as f64 + 0.5 - wf / 2.0, y1 as f64 + 0.5 - hf / 2.0],
+            );
             for m in 0..=walk {
                 if v.is_some_and(|v| v + at(m, THRESHOLD) / 100.0 < 1.0) {
                     continue;
@@ -11364,7 +14619,10 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                         continue;
                     }
                     let inside = cells[start[k]..start[k + 1]].iter().any(|&i| {
-                        let (dx, dy) = ((i as usize % lw) as f64 + 0.5 - wf / 2.0 - c[0], (i as usize / lw) as f64 + 0.5 - hf / 2.0 - c[1]);
+                        let (dx, dy) = (
+                            (i as usize % lw) as f64 + 0.5 - wf / 2.0 - c[0],
+                            (i as usize / lw) as f64 + 0.5 - hf / 2.0 - c[1],
+                        );
                         dx * dx + dy * dy + c[2] * c[2] < r * r
                     });
                     if inside {
@@ -11381,10 +14639,17 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     let dt = 1.0 / (4.0 * fps);
     let physics: Vec<(V3, f64, f64)> = (0..last)
         .map(|m| {
-            let (d, c) = (at(m, G_DIRECTION).to_radians(), at(m, G_INCLINATION).to_radians());
+            let (d, c) = (
+                at(m, G_DIRECTION).to_radians(),
+                at(m, G_INCLINATION).to_radians(),
+            );
             let g = at(m, GRAVITY) * wf;
             let k = at(m, VISCOSITY);
-            ([g * d.sin() * c.cos(), -g * d.cos() * c.cos(), -g * c.sin()], k, (-k * dt).exp())
+            (
+                [g * d.sin() * c.cos(), -g * d.cos() * c.cos(), -g * c.sin()],
+                k,
+                (-k * dt).exp(),
+            )
         })
         .collect();
     struct Shard {
@@ -11407,14 +14672,26 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             let (bx, by) = balance[k];
             let b = [bx - wf / 2.0, by - hf / 2.0, 0.0];
             let Some((m0, n)) = released[k] else {
-                return Shard { k, r: I3, x: [0.0; 3], b, bx, by };
+                return Shard {
+                    k,
+                    r: I3,
+                    x: [0.0; 3],
+                    b,
+                    bx,
+                    by,
+                };
             };
             let ku = k as u64;
             let mass = 1.0 + at(m0, MASS) / 100.0 * (hash(ku, 2) - 0.5);
-            let speed = at(m0, FORCE[n] + 4) * wf * (1.0 + at(m0, RANDOM) * (2.0 * hash(ku, 1) - 1.0)) / mass;
+            let speed =
+                at(m0, FORCE[n] + 4) * wf * (1.0 + at(m0, RANDOM) * (2.0 * hash(ku, 1) - 1.0))
+                    / mass;
             let c = force_centre(m0, n);
             let mut v = unit([b[0] - c[0], b[1] - c[1], b[2] - c[2]]).map(|q| speed * q);
-            let mut spin = 2.0 * std::f64::consts::PI * at(m0, SPIN) * (1.0 + at(m0, RANDOM) * (2.0 * hash(ku, 3) - 1.0));
+            let mut spin = 2.0
+                * std::f64::consts::PI
+                * at(m0, SPIN)
+                * (1.0 + at(m0, RANDOM) * (2.0 * hash(ku, 3) - 1.0));
             let axis = match tumble_axis.as_str() {
                 "none" => None,
                 "x" => Some([1.0, 0.0, 0.0]),
@@ -11422,7 +14699,17 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                 "z" => Some([0.0, 0.0, 1.0]),
                 t => {
                     let a: V3 = std::array::from_fn(|n| 2.0 * hash(ku, 4 + n as u64) - 1.0);
-                    let a: V3 = if t == "free" { a } else { std::array::from_fn(|n| if t.as_bytes().contains(&(b'x' + n as u8)) { a[n] } else { 0.0 }) };
+                    let a: V3 = if t == "free" {
+                        a
+                    } else {
+                        std::array::from_fn(|n| {
+                            if t.as_bytes().contains(&(b'x' + n as u8)) {
+                                a[n]
+                            } else {
+                                0.0
+                            }
+                        })
+                    };
                     Some(unit(a))
                 }
             };
@@ -11470,8 +14757,16 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
         let mut hi = [f64::NEG_INFINITY; 2];
         let (mut behind, mut gone) = (0, 0);
         for corner in 0..8 {
-            let u = if corner & 1 == 0 { x0 as f64 } else { (x1 + 1) as f64 };
-            let v = if corner & 2 == 0 { y0 as f64 } else { (y1 + 1) as f64 };
+            let u = if corner & 1 == 0 {
+                x0 as f64
+            } else {
+                (x1 + 1) as f64
+            };
+            let v = if corner & 2 == 0 {
+                y0 as f64
+            } else {
+                (y1 + 1) as f64
+            };
             let z = if corner & 4 == 0 { 0.0 } else { depth };
             let p = app(&shard.r, [u - shard.bx, v - shard.by, z]);
             let wp: V3 = std::array::from_fn(|n| p[n] + shard.b[n] + shard.x[n]);
@@ -11485,7 +14780,10 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                     gone += usize::from(!(q[2] > 0.0));
                     continue;
                 }
-                [centre[0] + f * q[0] / q[2] + ox as f64, centre[1] + f * q[1] / q[2] + oy as f64]
+                [
+                    centre[0] + f * q[0] / q[2] + ox as f64,
+                    centre[1] + f * q[1] / q[2] + oy as f64,
+                ]
             };
             for (n, at) in [(0, screen[0]), (1, screen[1])] {
                 lo[n] = lo[n].min(at);
@@ -11501,7 +14799,12 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
         }
         let span = |lo: f64, hi: f64, n: usize| -> Option<(usize, usize)> {
             let (a, b) = ((lo - 1.5).floor(), (hi + 0.5).ceil());
-            (b >= 0.0 && a < n as f64).then(|| (a.max(0.0) as usize / TILE, (b.min(n as f64 - 1.0) as usize) / TILE))
+            (b >= 0.0 && a < n as f64).then(|| {
+                (
+                    a.max(0.0) as usize / TILE,
+                    (b.min(n as f64 - 1.0) as usize) / TILE,
+                )
+            })
         };
         if let (Some((x0, x1)), Some((y0, y1))) = (span(lo[0], hi[0], w), span(lo[1], hi[1], h)) {
             for row in tiles[y0 * tx..(y1 + 1) * tx].chunks_exact_mut(tx) {
@@ -11534,9 +14837,24 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
         if axis == 3 || enter >= leave || enter <= 0.0 {
             return None;
         }
-        Some((enter, if axis < 2 { axis as u8 } else if dl[2] > 0.0 { 2 } else { 3 }))
+        Some((
+            enter,
+            if axis < 2 {
+                axis as u8
+            } else if dl[2] > 0.0 {
+                2
+            } else {
+                3
+            },
+        ))
     };
-    let owns = |i: i64, j: i64, k: usize| i >= 0 && j >= 0 && (i as usize) < lw && (j as usize) < lh && owner[j as usize * lw + i as usize] == k as u32;
+    let owns = |i: i64, j: i64, k: usize| {
+        i >= 0
+            && j >= 0
+            && (i as usize) < lw
+            && (j as usize) < lh
+            && owner[j as usize * lw + i as usize] == k as u32
+    };
     // A piece's nearest box along the ray in its own space: the plane where it is flat, else the
     // boxes the ray's track crosses, nearest first, within the slab and the piece's box.
     let piece_hit = |shard: &Shard, ol: V3, dl: V3, best: Option<f64>| -> Option<(f64, u8)> {
@@ -11550,9 +14868,13 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                 return None;
             }
             let (u, v) = (ol[0] + t * dl[0], ol[1] + t * dl[1]);
-            return owns(u.floor() as i64, v.floor() as i64, shard.k).then_some((t, if dl[2] > 0.0 { 2 } else { 3 }));
+            return owns(u.floor() as i64, v.floor() as i64, shard.k)
+                .then_some((t, if dl[2] > 0.0 { 2 } else { 3 }));
         }
-        let (lo, hi) = ([x0 as f64, y0 as f64, 0.0], [(x1 + 1) as f64, (y1 + 1) as f64, depth]);
+        let (lo, hi) = (
+            [x0 as f64, y0 as f64, 0.0],
+            [(x1 + 1) as f64, (y1 + 1) as f64, depth],
+        );
         let (mut ta, mut tb) = (0.0f64, f64::INFINITY);
         for a in 0..3 {
             if dl[a] == 0.0 {
@@ -11568,7 +14890,10 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
         if ta > tb {
             return None;
         }
-        let (mut ci, mut cj) = (((ol[0] + ta * dl[0]).floor() as i64).clamp(x0 as i64, x1 as i64), ((ol[1] + ta * dl[1]).floor() as i64).clamp(y0 as i64, y1 as i64));
+        let (mut ci, mut cj) = (
+            ((ol[0] + ta * dl[0]).floor() as i64).clamp(x0 as i64, x1 as i64),
+            ((ol[1] + ta * dl[1]).floor() as i64).clamp(y0 as i64, y1 as i64),
+        );
         let mut tc = ta;
         loop {
             if best.is_some_and(|bt| tc > bt) {
@@ -11580,7 +14905,15 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                 }
             }
             // The next column or row edge the track crosses.
-            let next = |c: i64, a: usize| if dl[a] > 0.0 { ((c + 1) as f64 - ol[a]) / dl[a] } else if dl[a] < 0.0 { (c as f64 - ol[a]) / dl[a] } else { f64::INFINITY };
+            let next = |c: i64, a: usize| {
+                if dl[a] > 0.0 {
+                    ((c + 1) as f64 - ol[a]) / dl[a]
+                } else if dl[a] < 0.0 {
+                    (c as f64 - ol[a]) / dl[a]
+                } else {
+                    f64::INFINITY
+                }
+            };
             let (nx, ny) = (next(ci, 0), next(cj, 1));
             tc = nx.min(ny);
             if tc > tb {
@@ -11601,115 +14934,175 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     // front plane on one of its edge pixels, every piece showing through the others; then, for
     // the Forces views, each force sphere's outline, force 2 over force 1.
     if view != "rendered" {
-        let edge = |i: i64, j: i64, k: usize| owns(i, j, k) && !(owns(i + 1, j, k) && owns(i - 1, j, k) && owns(i, j + 1, k) && owns(i, j - 1, k));
+        let edge = |i: i64, j: i64, k: usize| {
+            owns(i, j, k)
+                && !(owns(i + 1, j, k)
+                    && owns(i - 1, j, k)
+                    && owns(i, j + 1, k)
+                    && owns(i, j - 1, k))
+        };
         let forces = view.ends_with("_forces");
-        out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-            let (bx, by) = (i % w, i / w);
-            let (lx, ly) = (bx as f64 - ox as f64 + 0.5, by as f64 - oy as f64 + 0.5);
-            let (o, d) = if front { ([lx - wf / 2.0, ly - hf / 2.0, 0.0], [0.0, 0.0, 1.0]) } else { (o, app_t(&rt, [lx - centre[0], ly - centre[1], f])) };
-            let white = tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere).any(|&s| {
-                let shard = &deck[s as usize];
-                let rel: V3 = std::array::from_fn(|n| o[n] - shard.b[n] - shard.x[n]);
-                let ol = app_t(&shard.r, rel);
-                let ol = [ol[0] + shard.bx, ol[1] + shard.by, ol[2]];
-                let dl = app_t(&shard.r, d);
-                if dl[2] == 0.0 {
-                    return false;
+        out.data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, px)| {
+                let (bx, by) = (i % w, i / w);
+                let (lx, ly) = (bx as f64 - ox as f64 + 0.5, by as f64 - oy as f64 + 0.5);
+                let (o, d) = if front {
+                    ([lx - wf / 2.0, ly - hf / 2.0, 0.0], [0.0, 0.0, 1.0])
+                } else {
+                    (o, app_t(&rt, [lx - centre[0], ly - centre[1], f]))
+                };
+                let white = tiles[(by / TILE) * tx + bx / TILE]
+                    .iter()
+                    .chain(&everywhere)
+                    .any(|&s| {
+                        let shard = &deck[s as usize];
+                        let rel: V3 = std::array::from_fn(|n| o[n] - shard.b[n] - shard.x[n]);
+                        let ol = app_t(&shard.r, rel);
+                        let ol = [ol[0] + shard.bx, ol[1] + shard.by, ol[2]];
+                        let dl = app_t(&shard.r, d);
+                        if dl[2] == 0.0 {
+                            return false;
+                        }
+                        let t = -ol[2] / dl[2];
+                        (front || t > 0.0)
+                            && edge(
+                                (ol[0] + t * dl[0]).floor() as i64,
+                                (ol[1] + t * dl[1]).floor() as i64,
+                                shard.k,
+                            )
+                    });
+                if white {
+                    px.copy_from_slice(&[1.0; 4]);
                 }
-                let t = -ol[2] / dl[2];
-                (front || t > 0.0) && edge((ol[0] + t * dl[0]).floor() as i64, (ol[1] + t * dl[1]).floor() as i64, shard.k)
+                if forces {
+                    for (n, colour) in [(0, [1.0, 0.0, 0.0, 1.0]), (1, [0.0, 0.0, 1.0, 1.0])] {
+                        let r = at(last, FORCE[n] + 3) * wf;
+                        if r <= 0.0 {
+                            continue;
+                        }
+                        let c = force_centre(last, n);
+                        let t = dot([c[0] - o[0], c[1] - o[1], c[2] - o[2]], d) / dot(d, d);
+                        let near: V3 = std::array::from_fn(|k| c[k] - (o[k] + t * d[k]));
+                        if (front || t > 0.0) && (dot(near, near).sqrt() - r).abs() < 0.5 {
+                            px.copy_from_slice(&colour);
+                        }
+                    }
+                }
             });
-            if white {
-                px.copy_from_slice(&[1.0; 4]);
-            }
-            if forces {
-                for (n, colour) in [(0, [1.0, 0.0, 0.0, 1.0]), (1, [0.0, 0.0, 1.0, 1.0])] {
-                    let r = at(last, FORCE[n] + 3) * wf;
-                    if r <= 0.0 {
-                        continue;
-                    }
-                    let c = force_centre(last, n);
-                    let t = dot([c[0] - o[0], c[1] - o[1], c[2] - o[2]], d) / dot(d, d);
-                    let near: V3 = std::array::from_fn(|k| c[k] - (o[k] + t * d[k]));
-                    if (front || t > 0.0) && (dot(near, near).sqrt() - r).abs() < 0.5 {
-                        px.copy_from_slice(&colour);
-                    }
-                }
-            }
-        });
         *source = out;
         return;
     }
 
     // Steps 7 and 8, per pixel.
-    let picture = |word: &serde_json::Value, map: &Option<crate::layer_map::Map>, u: f64, v: f64| -> [f32; 4] {
+    let picture = |word: &serde_json::Value,
+                   map: &Option<crate::layer_map::Map>,
+                   u: f64,
+                   v: f64|
+     -> [f32; 4] {
         if word.as_str() == Some("") {
             sample_bilinear(drawing, u + ox as f64, v + oy as f64)
         } else {
-            map.as_ref().map_or([0.0; 4], |m| sample_bilinear(&m.0, u, v))
+            map.as_ref()
+                .map_or([0.0; 4], |m| sample_bilinear(&m.0, u, v))
         }
     };
     let col = crate::effects::encoded(color).map(crate::grade::to_linear);
-    let pl = app_t(&lt, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
+    let pl = app_t(
+        &lt,
+        [
+            light_position[0] * wf / 100.0 - wf / 2.0,
+            light_position[1] * hf / 100.0 - hf / 2.0,
+            -light_depth * wf,
+        ],
+    );
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let point = light_type == "point";
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (bx, by) = (i % w, i / w);
-        let d = app_t(&rt, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
-        let mut best: Option<(f64, usize, u8, V3, V3)> = None;
-        for &s in tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere) {
-            let (s, shard) = (s as usize, &deck[s as usize]);
-            let rel: V3 = std::array::from_fn(|n| o[n] - shard.b[n] - shard.x[n]);
-            let ol = app_t(&shard.r, rel);
-            let ol = [ol[0] + shard.bx, ol[1] + shard.by, ol[2]];
-            let dl = app_t(&shard.r, d);
-            let Some((t, face)) = piece_hit(shard, ol, dl, best.map(|b| b.0)) else {
-                continue;
-            };
-            if best.is_some_and(|(bt, bs, ..)| t > bt || (t == bt && s > bs)) {
-                continue;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (bx, by) = (i % w, i / w);
+            let d = app_t(
+                &rt,
+                [
+                    bx as f64 - ox as f64 + 0.5 - centre[0],
+                    by as f64 - oy as f64 + 0.5 - centre[1],
+                    f,
+                ],
+            );
+            let mut best: Option<(f64, usize, u8, V3, V3)> = None;
+            for &s in tiles[(by / TILE) * tx + bx / TILE]
+                .iter()
+                .chain(&everywhere)
+            {
+                let (s, shard) = (s as usize, &deck[s as usize]);
+                let rel: V3 = std::array::from_fn(|n| o[n] - shard.b[n] - shard.x[n]);
+                let ol = app_t(&shard.r, rel);
+                let ol = [ol[0] + shard.bx, ol[1] + shard.by, ol[2]];
+                let dl = app_t(&shard.r, d);
+                let Some((t, face)) = piece_hit(shard, ol, dl, best.map(|b| b.0)) else {
+                    continue;
+                };
+                if best.is_some_and(|(bt, bs, ..)| t > bt || (t == bt && s > bs)) {
+                    continue;
+                }
+                best = Some((t, s, face, ol, dl));
             }
-            best = Some((t, s, face, ol, dl));
-        }
-        let Some((t, s, face, ol, dl)) = best else {
-            return;
-        };
-        let shard = &deck[s];
-        let (u, v) = (ol[0] + t * dl[0], ol[1] + t * dl[1]);
-        let (mode, p) = match face {
-            2 => (front_mode, picture(front_layer, front_map, u, v)),
-            3 => (back_mode, picture(back_layer, back_map, 2.0 * shard.bx - u, v)),
-            _ => (side_mode, picture(side_layer, side_map, u, v)),
-        };
-        let mut p = p.map(f64::from);
-        if mode.starts_with("color") {
-            p = [col[0], col[1], col[2], 1.0];
-        } else if mode.starts_with("tinted_layer") {
-            p = [p[0] * col[0], p[1] * col[1], p[2] * col[2], p[3]];
-        }
-        if mode.ends_with("_plus_opacity") {
-            p = p.map(|q| q * opacity);
-        }
-        let mut nl: V3 = match face {
-            2 => [0.0, 0.0, -1.0],
-            3 => [0.0, 0.0, 1.0],
-            _ => [0.0; 3],
-        };
-        if face < 2 {
-            nl[face as usize] = if dl[face as usize] > 0.0 { -1.0 } else { 1.0 };
-        }
-        let n = app(&shard.r, nl);
-        let hit: V3 = std::array::from_fn(|n| o[n] + t * d[n]);
-        let lv = unit(if point { std::array::from_fn(|n| pl[n] - hit[n]) } else { pl });
-        let vv = unit(d.map(|q| -q));
-        let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
-        let nd = dot(n, lv);
-        let hn = dot(hv, hv).sqrt();
-        let sp = if nd > 0.0 && hn > 0.0 { (dot(n, hv) / hn).max(0.0).powf(*highlight_sharpness) } else { 0.0 };
-        for j in 0..3 {
-            px[j] = (p[j] * (ambient_light + diffuse_reflection * light_intensity * lc[j] * nd.max(0.0)) + specular_reflection * light_intensity * sp * lc[j] * p[3]) as f32;
-        }
-        px[3] = p[3] as f32;
-    });
+            let Some((t, s, face, ol, dl)) = best else {
+                return;
+            };
+            let shard = &deck[s];
+            let (u, v) = (ol[0] + t * dl[0], ol[1] + t * dl[1]);
+            let (mode, p) = match face {
+                2 => (front_mode, picture(front_layer, front_map, u, v)),
+                3 => (
+                    back_mode,
+                    picture(back_layer, back_map, 2.0 * shard.bx - u, v),
+                ),
+                _ => (side_mode, picture(side_layer, side_map, u, v)),
+            };
+            let mut p = p.map(f64::from);
+            if mode.starts_with("color") {
+                p = [col[0], col[1], col[2], 1.0];
+            } else if mode.starts_with("tinted_layer") {
+                p = [p[0] * col[0], p[1] * col[1], p[2] * col[2], p[3]];
+            }
+            if mode.ends_with("_plus_opacity") {
+                p = p.map(|q| q * opacity);
+            }
+            let mut nl: V3 = match face {
+                2 => [0.0, 0.0, -1.0],
+                3 => [0.0, 0.0, 1.0],
+                _ => [0.0; 3],
+            };
+            if face < 2 {
+                nl[face as usize] = if dl[face as usize] > 0.0 { -1.0 } else { 1.0 };
+            }
+            let n = app(&shard.r, nl);
+            let hit: V3 = std::array::from_fn(|n| o[n] + t * d[n]);
+            let lv = unit(if point {
+                std::array::from_fn(|n| pl[n] - hit[n])
+            } else {
+                pl
+            });
+            let vv = unit(d.map(|q| -q));
+            let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
+            let nd = dot(n, lv);
+            let hn = dot(hv, hv).sqrt();
+            let sp = if nd > 0.0 && hn > 0.0 {
+                (dot(n, hv) / hn).max(0.0).powf(*highlight_sharpness)
+            } else {
+                0.0
+            };
+            for j in 0..3 {
+                px[j] = (p[j]
+                    * (ambient_light + diffuse_reflection * light_intensity * lc[j] * nd.max(0.0))
+                    + specular_reflection * light_intensity * sp * lc[j] * p[3])
+                    as f32;
+            }
+            px[3] = p[3] as f32;
+        });
     *source = out;
 }

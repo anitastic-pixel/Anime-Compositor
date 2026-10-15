@@ -51,13 +51,23 @@ fn keys(values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: "frame_rate".to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
@@ -67,7 +77,9 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
@@ -78,7 +90,10 @@ const FRAMES: usize = 24;
 
 /// Where drawing `m` (from 0) has the ball: moving 16 pixels right a frame, bouncing.
 fn ball_at(m: usize) -> (f64, f64) {
-    (50.0 + 16.0 * m as f64, 225.0 - 170.0 * (PI * (m as f64 + 3.0) / 12.0).cos().abs())
+    (
+        50.0 + 16.0 * m as f64,
+        225.0 - 170.0 * (PI * (m as f64 + 3.0) / 12.0).cos().abs(),
+    )
 }
 
 /// Drawing `m`: an orange ball, radius 24, with an ink ring its outer 5 pixels, on nothing.
@@ -92,7 +107,12 @@ fn ball(m: usize) -> Vec<u8> {
             let cover = (24.0 - d).clamp(0.0, 1.0);
             let ink = (d - 19.0).clamp(0.0, 1.0);
             let mix = |a: f64, b: f64| (a * (1.0 - ink) + b * ink).round() as u8;
-            bytes.extend([mix(245.0, 70.0), mix(150.0, 30.0), mix(50.0, 20.0), (255.0 * cover).round() as u8]);
+            bytes.extend([
+                mix(245.0, 70.0),
+                mix(150.0, 30.0),
+                mix(50.0, 20.0),
+                (255.0 * cover).round() as u8,
+            ]);
         }
     }
     bytes
@@ -102,13 +122,20 @@ fn ball(m: usize) -> Vec<u8> {
 /// `missing`, when there is one, names a file that is not there.
 fn picture(effects: J, missing: Option<usize>) -> Document {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/posterize_time/fx_ptime_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/posterize_time/fx_ptime_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["pattern"] = J::from("ball_##.png");
     project["assets"][0]["frames"] = (1..=FRAMES)
         .map(|m| {
-            let file = if Some(m) == missing { "gone.png".to_string() } else { format!("ball_{m:02}.png") };
+            let file = if Some(m) == missing {
+                "gone.png".to_string()
+            } else {
+                format!("ball_{m:02}.png")
+            };
             (m.to_string(), J::from(file))
         })
         .collect::<serde_json::Map<_, _>>()
@@ -136,16 +163,38 @@ fn picture(effects: J, missing: Option<usize>) -> Document {
     night["effects"] = J::Array(vec![]);
     night["solid"] = serde_json::json!({"color": [0.0070, 0.0116, 0.0452], "width": PICTURE.0, "height": PICTURE.1});
     layers.insert(0, night);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("night"));
-    persist::load_str(&project.to_string()).expect("the picture's project reads").document
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("night"));
+    persist::load_str(&project.to_string())
+        .expect("the picture's project reads")
+        .document
 }
 
 /// `document`'s frame at `quality`, as bytes, with what it said.
-fn draw(document: &Document, dir: &Path, frame: i32, quality: PreviewQuality) -> (usize, Vec<u8>, Vec<String>) {
+fn draw(
+    document: &Document,
+    dir: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (usize, Vec<u8>, Vec<String>) {
     let mut log = FrameLog::new(3);
-    let drawn = preview::preview_frame(document.project(), &main_comp(), frame, dir, quality, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = preview::preview_frame(
+        document.project(),
+        &main_comp(),
+        frame,
+        dir,
+        quality,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.width(), drawn.to_srgb8_straight(), said)
 }
 
@@ -190,7 +239,11 @@ fn b131_posterize_time() {
 
     t.heading("How far it reaches");
     let got = rate(8.0).bounds_expansion();
-    t.row("holding never grows the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "holding never grows the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = rate(8.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -217,7 +270,10 @@ fn b131_posterize_time() {
         vec![
             ("Frame Rate 0.05", set(rate(0.05))),
             ("Frame Rate 100", set(rate(100.0))),
-            ("Frame Rate keyed to 120 at frame 4", keys(&[(0, 12.0), (4, 120.0)])),
+            (
+                "Frame Rate keyed to 120 at frame 4",
+                keys(&[(0, 12.0), (4, 120.0)]),
+            ),
         ],
     );
     t.taken(
@@ -225,7 +281,10 @@ fn b131_posterize_time() {
         "fx_ptime_001.json",
         vec![
             ("Frame Rate 8", set(rate(8.0))),
-            ("Frame Rate keyed from 24 at frame 0 to 8 at frame 4", keys(&[(0, 24.0), (4, 8.0)])),
+            (
+                "Frame Rate keyed from 24 at frame 0 to 8 at frame 4",
+                keys(&[(0, 24.0), (4, 8.0)]),
+            ),
         ],
     );
 
@@ -234,12 +293,25 @@ fn b131_posterize_time() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PICTURE;
     for m in 0..FRAMES {
-        png_out::write_rgba(&dir.join(format!("ball_{:02}.png", m + 1)), w, h, OutputDepth::Eight, &[], &ball(m)).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("ball_{:02}.png", m + 1)),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &ball(m),
+        )
+        .unwrap();
     }
     let full = PreviewQuality::Full;
     let shots = |effects: J| -> Vec<(Vec<u8>, Vec<String>)> {
         let document = picture(effects, None);
-        (12..20).map(|n| { let (_, b, s) = draw(&document, &dir, n, full); (b, s) }).collect()
+        (12..20)
+            .map(|n| {
+                let (_, b, s) = draw(&document, &dir, n, full);
+                (b, s)
+            })
+            .collect()
     };
     let ones = shots(J::Array(vec![]));
     let twos = shots(posterize(12.0));
@@ -258,8 +330,18 @@ fn b131_posterize_time() {
             }
         }
     }
-    png_out::write_rgba(&dir.join("strip.png"), across, down, OutputDepth::Eight, &[], &strip).unwrap();
-    let clean = [&ones, &twos, &threes].iter().all(|f| f.iter().all(|(_, s)| s.is_empty()));
+    png_out::write_rgba(
+        &dir.join("strip.png"),
+        across,
+        down,
+        OutputDepth::Eight,
+        &[],
+        &strip,
+    )
+    .unwrap();
+    let clean = [&ones, &twos, &threes]
+        .iter()
+        .all(|f| f.iter().all(|(_, s)| s.is_empty()));
     t.row(
         "strip.png, frames 12 to 19 left to right: on ones with no effect, then Posterize Time 12, \
          then 8, top to bottom; every frame draws cleanly",
@@ -267,11 +349,26 @@ fn b131_posterize_time() {
         clean,
     );
     let shows = |frames: &Vec<(Vec<u8>, Vec<String>)>| -> Vec<i32> {
-        frames.iter().map(|(b, _)| ones.iter().position(|(o, _)| o == b).map_or(-1, |i| i as i32 + 12)).collect()
+        frames
+            .iter()
+            .map(|(b, _)| {
+                ones.iter()
+                    .position(|(o, _)| o == b)
+                    .map_or(-1, |i| i as i32 + 12)
+            })
+            .collect()
     };
     for (what, frames, want) in [
-        ("at 12, frames 12 to 19 show frames 12, 12, 14, 14, 16, 16, 18 and 18 byte for byte", &twos, vec![12, 12, 14, 14, 16, 16, 18, 18]),
-        ("at 8, frames 12 to 19 show frames 12, 12, 12, 15, 15, 15, 18 and 18 byte for byte", &threes, vec![12, 12, 12, 15, 15, 15, 18, 18]),
+        (
+            "at 12, frames 12 to 19 show frames 12, 12, 14, 14, 16, 16, 18 and 18 byte for byte",
+            &twos,
+            vec![12, 12, 14, 14, 16, 16, 18, 18],
+        ),
+        (
+            "at 8, frames 12 to 19 show frames 12, 12, 12, 15, 15, 15, 18 and 18 byte for byte",
+            &threes,
+            vec![12, 12, 12, 15, 15, 15, 18, 18],
+        ),
     ] {
         let got = shows(frames);
         t.row(what, &format!("{got:?}"), got == want);
@@ -281,7 +378,12 @@ fn b131_posterize_time() {
     let (a, b, c) = (dw(&d, 12), dw(&d, 13), dw(&d, 14));
     t.row(
         "at Draft, 12 a second: frame 13 is frame 12 byte for byte, and frame 14 is not",
-        &format!("{} wide; 13 {} 12, 14 {} 12", a.0, if b.1 == a.1 { "=" } else { "≠" }, if c.1 == a.1 { "=" } else { "≠" }),
+        &format!(
+            "{} wide; 13 {} 12, 14 {} 12",
+            a.0,
+            if b.1 == a.1 { "=" } else { "≠" },
+            if c.1 == a.1 { "=" } else { "≠" }
+        ),
         a.2.is_empty() && b.2.is_empty() && b.1 == a.1 && c.1 != a.1,
     );
     // Animated grain after it steps with the drawing.
@@ -313,12 +415,21 @@ fn b131_posterize_time() {
     t.row(
         "with drawing 13's file gone, frame 13, which holds frame 12 and so drawing 13, reports \
          the missing file against frame 13, not frame 12",
-        &format!("frame 13 {:?}, frame 12 {:?}", at13.iter().map(|i| i.as_str()).collect::<Vec<_>>(), at12.iter().map(|i| i.as_str()).collect::<Vec<_>>()),
+        &format!(
+            "frame 13 {:?}, frame 12 {:?}",
+            at13.iter().map(|i| i.as_str()).collect::<Vec<_>>(),
+            at12.iter().map(|i| i.as_str()).collect::<Vec<_>>()
+        ),
         at13 == vec![DiagnosticId::MediaMissing] && at12.is_empty(),
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_ptime_001.json", 3), ("fx_ptime_008.json", 3), ("fx_ptime_013.json", 3), ("fx_ptime_016.json", 3)]);
+    t.tiles(&[
+        ("fx_ptime_001.json", 3),
+        ("fx_ptime_008.json", 3),
+        ("fx_ptime_013.json", 3),
+        ("fx_ptime_016.json", 3),
+    ]);
 
     t.finish("B-131_posterize_time_table.md");
 }

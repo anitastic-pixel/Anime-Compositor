@@ -26,7 +26,14 @@ fn json(t: &Table, file: &str) -> J {
 
 /// FX-TREMAP-010's drawn layer `bar` given these times and this remap (`Null` for none), in a
 /// composition long enough for all of them.
-fn timed(t: &Table, in_frame: i64, out_frame: i64, offset: i64, stretch: f64, remap: &J) -> Document {
+fn timed(
+    t: &Table,
+    in_frame: i64,
+    out_frame: i64,
+    offset: i64,
+    stretch: f64,
+    remap: &J,
+) -> Document {
     let mut p = json(t, "fx_tremap_010.json");
     let comp = &mut p["compositions"][0];
     comp["duration_frames"] = J::from(1000);
@@ -42,11 +49,18 @@ fn timed(t: &Table, in_frame: i64, out_frame: i64, offset: i64, stretch: f64, re
         }
         keys => layer["time_remap"] = serde_json::json!({ "base": 0, "keyframes": keys }),
     }
-    persist::load_str(&p.to_string()).expect("the made-up project reads").document
+    persist::load_str(&p.to_string())
+        .expect("the made-up project reads")
+        .document
 }
 
 fn bar(document: &Document) -> &Layer {
-    document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("bar")).unwrap()
+    document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("bar"))
+        .unwrap()
 }
 
 /// The remap's keys as the file writes them: frame, value, interpolation.
@@ -54,7 +68,13 @@ fn remap_keys(document: &Document) -> Vec<(i32, f64, String)> {
     bar(document).time_remap.as_ref().map_or(Vec::new(), |r| {
         r.keyframes()
             .iter()
-            .map(|k| (k.frame, k.value.as_scalar().unwrap(), format!("{:?}", k.interp).to_lowercase()))
+            .map(|k| {
+                (
+                    k.frame,
+                    k.value.as_scalar().unwrap(),
+                    format!("{:?}", k.interp).to_lowercase(),
+                )
+            })
             .collect()
     })
 }
@@ -63,12 +83,22 @@ fn want_keys(keys: &J) -> Vec<(i32, f64, String)> {
     keys.as_array()
         .unwrap()
         .iter()
-        .map(|k| (k["frame"].as_i64().unwrap() as i32, k["value"].as_f64().unwrap(), k["interp"].as_str().unwrap().to_string()))
+        .map(|k| {
+            (
+                k["frame"].as_i64().unwrap() as i32,
+                k["value"].as_f64().unwrap(),
+                k["interp"].as_str().unwrap().to_string(),
+            )
+        })
         .collect()
 }
 
 fn remap(value: TimeRemap) -> Command {
-    Command::SetTimeRemap { composition: Id::new(MAIN), layer_id: Id::new("bar"), value }
+    Command::SetTimeRemap {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("bar"),
+        value,
+    }
 }
 
 fn close(a: f64, b: &J, tolerance: f64) -> bool {
@@ -77,7 +107,11 @@ fn close(a: f64, b: &J, tolerance: f64) -> bool {
 
 /// The codes a frame's log holds, each once, in order.
 fn codes(log: FrameLog) -> Vec<String> {
-    let mut out: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
+    let mut out: Vec<String> = log
+        .finish()
+        .iter()
+        .map(|d| d.id.as_str().to_string())
+        .collect();
     out.sort();
     out.dedup();
     out
@@ -158,8 +192,15 @@ fn b202_time_remap() {
         for (frame, pixels) in case["frames"].as_object().unwrap() {
             let n: i32 = frame.parse().unwrap();
             let mut log = FrameLog::new(64);
-            let got = render_frame(loaded.document.project(), &Id::new(MAIN), n, &t.root, 64, &mut log)
-                .unwrap_or_else(|d| panic!("{file} frame {n} renders: {}", d.message));
+            let got = render_frame(
+                loaded.document.project(),
+                &Id::new(MAIN),
+                n,
+                &t.root,
+                64,
+                &mut log,
+            )
+            .unwrap_or_else(|d| panic!("{file} frame {n} renders: {}", d.message));
             let d = effect_table::largest_difference(&got, pixels);
             let said = codes(log);
             let mut want: Vec<String> = case["diagnostics"]
@@ -177,7 +218,11 @@ fn b202_time_remap() {
             );
         }
         let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
-        t.row(&format!("{name}: opening it warns of nothing"), &format!("{on_open:?}"), on_open.is_empty());
+        t.row(
+            &format!("{name}: opening it warns of nothing"),
+            &format!("{on_open:?}"),
+            on_open.is_empty(),
+        );
     }
 
     t.heading("The file");
@@ -185,13 +230,18 @@ fn b202_time_remap() {
         let file = case["project"].as_str().unwrap();
         let same = same_json(&saved(&t.load(file)), &json(&t, file));
         t.row(
-            &format!("{file} opened and saved holds what it held, its Time Remap and keys included"),
+            &format!(
+                "{file} opened and saved holds what it held, its Time Remap and keys included"
+            ),
             if same { "the same" } else { "differs" },
             same,
         );
     }
     let mut old = json(&t, "fx_tremap_010.json");
-    old["compositions"][0]["layers"][0].as_object_mut().unwrap().remove("time_remap");
+    old["compositions"][0]["layers"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("time_remap");
     let again = saved(&persist::load_str(&old.to_string()).expect("the old file reads"));
     let quiet = same_json(&again, &old);
     t.row(
@@ -203,8 +253,14 @@ fn b202_time_remap() {
         let refused = persist::load(&t.root.join(case["project"].as_str().unwrap())).err();
         let code = refused.as_ref().map(|d| d.id.as_str().to_string());
         t.row(
-            &format!("{name}: {} Refused as {}", case["says"].as_str().unwrap(), case["code"].as_str().unwrap()),
-            &refused.as_ref().map_or("opened".to_string(), |d| format!("{}: {}", d.id.as_str(), d.message)),
+            &format!(
+                "{name}: {} Refused as {}",
+                case["says"].as_str().unwrap(),
+                case["code"].as_str().unwrap()
+            ),
+            &refused.as_ref().map_or("opened".to_string(), |d| {
+                format!("{}: {}", d.id.as_str(), d.message)
+            }),
             code.as_deref() == case["code"].as_str(),
         );
     }
@@ -213,12 +269,23 @@ fn b202_time_remap() {
     for (name, case) in expected["on"].as_object().unwrap() {
         let get = |k: &str| case[k].as_i64().unwrap();
         let (i, o) = (get("in_frame"), get("out_frame"));
-        let mut document = timed(&t, i, o, get("source_offset_frames"), case["time_stretch"].as_f64().unwrap(), &J::Null);
+        let mut document = timed(
+            &t,
+            i,
+            o,
+            get("source_offset_frames"),
+            case["time_stretch"].as_f64().unwrap(),
+            &J::Null,
+        );
         let before = format!("{:?}", bar(&document));
-        let times: Vec<Option<f64>> = (i as i32..o as i32).map(|n| bar(&document).source_time(n)).collect();
+        let times: Vec<Option<f64>> = (i as i32..o as i32)
+            .map(|n| bar(&document).source_time(n))
+            .collect();
         let taken = document.apply(remap(TimeRemap::On)).is_ok();
         let keys = remap_keys(&document);
-        let now: Vec<Option<f64>> = (i as i32..o as i32).map(|n| bar(&document).source_time(n)).collect();
+        let now: Vec<Option<f64>> = (i as i32..o as i32)
+            .map(|n| bar(&document).source_time(n))
+            .collect();
         let kept = times.iter().zip(&now).all(|(a, b)| match (a, b) {
             (Some(a), Some(b)) => (a - b).abs() <= tolerance,
             _ => false,
@@ -226,8 +293,14 @@ fn b202_time_remap() {
         document.undo();
         let back = format!("{:?}", bar(&document)) == before;
         t.row(
-            &format!("{name}: {} Every frame shows the source time it showed. One undo takes it off.", case["says"].as_str().unwrap()),
-            &format!("{}, keys {keys:?}, frames kept {kept}, undone {back}", if taken { "taken" } else { "refused" }),
+            &format!(
+                "{name}: {} Every frame shows the source time it showed. One undo takes it off.",
+                case["says"].as_str().unwrap()
+            ),
+            &format!(
+                "{}, keys {keys:?}, frames kept {kept}, undone {back}",
+                if taken { "taken" } else { "refused" }
+            ),
             taken && keys == want_keys(&case["keys"]) && kept && back,
         );
     }
@@ -244,7 +317,9 @@ fn b202_time_remap() {
     // A file that held one, opened, turned off and saved.
     let mut loaded = t.load("fx_tremap_010.json");
     let off = off && loaded.document.apply(remap(TimeRemap::Off)).is_ok();
-    let quiet = saved(&loaded)["compositions"][0]["layers"][0].get("time_remap").is_none();
+    let quiet = saved(&loaded)["compositions"][0]["layers"][0]
+        .get("time_remap")
+        .is_none();
     t.row(
         "turned off again: the remap and its keys are gone, and a file that held one is written without time_remap",
         &format!("taken {off}, written {}", !quiet),
@@ -268,7 +343,8 @@ fn b202_time_remap() {
         let taken = document.apply(remap(TimeRemap::Freeze(n))).is_ok();
         let keys = remap_keys(&document);
         let layer = bar(&document);
-        let held = (get("in_frame") as i32..get("out_frame") as i32).all(|m| layer.source_time(m) == Some(shown));
+        let held = (get("in_frame") as i32..get("out_frame") as i32)
+            .all(|m| layer.source_time(m) == Some(shown));
         document.undo();
         let back = format!("{:?}", bar(&document)) == before;
         t.row(
@@ -283,7 +359,11 @@ fn b202_time_remap() {
         let mut document = timed(&t, 0, 12, 0, 100.0, &case["keys_before"]);
         let by = case["by"].as_i64().unwrap() as i32;
         let taken = document
-            .apply(Command::ShiftLayer { composition: Id::new(MAIN), layer_id: Id::new("bar"), in_frame: by })
+            .apply(Command::ShiftLayer {
+                composition: Id::new(MAIN),
+                layer_id: Id::new("bar"),
+                in_frame: by,
+            })
             .is_ok();
         let keys = remap_keys(&document);
         t.row(
@@ -292,15 +372,31 @@ fn b202_time_remap() {
             taken && keys == want_keys(&case["keys"]),
         );
     }
-    let mut document = timed(&t, 0, 12, 0, 100.0, &expected["shifts"]["FX-TREMAP-048"]["keys_before"]);
+    let mut document = timed(
+        &t,
+        0,
+        12,
+        0,
+        100.0,
+        &expected["shifts"]["FX-TREMAP-048"]["keys_before"],
+    );
     let picture = t.render(&document, 4, 64);
     let taken = document
-        .apply(Command::TrimLayer { composition: Id::new(MAIN), layer_id: Id::new("bar"), in_frame: 2, out_frame: 12 })
+        .apply(Command::TrimLayer {
+            composition: Id::new(MAIN),
+            layer_id: Id::new("bar"),
+            in_frame: 2,
+            out_frame: 12,
+        })
         .is_ok();
     let same = t.render(&document, 4, 64).data() == picture.data();
     t.row(
         "the in point trimmed from 0 to 2: frame 4 still shows what it showed",
-        &format!("{}, frame 4 {}", if taken { "taken" } else { "refused" }, if same { "byte-identical" } else { "differs" }),
+        &format!(
+            "{}, frame 4 {}",
+            if taken { "taken" } else { "refused" },
+            if same { "byte-identical" } else { "differs" }
+        ),
         taken && same,
     );
 
@@ -323,14 +419,24 @@ fn b202_time_remap() {
         ),
         (
             "a Time Remap value while the remap is off",
-            Command::SetPropertyBase { composition: Id::new(MAIN), target: target(), prop: Prop::TimeRemap, value: Value::Scalar(4.0) },
+            Command::SetPropertyBase {
+                composition: Id::new(MAIN),
+                target: target(),
+                prop: Prop::TimeRemap,
+                value: Value::Scalar(4.0),
+            },
         ),
-        ("a freeze on frame 9, after the layer's out point", remap(TimeRemap::Freeze(9))),
+        (
+            "a freeze on frame 9, after the layer's out point",
+            remap(TimeRemap::Freeze(9)),
+        ),
     ] {
         let refused = document.apply(command).err();
         t.row(
             &format!("{what} is refused"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && format!("{:?}", bar(&document)) == before,
         );
     }
@@ -341,24 +447,40 @@ fn b202_time_remap() {
             composition: Id::new(MAIN),
             target: target(),
             prop: Prop::TimeRemap,
-            expression: Some(Expression { text: "time * 24".into(), enabled: true }),
+            expression: Some(Expression {
+                text: "time * 24".into(),
+                enabled: true,
+            }),
         })
         .err();
     t.row(
         "an expression on a Time Remap is refused (FX-TREMAP-054's rule, at the command)",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && format!("{:?}", bar(&document)) == before,
     );
     let mut p = json(&t, "fx_tremap_050.json");
-    p["compositions"][0]["layers"][1].as_object_mut().unwrap().remove("time_remap");
-    let mut solid = persist::load_str(&p.to_string()).expect("the solid's project reads").document;
+    p["compositions"][0]["layers"][1]
+        .as_object_mut()
+        .unwrap()
+        .remove("time_remap");
+    let mut solid = persist::load_str(&p.to_string())
+        .expect("the solid's project reads")
+        .document;
     let card = Id::new("card");
     let refused = solid
-        .apply(Command::SetTimeRemap { composition: Id::new(MAIN), layer_id: card, value: TimeRemap::On })
+        .apply(Command::SetTimeRemap {
+            composition: Id::new(MAIN),
+            layer_id: card,
+            value: TimeRemap::On,
+        })
         .err();
     t.row(
         "Enable Time Remapping on a solid layer is refused",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some(),
     );
     let mut document = timed(&t, 0, 6, 0, 100.0, &J::Null);
@@ -382,7 +504,11 @@ fn b202_time_remap() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_tremap_012.json", 3), ("fx_tremap_014.json", 3), ("fx_tremap_017.json", 5)]);
+    t.tiles(&[
+        ("fx_tremap_012.json", 3),
+        ("fx_tremap_014.json", 3),
+        ("fx_tremap_017.json", 5),
+    ]);
 
     t.heading("Pictures: a made-up ball in seventeen drawings, in `verification/D-323 pictures/`");
     let dir = effect_table::repo("verification/D-323 pictures");
@@ -390,14 +516,24 @@ fn b202_time_remap() {
     let (w, h) = BALL;
     for i in 0..DRAWINGS {
         let path = dir.join(format!("ball_{:04}.png", i + 1));
-        png_out::write_rgba(&path, w, h, OutputDepth::Eight, &[], &ball(6.0 + 3.5 * i as f64)).unwrap();
+        png_out::write_rgba(
+            &path,
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &ball(6.0 + 3.5 * i as f64),
+        )
+        .unwrap();
     }
     let template = json(&t, "fx_tremap_010.json");
     let frames = 12;
     let strip = |name: &str, keys: J| -> (Vec<f64>, Vec<String>) {
         let mut p = template.clone();
-        p["assets"][0]["frames"] =
-            (1..=DRAWINGS).map(|i| (i.to_string(), J::from(format!("ball_{i:04}.png")))).collect::<serde_json::Map<_, _>>().into();
+        p["assets"][0]["frames"] = (1..=DRAWINGS)
+            .map(|i| (i.to_string(), J::from(format!("ball_{i:04}.png"))))
+            .collect::<serde_json::Map<_, _>>()
+            .into();
         let comp = &mut p["compositions"][0];
         comp["width"] = J::from(w);
         comp["height"] = J::from(h);
@@ -414,13 +550,20 @@ fn b202_time_remap() {
             }
             keys => layer["time_remap"] = serde_json::json!({ "base": 0, "keyframes": keys }),
         }
-        let document = persist::load_str(&p.to_string()).expect("the picture's project reads").document;
+        let document = persist::load_str(&p.to_string())
+            .expect("the picture's project reads")
+            .document;
         let mut said = Vec::new();
         let mut shots = Vec::new();
         for n in 0..frames {
             let mut log = FrameLog::new(8);
-            let frame = render_frame(document.project(), &Id::new(MAIN), n, &dir, 64, &mut log).expect("the picture draws");
-            said.extend(log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)));
+            let frame = render_frame(document.project(), &Id::new(MAIN), n, &dir, 64, &mut log)
+                .expect("the picture draws");
+            said.extend(
+                log.finish()
+                    .iter()
+                    .map(|d| format!("{} {}", d.id.as_str(), d.message)),
+            );
             shots.push(frame.to_srgb8_straight());
         }
         // One frame a row, twice the size, a grey line between frames.
@@ -452,7 +595,11 @@ fn b202_time_remap() {
                         count += 1;
                     }
                 }
-                if count == 0 { -1.0 } else { ((sum / count as f64 - 6.0) / 3.5).round() }
+                if count == 0 {
+                    -1.0
+                } else {
+                    ((sum / count as f64 - 6.0) / 3.5).round()
+                }
             })
             .collect();
         (places, said)
@@ -464,13 +611,23 @@ fn b202_time_remap() {
         &format!("{said:?}, drawings {drawn:?}"),
         said.is_empty() && drawn == (0..12).map(f64::from).collect::<Vec<_>>(),
     );
-    let (burst, said) = strip("burst_then_real_speed.png", J::Array(vec![key(0, 0, "linear"), key(4, 8, "linear"), key(12, 16, "linear")]));
+    let (burst, said) = strip(
+        "burst_then_real_speed.png",
+        J::Array(vec![
+            key(0, 0, "linear"),
+            key(4, 8, "linear"),
+            key(12, 16, "linear"),
+        ]),
+    );
     t.row(
         "burst_then_real_speed.png, tutorial 1's keys 0 at 0, 8 at 4, 16 at 12: two drawings a frame for four frames, then one a frame",
         &format!("{said:?}, drawings {burst:?}"),
         said.is_empty() && burst == [0.0, 2.0, 4.0, 6.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0],
     );
-    let (back, said) = strip("backwards.png", J::Array(vec![key(0, 11, "linear"), key(11, 0, "linear")]));
+    let (back, said) = strip(
+        "backwards.png",
+        J::Array(vec![key(0, 11, "linear"), key(11, 0, "linear")]),
+    );
     t.row(
         "backwards.png, keys 11 at 0 and 0 at 11: the ball goes right to left",
         &format!("{said:?}, drawings {back:?}"),

@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -47,7 +48,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=40 {
         let file = format!("fx_grade2_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -55,7 +60,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ColorGrade { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ColorGrade { .. })
+                });
             }
         }
         t.row(
@@ -73,9 +80,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -89,7 +105,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ColorGrade { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ColorGrade { .. })
+                });
                 t.row(
                     &format!("the reference shot, Color Grade {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -102,7 +120,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -114,14 +135,28 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The covered pixels that are grey, their three channels equal.
 fn greys(p: &[u8]) -> usize {
-    p.chunks_exact(4).filter(|q| q[3] > 0 && q[0] == q[1] && q[1] == q[2]).count()
+    p.chunks_exact(4)
+        .filter(|q| q[3] > 0 && q[0] == q[1] && q[1] == q[2])
+        .count()
 }
 
 /// The covered pixels.
@@ -132,7 +167,11 @@ fn covered(p: &[u8]) -> usize {
 /// The spread of the covered pixels' brightness: the brightest less the darkest, three channels
 /// summed.
 fn spread(p: &[u8]) -> u32 {
-    let b: Vec<u32> = p.chunks_exact(4).filter(|q| q[3] > 0).map(|q| q[..3].iter().map(|&v| v as u32).sum()).collect();
+    let b: Vec<u32> = p
+        .chunks_exact(4)
+        .filter(|q| q[3] > 0)
+        .map(|q| q[..3].iter().map(|&v| v as u32).sum())
+        .collect();
     let mean = b.iter().sum::<u32>() as f64 / b.len().max(1) as f64;
     (b.iter().map(|&v| (v as f64 - mean).abs()).sum::<f64>() / b.len().max(1) as f64) as u32
 }
@@ -184,20 +223,35 @@ fn b277_color_grade_2() {
         ("fx_grade2_040.json", "key view"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let mut word = fx("x", &json!({}))["parameters"].clone();
     word["key_invert"] = J::from(1);
-    t.shape_refused("fx_grade2_001.json", "a Color Grade whose key invert is a number", &word.to_string());
+    t.shape_refused(
+        "fx_grade2_001.json",
+        "a Color Grade whose key invert is a number",
+        &word.to_string(),
+    );
     let mut flat = fx("x", &json!({}))["parameters"].clone();
     flat["curve_red"] = json!([0, 255]);
-    t.shape_refused("fx_grade2_001.json", "a Color Grade whose red curve is numbers, not points", &flat.to_string());
+    t.shape_refused(
+        "fx_grade2_001.json",
+        "a Color Grade whose red curve is numbers, not points",
+        &flat.to_string(),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_grade2_001.json").document;
     let wide = changed(&t, "fx_grade2_001.json", |e| {
         if let Effect::ColorGrade { values, .. } = e {
-            values[COLOR_GRADE_SETTINGS.iter().position(|s| s.0 == "key_hue_range").unwrap()] = 181.0;
+            values[COLOR_GRADE_SETTINGS
+                .iter()
+                .position(|s| s.0 == "key_hue_range")
+                .unwrap()] = 181.0;
         }
     });
     let yes = changed(&t, "fx_grade2_001.json", |e| {
@@ -215,12 +269,24 @@ fn b277_color_grade_2() {
         vec![
             ("key hue range 181", set(wide)),
             ("key invert \"yes\"", set(yes)),
-            ("hue versus saturation with its hues falling", set(backwards)),
-            ("shadow lightness keyed to 101", keys("shadow_lightness", &[(0, &[0.0]), (4, &[101.0])])),
+            (
+                "hue versus saturation with its hues falling",
+                set(backwards),
+            ),
+            (
+                "shadow lightness keyed to 101",
+                keys("shadow_lightness", &[(0, &[0.0]), (4, &[101.0])]),
+            ),
         ],
     );
     let graded = changed(&t, "fx_grade2_001.json", |e| {
-        if let Effect::ColorGrade { curves, hue_saturation, key_view, .. } = e {
+        if let Effect::ColorGrade {
+            curves,
+            hue_saturation,
+            key_view,
+            ..
+        } = e
+        {
             curves[1] = vec![vec![0.0, 0.0], vec![128.0, 170.0], vec![255.0, 255.0]];
             *hue_saturation = vec![vec![0.0, 50.0], vec![180.0, 150.0]];
             *key_view = "mask".into();
@@ -231,7 +297,10 @@ fn b277_color_grade_2() {
         "fx_grade2_001.json",
         vec![
             ("a red curve, a hue curve and the mask view", set(graded)),
-            ("key hue keyed from 0 to 120", keys("key_hue", &[(0, &[0.0]), (4, &[120.0])])),
+            (
+                "key hue keyed from 0 to 120",
+                keys("key_hue", &[(0, &[0.0]), (4, &[120.0])]),
+            ),
         ],
     );
 
@@ -277,33 +346,62 @@ fn b277_color_grade_2() {
     t.heading("Pictures: in `verification/D-398 pictures/`");
     let dir = repo("verification/D-398 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let one = |p: J| json!([fx("fx-0-0", &p)]);
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = picture(&dir, one(json!({})));
     t.row(
         "Color Grade as added, the new settings written, changes nothing: the street byte for byte; draws cleanly",
         &format!("{said:?}, {} pixels changed", distance(&same, &before).1),
         said.is_empty() && same == before,
     );
-    let (s, said) = picture(&dir, one(json!({"curve_master": [[0, 0], [64, 30], [192, 225], [255, 255]]})));
+    let (s, said) = picture(
+        &dir,
+        one(json!({"curve_master": [[0, 0], [64, 30], [192, 225], [255, 255]]})),
+    );
     write("2_s_curve.png", &s);
     t.row(
         "2_s_curve.png, a master S-curve: the brightness spread wider; draws cleanly",
-        &format!("{said:?}, mean distance from the mean brightness {} before, {} after", spread(&before), spread(&s)),
+        &format!(
+            "{said:?}, mean distance from the mean brightness {} before, {} after",
+            spread(&before),
+            spread(&s)
+        ),
         said.is_empty() && spread(&s) > spread(&before),
     );
-    let (hue, said) = picture(&dir, one(json!({"hue_saturation": [[0, 100], [120, 200], [200, 0], [300, 100]]})));
+    let (hue, said) = picture(
+        &dir,
+        one(json!({"hue_saturation": [[0, 100], [120, 200], [200, 0], [300, 100]]})),
+    );
     write("3_hue_curve.png", &hue);
     t.row(
         "3_hue_curve.png, hue versus saturation: greens stronger, the blue sky grey; draws cleanly",
         &format!("{said:?}, {} pixels changed", distance(&hue, &before).1),
         said.is_empty() && hue != before,
     );
-    let (wheels, said) = picture(&dir, one(json!({"shadow_wheel_hue": 195, "shadow_wheel_amount": 60, "highlight_wheel_hue": 35, "highlight_wheel_amount": 50})));
+    let (wheels, said) = picture(
+        &dir,
+        one(
+            json!({"shadow_wheel_hue": 195, "shadow_wheel_amount": 60, "highlight_wheel_hue": 35, "highlight_wheel_amount": 50}),
+        ),
+    );
     write("4_wheels.png", &wheels);
     t.row(
         "4_wheels.png, teal shadow wheel and orange highlight wheel: the street changed; draws cleanly",
@@ -356,28 +454,52 @@ fn b277_color_grade_2_timing() {
         ("Noise alone", None),
         (
             "Noise, then Color Grade, curves, hue curve and wheels",
-            Some(json!({"curve_master": [[0, 0], [64, 40], [192, 215], [255, 255]], "hue_saturation": [[0, 100], [120, 160], [240, 80]],
-                "shadow_wheel_hue": 195, "shadow_wheel_amount": 60, "highlight_wheel_hue": 35, "highlight_wheel_amount": 40})),
+            Some(
+                json!({"curve_master": [[0, 0], [64, 40], [192, 215], [255, 255]], "hue_saturation": [[0, 100], [120, 160], [240, 80]],
+                "shadow_wheel_hue": 195, "shadow_wheel_amount": 60, "highlight_wheel_hue": 35, "highlight_wheel_amount": 40}),
+            ),
         ),
         (
             "Noise, then Color Grade, an HSL secondary (soft warm key, cooled and dulled)",
-            Some(json!({"key_hue": 25, "key_hue_range": 15, "key_hue_softness": 25, "key_saturation_low": 20, "key_softness": 15,
-                "secondary_saturation": 60, "secondary_wheel_hue": 200, "secondary_wheel_amount": 40, "secondary_contrast": 20})),
+            Some(
+                json!({"key_hue": 25, "key_hue_range": 15, "key_hue_softness": 25, "key_saturation_low": 20, "key_softness": 15,
+                "secondary_saturation": 60, "secondary_wheel_hue": 200, "secondary_wheel_amount": 40, "secondary_contrast": 20}),
+            ),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B277_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-277_timing_raw.md"));
+    let out = std::env::var("B277_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-277_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

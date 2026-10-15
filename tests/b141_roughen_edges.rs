@@ -47,16 +47,21 @@ fn drawing() -> Vec<u8> {
     for y in 0..h {
         for x in 0..w {
             let (fx, fy) = (x as f64 + 0.5, y as f64 + 0.5);
-            let (dx, dy) = ((24.0 - fx).max(fx - 75.0).max(0.0), (24.0 - fy).max(fy - 77.0).max(0.0));
-            let c = if (14.0..85.0).contains(&fx) && (14.0..87.0).contains(&fy) && dx.hypot(dy) <= 10.0 {
-                [200, 50, 50, 255]
-            } else if (fx - 119.5).hypot(fy - 43.5) < 27.5 {
-                [40, 90, 210, 255]
-            } else if (96.0..151.0).contains(&fx) && (76.0..89.0).contains(&fy) {
-                [240, 200, 40, 255]
-            } else {
-                [0, 0, 0, 0]
-            };
+            let (dx, dy) = (
+                (24.0 - fx).max(fx - 75.0).max(0.0),
+                (24.0 - fy).max(fy - 77.0).max(0.0),
+            );
+            let c =
+                if (14.0..85.0).contains(&fx) && (14.0..87.0).contains(&fy) && dx.hypot(dy) <= 10.0
+                {
+                    [200, 50, 50, 255]
+                } else if (fx - 119.5).hypot(fy - 43.5) < 27.5 {
+                    [40, 90, 210, 255]
+                } else if (96.0..151.0).contains(&fx) && (76.0..89.0).contains(&fy) {
+                    [240, 200, 40, 255]
+                } else {
+                    [0, 0, 0, 0]
+                };
             bytes.extend(c);
         }
     }
@@ -67,7 +72,10 @@ fn drawing() -> Vec<u8> {
 /// same enlarged three times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/roughen_edges/fx_rough_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/roughen_edges/fx_rough_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("drawing.png");
@@ -81,9 +89,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -129,7 +148,11 @@ fn b141_roughen_edges() {
 
     t.heading("How far it reaches");
     let got = roughen("roughen", RUST, START).bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = roughen("roughen_color", RUST, [16.0, 20.0, 4.0, 90.0, 5.0, 3.0]);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -146,7 +169,10 @@ fn b141_roughen_edges() {
     );
 
     t.heading("The file");
-    let files: Vec<String> = (1..=24).filter(|&n| n != 5).map(|n| format!("fx_rough_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=24)
+        .filter(|&n| n != 5)
+        .map(|n| format!("fx_rough_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_rough_005.json");
     t.row(
@@ -175,41 +201,118 @@ fn b141_roughen_edges() {
     t.refused(
         &mut document,
         vec![
-            ("border -1", set(roughen("roughen", RUST, [-1.0, 10.0, 3.0, 0.0, 0.0, 0.0]))),
-            ("border 501", set(roughen("roughen", RUST, [501.0, 10.0, 3.0, 0.0, 0.0, 0.0]))),
-            ("scale 0", set(roughen("roughen", RUST, [8.0, 0.0, 3.0, 0.0, 0.0, 0.0]))),
-            ("scale 1001", set(roughen("roughen", RUST, [8.0, 1001.0, 3.0, 0.0, 0.0, 0.0]))),
-            ("complexity 0", set(roughen("roughen", RUST, [8.0, 10.0, 0.0, 0.0, 0.0, 0.0]))),
-            ("complexity 11", set(roughen("roughen", RUST, [8.0, 10.0, 11.0, 0.0, 0.0, 0.0]))),
-            ("evolution 100001", set(roughen("roughen", RUST, [8.0, 10.0, 3.0, 100001.0, 0.0, 0.0]))),
-            ("evolution speed -361", set(roughen("roughen", RUST, [8.0, 10.0, 3.0, 0.0, -361.0, 0.0]))),
-            ("seed 100001", set(roughen("roughen", RUST, [8.0, 10.0, 3.0, 0.0, 0.0, 100001.0]))),
+            (
+                "border -1",
+                set(roughen("roughen", RUST, [-1.0, 10.0, 3.0, 0.0, 0.0, 0.0])),
+            ),
+            (
+                "border 501",
+                set(roughen("roughen", RUST, [501.0, 10.0, 3.0, 0.0, 0.0, 0.0])),
+            ),
+            (
+                "scale 0",
+                set(roughen("roughen", RUST, [8.0, 0.0, 3.0, 0.0, 0.0, 0.0])),
+            ),
+            (
+                "scale 1001",
+                set(roughen("roughen", RUST, [8.0, 1001.0, 3.0, 0.0, 0.0, 0.0])),
+            ),
+            (
+                "complexity 0",
+                set(roughen("roughen", RUST, [8.0, 10.0, 0.0, 0.0, 0.0, 0.0])),
+            ),
+            (
+                "complexity 11",
+                set(roughen("roughen", RUST, [8.0, 10.0, 11.0, 0.0, 0.0, 0.0])),
+            ),
+            (
+                "evolution 100001",
+                set(roughen(
+                    "roughen",
+                    RUST,
+                    [8.0, 10.0, 3.0, 100001.0, 0.0, 0.0],
+                )),
+            ),
+            (
+                "evolution speed -361",
+                set(roughen("roughen", RUST, [8.0, 10.0, 3.0, 0.0, -361.0, 0.0])),
+            ),
+            (
+                "seed 100001",
+                set(roughen(
+                    "roughen",
+                    RUST,
+                    [8.0, 10.0, 3.0, 0.0, 0.0, 100001.0],
+                )),
+            ),
             ("edge type \"spiky\"", set(roughen("spiky", RUST, START))),
-            ("edge type \"Roughen\", written with a capital", set(roughen("Roughen", RUST, START))),
-            ("edge colour \"#12345\"", set(roughen("roughen_color", "#12345", START))),
-            ("border keyed to 501", keys("border", &[(0, &[2.0]), (4, &[501.0])])),
+            (
+                "edge type \"Roughen\", written with a capital",
+                set(roughen("Roughen", RUST, START)),
+            ),
+            (
+                "edge colour \"#12345\"",
+                set(roughen("roughen_color", "#12345", START)),
+            ),
+            (
+                "border keyed to 501",
+                keys("border", &[(0, &[2.0]), (4, &[501.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_rough_001.json",
         vec![
-            ("every number at its bottom,", set(roughen("roughen_color", "#000000", [0.0, 1.0, 1.0, -100000.0, -360.0, 0.0]))),
-            ("every number at its top,", set(roughen("roughen", "#FFFFFF", [500.0, 1000.0, 10.0, 100000.0, 360.0, 100000.0]))),
-            ("border keyed from 0 to 20", keys("border", &[(0, &[0.0]), (4, &[20.0])])),
-            ("evolution keyed from 0 to 720", keys("evolution", &[(0, &[0.0]), (4, &[720.0])])),
+            (
+                "every number at its bottom,",
+                set(roughen(
+                    "roughen_color",
+                    "#000000",
+                    [0.0, 1.0, 1.0, -100000.0, -360.0, 0.0],
+                )),
+            ),
+            (
+                "every number at its top,",
+                set(roughen(
+                    "roughen",
+                    "#FFFFFF",
+                    [500.0, 1000.0, 10.0, 100000.0, 360.0, 100000.0],
+                )),
+            ),
+            (
+                "border keyed from 0 to 20",
+                keys("border", &[(0, &[0.0]), (4, &[20.0])]),
+            ),
+            (
+                "evolution keyed from 0 to 720",
+                keys("evolution", &[(0, &[0.0]), (4, &[720.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_rough_001.json", 0), ("fx_rough_005.json", 0), ("fx_rough_010.json", 2), ("fx_rough_015.json", 0)]);
+    t.tiles(&[
+        ("fx_rough_001.json", 0),
+        ("fx_rough_005.json", 0),
+        ("fx_rough_010.json", 2),
+        ("fx_rough_015.json", 0),
+    ]);
 
     t.heading("Pictures: a made-up drawing on nothing, in `verification/B-141 pictures/`, three times enlarged");
     let dir = effect_table::repo("verification/B-141 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -220,20 +323,35 @@ fn b141_roughen_edges() {
     let every = || (0..h).flat_map(move |y| (0..w).map(move |x| (x, y)));
     let (before, big, said) = picture(&dir, stack(&[]));
     write("before.png", &big, 3);
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // The pixels with no clear pixel of before.png within `r` either way, and the covered pixels
     // with one within 2.
     let deep = |r: usize| {
         let before = &before;
         every().filter(move |&(x, y)| {
-            (y.saturating_sub(r)..(y + r + 1).min(h))
-                .all(|v| (x.saturating_sub(r)..(x + r + 1).min(w)).all(|u| px(before, (u, v))[3] == 255))
+            (y.saturating_sub(r)..(y + r + 1).min(h)).all(|v| {
+                (x.saturating_sub(r)..(x + r + 1).min(w)).all(|u| px(before, (u, v))[3] == 255)
+            })
         })
     };
-    let rim: Vec<_> = every().filter(|&p| px(&before, p)[3] == 255 && !deep(2).any(|q| q == p)).collect();
-    let grown = |after: &[u8]| every().filter(|&p| px(after, p)[3] > px(&before, p)[3]).count();
-    let same_deep = |after: &[u8], r: usize| deep(r).filter(|&p| near(px(after, p), px(&before, p))).count();
+    let rim: Vec<_> = every()
+        .filter(|&p| px(&before, p)[3] == 255 && !deep(2).any(|q| q == p))
+        .collect();
+    let grown = |after: &[u8]| {
+        every()
+            .filter(|&p| px(after, p)[3] > px(&before, p)[3])
+            .count()
+    };
+    let same_deep = |after: &[u8], r: usize| {
+        deep(r)
+            .filter(|&p| near(px(after, p), px(&before, p)))
+            .count()
+    };
     let bitten = |after: &[u8]| rim.iter().filter(|&&p| px(after, p)[3] < 128).count();
 
     let (start, big, said) = picture(&dir, stack(&[("roughen", RUST, START)]));
@@ -249,7 +367,10 @@ fn b141_roughen_edges() {
         said.is_empty() && grown(&start) == 0 && same_deep(&start, 9) == deep(9).count() && bitten(&start) * 5 > rim.len(),
     );
 
-    let (wide, big, said) = picture(&dir, stack(&[("roughen", RUST, [16.0, 10.0, 3.0, 0.0, 0.0, 0.0])]));
+    let (wide, big, said) = picture(
+        &dir,
+        stack(&[("roughen", RUST, [16.0, 10.0, 3.0, 0.0, 0.0, 0.0])]),
+    );
     write("border_16.png", &big, 3);
     let clear = |bytes: &[u8]| every().filter(|&p| px(bytes, p)[3] == 0).count();
     t.row(
@@ -260,9 +381,21 @@ fn b141_roughen_edges() {
     );
 
     for (file, what, n) in [
-        ("scale_40.png", "scale 40: wider, gentler bites", [8.0, 40.0, 3.0, 0.0, 0.0, 0.0]),
-        ("complexity_6.png", "complexity 6: finer detail along the bites", [8.0, 10.0, 6.0, 0.0, 0.0, 0.0]),
-        ("seed_3.png", "seed 3: other bites", [8.0, 10.0, 3.0, 0.0, 0.0, 3.0]),
+        (
+            "scale_40.png",
+            "scale 40: wider, gentler bites",
+            [8.0, 40.0, 3.0, 0.0, 0.0, 0.0],
+        ),
+        (
+            "complexity_6.png",
+            "complexity 6: finer detail along the bites",
+            [8.0, 10.0, 6.0, 0.0, 0.0, 0.0],
+        ),
+        (
+            "seed_3.png",
+            "seed 3: other bites",
+            [8.0, 10.0, 3.0, 0.0, 0.0, 3.0],
+        ),
     ] {
         let (after, big, said) = picture(&dir, stack(&[("roughen", RUST, n)]));
         write(file, &big, 3);
@@ -271,16 +404,33 @@ fn b141_roughen_edges() {
                 "{file}, {what}: different from as_it_starts.png; no pixel gains covering; every \
                  pixel with nothing clear within 9 pixels unchanged; draws cleanly"
             ),
-            &format!("{said:?}, {} grown, {} of {} deep pixels unchanged", grown(&after), same_deep(&after, 9), deep(9).count()),
-            said.is_empty() && after != start && grown(&after) == 0 && same_deep(&after, 9) == deep(9).count(),
+            &format!(
+                "{said:?}, {} grown, {} of {} deep pixels unchanged",
+                grown(&after),
+                same_deep(&after, 9),
+                deep(9).count()
+            ),
+            said.is_empty()
+                && after != start
+                && grown(&after) == 0
+                && same_deep(&after, 9) == deep(9).count(),
         );
     }
 
     let rust = [138, 60, 20];
-    let rusty = |bytes: &[u8]| every().filter(|&p| px(bytes, p)[3] > 0 && near(px(bytes, p), [rust[0], rust[1], rust[2], px(bytes, p)[3]])).count();
+    let rusty = |bytes: &[u8]| {
+        every()
+            .filter(|&p| {
+                px(bytes, p)[3] > 0
+                    && near(px(bytes, p), [rust[0], rust[1], rust[2], px(bytes, p)[3]])
+            })
+            .count()
+    };
     let (color, big, said) = picture(&dir, stack(&[("roughen_color", RUST, START)]));
     write("roughen_color.png", &big, 3);
-    let same_cover = every().filter(|&p| px(&color, p)[3].abs_diff(px(&start, p)[3]) <= 1).count();
+    let same_cover = every()
+        .filter(|&p| px(&color, p)[3].abs_diff(px(&start, p)[3]) <= 1)
+        .count();
     t.row(
         "roughen_color.png, Roughen Color in rust: the same covering as as_it_starts.png, every \
          pixel within 1; the new edge rust #8a3c14 in many pixels; every pixel with nothing clear \
@@ -292,15 +442,26 @@ fn b141_roughen_edges() {
         said.is_empty() && same_cover == w * h && rusty(&color) * 10 > rim.len() && same_deep(&color, 17) == deep(17).count(),
     );
 
-    let (blue, big, said) = picture(&dir, stack(&[("roughen_color", "#2060ff", [16.0, 10.0, 3.0, 0.0, 0.0, 0.0])]));
+    let (blue, big, said) = picture(
+        &dir,
+        stack(&[("roughen_color", "#2060ff", [16.0, 10.0, 3.0, 0.0, 0.0, 0.0])]),
+    );
     write("roughen_color_blue_16.png", &big, 3);
-    let same_cover = every().filter(|&p| px(&blue, p)[3].abs_diff(px(&wide, p)[3]) <= 1).count();
-    let bluish = every().filter(|&p| px(&blue, p)[3] > 0 && near(px(&blue, p), [0x20, 0x60, 0xff, px(&blue, p)[3]])).count();
+    let same_cover = every()
+        .filter(|&p| px(&blue, p)[3].abs_diff(px(&wide, p)[3]) <= 1)
+        .count();
+    let bluish = every()
+        .filter(|&p| px(&blue, p)[3] > 0 && near(px(&blue, p), [0x20, 0x60, 0xff, px(&blue, p)[3]]))
+        .count();
     t.row(
         "roughen_color_blue_16.png, Roughen Color in blue #2060ff at border 16: the same covering \
          as border_16.png, every pixel within 1; a wider band, more pixels of the edge colour than \
          roughen_color.png has of rust; draws cleanly",
-        &format!("{said:?}, {same_cover} of {} the same covering, {bluish} blue against {} rust", w * h, rusty(&color)),
+        &format!(
+            "{said:?}, {same_cover} of {} the same covering, {bluish} blue against {} rust",
+            w * h,
+            rusty(&color)
+        ),
         said.is_empty() && same_cover == w * h && bluish > rusty(&color),
     );
 

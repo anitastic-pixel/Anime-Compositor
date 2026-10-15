@@ -31,7 +31,9 @@ pub(crate) fn box_sum(f: &[f64], ch: usize, w: usize, h: usize, r: usize) -> Vec
     let mut out = vec![0.0f64; h * line];
     out.par_chunks_mut(line).enumerate().for_each(|(y, row)| {
         let (hi, lo) = ((y + r).min(h - 1) + 1, y.saturating_sub(r));
-        let col: Vec<f64> = (0..line).map(|i| run[hi * line + i] - run[lo * line + i]).collect();
+        let col: Vec<f64> = (0..line)
+            .map(|i| run[hi * line + i] - run[lo * line + i])
+            .collect();
         // Along the row: acc[x] is the sum of columns 0 to x - 1.
         let mut acc = vec![0.0f64; (w + 1) * ch];
         for x in 0..w {
@@ -51,13 +53,15 @@ pub(crate) fn box_sum(f: &[f64], ch: usize, w: usize, h: usize, r: usize) -> Vec
 
 /// The number of pixels in the cut square about (x, y).
 fn count(x: usize, y: usize, w: usize, h: usize, r: usize) -> f64 {
-    (((x + r).min(w - 1) - x.saturating_sub(r) + 1) * ((y + r).min(h - 1) - y.saturating_sub(r) + 1)) as f64
+    (((x + r).min(w - 1) - x.saturating_sub(r) + 1)
+        * ((y + r).min(h - 1) - y.saturating_sub(r) + 1)) as f64
 }
 
 /// `m` x = `v` for a 3 by 3 `m`, by Cramer's rule.
 fn solve3(m: [[f64; 3]; 3], v: [f64; 3]) -> [f64; 3] {
     let det = |m: [[f64; 3]; 3]| {
-        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
             + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
     };
     let d = det(m);
@@ -80,7 +84,14 @@ pub(crate) fn guided_filter(guide: &[f64], p: &[f64], w: usize, h: usize, r: usi
         let (g, q) = (&guide[i * 3..i * 3 + 3], p[i]);
         o[..3].copy_from_slice(g);
         o[3] = q;
-        o[4..10].copy_from_slice(&[g[0] * g[0], g[0] * g[1], g[0] * g[2], g[1] * g[1], g[1] * g[2], g[2] * g[2]]);
+        o[4..10].copy_from_slice(&[
+            g[0] * g[0],
+            g[0] * g[1],
+            g[0] * g[2],
+            g[1] * g[1],
+            g[1] * g[2],
+            g[2] * g[2],
+        ]);
         o[10..].copy_from_slice(&[g[0] * q, g[1] * q, g[2] * q]);
     });
     let s = box_sum(&f, 13, w, h, r);
@@ -150,13 +161,15 @@ fn choker_stage(px: &[f64], w: usize, h: usize, g: f64, k: f64, s: f64) -> Vec<f
     let runs = crate::layer_fx::disc_runs(g);
     let size: isize = runs.iter().map(|&(_, hw)| 2 * hw + 1).sum();
     let mut sums = vec![0.0f64; h * (w + 1) * 4];
-    sums.par_chunks_mut((w + 1) * 4).enumerate().for_each(|(y, line)| {
-        for x in 0..w {
-            for j in 0..4 {
-                line[(x + 1) * 4 + j] = line[x * 4 + j] + px[(y * w + x) * 4 + j];
+    sums.par_chunks_mut((w + 1) * 4)
+        .enumerate()
+        .for_each(|(y, line)| {
+            for x in 0..w {
+                for j in 0..4 {
+                    line[(x + 1) * 4 + j] = line[x * 4 + j] + px[(y * w + x) * 4 + j];
+                }
             }
-        }
-    });
+        });
     let mut out = vec![0.0f64; w * h * 4];
     out.par_chunks_mut(4).enumerate().for_each(|(i, o)| {
         let (x, y) = ((i % w) as isize, (i / w) as isize);
@@ -166,7 +179,10 @@ fn choker_stage(px: &[f64], w: usize, h: usize, g: f64, k: f64, s: f64) -> Vec<f
             if sy < 0 || sy >= h as isize {
                 continue;
             }
-            let (lo, hi) = ((x - hw).max(0) as usize, ((x + hw).min(w as isize - 1) + 1) as usize);
+            let (lo, hi) = (
+                (x - hw).max(0) as usize,
+                ((x + hw).min(w as isize - 1) + 1) as usize,
+            );
             if hi <= lo {
                 continue;
             }
@@ -177,7 +193,11 @@ fn choker_stage(px: &[f64], w: usize, h: usize, g: f64, k: f64, s: f64) -> Vec<f
         }
         let a = ramp(t[3] / size as f64, 0.5 + k / 255.0, s / 100.0);
         let own = &px[i * 4..i * 4 + 4];
-        let c = if own[3] > 0.0 { straight(own) } else { straight(&t) };
+        let c = if own[3] > 0.0 {
+            straight(own)
+        } else {
+            straight(&t)
+        };
         o.copy_from_slice(&[c[0] * a, c[1] * a, c[2] * a, a]);
     });
     out
@@ -216,8 +236,14 @@ pub(crate) struct Refine<'a> {
 
 /// The edge region at `re`: a covered pixel and a pixel not fully covered both in the square.
 fn edge_region(a0: &[f64], w: usize, h: usize, re: usize) -> Vec<bool> {
-    let f: Vec<f64> = a0.iter().flat_map(|&a| [(a > 0.0) as u8 as f64, (a < 1.0) as u8 as f64]).collect();
-    box_sum(&f, 2, w, h, re).chunks(2).map(|c| c[0] > 0.0 && c[1] > 0.0).collect()
+    let f: Vec<f64> = a0
+        .iter()
+        .flat_map(|&a| [(a > 0.0) as u8 as f64, (a < 1.0) as u8 as f64])
+        .collect();
+    box_sum(&f, 2, w, h, re)
+        .chunks(2)
+        .map(|c| c[0] > 0.0 && c[1] > 0.0)
+        .collect()
 }
 
 /// D-352: Refine Hard Matte and Refine Soft Matte, document 21's rule.
@@ -230,7 +256,11 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     let px = read(source);
     let a0: Vec<f64> = px.chunks(4).map(|p| p[3]).collect();
     let known: Vec<bool> = a0.iter().map(|&a| a > 0.0).collect();
-    let re = if s.soft { s.edge_radius.floor() as usize } else { 0 };
+    let re = if s.soft {
+        s.edge_radius.floor() as usize
+    } else {
+        0
+    };
     let rf = s.feather.floor() as usize;
     let big = 2 * (re + rf);
     let mut c: Vec<[f64; 3]> = px.chunks(4).map(straight).collect();
@@ -245,7 +275,11 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
         }
     }
     let mut a = a0.clone();
-    let region = if s.soft { Some(edge_region(&a0, w, h, re)) } else { None };
+    let region = if s.soft {
+        Some(edge_region(&a0, w, h, re))
+    } else {
+        None
+    };
     if let (Some(region), true) = (&region, re > 0) {
         let guide: Vec<f64> = px.chunks(4).flat_map(|p| straight(p).map(srgb)).collect();
         let q = guided_filter(&guide, &a0, w, h, re);
@@ -257,11 +291,18 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     }
     if rf > 0 {
         let guide: Vec<f64> = c.iter().flat_map(|v| v.map(srgb)).collect();
-        a = guided_filter(&guide, &a, w, h, rf).into_iter().map(|v| v.clamp(0.0, 1.0)).collect();
+        a = guided_filter(&guide, &a, w, h, rf)
+            .into_iter()
+            .map(|v| v.clamp(0.0, 1.0))
+            .collect();
     }
     let (mid, width) = (0.5 - s.shift_edge / 200.0, 1.0 - s.contrast / 100.0);
     for i in 0..n {
-        a[i] = if known[i] || filled[i] { ramp(a[i], mid, width) } else { 0.0 };
+        a[i] = if known[i] || filled[i] {
+            ramp(a[i], mid, width)
+        } else {
+            0.0
+        };
     }
     let amount = s.decontamination_amount / 100.0;
     let on = s.decontaminate == "on";
@@ -273,15 +314,30 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
             if known[i] {
                 let (wf, wb) = (a[i], 1.0 - a[i]);
                 f[i * 8..i * 8 + 8].copy_from_slice(&[
-                    wf * c[i][0], wf * c[i][1], wf * c[i][2], wf, wb * c[i][0], wb * c[i][1], wb * c[i][2], wb,
+                    wf * c[i][0],
+                    wf * c[i][1],
+                    wf * c[i][2],
+                    wf,
+                    wb * c[i][0],
+                    wb * c[i][1],
+                    wb * c[i][2],
+                    wb,
                 ]);
             }
         }
         let t = box_sum(&f, 8, w, h, rd);
         c.par_iter_mut().enumerate().for_each(|(i, ci)| {
             let t = &t[i * 8..i * 8 + 8];
-            let fh = if t[3] > 0.0 { [t[0] / t[3], t[1] / t[3], t[2] / t[3]] } else { *ci };
-            let bh = if t[7] > 0.0 { [t[4] / t[7], t[5] / t[7], t[6] / t[7]] } else { [0.0; 3] };
+            let fh = if t[3] > 0.0 {
+                [t[0] / t[3], t[1] / t[3], t[2] / t[3]]
+            } else {
+                *ci
+            };
+            let bh = if t[7] > 0.0 {
+                [t[4] / t[7], t[5] / t[7], t[6] / t[7]]
+            } else {
+                [0.0; 3]
+            };
             let ai = a[i];
             for j in 0..3 {
                 let fj = (fh[j] + ai * (ci[j] - ai * fh[j] - (1.0 - ai) * bh[j])).clamp(0.0, 1.0);
@@ -290,16 +346,23 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
         });
     }
     let out: Vec<f64> = if let (Some(region), "on") = (&region, s.view_edge_region) {
-        region.iter().flat_map(|&r| [r as u8 as f64, r as u8 as f64, r as u8 as f64, 1.0]).collect()
+        region
+            .iter()
+            .flat_map(|&r| [r as u8 as f64, r as u8 as f64, r as u8 as f64, 1.0])
+            .collect()
     } else if s.view_decontamination_map == "on" {
         let k = if on { amount } else { 0.0 };
-        a.iter().flat_map(|&a| {
-            let v = k * 4.0 * a * (1.0 - a);
-            [v, v, v, 1.0]
-        })
-        .collect()
+        a.iter()
+            .flat_map(|&a| {
+                let v = k * 4.0 * a * (1.0 - a);
+                [v, v, v, 1.0]
+            })
+            .collect()
     } else {
-        c.iter().zip(&a).flat_map(|(c, &a)| [c[0] * a, c[1] * a, c[2] * a, a]).collect()
+        c.iter()
+            .zip(&a)
+            .flat_map(|(c, &a)| [c[0] * a, c[1] * a, c[2] * a, a])
+            .collect()
     };
     write(source, &out);
 }
@@ -339,14 +402,20 @@ mod tests {
     #[test]
     fn guided_filter_keeps_a_constant_and_boxes_under_a_flat_guide() {
         let (w, h) = (7, 5);
-        let guide: Vec<f64> = (0..w * h).flat_map(|i| [i as f64 / 40.0, 0.3, (i % 3) as f64 / 3.0]).collect();
+        let guide: Vec<f64> = (0..w * h)
+            .flat_map(|i| [i as f64 / 40.0, 0.3, (i % 3) as f64 / 3.0])
+            .collect();
         let q = guided_filter(&guide, &vec![0.7; w * h], w, h, 2);
         assert!(q.iter().all(|v| (v - 0.7).abs() < 1e-12));
         // A flat guide: the box mean of the box mean.
         let p: Vec<f64> = (0..w * h).map(|i| ((i * 7) % 5) as f64 / 4.0).collect();
         let q = guided_filter(&vec![0.4; w * h * 3], &p, w, h, 1);
         let mean = |f: &[f64]| -> Vec<f64> {
-            box_sum(f, 1, w, h, 1).iter().enumerate().map(|(i, v)| v / count(i % w, i / w, w, h, 1)).collect()
+            box_sum(f, 1, w, h, 1)
+                .iter()
+                .enumerate()
+                .map(|(i, v)| v / count(i % w, i / w, w, h, 1))
+                .collect()
         };
         let twice = mean(&mean(&p));
         assert!(q.iter().zip(&twice).all(|(a, b)| (a - b).abs() < 1e-12));

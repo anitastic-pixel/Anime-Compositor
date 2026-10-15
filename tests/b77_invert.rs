@@ -36,7 +36,11 @@ fn b77_invert() {
 
     t.heading("How far it reaches");
     let got = invert("alpha", 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = invert("rgb", 60.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -58,7 +62,11 @@ fn b77_invert() {
         "fx_invert_019.json",
         "fx_invert_020.json",
     ]);
-    t.shape_refused("fx_invert_001.json", "no `channel` at all", r#"{"amount": 100}"#);
+    t.shape_refused(
+        "fx_invert_001.json",
+        "no `channel` at all",
+        r#"{"amount": 100}"#,
+    );
     t.shape_refused(
         "fx_invert_001.json",
         "an amount that is a word",
@@ -74,21 +82,37 @@ fn b77_invert() {
             ("amount -1", set(invert("rgb", -1.0))),
             ("channel \"luma\"", set(invert("luma", 100.0))),
             ("channel \"Red\", in a capital", set(invert("Red", 100.0))),
-            ("amount keyed to 150", keys("amount", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "amount keyed to 150",
+                keys("amount", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_invert_001.json",
         vec![
-            ("channel alpha at amount 0, the bottom,", set(invert("alpha", 0.0))),
-            ("channel blue at amount 100, the top,", set(invert("blue", 100.0))),
-            ("amount keyed from 0 to 100", keys("amount", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "channel alpha at amount 0, the bottom,",
+                set(invert("alpha", 0.0)),
+            ),
+            (
+                "channel blue at amount 100, the top,",
+                set(invert("blue", 100.0)),
+            ),
+            (
+                "amount keyed from 0 to 100",
+                keys("amount", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_invert_001.json", 0), ("fx_invert_009.json", 0), ("fx_invert_010.json", 2)]);
+    t.tiles(&[
+        ("fx_invert_001.json", 0),
+        ("fx_invert_009.json", 0),
+        ("fx_invert_010.json", 2),
+    ]);
 
     t.finish("B-77_invert_table.md");
 }

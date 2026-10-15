@@ -26,21 +26,45 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// FX-SH-001 at the street's size in `dir`, the holder's settings changed by `p`; `frame` drawn
 /// on the processor, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, p: &J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/shatter/fx_sh_001.json")).unwrap()).unwrap();
-    let a = project["assets"].as_array_mut().unwrap().iter_mut().find(|a| a["id"] == "asset-shot").unwrap();
+    let mut project: J =
+        serde_json::from_str(&fs::read_to_string(repo("Fixtures/shatter/fx_sh_001.json")).unwrap())
+            .unwrap();
+    let a = project["assets"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|a| a["id"] == "asset-shot")
+        .unwrap();
     a["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
     comp["height"] = J::from(TOWN.1);
-    let holder = comp["layers"].as_array_mut().unwrap().iter_mut().find(|l| l["id"] == "holder").unwrap();
+    let holder = comp["layers"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|l| l["id"] == "holder")
+        .unwrap();
     let parameters = &mut holder["effects"][0]["parameters"];
     for (k, v) in p.as_object().unwrap() {
         parameters[k] = v.clone();
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -59,19 +83,43 @@ fn b516_patterns() {
 
     t.heading("FX-SH-093 to 104 (document 25)");
     t.fixtures_numbered("expected_shatter.json", 93..=104);
-    let why = t.load("fx_sh_104.json").document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0]
+    let why = t
+        .load("fx_sh_104.json")
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
         .effect
         .why_invalid();
-    t.row("fx_sh_104.json, pattern \"Puzzle\", is refused in a sentence naming the pattern", &why, why.to_lowercase().contains("pattern"));
+    t.row(
+        "fx_sh_104.json, pattern \"Puzzle\", is refused in a sentence naming the pattern",
+        &why,
+        why.to_lowercase().contains("pattern"),
+    );
     let list: Vec<String> = (93..=104).map(|n| format!("fx_sh_{n:03}.json")).collect();
     t.round_trips(&list.iter().map(String::as_str).collect::<Vec<_>>());
 
     t.heading("Pictures (verification/D-636 pictures)");
     let dir = std::env::temp_dir().join("b516_pictures");
     fs::create_dir_all(dir.join("media")).unwrap();
-    png_out::write_rgba(&dir.join("town.png"), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        TOWN.0,
+        TOWN.1,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
     for m in ["back", "ramp", "colours", "cracks"] {
-        fs::copy(repo(&format!("Fixtures/shatter/media/{m}.png")), dir.join(format!("media/{m}.png"))).unwrap();
+        fs::copy(
+            repo(&format!("Fixtures/shatter/media/{m}.png")),
+            dir.join(format!("media/{m}.png")),
+        )
+        .unwrap();
     }
     let out = repo("verification/D-636 pictures");
     fs::create_dir_all(&out).unwrap();
@@ -100,21 +148,48 @@ fn b516_patterns() {
     shots.push(("12_stars_burst".into(), json!({"pattern": "stars_triangles", "repetitions": 12, "force_1_strength": 1.5, "force_1_radius": 0.3}), 3, false));
     for (name, p, frame, wire) in shots {
         let (bytes, said) = picture(&dir, &p, frame);
-        let white = bytes.chunks_exact(4).filter(|p| *p == [255, 255, 255, 255]).count();
+        let white = bytes
+            .chunks_exact(4)
+            .filter(|p| *p == [255, 255, 255, 255])
+            .count();
         let clear = bytes.chunks_exact(4).filter(|p| p[3] == 0).count();
         // Saved over black, so the white outlines and the holes the pieces leave show in any
         // picture viewer; only the clear pixels change.
-        let shown: Vec<u8> = bytes.chunks_exact(4).flat_map(|p| if p[3] == 0 { [0, 0, 0, 255] } else { [p[0], p[1], p[2], p[3]] }).collect();
-        png_out::write_rgba(&out.join(format!("{name}.png")), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &shown).unwrap();
+        let shown: Vec<u8> = bytes
+            .chunks_exact(4)
+            .flat_map(|p| {
+                if p[3] == 0 {
+                    [0, 0, 0, 255]
+                } else {
+                    [p[0], p[1], p[2], p[3]]
+                }
+            })
+            .collect();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            &shown,
+        )
+        .unwrap();
         if wire {
             t.row(
-                &format!("{name}.png: drawn without a warning, white outlines on clear and nothing else"),
-                &format!("{white} white, {clear} clear, {} other; warnings {said:?}", TOWN.0 * TOWN.1 - white - clear),
+                &format!(
+                    "{name}.png: drawn without a warning, white outlines on clear and nothing else"
+                ),
+                &format!(
+                    "{white} white, {clear} clear, {} other; warnings {said:?}",
+                    TOWN.0 * TOWN.1 - white - clear
+                ),
                 said.is_empty() && white > 0 && white + clear == TOWN.0 * TOWN.1,
             );
         } else {
             t.row(
-                &format!("{name}.png: drawn without a warning, the flown pieces leaving clear holes"),
+                &format!(
+                    "{name}.png: drawn without a warning, the flown pieces leaving clear holes"
+                ),
                 &format!("{clear} clear; warnings {said:?}"),
                 said.is_empty() && clear > 0,
             );

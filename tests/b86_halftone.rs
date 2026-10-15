@@ -43,7 +43,11 @@ fn b86_halftone() {
 
     t.heading("How far it reaches");
     let got = halftone(200.0, 45.0, "#000000", "#ffffff", 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = start();
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -96,13 +100,34 @@ fn b86_halftone() {
     t.refused(
         &mut document,
         vec![
-            ("size 1", set(halftone(1.0, 45.0, "#000000", "#ffffff", 100.0))),
-            ("size 201", set(halftone(201.0, 45.0, "#000000", "#ffffff", 100.0))),
-            ("angle 3601", set(halftone(8.0, 3601.0, "#000000", "#ffffff", 100.0))),
-            ("amount 101", set(halftone(8.0, 45.0, "#000000", "#ffffff", 101.0))),
-            ("the ink \"black\"", set(halftone(8.0, 45.0, "black", "#ffffff", 100.0))),
-            ("the paper \"#fffff\"", set(halftone(8.0, 45.0, "#000000", "#fffff", 100.0))),
-            ("size keyed to 250", keys("size", &[(0, &[8.0]), (4, &[250.0])])),
+            (
+                "size 1",
+                set(halftone(1.0, 45.0, "#000000", "#ffffff", 100.0)),
+            ),
+            (
+                "size 201",
+                set(halftone(201.0, 45.0, "#000000", "#ffffff", 100.0)),
+            ),
+            (
+                "angle 3601",
+                set(halftone(8.0, 3601.0, "#000000", "#ffffff", 100.0)),
+            ),
+            (
+                "amount 101",
+                set(halftone(8.0, 45.0, "#000000", "#ffffff", 101.0)),
+            ),
+            (
+                "the ink \"black\"",
+                set(halftone(8.0, 45.0, "black", "#ffffff", 100.0)),
+            ),
+            (
+                "the paper \"#fffff\"",
+                set(halftone(8.0, 45.0, "#000000", "#fffff", 100.0)),
+            ),
+            (
+                "size keyed to 250",
+                keys("size", &[(0, &[8.0]), (4, &[250.0])]),
+            ),
         ],
     );
     t.taken(
@@ -117,7 +142,10 @@ fn b86_halftone() {
                 "size 200, angle 3600 and amount 100, the tops,",
                 set(halftone(200.0, 3600.0, "#ffffff", "#000000", 100.0)),
             ),
-            ("angle keyed from 0 to 90", keys("angle", &[(0, &[0.0]), (4, &[90.0])])),
+            (
+                "angle keyed from 0 to 90",
+                keys("angle", &[(0, &[0.0]), (4, &[90.0])]),
+            ),
         ],
     );
 

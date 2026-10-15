@@ -252,15 +252,18 @@ fn b33_glow() {
             same,
         );
     }
-    let params =
-        saved(&load("fx_glow_021.json"))["compositions"][0]["layers"][0]["effects"][0]
-            ["parameters"]
-            .clone();
+    let params = saved(&load("fx_glow_021.json"))["compositions"][0]["layers"][0]["effects"][0]
+        ["parameters"]
+        .clone();
     let small = (&params["colors"], &params["tint"]);
     t.row(
         "fx_glow_021.json, written in capitals, is saved in small letters",
         &format!("{} and {}", small.0, small.1),
-        small == (&serde_json::json!(["#3c286e"]), &serde_json::json!("#ff4000")),
+        small
+            == (
+                &serde_json::json!(["#3c286e"]),
+                &serde_json::json!("#ff4000"),
+            ),
     );
     for (what, parameters) in [
         (
@@ -321,19 +324,91 @@ fn b33_glow() {
         "#000009",
     ];
     for (what, command) in [
-        ("radius 501", set(Glow { radius: 501.0, ..PLAIN })),
-        ("radius -1", set(Glow { radius: -1.0, ..PLAIN })),
-        ("threshold 101", set(Glow { threshold: 101.0, ..PLAIN })),
-        ("intensity 11", set(Glow { intensity: 11.0, ..PLAIN })),
-        ("intensity -1", set(Glow { intensity: -1.0, ..PLAIN })),
-        ("tolerance 256", set(Glow { tolerance: 256.0, ..PLAIN })),
-        ("nine colours", set(Glow { colors: nine, ..PLAIN })),
-        ("the colour \"#12345\"", set(Glow { colors: &["#12345"], ..PLAIN })),
-        ("the tint \"orange\"", set(Glow { tint: "orange", ..PLAIN })),
-        ("operation \"multiply\"", set(Glow { operation: "multiply", ..PLAIN })),
-        ("based on \"dark\"", set(Glow { based_on: "dark", ..PLAIN })),
-        ("radius keyed to 600", keys("radius", &[(0, 0.0), (4, 600.0)])),
-        ("intensity keyed to 20", keys("intensity", &[(0, 0.0), (4, 20.0)])),
+        (
+            "radius 501",
+            set(Glow {
+                radius: 501.0,
+                ..PLAIN
+            }),
+        ),
+        (
+            "radius -1",
+            set(Glow {
+                radius: -1.0,
+                ..PLAIN
+            }),
+        ),
+        (
+            "threshold 101",
+            set(Glow {
+                threshold: 101.0,
+                ..PLAIN
+            }),
+        ),
+        (
+            "intensity 11",
+            set(Glow {
+                intensity: 11.0,
+                ..PLAIN
+            }),
+        ),
+        (
+            "intensity -1",
+            set(Glow {
+                intensity: -1.0,
+                ..PLAIN
+            }),
+        ),
+        (
+            "tolerance 256",
+            set(Glow {
+                tolerance: 256.0,
+                ..PLAIN
+            }),
+        ),
+        (
+            "nine colours",
+            set(Glow {
+                colors: nine,
+                ..PLAIN
+            }),
+        ),
+        (
+            "the colour \"#12345\"",
+            set(Glow {
+                colors: &["#12345"],
+                ..PLAIN
+            }),
+        ),
+        (
+            "the tint \"orange\"",
+            set(Glow {
+                tint: "orange",
+                ..PLAIN
+            }),
+        ),
+        (
+            "operation \"multiply\"",
+            set(Glow {
+                operation: "multiply",
+                ..PLAIN
+            }),
+        ),
+        (
+            "based on \"dark\"",
+            set(Glow {
+                based_on: "dark",
+                ..PLAIN
+            }),
+        ),
+        (
+            "radius keyed to 600",
+            keys("radius", &[(0, 0.0), (4, 600.0)]),
+        ),
+        (
+            "intensity keyed to 20",
+            keys("intensity", &[(0, 0.0), (4, 20.0)]),
+        ),
     ] {
         let refused = document.apply(command).err();
         let untouched = settings(&document) == held;
@@ -376,7 +451,10 @@ fn b33_glow() {
                 ..PLAIN
             }),
         ),
-        ("radius keyed from 0 to 8", keys("radius", &[(0, 0.0), (4, 8.0)])),
+        (
+            "radius keyed from 0 to 8",
+            keys("radius", &[(0, 0.0), (4, 8.0)]),
+        ),
     ] {
         let taken = document.apply(command).is_ok();
         t.row(

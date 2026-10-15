@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,7 +43,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=24 {
         let file = format!("fx_blockload_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::BlockLoad { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::BlockLoad { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -84,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::BlockLoad { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::BlockLoad { .. })
+                });
                 t.row(
                     &format!("the reference shot, Block Load {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -97,8 +115,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -121,7 +160,8 @@ fn edges(p: &[u8], (w, h): (usize, usize), step: u8) -> usize {
     let mut n = 0;
     for y in 0..h - 1 {
         for x in 0..w - 1 {
-            n += (r(x, y).abs_diff(r(x + 1, y)) > step) as usize + (r(x, y).abs_diff(r(x, y + 1)) > step) as usize;
+            n += (r(x, y).abs_diff(r(x + 1, y)) > step) as usize
+                + (r(x, y).abs_diff(r(x, y + 1)) > step) as usize;
         }
     }
     n
@@ -147,13 +187,19 @@ fn b329_block_load() {
     t.fixtures_numbered("expected_block_load.json", 1..=24);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=24).map(|n| format!("fx_blockload_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=24)
+        .map(|n| format!("fx_blockload_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_blockload_011.json");
     t.row(
         "fx_blockload_011.json is saved with its four settings, and not the draft's pixel width",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 4 && saved["scans"] == 2.0 && saved["start_cleared"] == "off" && saved["bilinear"] == "on" && saved.get("pixel").is_none(),
+        saved.as_object().unwrap().len() == 4
+            && saved["scans"] == 2.0
+            && saved["start_cleared"] == "off"
+            && saved["bilinear"] == "on"
+            && saved.get("pixel").is_none(),
     );
     for (file, want) in [
         ("fx_blockload_018.json", "completion"),
@@ -164,27 +210,59 @@ fn b329_block_load() {
         ("fx_blockload_023.json", "bilinear"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Block Load and its {want}"), &why, why.contains("Block Load") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Block Load and its {want}"),
+            &why,
+            why.contains("Block Load") && why.contains(want),
+        );
     }
     let full = r#"{"completion": 0, "scans": 4, "start_cleared": "on", "bilinear": "off"}"#;
-    t.shape_refused("fx_blockload_001.json", "a Block Load whose scans is a word", &full.replace("\"scans\": 4", "\"scans\": \"many\""));
-    t.shape_refused("fx_blockload_001.json", "a Block Load without its completion", &full.replace("\"completion\": 0, ", ""));
-    t.shape_refused("fx_blockload_001.json", "a Block Load whose bilinear is a number", &full.replace("\"off\"", "0"));
+    t.shape_refused(
+        "fx_blockload_001.json",
+        "a Block Load whose scans is a word",
+        &full.replace("\"scans\": 4", "\"scans\": \"many\""),
+    );
+    t.shape_refused(
+        "fx_blockload_001.json",
+        "a Block Load without its completion",
+        &full.replace("\"completion\": 0, ", ""),
+    );
+    t.shape_refused(
+        "fx_blockload_001.json",
+        "a Block Load whose bilinear is a number",
+        &full.replace("\"off\"", "0"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_blockload_001.json").document;
-    let few = changed(&t, "fx_blockload_001.json", |e| if let Effect::BlockLoad { scans, .. } = e { *scans = 0.5 });
-    let bad = changed(&t, "fx_blockload_001.json", |e| if let Effect::BlockLoad { bilinear, .. } = e { *bilinear = "On".into() });
+    let few = changed(&t, "fx_blockload_001.json", |e| {
+        if let Effect::BlockLoad { scans, .. } = e {
+            *scans = 0.5
+        }
+    });
+    let bad = changed(&t, "fx_blockload_001.json", |e| {
+        if let Effect::BlockLoad { bilinear, .. } = e {
+            *bilinear = "On".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("scans 0.5", set(few)),
             ("bilinear On (a capital)", set(bad)),
-            ("completion keyed to 150", keys("completion", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "completion keyed to 150",
+                keys("completion", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let smooth = changed(&t, "fx_blockload_001.json", |e| {
-        if let Effect::BlockLoad { completion, bilinear, .. } = e {
+        if let Effect::BlockLoad {
+            completion,
+            bilinear,
+            ..
+        } = e
+        {
             *completion = 60.0;
             *bilinear = "on".into();
         }
@@ -194,7 +272,10 @@ fn b329_block_load() {
         "fx_blockload_001.json",
         vec![
             ("completion 60, bilinear on", set(smooth)),
-            ("scans keyed from 1 to 16", keys("scans", &[(0, &[1.0]), (4, &[16.0])])),
+            (
+                "scans keyed from 1 to 16",
+                keys("scans", &[(0, &[1.0]), (4, &[16.0])]),
+            ),
         ],
     );
 
@@ -221,20 +302,40 @@ fn b329_block_load() {
         &[
             ("as added (nothing yet)", json!({}), 3),
             ("completion 50", json!({"completion": 50}), 3),
-            ("start cleared off, scans 6, completion 30, bilinear", json!({"start_cleared": "off", "scans": 6, "completion": 30, "bilinear": "on"}), 3),
+            (
+                "start cleared off, scans 6, completion 30, bilinear",
+                json!({"start_cleared": "off", "scans": 6, "completion": 30, "bilinear": "on"}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-449 pictures/`");
     let dir = repo("verification/D-449 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
-    let mosaic = |size: f64| picture(&dir, "town.png", TOWN, json!([{"instance_id": "fx-0-0", "type_id": "core.mosaic", "enabled": true, "parameters": {"size": size}}]), 0).0;
+    let mosaic = |size: f64| {
+        picture(&dir, "town.png", TOWN, json!([{"instance_id": "fx-0-0", "type_id": "core.mosaic", "enabled": true, "parameters": {"size": size}}]), 0).0
+    };
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let w = TOWN.0;
 
     let (added, said) = street(json!({}));
@@ -279,7 +380,11 @@ fn b329_block_load() {
     );
 
     let (done, said) = street(json!({"completion": 100}));
-    t.row("Completion 100: the street byte for byte; draws cleanly", &format!("{said:?}, the same: {}", done == before), said.is_empty() && done == before);
+    t.row(
+        "Completion 100: the street byte for byte; draws cleanly",
+        &format!("{said:?}, the same: {}", done == before),
+        said.is_empty() && done == before,
+    );
 
     t.finish("D-449_block_load_table.md");
 }
@@ -314,17 +419,37 @@ fn b329_block_load_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B329_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-329_timing_raw.md"));
+    let out = std::env::var("B329_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-329_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -605,7 +605,10 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             // D-645: a keyed level, or one written as keys, is written as keys; otherwise the
             // plain number every file before D-645 has.
             match &layer.gain_keys {
-                Some(keys) => ("gain_db", property_json(base.and_then(|b| b.get("gain_db")), keys, 1.0)),
+                Some(keys) => (
+                    "gain_db",
+                    property_json(base.and_then(|b| b.get("gain_db")), keys, 1.0),
+                ),
                 None => ("gain_db", J::from(layer.gain_db)),
             },
         ];
@@ -613,7 +616,9 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         if let Some(pan) = &layer.pan {
             let was = base.and_then(|b| b.get("pan"));
             owned.push(match was {
-                Some(J::Number(_)) | None if pan.keyframes().is_empty() => ("pan", num(pan.base().as_scalar().unwrap_or(0.0))),
+                Some(J::Number(_)) | None if pan.keyframes().is_empty() => {
+                    ("pan", num(pan.base().as_scalar().unwrap_or(0.0)))
+                }
                 _ => ("pan", property_json(was, pan, 1.0)),
             });
         }
@@ -713,12 +718,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                         if let Interp::Ease { x1, y1, x2, y2 } = k.interp {
                             key.insert(
                                 "ease".into(),
-                                J::Array(vec![
-                                    J::from(x1),
-                                    J::from(y1),
-                                    J::from(x2),
-                                    J::from(y2),
-                                ]),
+                                J::Array(vec![J::from(x1), J::from(y1), J::from(x2), J::from(y2)]),
                             );
                         }
                         J::Object(key)
@@ -797,10 +797,8 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 map.insert("path".into(), path_json(was, &s.points, &s.keys));
                 // Absent and null both mean "no fill" on the way in, and null is written on the
                 // way out so that a file that had one and lost it says so rather than keeping it.
-                let was_paint = |key: &str| {
-                    was.and_then(|w| w.get(key))
-                        .and_then(|p| p.get("gradient"))
-                };
+                let was_paint =
+                    |key: &str| was.and_then(|w| w.get(key)).and_then(|p| p.get("gradient"));
                 // D-170: a keyed style is its record, a still one its plain value.
                 let style = |name: &str, plain: J| match s.tracks.get(name) {
                     Some(track) => track_json(track, plain),
@@ -812,7 +810,10 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                         None => J::Null,
                         Some(f) => {
                             let mut m = Map::new();
-                            m.insert("color".into(), style("fill_color", J::from(f.color.to_vec())));
+                            m.insert(
+                                "color".into(),
+                                style("fill_color", J::from(f.color.to_vec())),
+                            );
                             m.insert("opacity".into(), style("fill_opacity", J::from(f.opacity)));
                             if let Some(g) = &f.gradient {
                                 m.insert("gradient".into(), gradient_json(was_paint("fill"), g));
@@ -827,9 +828,18 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                         None => J::Null,
                         Some(t) => {
                             let mut m = Map::new();
-                            m.insert("color".into(), style("stroke_color", J::from(t.color.to_vec())));
-                            m.insert("opacity".into(), style("stroke_opacity", J::from(t.opacity)));
-                            m.insert("width_px".into(), style("stroke_width", J::from(t.width_px)));
+                            m.insert(
+                                "color".into(),
+                                style("stroke_color", J::from(t.color.to_vec())),
+                            );
+                            m.insert(
+                                "opacity".into(),
+                                style("stroke_opacity", J::from(t.opacity)),
+                            );
+                            m.insert(
+                                "width_px".into(),
+                                style("stroke_width", J::from(t.width_px)),
+                            );
                             if let Some(g) = &t.gradient {
                                 m.insert("gradient".into(), gradient_json(was_paint("stroke"), g));
                             }
@@ -854,8 +864,13 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                     Some(t) => {
                         let was = was.and_then(|w| w.get("trim"));
                         let mut m = Map::new();
-                        for (key, p) in [("start", &t.start), ("end", &t.end), ("offset", &t.offset)] {
-                            m.insert(key.into(), property_json(was.and_then(|w| w.get(key)), p, 1.0));
+                        for (key, p) in
+                            [("start", &t.start), ("end", &t.end), ("offset", &t.offset)]
+                        {
+                            m.insert(
+                                key.into(),
+                                property_json(was.and_then(|w| w.get(key)), p, 1.0),
+                            );
                         }
                         map.insert("trim".into(), J::Object(m));
                     }
@@ -872,7 +887,10 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     // D-263: nor for a text layer, whose drawing is its `source_text` record.
     if layer.is_adjustment()
         || layer.solid.is_some()
-        || matches!(layer.kind, LayerKind::Shape | LayerKind::Null | LayerKind::Text)
+        || matches!(
+            layer.kind,
+            LayerKind::Shape | LayerKind::Null | LayerKind::Text
+        )
     {
         owned.retain(|(key, _)| {
             !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
@@ -930,9 +948,18 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         put("all_caps", t.all_caps.then(|| J::from(true)));
         put("faux_bold", t.faux_bold.then(|| J::from(true)));
         put("faux_italic", t.faux_italic.then(|| J::from(true)));
-        put("box_width", (t.box_width != 0.0).then(|| J::from(t.box_width)));
+        put(
+            "box_width",
+            (t.box_width != 0.0).then(|| J::from(t.box_width)),
+        );
         // A record is merged over the file's own, so a line inside it no build writes is kept.
-        let old = |key: &str| base.and_then(|b| b.get("source_text")).and_then(|s| s.get(key)).and_then(J::as_object).cloned().unwrap_or_default();
+        let old = |key: &str| {
+            base.and_then(|b| b.get("source_text"))
+                .and_then(|s| s.get(key))
+                .and_then(J::as_object)
+                .cloned()
+                .unwrap_or_default()
+        };
         let merged = |key: &str, pairs: Vec<(&str, J)>| {
             let mut m = old(key);
             for (k, v) in pairs {
@@ -940,7 +967,18 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             }
             J::Object(m)
         };
-        put("stroke", t.stroke.as_ref().map(|s| merged("stroke", vec![("color", J::from(s.color.to_vec())), ("width", J::from(s.width))])));
+        put(
+            "stroke",
+            t.stroke.as_ref().map(|s| {
+                merged(
+                    "stroke",
+                    vec![
+                        ("color", J::from(s.color.to_vec())),
+                        ("width", J::from(s.width)),
+                    ],
+                )
+            }),
+        );
         put(
             "background",
             t.background.as_ref().map(|b| {
@@ -1076,10 +1114,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
     let unknown = matches!(instance.effect, Effect::Unsupported { .. });
     let plain_mix = !unknown && instance.mix == 100.0 && !instance.tracks.contains_key("mix");
     if !unknown && !plain_mix {
-        owned.push(("mix", match instance.tracks.get("mix") {
-            Some(track) => track_json(track, num(instance.mix)),
-            None => num(instance.mix),
-        }));
+        owned.push((
+            "mix",
+            match instance.tracks.get("mix") {
+                Some(track) => track_json(track, num(instance.mix)),
+                None => num(instance.mix),
+            },
+        ));
     }
     let mut params = base
         .and_then(|b| b.get("parameters"))
@@ -1087,11 +1128,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         .cloned()
         .unwrap_or_else(Map::new);
     match &instance.effect {
-        Effect::Exposure { stops, offset, gamma, bypass } => {
+        Effect::Exposure {
+            stops,
+            offset,
+            gamma,
+            bypass,
+        } => {
             params.insert("stops".into(), num(*stops));
             // D-335: each written only when not its default or the file had it.
             for (key, value, absent) in [("offset", *offset, 0.0), ("gamma", *gamma, 1.0)] {
-                if value != absent || instance.tracks.contains_key(key) || params.contains_key(key) {
+                if value != absent || instance.tracks.contains_key(key) || params.contains_key(key)
+                {
                     params.insert(key.into(), num(value));
                 }
             }
@@ -1102,11 +1149,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::ReduceInterlaceFlicker { softness } => {
             params.insert("softness".into(), num(*softness));
         }
-        Effect::SpillSuppressor { color_to_suppress, suppression } => {
-            params.insert("color_to_suppress".into(), J::from(color_to_suppress.as_str()));
+        Effect::SpillSuppressor {
+            color_to_suppress,
+            suppression,
+        } => {
+            params.insert(
+                "color_to_suppress".into(),
+                J::from(color_to_suppress.as_str()),
+            );
             params.insert("suppression".into(), num(*suppression));
         }
-        Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
+        Effect::GaussianBlur {
+            sigma_px,
+            edges,
+            dimensions,
+            units,
+        } => {
             params.insert("sigma_px".into(), num(*sigma_px));
             put_edges(&mut params, edges);
             // D-303: written only when not both or when the file had it.
@@ -1125,18 +1183,33 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("amount".into(), num(*amount));
         }
-        Effect::TintMap { map_black_to, map_white_to, amount_to_tint } => {
+        Effect::TintMap {
+            map_black_to,
+            map_white_to,
+            amount_to_tint,
+        } => {
             params.insert("map_black_to".into(), J::from(map_black_to.as_str()));
             params.insert("map_white_to".into(), J::from(map_white_to.as_str()));
             params.insert("amount_to_tint".into(), num(*amount_to_tint));
         }
-        Effect::Tritone { highlights, midtones, shadows, blend_with_original } => {
+        Effect::Tritone {
+            highlights,
+            midtones,
+            shadows,
+            blend_with_original,
+        } => {
             params.insert("highlights".into(), J::from(highlights.as_str()));
             params.insert("midtones".into(), J::from(midtones.as_str()));
             params.insert("shadows".into(), J::from(shadows.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
-        Effect::AerialHaze { haze_color, amount, layer, fit, .. } => {
+        Effect::AerialHaze {
+            haze_color,
+            amount,
+            layer,
+            fit,
+            ..
+        } => {
             params.insert("haze_color".into(), J::from(haze_color.as_str()));
             params.insert("amount".into(), num(*amount));
             params.insert("layer".into(), layer.clone());
@@ -1157,8 +1230,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             sampling,
             ..
         } => {
-            params.insert("anchor_point".into(), J::Array(anchor_point.iter().map(|c| num(*c)).collect()));
-            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "anchor_point".into(),
+                J::Array(anchor_point.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "position".into(),
+                J::Array(position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("uniform_scale".into(), J::from(uniform_scale.as_str()));
             params.insert("scale_height".into(), num(*scale_height));
             params.insert("scale_width".into(), num(*scale_width));
@@ -1166,7 +1245,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("skew_axis".into(), num(*skew_axis));
             params.insert("rotation".into(), num(*rotation));
             params.insert("opacity".into(), num(*opacity));
-            params.insert("use_composition_shutter_angle".into(), J::from(use_composition_shutter_angle.as_str()));
+            params.insert(
+                "use_composition_shutter_angle".into(),
+                J::from(use_composition_shutter_angle.as_str()),
+            );
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("sampling".into(), J::from(sampling.as_str()));
         }
@@ -1325,8 +1407,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         } => {
             // D-302: alpha written only when it bends or the file had it, so a file that never
             // changed it saves as before.
-            let alpha = (!crate::grade::is_straight(alpha) || params.contains_key("alpha")).then_some(("alpha", alpha));
-            for (name, points) in [("master", master), ("red", red), ("green", green), ("blue", blue)].into_iter().chain(alpha) {
+            let alpha = (!crate::grade::is_straight(alpha) || params.contains_key("alpha"))
+                .then_some(("alpha", alpha));
+            for (name, points) in [
+                ("master", master),
+                ("red", red),
+                ("green", green),
+                ("blue", blue),
+            ]
+            .into_iter()
+            .chain(alpha)
+            {
                 params.insert(
                     name.into(),
                     J::Array(
@@ -1352,7 +1443,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("output_white".into(), num(*output_white));
         }
         // D-383: Levels' Channel menu, then every set.
-        Effect::ChannelLevels { individual, channel, sets } => {
+        Effect::ChannelLevels {
+            individual,
+            channel,
+            sets,
+        } => {
             if !individual {
                 params.insert("channel".into(), J::from(channel.as_str()));
             }
@@ -1389,8 +1484,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             blend,
         } => {
             params.insert("shape".into(), J::from(shape.as_str()));
-            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
-            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "start".into(),
+                J::Array(start.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "end".into(),
+                J::Array(end.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("start_color".into(), J::from(start_color.as_str()));
             params.insert("end_color".into(), J::from(end_color.as_str()));
             params.insert("start_opacity".into(), num(*start_opacity));
@@ -1435,13 +1536,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ("roundness", num(*roundness), *roundness == 0.0),
                 ("rotation", num(*rotation), *rotation == 0.0),
                 ("aspect", num(*aspect), *aspect == 1.0),
-                ("highlight_gain", num(*highlight_gain), *highlight_gain == 0.0),
-                ("highlight_threshold", num(*highlight_threshold), *highlight_threshold == 100.0),
+                (
+                    "highlight_gain",
+                    num(*highlight_gain),
+                    *highlight_gain == 0.0,
+                ),
+                (
+                    "highlight_threshold",
+                    num(*highlight_threshold),
+                    *highlight_threshold == 100.0,
+                ),
                 // D-359: the blur map, the same way.
                 ("layer", layer.clone(), layer.as_str() == Some("")),
                 ("fit", J::from(fit.as_str()), fit == "center"),
                 ("channel", J::from(channel.as_str()), channel == "luminance"),
-                ("focal_distance", num(*focal_distance), *focal_distance == 0.0),
+                (
+                    "focal_distance",
+                    num(*focal_distance),
+                    *focal_distance == 0.0,
+                ),
                 ("invert", J::from(invert.as_str()), invert == "off"),
             ] {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
@@ -1507,7 +1620,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         } => {
             params.insert("mode".into(), J::from(mode.as_str()));
             params.insert("amount".into(), num(*amount));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("angle".into(), num(*angle));
             params.insert("falloff".into(), num(*falloff));
             params.insert("red_scale".into(), num(*red_scale));
@@ -1544,23 +1660,53 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("color".into(), J::from(color.as_str()));
         }
-        Effect::LightBurst { center, intensity, ray_length, burst, set_color, color } => {
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+        Effect::LightBurst {
+            center,
+            intensity,
+            ray_length,
+            burst,
+            set_color,
+            color,
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("intensity".into(), num(*intensity));
             params.insert("ray_length".into(), num(*ray_length));
             params.insert("burst".into(), J::from(burst.as_str()));
             params.insert("set_color".into(), J::from(set_color.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
         }
-        Effect::CcLightRays { intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode } => {
+        Effect::CcLightRays {
+            intensity,
+            center,
+            radius,
+            warp_softness,
+            shape,
+            direction,
+            color_from_source,
+            allow_brightening,
+            color,
+            transfer_mode,
+        } => {
             params.insert("intensity".into(), num(*intensity));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("radius".into(), num(*radius));
             params.insert("warp_softness".into(), num(*warp_softness));
             params.insert("shape".into(), J::from(shape.as_str()));
             params.insert("direction".into(), num(*direction));
-            params.insert("color_from_source".into(), J::from(color_from_source.as_str()));
-            params.insert("allow_brightening".into(), J::from(allow_brightening.as_str()));
+            params.insert(
+                "color_from_source".into(),
+                J::from(color_from_source.as_str()),
+            );
+            params.insert(
+                "allow_brightening".into(),
+                J::from(allow_brightening.as_str()),
+            );
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("transfer_mode".into(), J::from(transfer_mode.as_str()));
         }
@@ -1624,11 +1770,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("units".into(), J::from(units.as_str()));
             }
             // D-410: likewise, written only when not 0 or in the file already.
-            if *new_seed_every != 0.0 || instance.tracks.contains_key("new_seed_every") || params.contains_key("new_seed_every") {
+            if *new_seed_every != 0.0
+                || instance.tracks.contains_key("new_seed_every")
+                || params.contains_key("new_seed_every")
+            {
                 params.insert("new_seed_every".into(), num(*new_seed_every));
             }
             // D-411: likewise.
-            for (key, value) in [("drift_direction", *drift_direction), ("drift_speed", *drift_speed)] {
+            for (key, value) in [
+                ("drift_direction", *drift_direction),
+                ("drift_speed", *drift_speed),
+            ] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
@@ -1658,10 +1810,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-299: as D-121, each at its start, without keys, written only if the file had
             // it, so a file that never changed them saves as before.
             for (key, value, start) in [
-                ("fractal_type", J::from(fractal_type.as_str()), fractal_type == "basic"),
-                ("noise_type", J::from(noise_type.as_str()), noise_type == "smooth"),
+                (
+                    "fractal_type",
+                    J::from(fractal_type.as_str()),
+                    fractal_type == "basic",
+                ),
+                (
+                    "noise_type",
+                    J::from(noise_type.as_str()),
+                    noise_type == "smooth",
+                ),
                 ("invert", J::from(invert.as_str()), invert == "off"),
-                ("offset", J::Array(offset.iter().map(|v| num(*v)).collect()), *offset == [0.0, 0.0]),
+                (
+                    "offset",
+                    J::Array(offset.iter().map(|v| num(*v)).collect()),
+                    *offset == [0.0, 0.0],
+                ),
                 ("scale_width", num(*scale_width), *scale_width == 100.0),
                 ("scale_height", num(*scale_height), *scale_height == 100.0),
                 ("cycle", num(*cycle), *cycle == 0.0),
@@ -1701,17 +1865,30 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             highlights,
             preserve_luminosity,
         } => {
-            for (name, tone) in [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)] {
-                params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
+            for (name, tone) in [
+                ("shadows", shadows),
+                ("midtones", midtones),
+                ("highlights", highlights),
+            ] {
+                params.insert(
+                    name.into(),
+                    J::Array(tone.iter().map(|v| num(*v)).collect()),
+                );
             }
             // D-295: written only when it is not "off" or the file had it, so a file that never
             // turned it on saves as before.
             if preserve_luminosity != "off" || params.contains_key("preserve_luminosity") {
-                params.insert("preserve_luminosity".into(), J::from(preserve_luminosity.as_str()));
+                params.insert(
+                    "preserve_luminosity".into(),
+                    J::from(preserve_luminosity.as_str()),
+                );
             }
         }
         Effect::Offset { shift } => {
-            params.insert("shift".into(), J::Array(shift.iter().map(|v| num(*v)).collect()));
+            params.insert(
+                "shift".into(),
+                J::Array(shift.iter().map(|v| num(*v)).collect()),
+            );
         }
         Effect::LightWrap {
             width,
@@ -1726,11 +1903,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("channel".into(), J::from(channel.as_str()));
             params.insert("amount".into(), num(*amount));
         }
-        Effect::BrightnessContrast { brightness, contrast } => {
+        Effect::BrightnessContrast {
+            brightness,
+            contrast,
+        } => {
             params.insert("brightness".into(), num(*brightness));
             params.insert("contrast".into(), num(*contrast));
         }
-        Effect::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => {
+        Effect::BlackWhite {
+            reds,
+            yellows,
+            greens,
+            cyans,
+            blues,
+            magentas,
+        } => {
             params.insert("reds".into(), num(*reds));
             params.insert("yellows".into(), num(*yellows));
             params.insert("greens".into(), num(*greens));
@@ -1755,7 +1942,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             params.insert("monochrome".into(), J::from(monochrome.as_str()));
         }
-        Effect::Vibrance { vibrance, saturation } => {
+        Effect::Vibrance {
+            vibrance,
+            saturation,
+        } => {
             params.insert("vibrance".into(), num(*vibrance));
             params.insert("saturation".into(), num(*saturation));
         }
@@ -1804,20 +1994,36 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("amount".into(), num(*amount));
         }
-        Effect::Sharpen { amount, radius, threshold } => {
+        Effect::Sharpen {
+            amount,
+            radius,
+            threshold,
+        } => {
             params.insert("amount".into(), num(*amount));
             params.insert("radius".into(), num(*radius));
             // D-317: as D-310, written only if moved, keyed or already in the file.
-            if *threshold != 0.0 || instance.tracks.contains_key("threshold") || params.contains_key("threshold") {
+            if *threshold != 0.0
+                || instance.tracks.contains_key("threshold")
+                || params.contains_key("threshold")
+            {
                 params.insert("threshold".into(), num(*threshold));
             }
         }
-        Effect::Diffusion { radius, amount, blend, second_amount, second_blend } => {
+        Effect::Diffusion {
+            radius,
+            amount,
+            blend,
+            second_amount,
+            second_blend,
+        } => {
             params.insert("radius".into(), num(*radius));
             params.insert("amount".into(), num(*amount));
             params.insert("blend".into(), J::from(blend.as_str()));
             // D-364: as D-310, written only if moved, keyed or already in the file.
-            if *second_amount != 0.0 || instance.tracks.contains_key("second_amount") || params.contains_key("second_amount") {
+            if *second_amount != 0.0
+                || instance.tracks.contains_key("second_amount")
+                || params.contains_key("second_amount")
+            {
                 params.insert("second_amount".into(), num(*second_amount));
             }
             if second_blend != "soft_light" || params.contains_key("second_blend") {
@@ -1887,7 +2093,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("height".into(), num(*height));
             // D-310: as D-304, written only if moved, keyed or already in the file.
-            for (key, value) in [("vertical_radius", *vertical_radius), ("taper_radius", *taper_radius)] {
+            for (key, value) in [
+                ("vertical_radius", *vertical_radius),
+                ("taper_radius", *taper_radius),
+            ] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
@@ -1914,7 +2123,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-304: as D-121, each at its start, without keys, written only if the file had
             // it, so a file that never changed them saves as before.
             for (key, value, start) in [
-                ("tile_center", J::Array(tile_center.iter().map(|v| num(*v)).collect()), *tile_center == crate::layer_fx::PLAIN_TILE),
+                (
+                    "tile_center",
+                    J::Array(tile_center.iter().map(|v| num(*v)).collect()),
+                    *tile_center == crate::layer_fx::PLAIN_TILE,
+                ),
                 ("tile_width", num(*tile_width), *tile_width == 100.0),
                 ("tile_height", num(*tile_height), *tile_height == 100.0),
             ] {
@@ -2021,10 +2234,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-546: Glint Streaks' settings, each written only when changed, keyed or in the
             // file already, so a file from before them saves the same.
             for (key, value, start) in [
-                ("ray_colors", J::from(glint.ray_colors.as_str()), glint.ray_colors == "one"),
-                ("color_2", J::from(glint.color_2.as_str()), glint.color_2 == "#80c0ff"),
+                (
+                    "ray_colors",
+                    J::from(glint.ray_colors.as_str()),
+                    glint.ray_colors == "one",
+                ),
+                (
+                    "color_2",
+                    J::from(glint.color_2.as_str()),
+                    glint.color_2 == "#80c0ff",
+                ),
                 ("shimmer", num(glint.shimmer), glint.shimmer == 0.0),
-                ("shimmer_period", num(glint.shimmer_period), glint.shimmer_period == 24.0),
+                (
+                    "shimmer_period",
+                    num(glint.shimmer_period),
+                    glint.shimmer_period == 24.0,
+                ),
             ] {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), value);
@@ -2178,13 +2403,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             if forks != "short" || params.contains_key("forks") {
                 params.insert("forks".into(), J::from(forks.as_str()));
             }
-            for (key, value) in [("turbulence", *turbulence), ("decay", *decay), ("conductivity", *conductivity), ("obstacle", *obstacle)] {
+            for (key, value) in [
+                ("turbulence", *turbulence),
+                ("decay", *decay),
+                ("conductivity", *conductivity),
+                ("obstacle", *obstacle),
+            ] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
             }
-            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
-            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "start".into(),
+                J::Array(start.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "end".into(),
+                J::Array(end.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("jagged".into(), num(*jagged));
             params.insert("detail".into(), num(*detail));
             params.insert("branches".into(), num(*branches));
@@ -2196,7 +2432,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("glow_color".into(), J::from(glow_color.as_str()));
         }
-        Effect::CompoundBlur { layer, fit, max_blur, invert, edges, .. } => {
+        Effect::CompoundBlur {
+            layer,
+            fit,
+            max_blur,
+            invert,
+            edges,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("max_blur".into(), num(*max_blur));
@@ -2204,7 +2447,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("edges".into(), J::from(edges.as_str()));
         }
         Effect::DisplacementMap {
-            layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, expand, red_amount, green_amount, blue_amount, spectrum, ..
+            layer,
+            fit,
+            horizontal,
+            max_horizontal,
+            vertical,
+            max_vertical,
+            wrap,
+            expand,
+            red_amount,
+            green_amount,
+            blue_amount,
+            spectrum,
+            ..
         } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
@@ -2224,46 +2479,105 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ("blue_amount", *blue_amount, 100.0),
                 ("spectrum", *spectrum, 3.0),
             ] {
-                if value != absent || instance.tracks.contains_key(key) || params.contains_key(key) {
+                if value != absent || instance.tracks.contains_key(key) || params.contains_key(key)
+                {
                     params.insert(key.into(), num(value));
                 }
             }
         }
-        Effect::GradientWipe { layer, fit, completion, softness, invert, .. } => {
+        Effect::GradientWipe {
+            layer,
+            fit,
+            completion,
+            softness,
+            invert,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("completion".into(), num(*completion));
             params.insert("softness".into(), num(*softness));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
-        Effect::Echo { echo_time, echoes, intensity, decay, operator, .. } => {
+        Effect::Echo {
+            echo_time,
+            echoes,
+            intensity,
+            decay,
+            operator,
+            ..
+        } => {
             params.insert("echo_time".into(), num(*echo_time));
             params.insert("echoes".into(), num(*echoes));
             params.insert("intensity".into(), num(*intensity));
             params.insert("decay".into(), num(*decay));
             params.insert("operator".into(), J::from(operator.as_str()));
         }
-        Effect::CcWideTime { forward_steps, backward_steps, native_motion_blur, .. } => {
+        Effect::CcWideTime {
+            forward_steps,
+            backward_steps,
+            native_motion_blur,
+            ..
+        } => {
             params.insert("forward_steps".into(), num(*forward_steps));
             params.insert("backward_steps".into(), num(*backward_steps));
-            params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
+            params.insert(
+                "native_motion_blur".into(),
+                J::from(native_motion_blur.as_str()),
+            );
         }
-        Effect::ForceMotionBlur { motion_blur_samples, override_native_shutter, shutter_angle, native_motion_blur, .. } => {
+        Effect::ForceMotionBlur {
+            motion_blur_samples,
+            override_native_shutter,
+            shutter_angle,
+            native_motion_blur,
+            ..
+        } => {
             params.insert("motion_blur_samples".into(), num(*motion_blur_samples));
-            params.insert("override_native_shutter".into(), J::from(override_native_shutter.as_str()));
+            params.insert(
+                "override_native_shutter".into(),
+                J::from(override_native_shutter.as_str()),
+            );
             params.insert("shutter_angle".into(), num(*shutter_angle));
-            params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
+            params.insert(
+                "native_motion_blur".into(),
+                J::from(native_motion_blur.as_str()),
+            );
         }
-        Effect::WaveWorld { ground_layer, producer_1_position, producer_2_position, render_dry_areas, grid_res_downsamples, reflect_edges, producer_1_type, producer_2_type, view, .. } => {
+        Effect::WaveWorld {
+            ground_layer,
+            producer_1_position,
+            producer_2_position,
+            render_dry_areas,
+            grid_res_downsamples,
+            reflect_edges,
+            producer_1_type,
+            producer_2_type,
+            view,
+            ..
+        } => {
             params.insert("ground_layer".into(), ground_layer.clone());
-            for (n, v) in [("producer_1_position", producer_1_position), ("producer_2_position", producer_2_position)] {
+            for (n, v) in [
+                ("producer_1_position", producer_1_position),
+                ("producer_2_position", producer_2_position),
+            ] {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
-            for (n, v) in [("render_dry_areas", render_dry_areas), ("grid_res_downsamples", grid_res_downsamples), ("reflect_edges", reflect_edges), ("producer_1_type", producer_1_type), ("producer_2_type", producer_2_type)] {
+            for (n, v) in [
+                ("render_dry_areas", render_dry_areas),
+                ("grid_res_downsamples", grid_res_downsamples),
+                ("reflect_edges", reflect_edges),
+                ("producer_1_type", producer_1_type),
+                ("producer_2_type", producer_2_type),
+            ] {
                 params.insert(n.into(), J::from(v.as_str()));
             }
             // D-630: every other number, by its name in the effect's table.
-            let wire = [("horizontal_rotation", 0.0), ("vertical_rotation", 30.0), ("vertical_scale", 1.0)];
+            let wire = [
+                ("horizontal_rotation", 0.0),
+                ("vertical_rotation", 30.0),
+                ("vertical_scale", 1.0),
+            ];
             for n in instance.effect.names() {
                 if !n.ends_with("_position") && !wire.iter().any(|(w, _)| *w == n) {
                     params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
@@ -2281,7 +2595,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
-        Effect::PixelMotionBlur { shutter_control, shutter_angle, shutter_samples, vector_detail, .. } => {
+        Effect::PixelMotionBlur {
+            shutter_control,
+            shutter_angle,
+            shutter_samples,
+            vector_detail,
+            ..
+        } => {
             params.insert("shutter_control".into(), J::from(shutter_control.as_str()));
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("shutter_samples".into(), num(*shutter_samples));
@@ -2318,20 +2638,40 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("global_smoothness".into(), num(*global_smoothness));
             params.insert("local_smoothness".into(), num(*local_smoothness));
             params.insert("smoothing_iterations".into(), num(*smoothing_iterations));
-            params.insert("build_from_one_image".into(), J::from(build_from_one_image.as_str()));
-            params.insert("correct_luminance_changes".into(), J::from(correct_luminance_changes.as_str()));
+            params.insert(
+                "build_from_one_image".into(),
+                J::from(build_from_one_image.as_str()),
+            );
+            params.insert(
+                "correct_luminance_changes".into(),
+                J::from(correct_luminance_changes.as_str()),
+            );
             params.insert("filtering".into(), J::from(filtering.as_str()));
             params.insert("error_threshold".into(), num(*error_threshold));
             params.insert("block_size".into(), num(*block_size));
             params.insert("red_weight".into(), num(*red_weight));
             params.insert("green_weight".into(), num(*green_weight));
             params.insert("blue_weight".into(), num(*blue_weight));
-            params.insert("enable_motion_blur".into(), J::from(enable_motion_blur.as_str()));
+            params.insert(
+                "enable_motion_blur".into(),
+                J::from(enable_motion_blur.as_str()),
+            );
             params.insert("shutter_control".into(), J::from(shutter_control.as_str()));
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("shutter_samples".into(), num(*shutter_samples));
         }
-        Effect::WarpStabilizer { result, smoothness, method, preserve_scale, framing, maximum_scale, action_safe_margin, additional_scale, detailed_analysis, .. } => {
+        Effect::WarpStabilizer {
+            result,
+            smoothness,
+            method,
+            preserve_scale,
+            framing,
+            maximum_scale,
+            action_safe_margin,
+            additional_scale,
+            detailed_analysis,
+            ..
+        } => {
             params.insert("result".into(), J::from(result.as_str()));
             params.insert("smoothness".into(), num(*smoothness));
             params.insert("method".into(), J::from(method.as_str()));
@@ -2340,21 +2680,62 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("maximum_scale".into(), num(*maximum_scale));
             params.insert("action_safe_margin".into(), num(*action_safe_margin));
             params.insert("additional_scale".into(), num(*additional_scale));
-            params.insert("detailed_analysis".into(), J::from(detailed_analysis.as_str()));
+            params.insert(
+                "detailed_analysis".into(),
+                J::from(detailed_analysis.as_str()),
+            );
         }
-        Effect::RollingShutterRepair { rolling_shutter_rate, scan_direction, method, detailed_analysis, pixel_motion_detail, .. } => {
+        Effect::RollingShutterRepair {
+            rolling_shutter_rate,
+            scan_direction,
+            method,
+            detailed_analysis,
+            pixel_motion_detail,
+            ..
+        } => {
             params.insert("rolling_shutter_rate".into(), num(*rolling_shutter_rate));
             params.insert("scan_direction".into(), J::from(scan_direction.as_str()));
             params.insert("method".into(), J::from(method.as_str()));
-            params.insert("detailed_analysis".into(), J::from(detailed_analysis.as_str()));
+            params.insert(
+                "detailed_analysis".into(),
+                J::from(detailed_analysis.as_str()),
+            );
             params.insert("pixel_motion_detail".into(), num(*pixel_motion_detail));
         }
-        Effect::Caustics { bottom_layer, water_surface, sky_layer, light_position, bottom_repeat_mode, bottom_fit, surface_color, sky_repeat_mode, sky_fit, light_type, light_color, .. } => {
-            for (n, v) in [("bottom_layer", bottom_layer), ("water_surface", water_surface), ("sky_layer", sky_layer)] {
+        Effect::Caustics {
+            bottom_layer,
+            water_surface,
+            sky_layer,
+            light_position,
+            bottom_repeat_mode,
+            bottom_fit,
+            surface_color,
+            sky_repeat_mode,
+            sky_fit,
+            light_type,
+            light_color,
+            ..
+        } => {
+            for (n, v) in [
+                ("bottom_layer", bottom_layer),
+                ("water_surface", water_surface),
+                ("sky_layer", sky_layer),
+            ] {
                 params.insert(n.into(), v.clone());
             }
-            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
-            for (n, v) in [("bottom_repeat_mode", bottom_repeat_mode), ("bottom_fit", bottom_fit), ("surface_color", surface_color), ("sky_repeat_mode", sky_repeat_mode), ("sky_fit", sky_fit), ("light_type", light_type), ("light_color", light_color)] {
+            params.insert(
+                "light_position".into(),
+                J::Array(light_position.iter().map(|c| num(*c)).collect()),
+            );
+            for (n, v) in [
+                ("bottom_repeat_mode", bottom_repeat_mode),
+                ("bottom_fit", bottom_fit),
+                ("surface_color", surface_color),
+                ("sky_repeat_mode", sky_repeat_mode),
+                ("sky_fit", sky_fit),
+                ("light_type", light_type),
+                ("light_color", light_color),
+            ] {
                 params.insert(n.into(), J::from(v.as_str()));
             }
             // D-631: every other number, by its name in the effect's table.
@@ -2364,17 +2745,50 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
-        Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, rows_columns, rotation_order, transformation_order, sources, camera_system, light_type, light_color, camera_xy_position, light_position, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } => {
-            for (n, v) in [("back_layer", back_layer), ("gradient_layer_1", gradient_layer_1), ("gradient_layer_2", gradient_layer_2)] {
+        Effect::CardDance {
+            back_layer,
+            gradient_layer_1,
+            gradient_layer_2,
+            rows_columns,
+            rotation_order,
+            transformation_order,
+            sources,
+            camera_system,
+            light_type,
+            light_color,
+            camera_xy_position,
+            light_position,
+            upper_left_corner,
+            upper_right_corner,
+            lower_left_corner,
+            lower_right_corner,
+            auto_focal_length,
+            ..
+        } => {
+            for (n, v) in [
+                ("back_layer", back_layer),
+                ("gradient_layer_1", gradient_layer_1),
+                ("gradient_layer_2", gradient_layer_2),
+            ] {
                 params.insert(n.into(), v.clone());
             }
-            for (n, v) in [("rows_columns", rows_columns), ("rotation_order", rotation_order), ("transformation_order", transformation_order), ("camera_system", camera_system), ("light_type", light_type), ("light_color", light_color)] {
+            for (n, v) in [
+                ("rows_columns", rows_columns),
+                ("rotation_order", rotation_order),
+                ("transformation_order", transformation_order),
+                ("camera_system", camera_system),
+                ("light_type", light_type),
+                ("light_color", light_color),
+            ] {
                 params.insert(n.into(), J::from(v.as_str()));
             }
             for (t, s) in crate::effects::CARD_DANCE_TRANSFORMS.iter().zip(sources) {
                 params.insert(format!("{t}_source"), J::from(s.as_str()));
             }
-            for (n, v) in [("camera_xy_position", camera_xy_position), ("light_position", light_position)] {
+            for (n, v) in [
+                ("camera_xy_position", camera_xy_position),
+                ("light_position", light_position),
+            ] {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
             // D-632: every other number, by its name in the effect's table.
@@ -2383,16 +2797,82 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                     params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
                 }
             }
-            corner_pins_json(&mut params, instance, [upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner], auto_focal_length);
+            corner_pins_json(
+                &mut params,
+                instance,
+                [
+                    upper_left_corner,
+                    upper_right_corner,
+                    lower_left_corner,
+                    lower_right_corner,
+                ],
+                auto_focal_length,
+            );
         }
-        Effect::Shatter { view, render, pattern, custom_shatter_map, white_tiles_fixed, origin, force_1_position, force_2_position, gradient_layer, invert_gradient, tumble_axis, color, front_mode, side_mode, back_mode, front_layer, side_layer, back_layer, camera_system, camera_xy_position, light_type, light_color, light_position, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } => {
-            for (n, v) in [("custom_shatter_map", custom_shatter_map), ("gradient_layer", gradient_layer), ("front_layer", front_layer), ("side_layer", side_layer), ("back_layer", back_layer)] {
+        Effect::Shatter {
+            view,
+            render,
+            pattern,
+            custom_shatter_map,
+            white_tiles_fixed,
+            origin,
+            force_1_position,
+            force_2_position,
+            gradient_layer,
+            invert_gradient,
+            tumble_axis,
+            color,
+            front_mode,
+            side_mode,
+            back_mode,
+            front_layer,
+            side_layer,
+            back_layer,
+            camera_system,
+            camera_xy_position,
+            light_type,
+            light_color,
+            light_position,
+            upper_left_corner,
+            upper_right_corner,
+            lower_left_corner,
+            lower_right_corner,
+            auto_focal_length,
+            ..
+        } => {
+            for (n, v) in [
+                ("custom_shatter_map", custom_shatter_map),
+                ("gradient_layer", gradient_layer),
+                ("front_layer", front_layer),
+                ("side_layer", side_layer),
+                ("back_layer", back_layer),
+            ] {
                 params.insert(n.into(), v.clone());
             }
-            for (n, v) in [("view", view), ("render", render), ("pattern", pattern), ("white_tiles_fixed", white_tiles_fixed), ("invert_gradient", invert_gradient), ("tumble_axis", tumble_axis), ("color", color), ("front_mode", front_mode), ("side_mode", side_mode), ("back_mode", back_mode), ("camera_system", camera_system), ("light_type", light_type), ("light_color", light_color)] {
+            for (n, v) in [
+                ("view", view),
+                ("render", render),
+                ("pattern", pattern),
+                ("white_tiles_fixed", white_tiles_fixed),
+                ("invert_gradient", invert_gradient),
+                ("tumble_axis", tumble_axis),
+                ("color", color),
+                ("front_mode", front_mode),
+                ("side_mode", side_mode),
+                ("back_mode", back_mode),
+                ("camera_system", camera_system),
+                ("light_type", light_type),
+                ("light_color", light_color),
+            ] {
                 params.insert(n.into(), J::from(v.as_str()));
             }
-            let arrays = [("origin", origin), ("force_1_position", force_1_position), ("force_2_position", force_2_position), ("camera_xy_position", camera_xy_position), ("light_position", light_position)];
+            let arrays = [
+                ("origin", origin),
+                ("force_1_position", force_1_position),
+                ("force_2_position", force_2_position),
+                ("camera_xy_position", camera_xy_position),
+                ("light_position", light_position),
+            ];
             for (n, v) in arrays {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
@@ -2402,9 +2882,34 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                     params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
                 }
             }
-            corner_pins_json(&mut params, instance, [upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner], auto_focal_length);
+            corner_pins_json(
+                &mut params,
+                instance,
+                [
+                    upper_left_corner,
+                    upper_right_corner,
+                    lower_left_corner,
+                    lower_right_corner,
+                ],
+                auto_focal_length,
+            );
         }
-        Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
+        Effect::CcRainfall {
+            color,
+            transfer_mode,
+            composite_with_original,
+            drops,
+            size,
+            scene_depth,
+            speed,
+            wind,
+            wind_variation,
+            spread,
+            opacity,
+            ground_level,
+            random_seed,
+            ..
+        } => {
             params.insert("drops".into(), num(*drops));
             params.insert("size".into(), num(*size));
             params.insert("scene_depth".into(), num(*scene_depth));
@@ -2417,13 +2922,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("random_seed".into(), num(*random_seed));
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("transfer_mode".into(), J::from(transfer_mode.as_str()));
-            params.insert("composite_with_original".into(), J::from(composite_with_original.as_str()));
+            params.insert(
+                "composite_with_original".into(),
+                J::from(composite_with_original.as_str()),
+            );
         }
-        Effect::TimeDifference { layer, time_offset, contrast, absolute_difference, alpha_channel, .. } => {
+        Effect::TimeDifference {
+            layer,
+            time_offset,
+            contrast,
+            absolute_difference,
+            alpha_channel,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("time_offset".into(), num(*time_offset));
             params.insert("contrast".into(), num(*contrast));
-            params.insert("absolute_difference".into(), J::from(absolute_difference.as_str()));
+            params.insert(
+                "absolute_difference".into(),
+                J::from(absolute_difference.as_str()),
+            );
             params.insert("alpha_channel".into(), J::from(alpha_channel.as_str()));
         }
         Effect::PosterizeTime { frame_rate } => {
@@ -2450,7 +2968,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("view_matte".into(), J::from(view_matte.as_str()));
         }
-        Effect::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+        Effect::CornerPin {
+            upper_left,
+            upper_right,
+            lower_left,
+            lower_right,
+        } => {
             for (name, v) in [
                 ("upper_left", upper_left),
                 ("upper_right", upper_right),
@@ -2471,7 +2994,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             light_color,
             light_reception,
         } => {
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("direction".into(), num(*direction));
             params.insert("shape".into(), J::from(shape.as_str()));
             params.insert("width".into(), num(*width));
@@ -2500,7 +3026,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             color,
             ..
         } => {
-            params.insert("producer_point".into(), J::Array(producer_point.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "producer_point".into(),
+                J::Array(producer_point.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("sides".into(), num(*sides));
             params.insert("interval".into(), num(*interval));
             params.insert("expansion".into(), num(*expansion));
@@ -2517,7 +3046,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("profile".into(), J::from(profile.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
         }
-        Effect::PolarCoordinates { interpolation, conversion, shape } => {
+        Effect::PolarCoordinates {
+            interpolation,
+            conversion,
+            shape,
+        } => {
             params.insert("interpolation".into(), num(*interpolation));
             params.insert("conversion".into(), J::from(conversion.as_str()));
             // D-320: as D-303's, written only when a circle or in the file already.
@@ -2525,17 +3058,38 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("shape".into(), J::from(shape.as_str()));
             }
         }
-        Effect::Median { radius, operate_on_alpha } => {
+        Effect::Median {
+            radius,
+            operate_on_alpha,
+        } => {
             params.insert("radius".into(), num(*radius));
-            params.insert("operate_on_alpha".into(), J::from(operate_on_alpha.as_str()));
+            params.insert(
+                "operate_on_alpha".into(),
+                J::from(operate_on_alpha.as_str()),
+            );
         }
-        Effect::DustScratches { radius, threshold, operate_on_alpha } => {
+        Effect::DustScratches {
+            radius,
+            threshold,
+            operate_on_alpha,
+        } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
-            params.insert("operate_on_alpha".into(), J::from(operate_on_alpha.as_str()));
+            params.insert(
+                "operate_on_alpha".into(),
+                J::from(operate_on_alpha.as_str()),
+            );
         }
         // D-455: the measured noise is never saved.
-        Effect::RemoveGrain { noise_reduction, passes, mode, unsharp_amount, unsharp_radius, unsharp_threshold, .. } => {
+        Effect::RemoveGrain {
+            noise_reduction,
+            passes,
+            mode,
+            unsharp_amount,
+            unsharp_radius,
+            unsharp_threshold,
+            ..
+        } => {
             params.insert("noise_reduction".into(), num(*noise_reduction));
             params.insert("passes".into(), num(*passes));
             params.insert("mode".into(), J::from(mode.as_str()));
@@ -2544,13 +3098,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("unsharp_threshold".into(), num(*unsharp_threshold));
         }
         // D-447: the frame is never saved.
-        Effect::NoiseGate { threshold, attack, hold, release } => {
+        Effect::NoiseGate {
+            threshold,
+            attack,
+            hold,
+            release,
+        } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("attack".into(), num(*attack));
             params.insert("hold".into(), num(*hold));
             params.insert("release".into(), num(*release));
         }
-        Effect::Compressor { threshold, ratio, knee, attack, release, auto_release, makeup, output_limit } => {
+        Effect::Compressor {
+            threshold,
+            ratio,
+            knee,
+            attack,
+            release,
+            auto_release,
+            makeup,
+            output_limit,
+        } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("ratio".into(), num(*ratio));
             params.insert("knee".into(), num(*knee));
@@ -2560,7 +3128,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("makeup".into(), num(*makeup));
             params.insert("output_limit".into(), num(*output_limit));
         }
-        Effect::Distortion { kind, drive, gain, wet, volume, resolution, downsample } => {
+        Effect::Distortion {
+            kind,
+            drive,
+            gain,
+            wet,
+            volume,
+            resolution,
+            downsample,
+        } => {
             params.insert("type".into(), J::from(kind.as_str()));
             params.insert("drive".into(), num(*drive));
             params.insert("gain".into(), num(*gain));
@@ -2569,7 +3145,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("resolution".into(), num(*resolution));
             params.insert("downsample".into(), num(*downsample));
         }
-        Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate, .. } => {
+        Effect::BrushStrokes {
+            stroke_angle,
+            brush_size,
+            stroke_length,
+            stroke_density,
+            stroke_randomness,
+            paint_surface,
+            blend_with_original,
+            random_seed,
+            animate,
+            ..
+        } => {
             params.insert("stroke_angle".into(), num(*stroke_angle));
             params.insert("brush_size".into(), num(*brush_size));
             params.insert("stroke_length".into(), num(*stroke_length));
@@ -2608,50 +3195,107 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("edge_contrast".into(), num(*edge_contrast));
         }
         // D-456: the frame is never saved.
-        Effect::Deband { view, edge_threshold, edge_softness, blur_amount, edge_blur_reduction, diffusion_amount, edge_diffusion_reduction, diffusion_reseed_interval, noise_amount, edge_noise_reduction, noise_reseed_interval, .. } => {
+        Effect::Deband {
+            view,
+            edge_threshold,
+            edge_softness,
+            blur_amount,
+            edge_blur_reduction,
+            diffusion_amount,
+            edge_diffusion_reduction,
+            diffusion_reseed_interval,
+            noise_amount,
+            edge_noise_reduction,
+            noise_reseed_interval,
+            ..
+        } => {
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("edge_threshold".into(), num(*edge_threshold));
             params.insert("edge_softness".into(), num(*edge_softness));
             params.insert("blur_amount".into(), num(*blur_amount));
             params.insert("edge_blur_reduction".into(), num(*edge_blur_reduction));
             params.insert("diffusion_amount".into(), num(*diffusion_amount));
-            params.insert("edge_diffusion_reduction".into(), num(*edge_diffusion_reduction));
-            params.insert("diffusion_reseed_interval".into(), num(*diffusion_reseed_interval));
+            params.insert(
+                "edge_diffusion_reduction".into(),
+                num(*edge_diffusion_reduction),
+            );
+            params.insert(
+                "diffusion_reseed_interval".into(),
+                num(*diffusion_reseed_interval),
+            );
             params.insert("noise_amount".into(), num(*noise_amount));
             params.insert("edge_noise_reduction".into(), num(*edge_noise_reduction));
             params.insert("noise_reseed_interval".into(), num(*noise_reseed_interval));
         }
-        Effect::AdvancedSpillSuppressor { method, suppression, key_color, tolerance, desaturate, spill_range, spill_color_correction, luma_correction } => {
+        Effect::AdvancedSpillSuppressor {
+            method,
+            suppression,
+            key_color,
+            tolerance,
+            desaturate,
+            spill_range,
+            spill_color_correction,
+            luma_correction,
+        } => {
             params.insert("method".into(), J::from(method.as_str()));
             params.insert("suppression".into(), num(*suppression));
             params.insert("key_color".into(), J::from(key_color.as_str()));
             params.insert("tolerance".into(), num(*tolerance));
             params.insert("desaturate".into(), num(*desaturate));
             params.insert("spill_range".into(), num(*spill_range));
-            params.insert("spill_color_correction".into(), num(*spill_color_correction));
+            params.insert(
+                "spill_color_correction".into(),
+                num(*spill_color_correction),
+            );
             params.insert("luma_correction".into(), num(*luma_correction));
         }
-        Effect::ColorDifferenceKey { view, key_color, partial_a, partial_b, matte } => {
+        Effect::ColorDifferenceKey {
+            view,
+            key_color,
+            partial_a,
+            partial_b,
+            matte,
+        } => {
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("key_color".into(), J::from(key_color.as_str()));
-            for (v, name) in partial_a.iter().chain(partial_b).chain(matte).zip(crate::effects::CDK_NAMES) {
+            for (v, name) in partial_a
+                .iter()
+                .chain(partial_b)
+                .chain(matte)
+                .zip(crate::effects::CDK_NAMES)
+            {
                 params.insert(name.into(), num(*v));
             }
         }
-        Effect::ColorRange { color_space, fuzziness, range } => {
+        Effect::ColorRange {
+            color_space,
+            fuzziness,
+            range,
+        } => {
             params.insert("color_space".into(), J::from(color_space.as_str()));
             params.insert("fuzziness".into(), num(*fuzziness));
             for (v, name) in range.iter().zip(crate::effects::CRANGE_NAMES) {
                 params.insert(name.into(), num(*v));
             }
         }
-        Effect::DifferenceMatte { view, layer, fit, matching_tolerance, matching_softness, blur_before_difference, .. } => {
+        Effect::DifferenceMatte {
+            view,
+            layer,
+            fit,
+            matching_tolerance,
+            matching_softness,
+            blur_before_difference,
+            ..
+        } => {
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("matching_tolerance".into(), num(*matching_tolerance));
             params.insert("matching_softness".into(), num(*matching_softness));
-            params.insert("blur_before_difference".into(), num(*blur_before_difference));
+            params.insert(
+                "blur_before_difference".into(),
+                num(*blur_before_difference),
+            );
         }
         Effect::InnerOuterKey {
             foreground,
@@ -2666,19 +3310,39 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         } => {
             params.insert("foreground".into(), num(*foreground));
             params.insert("background".into(), num(*background));
-            params.insert("single_mask_highlight_radius".into(), num(*single_mask_highlight_radius));
+            params.insert(
+                "single_mask_highlight_radius".into(),
+                num(*single_mask_highlight_radius),
+            );
             params.insert("edge_thin".into(), num(*edge_thin));
             params.insert("edge_feather".into(), num(*edge_feather));
             params.insert("edge_threshold".into(), num(*edge_threshold));
-            params.insert("invert_extraction".into(), J::from(invert_extraction.as_str()));
+            params.insert(
+                "invert_extraction".into(),
+                J::from(invert_extraction.as_str()),
+            );
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
-        Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => {
-            params.insert("additional_edge_radius".into(), num(*additional_edge_radius));
+        Effect::KeyCleaner {
+            additional_edge_radius,
+            alpha_contrast,
+            strength,
+        } => {
+            params.insert(
+                "additional_edge_radius".into(),
+                num(*additional_edge_radius),
+            );
             params.insert("alpha_contrast".into(), num(*alpha_contrast));
             params.insert("strength".into(), num(*strength));
         }
-        Effect::LinearColorKey { view, key_color, match_colors, key_operation, matching_tolerance, matching_softness } => {
+        Effect::LinearColorKey {
+            view,
+            key_color,
+            match_colors,
+            key_operation,
+            matching_tolerance,
+            matching_softness,
+        } => {
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("key_color".into(), J::from(key_color.as_str()));
             params.insert("match_colors".into(), J::from(match_colors.as_str()));
@@ -2711,15 +3375,40 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("edge_refine".into(), num(*edge_refine));
         }
-        Effect::Unmult { background_color, black_level, white_level, softness, remove_color_matting, clip_hdr_results } => {
-            params.insert("background_color".into(), J::from(background_color.as_str()));
+        Effect::Unmult {
+            background_color,
+            black_level,
+            white_level,
+            softness,
+            remove_color_matting,
+            clip_hdr_results,
+        } => {
+            params.insert(
+                "background_color".into(),
+                J::from(background_color.as_str()),
+            );
             params.insert("black_level".into(), num(*black_level));
             params.insert("white_level".into(), num(*white_level));
             params.insert("softness".into(), num(*softness));
-            params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
-            params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
+            params.insert(
+                "remove_color_matting".into(),
+                J::from(remove_color_matting.as_str()),
+            );
+            params.insert(
+                "clip_hdr_results".into(),
+                J::from(clip_hdr_results.as_str()),
+            );
         }
-        Effect::ChannelWipe { layer, fit, completion, softness, property, blur, invert, .. } => {
+        Effect::ChannelWipe {
+            layer,
+            fit,
+            completion,
+            softness,
+            property,
+            blur,
+            invert,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("completion".into(), num(*completion));
@@ -2728,7 +3417,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blur".into(), num(*blur));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
-        Effect::WarpBlend { completion, layer_to_reveal, reactor, smoothness, warp_amount, warp_direction, blend_span, .. } => {
+        Effect::WarpBlend {
+            completion,
+            layer_to_reveal,
+            reactor,
+            smoothness,
+            warp_amount,
+            warp_direction,
+            blend_span,
+            ..
+        } => {
             params.insert("completion".into(), num(*completion));
             params.insert("layer_to_reveal".into(), layer_to_reveal.clone());
             params.insert("reactor".into(), J::from(reactor.as_str()));
@@ -2737,58 +3435,131 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("warp_direction".into(), J::from(warp_direction.as_str()));
             params.insert("blend_span".into(), num(*blend_span));
         }
-        Effect::Twister { completion, backside, shading, center, axis, .. } => {
+        Effect::Twister {
+            completion,
+            backside,
+            shading,
+            center,
+            axis,
+            ..
+        } => {
             params.insert("completion".into(), num(*completion));
             params.insert("backside".into(), backside.clone());
             params.insert("shading".into(), J::from(shading.as_str()));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("axis".into(), num(*axis));
         }
-        Effect::StretchWipe { scale, center, direction } => {
+        Effect::StretchWipe {
+            scale,
+            center,
+            direction,
+        } => {
             params.insert("scale".into(), num(*scale));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("direction".into(), num(*direction));
         }
-        Effect::PushIris { completion, center, reverse } => {
+        Effect::PushIris {
+            completion,
+            center,
+            reverse,
+        } => {
             params.insert("completion".into(), num(*completion));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("reverse".into(), J::from(reverse.as_str()));
         }
-        Effect::StripeSweep { completion, direction, thickness, slant, flip } => {
+        Effect::StripeSweep {
+            completion,
+            direction,
+            thickness,
+            slant,
+            flip,
+        } => {
             params.insert("completion".into(), num(*completion));
             params.insert("direction".into(), num(*direction));
             params.insert("thickness".into(), num(*thickness));
             params.insert("slant".into(), num(*slant));
             params.insert("flip".into(), J::from(flip.as_str()));
         }
-        Effect::GlowWipe { completion, center, intensity, direction, shape, color_from_source, color, reverse } => {
+        Effect::GlowWipe {
+            completion,
+            center,
+            intensity,
+            direction,
+            shape,
+            color_from_source,
+            color,
+            reverse,
+        } => {
             params.insert("completion".into(), num(*completion));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("intensity".into(), num(*intensity));
             params.insert("direction".into(), num(*direction));
             params.insert("shape".into(), J::from(shape.as_str()));
-            params.insert("color_from_source".into(), J::from(color_from_source.as_str()));
+            params.insert(
+                "color_from_source".into(),
+                J::from(color_from_source.as_str()),
+            );
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("reverse".into(), J::from(reverse.as_str()));
         }
-        Effect::TeethWipe { completion, center, direction, height, width, shape } => {
+        Effect::TeethWipe {
+            completion,
+            center,
+            direction,
+            height,
+            width,
+            shape,
+        } => {
             params.insert("completion".into(), num(*completion));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("direction".into(), num(*direction));
             params.insert("height".into(), num(*height));
             params.insert("width".into(), num(*width));
             params.insert("shape".into(), J::from(shape.as_str()));
         }
-        Effect::TileWipe { completion, center, rotation, border, tiles, shape, reverse } => {
+        Effect::TileWipe {
+            completion,
+            center,
+            rotation,
+            border,
+            tiles,
+            shape,
+            reverse,
+        } => {
             params.insert("completion".into(), num(*completion));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("rotation".into(), num(*rotation));
             params.insert("border".into(), num(*border));
             params.insert("tiles".into(), num(*tiles));
             params.insert("shape".into(), J::from(shape.as_str()));
             params.insert("reverse".into(), J::from(reverse.as_str()));
         }
-        Effect::GlassMelt { completion, layer_to_reveal, gradient_layer, softness, displacement_amount, .. } => {
+        Effect::GlassMelt {
+            completion,
+            layer_to_reveal,
+            gradient_layer,
+            softness,
+            displacement_amount,
+            ..
+        } => {
             params.insert("completion".into(), num(*completion));
             params.insert("layer_to_reveal".into(), layer_to_reveal.clone());
             params.insert("gradient_layer".into(), gradient_layer.clone());
@@ -2816,13 +3587,42 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("balance".into(), num(*balance));
         }
         Effect::EnergyStroke {
-            source, core_start, core_end, evolution, start_offset, end_offset, start_size, end_size, core_size, core_softness, glow_color,
-            glow_intensity, glow_spread, flicker_amount, flicker_speed, distortion_amount, distortion_scale, distortion_speed, random_seed,
-            composite, start_roundness, end_roundness, noise_along_path, alpha_mode, invert_masks, ..
+            source,
+            core_start,
+            core_end,
+            evolution,
+            start_offset,
+            end_offset,
+            start_size,
+            end_size,
+            core_size,
+            core_softness,
+            glow_color,
+            glow_intensity,
+            glow_spread,
+            flicker_amount,
+            flicker_speed,
+            distortion_amount,
+            distortion_scale,
+            distortion_speed,
+            random_seed,
+            composite,
+            start_roundness,
+            end_roundness,
+            noise_along_path,
+            alpha_mode,
+            invert_masks,
+            ..
         } => {
             params.insert("source".into(), J::from(source.as_str()));
-            params.insert("core_start".into(), J::Array(core_start.iter().map(|c| num(*c)).collect()));
-            params.insert("core_end".into(), J::Array(core_end.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "core_start".into(),
+                J::Array(core_start.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "core_end".into(),
+                J::Array(core_end.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("evolution".into(), num(*evolution));
             params.insert("start_offset".into(), num(*start_offset));
             params.insert("end_offset".into(), num(*end_offset));
@@ -2842,19 +3642,40 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("composite".into(), J::from(composite.as_str()));
             // D-565: each written only when moved, keyed or in the file, so D-508's files are
             // written as they were.
-            for (key, value) in [("start_roundness", *start_roundness), ("end_roundness", *end_roundness)] {
+            for (key, value) in [
+                ("start_roundness", *start_roundness),
+                ("end_roundness", *end_roundness),
+            ] {
                 if value != 100.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
             }
-            for (key, value, absent) in [("noise_along_path", noise_along_path, "on"), ("alpha_mode", alpha_mode, "off"), ("invert_masks", invert_masks, "off")] {
+            for (key, value, absent) in [
+                ("noise_along_path", noise_along_path, "on"),
+                ("alpha_mode", alpha_mode, "off"),
+                ("invert_masks", invert_masks, "off"),
+            ] {
                 if value != absent || params.contains_key(key) {
                     params.insert(key.into(), J::from(value.as_str()));
                 }
             }
         }
-        Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render, gel_layer, .. } => {
-            params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
+        Effect::CcSpotlight {
+            from,
+            to,
+            height,
+            cone_angle,
+            edge_softness,
+            color,
+            intensity,
+            render,
+            gel_layer,
+            ..
+        } => {
+            params.insert(
+                "from".into(),
+                J::Array(from.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("to".into(), J::Array(to.iter().map(|c| num(*c)).collect()));
             params.insert("height".into(), num(*height));
             params.insert("cone_angle".into(), num(*cone_angle));
@@ -2868,7 +3689,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("gel_layer".into(), gel_layer.clone());
             }
         }
-        Effect::BlockLoad { completion, scans, start_cleared, bilinear, .. } => {
+        Effect::BlockLoad {
+            completion,
+            scans,
+            start_cleared,
+            bilinear,
+            ..
+        } => {
             params.insert("completion".into(), num(*completion));
             params.insert("scans".into(), num(*scans));
             params.insert("start_cleared".into(), J::from(start_cleared.as_str()));
@@ -2876,24 +3703,53 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         }
         Effect::BurnFilm { burn, center, seed } => {
             params.insert("burn".into(), num(*burn));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("seed".into(), num(*seed));
         }
-        Effect::HexTile { render, radius, center, lock_center, rotate, smearing } => {
+        Effect::HexTile {
+            render,
+            radius,
+            center,
+            lock_center,
+            rotate,
+            smearing,
+        } => {
             params.insert("render".into(), J::from(render.as_str()));
             params.insert("radius".into(), num(*radius));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("lock_center".into(), J::from(lock_center.as_str()));
             params.insert("rotate".into(), num(*rotate));
             params.insert("smearing".into(), num(*smearing));
         }
-        Effect::MrSmoothie { layer, fit, property, smoothness, sample_a, sample_b, phase, color_loop, .. } => {
+        Effect::MrSmoothie {
+            layer,
+            fit,
+            property,
+            smoothness,
+            sample_a,
+            sample_b,
+            phase,
+            color_loop,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("property".into(), J::from(property.as_str()));
             params.insert("smoothness".into(), num(*smoothness));
-            params.insert("sample_a".into(), J::Array(sample_a.iter().map(|c| num(*c)).collect()));
-            params.insert("sample_b".into(), J::Array(sample_b.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "sample_a".into(),
+                J::Array(sample_a.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "sample_b".into(),
+                J::Array(sample_b.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("phase".into(), num(*phase));
             params.insert("color_loop".into(), J::from(color_loop.as_str()));
         }
@@ -2931,9 +3787,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_type".into(), J::from(light_type.as_str()));
             params.insert("light_height".into(), num(*light_height));
-            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "light_position".into(),
+                J::Array(light_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("light_direction".into(), num(*light_direction));
-            params.insert("ambient_light_color".into(), J::from(ambient_light_color.as_str()));
+            params.insert(
+                "ambient_light_color".into(),
+                J::from(ambient_light_color.as_str()),
+            );
             params.insert("ambient".into(), num(*ambient));
             params.insert("diffuse".into(), num(*diffuse));
             params.insert("dust".into(), num(*dust));
@@ -2941,7 +3803,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("roughness".into(), num(*roughness));
             params.insert("metal".into(), num(*metal));
         }
-        Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
+        Effect::RepeatTile {
+            expand_right,
+            expand_left,
+            expand_down,
+            expand_up,
+            tiling,
+            blend_borders,
+        } => {
             params.insert("expand_right".into(), num(*expand_right));
             params.insert("expand_left".into(), num(*expand_left));
             params.insert("expand_down".into(), num(*expand_down));
@@ -2949,7 +3818,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("tiling".into(), J::from(tiling.as_str()));
             params.insert("blend_borders".into(), num(*blend_borders));
         }
-        Effect::Scatter { scatter_amount, grain, randomize, .. } => {
+        Effect::Scatter {
+            scatter_amount,
+            grain,
+            randomize,
+            ..
+        } => {
             params.insert("scatter_amount".into(), num(*scatter_amount));
             params.insert("grain".into(), J::from(grain.as_str()));
             params.insert("randomize".into(), J::from(randomize.as_str()));
@@ -2969,24 +3843,48 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blend_with_original".into(), num(*blend_with_original));
             params.insert("strobe_duration".into(), num(*strobe_duration));
             params.insert("strobe_period".into(), num(*strobe_period));
-            params.insert("random_strobe_probability".into(), num(*random_strobe_probability));
+            params.insert(
+                "random_strobe_probability".into(),
+                num(*random_strobe_probability),
+            );
             params.insert("strobe".into(), J::from(strobe.as_str()));
             params.insert("strobe_operator".into(), J::from(strobe_operator.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
         }
-        Effect::CcVignette { amount, angle_of_view, center, pin_highlights } => {
+        Effect::CcVignette {
+            amount,
+            angle_of_view,
+            center,
+            pin_highlights,
+        } => {
             params.insert("amount".into(), num(*amount));
             params.insert("angle_of_view".into(), num(*angle_of_view));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("pin_highlights".into(), num(*pin_highlights));
         }
-        Effect::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
+        Effect::ChannelThreshold {
+            threshold,
+            channel,
+            invert,
+            blend_with_original,
+        } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("channel".into(), J::from(channel.as_str()));
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
-        Effect::ThresholdRgb { red_threshold, green_threshold, blue_threshold, invert_red, invert_green, invert_blue, blend_with_original } => {
+        Effect::ThresholdRgb {
+            red_threshold,
+            green_threshold,
+            blue_threshold,
+            invert_red,
+            invert_green,
+            invert_blue,
+            blend_with_original,
+        } => {
             params.insert("red_threshold".into(), num(*red_threshold));
             params.insert("green_threshold".into(), num(*green_threshold));
             params.insert("blue_threshold".into(), num(*blue_threshold));
@@ -3019,15 +3917,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             // D-584: no custom colours are not written, so a file from before them saves the same.
             if !colors.is_empty() {
-                params.insert("colors".into(), J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()));
+                params.insert(
+                    "colors".into(),
+                    J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()),
+                );
             }
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("stylization".into(), num(*stylization));
             params.insert("cleanliness".into(), num(*cleanliness));
             params.insert("smear_iterations".into(), num(*smear_iterations));
             params.insert("apply_to_alpha".into(), J::from(apply_to_alpha.as_str()));
-            params.insert("draw_color_fills".into(), J::from(draw_color_fills.as_str()));
-            params.insert("reduction_method".into(), J::from(reduction_method.as_str()));
+            params.insert(
+                "draw_color_fills".into(),
+                J::from(draw_color_fills.as_str()),
+            );
+            params.insert(
+                "reduction_method".into(),
+                J::from(reduction_method.as_str()),
+            );
             params.insert("posterization_level".into(), num(*posterization_level));
             params.insert("low_strength".into(), num(*low_strength));
             params.insert("high_strength".into(), num(*high_strength));
@@ -3035,23 +3942,77 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("quantize_flow_angles".into(), num(*quantize_flow_angles));
             params.insert("edge_map_layer".into(), edge_map_layer.clone());
         }
-        Effect::Texturize { layer, fit, light_direction, texture_contrast, .. } => {
+        Effect::Texturize {
+            layer,
+            fit,
+            light_direction,
+            texture_contrast,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("light_direction".into(), num(*light_direction));
             params.insert("texture_contrast".into(), num(*texture_contrast));
         }
         // D-531: the environment read for a frame is never saved.
-        Effect::CcEnvironment { environment, mapping, horizontal_pan, tilt, roll, field_of_view, filter_environment, .. } => {
+        Effect::CcEnvironment {
+            environment,
+            mapping,
+            horizontal_pan,
+            tilt,
+            roll,
+            field_of_view,
+            filter_environment,
+            ..
+        } => {
             params.insert("environment".into(), environment.clone());
             params.insert("mapping".into(), J::from(mapping.as_str()));
             params.insert("horizontal_pan".into(), num(*horizontal_pan));
             params.insert("tilt".into(), num(*tilt));
             params.insert("roll".into(), num(*roll));
             params.insert("field_of_view".into(), num(*field_of_view));
-            params.insert("filter_environment".into(), J::from(filter_environment.as_str()));
+            params.insert(
+                "filter_environment".into(),
+                J::from(filter_environment.as_str()),
+            );
         }
-        Effect::CardWipe { back_layer, gradient_layer, transition_completion, transition_width, rows, columns, card_scale, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, z_position, focal_length, light_intensity, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, xy_position, light_position, rows_columns, flip_axis, flip_direction, flip_order, light_type, light_color, camera_system, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } => {
+        Effect::CardWipe {
+            back_layer,
+            gradient_layer,
+            transition_completion,
+            transition_width,
+            rows,
+            columns,
+            card_scale,
+            timing_randomness,
+            random_seed,
+            x_rotation,
+            y_rotation,
+            z_rotation,
+            z_position,
+            focal_length,
+            light_intensity,
+            light_depth,
+            ambient_light,
+            diffuse_reflection,
+            specular_reflection,
+            highlight_sharpness,
+            xy_position,
+            light_position,
+            rows_columns,
+            flip_axis,
+            flip_direction,
+            flip_order,
+            light_type,
+            light_color,
+            camera_system,
+            upper_left_corner,
+            upper_right_corner,
+            lower_left_corner,
+            lower_right_corner,
+            auto_focal_length,
+            ..
+        } => {
             params.insert("back_layer".into(), back_layer.clone());
             params.insert("gradient_layer".into(), gradient_layer.clone());
             for (n, v) in [
@@ -3076,7 +4037,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             ] {
                 params.insert(n.into(), num(*v));
             }
-            for (n, v) in [("xy_position", xy_position), ("light_position", light_position)] {
+            for (n, v) in [
+                ("xy_position", xy_position),
+                ("light_position", light_position),
+            ] {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
             for (n, v) in [
@@ -3092,7 +4056,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             if camera_system != "camera_position" || params.contains_key("camera_system") {
                 params.insert("camera_system".into(), J::from(camera_system.as_str()));
             }
-            corner_pins_json(&mut params, instance, [upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner], auto_focal_length);
+            corner_pins_json(
+                &mut params,
+                instance,
+                [
+                    upper_left_corner,
+                    upper_right_corner,
+                    lower_left_corner,
+                    lower_right_corner,
+                ],
+                auto_focal_length,
+            );
         }
         Effect::CcSphere {
             radius,
@@ -3112,7 +4086,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             metal,
         } => {
             params.insert("radius".into(), num(*radius));
-            params.insert("offset".into(), J::Array(offset.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "offset".into(),
+                J::Array(offset.iter().map(|c| num(*c)).collect()),
+            );
             for (n, v) in [
                 ("rotation_x", rotation_x),
                 ("rotation_y", rotation_y),
@@ -3150,7 +4127,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             metal,
         } => {
             params.insert("radius".into(), num(*radius));
-            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "position".into(),
+                J::Array(position.iter().map(|c| num(*c)).collect()),
+            );
             for (n, v) in [
                 ("position_z", position_z),
                 ("rotation_x", rotation_x),
@@ -3170,11 +4150,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("render".into(), J::from(render.as_str()));
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
-        Effect::ParticleSpace { values, words, colors, texture_layer, .. } => {
+        Effect::ParticleSpace {
+            values,
+            words,
+            colors,
+            texture_layer,
+            ..
+        } => {
             // D-611: its three later settings each written only when not as added, keyed, or
             // already in the file.
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values).enumerate() {
-                if n < 44 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_SPACE_SETTINGS
+                .iter()
+                .zip(values)
+                .enumerate()
+            {
+                if n < 44
+                    || v != start
+                    || instance.tracks.contains_key(*name)
+                    || params.contains_key(*name)
+                {
                     params.insert((*name).into(), num(*v));
                 }
             }
@@ -3196,7 +4190,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(w.as_str()));
             }
         }
-        Effect::Drizzle { values, words, light_color, .. } => {
+        Effect::Drizzle {
+            values,
+            words,
+            light_color,
+            ..
+        } => {
             for ((name, ..), v) in crate::effects::DRIZZLE_SETTINGS.iter().zip(values) {
                 params.insert((*name).into(), num(*v));
             }
@@ -3205,18 +4204,36 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
-        Effect::ParticlePlane { values, words, colors, texture_layer, .. } => {
+        Effect::ParticlePlane {
+            values,
+            words,
+            colors,
+            texture_layer,
+            ..
+        } => {
             // D-710: its later settings each written only when not as added, keyed, or already
             // in the file, so a file written before stays as it was.
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLANE_SETTINGS.iter().zip(values).enumerate() {
-                if n < 23 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLANE_SETTINGS
+                .iter()
+                .zip(values)
+                .enumerate()
+            {
+                if n < 23
+                    || v != start
+                    || instance.tracks.contains_key(*name)
+                    || params.contains_key(*name)
+                {
                     params.insert((*name).into(), num(*v));
                 }
             }
             if texture_layer.as_str() != Some("") || params.contains_key("texture_layer") {
                 params.insert("texture_layer".into(), texture_layer.clone());
             }
-            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLANE_WORDS.iter().zip(words).enumerate() {
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLANE_WORDS
+                .iter()
+                .zip(words)
+                .enumerate()
+            {
                 if n < 5 || w != start || params.contains_key(*name) {
                     params.insert((*name).into(), J::from(w.as_str()));
                 }
@@ -3225,32 +4242,66 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(c.as_str()));
             }
         }
-        Effect::ParticlePlayground { values, cannon_position, grid_position, words, layers, colors, .. } => {
+        Effect::ParticlePlayground {
+            values,
+            cannon_position,
+            grid_position,
+            words,
+            layers,
+            colors,
+            ..
+        } => {
             // D-614: the Property Mappers' settings (D-613's lists' later ones) each written only
             // when not as added, keyed, or already in the file.
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values).enumerate() {
-                if n < 29 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS
+                .iter()
+                .zip(values)
+                .enumerate()
+            {
+                if n < 29
+                    || v != start
+                    || instance.tracks.contains_key(*name)
+                    || params.contains_key(*name)
+                {
                     params.insert((*name).into(), num(*v));
                 }
             }
-            for (n, v) in [("cannon_position", cannon_position), ("grid_position", grid_position)] {
+            for (n, v) in [
+                ("cannon_position", cannon_position),
+                ("grid_position", grid_position),
+            ] {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
-            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words).enumerate() {
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLAYGROUND_WORDS
+                .iter()
+                .zip(words)
+                .enumerate()
+            {
                 if n < 5 || w != start || params.contains_key(*name) {
                     params.insert((*name).into(), J::from(w.as_str()));
                 }
             }
-            for (n, (name, l)) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers).enumerate() {
+            for (n, (name, l)) in crate::effects::PARTICLE_PLAYGROUND_LAYERS
+                .iter()
+                .zip(layers)
+                .enumerate()
+            {
                 if n < 6 || l.as_str() != Some("") || params.contains_key(*name) {
                     params.insert((*name).into(), l.clone());
                 }
             }
-            for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS.iter().zip(colors) {
+            for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS
+                .iter()
+                .zip(colors)
+            {
                 params.insert((*name).into(), J::from(c.as_str()));
             }
         }
-        Effect::Hair { values, words, hair_color } => {
+        Effect::Hair {
+            values,
+            words,
+            hair_color,
+        } => {
             for ((name, ..), v) in crate::effects::HAIR_SETTINGS.iter().zip(values) {
                 params.insert((*name).into(), num(*v));
             }
@@ -3259,36 +4310,75 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             params.insert("hair_color".into(), J::from(hair_color.as_str()));
         }
-        Effect::ParticleEmitter { values, emitter_position, words, colors, .. } => {
+        Effect::ParticleEmitter {
+            values,
+            emitter_position,
+            words,
+            colors,
+            ..
+        } => {
             // D-711: the second system's each written only when not as added, keyed, or already
             // in the file, so a file written before stays as it was.
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values).enumerate() {
-                if n < 45 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_EMITTER_SETTINGS
+                .iter()
+                .zip(values)
+                .enumerate()
+            {
+                if n < 45
+                    || v != start
+                    || instance.tracks.contains_key(*name)
+                    || params.contains_key(*name)
+                {
                     params.insert((*name).into(), num(*v));
                 }
             }
-            params.insert("emitter_position".into(), J::Array(emitter_position.iter().map(|c| num(*c)).collect()));
-            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words).enumerate() {
+            params.insert(
+                "emitter_position".into(),
+                J::Array(emitter_position.iter().map(|c| num(*c)).collect()),
+            );
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_EMITTER_WORDS
+                .iter()
+                .zip(words)
+                .enumerate()
+            {
                 if n < 6 || w != start || params.contains_key(*name) {
                     params.insert((*name).into(), J::from(w.as_str()));
                 }
             }
-            for (n, ((name, start), c)) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors).enumerate() {
+            for (n, ((name, start), c)) in crate::effects::PARTICLE_EMITTER_COLORS
+                .iter()
+                .zip(colors)
+                .enumerate()
+            {
                 if n < 6 || c != start || params.contains_key(*name) {
                     params.insert((*name).into(), J::from(c.as_str()));
                 }
             }
         }
-        Effect::ParticleGrid { values, form_center, words, layers, colors, .. } => {
+        Effect::ParticleGrid {
+            values,
+            form_center,
+            words,
+            layers,
+            colors,
+            ..
+        } => {
             for ((name, ..), v) in crate::effects::PARTICLE_GRID_SETTINGS.iter().zip(values) {
                 params.insert((*name).into(), num(*v));
             }
-            params.insert("form_center".into(), J::Array(form_center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "form_center".into(),
+                J::Array(form_center.iter().map(|c| num(*c)).collect()),
+            );
             for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS.iter().zip(words) {
                 params.insert((*name).into(), J::from(w.as_str()));
             }
             // D-712: the Base Layer written only when named or already in the file.
-            for (n, (name, l)) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers).enumerate() {
+            for (n, (name, l)) in crate::effects::PARTICLE_GRID_LAYERS
+                .iter()
+                .zip(layers)
+                .enumerate()
+            {
                 if n < 3 || l.as_str() != Some("") || params.contains_key(*name) {
                     params.insert((*name).into(), l.clone());
                 }
@@ -3297,7 +4387,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(c.as_str()));
             }
         }
-        Effect::Mercury { values, words, light_color, .. } => {
+        Effect::Mercury {
+            values,
+            words,
+            light_color,
+            ..
+        } => {
             for ((name, ..), v) in crate::effects::MERCURY_SETTINGS.iter().zip(values) {
                 params.insert((*name).into(), num(*v));
             }
@@ -3358,12 +4453,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
         }
-        Effect::BilateralBlur { radius, threshold, colorize } => {
+        Effect::BilateralBlur {
+            radius,
+            threshold,
+            colorize,
+        } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
             params.insert("colorize".into(), J::from(colorize.as_str()));
         }
-        Effect::CrossBlur { radius_x, radius_y, mode, edges } => {
+        Effect::CrossBlur {
+            radius_x,
+            radius_y,
+            mode,
+            edges,
+        } => {
             params.insert("radius_x".into(), num(*radius_x));
             params.insert("radius_y".into(), num(*radius_y));
             // D-360..D-362: a word or quality at its default is written only if the file had it.
@@ -3372,57 +4476,142 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             put_edges(&mut params, edges);
         }
-        Effect::SpinZoomBlur { kind, amount, quality, center } => {
+        Effect::SpinZoomBlur {
+            kind,
+            amount,
+            quality,
+            center,
+        } => {
             params.insert("type".into(), J::from(kind.as_str()));
             params.insert("amount".into(), num(*amount));
-            if *quality != 50.0 || instance.tracks.contains_key("quality") || params.contains_key("quality") {
+            if *quality != 50.0
+                || instance.tracks.contains_key("quality")
+                || params.contains_key("quality")
+            {
                 params.insert("quality".into(), num(*quality));
             }
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
         }
-        Effect::FastZoomBlur { amount, center, zoom } => {
+        Effect::FastZoomBlur {
+            amount,
+            center,
+            zoom,
+        } => {
             params.insert("amount".into(), num(*amount));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             if zoom != "standard" || params.contains_key("zoom") {
                 params.insert("zoom".into(), J::from(zoom.as_str()));
             }
         }
-        Effect::BroadcastSafe { locale, method, max_amplitude } => {
+        Effect::BroadcastSafe {
+            locale,
+            method,
+            max_amplitude,
+        } => {
             params.insert("locale".into(), J::from(locale.as_str()));
             params.insert("method".into(), J::from(method.as_str()));
             params.insert("max_amplitude".into(), num(*max_amplitude));
         }
-        Effect::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point } => {
-            params.insert("shadows_unbalance".into(), J::from(shadows_unbalance.as_str()));
-            params.insert("midtones_unbalance".into(), J::from(midtones_unbalance.as_str()));
-            params.insert("highlights_unbalance".into(), J::from(highlights_unbalance.as_str()));
-            for (name, tone) in [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)] {
-                params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
+        Effect::ColorNeutralizer {
+            shadows_unbalance,
+            midtones_unbalance,
+            highlights_unbalance,
+            shadows,
+            midtones,
+            highlights,
+            pinning,
+            black_point,
+            white_point,
+        } => {
+            params.insert(
+                "shadows_unbalance".into(),
+                J::from(shadows_unbalance.as_str()),
+            );
+            params.insert(
+                "midtones_unbalance".into(),
+                J::from(midtones_unbalance.as_str()),
+            );
+            params.insert(
+                "highlights_unbalance".into(),
+                J::from(highlights_unbalance.as_str()),
+            );
+            for (name, tone) in [
+                ("shadows", shadows),
+                ("midtones", midtones),
+                ("highlights", highlights),
+            ] {
+                params.insert(
+                    name.into(),
+                    J::Array(tone.iter().map(|v| num(*v)).collect()),
+                );
             }
             params.insert("pinning".into(), num(*pinning));
             params.insert("black_point".into(), num(*black_point));
             params.insert("white_point".into(), num(*white_point));
         }
-        Effect::ColorOffset { red_phase, green_phase, blue_phase, overflow } => {
+        Effect::ColorOffset {
+            red_phase,
+            green_phase,
+            blue_phase,
+            overflow,
+        } => {
             params.insert("red_phase".into(), num(*red_phase));
             params.insert("green_phase".into(), num(*green_phase));
             params.insert("blue_phase".into(), num(*blue_phase));
             params.insert("overflow".into(), J::from(overflow.as_str()));
         }
-        Effect::Kernel { line_1, line_2, line_3, divider, absolute_values } => {
+        Effect::Kernel {
+            line_1,
+            line_2,
+            line_3,
+            divider,
+            absolute_values,
+        } => {
             for (name, line) in [("line_1", line_1), ("line_2", line_2), ("line_3", line_3)] {
-                params.insert(name.into(), J::Array(line.iter().map(|v| num(*v)).collect()));
+                params.insert(
+                    name.into(),
+                    J::Array(line.iter().map(|v| num(*v)).collect()),
+                );
             }
             params.insert("divider".into(), num(*divider));
             params.insert("absolute_values".into(), J::from(absolute_values.as_str()));
         }
-        Effect::Toner { tones, highlights, brights, midtones, darktones, shadows } => {
+        Effect::Toner {
+            tones,
+            highlights,
+            brights,
+            midtones,
+            darktones,
+            shadows,
+        } => {
             params.insert("tones".into(), J::from(tones.as_str()));
-            for (name, c) in [("highlights", highlights), ("brights", brights), ("midtones", midtones), ("darktones", darktones), ("shadows", shadows)] {
+            for (name, c) in [
+                ("highlights", highlights),
+                ("brights", brights),
+                ("midtones", midtones),
+                ("darktones", darktones),
+                ("shadows", shadows),
+            ] {
                 params.insert(name.into(), J::from(c.as_str()));
             }
         }
-        Effect::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, color_to_change, tolerance, softness, match_colors, invert_mask } => {
+        Effect::ChangeColor {
+            view,
+            hue_transform,
+            lightness_transform,
+            saturation_transform,
+            color_to_change,
+            tolerance,
+            softness,
+            match_colors,
+            invert_mask,
+        } => {
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("hue_transform".into(), num(*hue_transform));
             params.insert("lightness_transform".into(), num(*lightness_transform));
@@ -3433,12 +4622,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("match_colors".into(), J::from(match_colors.as_str()));
             params.insert("invert_mask".into(), J::from(invert_mask.as_str()));
         }
-        Effect::ColorBalanceHls { hue, lightness, saturation } => {
+        Effect::ColorBalanceHls {
+            hue,
+            lightness,
+            saturation,
+        } => {
             params.insert("hue".into(), num(*hue));
             params.insert("lightness".into(), num(*lightness));
             params.insert("saturation".into(), num(*saturation));
         }
-        Effect::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => {
+        Effect::GammaPedestalGain {
+            black_stretch,
+            gamma,
+            pedestal,
+            gain,
+        } => {
             params.insert("black_stretch".into(), num(*black_stretch));
             for (c, name) in ["red", "green", "blue"].iter().enumerate() {
                 params.insert(format!("{name}_gamma"), num(gamma[c]));
@@ -3447,15 +4645,36 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
         }
         // D-397: the table read for a frame is never saved.
-        Effect::ColorGrade { values, look, curves, hue_saturation, more_curves, secondary_wheels, key_invert, key_view, .. } => {
+        Effect::ColorGrade {
+            values,
+            look,
+            curves,
+            hue_saturation,
+            more_curves,
+            secondary_wheels,
+            key_invert,
+            key_view,
+            ..
+        } => {
             params.insert("look".into(), J::from(look.as_str()));
-            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values).take(22) {
+            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS
+                .iter()
+                .zip(values)
+                .take(22)
+            {
                 params.insert((*name).into(), num(*v));
             }
             // D-398: as D-121, each new setting at its start, without keys, is written only if
             // the file had it, so a D-397 file saves as before. Each curve as Curves' points,
             // the hue curve likewise, and the two words.
-            let list = |points: &Vec<Vec<f64>>| J::Array(points.iter().map(|p| J::Array(p.iter().map(|v| num(*v)).collect())).collect());
+            let list = |points: &Vec<Vec<f64>>| {
+                J::Array(
+                    points
+                        .iter()
+                        .map(|p| J::Array(p.iter().map(|v| num(*v)).collect()))
+                        .collect(),
+                )
+            };
             let straight = vec![vec![0.0, 0.0], vec![255.0, 255.0]];
             let mut new: Vec<(&str, J, bool)> = crate::effects::COLOR_GRADE_SETTINGS[22..]
                 .iter()
@@ -3465,13 +4684,28 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             for (name, points) in crate::effects::COLOR_GRADE_CURVES.iter().zip(curves) {
                 new.push((name, list(points), *points == straight));
             }
-            new.push(("hue_saturation", list(hue_saturation), hue_saturation.is_empty()));
+            new.push((
+                "hue_saturation",
+                list(hue_saturation),
+                hue_saturation.is_empty(),
+            ));
             // D-571: the other curves and the wheels' word likewise, so a D-398 file saves as before.
-            for ((name, ..), points) in crate::effects::COLOR_GRADE_MORE_CURVES.iter().zip(more_curves) {
+            for ((name, ..), points) in crate::effects::COLOR_GRADE_MORE_CURVES
+                .iter()
+                .zip(more_curves)
+            {
                 new.push((name, list(points), points.is_empty()));
             }
-            new.push(("secondary_wheels", J::from(secondary_wheels.as_str()), secondary_wheels == "one"));
-            new.push(("key_invert", J::from(key_invert.as_str()), key_invert == "off"));
+            new.push((
+                "secondary_wheels",
+                J::from(secondary_wheels.as_str()),
+                secondary_wheels == "one",
+            ));
+            new.push((
+                "key_invert",
+                J::from(key_invert.as_str()),
+                key_invert == "off",
+            ));
             new.push(("key_view", J::from(key_view.as_str()), key_view == "off"));
             for (key, value, start) in new {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
@@ -3479,14 +4713,30 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
-        Effect::PhotoFilter { filter, color, density, preserve_luminosity } => {
+        Effect::PhotoFilter {
+            filter,
+            color,
+            density,
+            preserve_luminosity,
+        } => {
             params.insert("filter".into(), J::from(filter.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("density".into(), num(*density));
-            params.insert("preserve_luminosity".into(), J::from(preserve_luminosity.as_str()));
+            params.insert(
+                "preserve_luminosity".into(),
+                J::from(preserve_luminosity.as_str()),
+            );
         }
         // D-375: the map read for a frame is never saved.
-        Effect::ColorLink { layer, sample, clip, stencil, opacity, blending_mode, .. } => {
+        Effect::ColorLink {
+            layer,
+            sample,
+            clip,
+            stencil,
+            opacity,
+            blending_mode,
+            ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("sample".into(), J::from(sample.as_str()));
             params.insert("clip".into(), num(*clip));
@@ -3495,10 +4745,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
         // D-376: the reference samples are never saved; compose takes them again.
-        Effect::ColorStabilizer { stabilize, reference_frame, black_point, mid_point, white_point, sample_size, .. } => {
+        Effect::ColorStabilizer {
+            stabilize,
+            reference_frame,
+            black_point,
+            mid_point,
+            white_point,
+            sample_size,
+            ..
+        } => {
             params.insert("stabilize".into(), J::from(stabilize.as_str()));
             params.insert("reference_frame".into(), num(*reference_frame));
-            for (name, p) in [("black_point", black_point), ("mid_point", mid_point), ("white_point", white_point)] {
+            for (name, p) in [
+                ("black_point", black_point),
+                ("mid_point", mid_point),
+                ("white_point", white_point),
+            ] {
                 params.insert(name.into(), J::Array(p.iter().map(|c| num(*c)).collect()));
             }
             params.insert("sample_size".into(), num(*sample_size));
@@ -3539,7 +4801,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("segments".into(), num(*segments));
             params.insert("rotation".into(), num(*rotation));
             params.insert("size".into(), num(*size));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("mode".into(), J::from(mode.as_str()));
         }
         Effect::RoughenEdges {
@@ -3574,8 +4839,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             outside_color,
             composite,
         } => {
-            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
-            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "start".into(),
+                J::Array(start.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "end".into(),
+                J::Array(end.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("length".into(), num(*length));
             params.insert("time".into(), num(*time));
             params.insert("start_thickness".into(), num(*start_thickness));
@@ -3598,10 +4869,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             opacity,
             blending_mode,
         } => {
-            for (name, p) in [("point_1", point_1), ("point_2", point_2), ("point_3", point_3), ("point_4", point_4)] {
+            for (name, p) in [
+                ("point_1", point_1),
+                ("point_2", point_2),
+                ("point_3", point_3),
+                ("point_4", point_4),
+            ] {
                 params.insert(name.into(), J::Array(p.iter().map(|c| num(*c)).collect()));
             }
-            for (name, c) in [("color_1", color_1), ("color_2", color_2), ("color_3", color_3), ("color_4", color_4)] {
+            for (name, c) in [
+                ("color_1", color_1),
+                ("color_2", color_2),
+                ("color_3", color_3),
+                ("color_4", color_4),
+            ] {
                 params.insert(name.into(), J::from(c.as_str()));
             }
             params.insert("blend".into(), num(*blend));
@@ -3621,10 +4902,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             opacity,
             blend,
         } => {
-            for (name, w) in [("pattern", pattern), ("invert", invert), ("dark_color", dark_color), ("light_color", light_color), ("blend", blend)] {
+            for (name, w) in [
+                ("pattern", pattern),
+                ("invert", invert),
+                ("dark_color", dark_color),
+                ("light_color", light_color),
+                ("blend", blend),
+            ] {
                 params.insert(name.into(), J::from(w.as_str()));
             }
-            for (name, v) in [("contrast", contrast), ("disperse", disperse), ("size", size), ("evolution", evolution), ("seed", seed), ("opacity", opacity)] {
+            for (name, v) in [
+                ("contrast", contrast),
+                ("disperse", disperse),
+                ("size", size),
+                ("evolution", evolution),
+                ("seed", seed),
+                ("opacity", opacity),
+            ] {
                 params.insert(name.into(), num(*v));
             }
         }
@@ -3637,7 +4931,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("field_of_view".into(), num(*field_of_view));
             params.insert("reverse".into(), J::from(reverse.as_str()));
             params.insert("orientation".into(), J::from(orientation.as_str()));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
         }
         Effect::RadialShadow {
             color,
@@ -3651,7 +4948,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         } => {
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("opacity".into(), num(*opacity));
-            params.insert("light".into(), J::Array(light.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "light".into(),
+                J::Array(light.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("distance".into(), num(*distance));
             params.insert("softness".into(), num(*softness));
             params.insert("render".into(), J::from(render.as_str()));
@@ -3712,7 +5012,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("take_green".into(), J::from(take_green.as_str()));
             params.insert("take_blue".into(), J::from(take_blue.as_str()));
         }
-        Effect::SolidComposite { source_opacity, color, opacity, blend } => {
+        Effect::SolidComposite {
+            source_opacity,
+            color,
+            opacity,
+            blend,
+        } => {
             params.insert("source_opacity".into(), num(*source_opacity));
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("opacity".into(), num(*opacity));
@@ -3738,7 +5043,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("units".into(), J::from(units.as_str()));
             }
         }
-        Effect::FastBoxBlur { radius, iterations, edges, dimensions } => {
+        Effect::FastBoxBlur {
+            radius,
+            iterations,
+            edges,
+            dimensions,
+        } => {
             params.insert("radius".into(), num(*radius));
             params.insert("iterations".into(), num(*iterations));
             put_edges(&mut params, edges);
@@ -3746,14 +5056,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("dimensions".into(), J::from(dimensions.as_str()));
             }
         }
-        Effect::FastBlurLegacy { blurriness, edges, dimensions } => {
+        Effect::FastBlurLegacy {
+            blurriness,
+            edges,
+            dimensions,
+        } => {
             params.insert("blurriness".into(), num(*blurriness));
             put_edges(&mut params, edges);
             if dimensions != "both" || params.contains_key("dimensions") {
                 params.insert("dimensions".into(), J::from(dimensions.as_str()));
             }
         }
-        Effect::GaussianBlurLegacy { blurriness, dimensions } => {
+        Effect::GaussianBlurLegacy {
+            blurriness,
+            dimensions,
+        } => {
             params.insert("blurriness".into(), num(*blurriness));
             if dimensions != "both" || params.contains_key("dimensions") {
                 params.insert("dimensions".into(), J::from(dimensions.as_str()));
@@ -3832,7 +5149,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("phase_shift".into(), num(*phase_shift));
             params.insert("cycle_repetitions".into(), num(*cycle_repetitions));
             params.insert("stops".into(), num(*stops));
-            for (key, c) in [("color_1", color_1), ("color_2", color_2), ("color_3", color_3), ("color_4", color_4), ("color_5", color_5)] {
+            for (key, c) in [
+                ("color_1", color_1),
+                ("color_2", color_2),
+                ("color_3", color_3),
+                ("color_4", color_4),
+                ("color_5", color_5),
+            ] {
                 params.insert(key.into(), J::from(c.as_str()));
             }
             params.insert("blend_with_original".into(), num(*blend_with_original));
@@ -3871,11 +5194,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             let starts = light_type == "classic"
                 && *light_height == 25.0
                 && *light_position == [50.0, 50.0]
-                && [*ambient, *diffuse, *specular, *roughness, *metal] == [75.0, 90.0, 25.0, 0.1, 100.0];
+                && [*ambient, *diffuse, *specular, *roughness, *metal]
+                    == [75.0, 90.0, 25.0, 0.1, 100.0];
             if !starts {
                 params.insert("light_type".into(), J::from(light_type.as_str()));
                 params.insert("light_height".into(), num(*light_height));
-                params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+                params.insert(
+                    "light_position".into(),
+                    J::Array(light_position.iter().map(|c| num(*c)).collect()),
+                );
                 params.insert("ambient".into(), num(*ambient));
                 params.insert("diffuse".into(), num(*diffuse));
                 params.insert("specular".into(), num(*specular));
@@ -3883,7 +5210,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("metal".into(), num(*metal));
             }
         }
-        Effect::VectorBlur { kind, amount, angle_offset, ridge_smoothness, layer, fit, property, map_softness, .. } => {
+        Effect::VectorBlur {
+            kind,
+            amount,
+            angle_offset,
+            ridge_smoothness,
+            layer,
+            fit,
+            property,
+            map_softness,
+            ..
+        } => {
             params.insert("type".into(), J::from(kind.as_str()));
             params.insert("amount".into(), num(*amount));
             params.insert("angle_offset".into(), num(*angle_offset));
@@ -3893,39 +5230,94 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("property".into(), J::from(property.as_str()));
             params.insert("map_softness".into(), num(*map_softness));
         }
-        Effect::BendIt { bend, start, end, render_prestart, distort } => {
+        Effect::BendIt {
+            bend,
+            start,
+            end,
+            render_prestart,
+            distort,
+        } => {
             params.insert("bend".into(), num(*bend));
-            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
-            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "start".into(),
+                J::Array(start.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "end".into(),
+                J::Array(end.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("render_prestart".into(), J::from(render_prestart.as_str()));
             params.insert("distort".into(), J::from(distort.as_str()));
         }
-        Effect::Bender { amount, style, adjust_to_distance, top, base } => {
+        Effect::Bender {
+            amount,
+            style,
+            adjust_to_distance,
+            top,
+            base,
+        } => {
             params.insert("amount".into(), num(*amount));
             params.insert("style".into(), J::from(style.as_str()));
-            params.insert("adjust_to_distance".into(), J::from(adjust_to_distance.as_str()));
-            params.insert("top".into(), J::Array(top.iter().map(|c| num(*c)).collect()));
-            params.insert("base".into(), J::Array(base.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "adjust_to_distance".into(),
+                J::from(adjust_to_distance.as_str()),
+            );
+            params.insert(
+                "top".into(),
+                J::Array(top.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "base".into(),
+                J::Array(base.iter().map(|c| num(*c)).collect()),
+            );
         }
-        Effect::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing } => {
-            params.insert("knot_1".into(), J::Array(knot_1.iter().map(|c| num(*c)).collect()));
+        Effect::FlowMotion {
+            knot_1,
+            amount_1,
+            knot_2,
+            amount_2,
+            falloff,
+            tile_edges,
+            finer_controls,
+            antialiasing,
+        } => {
+            params.insert(
+                "knot_1".into(),
+                J::Array(knot_1.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("amount_1".into(), num(*amount_1));
-            params.insert("knot_2".into(), J::Array(knot_2.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "knot_2".into(),
+                J::Array(knot_2.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("amount_2".into(), num(*amount_2));
             params.insert("falloff".into(), num(*falloff));
             params.insert("tile_edges".into(), J::from(tile_edges.as_str()));
             params.insert("finer_controls".into(), J::from(finer_controls.as_str()));
             params.insert("antialiasing".into(), J::from(antialiasing.as_str()));
         }
-        Effect::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles } => {
+        Effect::Griddler {
+            horizontal_scale,
+            vertical_scale,
+            tile_size,
+            rotation,
+            cut_tiles,
+        } => {
             params.insert("horizontal_scale".into(), num(*horizontal_scale));
             params.insert("vertical_scale".into(), num(*vertical_scale));
             params.insert("tile_size".into(), num(*tile_size));
             params.insert("rotation".into(), num(*rotation));
             params.insert("cut_tiles".into(), J::from(cut_tiles.as_str()));
         }
-        Effect::Fisheye { center, size, convergence } => {
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+        Effect::Fisheye {
+            center,
+            size,
+            convergence,
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("size".into(), num(*size));
             params.insert("convergence".into(), num(*convergence));
         }
@@ -3942,7 +5334,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             ..
         } => {
             params.insert("controls".into(), J::from(controls.as_str()));
-            params.insert("fold_position".into(), J::Array(fold_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "fold_position".into(),
+                J::Array(fold_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("fold_direction".into(), num(*fold_direction));
             params.insert("fold_radius".into(), num(*fold_radius));
             params.insert("light_direction".into(), num(*light_direction));
@@ -3952,17 +5347,38 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
         // D-607: the seven settings; the outlines are the masks', never saved here.
-        Effect::MaskSmear { source_mask, boundary_mask, mask_offset, mask_rotation, mask_scale, percent, elasticity, .. } => {
+        Effect::MaskSmear {
+            source_mask,
+            boundary_mask,
+            mask_offset,
+            mask_rotation,
+            mask_scale,
+            percent,
+            elasticity,
+            ..
+        } => {
             params.insert("source_mask".into(), num(*source_mask));
             params.insert("boundary_mask".into(), num(*boundary_mask));
-            params.insert("mask_offset".into(), J::Array(mask_offset.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "mask_offset".into(),
+                J::Array(mask_offset.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("mask_rotation".into(), num(*mask_rotation));
             params.insert("mask_scale".into(), num(*mask_scale));
             params.insert("percent".into(), num(*percent));
             params.insert("elasticity".into(), J::from(elasticity.as_str()));
         }
         // D-606: the five settings; the outlines are the masks', never saved here.
-        Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, elasticity, correspondence_points, interpolation, .. } => {
+        Effect::Reshape {
+            source_mask,
+            destination_mask,
+            boundary_mask,
+            percent,
+            elasticity,
+            correspondence_points,
+            interpolation,
+            ..
+        } => {
             params.insert("source_mask".into(), num(*source_mask));
             params.insert("destination_mask".into(), num(*destination_mask));
             params.insert("boundary_mask".into(), num(*boundary_mask));
@@ -3970,8 +5386,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("elasticity".into(), J::from(elasticity.as_str()));
             // D-702: none and Discrete are written only if the file had them, so a file from
             // before it saves the same.
-            if !correspondence_points.is_empty() || instance.tracks.contains_key("correspondence_points") || params.contains_key("correspondence_points") {
-                params.insert("correspondence_points".into(), J::Array(correspondence_points.iter().map(|v| num(*v)).collect()));
+            if !correspondence_points.is_empty()
+                || instance.tracks.contains_key("correspondence_points")
+                || params.contains_key("correspondence_points")
+            {
+                params.insert(
+                    "correspondence_points".into(),
+                    J::Array(correspondence_points.iter().map(|v| num(*v)).collect()),
+                );
             }
             if interpolation != "discrete" || params.contains_key("interpolation") {
                 params.insert("interpolation".into(), J::from(interpolation.as_str()));
@@ -3995,18 +5417,49 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("tool".into(), J::from(tool.as_str()));
             params.insert("brush_size".into(), num(*brush_size));
             params.insert("brush_pressure".into(), num(*brush_pressure));
-            params.insert("stroke".into(), J::Array(stroke.iter().map(|v| num(*v)).collect()));
+            params.insert(
+                "stroke".into(),
+                J::Array(stroke.iter().map(|v| num(*v)).collect()),
+            );
             params.insert("distortion_percentage".into(), num(*distortion_percentage));
-            params.insert("distortion_mesh_offset".into(), J::Array(distortion_mesh_offset.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "distortion_mesh_offset".into(),
+                J::Array(distortion_mesh_offset.iter().map(|c| num(*c)).collect()),
+            );
             // D-700: a setting at its start, without keys, is written only if the file had it,
             // so a file from before it saves the same. The freeze outline is the mask's, never
             // saved here.
             for (key, value, start) in [
-                ("turbulent_jitter", num(*turbulent_jitter), *turbulent_jitter == 70.0),
-                ("clone_offset", J::Array(clone_offset.iter().map(|c| num(*c)).collect()), *clone_offset == [0.0, 0.0]),
-                ("reconstruction_mode", J::from(reconstruction_mode.as_str()), reconstruction_mode == "revert"),
-                ("freeze_area_mask", num(*freeze_area_mask), *freeze_area_mask == 0.0),
-                ("strokes", J::Array(strokes.iter().map(|e| J::Array(e.iter().map(|v| num(*v)).collect())).collect()), strokes.is_empty()),
+                (
+                    "turbulent_jitter",
+                    num(*turbulent_jitter),
+                    *turbulent_jitter == 70.0,
+                ),
+                (
+                    "clone_offset",
+                    J::Array(clone_offset.iter().map(|c| num(*c)).collect()),
+                    *clone_offset == [0.0, 0.0],
+                ),
+                (
+                    "reconstruction_mode",
+                    J::from(reconstruction_mode.as_str()),
+                    reconstruction_mode == "revert",
+                ),
+                (
+                    "freeze_area_mask",
+                    num(*freeze_area_mask),
+                    *freeze_area_mask == 0.0,
+                ),
+                (
+                    "strokes",
+                    J::Array(
+                        strokes
+                            .iter()
+                            .map(|e| J::Array(e.iter().map(|v| num(*v)).collect()))
+                            .collect(),
+                    ),
+                    strokes.is_empty(),
+                ),
             ] {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), value);
@@ -4014,7 +5467,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
         }
         // D-604: the words as written.
-        Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {
+        Effect::Warp {
+            warp_style,
+            warp_axis,
+            bend,
+            horizontal_distortion,
+            vertical_distortion,
+        } => {
             params.insert("warp_style".into(), J::from(warp_style.as_str()));
             params.insert("warp_axis".into(), J::from(warp_axis.as_str()));
             params.insert("bend".into(), num(*bend));
@@ -4022,21 +5481,39 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("vertical_distortion".into(), num(*vertical_distortion));
         }
         // D-603: the mesh as one flat list, empty at rest.
-        Effect::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => {
+        Effect::MeshWarp {
+            rows,
+            columns,
+            quality,
+            distortion_mesh,
+            vertex_handles,
+        } => {
             params.insert("rows".into(), num(*rows));
             params.insert("columns".into(), num(*columns));
             params.insert("quality".into(), num(*quality));
-            params.insert("distortion_mesh".into(), J::Array(distortion_mesh.iter().map(|v| num(*v)).collect()));
+            params.insert(
+                "distortion_mesh".into(),
+                J::Array(distortion_mesh.iter().map(|v| num(*v)).collect()),
+            );
             // D-701: none moved and unkeyed is written only if the file had it, so a file from
             // before it saves the same.
-            if !vertex_handles.is_empty() || instance.tracks.contains_key("vertex_handles") || params.contains_key("vertex_handles") {
-                params.insert("vertex_handles".into(), J::Array(vertex_handles.iter().map(|v| num(*v)).collect()));
+            if !vertex_handles.is_empty()
+                || instance.tracks.contains_key("vertex_handles")
+                || params.contains_key("vertex_handles")
+            {
+                params.insert(
+                    "vertex_handles".into(),
+                    J::Array(vertex_handles.iter().map(|v| num(*v)).collect()),
+                );
             }
         }
         // D-602: each point two numbers under its own name.
         Effect::BezierWarp { points, quality } => {
             for (name, v) in crate::effects::BEZIER_POINTS.iter().zip(points) {
-                params.insert((*name).into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+                params.insert(
+                    (*name).into(),
+                    J::Array(v.iter().map(|c| num(*c)).collect()),
+                );
             }
             params.insert("quality".into(), num(*quality));
         }
@@ -4052,7 +5529,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             expansion_right,
             expansion_bottom,
         } => {
-            for (name, v) in [("top_left", top_left), ("top_right", top_right), ("bottom_left", bottom_left), ("bottom_right", bottom_right)] {
+            for (name, v) in [
+                ("top_left", top_left),
+                ("top_right", top_right),
+                ("bottom_left", bottom_left),
+                ("bottom_right", bottom_right),
+            ] {
                 params.insert(name.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
             params.insert("perspective".into(), num(*perspective));
@@ -4062,56 +5544,141 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("expansion_right".into(), num(*expansion_right));
             params.insert("expansion_bottom".into(), num(*expansion_bottom));
         }
-        Effect::RipplePulse { center, pulse_level, time_span, amplitude, render_bump_map, .. } => {
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+        Effect::RipplePulse {
+            center,
+            pulse_level,
+            time_span,
+            amplitude,
+            render_bump_map,
+            ..
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("pulse_level".into(), num(*pulse_level));
             params.insert("time_span".into(), num(*time_span));
             params.insert("amplitude".into(), num(*amplitude));
             params.insert("render_bump_map".into(), J::from(render_bump_map.as_str()));
         }
-        Effect::Slant { slant, stretching, height, floor, set_color, color } => {
+        Effect::Slant {
+            slant,
+            stretching,
+            height,
+            floor,
+            set_color,
+            color,
+        } => {
             params.insert("slant".into(), num(*slant));
             params.insert("stretching".into(), J::from(stretching.as_str()));
             params.insert("height".into(), num(*height));
-            params.insert("floor".into(), J::Array(floor.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "floor".into(),
+                J::Array(floor.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("set_color".into(), J::from(set_color.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
         }
-        Effect::Smear { from, to, reach, radius } => {
-            params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
+        Effect::Smear {
+            from,
+            to,
+            reach,
+            radius,
+        } => {
+            params.insert(
+                "from".into(),
+                J::Array(from.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("to".into(), J::Array(to.iter().map(|c| num(*c)).collect()));
             params.insert("reach".into(), num(*reach));
             params.insert("radius".into(), num(*radius));
         }
-        Effect::Split { point_a, point_b, split } => {
-            params.insert("point_a".into(), J::Array(point_a.iter().map(|c| num(*c)).collect()));
-            params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
+        Effect::Split {
+            point_a,
+            point_b,
+            split,
+        } => {
+            params.insert(
+                "point_a".into(),
+                J::Array(point_a.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "point_b".into(),
+                J::Array(point_b.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("split".into(), num(*split));
         }
-        Effect::Split2 { point_a, point_b, split_1, split_2 } => {
-            params.insert("point_a".into(), J::Array(point_a.iter().map(|c| num(*c)).collect()));
-            params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
+        Effect::Split2 {
+            point_a,
+            point_b,
+            split_1,
+            split_2,
+        } => {
+            params.insert(
+                "point_a".into(),
+                J::Array(point_a.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "point_b".into(),
+                J::Array(point_b.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("split_1".into(), num(*split_1));
             params.insert("split_2".into(), num(*split_2));
         }
         // D-458: the other frame's picture is read at each frame, never saved.
-        Effect::SimpleWireRemoval { point_a, point_b, removal_style, thickness, slope, mirror_blend, frame_offset, picture: _ } => {
-            params.insert("point_a".into(), J::Array(point_a.iter().map(|c| num(*c)).collect()));
-            params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
+        Effect::SimpleWireRemoval {
+            point_a,
+            point_b,
+            removal_style,
+            thickness,
+            slope,
+            mirror_blend,
+            frame_offset,
+            picture: _,
+        } => {
+            params.insert(
+                "point_a".into(),
+                J::Array(point_a.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "point_b".into(),
+                J::Array(point_b.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("removal_style".into(), J::from(removal_style.as_str()));
             params.insert("thickness".into(), num(*thickness));
             params.insert("slope".into(), num(*slope));
             params.insert("mirror_blend".into(), num(*mirror_blend));
             params.insert("frame_offset".into(), num(*frame_offset));
         }
-        Effect::Tiles { scale, center, blend } => {
+        Effect::Tiles {
+            scale,
+            center,
+            blend,
+        } => {
             params.insert("scale".into(), num(*scale));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("blend".into(), num(*blend));
         }
-        Effect::Magnify { shape, center, magnification, link, size, feather, opacity, scaling, blending_mode, resize_layer } => {
+        Effect::Magnify {
+            shape,
+            center,
+            magnification,
+            link,
+            size,
+            feather,
+            opacity,
+            scaling,
+            blending_mode,
+            resize_layer,
+        } => {
             params.insert("shape".into(), J::from(shape.as_str()));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("magnification".into(), num(*magnification));
             params.insert("link".into(), J::from(link.as_str()));
             params.insert("size".into(), num(*size));
@@ -4123,12 +5690,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         }
         Effect::Spherize { radius, center } => {
             params.insert("radius".into(), num(*radius));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
         }
-        Effect::Checkerboard { anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode } => {
-            params.insert("anchor".into(), J::Array(anchor.iter().map(|c| num(*c)).collect()));
+        Effect::Checkerboard {
+            anchor,
+            size_from,
+            corner,
+            width,
+            height,
+            feather_width,
+            feather_height,
+            color,
+            opacity,
+            blending_mode,
+        } => {
+            params.insert(
+                "anchor".into(),
+                J::Array(anchor.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("size_from".into(), J::from(size_from.as_str()));
-            params.insert("corner".into(), J::Array(corner.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "corner".into(),
+                J::Array(corner.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("width".into(), num(*width));
             params.insert("height".into(), num(*height));
             params.insert("feather_width".into(), num(*feather_width));
@@ -4137,8 +5724,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
-        Effect::Circle { center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode } => {
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+        Effect::Circle {
+            center,
+            radius,
+            edge,
+            edge_thickness,
+            feather_outer,
+            feather_inner,
+            invert,
+            color,
+            opacity,
+            blending_mode,
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("radius".into(), num(*radius));
             params.insert("edge".into(), J::from(edge.as_str()));
             params.insert("edge_thickness".into(), num(*edge_thickness));
@@ -4149,15 +5750,46 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
-        Effect::EyedropperFill { sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original } => {
-            params.insert("sample_point".into(), J::Array(sample_point.iter().map(|c| num(*c)).collect()));
+        Effect::EyedropperFill {
+            sample_point,
+            sample_radius,
+            average_pixel_colors,
+            maintain_original_alpha,
+            blend_with_original,
+        } => {
+            params.insert(
+                "sample_point".into(),
+                J::Array(sample_point.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("sample_radius".into(), num(*sample_radius));
-            params.insert("average_pixel_colors".into(), J::from(average_pixel_colors.as_str()));
-            params.insert("maintain_original_alpha".into(), J::from(maintain_original_alpha.as_str()));
+            params.insert(
+                "average_pixel_colors".into(),
+                J::from(average_pixel_colors.as_str()),
+            );
+            params.insert(
+                "maintain_original_alpha".into(),
+                J::from(maintain_original_alpha.as_str()),
+            );
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
-        Effect::PaintBucket { fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode } => {
-            params.insert("fill_point".into(), J::Array(fill_point.iter().map(|c| num(*c)).collect()));
+        Effect::PaintBucket {
+            fill_point,
+            fill_selector,
+            tolerance,
+            view_threshold,
+            stroke,
+            invert_fill,
+            spread_radius,
+            stroke_width,
+            feather_softness,
+            color,
+            opacity,
+            blending_mode,
+        } => {
+            params.insert(
+                "fill_point".into(),
+                J::Array(fill_point.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("fill_selector".into(), J::from(fill_selector.as_str()));
             params.insert("tolerance".into(), num(*tolerance));
             params.insert("view_threshold".into(), J::from(view_threshold.as_str()));
@@ -4172,17 +5804,36 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         }
         // D-441: the marks are found each frame and never saved.
         Effect::WriteOn {
-            brush_position, color, brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, paint_time_properties, brush_time_properties, paint_style, ..
+            brush_position,
+            color,
+            brush_size,
+            brush_hardness,
+            brush_opacity,
+            stroke_length,
+            brush_spacing,
+            paint_time_properties,
+            brush_time_properties,
+            paint_style,
+            ..
         } => {
-            params.insert("brush_position".into(), J::Array(brush_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "brush_position".into(),
+                J::Array(brush_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("brush_size".into(), num(*brush_size));
             params.insert("brush_hardness".into(), num(*brush_hardness));
             params.insert("brush_opacity".into(), num(*brush_opacity));
             params.insert("stroke_length".into(), num(*stroke_length));
             params.insert("brush_spacing".into(), num(*brush_spacing));
-            params.insert("paint_time_properties".into(), J::from(paint_time_properties.as_str()));
-            params.insert("brush_time_properties".into(), J::from(brush_time_properties.as_str()));
+            params.insert(
+                "paint_time_properties".into(),
+                J::from(paint_time_properties.as_str()),
+            );
+            params.insert(
+                "brush_time_properties".into(),
+                J::from(brush_time_properties.as_str()),
+            );
             params.insert("paint_style".into(), J::from(paint_style.as_str()));
         }
         // D-442: the masks and the time are found each frame and never saved.
@@ -4223,10 +5874,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("spacing".into(), num(*spacing));
             params.insert("spacing_variation".into(), num(*spacing_variation));
             params.insert("path_overlap".into(), num(*path_overlap));
-            params.insert("path_overlap_variation".into(), num(*path_overlap_variation));
+            params.insert(
+                "path_overlap_variation".into(),
+                num(*path_overlap_variation),
+            );
             params.insert("start".into(), num(*start));
             params.insert("end".into(), num(*end));
-            params.insert("fill_paths_sequentially".into(), J::from(fill_paths_sequentially.as_str()));
+            params.insert(
+                "fill_paths_sequentially".into(),
+                J::from(fill_paths_sequentially.as_str()),
+            );
             params.insert("wiggle_type".into(), J::from(wiggle_type.as_str()));
             params.insert("wiggles_per_second".into(), num(*wiggles_per_second));
             params.insert("random_seed".into(), num(*random_seed));
@@ -4268,19 +5925,37 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("highlights".into(), num(*highlights));
             params.insert("midpoint".into(), num(*midpoint));
             params.insert("animation_speed".into(), num(*animation_speed));
-            params.insert("animate_smoothly".into(), J::from(animate_smoothly.as_str()));
+            params.insert(
+                "animate_smoothly".into(),
+                J::from(animate_smoothly.as_str()),
+            );
             params.insert("random_seed".into(), num(*random_seed));
         }
         // D-454: Add Grain's settings as Add Grain writes them, and the source layer; the map is
         // never saved.
         Effect::MatchGrain { layer, grain, .. } => {
-            let inner = crate::effects::EffectInstance::new(instance.instance_id.clone(), (**grain).clone());
-            if let Some(p) = effect_json(None, &inner).get("parameters").and_then(J::as_object) {
+            let inner = crate::effects::EffectInstance::new(
+                instance.instance_id.clone(),
+                (**grain).clone(),
+            );
+            if let Some(p) = effect_json(None, &inner)
+                .get("parameters")
+                .and_then(J::as_object)
+            {
                 params.extend(p.clone());
             }
             params.insert("layer".into(), layer.clone());
         }
-        Effect::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } => {
+        Effect::NoiseAlpha {
+            noise,
+            amount,
+            original_alpha,
+            overflow,
+            random_seed,
+            noise_phase,
+            cycle_noise,
+            cycle,
+        } => {
             params.insert("noise".into(), J::from(noise.as_str()));
             params.insert("amount".into(), num(*amount));
             params.insert("original_alpha".into(), J::from(original_alpha.as_str()));
@@ -4290,7 +5965,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("cycle_noise".into(), J::from(cycle_noise.as_str()));
             params.insert("cycle".into(), num(*cycle));
         }
-        Effect::NoiseHls { noise, hue, lightness, saturation, grain_size, noise_phase } => {
+        Effect::NoiseHls {
+            noise,
+            hue,
+            lightness,
+            saturation,
+            grain_size,
+            noise_phase,
+        } => {
             params.insert("noise".into(), J::from(noise.as_str()));
             params.insert("hue".into(), num(*hue));
             params.insert("lightness".into(), num(*lightness));
@@ -4299,7 +5981,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("noise_phase".into(), num(*noise_phase));
         }
         // D-445: the composition's depth is never saved.
-        Effect::TurbulentNoise { fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend, more, .. } => {
+        Effect::TurbulentNoise {
+            fractal_type,
+            noise_type,
+            invert,
+            contrast,
+            brightness,
+            size,
+            scale_width,
+            scale_height,
+            offset,
+            complexity,
+            evolution,
+            seed,
+            opacity,
+            blend,
+            more,
+            ..
+        } => {
             params.insert("fractal_type".into(), J::from(fractal_type.as_str()));
             params.insert("noise_type".into(), J::from(noise_type.as_str()));
             params.insert("invert".into(), J::from(invert.as_str()));
@@ -4308,23 +6007,42 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("size".into(), num(*size));
             params.insert("scale_width".into(), num(*scale_width));
             params.insert("scale_height".into(), num(*scale_height));
-            params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
+            params.insert(
+                "offset".into(),
+                J::Array(offset.iter().map(|v| num(*v)).collect()),
+            );
             params.insert("complexity".into(), num(*complexity));
             params.insert("evolution".into(), num(*evolution));
             params.insert("seed".into(), num(*seed));
             params.insert("opacity".into(), num(*opacity));
             params.insert("blend".into(), J::from(blend.as_str()));
             // D-647: as D-304, written only if moved, keyed or already in the file.
-            let numbers = [("rotation", more.rotation, 0.0), ("sub_influence", more.sub_influence, 50.0), ("sub_scaling", more.sub_scaling, 50.0), ("sub_rotation", more.sub_rotation, 0.0)];
+            let numbers = [
+                ("rotation", more.rotation, 0.0),
+                ("sub_influence", more.sub_influence, 50.0),
+                ("sub_scaling", more.sub_scaling, 50.0),
+                ("sub_rotation", more.sub_rotation, 0.0),
+            ];
             for (key, value, start) in numbers {
                 if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
             }
-            if more.sub_offset != [0.0; 2] || instance.tracks.contains_key("sub_offset") || params.contains_key("sub_offset") {
-                params.insert("sub_offset".into(), J::Array(more.sub_offset.iter().map(|v| num(*v)).collect()));
+            if more.sub_offset != [0.0; 2]
+                || instance.tracks.contains_key("sub_offset")
+                || params.contains_key("sub_offset")
+            {
+                params.insert(
+                    "sub_offset".into(),
+                    J::Array(more.sub_offset.iter().map(|v| num(*v)).collect()),
+                );
             }
-            let words = [("overflow", &more.overflow, "allow_hdr"), ("uniform_scaling", &more.uniform_scaling, "off"), ("perspective_offset", &more.perspective_offset, "off"), ("center_subscale", &more.center_subscale, "off")];
+            let words = [
+                ("overflow", &more.overflow, "allow_hdr"),
+                ("uniform_scaling", &more.uniform_scaling, "off"),
+                ("perspective_offset", &more.perspective_offset, "off"),
+                ("center_subscale", &more.center_subscale, "off"),
+            ];
             for (key, value, start) in words {
                 if value != start || params.contains_key(key) {
                     params.insert(key.into(), J::from(value.as_str()));
@@ -4368,10 +6086,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             if source_layer.as_str() != Some("") || params.contains_key("source_layer") {
                 params.insert("source_layer".into(), source_layer.clone());
             }
-            if *softness != 0.0 || instance.tracks.contains_key("softness") || params.contains_key("softness") {
+            if *softness != 0.0
+                || instance.tracks.contains_key("softness")
+                || params.contains_key("softness")
+            {
                 params.insert("softness".into(), num(*softness));
             }
-            for (key, value, start) in [("source_mapping", source_mapping, "fill"), ("mirror_at_edge", mirror_at_edge, "off")] {
+            for (key, value, start) in [
+                ("source_mapping", source_mapping, "fill"),
+                ("mirror_at_edge", mirror_at_edge, "off"),
+            ] {
                 if value != start || params.contains_key(key) {
                     params.insert(key.into(), J::from(value.as_str()));
                 }
@@ -4379,7 +6103,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("speed".into(), num(*speed));
             params.insert("direction".into(), num(*direction));
             params.insert("size".into(), num(*size));
-            params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
+            params.insert(
+                "offset".into(),
+                J::Array(offset.iter().map(|v| num(*v)).collect()),
+            );
             // D-646: as D-304, written only if moved, keyed or already in the file.
             for (key, value, start) in [("rotation", *rotation, 0.0), ("scale", *scale, 100.0)] {
                 if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
@@ -4387,7 +6114,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
             if perspective_offset != "off" || params.contains_key("perspective_offset") {
-                params.insert("perspective_offset".into(), J::from(perspective_offset.as_str()));
+                params.insert(
+                    "perspective_offset".into(),
+                    J::from(perspective_offset.as_str()),
+                );
             }
             params.insert("evolution".into(), num(*evolution));
             params.insert("turbulence_speed".into(), num(*turbulence_speed));
@@ -4403,11 +6133,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("contrast".into(), num(*contrast));
             params.insert("brightness".into(), num(*brightness));
-            params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
+            params.insert(
+                "clip_hdr_results".into(),
+                J::from(clip_hdr_results.as_str()),
+            );
             params.insert("channel".into(), J::from(channel.as_str()));
         }
         // D-452: the frame is never saved.
-        Effect::NoiseHlsAuto { noise, hue, lightness, saturation, grain_size, animation_speed, .. } => {
+        Effect::NoiseHlsAuto {
+            noise,
+            hue,
+            lightness,
+            saturation,
+            grain_size,
+            animation_speed,
+            ..
+        } => {
             params.insert("noise".into(), J::from(noise.as_str()));
             params.insert("hue".into(), num(*hue));
             params.insert("lightness".into(), num(*lightness));
@@ -4416,7 +6157,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("animation_speed".into(), num(*animation_speed));
         }
         // D-418: the paths are found each frame and never saved.
-        Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
+        Effect::Fill {
+            mask,
+            all_masks,
+            color,
+            invert,
+            horizontal_feather,
+            vertical_feather,
+            opacity,
+            ..
+        } => {
             params.insert("mask".into(), num(*mask));
             params.insert("all_masks".into(), J::from(all_masks.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
@@ -4425,10 +6175,29 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("vertical_feather".into(), num(*vertical_feather));
             params.insert("opacity".into(), num(*opacity));
         }
-        Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
-            params.insert("anchor".into(), J::Array(anchor.iter().map(|c| num(*c)).collect()));
+        Effect::Grid {
+            anchor,
+            size_from,
+            corner,
+            width,
+            height,
+            border,
+            feather_width,
+            feather_height,
+            invert,
+            color,
+            opacity,
+            blending_mode,
+        } => {
+            params.insert(
+                "anchor".into(),
+                J::Array(anchor.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("size_from".into(), J::from(size_from.as_str()));
-            params.insert("corner".into(), J::Array(corner.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "corner".into(),
+                J::Array(corner.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("width".into(), num(*width));
             params.insert("height".into(), num(*height));
             params.insert("border".into(), num(*border));
@@ -4439,8 +6208,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
-        Effect::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+        Effect::Ellipse {
+            center,
+            width,
+            height,
+            thickness,
+            softness,
+            inside_color,
+            outside_color,
+            composite,
+        } => {
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("width".into(), num(*width));
             params.insert("height".into(), num(*height));
             params.insert("thickness".into(), num(*thickness));
@@ -4476,8 +6257,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             ..
         } => {
             params.insert("audio_layer".into(), audio_layer.clone());
-            params.insert("start_point".into(), J::Array(start_point.iter().map(|c| num(*c)).collect()));
-            params.insert("end_point".into(), J::Array(end_point.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "start_point".into(),
+                J::Array(start_point.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "end_point".into(),
+                J::Array(end_point.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("path".into(), num(*path));
             params.insert("use_polar_path".into(), J::from(use_polar_path.as_str()));
             params.insert("start_frequency".into(), num(*start_frequency));
@@ -4490,13 +6277,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("softness".into(), num(*softness));
             params.insert("inside_color".into(), J::from(inside_color.as_str()));
             params.insert("outside_color".into(), J::from(outside_color.as_str()));
-            params.insert("blend_overlapping_colors".into(), J::from(blend_overlapping_colors.as_str()));
+            params.insert(
+                "blend_overlapping_colors".into(),
+                J::from(blend_overlapping_colors.as_str()),
+            );
             params.insert("hue_interpolation".into(), num(*hue_interpolation));
-            params.insert("dynamic_hue_phase".into(), J::from(dynamic_hue_phase.as_str()));
+            params.insert(
+                "dynamic_hue_phase".into(),
+                J::from(dynamic_hue_phase.as_str()),
+            );
             params.insert("color_symmetry".into(), J::from(color_symmetry.as_str()));
             params.insert("display_options".into(), J::from(display_options.as_str()));
             params.insert("side_options".into(), J::from(side_options.as_str()));
-            params.insert("duration_averaging".into(), J::from(duration_averaging.as_str()));
+            params.insert(
+                "duration_averaging".into(),
+                J::from(duration_averaging.as_str()),
+            );
             params.insert("composite".into(), J::from(composite.as_str()));
         }
         Effect::AudioWaveform {
@@ -4519,8 +6315,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             ..
         } => {
             params.insert("audio_layer".into(), audio_layer.clone());
-            params.insert("start_point".into(), J::Array(start_point.iter().map(|c| num(*c)).collect()));
-            params.insert("end_point".into(), J::Array(end_point.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "start_point".into(),
+                J::Array(start_point.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "end_point".into(),
+                J::Array(end_point.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("path".into(), num(*path));
             params.insert("displayed_samples".into(), num(*displayed_samples));
             params.insert("maximum_height".into(), num(*maximum_height));
@@ -4531,11 +6333,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("random_seed".into(), num(*random_seed));
             params.insert("inside_color".into(), J::from(inside_color.as_str()));
             params.insert("outside_color".into(), J::from(outside_color.as_str()));
-            params.insert("waveform_options".into(), J::from(waveform_options.as_str()));
+            params.insert(
+                "waveform_options".into(),
+                J::from(waveform_options.as_str()),
+            );
             params.insert("display_options".into(), J::from(display_options.as_str()));
             params.insert("composite".into(), J::from(composite.as_str()));
         }
-        Effect::DetailUpscale { scale, reduce_noise, detail } => {
+        Effect::DetailUpscale {
+            scale,
+            reduce_noise,
+            detail,
+        } => {
             params.insert("scale".into(), num(*scale));
             params.insert("reduce_noise".into(), num(*reduce_noise));
             params.insert("detail".into(), num(*detail));
@@ -4561,10 +6370,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         } => {
             params.insert("set_choice".into(), J::from(set_choice.as_str()));
             params.insert("equation".into(), J::from(equation.as_str()));
-            params.insert("mandelbrot_center".into(), J::Array(mandelbrot_center.iter().map(|c| num(*c)).collect()));
-            params.insert("mandelbrot_magnification".into(), num(*mandelbrot_magnification));
-            params.insert("mandelbrot_escape_limit".into(), num(*mandelbrot_escape_limit));
-            params.insert("julia_center".into(), J::Array(julia_center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "mandelbrot_center".into(),
+                J::Array(mandelbrot_center.iter().map(|c| num(*c)).collect()),
+            );
+            params.insert(
+                "mandelbrot_magnification".into(),
+                num(*mandelbrot_magnification),
+            );
+            params.insert(
+                "mandelbrot_escape_limit".into(),
+                num(*mandelbrot_escape_limit),
+            );
+            params.insert(
+                "julia_center".into(),
+                J::Array(julia_center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("julia_magnification".into(), num(*julia_magnification));
             params.insert("julia_escape_limit".into(), num(*julia_escape_limit));
             params.insert("overlay".into(), J::from(overlay.as_str()));
@@ -4574,21 +6395,47 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("cycle_steps".into(), num(*cycle_steps));
             params.insert("cycle_offset".into(), num(*cycle_offset));
             params.insert("edge_highlight".into(), J::from(edge_highlight.as_str()));
-            params.insert("oversample_method".into(), J::from(oversample_method.as_str()));
+            params.insert(
+                "oversample_method".into(),
+                J::from(oversample_method.as_str()),
+            );
             params.insert("oversample_factor".into(), num(*oversample_factor));
         }
-        Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
+        Effect::ArbitraryMap {
+            map,
+            phase,
+            apply_to_alpha,
+            ..
+        } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
             params.insert("apply_to_alpha".into(), J::from(apply_to_alpha.as_str()));
         }
         Effect::SelectiveColor { method, families } => {
             params.insert("method".into(), J::from(method.as_str()));
-            for (name, row) in crate::effects::SELECTIVE_COLOR_FAMILIES.into_iter().zip(families) {
+            for (name, row) in crate::effects::SELECTIVE_COLOR_FAMILIES
+                .into_iter()
+                .zip(families)
+            {
                 params.insert(name.into(), J::Array(row.iter().map(|v| num(*v)).collect()));
             }
         }
-        Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, auto_amounts, temporal_smoothing, scene_detect, .. } => {
+        Effect::ShadowHighlight {
+            shadow_amount,
+            highlight_amount,
+            shadow_tonal_width,
+            shadow_radius,
+            highlight_tonal_width,
+            highlight_radius,
+            color_correction,
+            midtone_contrast,
+            black_clip,
+            white_clip,
+            auto_amounts,
+            temporal_smoothing,
+            scene_detect,
+            ..
+        } => {
             params.insert("shadow_amount".into(), num(*shadow_amount));
             params.insert("highlight_amount".into(), num(*highlight_amount));
             params.insert("shadow_tonal_width".into(), num(*shadow_tonal_width));
@@ -4597,16 +6444,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("highlight_radius".into(), num(*highlight_radius));
             params.insert("color_correction".into(), num(*color_correction));
             // D-563: as D-304, written only if moved, keyed or already in the file.
-            for (key, value) in [("midtone_contrast", *midtone_contrast), ("black_clip", *black_clip), ("white_clip", *white_clip)] {
+            for (key, value) in [
+                ("midtone_contrast", *midtone_contrast),
+                ("black_clip", *black_clip),
+                ("white_clip", *white_clip),
+            ] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
             }
             // D-564: likewise.
-            if *temporal_smoothing != 0.0 || instance.tracks.contains_key("temporal_smoothing") || params.contains_key("temporal_smoothing") {
+            if *temporal_smoothing != 0.0
+                || instance.tracks.contains_key("temporal_smoothing")
+                || params.contains_key("temporal_smoothing")
+            {
                 params.insert("temporal_smoothing".into(), num(*temporal_smoothing));
             }
-            for (key, value) in [("auto_amounts", auto_amounts), ("scene_detect", scene_detect)] {
+            for (key, value) in [
+                ("auto_amounts", auto_amounts),
+                ("scene_detect", scene_detect),
+            ] {
                 if value != "off" || params.contains_key(key) {
                     params.insert(key.into(), J::from(value.as_str()));
                 }
@@ -4640,7 +6497,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_type".into(), J::from(light_type.as_str()));
             params.insert("light_height".into(), num(*light_height));
-            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "light_position".into(),
+                J::Array(light_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("light_direction".into(), num(*light_direction));
             params.insert("ambient".into(), num(*ambient));
             params.insert("diffuse".into(), num(*diffuse));
@@ -4672,7 +6532,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             metal,
             ..
         } => {
-            params.insert("brush_position".into(), J::Array(brush_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "brush_position".into(),
+                J::Array(brush_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("stroke_width".into(), num(*stroke_width));
             params.insert("density".into(), num(*density));
             params.insert("time_span".into(), num(*time_span));
@@ -4686,7 +6549,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_type".into(), J::from(light_type.as_str()));
             params.insert("light_height".into(), num(*light_height));
-            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "light_position".into(),
+                J::Array(light_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("light_direction".into(), num(*light_direction));
             params.insert("ambient".into(), num(*ambient));
             params.insert("diffuse".into(), num(*diffuse));
@@ -4694,30 +6560,73 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("roughness".into(), num(*roughness));
             params.insert("metal".into(), num(*metal));
         }
-        Effect::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => {
+        Effect::Threads {
+            width,
+            height,
+            overlaps,
+            direction,
+            center,
+            coverage,
+            shadowing,
+            texture,
+        } => {
             params.insert("width".into(), num(*width));
             params.insert("height".into(), num(*height));
             params.insert("overlaps".into(), num(*overlaps));
             params.insert("direction".into(), num(*direction));
-            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "center".into(),
+                J::Array(center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("coverage".into(), num(*coverage));
             params.insert("shadowing".into(), num(*shadowing));
             params.insert("texture".into(), num(*texture));
         }
-        Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, dirt } => {
-            params.insert("flare_center".into(), J::Array(flare_center.iter().map(|c| num(*c)).collect()));
+        Effect::LensFlare {
+            flare_center,
+            flare_brightness,
+            lens_type,
+            blend_with_original,
+            dirt,
+        } => {
+            params.insert(
+                "flare_center".into(),
+                J::Array(flare_center.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("flare_brightness".into(), num(*flare_brightness));
             params.insert("lens_type".into(), J::from(lens_type.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
             dirt_json(&mut params, dirt, instance);
         }
-        Effect::Vegas { stroke, mask, all_masks, segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, .. } => {
+        Effect::Vegas {
+            stroke,
+            mask,
+            all_masks,
+            segments,
+            length,
+            segment_distribution,
+            rotation,
+            random_phase,
+            random_seed,
+            blend_mode,
+            color,
+            width,
+            hardness,
+            start_opacity,
+            mid_point_opacity,
+            mid_point_position,
+            end_opacity,
+            ..
+        } => {
             params.insert("stroke".into(), J::from(stroke.as_str()));
             params.insert("mask".into(), num(*mask));
             params.insert("all_masks".into(), J::from(all_masks.as_str()));
             params.insert("segments".into(), num(*segments));
             params.insert("length".into(), num(*length));
-            params.insert("segment_distribution".into(), J::from(segment_distribution.as_str()));
+            params.insert(
+                "segment_distribution".into(),
+                J::from(segment_distribution.as_str()),
+            );
             params.insert("rotation".into(), num(*rotation));
             params.insert("random_phase".into(), J::from(random_phase.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
@@ -4730,14 +6639,29 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("mid_point_position".into(), num(*mid_point_position));
             params.insert("end_opacity".into(), num(*end_opacity));
         }
-        Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
+        Effect::MomentMap {
+            max_time,
+            resolution,
+            layer,
+            fit,
+            ..
+        } => {
             params.insert("max_time".into(), num(*max_time));
             params.insert("resolution".into(), num(*resolution));
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
         }
         // D-348: the pass read for a frame is never saved; it is read from the file again.
-        Effect::PassExtract { pass, black_point, white_point, invert, clamp, channel, unmult, .. } => {
+        Effect::PassExtract {
+            pass,
+            black_point,
+            white_point,
+            invert,
+            clamp,
+            channel,
+            unmult,
+            ..
+        } => {
             params.insert("pass".into(), J::from(pass.as_str()));
             params.insert("black_point".into(), num(*black_point));
             params.insert("white_point".into(), num(*white_point));
@@ -4752,71 +6676,156 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("unmult".into(), J::from(unmult.as_str()));
             }
         }
-        Effect::DepthKey { depth, feather, invert, .. } => {
+        Effect::DepthKey {
+            depth,
+            feather,
+            invert,
+            ..
+        } => {
             params.insert("depth".into(), num(*depth));
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
-        Effect::IdKey { aux_channel, id, feather, invert, .. } => {
+        Effect::IdKey {
+            aux_channel,
+            id,
+            feather,
+            invert,
+            ..
+        } => {
             params.insert("aux_channel".into(), J::from(aux_channel.as_str()));
             params.insert("id".into(), num(*id));
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
         // D-527: the count is worked each frame and never saved.
-        Effect::Timecode { display_format, time_source, time_units, drop_frame, starting_frame, text_position, text_size, text_color, show_box, box_color, opacity, composite_on_original, .. } => {
+        Effect::Timecode {
+            display_format,
+            time_source,
+            time_units,
+            drop_frame,
+            starting_frame,
+            text_position,
+            text_size,
+            text_color,
+            show_box,
+            box_color,
+            opacity,
+            composite_on_original,
+            ..
+        } => {
             params.insert("display_format".into(), J::from(display_format.as_str()));
             params.insert("time_source".into(), J::from(time_source.as_str()));
             params.insert("time_units".into(), num(*time_units));
             params.insert("drop_frame".into(), J::from(drop_frame.as_str()));
             params.insert("starting_frame".into(), num(*starting_frame));
-            params.insert("text_position".into(), J::Array(text_position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "text_position".into(),
+                J::Array(text_position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("text_size".into(), num(*text_size));
             params.insert("text_color".into(), J::from(text_color.as_str()));
             params.insert("show_box".into(), J::from(show_box.as_str()));
             params.insert("box_color".into(), J::from(box_color.as_str()));
             params.insert("opacity".into(), num(*opacity));
-            params.insert("composite_on_original".into(), J::from(composite_on_original.as_str()));
+            params.insert(
+                "composite_on_original".into(),
+                J::from(composite_on_original.as_str()),
+            );
         }
         // D-526: the clock is worked each frame and never saved.
-        Effect::Numbers { kind, random_values, value, decimal_places, position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, composite_on_original, font, alignment, .. } => {
+        Effect::Numbers {
+            kind,
+            random_values,
+            value,
+            decimal_places,
+            position,
+            display,
+            fill_color,
+            stroke_color,
+            stroke_width,
+            size,
+            tracking,
+            proportional_spacing,
+            composite_on_original,
+            font,
+            alignment,
+            ..
+        } => {
             params.insert("type".into(), J::from(kind.as_str()));
             params.insert("random_values".into(), J::from(random_values.as_str()));
             params.insert("value".into(), num(*value));
             params.insert("decimal_places".into(), num(*decimal_places));
-            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "position".into(),
+                J::Array(position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("display".into(), J::from(display.as_str()));
             params.insert("fill_color".into(), J::from(fill_color.as_str()));
             params.insert("stroke_color".into(), J::from(stroke_color.as_str()));
             params.insert("stroke_width".into(), num(*stroke_width));
             params.insert("size".into(), num(*size));
             params.insert("tracking".into(), num(*tracking));
-            params.insert("proportional_spacing".into(), J::from(proportional_spacing.as_str()));
-            params.insert("composite_on_original".into(), J::from(composite_on_original.as_str()));
+            params.insert(
+                "proportional_spacing".into(),
+                J::from(proportional_spacing.as_str()),
+            );
+            params.insert(
+                "composite_on_original".into(),
+                J::from(composite_on_original.as_str()),
+            );
             params.insert("font".into(), J::from(font.as_str()));
             params.insert("alignment".into(), J::from(alignment.as_str()));
         }
-        Effect::BasicText { text, position, display, fill_color, stroke_color, stroke_width, size, tracking, composite_on_original, font, alignment } => {
+        Effect::BasicText {
+            text,
+            position,
+            display,
+            fill_color,
+            stroke_color,
+            stroke_width,
+            size,
+            tracking,
+            composite_on_original,
+            font,
+            alignment,
+        } => {
             params.insert("text".into(), J::from(text.as_str()));
-            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                "position".into(),
+                J::Array(position.iter().map(|c| num(*c)).collect()),
+            );
             params.insert("display".into(), J::from(display.as_str()));
             params.insert("fill_color".into(), J::from(fill_color.as_str()));
             params.insert("stroke_color".into(), J::from(stroke_color.as_str()));
             params.insert("stroke_width".into(), num(*stroke_width));
             params.insert("size".into(), num(*size));
             params.insert("tracking".into(), num(*tracking));
-            params.insert("composite_on_original".into(), J::from(composite_on_original.as_str()));
+            params.insert(
+                "composite_on_original".into(),
+                J::from(composite_on_original.as_str()),
+            );
             params.insert("font".into(), J::from(font.as_str()));
             params.insert("alignment".into(), J::from(alignment.as_str()));
         }
         // D-525: the ids read for a frame are never saved.
-        Effect::Identifier { aux_channel, id, output, .. } => {
+        Effect::Identifier {
+            aux_channel,
+            id,
+            output,
+            ..
+        } => {
             params.insert("aux_channel".into(), J::from(aux_channel.as_str()));
             params.insert("id".into(), num(*id));
             params.insert("output".into(), J::from(output.as_str()));
         }
         // D-522: the matte read for a frame is never saved.
-        Effect::Cryptomatte { layer, selection, output, .. } => {
+        Effect::Cryptomatte {
+            layer,
+            selection,
+            output,
+            ..
+        } => {
             params.insert("layer".into(), J::from(layer.as_str()));
             params.insert("selection".into(), J::from(selection.as_str()));
             params.insert("output".into(), J::from(output.as_str()));
@@ -4838,19 +6847,43 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("fog_end_depth".into(), num(*fog_end_depth));
             params.insert("fog_opacity".into(), num(*fog_opacity));
             params.insert("scattering_density".into(), num(*scattering_density));
-            params.insert("foggy_background".into(), J::from(foggy_background.as_str()));
+            params.insert(
+                "foggy_background".into(),
+                J::from(foggy_background.as_str()),
+            );
             params.insert("gradient_layer".into(), gradient_layer.clone());
             params.insert("layer_contribution".into(), num(*layer_contribution));
         }
         // D-523: the fractions read for a frame are never saved.
-        Effect::DepthOfField { focal_plane, maximum_radius, focal_plane_thickness, focal_bias, .. } => {
+        Effect::DepthOfField {
+            focal_plane,
+            maximum_radius,
+            focal_plane_thickness,
+            focal_bias,
+            ..
+        } => {
             params.insert("focal_plane".into(), num(*focal_plane));
             params.insert("maximum_radius".into(), num(*maximum_radius));
             params.insert("focal_plane_thickness".into(), num(*focal_plane_thickness));
             params.insert("focal_bias".into(), num(*focal_bias));
         }
         Effect::TextAnimator {
-            position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low,
+            position,
+            scale,
+            rotation,
+            opacity,
+            fill,
+            color,
+            tracking,
+            start,
+            end,
+            offset,
+            amount,
+            based_on,
+            shape,
+            smoothness,
+            ease_high,
+            ease_low,
         } => {
             let list = |v: &[f64]| J::Array(v.iter().map(|x| num(*x)).collect());
             params.insert("position".into(), list(position));
@@ -4871,13 +6904,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("ease_low".into(), num(*ease_low));
         }
         // D-351: the frames a smoothing added up are never saved; they are read again.
-        Effect::AutoTone { kind, temporal_smoothing, scene_detect, black_clip, white_clip, snap_neutral_midtones, .. } => {
+        Effect::AutoTone {
+            kind,
+            temporal_smoothing,
+            scene_detect,
+            black_clip,
+            white_clip,
+            snap_neutral_midtones,
+            ..
+        } => {
             params.insert("temporal_smoothing".into(), num(*temporal_smoothing));
             params.insert("scene_detect".into(), J::from(scene_detect.as_str()));
             params.insert("black_clip".into(), num(*black_clip));
             params.insert("white_clip".into(), num(*white_clip));
             if *kind == "color" {
-                params.insert("snap_neutral_midtones".into(), J::from(snap_neutral_midtones.as_str()));
+                params.insert(
+                    "snap_neutral_midtones".into(),
+                    J::from(snap_neutral_midtones.as_str()),
+                );
             }
         }
         Effect::SpreadTones { equalize, amount } => {
@@ -4916,21 +6960,50 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         } => {
             if *kind == "soft" {
                 params.insert("edge_radius".into(), num(*edge_radius));
-                params.insert("view_edge_region".into(), J::from(view_edge_region.as_str()));
+                params.insert(
+                    "view_edge_region".into(),
+                    J::from(view_edge_region.as_str()),
+                );
             }
             params.insert("feather".into(), num(*feather));
             params.insert("contrast".into(), num(*contrast));
             params.insert("shift_edge".into(), num(*shift_edge));
             params.insert("decontaminate".into(), J::from(decontaminate.as_str()));
-            params.insert("decontamination_amount".into(), num(*decontamination_amount));
-            params.insert("decontamination_radius".into(), num(*decontamination_radius));
-            params.insert("view_decontamination_map".into(), J::from(view_decontamination_map.as_str()));
+            params.insert(
+                "decontamination_amount".into(),
+                num(*decontamination_amount),
+            );
+            params.insert(
+                "decontamination_radius".into(),
+                num(*decontamination_radius),
+            );
+            params.insert(
+                "view_decontamination_map".into(),
+                J::from(view_decontamination_map.as_str()),
+            );
         }
         // D-356: the paths are found each frame and never saved.
-        Effect::Stroke { mask, all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, source, .. } => {
+        Effect::Stroke {
+            mask,
+            all_masks,
+            stroke_sequentially,
+            color,
+            brush_size,
+            brush_hardness,
+            opacity,
+            start,
+            end,
+            spacing,
+            paint_style,
+            source,
+            ..
+        } => {
             params.insert("mask".into(), num(*mask));
             params.insert("all_masks".into(), J::from(all_masks.as_str()));
-            params.insert("stroke_sequentially".into(), J::from(stroke_sequentially.as_str()));
+            params.insert(
+                "stroke_sequentially".into(),
+                J::from(stroke_sequentially.as_str()),
+            );
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("brush_size".into(), num(*brush_size));
             params.insert("brush_hardness".into(), num(*brush_hardness));
@@ -4944,7 +7017,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("source".into(), J::from(source.as_str()));
             }
         }
-        Effect::Halation { threshold, threshold_smooth, radius, amount, color } => {
+        Effect::Halation {
+            threshold,
+            threshold_smooth,
+            radius,
+            amount,
+            color,
+        } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("threshold_smooth".into(), num(*threshold_smooth));
             params.insert("radius".into(), num(*radius));
@@ -4987,7 +7066,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("source_opacity".into(), num(*source_opacity));
             params.insert("unmult".into(), J::from(unmult.as_str()));
             // D-542: as D-357's source, written only when changed or in the file already.
-            for (key, word, start) in [("tint", tint, "off"), ("inner_color", inner_color, "#ffffff"), ("outer_color", outer_color, "#4080ff")] {
+            for (key, word, start) in [
+                ("tint", tint, "off"),
+                ("inner_color", inner_color, "#ffffff"),
+                ("outer_color", outer_color, "#4080ff"),
+            ] {
                 if word.as_str() != start || params.contains_key(key) {
                     params.insert(key.into(), J::from(word.as_str()));
                 }
@@ -4999,7 +7082,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             if spectral.as_str() != "off" || params.contains_key("spectral") {
                 params.insert("spectral".into(), J::from(spectral.as_str()));
             }
-            for (key, value, start) in [("spectral_red", spectral_red, 80.0), ("spectral_green", spectral_green, 100.0), ("spectral_blue", spectral_blue, 120.0)] {
+            for (key, value, start) in [
+                ("spectral_red", spectral_red, 80.0),
+                ("spectral_green", spectral_green, 100.0),
+                ("spectral_blue", spectral_blue, 120.0),
+            ] {
                 if *value != start || params.contains_key(key) {
                     params.insert(key.into(), num(*value));
                 }
@@ -5030,14 +7117,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
 
 /// D-545: Lens Dirt's settings, each written only when changed, keyed or in the file already, so
 /// a file from before them saves the same.
-fn dirt_json(params: &mut Map<String, J>, dirt: &crate::effects::LensDirt, instance: &crate::effects::EffectInstance) {
+fn dirt_json(
+    params: &mut Map<String, J>,
+    dirt: &crate::effects::LensDirt,
+    instance: &crate::effects::EffectInstance,
+) {
     for (key, value, start) in [
-        ("dirt_layer", dirt.layer.clone(), dirt.layer.as_str() == Some("")),
+        (
+            "dirt_layer",
+            dirt.layer.clone(),
+            dirt.layer.as_str() == Some(""),
+        ),
         ("dirt_opacity", num(dirt.opacity), dirt.opacity == 100.0),
         ("dirt_inherit", num(dirt.inherit), dirt.inherit == 0.0),
         ("dirt_exposure", num(dirt.exposure), dirt.exposure == 0.0),
         ("dirt_gamma", num(dirt.gamma), dirt.gamma == 1.0),
-        ("dirt_repeat", J::from(dirt.repeat.as_str()), dirt.repeat == "on"),
+        (
+            "dirt_repeat",
+            J::from(dirt.repeat.as_str()),
+            dirt.repeat == "on",
+        ),
     ] {
         if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
             params.insert(key.into(), value);
@@ -5049,7 +7148,10 @@ fn dirt_json(params: &mut Map<String, J>, dirt: &crate::effects::LensDirt, insta
 /// kept as written, as Lens Blur's is.
 fn dirt_of(params: Option<&J>, at: &str) -> Result<crate::effects::LensDirt, Diagnostic> {
     Ok(crate::effects::LensDirt {
-        layer: params.and_then(|p| p.get("dirt_layer")).cloned().unwrap_or_else(|| J::from("")),
+        layer: params
+            .and_then(|p| p.get("dirt_layer"))
+            .cloned()
+            .unwrap_or_else(|| J::from("")),
         opacity: effect_number_or(params, "dirt_opacity", at, 100.0)?,
         inherit: effect_number_or(params, "dirt_inherit", at, 0.0)?,
         exposure: effect_number_or(params, "dirt_exposure", at, 0.0)?,
@@ -5196,9 +7298,10 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
     // D-253: the status is written only when set or when the file had it, so a title block
     // saved before it gains no empty line.
     let status = !details.status.is_empty() || held.is_some_and(|h| h.get("status").is_some());
-    let unknown = held
-        .and_then(J::as_object)
-        .is_some_and(|o| o.keys().any(|k| k != "status" && !four.iter().any(|(name, _)| name == k)));
+    let unknown = held.and_then(J::as_object).is_some_and(|o| {
+        o.keys()
+            .any(|k| k != "status" && !four.iter().any(|(name, _)| name == k))
+    });
     let written = four.iter().any(|(_, text)| !text.is_empty()) || !details.status.is_empty();
     // D-254: as a layer's label.
     if composition.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
@@ -5206,8 +7309,10 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
     }
     let mut merged = merge(base, owned);
     if written || unknown || status {
-        let mut lines: Vec<(&str, J)> =
-            four.iter().map(|(name, text)| (*name, J::from(text.as_str()))).collect();
+        let mut lines: Vec<(&str, J)> = four
+            .iter()
+            .map(|(name, text)| (*name, J::from(text.as_str())))
+            .collect();
         if status {
             lines.push(("status", J::from(details.status.as_str())));
         }
@@ -5294,10 +7399,19 @@ fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
         map.insert("colour".into(), J::from(stroke.colour.as_str()));
         map.insert(
             "points".into(),
-            J::Array(stroke.points.iter().map(|[x, y]| J::Array(vec![num(*x), num(*y)])).collect()),
+            J::Array(
+                stroke
+                    .points
+                    .iter()
+                    .map(|[x, y]| J::Array(vec![num(*x), num(*y)]))
+                    .collect(),
+            ),
         );
         if !stroke.pressure.is_empty() {
-            map.insert("pressure".into(), J::Array(stroke.pressure.iter().map(|p| num(*p)).collect()));
+            map.insert(
+                "pressure".into(),
+                J::Array(stroke.pressure.iter().map(|p| num(*p)).collect()),
+            );
         }
         // D-286, D-287: written only when on.
         if stroke.pressure_opacity {
@@ -5315,7 +7429,15 @@ fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
 /// D-261: one entry of a composition's `sketches`. Lines it does not know go into `rest`.
 fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagnostic> {
     let mut rest = as_object(v, pointer)?.clone();
-    for key in ["id", "name", "visible", "whole_cut", "opacity", "locked", "strokes"] {
+    for key in [
+        "id",
+        "name",
+        "visible",
+        "whole_cut",
+        "opacity",
+        "locked",
+        "strokes",
+    ] {
         rest.remove(key);
     }
     // D-283: a plain layer when absent.
@@ -5323,30 +7445,57 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
         None => 1.0,
         Some(o) => match as_f64(o, &format!("{pointer}/opacity"))? {
             o if (0.0..=1.0).contains(&o) => o,
-            _ => return Err(invalid(&format!("{pointer}/opacity"), "an opacity from 0 to 1")),
+            _ => {
+                return Err(invalid(
+                    &format!("{pointer}/opacity"),
+                    "an opacity from 0 to 1",
+                ))
+            }
         },
     };
-    let locked = v.get("locked").map(|l| as_bool(l, &format!("{pointer}/locked"))).transpose()?.unwrap_or(false);
+    let locked = v
+        .get("locked")
+        .map(|l| as_bool(l, &format!("{pointer}/locked")))
+        .transpose()?
+        .unwrap_or(false);
     let mut sketch = crate::model::SketchLayer {
         id: as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?,
         name: as_str(field(v, pointer, "name")?, &format!("{pointer}/name"))?.to_string(),
         visible: as_bool(field(v, pointer, "visible")?, &format!("{pointer}/visible"))?,
-        whole_cut: as_bool(field(v, pointer, "whole_cut")?, &format!("{pointer}/whole_cut"))?,
+        whole_cut: as_bool(
+            field(v, pointer, "whole_cut")?,
+            &format!("{pointer}/whole_cut"),
+        )?,
         opacity,
         locked,
         strokes: Vec::new(),
         rest,
     };
     let at = format!("{pointer}/strokes");
-    for (i, s) in as_array(field(v, pointer, "strokes")?, &at)?.iter().enumerate() {
+    for (i, s) in as_array(field(v, pointer, "strokes")?, &at)?
+        .iter()
+        .enumerate()
+    {
         let here = format!("{at}/{i}");
         let mut rest = as_object(s, &here)?.clone();
-        for key in ["frame", "tool", "size", "colour", "points", "pressure", "pressure_opacity", "filled"] {
+        for key in [
+            "frame",
+            "tool",
+            "size",
+            "colour",
+            "points",
+            "pressure",
+            "pressure_opacity",
+            "filled",
+        ] {
             rest.remove(key);
         }
         let mut points = Vec::new();
         let points_at = format!("{here}/points");
-        for (j, p) in as_array(field(s, &here, "points")?, &points_at)?.iter().enumerate() {
+        for (j, p) in as_array(field(s, &here, "points")?, &points_at)?
+            .iter()
+            .enumerate()
+        {
             let point_at = format!("{points_at}/{j}");
             match as_array(p, &point_at)?.as_slice() {
                 [x, y] => points.push([as_f64(x, &point_at)?, as_f64(y, &point_at)?]),
@@ -5360,7 +7509,10 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
             for (j, v) in as_array(p, &pressure_at)?.iter().enumerate() {
                 let p = as_f64(v, &format!("{pressure_at}/{j}"))?;
                 if !(0.0..=1.0).contains(&p) {
-                    return Err(invalid(&format!("{pressure_at}/{j}"), "a pressure from 0 to 1"));
+                    return Err(invalid(
+                        &format!("{pressure_at}/{j}"),
+                        "a pressure from 0 to 1",
+                    ));
                 }
                 pressure.push(p);
             }
@@ -5369,14 +7521,30 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
             }
         }
         sketch.strokes.push(crate::model::Stroke {
-            frame: s.get("frame").map(|f| as_i32(f, &format!("{here}/frame"))).transpose()?,
-            tool: as_enum(field(s, &here, "tool")?, &format!("{here}/tool"), &crate::model::SKETCH_TOOLS)?.to_string(),
+            frame: s
+                .get("frame")
+                .map(|f| as_i32(f, &format!("{here}/frame")))
+                .transpose()?,
+            tool: as_enum(
+                field(s, &here, "tool")?,
+                &format!("{here}/tool"),
+                &crate::model::SKETCH_TOOLS,
+            )?
+            .to_string(),
             size: as_f64(field(s, &here, "size")?, &format!("{here}/size"))?,
             colour: as_str(field(s, &here, "colour")?, &format!("{here}/colour"))?.to_string(),
             points,
             pressure,
-            pressure_opacity: s.get("pressure_opacity").map(|b| as_bool(b, &format!("{here}/pressure_opacity"))).transpose()?.unwrap_or(false),
-            filled: s.get("filled").map(|b| as_bool(b, &format!("{here}/filled"))).transpose()?.unwrap_or(false),
+            pressure_opacity: s
+                .get("pressure_opacity")
+                .map(|b| as_bool(b, &format!("{here}/pressure_opacity")))
+                .transpose()?
+                .unwrap_or(false),
+            filled: s
+                .get("filled")
+                .map(|b| as_bool(b, &format!("{here}/filled")))
+                .transpose()?
+                .unwrap_or(false),
             rest,
         });
     }
@@ -5492,7 +7660,12 @@ fn effect_number(params: Option<&J>, key: &str, at: &str) -> Result<f64, Diagnos
 
 /// D-121: a setting added after its effect; a file without it is from before it, and means
 /// `start`.
-fn effect_number_or(params: Option<&J>, key: &str, at: &str, start: f64) -> Result<f64, Diagnostic> {
+fn effect_number_or(
+    params: Option<&J>,
+    key: &str,
+    at: &str,
+    start: f64,
+) -> Result<f64, Diagnostic> {
     match params.and_then(|p| p.get(key)) {
         Some(_) => effect_number(params, key, at),
         None => Ok(start),
@@ -5552,11 +7725,24 @@ fn effect_word(params: Option<&J>, key: &str, at: &str) -> Result<String, Diagno
 
 /// D-634: the Corner Pins settings of Card Wipe, Card Dance and Shatter, each written, as D-304,
 /// only if moved, keyed or already in the file, so a file that never used them stays as it was.
-fn corner_pins_json(params: &mut Map<String, J>, instance: &crate::effects::EffectInstance, pins: [&[f64; 2]; 4], auto_focal_length: &str) {
-    let starts = [("upper_left_corner", [0.0, 0.0]), ("upper_right_corner", [100.0, 0.0]), ("lower_left_corner", [0.0, 100.0]), ("lower_right_corner", [100.0, 100.0])];
+fn corner_pins_json(
+    params: &mut Map<String, J>,
+    instance: &crate::effects::EffectInstance,
+    pins: [&[f64; 2]; 4],
+    auto_focal_length: &str,
+) {
+    let starts = [
+        ("upper_left_corner", [0.0, 0.0]),
+        ("upper_right_corner", [100.0, 0.0]),
+        ("lower_left_corner", [0.0, 100.0]),
+        ("lower_right_corner", [100.0, 100.0]),
+    ];
     for ((key, start), value) in starts.into_iter().zip(pins) {
         if *value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
-            params.insert(key.into(), J::Array(value.iter().map(|c| num(*c)).collect()));
+            params.insert(
+                key.into(),
+                J::Array(value.iter().map(|c| num(*c)).collect()),
+            );
         }
     }
     if auto_focal_length != "off" || params.contains_key("auto_focal_length") {
@@ -5565,7 +7751,12 @@ fn corner_pins_json(params: &mut Map<String, J>, instance: &crate::effects::Effe
 }
 
 /// D-634: a point added after its effect, x then y, as [`effect_number_or`] is a number.
-fn effect_pair_or(params: Option<&J>, key: &str, at: &str, start: [f64; 2]) -> Result<[f64; 2], Diagnostic> {
+fn effect_pair_or(
+    params: Option<&J>,
+    key: &str,
+    at: &str,
+    start: [f64; 2],
+) -> Result<[f64; 2], Diagnostic> {
     match params.and_then(|p| p.get(key)) {
         Some(_) => effect_array(params, key, "two numbers, x then y", at),
         None => Ok(start),
@@ -5573,7 +7764,12 @@ fn effect_pair_or(params: Option<&J>, key: &str, at: &str, start: [f64; 2]) -> R
 }
 
 /// D-299: a word added after its effect, as [`effect_number_or`] is a number.
-fn effect_word_or(params: Option<&J>, key: &str, at: &str, start: &str) -> Result<String, Diagnostic> {
+fn effect_word_or(
+    params: Option<&J>,
+    key: &str,
+    at: &str,
+    start: &str,
+) -> Result<String, Diagnostic> {
     match params.and_then(|p| p.get(key)) {
         Some(_) => effect_word(params, key, at),
         None => Ok(start.to_string()),
@@ -5642,28 +7838,30 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
             // D-397: Color Grade's Shadows and Highlights are one number each.
-            "shadows" | "midtones" | "highlights" if record.get("base").is_some_and(J::is_array) => {
+            "shadows" | "midtones" | "highlights"
+                if record.get("base").is_some_and(J::is_array) =>
+            {
                 (3, "three numbers, red, green and blue")
             }
-            "reds_hsl" | "yellows_hsl" | "greens_hsl" | "cyans_hsl" | "blues_hsl" | "magentas_hsl" => {
-                (3, "three numbers, hue, saturation and lightness")
-            }
+            "reds_hsl" | "yellows_hsl" | "greens_hsl" | "cyans_hsl" | "blues_hsl"
+            | "magentas_hsl" => (3, "three numbers, hue, saturation and lightness"),
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             // D-350: a text animator's Start and End are one number each, a gradient's points.
             "start" | "end" if !record.get("base").is_some_and(J::is_array) => (1, "one number"),
             // D-507: CC Spotlight's From and To are points.
-            "from" | "to" if record.get("base").is_some_and(J::is_array) => (2, "two numbers, x then y"),
+            "from" | "to" if record.get("base").is_some_and(J::is_array) => {
+                (2, "two numbers, x then y")
+            }
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
-            | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" | "light"
-            | "tile_center" => {
-                (2, "two numbers, x then y")
-            }
+            | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4"
+            | "light" | "tile_center" => (2, "two numbers, x then y"),
             // D-335: Exposure's offset is one number, Fractal Noise's a point.
-            "offset" if record.get("base").is_some_and(J::is_array) => {
-                (2, "two numbers, x then y")
-            }
+            "offset" if record.get("base").is_some_and(J::is_array) => (2, "two numbers, x then y"),
             // Any other setting holds as many numbers as its base.
-            _ => (record.get("base").and_then(J::as_array).map_or(1, Vec::len), "as many numbers as its base"),
+            _ => (
+                record.get("base").and_then(J::as_array).map_or(1, Vec::len),
+                "as many numbers as its base",
+            ),
         };
         // D-291: a number setting may carry D-59's expression; a colour or a point takes keys
         // only.
@@ -5689,7 +7887,12 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
 
 /// D-68's record of `count` numbers read as that many one-number properties sharing their frames
 /// and eases, with its base as written. `what` says what a value of the wrong count should be.
-fn channel_track(record: &J, at: &str, count: usize, what: &str) -> Result<(J, Vec<Property>), Diagnostic> {
+fn channel_track(
+    record: &J,
+    at: &str,
+    count: usize,
+    what: &str,
+) -> Result<(J, Vec<Property>), Diagnostic> {
     let base = field(record, at, "base")?;
     let keys = as_array(field(record, at, "keyframes")?, &format!("{at}/keyframes"))?;
     let mut track = Vec::new();
@@ -5715,7 +7918,14 @@ fn channel_track(record: &J, at: &str, count: usize, what: &str) -> Result<(J, V
         let mut channel = Map::new();
         channel.insert("base".into(), pick(base, &format!("{at}/base"))?);
         channel.insert("keyframes".into(), J::Array(channel_keys));
-        track.push(parse_property(&J::Object(channel), at, "scalar", false, false, 1.0)?);
+        track.push(parse_property(
+            &J::Object(channel),
+            at,
+            "scalar",
+            false,
+            false,
+            1.0,
+        )?);
     }
     Ok((base.clone(), track))
 }
@@ -6036,8 +8246,7 @@ fn parse_effect(
     warnings: &mut Vec<Diagnostic>,
 ) -> Result<crate::effects::EffectInstance, Diagnostic> {
     as_object(effect, &at)?;
-    let type_id =
-        as_str(field(effect, &at, "type_id")?, &format!("{at}/type_id"))?.to_string();
+    let type_id = as_str(field(effect, &at, "type_id")?, &format!("{at}/type_id"))?.to_string();
     let instance_id = as_id(
         field(effect, &at, "instance_id")?,
         &format!("{at}/instance_id"),
@@ -6346,9 +8555,11 @@ fn parse_effect(
             gamma: effect_number_or(params, "gamma", &at, 1.0)?,
             bypass: effect_word_or(params, "bypass", &at, "off")?,
         }),
-        crate::effects::REDUCE_INTERLACE_FLICKER => Some(crate::effects::Effect::ReduceInterlaceFlicker {
-            softness: effect_number(params, "softness", &at)?,
-        }),
+        crate::effects::REDUCE_INTERLACE_FLICKER => {
+            Some(crate::effects::Effect::ReduceInterlaceFlicker {
+                softness: effect_number(params, "softness", &at)?,
+            })
+        }
         crate::effects::SPILL_SUPPRESSOR => Some(crate::effects::Effect::SpillSuppressor {
             color_to_suppress: effect_word(params, "color_to_suppress", &at)?,
             suppression: effect_number(params, "suppression", &at)?,
@@ -6362,7 +8573,9 @@ fn parse_effect(
             units: effect_word_or(params, "units", &at, "sigma")?,
         }),
         // D-401: a file with the older `color` or `amount` is the older Tint, drawn as it was.
-        crate::effects::TINT if params.is_some_and(|p| p.get("color").is_some() || p.get("amount").is_some()) => {
+        crate::effects::TINT
+            if params.is_some_and(|p| p.get("color").is_some() || p.get("amount").is_some()) =>
+        {
             Some(crate::effects::Effect::Tint {
                 color: effect_array(params, "color", "a linear RGB triple", &at)?,
                 amount: effect_number(params, "amount", &at)?,
@@ -6383,7 +8596,12 @@ fn parse_effect(
         crate::effects::AERIAL_HAZE => Some(crate::effects::Effect::AerialHaze {
             haze_color: effect_word(params, "haze_color", &at)?.to_ascii_lowercase(),
             amount: effect_number(params, "amount", &at)?,
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             map: None,
         }),
@@ -6397,7 +8615,11 @@ fn parse_effect(
             skew_axis: effect_number(params, "skew_axis", &at)?,
             rotation: effect_number(params, "rotation", &at)?,
             opacity: effect_number(params, "opacity", &at)?,
-            use_composition_shutter_angle: effect_word(params, "use_composition_shutter_angle", &at)?,
+            use_composition_shutter_angle: effect_word(
+                params,
+                "use_composition_shutter_angle",
+                &at,
+            )?,
             shutter_angle: effect_number(params, "shutter_angle", &at)?,
             sampling: effect_word(params, "sampling", &at)?,
             moments: Vec::new(),
@@ -6527,7 +8749,10 @@ fn parse_effect(
         crate::effects::LEVELS | crate::effects::LEVELS_INDIVIDUAL => {
             let names = crate::effects::LEVELS_NAMES;
             let individual = type_id == crate::effects::LEVELS_INDIVIDUAL;
-            let more = params.is_some_and(|p| p.get("channel").is_some() || names[1..].iter().flatten().any(|n| p.get(*n).is_some()));
+            let more = params.is_some_and(|p| {
+                p.get("channel").is_some()
+                    || names[1..].iter().flatten().any(|n| p.get(*n).is_some())
+            });
             if !individual && !more {
                 Some(crate::effects::Effect::Levels {
                     input_black: effect_number(params, "input_black", &at)?,
@@ -6540,11 +8765,23 @@ fn parse_effect(
                 let mut sets = [crate::effects::LEVELS_PLAIN; 5];
                 for (i, (set, names)) in sets.iter_mut().zip(names).enumerate() {
                     for (v, name) in set.iter_mut().zip(names) {
-                        *v = if individual || i == 0 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *v)? };
+                        *v = if individual || i == 0 {
+                            effect_number(params, name, &at)?
+                        } else {
+                            effect_number_or(params, name, &at, *v)?
+                        };
                     }
                 }
-                let channel = if individual { "rgb".to_string() } else { effect_word_or(params, "channel", &at, "rgb")? };
-                Some(crate::effects::Effect::ChannelLevels { individual, channel, sets })
+                let channel = if individual {
+                    "rgb".to_string()
+                } else {
+                    effect_word_or(params, "channel", &at, "rgb")?
+                };
+                Some(crate::effects::Effect::ChannelLevels {
+                    individual,
+                    channel,
+                    sets,
+                })
             }
         }
         crate::effects::HUE_SATURATION => Some(crate::effects::Effect::HueSaturation {
@@ -6556,7 +8793,12 @@ fn parse_effect(
                 let mut ranges = [[0.0; 3]; 6];
                 for (r, key) in ranges.iter_mut().zip(crate::effects::HUE_RANGES) {
                     if params.and_then(|p| p.get(key)).is_some() {
-                        *r = effect_array(params, key, "three numbers, hue, saturation and lightness", &at)?;
+                        *r = effect_array(
+                            params,
+                            key,
+                            "three numbers, hue, saturation and lightness",
+                            &at,
+                        )?;
                     }
                 }
                 ranges
@@ -6594,7 +8836,10 @@ fn parse_effect(
             highlight_threshold: effect_number_or(params, "highlight_threshold", &at, 100.0)?,
             // D-359: the blur map, read at its start values from a file without it; the layer
             // kept as written, as Compound Blur's is.
-            layer: params.and_then(|p| p.get("layer")).cloned().unwrap_or_else(|| J::from("")),
+            layer: params
+                .and_then(|p| p.get("layer"))
+                .cloned()
+                .unwrap_or_else(|| J::from("")),
             fit: effect_word_or(params, "fit", &at, "center")?,
             channel: effect_word_or(params, "channel", &at, "luminance")?,
             focal_distance: effect_number_or(params, "focal_distance", &at, 0.0)?,
@@ -6636,25 +8881,24 @@ fn parse_effect(
                 fringe_blur: effect_number(params, "fringe_blur", &at)?,
             })
         }
-        crate::effects::CHROMATIC_ABERRATION => {
-            Some(crate::effects::Effect::ChromaticAberration {
-                amount: effect_number(params, "amount", &at)?,
-                center: effect_array(params, "center", "two numbers, x then y", &at)?,
-            })
-        }
+        crate::effects::CHROMATIC_ABERRATION => Some(crate::effects::Effect::ChromaticAberration {
+            amount: effect_number(params, "amount", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+        }),
         // D-123: the colour is read in small letters, as a new colour is.
-        crate::effects::DISTANCE_GRADATION => {
-            Some(crate::effects::Effect::DistanceGradation {
-                color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                width: effect_number(params, "width", &at)?,
-                opacity: effect_number(params, "opacity", &at)?,
-                invert: effect_word(params, "invert", &at)?,
-                blend: effect_word(params, "blend", &at)?,
-            })
-        }
+        crate::effects::DISTANCE_GRADATION => Some(crate::effects::Effect::DistanceGradation {
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            width: effect_number(params, "width", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+        }),
         // D-124: the colour is read in small letters, as a new colour is. D-423: a file with
         // D-124's length or threshold is D-124's form, drawn as before; otherwise CC's controls.
-        crate::effects::LIGHT_RAYS if !params.is_some_and(|p| p.get("length").is_some() || p.get("threshold").is_some()) => {
+        crate::effects::LIGHT_RAYS
+            if !params
+                .is_some_and(|p| p.get("length").is_some() || p.get("threshold").is_some()) =>
+        {
             Some(crate::effects::Effect::CcLightRays {
                 intensity: effect_number(params, "intensity", &at)?,
                 center: effect_array(params, "center", "two numbers, x then y", &at)?,
@@ -6684,14 +8928,12 @@ fn parse_effect(
             set_color: effect_word(params, "set_color", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
         }),
-        crate::effects::EXPOSURE_FLICKER => {
-            Some(crate::effects::Effect::ExposureFlicker {
-                amount: effect_number(params, "amount", &at)?,
-                hold: effect_number(params, "hold", &at)?,
-                seed: effect_number(params, "seed", &at)?,
-                frame: 0,
-            })
-        }
+        crate::effects::EXPOSURE_FLICKER => Some(crate::effects::Effect::ExposureFlicker {
+            amount: effect_number(params, "amount", &at)?,
+            hold: effect_number(params, "hold", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            frame: 0,
+        }),
         // D-126: the colour is read in small letters, as a new colour is.
         crate::effects::VIGNETTE => Some(crate::effects::Effect::Vignette {
             amount: effect_number(params, "amount", &at)?,
@@ -6701,24 +8943,22 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
         }),
-        crate::effects::TURBULENT_DISPLACE => {
-            Some(crate::effects::Effect::TurbulentDisplace {
-                amount: effect_number(params, "amount", &at)?,
-                size: effect_number(params, "size", &at)?,
-                complexity: effect_number(params, "complexity", &at)?,
-                evolution: effect_number(params, "evolution", &at)?,
-                speed: effect_number(params, "speed", &at)?,
-                seed: effect_number(params, "seed", &at)?,
-                edges: effect_word(params, "edges", &at)?,
-                frame: 0,
-                displacement: effect_word_or(params, "displacement", &at, "turbulent")?,
-                pinning: effect_word_or(params, "pinning", &at, "none")?,
-                units: effect_word_or(params, "units", &at, "classic")?,
-                new_seed_every: effect_number_or(params, "new_seed_every", &at, 0.0)?,
-                drift_direction: effect_number_or(params, "drift_direction", &at, 0.0)?,
-                drift_speed: effect_number_or(params, "drift_speed", &at, 0.0)?,
-            })
-        }
+        crate::effects::TURBULENT_DISPLACE => Some(crate::effects::Effect::TurbulentDisplace {
+            amount: effect_number(params, "amount", &at)?,
+            size: effect_number(params, "size", &at)?,
+            complexity: effect_number(params, "complexity", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            edges: effect_word(params, "edges", &at)?,
+            frame: 0,
+            displacement: effect_word_or(params, "displacement", &at, "turbulent")?,
+            pinning: effect_word_or(params, "pinning", &at, "none")?,
+            units: effect_word_or(params, "units", &at, "classic")?,
+            new_seed_every: effect_number_or(params, "new_seed_every", &at, 0.0)?,
+            drift_direction: effect_number_or(params, "drift_direction", &at, 0.0)?,
+            drift_speed: effect_number_or(params, "drift_speed", &at, 0.0)?,
+        }),
         // D-128: the colours are read in small letters, as a new colour is.
         crate::effects::FRACTAL_NOISE => Some(crate::effects::Effect::FractalNoise {
             size: effect_number(params, "size", &at)?,
@@ -6750,10 +8990,8 @@ fn parse_effect(
         // D-129: the colours are read in small letters, as a new colour is.
         crate::effects::GRADIENT_MAP => Some(crate::effects::Effect::GradientMap {
             shadow_color: effect_word(params, "shadow_color", &at)?.to_ascii_lowercase(),
-            midtone_color: effect_word(params, "midtone_color", &at)?
-                .to_ascii_lowercase(),
-            highlight_color: effect_word(params, "highlight_color", &at)?
-                .to_ascii_lowercase(),
+            midtone_color: effect_word(params, "midtone_color", &at)?.to_ascii_lowercase(),
+            highlight_color: effect_word(params, "highlight_color", &at)?.to_ascii_lowercase(),
             midpoint: effect_number(params, "midpoint", &at)?,
             amount: effect_number(params, "amount", &at)?,
         }),
@@ -7042,7 +9280,12 @@ fn parse_effect(
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.
         crate::effects::COMPOUND_BLUR => Some(crate::effects::Effect::CompoundBlur {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             max_blur: effect_number(params, "max_blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
@@ -7051,7 +9294,12 @@ fn parse_effect(
         }),
         // D-193: the layer is kept as written, as Compound Blur's is.
         crate::effects::DISPLACEMENT_MAP => Some(crate::effects::Effect::DisplacementMap {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             horizontal: effect_word(params, "horizontal", &at)?,
             max_horizontal: effect_number(params, "max_horizontal", &at)?,
@@ -7067,7 +9315,12 @@ fn parse_effect(
         }),
         // D-194: the layer is kept as written, as Compound Blur's is.
         crate::effects::GRADIENT_WIPE => Some(crate::effects::Effect::GradientWipe {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             completion: effect_number(params, "completion", &at)?,
             softness: effect_number(params, "softness", &at)?,
@@ -7130,7 +9383,12 @@ fn parse_effect(
             horizontal_rotation: effect_number_or(params, "horizontal_rotation", &at, 0.0)?,
             vertical_rotation: effect_number_or(params, "vertical_rotation", &at, 30.0)?,
             vertical_scale: effect_number_or(params, "vertical_scale", &at, 1.0)?,
-            ground_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "ground_layer")?.clone(),
+            ground_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "ground_layer",
+            )?
+            .clone(),
             ground_map: None,
             history: Vec::new(),
             fps: 0.0,
@@ -7178,22 +9436,34 @@ fn parse_effect(
             detailed_analysis: effect_word(params, "detailed_analysis", &at)?,
             picture: None,
         }),
-        crate::effects::ROLLING_SHUTTER_REPAIR => Some(crate::effects::Effect::RollingShutterRepair {
-            rolling_shutter_rate: effect_number(params, "rolling_shutter_rate", &at)?,
-            scan_direction: effect_word(params, "scan_direction", &at)?,
-            method: effect_word(params, "method", &at)?,
-            detailed_analysis: effect_word(params, "detailed_analysis", &at)?,
-            pixel_motion_detail: effect_number(params, "pixel_motion_detail", &at)?,
-            picture: None,
-        }),
+        crate::effects::ROLLING_SHUTTER_REPAIR => {
+            Some(crate::effects::Effect::RollingShutterRepair {
+                rolling_shutter_rate: effect_number(params, "rolling_shutter_rate", &at)?,
+                scan_direction: effect_word(params, "scan_direction", &at)?,
+                method: effect_word(params, "method", &at)?,
+                detailed_analysis: effect_word(params, "detailed_analysis", &at)?,
+                pixel_motion_detail: effect_number(params, "pixel_motion_detail", &at)?,
+                picture: None,
+            })
+        }
         crate::effects::CAUSTICS => Some(crate::effects::Effect::Caustics {
-            bottom_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "bottom_layer")?.clone(),
+            bottom_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "bottom_layer",
+            )?
+            .clone(),
             bottom_map: None,
             bottom_scaling: effect_number(params, "bottom_scaling", &at)?,
             bottom_repeat_mode: effect_word(params, "bottom_repeat_mode", &at)?,
             bottom_fit: effect_word(params, "bottom_fit", &at)?,
             bottom_blur: effect_number(params, "bottom_blur", &at)?,
-            water_surface: field(effect_params(params, &at)?, &format!("{at}/parameters"), "water_surface")?.clone(),
+            water_surface: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "water_surface",
+            )?
+            .clone(),
             surface_map: None,
             wave_height: effect_number(params, "wave_height", &at)?,
             smoothing: effect_number(params, "smoothing", &at)?,
@@ -7202,7 +9472,12 @@ fn parse_effect(
             surface_color: effect_word(params, "surface_color", &at)?,
             surface_opacity: effect_number(params, "surface_opacity", &at)?,
             caustics_strength: effect_number(params, "caustics_strength", &at)?,
-            sky_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "sky_layer")?.clone(),
+            sky_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "sky_layer",
+            )?
+            .clone(),
             sky_map: None,
             sky_scaling: effect_number(params, "sky_scaling", &at)?,
             sky_repeat_mode: effect_word(params, "sky_repeat_mode", &at)?,
@@ -7220,118 +9495,204 @@ fn parse_effect(
             highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
         }),
         crate::effects::CARD_DANCE => {
-            let each = |end: &str| crate::effects::CARD_DANCE_TRANSFORMS.map(|t| format!("{t}_{end}"));
+            let each =
+                |end: &str| crate::effects::CARD_DANCE_TRANSFORMS.map(|t| format!("{t}_{end}"));
             let numbers = |end: &str| -> Result<[f64; 8], Diagnostic> {
-                Ok(each(end).iter().map(|n| effect_number(params, n, &at)).collect::<Result<Vec<_>, _>>()?.try_into().unwrap())
+                Ok(each(end)
+                    .iter()
+                    .map(|n| effect_number(params, n, &at))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .try_into()
+                    .unwrap())
             };
             Some(crate::effects::Effect::CardDance {
                 rows_columns: effect_word(params, "rows_columns", &at)?,
                 rows: effect_number(params, "rows", &at)?,
                 columns: effect_number(params, "columns", &at)?,
-                back_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_layer")?.clone(),
+                back_layer: field(
+                    effect_params(params, &at)?,
+                    &format!("{at}/parameters"),
+                    "back_layer",
+                )?
+                .clone(),
                 back_map: None,
-                gradient_layer_1: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer_1")?.clone(),
+                gradient_layer_1: field(
+                    effect_params(params, &at)?,
+                    &format!("{at}/parameters"),
+                    "gradient_layer_1",
+                )?
+                .clone(),
                 gradient_map_1: None,
-                gradient_layer_2: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer_2")?.clone(),
+                gradient_layer_2: field(
+                    effect_params(params, &at)?,
+                    &format!("{at}/parameters"),
+                    "gradient_layer_2",
+                )?
+                .clone(),
                 gradient_map_2: None,
                 rotation_order: effect_word(params, "rotation_order", &at)?,
                 transformation_order: effect_word(params, "transformation_order", &at)?,
-                sources: each("source").iter().map(|n| effect_word(params, n, &at)).collect::<Result<Vec<_>, _>>()?.try_into().unwrap(),
+                sources: each("source")
+                    .iter()
+                    .map(|n| effect_word(params, n, &at))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .try_into()
+                    .unwrap(),
                 multipliers: numbers("multiplier")?,
                 offsets: numbers("offset")?,
                 camera_system: effect_word(params, "camera_system", &at)?,
                 camera_x_rotation: effect_number(params, "camera_x_rotation", &at)?,
                 camera_y_rotation: effect_number(params, "camera_y_rotation", &at)?,
                 camera_z_rotation: effect_number(params, "camera_z_rotation", &at)?,
-                camera_xy_position: effect_array(params, "camera_xy_position", "two numbers, x then y", &at)?,
+                camera_xy_position: effect_array(
+                    params,
+                    "camera_xy_position",
+                    "two numbers, x then y",
+                    &at,
+                )?,
                 camera_z_position: effect_number(params, "camera_z_position", &at)?,
                 focal_length: effect_number(params, "focal_length", &at)?,
                 light_type: effect_word(params, "light_type", &at)?,
                 light_intensity: effect_number(params, "light_intensity", &at)?,
                 light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
-                light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+                light_position: effect_array(
+                    params,
+                    "light_position",
+                    "two numbers, x then y",
+                    &at,
+                )?,
                 light_depth: effect_number(params, "light_depth", &at)?,
                 ambient_light: effect_number(params, "ambient_light", &at)?,
                 diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
                 specular_reflection: effect_number(params, "specular_reflection", &at)?,
                 // D-634: a file from before these draws as it did.
                 upper_left_corner: effect_pair_or(params, "upper_left_corner", &at, [0.0, 0.0])?,
-                upper_right_corner: effect_pair_or(params, "upper_right_corner", &at, [100.0, 0.0])?,
+                upper_right_corner: effect_pair_or(
+                    params,
+                    "upper_right_corner",
+                    &at,
+                    [100.0, 0.0],
+                )?,
                 lower_left_corner: effect_pair_or(params, "lower_left_corner", &at, [0.0, 100.0])?,
-                lower_right_corner: effect_pair_or(params, "lower_right_corner", &at, [100.0, 100.0])?,
+                lower_right_corner: effect_pair_or(
+                    params,
+                    "lower_right_corner",
+                    &at,
+                    [100.0, 100.0],
+                )?,
                 auto_focal_length: effect_word_or(params, "auto_focal_length", &at, "off")?,
                 highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
                 view: [0.0; 3],
             })
         }
         crate::effects::SHATTER => Some(crate::effects::Effect::Shatter {
-                view: effect_word(params, "view", &at)?,
-                render: effect_word(params, "render", &at)?,
-                pattern: effect_word(params, "pattern", &at)?,
-                white_tiles_fixed: effect_word(params, "white_tiles_fixed", &at)?,
-                invert_gradient: effect_word(params, "invert_gradient", &at)?,
-                tumble_axis: effect_word(params, "tumble_axis", &at)?,
-                front_mode: effect_word(params, "front_mode", &at)?,
-                side_mode: effect_word(params, "side_mode", &at)?,
-                back_mode: effect_word(params, "back_mode", &at)?,
-                camera_system: effect_word(params, "camera_system", &at)?,
-                light_type: effect_word(params, "light_type", &at)?,
-                color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
-                light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
-                repetitions: effect_number(params, "repetitions", &at)?,
-                direction: effect_number(params, "direction", &at)?,
-                extrusion_depth: effect_number(params, "extrusion_depth", &at)?,
-                force_1_depth: effect_number(params, "force_1_depth", &at)?,
-                force_1_radius: effect_number(params, "force_1_radius", &at)?,
-                force_1_strength: effect_number(params, "force_1_strength", &at)?,
-                force_2_depth: effect_number(params, "force_2_depth", &at)?,
-                force_2_radius: effect_number(params, "force_2_radius", &at)?,
-                force_2_strength: effect_number(params, "force_2_strength", &at)?,
-                shatter_threshold: effect_number(params, "shatter_threshold", &at)?,
-                rotation_speed: effect_number(params, "rotation_speed", &at)?,
-                randomness: effect_number(params, "randomness", &at)?,
-                viscosity: effect_number(params, "viscosity", &at)?,
-                mass_variance: effect_number(params, "mass_variance", &at)?,
-                gravity: effect_number(params, "gravity", &at)?,
-                gravity_direction: effect_number(params, "gravity_direction", &at)?,
-                gravity_inclination: effect_number(params, "gravity_inclination", &at)?,
-                opacity: effect_number(params, "opacity", &at)?,
-                camera_x_rotation: effect_number(params, "camera_x_rotation", &at)?,
-                camera_y_rotation: effect_number(params, "camera_y_rotation", &at)?,
-                camera_z_rotation: effect_number(params, "camera_z_rotation", &at)?,
-                camera_z_position: effect_number(params, "camera_z_position", &at)?,
-                focal_length: effect_number(params, "focal_length", &at)?,
-                light_intensity: effect_number(params, "light_intensity", &at)?,
-                light_depth: effect_number(params, "light_depth", &at)?,
-                ambient_light: effect_number(params, "ambient_light", &at)?,
-                diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
-                specular_reflection: effect_number(params, "specular_reflection", &at)?,
-                highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
-                origin: effect_array(params, "origin", "two numbers, x then y", &at)?,
-                // D-634: a file from before these draws as it did.
-                upper_left_corner: effect_pair_or(params, "upper_left_corner", &at, [0.0, 0.0])?,
-                upper_right_corner: effect_pair_or(params, "upper_right_corner", &at, [100.0, 0.0])?,
-                lower_left_corner: effect_pair_or(params, "lower_left_corner", &at, [0.0, 100.0])?,
-                lower_right_corner: effect_pair_or(params, "lower_right_corner", &at, [100.0, 100.0])?,
-                auto_focal_length: effect_word_or(params, "auto_focal_length", &at, "off")?,
-                force_1_position: effect_array(params, "force_1_position", "two numbers, x then y", &at)?,
-                force_2_position: effect_array(params, "force_2_position", "two numbers, x then y", &at)?,
-                camera_xy_position: effect_array(params, "camera_xy_position", "two numbers, x then y", &at)?,
-                light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
-                custom_shatter_map: field(effect_params(params, &at)?, &format!("{at}/parameters"), "custom_shatter_map")?.clone(),
-                custom_map: None,
-                gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
-                gradient_map: None,
-                front_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "front_layer")?.clone(),
-                front_map: None,
-                side_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "side_layer")?.clone(),
-                side_map: None,
-                back_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_layer")?.clone(),
-                back_map: None,
-                seen: [0.0; 3],
-                history: Vec::new(),
-                fps: 0.0,
-            }),
+            view: effect_word(params, "view", &at)?,
+            render: effect_word(params, "render", &at)?,
+            pattern: effect_word(params, "pattern", &at)?,
+            white_tiles_fixed: effect_word(params, "white_tiles_fixed", &at)?,
+            invert_gradient: effect_word(params, "invert_gradient", &at)?,
+            tumble_axis: effect_word(params, "tumble_axis", &at)?,
+            front_mode: effect_word(params, "front_mode", &at)?,
+            side_mode: effect_word(params, "side_mode", &at)?,
+            back_mode: effect_word(params, "back_mode", &at)?,
+            camera_system: effect_word(params, "camera_system", &at)?,
+            light_type: effect_word(params, "light_type", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            repetitions: effect_number(params, "repetitions", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            extrusion_depth: effect_number(params, "extrusion_depth", &at)?,
+            force_1_depth: effect_number(params, "force_1_depth", &at)?,
+            force_1_radius: effect_number(params, "force_1_radius", &at)?,
+            force_1_strength: effect_number(params, "force_1_strength", &at)?,
+            force_2_depth: effect_number(params, "force_2_depth", &at)?,
+            force_2_radius: effect_number(params, "force_2_radius", &at)?,
+            force_2_strength: effect_number(params, "force_2_strength", &at)?,
+            shatter_threshold: effect_number(params, "shatter_threshold", &at)?,
+            rotation_speed: effect_number(params, "rotation_speed", &at)?,
+            randomness: effect_number(params, "randomness", &at)?,
+            viscosity: effect_number(params, "viscosity", &at)?,
+            mass_variance: effect_number(params, "mass_variance", &at)?,
+            gravity: effect_number(params, "gravity", &at)?,
+            gravity_direction: effect_number(params, "gravity_direction", &at)?,
+            gravity_inclination: effect_number(params, "gravity_inclination", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            camera_x_rotation: effect_number(params, "camera_x_rotation", &at)?,
+            camera_y_rotation: effect_number(params, "camera_y_rotation", &at)?,
+            camera_z_rotation: effect_number(params, "camera_z_rotation", &at)?,
+            camera_z_position: effect_number(params, "camera_z_position", &at)?,
+            focal_length: effect_number(params, "focal_length", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_depth: effect_number(params, "light_depth", &at)?,
+            ambient_light: effect_number(params, "ambient_light", &at)?,
+            diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
+            specular_reflection: effect_number(params, "specular_reflection", &at)?,
+            highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
+            origin: effect_array(params, "origin", "two numbers, x then y", &at)?,
+            // D-634: a file from before these draws as it did.
+            upper_left_corner: effect_pair_or(params, "upper_left_corner", &at, [0.0, 0.0])?,
+            upper_right_corner: effect_pair_or(params, "upper_right_corner", &at, [100.0, 0.0])?,
+            lower_left_corner: effect_pair_or(params, "lower_left_corner", &at, [0.0, 100.0])?,
+            lower_right_corner: effect_pair_or(params, "lower_right_corner", &at, [100.0, 100.0])?,
+            auto_focal_length: effect_word_or(params, "auto_focal_length", &at, "off")?,
+            force_1_position: effect_array(
+                params,
+                "force_1_position",
+                "two numbers, x then y",
+                &at,
+            )?,
+            force_2_position: effect_array(
+                params,
+                "force_2_position",
+                "two numbers, x then y",
+                &at,
+            )?,
+            camera_xy_position: effect_array(
+                params,
+                "camera_xy_position",
+                "two numbers, x then y",
+                &at,
+            )?,
+            light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+            custom_shatter_map: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "custom_shatter_map",
+            )?
+            .clone(),
+            custom_map: None,
+            gradient_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "gradient_layer",
+            )?
+            .clone(),
+            gradient_map: None,
+            front_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "front_layer",
+            )?
+            .clone(),
+            front_map: None,
+            side_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "side_layer",
+            )?
+            .clone(),
+            side_map: None,
+            back_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "back_layer",
+            )?
+            .clone(),
+            back_map: None,
+            seen: [0.0; 3],
+            history: Vec::new(),
+            fps: 0.0,
+        }),
         crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
             drops: effect_number(params, "drops", &at)?,
             size: effect_number(params, "size", &at)?,
@@ -7349,7 +9710,12 @@ fn parse_effect(
             clock: [0.0, 0.0],
         }),
         crate::effects::TIME_DIFFERENCE => Some(crate::effects::Effect::TimeDifference {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             time_offset: effect_number(params, "time_offset", &at)?,
             contrast: effect_number(params, "contrast", &at)?,
             absolute_difference: effect_word(params, "absolute_difference", &at)?,
@@ -7494,16 +9860,18 @@ fn parse_effect(
             noise_reseed_interval: effect_number(params, "noise_reseed_interval", &at)?,
             frame: 0,
         }),
-        crate::effects::ADVANCED_SPILL_SUPPRESSOR => Some(crate::effects::Effect::AdvancedSpillSuppressor {
-            method: effect_word(params, "method", &at)?,
-            suppression: effect_number(params, "suppression", &at)?,
-            key_color: effect_word(params, "key_color", &at)?,
-            tolerance: effect_number(params, "tolerance", &at)?,
-            desaturate: effect_number(params, "desaturate", &at)?,
-            spill_range: effect_number(params, "spill_range", &at)?,
-            spill_color_correction: effect_number(params, "spill_color_correction", &at)?,
-            luma_correction: effect_number(params, "luma_correction", &at)?,
-        }),
+        crate::effects::ADVANCED_SPILL_SUPPRESSOR => {
+            Some(crate::effects::Effect::AdvancedSpillSuppressor {
+                method: effect_word(params, "method", &at)?,
+                suppression: effect_number(params, "suppression", &at)?,
+                key_color: effect_word(params, "key_color", &at)?,
+                tolerance: effect_number(params, "tolerance", &at)?,
+                desaturate: effect_number(params, "desaturate", &at)?,
+                spill_range: effect_number(params, "spill_range", &at)?,
+                spill_color_correction: effect_number(params, "spill_color_correction", &at)?,
+                luma_correction: effect_number(params, "luma_correction", &at)?,
+            })
+        }
         crate::effects::COLOR_DIFFERENCE_KEY => {
             let mut v = [0.0; 13];
             for (v, name) in v.iter_mut().zip(crate::effects::CDK_NAMES) {
@@ -7531,7 +9899,12 @@ fn parse_effect(
         // D-501: the layer is kept as written, as Aerial Haze's is.
         crate::effects::DIFFERENCE_MATTE => Some(crate::effects::Effect::DifferenceMatte {
             view: effect_word(params, "view", &at)?,
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             matching_tolerance: effect_number(params, "matching_tolerance", &at)?,
             matching_softness: effect_number(params, "matching_softness", &at)?,
@@ -7541,7 +9914,11 @@ fn parse_effect(
         crate::effects::INNER_OUTER_KEY => Some(crate::effects::Effect::InnerOuterKey {
             foreground: effect_number(params, "foreground", &at)?,
             background: effect_number(params, "background", &at)?,
-            single_mask_highlight_radius: effect_number(params, "single_mask_highlight_radius", &at)?,
+            single_mask_highlight_radius: effect_number(
+                params,
+                "single_mask_highlight_radius",
+                &at,
+            )?,
             edge_thin: effect_number(params, "edge_thin", &at)?,
             edge_feather: effect_number(params, "edge_feather", &at)?,
             edge_threshold: effect_number(params, "edge_threshold", &at)?,
@@ -7586,7 +9963,12 @@ fn parse_effect(
         }),
         // D-512: the layer is kept as written, as Gradient Wipe's is.
         crate::effects::CHANNEL_WIPE => Some(crate::effects::Effect::ChannelWipe {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             completion: effect_number(params, "completion", &at)?,
             softness: effect_number(params, "softness", &at)?,
@@ -7598,7 +9980,12 @@ fn parse_effect(
         // D-518: the layer is kept as written, as Glass Melt's are.
         crate::effects::WARP_BLEND => Some(crate::effects::Effect::WarpBlend {
             completion: effect_number(params, "completion", &at)?,
-            layer_to_reveal: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer_to_reveal")?.clone(),
+            layer_to_reveal: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer_to_reveal",
+            )?
+            .clone(),
             reactor: effect_word(params, "reactor", &at)?,
             smoothness: effect_number(params, "smoothness", &at)?,
             warp_amount: effect_number(params, "warp_amount", &at)?,
@@ -7609,7 +9996,12 @@ fn parse_effect(
         // D-517: the back is kept as written, as Difference Matte's layer is.
         crate::effects::TWISTER => Some(crate::effects::Effect::Twister {
             completion: effect_number(params, "completion", &at)?,
-            backside: field(effect_params(params, &at)?, &format!("{at}/parameters"), "backside")?.clone(),
+            backside: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "backside",
+            )?
+            .clone(),
             shading: effect_word(params, "shading", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             axis: effect_number(params, "axis", &at)?,
@@ -7662,8 +10054,18 @@ fn parse_effect(
         // D-509: the two layers are kept as written, as Difference Matte's layer is.
         crate::effects::GLASS_MELT => Some(crate::effects::Effect::GlassMelt {
             completion: effect_number(params, "completion", &at)?,
-            layer_to_reveal: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer_to_reveal")?.clone(),
-            gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+            layer_to_reveal: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer_to_reveal",
+            )?
+            .clone(),
+            gradient_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "gradient_layer",
+            )?
+            .clone(),
             softness: effect_number(params, "softness", &at)?,
             displacement_amount: effect_number(params, "displacement_amount", &at)?,
             reveal_map: None,
@@ -7671,8 +10073,18 @@ fn parse_effect(
         }),
         // D-506: the two views are kept as written, as Difference Matte's layer is.
         crate::effects::THREE_D_GLASSES => Some(crate::effects::Effect::ThreeDGlasses {
-            left_view: field(effect_params(params, &at)?, &format!("{at}/parameters"), "left_view")?.clone(),
-            right_view: field(effect_params(params, &at)?, &format!("{at}/parameters"), "right_view")?.clone(),
+            left_view: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "left_view",
+            )?
+            .clone(),
+            right_view: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "right_view",
+            )?
+            .clone(),
             scene_convergence: effect_number(params, "scene_convergence", &at)?,
             vertical_alignment: effect_number(params, "vertical_alignment", &at)?,
             units: effect_word(params, "units", &at)?,
@@ -7724,7 +10136,10 @@ fn parse_effect(
             render: effect_word(params, "render", &at)?,
             // D-519: kept as written, as Difference Matte's layer is; a file that leaves it out
             // has no gel (D-360's precedent).
-            gel_layer: params.and_then(|p| p.get("gel_layer")).cloned().unwrap_or_else(|| J::from("")),
+            gel_layer: params
+                .and_then(|p| p.get("gel_layer"))
+                .cloned()
+                .unwrap_or_else(|| J::from("")),
             gel_map: None,
         }),
         crate::effects::BLOCK_LOAD => Some(crate::effects::Effect::BlockLoad {
@@ -7749,7 +10164,12 @@ fn parse_effect(
         }),
         // D-462: the layer is kept as written, as CC Vector Blur's is.
         crate::effects::MR_SMOOTHIE => Some(crate::effects::Effect::MrSmoothie {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             property: effect_word(params, "property", &at)?,
             smoothness: effect_number(params, "smoothness", &at)?,
@@ -7761,7 +10181,12 @@ fn parse_effect(
         }),
         // D-463: the layer kept as written and the colours read in small letters, as Blobbylize's.
         crate::effects::PLASTIC => Some(crate::effects::Effect::Plastic {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             property: effect_word(params, "property", &at)?,
             softness: effect_number(params, "softness", &at)?,
@@ -7774,7 +10199,8 @@ fn parse_effect(
             light_height: effect_number(params, "light_height", &at)?,
             light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
             light_direction: effect_number(params, "light_direction", &at)?,
-            ambient_light_color: effect_word(params, "ambient_light_color", &at)?.to_ascii_lowercase(),
+            ambient_light_color: effect_word(params, "ambient_light_color", &at)?
+                .to_ascii_lowercase(),
             ambient: effect_number(params, "ambient", &at)?,
             diffuse: effect_number(params, "diffuse", &at)?,
             dust: effect_number(params, "dust", &at)?,
@@ -7844,7 +10270,12 @@ fn parse_effect(
             high_strength: effect_number(params, "high_strength", &at)?,
             offset_flow_angles: effect_number(params, "offset_flow_angles", &at)?,
             quantize_flow_angles: effect_number(params, "quantize_flow_angles", &at)?,
-            edge_map_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "edge_map_layer")?.clone(),
+            edge_map_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "edge_map_layer",
+            )?
+            .clone(),
             // D-584: a file without them is from before them, and has none.
             colors: match params.and_then(|p| p.get("colors")) {
                 Some(_) => effect_colors(params, &at)?,
@@ -7858,7 +10289,12 @@ fn parse_effect(
         }),
         // D-467: the layer kept as written, as Plastic's.
         crate::effects::TEXTURIZE => Some(crate::effects::Effect::Texturize {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             light_direction: effect_number(params, "light_direction", &at)?,
             texture_contrast: effect_number(params, "texture_contrast", &at)?,
@@ -7866,7 +10302,12 @@ fn parse_effect(
         }),
         // D-531: the environment layer kept as written.
         crate::effects::CC_ENVIRONMENT => Some(crate::effects::Effect::CcEnvironment {
-            environment: field(effect_params(params, &at)?, &format!("{at}/parameters"), "environment")?.clone(),
+            environment: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "environment",
+            )?
+            .clone(),
             mapping: effect_word(params, "mapping", &at)?,
             horizontal_pan: effect_number(params, "horizontal_pan", &at)?,
             tilt: effect_number(params, "tilt", &at)?,
@@ -7878,7 +10319,12 @@ fn parse_effect(
         crate::effects::CARD_WIPE => Some(crate::effects::Effect::CardWipe {
             transition_completion: effect_number(params, "transition_completion", &at)?,
             transition_width: effect_number(params, "transition_width", &at)?,
-            back_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_layer")?.clone(),
+            back_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "back_layer",
+            )?
+            .clone(),
             back_map: None,
             rows_columns: effect_word(params, "rows_columns", &at)?,
             rows: effect_number(params, "rows", &at)?,
@@ -7887,7 +10333,12 @@ fn parse_effect(
             flip_axis: effect_word(params, "flip_axis", &at)?,
             flip_direction: effect_word(params, "flip_direction", &at)?,
             flip_order: effect_word(params, "flip_order", &at)?,
-            gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+            gradient_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "gradient_layer",
+            )?
+            .clone(),
             gradient_map: None,
             timing_randomness: effect_number(params, "timing_randomness", &at)?,
             random_seed: effect_number(params, "random_seed", &at)?,
@@ -7953,16 +10404,30 @@ fn parse_effect(
         // by name.
         crate::effects::PARTICLE_SPACE => {
             let mut values = [0.0; 46];
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_SPACE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .enumerate()
+            {
                 // D-611: a file written before it has the turn as added.
-                *v = if n < 44 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
+                *v = if n < 44 {
+                    effect_number(params, name, &at)?
+                } else {
+                    effect_number_or(params, name, &at, *start)?
+                };
             }
             let mut words: [String; 7] = Default::default();
-            for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS.iter().zip(words.iter_mut()) {
+            for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS
+                .iter()
+                .zip(words.iter_mut())
+            {
                 *w = effect_word(params, name, &at)?;
             }
             let mut colors: [String; 8] = Default::default();
-            for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS.iter().zip(colors.iter_mut()) {
+            for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS
+                .iter()
+                .zip(colors.iter_mut())
+            {
                 *c = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::ParticleSpace {
@@ -7972,27 +10437,41 @@ fn parse_effect(
                 clock: [0.0; 2],
                 view: [0.0; 4],
                 history: None,
-                texture_layer: params.and_then(|p| p.get("texture_layer")).cloned().unwrap_or_else(|| J::from("")),
+                texture_layer: params
+                    .and_then(|p| p.get("texture_layer"))
+                    .cloned()
+                    .unwrap_or_else(|| J::from("")),
                 texture: None,
             })
         }
         // D-671: the words kept as written, so one outside the contract is refused by name.
         crate::effects::BUBBLES => {
             let mut values = [0.0; 6];
-            for ((name, ..), v) in crate::effects::BUBBLES_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::BUBBLES_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
             let mut words: [String; 2] = Default::default();
             for ((name, ..), w) in crate::effects::BUBBLES_WORDS.iter().zip(words.iter_mut()) {
                 *w = effect_word(params, name, &at)?;
             }
-            Some(crate::effects::Effect::Bubbles { values, words, clock: [0.0; 2], history: None })
+            Some(crate::effects::Effect::Bubbles {
+                values,
+                words,
+                clock: [0.0; 2],
+                history: None,
+            })
         }
         // D-672: the word and the colour kept as written, so one outside the contract is refused
         // by name.
         crate::effects::DRIZZLE => {
             let mut values = [0.0; 16];
-            for ((name, ..), v) in crate::effects::DRIZZLE_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::DRIZZLE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
             let mut words: [String; 1] = Default::default();
@@ -8000,21 +10479,46 @@ fn parse_effect(
                 *w = effect_word(params, name, &at)?;
             }
             let light_color = effect_word(params, "light_color", &at)?.to_ascii_lowercase();
-            Some(crate::effects::Effect::Drizzle { values, words, light_color, clock: [0.0; 2], history: None })
+            Some(crate::effects::Effect::Drizzle {
+                values,
+                words,
+                light_color,
+                clock: [0.0; 2],
+                history: None,
+            })
         }
         // D-612: as Particle Space's.
         crate::effects::PARTICLE_PLANE => {
             let mut values = [0.0; 25];
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLANE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLANE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .enumerate()
+            {
                 // D-710: a file written before it has the turn as added.
-                *v = if n < 23 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
+                *v = if n < 23 {
+                    effect_number(params, name, &at)?
+                } else {
+                    effect_number_or(params, name, &at, *start)?
+                };
             }
             let mut words: [String; 6] = Default::default();
-            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLANE_WORDS.iter().zip(words.iter_mut()).enumerate() {
-                *w = if n < 5 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLANE_WORDS
+                .iter()
+                .zip(words.iter_mut())
+                .enumerate()
+            {
+                *w = if n < 5 {
+                    effect_word(params, name, &at)?
+                } else {
+                    effect_word_or(params, name, &at, start)?
+                };
             }
             let mut colors: [String; 7] = Default::default();
-            for ((name, _), c) in crate::effects::PARTICLE_PLANE_COLORS.iter().zip(colors.iter_mut()) {
+            for ((name, _), c) in crate::effects::PARTICLE_PLANE_COLORS
+                .iter()
+                .zip(colors.iter_mut())
+            {
                 *c = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::ParticlePlane {
@@ -8023,7 +10527,10 @@ fn parse_effect(
                 colors,
                 clock: [0.0; 2],
                 history: None,
-                texture_layer: params.and_then(|p| p.get("texture_layer")).cloned().unwrap_or_else(|| J::from("")),
+                texture_layer: params
+                    .and_then(|p| p.get("texture_layer"))
+                    .cloned()
+                    .unwrap_or_else(|| J::from("")),
                 texture: None,
             })
         }
@@ -8031,23 +10538,54 @@ fn parse_effect(
         // D-614: the Property Mappers' settings each as added when the file leaves it out.
         crate::effects::PARTICLE_PLAYGROUND => {
             let mut values = [0.0; 45];
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
-                *v = if n < 29 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .enumerate()
+            {
+                *v = if n < 29 {
+                    effect_number(params, name, &at)?
+                } else {
+                    effect_number_or(params, name, &at, *start)?
+                };
             }
             let mut words: [String; 14] = Default::default();
-            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words.iter_mut()).enumerate() {
-                *w = if n < 5 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLAYGROUND_WORDS
+                .iter()
+                .zip(words.iter_mut())
+                .enumerate()
+            {
+                *w = if n < 5 {
+                    effect_word(params, name, &at)?
+                } else {
+                    effect_word_or(params, name, &at, start)?
+                };
             }
             let mut layers: [J; 10] = Default::default();
-            for (n, (name, l)) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers.iter_mut()).enumerate() {
+            for (n, (name, l)) in crate::effects::PARTICLE_PLAYGROUND_LAYERS
+                .iter()
+                .zip(layers.iter_mut())
+                .enumerate()
+            {
                 *l = if n < 6 {
-                    field(effect_params(params, &at)?, &format!("{at}/parameters"), name)?.clone()
+                    field(
+                        effect_params(params, &at)?,
+                        &format!("{at}/parameters"),
+                        name,
+                    )?
+                    .clone()
                 } else {
-                    params.and_then(|p| p.get(*name)).cloned().unwrap_or_else(|| J::from(""))
+                    params
+                        .and_then(|p| p.get(*name))
+                        .cloned()
+                        .unwrap_or_else(|| J::from(""))
                 };
             }
             let mut colors: [String; 2] = Default::default();
-            for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS.iter().zip(colors.iter_mut()) {
+            for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS
+                .iter()
+                .zip(colors.iter_mut())
+            {
                 *c = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::ParticlePlayground {
@@ -8075,22 +10613,50 @@ fn parse_effect(
                 *w = effect_word(params, name, &at)?;
             }
             let hair_color = effect_word(params, "hair_color", &at)?.to_ascii_lowercase();
-            Some(crate::effects::Effect::Hair { values, words, hair_color })
+            Some(crate::effects::Effect::Hair {
+                values,
+                words,
+                hair_color,
+            })
         }
         // D-615: every setting by its name.
         // D-711: a file written before it has the second system as added, off.
         crate::effects::PARTICLE_EMITTER => {
             let mut values = [0.0; 54];
-            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
-                *v = if n < 45 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_EMITTER_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .enumerate()
+            {
+                *v = if n < 45 {
+                    effect_number(params, name, &at)?
+                } else {
+                    effect_number_or(params, name, &at, *start)?
+                };
             }
             let mut words: [String; 9] = Default::default();
-            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words.iter_mut()).enumerate() {
-                *w = if n < 6 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_EMITTER_WORDS
+                .iter()
+                .zip(words.iter_mut())
+                .enumerate()
+            {
+                *w = if n < 6 {
+                    effect_word(params, name, &at)?
+                } else {
+                    effect_word_or(params, name, &at, start)?
+                };
             }
             let mut colors: [String; 7] = Default::default();
-            for (n, ((name, start), c)) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors.iter_mut()).enumerate() {
-                *c = if n < 6 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
+            for (n, ((name, start), c)) in crate::effects::PARTICLE_EMITTER_COLORS
+                .iter()
+                .zip(colors.iter_mut())
+                .enumerate()
+            {
+                *c = if n < 6 {
+                    effect_word(params, name, &at)?
+                } else {
+                    effect_word_or(params, name, &at, start)?
+                };
             }
             Some(crate::effects::Effect::ParticleEmitter {
                 values,
@@ -8105,21 +10671,38 @@ fn parse_effect(
         // D-616: every setting by its name; the layers as written, as Particle Playground's.
         crate::effects::PARTICLE_GRID => {
             let mut values = [0.0; 28];
-            for ((name, ..), v) in crate::effects::PARTICLE_GRID_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::PARTICLE_GRID_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
             let mut words: [String; 3] = Default::default();
-            for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS.iter().zip(words.iter_mut()) {
+            for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS
+                .iter()
+                .zip(words.iter_mut())
+            {
                 *w = effect_word(params, name, &at)?;
             }
             // D-712: a file written before it has no Base Layer.
             let mut layers: [J; 4] = Default::default();
-            for (n, (name, l)) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers.iter_mut()).enumerate() {
+            for (n, (name, l)) in crate::effects::PARTICLE_GRID_LAYERS
+                .iter()
+                .zip(layers.iter_mut())
+                .enumerate()
+            {
                 let p = effect_params(params, &at)?;
-                *l = if n < 3 { field(p, &format!("{at}/parameters"), name)?.clone() } else { p.get(*name).cloned().unwrap_or_else(|| J::from("")) };
+                *l = if n < 3 {
+                    field(p, &format!("{at}/parameters"), name)?.clone()
+                } else {
+                    p.get(*name).cloned().unwrap_or_else(|| J::from(""))
+                };
             }
             let mut colors: [String; 1] = Default::default();
-            for ((name, _), c) in crate::effects::PARTICLE_GRID_COLORS.iter().zip(colors.iter_mut()) {
+            for ((name, _), c) in crate::effects::PARTICLE_GRID_COLORS
+                .iter()
+                .zip(colors.iter_mut())
+            {
                 *c = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::ParticleGrid {
@@ -8138,7 +10721,10 @@ fn parse_effect(
         // by name.
         crate::effects::MERCURY => {
             let mut values = [0.0; 24];
-            for ((name, ..), v) in crate::effects::MERCURY_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::MERCURY_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
             let mut words: [String; 3] = Default::default();
@@ -8146,19 +10732,36 @@ fn parse_effect(
                 *w = effect_word(params, name, &at)?;
             }
             let light_color = effect_word(params, "light_color", &at)?.to_ascii_lowercase();
-            Some(crate::effects::Effect::Mercury { values, words, light_color, clock: [0.0; 2], history: None })
+            Some(crate::effects::Effect::Mercury {
+                values,
+                words,
+                light_color,
+                clock: [0.0; 2],
+                history: None,
+            })
         }
         // D-675: the words kept as written, so one outside the contract is refused by name.
         crate::effects::POLYGON_SHARDS => {
             let mut values = [0.0; 9];
-            for ((name, ..), v) in crate::effects::POLYGON_SHARDS_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::POLYGON_SHARDS_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
             let mut words: [String; 2] = Default::default();
-            for ((name, ..), w) in crate::effects::POLYGON_SHARDS_WORDS.iter().zip(words.iter_mut()) {
+            for ((name, ..), w) in crate::effects::POLYGON_SHARDS_WORDS
+                .iter()
+                .zip(words.iter_mut())
+            {
                 *w = effect_word(params, name, &at)?;
             }
-            Some(crate::effects::Effect::PolygonShards { values, words, clock: [0.0; 2], view: [0.0; 4] })
+            Some(crate::effects::Effect::PolygonShards {
+                values,
+                words,
+                clock: [0.0; 2],
+                view: [0.0; 4],
+            })
         }
         // D-678: the words kept as written, so one outside the contract is refused by name.
         crate::effects::FOAM => {
@@ -8170,16 +10773,27 @@ fn parse_effect(
             for ((name, ..), w) in crate::effects::FOAM_WORDS.iter().zip(words.iter_mut()) {
                 *w = effect_word(params, name, &at)?;
             }
-            Some(crate::effects::Effect::Foam { values, words, clock: [0.0; 2], history: None })
+            Some(crate::effects::Effect::Foam {
+                values,
+                words,
+                clock: [0.0; 2],
+                history: None,
+            })
         }
         // D-676: the word kept as written, so one outside the contract is refused by name.
         crate::effects::SCATTERIZE => {
             let mut values = [0.0; 3];
-            for ((name, ..), v) in crate::effects::SCATTERIZE_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::SCATTERIZE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
             let mut words: [String; 1] = Default::default();
-            for ((name, ..), w) in crate::effects::SCATTERIZE_WORDS.iter().zip(words.iter_mut()) {
+            for ((name, ..), w) in crate::effects::SCATTERIZE_WORDS
+                .iter()
+                .zip(words.iter_mut())
+            {
                 *w = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::Scatterize { values, words })
@@ -8187,10 +10801,18 @@ fn parse_effect(
         // D-677: the clock, view and history are compose's, never saved.
         crate::effects::STAR_BURST => {
             let mut values = [0.0; 6];
-            for ((name, ..), v) in crate::effects::STAR_BURST_SETTINGS.iter().zip(values.iter_mut()) {
+            for ((name, ..), v) in crate::effects::STAR_BURST_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+            {
                 *v = effect_number(params, name, &at)?;
             }
-            Some(crate::effects::Effect::StarBurst { values, clock: [0.0; 2], view: [0.0; 4], history: None })
+            Some(crate::effects::Effect::StarBurst {
+                values,
+                clock: [0.0; 2],
+                view: [0.0; 4],
+                history: None,
+            })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,
@@ -8202,7 +10824,7 @@ fn parse_effect(
             ball_size: effect_number(params, "ball_size", &at)?,
             instability_state: effect_number(params, "instability_state", &at)?,
         }),
-        crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
+        crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
         }),
@@ -8236,8 +10858,10 @@ fn parse_effect(
         }),
         crate::effects::COLOR_NEUTRALIZER => Some(crate::effects::Effect::ColorNeutralizer {
             shadows_unbalance: effect_word(params, "shadows_unbalance", &at)?.to_ascii_lowercase(),
-            midtones_unbalance: effect_word(params, "midtones_unbalance", &at)?.to_ascii_lowercase(),
-            highlights_unbalance: effect_word(params, "highlights_unbalance", &at)?.to_ascii_lowercase(),
+            midtones_unbalance: effect_word(params, "midtones_unbalance", &at)?
+                .to_ascii_lowercase(),
+            highlights_unbalance: effect_word(params, "highlights_unbalance", &at)?
+                .to_ascii_lowercase(),
             shadows: effect_list(params, "shadows", &at)?,
             midtones: effect_list(params, "midtones", &at)?,
             highlights: effect_list(params, "highlights", &at)?,
@@ -8300,20 +10924,39 @@ fn parse_effect(
         crate::effects::COLOR_GRADE => {
             // D-398: a file from D-397, without the later settings, reads each as added.
             let mut values = [0.0; 55];
-            for (i, ((name, _, _, start), v)) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
-                *v = if i < 22 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
+            for (i, ((name, _, _, start), v)) in crate::effects::COLOR_GRADE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .enumerate()
+            {
+                *v = if i < 22 {
+                    effect_number(params, name, &at)?
+                } else {
+                    effect_number_or(params, name, &at, *start)?
+                };
             }
-            let points_or = |name: &str, start: Vec<Vec<f64>>| match params.and_then(|p| p.get(name)) {
-                Some(_) => effect_points(params, name, &at),
-                None => Ok(start),
-            };
+            let points_or =
+                |name: &str, start: Vec<Vec<f64>>| match params.and_then(|p| p.get(name)) {
+                    Some(_) => effect_points(params, name, &at),
+                    None => Ok(start),
+                };
             let straight = || vec![vec![0.0, 0.0], vec![255.0, 255.0]];
             Some(crate::effects::Effect::ColorGrade {
                 values,
                 look: effect_word(params, "look", &at)?,
-                curves: [points_or("curve_master", straight())?, points_or("curve_red", straight())?, points_or("curve_green", straight())?, points_or("curve_blue", straight())?],
+                curves: [
+                    points_or("curve_master", straight())?,
+                    points_or("curve_red", straight())?,
+                    points_or("curve_green", straight())?,
+                    points_or("curve_blue", straight())?,
+                ],
                 hue_saturation: points_or("hue_saturation", Vec::new())?,
-                more_curves: [points_or("hue_hue", Vec::new())?, points_or("hue_luma", Vec::new())?, points_or("luma_saturation", Vec::new())?, points_or("saturation_saturation", Vec::new())?],
+                more_curves: [
+                    points_or("hue_hue", Vec::new())?,
+                    points_or("hue_luma", Vec::new())?,
+                    points_or("luma_saturation", Vec::new())?,
+                    points_or("saturation_saturation", Vec::new())?,
+                ],
                 secondary_wheels: effect_word_or(params, "secondary_wheels", &at, "one")?,
                 key_invert: effect_word_or(params, "key_invert", &at, "off")?,
                 key_view: effect_word_or(params, "key_view", &at, "off")?,
@@ -8329,7 +10972,12 @@ fn parse_effect(
         // D-375: the layer and the words kept as written, so one outside the contract is
         // refused by name.
         crate::effects::COLOR_LINK => Some(crate::effects::Effect::ColorLink {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             sample: effect_word(params, "sample", &at)?,
             clip: effect_number(params, "clip", &at)?,
             stencil: effect_word(params, "stencil", &at)?,
@@ -8499,7 +11147,12 @@ fn parse_effect(
         // layer; a file from before it means each new setting's start, the layer read as the
         // pixel is.
         crate::effects::COLORAMA => Some(crate::effects::Effect::Colorama {
-            add_phase_from: effect_word_or(params, "add_phase_from", &at, &effect_word(params, "get_phase", &at)?)?,
+            add_phase_from: effect_word_or(
+                params,
+                "add_phase_from",
+                &at,
+                &effect_word(params, "get_phase", &at)?,
+            )?,
             add_mode: effect_word_or(params, "add_mode", &at, "wrap")?,
             interpolate: effect_word_or(params, "interpolate", &at, "on")?,
             opacity_1: effect_number_or(params, "opacity_1", &at, 100.0)?,
@@ -8511,15 +11164,24 @@ fn parse_effect(
             modify_alpha: effect_word_or(params, "modify_alpha", &at, "off")?,
             change_empty: effect_word_or(params, "change_empty", &at, "off")?,
             matching_mode: effect_word_or(params, "matching_mode", &at, "off")?,
-            matching_color: effect_word_or(params, "matching_color", &at, "#ffffff")?.to_ascii_lowercase(),
+            matching_color: effect_word_or(params, "matching_color", &at, "#ffffff")?
+                .to_ascii_lowercase(),
             matching_tolerance: effect_number_or(params, "matching_tolerance", &at, 15.0)?,
             matching_softness: effect_number_or(params, "matching_softness", &at, 0.0)?,
-            mask_layer: params.and_then(|p| p.get("mask_layer")).cloned().unwrap_or_else(|| J::from("")),
+            mask_layer: params
+                .and_then(|p| p.get("mask_layer"))
+                .cloned()
+                .unwrap_or_else(|| J::from("")),
             masking_mode: effect_word_or(params, "masking_mode", &at, "luminance")?,
             composite_over: effect_word_or(params, "composite_over", &at, "on")?,
             mask_map: None,
             get_phase: effect_word(params, "get_phase", &at)?,
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             phase_shift: effect_number(params, "phase_shift", &at)?,
             cycle_repetitions: effect_number(params, "cycle_repetitions", &at)?,
@@ -8537,14 +11199,25 @@ fn parse_effect(
         // the other new settings at their starts; a file with it carries them all.
         crate::effects::GLASS => {
             let old = params.and_then(|p| p.get("light_type")).is_none();
-            let number = |key: &str, start: f64| if old { effect_number_or(params, key, &at, start) } else { effect_number(params, key, &at) };
+            let number = |key: &str, start: f64| {
+                if old {
+                    effect_number_or(params, key, &at, start)
+                } else {
+                    effect_number(params, key, &at)
+                }
+            };
             let light_position = if old && params.and_then(|p| p.get("light_position")).is_none() {
                 [50.0, 50.0]
             } else {
                 effect_array(params, "light_position", "two numbers, x then y", &at)?
             };
             Some(crate::effects::Effect::Glass {
-                layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+                layer: field(
+                    effect_params(params, &at)?,
+                    &format!("{at}/parameters"),
+                    "layer",
+                )?
+                .clone(),
                 fit: effect_word(params, "fit", &at)?,
                 property: effect_word(params, "property", &at)?,
                 softness: effect_number(params, "softness", &at)?,
@@ -8570,7 +11243,12 @@ fn parse_effect(
             amount: effect_number(params, "amount", &at)?,
             angle_offset: effect_number(params, "angle_offset", &at)?,
             ridge_smoothness: effect_number(params, "ridge_smoothness", &at)?,
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             property: effect_word(params, "property", &at)?,
             map_softness: effect_number(params, "map_softness", &at)?,
@@ -8622,7 +11300,12 @@ fn parse_effect(
             fold_radius: effect_number(params, "fold_radius", &at)?,
             light_direction: effect_number(params, "light_direction", &at)?,
             render: effect_word(params, "render", &at)?,
-            back_page: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_page")?.clone(),
+            back_page: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "back_page",
+            )?
+            .clone(),
             back_opacity: effect_number(params, "back_opacity", &at)?,
             paper_color: effect_word(params, "paper_color", &at)?.to_ascii_lowercase(),
             map: None,
@@ -8676,7 +11359,12 @@ fn parse_effect(
             brush_pressure: effect_number(params, "brush_pressure", &at)?,
             stroke: effect_list(params, "stroke", &at)?,
             distortion_percentage: effect_number(params, "distortion_percentage", &at)?,
-            distortion_mesh_offset: effect_array(params, "distortion_mesh_offset", "two numbers, x then y", &at)?,
+            distortion_mesh_offset: effect_array(
+                params,
+                "distortion_mesh_offset",
+                "two numbers, x then y",
+                &at,
+            )?,
             // D-700: settings added after the effect; a file without them is from before them.
             turbulent_jitter: effect_number_or(params, "turbulent_jitter", &at, 70.0)?,
             clone_offset: effect_pair_or(params, "clone_offset", &at, [0.0, 0.0])?,
@@ -8712,7 +11400,10 @@ fn parse_effect(
             for (p, name) in points.iter_mut().zip(crate::effects::BEZIER_POINTS) {
                 *p = effect_array(params, name, "two numbers, x then y", &at)?;
             }
-            Some(crate::effects::Effect::BezierWarp { points, quality: effect_number(params, "quality", &at)? })
+            Some(crate::effects::Effect::BezierWarp {
+                points,
+                quality: effect_number(params, "quality", &at)?,
+            })
         }
         crate::effects::RIPPLE_PULSE => Some(crate::effects::Effect::RipplePulse {
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
@@ -8864,7 +11555,12 @@ fn parse_effect(
         crate::effects::ADD_GRAIN => Some(add_grain_from(params, &at)?),
         // D-454: Add Grain's settings, and the source layer kept as written.
         crate::effects::MATCH_GRAIN => Some(crate::effects::Effect::MatchGrain {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             grain: Box::new(add_grain_from(params, &at)?),
             map: None,
         }),
@@ -8921,7 +11617,10 @@ fn parse_effect(
         crate::effects::CURL_NOISE => Some(crate::effects::Effect::CurlNoise {
             source: effect_word(params, "source", &at)?,
             // D-583: a file without them reads them as added (D-304).
-            source_layer: params.and_then(|p| p.get("source_layer")).cloned().unwrap_or_else(|| J::from("")),
+            source_layer: params
+                .and_then(|p| p.get("source_layer"))
+                .cloned()
+                .unwrap_or_else(|| J::from("")),
             softness: effect_number_or(params, "softness", &at, 0.0)?,
             source_mapping: effect_word_or(params, "source_mapping", &at, "fill")?,
             mirror_at_edge: effect_word_or(params, "mirror_at_edge", &at, "off")?,
@@ -8997,7 +11696,12 @@ fn parse_effect(
             composite: effect_word(params, "composite", &at)?,
         }),
         crate::effects::AUDIO_SPECTRUM => Some(crate::effects::Effect::AudioSpectrum {
-            audio_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "audio_layer")?.clone(),
+            audio_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "audio_layer",
+            )?
+            .clone(),
             start_point: effect_array(params, "start_point", "two numbers, x then y", &at)?,
             end_point: effect_array(params, "end_point", "two numbers, x then y", &at)?,
             path: effect_number(params, "path", &at)?,
@@ -9024,7 +11728,12 @@ fn parse_effect(
             outline: None,
         }),
         crate::effects::AUDIO_WAVEFORM => Some(crate::effects::Effect::AudioWaveform {
-            audio_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "audio_layer")?.clone(),
+            audio_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "audio_layer",
+            )?
+            .clone(),
             start_point: effect_array(params, "start_point", "two numbers, x then y", &at)?,
             end_point: effect_array(params, "end_point", "two numbers, x then y", &at)?,
             path: effect_number(params, "path", &at)?,
@@ -9051,7 +11760,12 @@ fn parse_effect(
         crate::effects::FRACTAL => Some(crate::effects::Effect::Fractal {
             set_choice: effect_word(params, "set_choice", &at)?,
             equation: effect_word(params, "equation", &at)?,
-            mandelbrot_center: effect_array(params, "mandelbrot_center", "two numbers, x then y", &at)?,
+            mandelbrot_center: effect_array(
+                params,
+                "mandelbrot_center",
+                "two numbers, x then y",
+                &at,
+            )?,
             mandelbrot_magnification: effect_number(params, "mandelbrot_magnification", &at)?,
             mandelbrot_escape_limit: effect_number(params, "mandelbrot_escape_limit", &at)?,
             julia_center: effect_array(params, "julia_center", "two numbers, x then y", &at)?,
@@ -9076,10 +11790,16 @@ fn parse_effect(
         // D-396: each family kept as written, as Channel Mixer's rows.
         crate::effects::SELECTIVE_COLOR => {
             let mut families: [Vec<f64>; 9] = Default::default();
-            for (row, name) in families.iter_mut().zip(crate::effects::SELECTIVE_COLOR_FAMILIES) {
+            for (row, name) in families
+                .iter_mut()
+                .zip(crate::effects::SELECTIVE_COLOR_FAMILIES)
+            {
                 *row = effect_list(params, name, &at)?;
             }
-            Some(crate::effects::Effect::SelectiveColor { method: effect_word(params, "method", &at)?, families })
+            Some(crate::effects::Effect::SelectiveColor {
+                method: effect_word(params, "method", &at)?,
+                families,
+            })
         }
         crate::effects::SHADOW_HIGHLIGHT => Some(crate::effects::Effect::ShadowHighlight {
             shadow_amount: effect_number(params, "shadow_amount", &at)?,
@@ -9101,7 +11821,12 @@ fn parse_effect(
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             property: effect_word(params, "property", &at)?,
             softness: effect_number(params, "softness", &at)?,
@@ -9186,7 +11911,12 @@ fn parse_effect(
         crate::effects::MOMENT_MAP => Some(crate::effects::Effect::MomentMap {
             max_time: effect_number(params, "max_time", &at)?,
             resolution: effect_number(params, "resolution", &at)?,
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
             fit: effect_word(params, "fit", &at)?,
             map: None,
             picture: None,
@@ -9283,7 +12013,12 @@ fn parse_effect(
             fog_opacity: effect_number(params, "fog_opacity", &at)?,
             scattering_density: effect_number(params, "scattering_density", &at)?,
             foggy_background: effect_word(params, "foggy_background", &at)?,
-            gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+            gradient_layer: field(
+                effect_params(params, &at)?,
+                &format!("{at}/parameters"),
+                "gradient_layer",
+            )?
+            .clone(),
             layer_contribution: effect_number(params, "layer_contribution", &at)?,
             map: None,
             channels: None,
@@ -9314,7 +12049,9 @@ fn parse_effect(
             ease_high: effect_number(params, "ease_high", &at)?,
             ease_low: effect_number(params, "ease_low", &at)?,
         }),
-        crate::effects::STRETCH_LEVELS | crate::effects::STRETCH_CONTRAST | crate::effects::STRETCH_COLOR => {
+        crate::effects::STRETCH_LEVELS
+        | crate::effects::STRETCH_CONTRAST
+        | crate::effects::STRETCH_COLOR => {
             let color = type_id == crate::effects::STRETCH_COLOR;
             Some(crate::effects::Effect::AutoTone {
                 kind: if color {
@@ -9329,7 +12066,11 @@ fn parse_effect(
                 black_clip: effect_number(params, "black_clip", &at)?,
                 white_clip: effect_number(params, "white_clip", &at)?,
                 // Stretch Color's alone; the other two have none and never save one.
-                snap_neutral_midtones: if color { effect_word(params, "snap_neutral_midtones", &at)? } else { "off".to_string() },
+                snap_neutral_midtones: if color {
+                    effect_word(params, "snap_neutral_midtones", &at)?
+                } else {
+                    "off".to_string()
+                },
                 stats: None,
             })
         }
@@ -9351,8 +12092,16 @@ fn parse_effect(
             Some(crate::effects::Effect::RefineMatte {
                 kind: if soft { "soft" } else { "hard" },
                 // Refine Soft Matte's alone; Refine Hard Matte has none and never saves one.
-                edge_radius: if soft { effect_number(params, "edge_radius", &at)? } else { 0.0 },
-                view_edge_region: if soft { effect_word(params, "view_edge_region", &at)? } else { "off".to_string() },
+                edge_radius: if soft {
+                    effect_number(params, "edge_radius", &at)?
+                } else {
+                    0.0
+                },
+                view_edge_region: if soft {
+                    effect_word(params, "view_edge_region", &at)?
+                } else {
+                    "off".to_string()
+                },
                 feather: effect_number(params, "feather", &at)?,
                 contrast: effect_number(params, "contrast", &at)?,
                 shift_edge: effect_number(params, "shift_edge", &at)?,
@@ -9390,9 +12139,15 @@ fn parse_effect(
         tracks.insert("mix".into(), track);
     }
     // D-642: a sound effect's numbers take keys only, and it has no picture to mix.
-    if parsed.as_ref().is_some_and(crate::effects::Effect::is_sound) {
+    if parsed
+        .as_ref()
+        .is_some_and(crate::effects::Effect::is_sound)
+    {
         if effect.get("mix").is_some() {
-            return Err(invalid(&format!("{at}/mix"), "no Mix on a sound effect, which has no picture to mix (D-642)"));
+            return Err(invalid(
+                &format!("{at}/mix"),
+                "no Mix on a sound effect, which has no picture to mix (D-642)",
+            ));
         }
         if let Some((key, _)) = tracks.iter().find(|(_, t)| t[0].expression().is_some()) {
             return Err(invalid(
@@ -9496,7 +12251,16 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment", "composition", "audio", "solid", "shape", "null", "text"],
+        &[
+            "raster",
+            "adjustment",
+            "composition",
+            "audio",
+            "solid",
+            "shape",
+            "null",
+            "text",
+        ],
     )? {
         "text" => LayerKind::Text,
         "null" => LayerKind::Null,
@@ -9511,7 +12275,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     // D-188: the motion-blur switch, on a layer that draws (FX-MB-039 to 041).
     let motion_blur = match v.get("motion_blur") {
         None => false,
-        Some(_) if matches!(kind, LayerKind::Null | LayerKind::Adjustment | LayerKind::Audio) => {
+        Some(_)
+            if matches!(
+                kind,
+                LayerKind::Null | LayerKind::Adjustment | LayerKind::Audio
+            ) =>
+        {
             return Err(invalid(
                 &format!("{pointer}/motion_blur"),
                 "no motion_blur on a null, adjustment or audio layer, which has no picture of \
@@ -9527,7 +12296,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         let at = format!("{pointer}/{key}");
         match v.get(key) {
             None => Ok(None),
-            Some(_) if !on => Err(invalid(&at, &format!("no {key} on this kind of layer; only {which} carries one (D-216)"))),
+            Some(_) if !on => Err(invalid(
+                &at,
+                &format!("no {key} on this kind of layer; only {which} carries one (D-216)"),
+            )),
             Some(x) => Ok(Some((x, at))),
         }
     };
@@ -9548,11 +12320,20 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             true
         }
     };
-    let drawing_dissolve = match only("drawing_dissolve", kind == LayerKind::Raster, "a raster layer")? {
+    let drawing_dissolve = match only(
+        "drawing_dissolve",
+        kind == LayerKind::Raster,
+        "a raster layer",
+    )? {
         None => 0,
         Some((x, at)) => match as_u32(x, &at)? {
             d @ 0..=100 => d,
-            _ => return Err(invalid(&at, "a whole number of frames from 0 to 100 (D-216)")),
+            _ => {
+                return Err(invalid(
+                    &at,
+                    "a whole number of frames from 0 to 100 (D-216)",
+                ))
+            }
         },
     };
     // D-323: a Time Remap on a raster or composition layer, one number keyed, no expression
@@ -9562,7 +12343,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         Some((x, at)) => {
             let remap = parse_property(x, &at, "scalar", false, false, 1.0)?;
             if remap.expression().is_some() {
-                return Err(invalid(&at, "no expression on a Time Remap, which is keys only (D-323)"));
+                return Err(invalid(
+                    &at,
+                    "no expression on a Time Remap, which is keys only (D-323)",
+                ));
             }
             Some(remap)
         }
@@ -9646,7 +12430,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             }
         }
         let at = format!("{pointer}/shapes");
-        for (i, s) in as_array(field(v, pointer, "shapes")?, &at)?.iter().enumerate() {
+        for (i, s) in as_array(field(v, pointer, "shapes")?, &at)?
+            .iter()
+            .enumerate()
+        {
             shapes.push(parse_shape(s, &format!("{at}/{i}"), i)?);
         }
     } else if v.get("shapes").is_some() {
@@ -10064,7 +12851,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
 fn parse_vertices(m: &J, at: &str) -> Result<Vec<(f64, f64)>, Diagnostic> {
     let at_v = format!("{at}/vertices");
     let mut vertices = Vec::new();
-    for (i, vertex) in as_array(field(m, at, "vertices")?, &at_v)?.iter().enumerate() {
+    for (i, vertex) in as_array(field(m, at, "vertices")?, &at_v)?
+        .iter()
+        .enumerate()
+    {
         let at_i = format!("{at_v}/{i}");
         let pair = as_array(vertex, &at_i)?;
         if pair.len() != 2 {
@@ -10194,16 +12984,24 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
         let Some(J::Object(p)) = plain.get_mut(paint) else {
             continue;
         };
-        for (key, name) in [("color", "color"), ("opacity", "opacity"), ("width_px", "width")] {
+        for (key, name) in [
+            ("color", "color"),
+            ("opacity", "opacity"),
+            ("width_px", "width"),
+        ] {
             let Some(record) = p.get(key).filter(|r| r.is_object()) else {
                 continue;
             };
             let at = format!("{at}/{paint}/{key}");
             if record.get("expression").is_some() {
-                return Err(invalid(&at, "no expression: a shape's colour, opacity and width take keys only (D-170)"));
+                return Err(invalid(
+                    &at,
+                    "no expression: a shape's colour, opacity and width take keys only (D-170)",
+                ));
             }
             let count = if key == "color" { 3 } else { 1 };
-            let (base, track) = channel_track(record, &at, count, "three numbers from 0 to 1 (D-78)")?;
+            let (base, track) =
+                channel_track(record, &at, count, "three numbers from 0 to 1 (D-78)")?;
             if track[0].is_animated() {
                 tracks.insert(format!("{paint}_{name}"), track);
             }
@@ -10221,14 +13019,16 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
                     .transpose()
             };
             (
-                word("join", &crate::shape::Join::NAMES)?
-                    .map_or(crate::shape::Join::Round, |w| crate::shape::Join::named(&w).expect("named")),
+                word("join", &crate::shape::Join::NAMES)?.map_or(crate::shape::Join::Round, |w| {
+                    crate::shape::Join::named(&w).expect("named")
+                }),
                 match s.get("miter_limit") {
                     None => 4.0,
                     Some(m) => as_f64(m, &format!("{at}/miter_limit"))?,
                 },
-                word("cap", &crate::shape::Cap::NAMES)?
-                    .map_or(crate::shape::Cap::Round, |w| crate::shape::Cap::named(&w).expect("named")),
+                word("cap", &crate::shape::Cap::NAMES)?.map_or(crate::shape::Cap::Round, |w| {
+                    crate::shape::Cap::named(&w).expect("named")
+                }),
             )
         }
     };
@@ -10281,15 +13081,17 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             opacity,
             gradient,
         }),
-        stroke: paint("stroke")?.map(|(color, opacity, width_px, gradient)| crate::shape::Stroke {
-            color,
-            opacity,
-            width_px,
-            gradient,
-            join,
-            miter_limit,
-            cap,
-        }),
+        stroke: paint("stroke")?.map(
+            |(color, opacity, width_px, gradient)| crate::shape::Stroke {
+                color,
+                opacity,
+                width_px,
+                gradient,
+                join,
+                miter_limit,
+                cap,
+            },
+        ),
         tracks,
         trim: match v.get("trim").filter(|t| !t.is_null()) {
             None => None,
@@ -10298,7 +13100,14 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
                 let at = format!("{at}/trim");
                 as_object(t, &at)?;
                 let number = |key: &str| {
-                    parse_property(field(t, &at, key)?, &format!("{at}/{key}"), "scalar", false, false, 1.0)
+                    parse_property(
+                        field(t, &at, key)?,
+                        &format!("{at}/{key}"),
+                        "scalar",
+                        false,
+                        false,
+                        1.0,
+                    )
                 };
                 Some(crate::shape::Trim {
                     start: number("start")?,
@@ -10319,7 +13128,11 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
 /// expression and no motion path, are `Shape::problem`'s, which the commands share.
 fn parse_gradient(v: &J, at: &str) -> Result<crate::shape::Gradient, Diagnostic> {
     as_object(v, at)?;
-    let kind = as_enum(field(v, at, "type")?, &format!("{at}/type"), &["linear", "radial"])?;
+    let kind = as_enum(
+        field(v, at, "type")?,
+        &format!("{at}/type"),
+        &["linear", "radial"],
+    )?;
     let point = |key: &str| {
         let here = format!("{at}/{key}");
         parse_property(field(v, at, key)?, &here, "vec2", false, false, 1.0)
@@ -10385,7 +13198,10 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
             None => Ok(default),
             Some(record) if record.is_object() => {
                 if record.get("expression").is_some() {
-                    return Err(invalid(&at, "no expression: a mask's numbers take keys only (D-298)"));
+                    return Err(invalid(
+                        &at,
+                        "no expression: a mask's numbers take keys only (D-298)",
+                    ));
                 }
                 let (base, mut track) = channel_track(record, &at, 1, "a number")?;
                 if track[0].is_animated() {
@@ -10399,7 +13215,10 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
     };
     let opacity = number("opacity", 1.0)?;
     if !(0.0..=1.0).contains(&opacity) {
-        return Err(invalid(&format!("{at}/opacity"), "an opacity from 0 to 1 (D-77)"));
+        return Err(invalid(
+            &format!("{at}/opacity"),
+            "an opacity from 0 to 1 (D-77)",
+        ));
     }
     let feather_px = number("feather_px", 0.0)?;
     if !(feather_px >= 0.0) {
@@ -10441,7 +13260,10 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
     })
     .and_then(|m| match m.out_of_range() {
         // D-298: the plain numbers were held to D-77's ranges above; this is every key's.
-        Some(what) => Err(invalid(at, &format!("a mask inside D-77's ranges on every key, not {what}"))),
+        Some(what) => Err(invalid(
+            at,
+            &format!("a mask inside D-77's ranges on every key, not {what}"),
+        )),
         None => Ok(m),
     })
 }
@@ -10481,13 +13303,27 @@ fn parse_text(v: &J, pointer: &str) -> Result<crate::text::Text, Diagnostic> {
         if list.len() != n {
             return Err(invalid(&at, &format!("{n} numbers (D-263)")));
         }
-        list.iter().enumerate().map(|(i, x)| as_f64(x, &format!("{at}/{i}"))).collect()
+        list.iter()
+            .enumerate()
+            .map(|(i, x)| as_f64(x, &format!("{at}/{i}")))
+            .collect()
     }
     let colour = |v: &J, pointer: &str| numbers(v, pointer, "color", 3).map(|c| [c[0], c[1], c[2]]);
-    let number = |v: &J, pointer: &str, key: &str| as_f64(field(v, pointer, key)?, &format!("{pointer}/{key}"));
-    let (color, at) = (numbers(v, pointer, "color", 3)?, numbers(v, pointer, "at", 2)?);
-    let optional = |key: &str, default: f64| v.get(key).map_or(Ok(default), |x| as_f64(x, &format!("{pointer}/{key}")));
-    let flag = |key: &str| v.get(key).map_or(Ok(false), |x| as_bool(x, &format!("{pointer}/{key}")));
+    let number = |v: &J, pointer: &str, key: &str| {
+        as_f64(field(v, pointer, key)?, &format!("{pointer}/{key}"))
+    };
+    let (color, at) = (
+        numbers(v, pointer, "color", 3)?,
+        numbers(v, pointer, "at", 2)?,
+    );
+    let optional = |key: &str, default: f64| {
+        v.get(key)
+            .map_or(Ok(default), |x| as_f64(x, &format!("{pointer}/{key}")))
+    };
+    let flag = |key: &str| {
+        v.get(key)
+            .map_or(Ok(false), |x| as_bool(x, &format!("{pointer}/{key}")))
+    };
     let record = |key: &str| -> Result<Option<(&J, String)>, Diagnostic> {
         match v.get(key) {
             None => Ok(None),
@@ -10500,7 +13336,10 @@ fn parse_text(v: &J, pointer: &str) -> Result<crate::text::Text, Diagnostic> {
     };
     let stroke = match record("stroke")? {
         None => None,
-        Some((r, at)) => Some(crate::text::Stroke { color: colour(r, &at)?, width: number(r, &at, "width")? }),
+        Some((r, at)) => Some(crate::text::Stroke {
+            color: colour(r, &at)?,
+            width: number(r, &at, "width")?,
+        }),
     };
     let background = match record("background")? {
         None => None,
@@ -10569,7 +13408,10 @@ fn parse_label(v: &J, pointer: &str) -> Result<u8, Diagnostic> {
 /// D-188: a composition's shutter, all four fields present and in range (FX-MB-030 to 038).
 fn parse_motion_blur(v: &J, pointer: &str) -> Result<crate::model::MotionBlur, Diagnostic> {
     const FIELDS: [&str; 4] = ["enabled", "shutter_angle", "shutter_phase", "samples"];
-    if let Some(unknown) = as_object(v, pointer)?.keys().find(|k| !FIELDS.contains(&k.as_str())) {
+    if let Some(unknown) = as_object(v, pointer)?
+        .keys()
+        .find(|k| !FIELDS.contains(&k.as_str()))
+    {
         return Err(invalid(
             &format!("{pointer}/{unknown}"),
             "only enabled, shutter_angle, shutter_phase and samples (D-188)",
@@ -10581,13 +13423,19 @@ fn parse_motion_blur(v: &J, pointer: &str) -> Result<crate::model::MotionBlur, D
         if (low..=high).contains(&n) {
             Ok(n)
         } else {
-            Err(invalid(&at, &format!("a number from {low} to {high} (D-188)")))
+            Err(invalid(
+                &at,
+                &format!("a number from {low} to {high} (D-188)"),
+            ))
         }
     };
     let at = format!("{pointer}/samples");
     let samples = as_u32(field(v, pointer, "samples")?, &at)?;
     if !(2..=64).contains(&samples) {
-        return Err(invalid(&at, "a whole number of samples from 2 to 64 (D-188)"));
+        return Err(invalid(
+            &at,
+            "a whole number of samples from 2 to 64 (D-188)",
+        ));
     }
     Ok(crate::model::MotionBlur {
         enabled: as_bool(field(v, pointer, "enabled")?, &format!("{pointer}/enabled"))?,
@@ -10597,7 +13445,12 @@ fn parse_motion_blur(v: &J, pointer: &str) -> Result<crate::model::MotionBlur, D
     })
 }
 
-fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic>) -> Result<Layer, Diagnostic> {
+fn parse_audio_layer(
+    v: &J,
+    pointer: &str,
+    id: Id,
+    warnings: &mut Vec<Diagnostic>,
+) -> Result<Layer, Diagnostic> {
     for key in [
         "transform",
         "exposure_spans",
@@ -10633,26 +13486,47 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic
     }
     // D-645: the level and the pan, each a number or a keyed number with every value in its
     // range, keys only.
-    let sound_number = |key: &str, lo: f64, hi: f64, what: &str| -> Result<Option<Property>, Diagnostic> {
-        let at = format!("{pointer}/{key}");
-        let property = match v.get(key) {
-            None => return Ok(None),
-            Some(n @ J::Number(_)) => Property::constant(crate::model::Value::Scalar(as_f64(n, &at)?)),
-            Some(p) if p.is_object() => parse_property(p, &at, "scalar", false, false, 1.0)?,
-            Some(_) => return Err(invalid(&at, &format!("{what} as a number, or as keys with a base (D-645)"))),
+    let sound_number =
+        |key: &str, lo: f64, hi: f64, what: &str| -> Result<Option<Property>, Diagnostic> {
+            let at = format!("{pointer}/{key}");
+            let property = match v.get(key) {
+                None => return Ok(None),
+                Some(n @ J::Number(_)) => {
+                    Property::constant(crate::model::Value::Scalar(as_f64(n, &at)?))
+                }
+                Some(p) if p.is_object() => parse_property(p, &at, "scalar", false, false, 1.0)?,
+                Some(_) => {
+                    return Err(invalid(
+                        &at,
+                        &format!("{what} as a number, or as keys with a base (D-645)"),
+                    ))
+                }
+            };
+            if property.expression().is_some() {
+                return Err(invalid(
+                    &at,
+                    &format!("no expression on {what}, which is keys only (D-645)"),
+                ));
+            }
+            let values = std::iter::once(property.base())
+                .chain(property.keyframes().iter().map(|k| k.value));
+            if !values
+                .map(|x| x.as_scalar().unwrap_or(f64::NAN))
+                .all(|x| (lo..=hi).contains(&x))
+            {
+                return Err(invalid(
+                    &at,
+                    &format!("{what} from {lo} to {hi} (D-71, D-645)"),
+                ));
+            }
+            Ok(Some(property))
         };
-        if property.expression().is_some() {
-            return Err(invalid(&at, &format!("no expression on {what}, which is keys only (D-645)")));
-        }
-        let values = std::iter::once(property.base()).chain(property.keyframes().iter().map(|k| k.value));
-        if !values.map(|x| x.as_scalar().unwrap_or(f64::NAN)).all(|x| (lo..=hi).contains(&x)) {
-            return Err(invalid(&at, &format!("{what} from {lo} to {hi} (D-71, D-645)")));
-        }
-        Ok(Some(property))
-    };
     let gain = sound_number("gain_db", -96.0, 12.0, "a level in decibels")?;
     let pan = sound_number("pan", -100.0, 100.0, "a pan")?;
-    let gain_db = gain.as_ref().and_then(|g| g.base().as_scalar()).unwrap_or(0.0);
+    let gain_db = gain
+        .as_ref()
+        .and_then(|g| g.base().as_scalar())
+        .unwrap_or(0.0);
     let gain_keys = gain.filter(|_| v.get("gain_db").is_some_and(J::is_object));
     let mut layer = Layer::audio(
         id,
@@ -10687,8 +13561,16 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic
             return Err(invalid(&at, "no empty effects list on an audio layer: leave it out, or give it a sound effect (D-71, D-642)"));
         }
         for (i, effect) in list.iter().enumerate() {
-            let parsed = parse_effect(effect, &format!("{at}/{i}"), &layer.name, &layer.id, warnings)?;
-            if !parsed.effect.is_sound() && !matches!(parsed.effect, crate::effects::Effect::Unsupported { .. }) {
+            let parsed = parse_effect(
+                effect,
+                &format!("{at}/{i}"),
+                &layer.name,
+                &layer.id,
+                warnings,
+            )?;
+            if !parsed.effect.is_sound()
+                && !matches!(parsed.effect, crate::effects::Effect::Unsupported { .. })
+            {
                 return Err(invalid(
                     &format!("{at}/{i}/type_id"),
                     "a sound effect: an audio layer draws nothing, so it takes no picture effect (D-71, D-642)",
@@ -10739,7 +13621,10 @@ fn parse_composition(
     // A file is not a way round them: a size past them was a frame buffer too big to allocate,
     // which ended the program rather than saying why.
     use crate::command::{LARGEST_PIXELS, LARGEST_SIDE, LONGEST_COMPOSITION};
-    if width > LARGEST_SIDE || height > LARGEST_SIDE || width as u64 * height as u64 > LARGEST_PIXELS {
+    if width > LARGEST_SIDE
+        || height > LARGEST_SIDE
+        || width as u64 * height as u64 > LARGEST_PIXELS
+    {
         return Err(invalid(
             pointer,
             &format!(
@@ -10893,7 +13778,9 @@ fn parse_composition(
     if let Some(sketches) = v.get("sketches") {
         let at = format!("{pointer}/sketches");
         for (i, sketch) in as_array(sketches, &at)?.iter().enumerate() {
-            composition.sketches.push(parse_sketch(sketch, &format!("{at}/{i}"))?);
+            composition
+                .sketches
+                .push(parse_sketch(sketch, &format!("{at}/{i}"))?);
         }
     }
     if let Some(markers) = v.get("markers") {
@@ -10954,7 +13841,10 @@ fn parse_composition(
                 kind: text("kind")?,
                 name: text("name")?,
                 track: field(column, &here, "track")?.as_i64().ok_or_else(|| {
-                    invalid(&format!("{here}/track"), "a timesheet column's whole number (D-84c)")
+                    invalid(
+                        &format!("{here}/track"),
+                        "a timesheet column's whole number (D-84c)",
+                    )
                 })?,
                 entries,
             });
@@ -11402,7 +14292,11 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
         for layer in composition.layers_in_order() {
             for instance in &layer.effects {
                 if let Some(lut) = crate::lut::dangling(&project, &instance.effect) {
-                    warnings.push(crate::lut::not_a_lookup_file(&layer.name, &instance.effect, lut));
+                    warnings.push(crate::lut::not_a_lookup_file(
+                        &layer.name,
+                        &instance.effect,
+                        lut,
+                    ));
                 }
             }
         }
@@ -11414,8 +14308,14 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
         for layer in composition.layers_in_order() {
             for instance in &layer.effects {
                 for (named, _) in instance.effect.layer_settings() {
-                    if !named.is_empty() && composition.layer(&crate::model::Id::new(named)).is_none() {
-                        warnings.push(crate::layer_map::missing(&layer.name, named, "every frame is drawn"));
+                    if !named.is_empty()
+                        && composition.layer(&crate::model::Id::new(named)).is_none()
+                    {
+                        warnings.push(crate::layer_map::missing(
+                            &layer.name,
+                            named,
+                            "every frame is drawn",
+                        ));
                     }
                 }
             }
@@ -11429,18 +14329,42 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     for composition in &project.compositions {
         for layer in composition.layers_in_order() {
             for instance in layer.effects.iter().filter(|i| i.is_valid()) {
-                if let crate::effects::Effect::AudioSpectrum { audio_layer, path, .. } | crate::effects::Effect::AudioWaveform { audio_layer, path, .. } = &instance.effect {
+                if let crate::effects::Effect::AudioSpectrum {
+                    audio_layer, path, ..
+                }
+                | crate::effects::Effect::AudioWaveform {
+                    audio_layer, path, ..
+                } = &instance.effect
+                {
                     let what = instance.effect.name();
                     let named = audio_layer.as_str().unwrap_or_default();
                     let at = path.floor();
-                    if at >= 1.0 && !layer.masks.get(at as usize - 1).is_some_and(|m| m.enabled && m.points.len() >= 2) {
-                        warnings.push(crate::compose::spectrum_path_missing(&layer.name, what, *path, "Every frame is drawn"));
+                    if at >= 1.0
+                        && !layer
+                            .masks
+                            .get(at as usize - 1)
+                            .is_some_and(|m| m.enabled && m.points.len() >= 2)
+                    {
+                        warnings.push(crate::compose::spectrum_path_missing(
+                            &layer.name,
+                            what,
+                            *path,
+                            "Every frame is drawn",
+                        ));
                     } else if !named.is_empty() {
                         match composition.layer(&crate::model::Id::new(named)) {
-                            None => warnings.push(crate::layer_map::missing(&layer.name, named, "every frame is drawn")),
-                            Some(heard) if heard.kind != crate::model::LayerKind::Audio => {
-                                warnings.push(crate::compose::spectrum_sound_missing(&layer.name, what, &heard.name, "Every frame is drawn"))
-                            }
+                            None => warnings.push(crate::layer_map::missing(
+                                &layer.name,
+                                named,
+                                "every frame is drawn",
+                            )),
+                            Some(heard) if heard.kind != crate::model::LayerKind::Audio => warnings
+                                .push(crate::compose::spectrum_sound_missing(
+                                    &layer.name,
+                                    what,
+                                    &heard.name,
+                                    "Every frame is drawn",
+                                )),
                             Some(_) => {}
                         }
                     }
@@ -11454,10 +14378,20 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     for composition in &project.compositions {
         for layer in composition.layers_in_order() {
             for instance in layer.effects.iter().filter(|i| i.enabled && i.is_valid()) {
-                if let crate::effects::Effect::ParticlePlayground { values, .. } = &instance.effect {
+                if let crate::effects::Effect::ParticlePlayground { values, .. } = &instance.effect
+                {
                     let n = values[crate::playground::WALL_MASK].floor();
-                    if n >= 1.0 && !layer.masks.get(n as usize - 1).is_some_and(|m| m.enabled && m.points.len() >= 3) {
-                        warnings.push(crate::compose::playground_wall_missing(&layer.name, n, "Every frame is drawn"));
+                    if n >= 1.0
+                        && !layer
+                            .masks
+                            .get(n as usize - 1)
+                            .is_some_and(|m| m.enabled && m.points.len() >= 3)
+                    {
+                        warnings.push(crate::compose::playground_wall_missing(
+                            &layer.name,
+                            n,
+                            "Every frame is drawn",
+                        ));
                     }
                 }
             }
@@ -11499,7 +14433,10 @@ fn effects_whole(
 ) -> Result<Vec<crate::effects::EffectInstance>, Diagnostic> {
     let mut ignored = Vec::new();
     let mut out = Vec::new();
-    for (i, one) in as_array(v, if at.is_empty() { "/" } else { at })?.iter().enumerate() {
+    for (i, one) in as_array(v, if at.is_empty() { "/" } else { at })?
+        .iter()
+        .enumerate()
+    {
         let at = format!("{at}/{i}");
         let instance = parse_effect(one, &at, "pasted", &Id::new("pasted"), &mut ignored)?;
         let type_id = instance.type_id().to_string();
@@ -11537,7 +14474,11 @@ fn effects_whole(
                 .collect();
             return Err(refuse(format!(
                 "it carries {}, which this build does not understand and would not keep.",
-                if lost.is_empty() { "settings".to_string() } else { lost.join(", ") }
+                if lost.is_empty() {
+                    "settings".to_string()
+                } else {
+                    lost.join(", ")
+                }
             )));
         }
         out.push(instance);
@@ -11578,7 +14519,11 @@ pub struct Preset {
 /// Its effects are read by `read_effects`'s rules, so an effect or a setting this build would not
 /// keep refuses the file, and so does anything else the format does not name.
 pub fn read_presets(text: &str) -> Result<Vec<Preset>, Diagnostic> {
-    presets_whole(text, "imported", "Nothing was imported, and the presets you have are unchanged.")
+    presets_whole(
+        text,
+        "imported",
+        "Nothing was imported, and the presets you have are unchanged.",
+    )
 }
 
 /// D-180: the text of a preset file holding `presets`, a JSON list of `{name, effects}` as the
@@ -11610,10 +14555,17 @@ fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Di
         )
         .with_remediation(remedy)
     };
-    let root: J = serde_json::from_str(text)
-        .map_err(|e| refuse("it is not JSON text, so it is not a preset file.".into(), e.to_string()))?;
+    let root: J = serde_json::from_str(text).map_err(|e| {
+        refuse(
+            "it is not JSON text, so it is not a preset file.".into(),
+            e.to_string(),
+        )
+    })?;
     let Some(top) = root.as_object() else {
-        return Err(refuse("it is not a preset file.".into(), "The file is not a JSON object.".into()));
+        return Err(refuse(
+            "it is not a preset file.".into(),
+            "The file is not a JSON object.".into(),
+        ));
     };
     if top.contains_key("schema_version") {
         return Err(refuse(
@@ -11648,14 +14600,22 @@ fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Di
     }
     let list = match top.get("presets").and_then(J::as_array) {
         Some(list) if !list.is_empty() => list,
-        _ => return Err(refuse("it holds no presets.".into(), "At /presets: expected a list of at least one.".into())),
+        _ => {
+            return Err(refuse(
+                "it holds no presets.".into(),
+                "At /presets: expected a list of at least one.".into(),
+            ))
+        }
     };
     let mut out: Vec<Preset> = Vec::new();
     for (i, one) in list.iter().enumerate() {
         let at = format!("/presets/{i}");
         let which = i + 1;
         let Some(preset) = one.as_object() else {
-            return Err(refuse(format!("preset {which} is not written as a preset."), format!("At {at}.")));
+            return Err(refuse(
+                format!("preset {which} is not written as a preset."),
+                format!("At {at}."),
+            ));
         };
         if let Some(extra) = lost(preset, &["name", "effects"]) {
             return Err(refuse(
@@ -11665,14 +14625,27 @@ fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Di
         }
         let name = match preset.get("name").and_then(J::as_str) {
             Some(name) if !name.trim().is_empty() => name.to_string(),
-            _ => return Err(refuse(format!("preset {which} has no name."), format!("At {at}/name."))),
+            _ => {
+                return Err(refuse(
+                    format!("preset {which} has no name."),
+                    format!("At {at}/name."),
+                ))
+            }
         };
         if out.iter().any(|p| p.name == name) {
-            return Err(refuse(format!("two presets are named \"{name}\"."), format!("At {at}/name.")));
+            return Err(refuse(
+                format!("two presets are named \"{name}\"."),
+                format!("At {at}/name."),
+            ));
         }
         let effects = match preset.get("effects") {
             Some(list) if list.as_array().is_some_and(|l| !l.is_empty()) => list,
-            _ => return Err(refuse(format!("the preset \"{name}\" has no effects."), format!("At {at}/effects."))),
+            _ => {
+                return Err(refuse(
+                    format!("the preset \"{name}\" has no effects."),
+                    format!("At {at}/effects."),
+                ))
+            }
         };
         let effects = effects_whole(effects, &format!("{at}/effects"), done, remedy).map_err(|d| {
             if d.id == DiagnosticId::ProjectSchemaInvalid {
@@ -11810,7 +14783,11 @@ pub fn save_limited(
 /// project; a file that cannot be reopened must never reach the disk under the name of one
 /// that could. The text then goes to a sibling temporary file, is synced, and only then
 /// renamed over `path`, so a failed write leaves the old file whole (FX-IO-001, FX-IO-002).
-pub(crate) fn write_checked(path: &Path, text: &str, byte_limit: Option<u64>) -> Result<(), Diagnostic> {
+pub(crate) fn write_checked(
+    path: &Path,
+    text: &str,
+    byte_limit: Option<u64>,
+) -> Result<(), Diagnostic> {
     if let Err(e) = load_str(text) {
         return Err(save_failed(
             path,
@@ -12064,13 +15041,18 @@ pub fn relink_candidate(
             return Err(Diagnostic::new(
                 DiagnosticId::MediaMissing,
                 Severity::Error,
-                format!("\"{}\" is one picture, so choose one file for it.", existing.name),
+                format!(
+                    "\"{}\" is one picture, so choose one file for it.",
+                    existing.name
+                ),
                 format!("{} files were chosen.", files.len()),
             )
             .with_remediation("The project still points at the file it pointed at before."));
         };
         let image = media::decode(file)?;
-        let name = file.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        let name = file
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
         let interpretation = if crate::exr_io::is_exr(&name)
             == crate::exr_io::is_exr(existing.path.as_deref().unwrap_or_default())
         {
@@ -12184,7 +15166,12 @@ mod tests {
         assert!(with("\"width\": 1920", "\"width\": 16385").is_err());
         assert!(with("\"height\": 1080", "\"height\": 100000").is_err());
         assert!(with("\"duration_frames\": 24", "\"duration_frames\": 10001").is_err());
-        let both = fixture.replace("\"width\": 1920", "\"width\": 16384").replace("\"height\": 1080", "\"height\": 16384");
-        assert!(load_str(&both).is_err(), "16384 x 16384 is past the pixel limit");
+        let both = fixture
+            .replace("\"width\": 1920", "\"width\": 16384")
+            .replace("\"height\": 1080", "\"height\": 16384");
+        assert!(
+            load_str(&both).is_err(),
+            "16384 x 16384 is past the pixel limit"
+        );
     }
 }

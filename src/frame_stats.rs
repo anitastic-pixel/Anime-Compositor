@@ -28,11 +28,19 @@ pub struct Stats {
 
 impl Stats {
     fn empty() -> Stats {
-        Stats { hist: [[0.0; 256]; 4], sums: [[0.0; 256]; 3] }
+        Stats {
+            hist: [[0.0; 256]; 4],
+            sums: [[0.0; 256]; 3],
+        }
     }
 
     fn add(&mut self, other: &Stats, by: f64) {
-        for (a, b) in self.hist.iter_mut().zip(&other.hist).chain(self.sums.iter_mut().zip(&other.sums)) {
+        for (a, b) in self
+            .hist
+            .iter_mut()
+            .zip(&other.hist)
+            .chain(self.sums.iter_mut().zip(&other.sums))
+        {
             for (x, y) in a.iter_mut().zip(b) {
                 *x += y * by;
             }
@@ -59,11 +67,18 @@ impl Stats {
                     if a <= 0.0 {
                         continue;
                     }
-                    let key = [px[0].to_bits(), px[1].to_bits(), px[2].to_bits(), px[3].to_bits()];
+                    let key = [
+                        px[0].to_bits(),
+                        px[1].to_bits(),
+                        px[2].to_bits(),
+                        px[3].to_bits(),
+                    ];
                     let (b, e) = match last {
                         Some((k, b, e)) if k == key => (b, e),
                         _ => {
-                            let e: [f64; 3] = std::array::from_fn(|c| crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
+                            let e: [f64; 3] = std::array::from_fn(|c| {
+                                crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))
+                            });
                             let y = LUMA[0] * e[0] + LUMA[1] * e[1] + LUMA[2] * e[2];
                             ([bin(e[0]), bin(e[1]), bin(e[2]), bin(y)], e)
                         }
@@ -100,7 +115,9 @@ impl Stats {
     pub fn difference(&self, other: &Stats) -> f64 {
         let (t, u) = (self.total(), other.total());
         let group = |h: &[f64; 256], g: usize| h[g * 16..g * 16 + 16].iter().sum::<f64>();
-        0.5 * (0..16).map(|g| (group(&self.hist[3], g) / t - group(&other.hist[3], g) / u).abs()).sum::<f64>()
+        0.5 * (0..16)
+            .map(|g| (group(&self.hist[3], g) / t - group(&other.hist[3], g) / u).abs())
+            .sum::<f64>()
     }
 }
 
@@ -170,9 +187,18 @@ fn stretch(kind: &str, s: &Stats, black: f64, white: f64, snap: bool) -> Option<
             }
         }
     } else {
-        let pooled: [f64; 256] = std::array::from_fn(|k| s.hist[0][k] + s.hist[1][k] + s.hist[2][k]);
+        let pooled: [f64; 256] =
+            std::array::from_fn(|k| s.hist[0][k] + s.hist[1][k] + s.hist[2][k]);
         for c in 0..3 {
-            let (kb, kw) = clip_points(if kind == "levels" { &s.hist[c] } else { &pooled }, black, white);
+            let (kb, kw) = clip_points(
+                if kind == "levels" {
+                    &s.hist[c]
+                } else {
+                    &pooled
+                },
+                black,
+                white,
+            );
             if kw > kb {
                 lines[c] = Some((kb as f64 / 255.0, kw as f64 / 255.0));
             }
@@ -181,7 +207,11 @@ fn stretch(kind: &str, s: &Stats, black: f64, white: f64, snap: bool) -> Option<
     Some(Box::new(move |e| {
         std::array::from_fn(|c| {
             let v = line(lines[c], e[c]);
-            if power[c] == 1.0 { v } else { v.clamp(0.0, 1.0).powf(power[c]) }
+            if power[c] == 1.0 {
+                v
+            } else {
+                v.clamp(0.0, 1.0).powf(power[c])
+            }
         })
     }))
 }
@@ -211,7 +241,9 @@ fn spread(s: &Stats, equalize: &str, amount: f64) -> Option<Tone> {
     let maps: [Option<[f64; 256]>; 3] = if equalize == "rgb" {
         std::array::from_fn(|c| spread_map(&s.hist[c]))
     } else {
-        let one = spread_map(&std::array::from_fn(|k| s.hist[0][k] + s.hist[1][k] + s.hist[2][k]));
+        let one = spread_map(&std::array::from_fn(|k| {
+            s.hist[0][k] + s.hist[1][k] + s.hist[2][k]
+        }));
         [one; 3]
     };
     Some(Box::new(move |e| {
@@ -238,9 +270,19 @@ pub(crate) fn apply(source: &mut WorkingBuffer, effect: &crate::effects::Effect)
         },
     };
     let tone = match effect {
-        Effect::AutoTone { kind, black_clip, white_clip, snap_neutral_midtones, .. } => {
-            stretch(kind, given, *black_clip, *white_clip, *kind == "color" && snap_neutral_midtones == "on")
-        }
+        Effect::AutoTone {
+            kind,
+            black_clip,
+            white_clip,
+            snap_neutral_midtones,
+            ..
+        } => stretch(
+            kind,
+            given,
+            *black_clip,
+            *white_clip,
+            *kind == "color" && snap_neutral_midtones == "on",
+        ),
         Effect::SpreadTones { equalize, amount } => spread(given, equalize, *amount),
         _ => None,
     };
@@ -260,7 +302,10 @@ pub(crate) fn auto_amounts(s: &Stats) -> (f64, f64) {
         b += w * (2.0 * y - 1.0).max(0.0).powi(2);
     }
     let t = s.total();
-    (100.0 * (2.0 * d / t).min(1.0), 100.0 * (2.0 * b / t).min(1.0))
+    (
+        100.0 * (2.0 * d / t).min(1.0),
+        100.0 * (2.0 * b / t).min(1.0),
+    )
 }
 
 /// D-375: Color Link's colour, each channel 0 to 1, from a picture's statistics: `sample` one of
@@ -280,7 +325,9 @@ pub(crate) fn link_colour(s: &Stats, sample: &str, clip: f64) -> [f64; 3] {
                 "min_rgb" => kb as f64 / 255.0,
                 _ => {
                     let h = &s.hist[c][kb..=kw];
-                    h.iter().zip(kb..).map(|(v, k)| v * k as f64).sum::<f64>() / h.iter().sum::<f64>() / 255.0
+                    h.iter().zip(kb..).map(|(v, k)| v * k as f64).sum::<f64>()
+                        / h.iter().sum::<f64>()
+                        / 255.0
                 }
             }
         }),
@@ -290,18 +337,32 @@ pub(crate) fn link_colour(s: &Stats, sample: &str, clip: f64) -> [f64; 3] {
 /// D-375: Color Link's tint, colour `c` at `opacity` 0 to 1 by `blend` (Paraffin's mixer). With
 /// `stencil` only where the layer shows, at its own covering; without, laid over the whole layer
 /// as one layer of colour, the empty pixels too. Opacity 0 leaves the layer exactly as it is.
-pub(crate) fn link(source: &mut WorkingBuffer, c: [f64; 3], opacity: f64, stencil: bool, blend: &str) {
+pub(crate) fn link(
+    source: &mut WorkingBuffer,
+    c: [f64; 3],
+    opacity: f64,
+    stencil: bool,
+    blend: &str,
+) {
     if opacity <= 0.0 {
         return;
     }
     let (o, mix) = (opacity, crate::grade::mixer(blend));
     if stencil {
-        crate::grade::grade_pixels(source, false, |_, e| std::array::from_fn(|i| e[i] + o * (mix(e[i], c[i]) - e[i])));
+        crate::grade::grade_pixels(source, false, |_, e| {
+            std::array::from_fn(|i| e[i] + o * (mix(e[i], c[i]) - e[i]))
+        });
         return;
     }
     source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
         let a = px[3] as f64;
-        let e: [f64; 3] = std::array::from_fn(|i| if a > 0.0 { crate::grade::to_srgb((px[i] as f64 / a).clamp(0.0, 1.0)) } else { 0.0 });
+        let e: [f64; 3] = std::array::from_fn(|i| {
+            if a > 0.0 {
+                crate::grade::to_srgb((px[i] as f64 / a).clamp(0.0, 1.0))
+            } else {
+                0.0
+            }
+        });
         let a2 = o + a * (1.0 - o);
         for i in 0..3 {
             let r = (o * (1.0 - a) * c[i] + o * a * mix(e[i], c[i]) + (1.0 - o) * a * e[i]) / a2;

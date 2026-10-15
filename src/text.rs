@@ -160,10 +160,24 @@ impl Text {
     /// be drawn.
     pub fn problem(&self) -> Option<String> {
         if !(1.0..=Self::MAX_SIZE).contains(&self.size) {
-            return Some(format!("a size from 1 to {} pixels, not {}", Self::MAX_SIZE, self.size));
+            return Some(format!(
+                "a size from 1 to {} pixels, not {}",
+                Self::MAX_SIZE,
+                self.size
+            ));
         }
-        let colours = [Some(&self.color), self.stroke.as_ref().map(|s| &s.color), self.background.as_ref().map(|b| &b.color), self.shadow.as_ref().map(|s| &s.color)];
-        if let Some(c) = colours.into_iter().flatten().flatten().find(|c| !(0.0..=1.0).contains(*c)) {
+        let colours = [
+            Some(&self.color),
+            self.stroke.as_ref().map(|s| &s.color),
+            self.background.as_ref().map(|b| &b.color),
+            self.shadow.as_ref().map(|s| &s.color),
+        ];
+        if let Some(c) = colours
+            .into_iter()
+            .flatten()
+            .flatten()
+            .find(|c| !(0.0..=1.0).contains(*c))
+        {
             return Some(format!("a colour of three numbers from 0 to 1, not {c}"));
         }
         let within = |what: &str, v: f64, low: f64, high: f64| {
@@ -176,7 +190,10 @@ impl Text {
         ];
         if let Some(s) = &self.stroke {
             if !(s.width > 0.0 && s.width <= 500.0) {
-                checks.push(Some(format!("a stroke width above 0 and up to 500, not {}", s.width)));
+                checks.push(Some(format!(
+                    "a stroke width above 0 and up to 500, not {}",
+                    s.width
+                )));
             }
         }
         if let Some(b) = &self.background {
@@ -225,7 +242,13 @@ pub fn font_bytes(name: &str) -> Option<&'static [u8]> {
     }
     // P-25: named, never pointed at, by the window as by a project: a name the project could
     // not hold reads nothing.
-    if (Text { font: name.to_string(), ..Text::default() }).problem().is_some() {
+    if (Text {
+        font: name.to_string(),
+        ..Text::default()
+    })
+    .problem()
+    .is_some()
+    {
         return None;
     }
     static READ: OnceLock<Mutex<HashMap<String, &'static [u8]>>> = OnceLock::new();
@@ -266,7 +289,12 @@ pub fn installed_fonts() -> Vec<PathBuf> {
         dirs.push(PathBuf::from(windows).join("Fonts"));
     }
     if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-        dirs.push(PathBuf::from(local).join("Microsoft").join("Windows").join("Fonts"));
+        dirs.push(
+            PathBuf::from(local)
+                .join("Microsoft")
+                .join("Windows")
+                .join("Fonts"),
+        );
     }
     dirs
 }
@@ -290,20 +318,41 @@ pub fn fonts() -> &'static [FontName] {
         let mut add = |file: String, table: &[u8]| {
             if let Some((family, style)) = names(table) {
                 if !list.iter().any(|f| f.file.eq_ignore_ascii_case(&file)) {
-                    list.push(FontName { file, family, style });
+                    list.push(FontName {
+                        file,
+                        family,
+                        style,
+                    });
                 }
             }
         };
-        if let Some(table) = ttf_parser::Face::parse(BUNDLED, 0).ok().and_then(|f| f.raw_face().table(ttf_parser::Tag::from_bytes(b"name"))) {
+        if let Some(table) = ttf_parser::Face::parse(BUNDLED, 0)
+            .ok()
+            .and_then(|f| f.raw_face().table(ttf_parser::Tag::from_bytes(b"name")))
+        {
             add(Text::BUNDLED_FONT.to_string(), table);
         }
         for dir in installed_fonts() {
-            let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
             let mut files: Vec<_> = entries.flatten().map(|e| e.path()).collect();
             files.sort();
             for path in files {
-                let Some(file) = path.file_name().and_then(|n| n.to_str()).map(str::to_string) else { continue };
-                if (Text { font: file.clone(), ..Text::default() }).problem().is_some() {
+                let Some(file) = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(str::to_string)
+                else {
+                    continue;
+                };
+                if (Text {
+                    font: file.clone(),
+                    ..Text::default()
+                })
+                .problem()
+                .is_some()
+                {
                     continue;
                 }
                 if let Some(table) = name_table(&path) {
@@ -312,7 +361,9 @@ pub fn fonts() -> &'static [FontName] {
             }
         }
         let bundled = list.len().min(1);
-        list[bundled..].sort_by(|a, b| (a.family.to_lowercase(), &a.style).cmp(&(b.family.to_lowercase(), &b.style)));
+        list[bundled..].sort_by(|a, b| {
+            (a.family.to_lowercase(), &a.style).cmp(&(b.family.to_lowercase(), &b.style))
+        });
         list
     })
 }
@@ -328,7 +379,11 @@ fn name_table(path: &std::path::Path) -> Option<Vec<u8>> {
     };
     let be32 = |b: &[u8], i: usize| u32::from_be_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
     let head = read(0, 16)?;
-    let start = if &head[..4] == b"ttcf" { be32(&head, 12) as u64 } else { 0 };
+    let start = if &head[..4] == b"ttcf" {
+        be32(&head, 12) as u64
+    } else {
+        0
+    };
     let tables = u16::from_be_bytes(read(start + 4, 2)?.try_into().ok()?) as usize;
     let dir = read(start + 12, tables * 16)?;
     let record = dir.chunks_exact(16).find(|r| &r[..4] == b"name")?;
@@ -347,11 +402,21 @@ fn names(table: &[u8]) -> Option<(String, String)> {
             (n.platform_id == ttf_parser::PlatformId::Windows && n.language_id == 0x0409)
                 || (n.platform_id == ttf_parser::PlatformId::Macintosh && n.language_id == 0)
         };
-        let all: Vec<_> = table.names.into_iter().filter(|n| n.name_id == id).collect();
-        all.iter().filter(|n| english(n)).chain(all.iter()).find_map(|n| n.to_string()).filter(|s| !s.is_empty())
+        let all: Vec<_> = table
+            .names
+            .into_iter()
+            .filter(|n| n.name_id == id)
+            .collect();
+        all.iter()
+            .filter(|n| english(n))
+            .chain(all.iter())
+            .find_map(|n| n.to_string())
+            .filter(|s| !s.is_empty())
     };
     let family = find(16).or_else(|| find(1))?;
-    let style = find(17).or_else(|| find(2)).unwrap_or_else(|| "Regular".to_string());
+    let style = find(17)
+        .or_else(|| find(2))
+        .unwrap_or_else(|| "Regular".to_string());
     Some((family, style))
 }
 
@@ -376,9 +441,15 @@ struct Pen<'a> {
 impl Pen<'_> {
     fn at(&self, x: f32, y: f32) -> (f64, f64) {
         // Font units go up; pixels go down.
-        let p = (self.x + (x as f64 + y as f64 * self.slant) * self.scale, self.y - y as f64 * self.scale);
+        let p = (
+            self.x + (x as f64 + y as f64 * self.slant) * self.scale,
+            self.y - y as f64 * self.scale,
+        );
         let Some(t) = &self.turn else { return p };
-        let (dx, dy) = ((p.0 - t.anchor[0]) * t.scale[0], (p.1 - t.anchor[1]) * t.scale[1]);
+        let (dx, dy) = (
+            (p.0 - t.anchor[0]) * t.scale[0],
+            (p.1 - t.anchor[1]) * t.scale[1],
+        );
         // Clockwise on the picture, whose y grows downwards.
         (
             t.anchor[0] + t.cos * dx - t.sin * dy + t.moved[0],
@@ -413,7 +484,11 @@ impl Pen<'_> {
         if let Some(last) = nodes.last_mut() {
             last.out_handle = (out.0 - last.point.0, out.1 - last.point.1);
         }
-        nodes.push(crate::mask::MaskPoint { point: to, in_handle: (into.0 - to.0, into.1 - to.1), out_handle: (0.0, 0.0) });
+        nodes.push(crate::mask::MaskPoint {
+            point: to,
+            in_handle: (into.0 - to.0, into.1 - to.1),
+            out_handle: (0.0, 0.0),
+        });
     }
 
     /// A curve through `control`, ending at `to`, as straight pieces about two pixels long.
@@ -422,14 +497,25 @@ impl Pen<'_> {
         let mut hull = vec![from];
         hull.extend_from_slice(control);
         hull.push(to);
-        let reach: f64 = hull.windows(2).map(|w| (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1)).sum();
+        let reach: f64 = hull
+            .windows(2)
+            .map(|w| (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1))
+            .sum();
         let pieces = (reach / 2.0).ceil().clamp(1.0, 64.0) as usize;
         for i in 1..=pieces {
             let t = i as f64 / pieces as f64;
             // De Casteljau on the hull.
             let mut p = hull.clone();
             while p.len() > 1 {
-                p = p.windows(2).map(|w| (w[0].0 + (w[1].0 - w[0].0) * t, w[0].1 + (w[1].1 - w[0].1) * t)).collect();
+                p = p
+                    .windows(2)
+                    .map(|w| {
+                        (
+                            w[0].0 + (w[1].0 - w[0].0) * t,
+                            w[0].1 + (w[1].1 - w[0].1) * t,
+                        )
+                    })
+                    .collect();
             }
             self.now.push(p[0]);
         }
@@ -442,21 +528,34 @@ impl ttf_parser::OutlineBuilder for Pen<'_> {
         let p = self.at(x, y);
         self.now.push(p);
         if let Some(nodes) = &mut self.path {
-            nodes.push(crate::mask::MaskPoint { point: p, in_handle: (0.0, 0.0), out_handle: (0.0, 0.0) });
+            nodes.push(crate::mask::MaskPoint {
+                point: p,
+                in_handle: (0.0, 0.0),
+                out_handle: (0.0, 0.0),
+            });
         }
     }
     fn line_to(&mut self, x: f32, y: f32) {
         let p = self.at(x, y);
         self.now.push(p);
-        let last = self.path.as_ref().and_then(|n| n.last()).map_or(p, |l| l.point);
+        let last = self
+            .path
+            .as_ref()
+            .and_then(|n| n.last())
+            .map_or(p, |l| l.point);
         self.node(last, p, p);
     }
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
         let (c, to) = (self.at(x1, y1), self.at(x, y));
         if self.path.is_some() {
             // The cubic a quadratic is: its handles two thirds of the way to the control point.
-            let from = self.path.as_ref().and_then(|n| n.last()).map_or(to, |l| l.point);
-            let third = |a: (f64, f64)| (a.0 + (c.0 - a.0) * 2.0 / 3.0, a.1 + (c.1 - a.1) * 2.0 / 3.0);
+            let from = self
+                .path
+                .as_ref()
+                .and_then(|n| n.last())
+                .map_or(to, |l| l.point);
+            let third =
+                |a: (f64, f64)| (a.0 + (c.0 - a.0) * 2.0 / 3.0, a.1 + (c.1 - a.1) * 2.0 / 3.0);
             self.node(third(from), third(to), to);
             return;
         }
@@ -517,14 +616,31 @@ pub fn placed(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<P
 pub fn outlines(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<Vec<(f64, f64)>>> {
     let mut laid = lay_out(text, animators, true)?;
     laid.chars.sort_by_key(|c| c.0.index);
-    Some(laid.chars.iter().flat_map(|c| laid.contours[c.1.clone()].iter().cloned()).collect())
+    Some(
+        laid.chars
+            .iter()
+            .flat_map(|c| laid.contours[c.1.clone()].iter().cloned())
+            .collect(),
+    )
 }
 
 /// D-350: how much one animator's range selector picks each of `chars`, the layer's characters
 /// with line breaks left out, times its Amount. Document 21 and `tools/text_animator_reference.py`
 /// give the rule.
 fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
-    let crate::effects::Effect::TextAnimator { start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low, .. } = animator else {
+    let crate::effects::Effect::TextAnimator {
+        start,
+        end,
+        offset,
+        amount,
+        based_on,
+        shape,
+        smoothness,
+        ease_high,
+        ease_low,
+        ..
+    } = animator
+    else {
         return vec![0.0; chars.len()];
     };
     // Each character's unit, if it is one, and how many units there are.
@@ -549,7 +665,10 @@ fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
     }
     n += usize::from(inside);
     let count = n as f64;
-    let (mut s, mut e) = ((start + offset) / 100.0 * count, (end + offset) / 100.0 * count);
+    let (mut s, mut e) = (
+        (start + offset) / 100.0 * count,
+        (end + offset) / 100.0 * count,
+    );
     if s > e {
         std::mem::swap(&mut s, &mut e);
     }
@@ -559,13 +678,23 @@ fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
             let c = (e.min(k + 1.0) - s.max(k)).clamp(0.0, 1.0);
             let w = smoothness / 100.0;
             if w == 0.0 {
-                if c >= 0.5 { 1.0 } else { 0.0 }
+                if c >= 0.5 {
+                    1.0
+                } else {
+                    0.0
+                }
             } else {
                 ((c - 0.5) / w + 0.5).clamp(0.0, 1.0)
             }
         } else {
             let m = k + 0.5;
-            let u = if e > s { (m - s) / (e - s) } else if m >= s { f64::INFINITY } else { f64::NEG_INFINITY };
+            let u = if e > s {
+                (m - s) / (e - s)
+            } else if m >= s {
+                f64::INFINITY
+            } else {
+                f64::NEG_INFINITY
+            };
             let within = (0.0..=1.0).contains(&u);
             match shape.as_str() {
                 "ramp_up" => u.clamp(0.0, 1.0),
@@ -584,11 +713,19 @@ fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
         };
         v * amount / 100.0
     };
-    unit.into_iter().map(|u| u.filter(|_| n > 0).map_or(0.0, pick)).collect()
+    unit.into_iter()
+        .map(|u| u.filter(|_| n > 0).map_or(0.0, pick))
+        .collect()
 }
 
 /// D-350: character `index` as the animators, top first, leave it, and the room they add after it.
-fn animate(index: usize, ch: char, text: &Text, animators: &[crate::effects::Effect], picked: &[Vec<f64>]) -> (Placed, f64) {
+fn animate(
+    index: usize,
+    ch: char,
+    text: &Text,
+    animators: &[crate::effects::Effect],
+    picked: &[Vec<f64>],
+) -> (Placed, f64) {
     let mut p = Placed {
         index,
         ch,
@@ -603,13 +740,28 @@ fn animate(index: usize, ch: char, text: &Text, animators: &[crate::effects::Eff
     };
     let mut room = 0.0;
     for (a, row) in animators.iter().zip(picked) {
-        let crate::effects::Effect::TextAnimator { position, scale, rotation, opacity, fill, color, tracking, .. } = a else { continue };
+        let crate::effects::Effect::TextAnimator {
+            position,
+            scale,
+            rotation,
+            opacity,
+            fill,
+            color,
+            tracking,
+            ..
+        } = a
+        else {
+            continue;
+        };
         let v = row[index];
         p.amounts.push(v);
         p.moved = [p.moved[0] + v * position[0], p.moved[1] + v * position[1]];
         p.turn += v * rotation;
         room += v * tracking / 1000.0 * text.size;
-        p.scale = [p.scale[0] * (1.0 + v * (scale[0] / 100.0 - 1.0)), p.scale[1] * (1.0 + v * (scale[1] / 100.0 - 1.0))];
+        p.scale = [
+            p.scale[0] * (1.0 + v * (scale[0] / 100.0 - 1.0)),
+            p.scale[1] * (1.0 + v * (scale[1] / 100.0 - 1.0)),
+        ];
         p.opacity = (p.opacity * (1.0 + v * (opacity / 100.0 - 1.0))).clamp(0.0, 1.0);
         if fill == "on" {
             let f = v.clamp(0.0, 1.0);
@@ -631,7 +783,12 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
 /// [`draw`] with D-350's text animators, top first. Characters of one opacity and colour are
 /// filled together, as all of them are without animators; every stroke is drawn before every
 /// fill, and the shadow is cast by them all.
-pub fn animated(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize) -> Option<WorkingBuffer> {
+pub fn animated(
+    text: &Text,
+    animators: &[crate::effects::Effect],
+    width: usize,
+    height: usize,
+) -> Option<WorkingBuffer> {
     animated_rows(text, animators, width, height, false).map(|(picture, _)| picture)
 }
 
@@ -645,17 +802,30 @@ pub fn draw_rows(text: &Text, width: usize, height: usize) -> Option<(WorkingBuf
 
 /// [`animated`] as a picture of the rows it reaches and the first of them; without `tight`, of
 /// the whole frame and row 0.
-fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize, tight: bool) -> Option<(WorkingBuffer, usize)> {
+fn animated_rows(
+    text: &Text,
+    animators: &[crate::effects::Effect],
+    width: usize,
+    height: usize,
+    tight: bool,
+) -> Option<(WorkingBuffer, usize)> {
     let laid = lay_out(text, animators, false)?;
     let (w, h) = (width, height);
-    let bold = if text.faux_bold { text.size * 0.02 } else { 0.0 };
+    let bold = if text.faux_bold {
+        text.size * 0.02
+    } else {
+        0.0
+    };
     // The characters by opacity and colour, in the order each first comes; one not seen is left.
     let mut groups: Vec<(f64, [f64; 3], Vec<Vec<(f64, f64)>>)> = Vec::new();
     for (p, range) in &laid.chars {
         if p.opacity <= 0.0 {
             continue;
         }
-        let i = match groups.iter().position(|g| g.0 == p.opacity && g.1 == p.color) {
+        let i = match groups
+            .iter()
+            .position(|g| g.0 == p.opacity && g.1 == p.color)
+        {
             Some(i) => i,
             None => {
                 groups.push((p.opacity, p.color, Vec::new()));
@@ -668,14 +838,24 @@ fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize
     let reach = bold + text.stroke.as_ref().map_or(0.0, |s| s.width);
     // The band of rows outlines paint, from their highest and lowest points.
     let band = |ys: &mut dyn Iterator<Item = f64>| {
-        let (lo, hi) = ys.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| (lo.min(y), hi.max(y)));
+        let (lo, hi) = ys.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| {
+            (lo.min(y), hi.max(y))
+        });
         let top = (lo - reach - 2.0).floor().clamp(0.0, h as f64) as usize;
         let bottom = (hi + reach + 3.0).ceil().clamp(0.0, h as f64) as usize;
         top..bottom.max(top)
     };
     // D-529: the rows this picture holds; every group's band lies inside them.
     let window = if tight && text.background.is_none() && text.shadow.is_none() {
-        if groups.is_empty() { 0..0 } else { band(&mut groups.iter().flat_map(|g| g.2.iter().flatten().map(|p| p.1))) }
+        if groups.is_empty() {
+            0..0
+        } else {
+            band(
+                &mut groups
+                    .iter()
+                    .flat_map(|g| g.2.iter().flatten().map(|p| p.1)),
+            )
+        }
     } else {
         0..h
     };
@@ -684,10 +864,21 @@ fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize
     if let Some(b) = &text.background {
         let p = b.padding;
         let [l, t, r, bottom] = laid.bounds;
-        let field = fill_rows(&[rounded_box(l - p, t - p, r + p, bottom + p, b.roundness)], w, h, window.clone());
+        let field = fill_rows(
+            &[rounded_box(l - p, t - p, r + p, bottom + p, b.roundness)],
+            w,
+            h,
+            window.clone(),
+        );
         crate::shape::paint(picture.data_mut(), &field, w, b.color, b.opacity, None);
     }
-    type Field = (f64, [f64; 3], Vec<f32>, Option<Vec<f32>>, std::ops::Range<usize>);
+    type Field = (
+        f64,
+        [f64; 3],
+        Vec<f32>,
+        Option<Vec<f32>>,
+        std::ops::Range<usize>,
+    );
     let fields: Vec<Field> = groups
         .iter()
         .map(|(opacity, color, contours)| {
@@ -700,13 +891,33 @@ fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize
                 union(&mut f, &ink);
                 f
             });
-            (*opacity, *color, ink, lined, band(&mut contours.iter().flatten().map(|p| p.1)))
+            (
+                *opacity,
+                *color,
+                ink,
+                lined,
+                band(&mut contours.iter().flatten().map(|p| p.1)),
+            )
         })
         .collect();
-    let rows = |data: &mut [f32], field: &[f32], band: &std::ops::Range<usize>, color: [f64; 3], opacity: f64| {
+    let rows = |data: &mut [f32],
+                field: &[f32],
+                band: &std::ops::Range<usize>,
+                color: [f64; 3],
+                opacity: f64| {
         // A band of no outlines (a space) is empty, h..h, which may lie past the window.
-        let (a, b) = (band.start.clamp(r0, r0 + rh) - r0, band.end.clamp(r0, r0 + rh) - r0);
-        crate::shape::paint(&mut data[a * w * 4..b * w * 4], &field[a * w..b * w], w, color, opacity, None);
+        let (a, b) = (
+            band.start.clamp(r0, r0 + rh) - r0,
+            band.end.clamp(r0, r0 + rh) - r0,
+        );
+        crate::shape::paint(
+            &mut data[a * w * 4..b * w * 4],
+            &field[a * w..b * w],
+            w,
+            color,
+            opacity,
+            None,
+        );
     };
     if let (Some(s), false) = (&text.shadow, fields.is_empty()) {
         // Every group's letters, each as seen.
@@ -729,7 +940,11 @@ fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize
             let part = shifted(&under, w, h, dx, dy, [l, t, r, b]);
             crate::shape::paint(shadow.data_mut(), &part, pw, s.color, s.opacity, None);
             // The blur grows the part by its radius on every side.
-            let grow = if s.softness > 0.0 { crate::effects::blur(&mut shadow, s.softness / 2.0) } else { 0 };
+            let grow = if s.softness > 0.0 {
+                crate::effects::blur(&mut shadow, s.softness / 2.0)
+            } else {
+                0
+            };
             let sw = shadow.width();
             let sh = shadow.data();
             let data = picture.data_mut();
@@ -763,11 +978,24 @@ fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize
 // ponytail: four 1080p pictures, about 130 MB; key by layer if a project shows more text layers
 // than that redrawing on every frame.
 // D-350: with its animators as they are on the frame, so a still animator draws once too.
-pub fn drawn(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize) -> Option<Arc<WorkingBuffer>> {
-    type Kept = Vec<(Text, Vec<crate::effects::Effect>, usize, usize, Arc<WorkingBuffer>)>;
+pub fn drawn(
+    text: &Text,
+    animators: &[crate::effects::Effect],
+    width: usize,
+    height: usize,
+) -> Option<Arc<WorkingBuffer>> {
+    type Kept = Vec<(
+        Text,
+        Vec<crate::effects::Effect>,
+        usize,
+        usize,
+        Arc<WorkingBuffer>,
+    )>;
     static KEPT: Mutex<Kept> = Mutex::new(Vec::new());
     let hit = |kept: &mut Kept| {
-        let i = kept.iter().position(|(t, a, w, h, _)| t == text && a == animators && *w == width && *h == height)?;
+        let i = kept.iter().position(|(t, a, w, h, _)| {
+            t == text && a == animators && *w == width && *h == height
+        })?;
         let found = kept.remove(i);
         let picture = found.4.clone();
         kept.push(found);
@@ -782,7 +1010,13 @@ pub fn drawn(text: &Text, animators: &[crate::effects::Effect], width: usize, he
         if kept.len() == 4 {
             kept.remove(0);
         }
-        kept.push((text.clone(), animators.to_vec(), width, height, picture.clone()));
+        kept.push((
+            text.clone(),
+            animators.to_vec(),
+            width,
+            height,
+            picture.clone(),
+        ));
     }
     Some(picture)
 }
@@ -806,25 +1040,45 @@ struct Laid {
 fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Option<Laid> {
     let face = rustybuzz::Face::from_slice(font_bytes(&text.font)?, 0)?;
     let scale = text.size / face.units_per_em() as f64;
-    let natural = (face.ascender() as f64 - face.descender() as f64 + face.line_gap() as f64) * scale;
-    let line = if text.leading > 0.0 { text.leading } else { natural };
+    let natural =
+        (face.ascender() as f64 - face.descender() as f64 + face.line_gap() as f64) * scale;
+    let line = if text.leading > 0.0 {
+        text.leading
+    } else {
+        natural
+    };
     let boxed = text.box_width > 0.0;
     let ascent = face.ascender() as f64 * scale;
-    let first = if boxed { text.at[1] + ascent } else { text.at[1] };
+    let first = if boxed {
+        text.at[1] + ascent
+    } else {
+        text.at[1]
+    };
     let track = text.tracking / 1000.0 * text.size;
-    let words = if text.all_caps { text.text.to_uppercase() } else { text.text.clone() };
+    let words = if text.all_caps {
+        text.text.to_uppercase()
+    } else {
+        text.text.clone()
+    };
     let slant = if text.faux_italic { 0.2126 } else { 0.0 };
     let mut contours = Vec::new();
     let mut across = [f64::INFINITY, f64::NEG_INFINITY];
     let mut n = 0;
     // D-350: each animator's pick of every character, line breaks left out.
-    let flat: Vec<char> = words.split('\n').flat_map(|p| p.trim_end_matches('\r').chars()).collect();
+    let flat: Vec<char> = words
+        .split('\n')
+        .flat_map(|p| p.trim_end_matches('\r').chars())
+        .collect();
     let picked: Vec<Vec<f64>> = animators.iter().map(|a| picks(&flat, a)).collect();
     let mut placed = Vec::new();
     let mut k = 0;
     for paragraph in words.split('\n') {
         let chars: Vec<char> = paragraph.trim_end_matches('\r').chars().collect();
-        let mut states: Vec<(Placed, f64)> = chars.iter().enumerate().map(|(i, c)| animate(k + i, *c, text, animators, &picked)).collect();
+        let mut states: Vec<(Placed, f64)> = chars
+            .iter()
+            .enumerate()
+            .map(|(i, c)| animate(k + i, *c, text, animators, &picked))
+            .collect();
         k += chars.len();
         // D-371: shaped. A glyph the font lacks is its "missing" glyph, usually a box: seen, not
         // hidden. A cluster (a ligature, a letter and its marks) is one unit from here on, held by
@@ -836,15 +1090,29 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
             units[0][g.ch] += i32::from(face.glyph_hor_advance(g.id).unwrap_or(0));
             units[1][g.ch] += g.advance;
         }
-        let starts: Vec<usize> = { let mut s: Vec<usize> = glyphs.iter().map(|g| g.ch).collect(); s.sort_unstable(); s.dedup(); s };
+        let starts: Vec<usize> = {
+            let mut s: Vec<usize> = glyphs.iter().map(|g| g.ch).collect();
+            s.sort_unstable();
+            s.dedup();
+            s
+        };
         for (i, h) in head.iter_mut().enumerate() {
-            *h = starts[..starts.partition_point(|s| *s <= i)].last().copied().unwrap_or(i);
+            *h = starts[..starts.partition_point(|s| *s <= i)]
+                .last()
+                .copied()
+                .unwrap_or(i);
         }
         // Each unit's own advance, and what kerning adds to it.
         let raw: Vec<f64> = units[0].iter().map(|u| *u as f64 * scale).collect();
         // How far the pen moves after each unit: its advance, the tracking, and the kern.
         let step: Vec<f64> = (0..chars.len())
-            .map(|i| if head[i] != i { 0.0 } else { raw[i] + track + (units[1][i] - units[0][i]) as f64 * scale + states[i].1 })
+            .map(|i| {
+                if head[i] != i {
+                    0.0
+                } else {
+                    raw[i] + track + (units[1][i] - units[0][i]) as f64 * scale + states[i].1
+                }
+            })
             .collect();
         let mut from = vec![0.0];
         for s in &step {
@@ -852,7 +1120,13 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
         }
         // A line's width, from its first glyph's origin to its last glyph's advance, without the
         // tracking and kern that lead to a next glyph.
-        let width = |a: usize, e: usize| if e > a { from[head[e - 1]] - from[a] + raw[head[e - 1]] } else { 0.0 };
+        let width = |a: usize, e: usize| {
+            if e > a {
+                from[head[e - 1]] - from[a] + raw[head[e - 1]]
+            } else {
+                0.0
+            }
+        };
         let mut lines = Vec::new();
         if boxed {
             let space = |i: usize| chars[i].is_whitespace();
@@ -889,17 +1163,36 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
             lines.push((0, chars.len(), true));
         }
         for (a, end, last) in lines {
-            let e = if boxed { (a..end).rev().find(|i| !chars[*i].is_whitespace()).map_or(a, |i| i + 1) } else { end };
+            let e = if boxed {
+                (a..end)
+                    .rev()
+                    .find(|i| !chars[*i].is_whitespace())
+                    .map_or(a, |i| i + 1)
+            } else {
+                end
+            };
             let w = width(a, e);
             // In a justified line the extra room goes to its spaces, or between every two
             // characters when it has none, as Japanese has none.
             let stretch = boxed && text.align == Align::Justify && !last && e > a + 1;
-            let gaps = (a..e.saturating_sub(1)).filter(|i| chars[*i].is_whitespace()).count();
-            let extra = if stretch { (text.box_width - w).max(0.0) } else { 0.0 };
+            let gaps = (a..e.saturating_sub(1))
+                .filter(|i| chars[*i].is_whitespace())
+                .count();
+            let extra = if stretch {
+                (text.box_width - w).max(0.0)
+            } else {
+                0.0
+            };
             let per = |i: usize| match (stretch, gaps) {
                 (false, _) => 0.0,
                 (true, 0) => extra / (e - a - 1) as f64,
-                (true, g) => if chars[i].is_whitespace() { extra / g as f64 } else { 0.0 },
+                (true, g) => {
+                    if chars[i].is_whitespace() {
+                        extra / g as f64
+                    } else {
+                        0.0
+                    }
+                }
             };
             let left = if boxed {
                 text.at[0]
@@ -929,10 +1222,17 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
             for i in order {
                 let p = &mut states[i].0;
                 p.anchor = [x + raw[i] / 2.0, y];
-                let turn = (p.moved != [0.0; 2] || p.turn != 0.0 || p.scale != [1.0; 2]).then(|| {
-                    let (sin, cos) = p.turn.to_radians().sin_cos();
-                    Turn { anchor: p.anchor, scale: p.scale, cos, sin, moved: p.moved }
-                });
+                let turn =
+                    (p.moved != [0.0; 2] || p.turn != 0.0 || p.scale != [1.0; 2]).then(|| {
+                        let (sin, cos) = p.turn.to_radians().sin_cos();
+                        Turn {
+                            anchor: p.anchor,
+                            scale: p.scale,
+                            cos,
+                            sin,
+                            moved: p.moved,
+                        }
+                    });
                 let from = contours.len();
                 let mut gx = 0;
                 for g in glyphs.iter().filter(|g| g.ch == i) {
@@ -940,16 +1240,42 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
                     // sideways so its left edge meets the side bearing in hmtx, its lsb less the
                     // xMin in the glyph's own header, as FreeType, HarfBuzz and Windows draw it.
                     // A CFF font has no glyf table and is drawn as it is.
-                    let slid = face.tables().glyf.and_then(|t| Some(i32::from(face.glyph_hor_side_bearing(g.id)?) - i32::from(t.bbox(g.id)?.x_min))).unwrap_or(0);
-                    let (gx_at, gy) = ((gx + g.offset.0 + slid) as f64 * scale, g.offset.1 as f64 * scale);
-                    let mut pen = Pen { x: x + gx_at, y: y - gy, scale, slant, turn, now: Vec::new(), into: &mut contours, path: path.then(Vec::new) };
+                    let slid = face
+                        .tables()
+                        .glyf
+                        .and_then(|t| {
+                            Some(
+                                i32::from(face.glyph_hor_side_bearing(g.id)?)
+                                    - i32::from(t.bbox(g.id)?.x_min),
+                            )
+                        })
+                        .unwrap_or(0);
+                    let (gx_at, gy) = (
+                        (gx + g.offset.0 + slid) as f64 * scale,
+                        g.offset.1 as f64 * scale,
+                    );
+                    let mut pen = Pen {
+                        x: x + gx_at,
+                        y: y - gy,
+                        scale,
+                        slant,
+                        turn,
+                        now: Vec::new(),
+                        into: &mut contours,
+                        path: path.then(Vec::new),
+                    };
                     face.outline_glyph(g.id, &mut pen);
                     pen.end();
                     gx += g.advance;
                 }
-                p.bounds = contours[from..].iter().flatten().fold(None, |b: Option<[f64; 4]>, &(px, py)| {
-                    Some(b.map_or([px, py, px, py], |b| [b[0].min(px), b[1].min(py), b[2].max(px), b[3].max(py)]))
-                });
+                p.bounds = contours[from..].iter().flatten().fold(
+                    None,
+                    |b: Option<[f64; 4]>, &(px, py)| {
+                        Some(b.map_or([px, py, px, py], |b| {
+                            [b[0].min(px), b[1].min(py), b[2].max(px), b[3].max(py)]
+                        }))
+                    },
+                );
                 placed.push((p.clone(), from..contours.len()));
                 x += step[i] + per(i);
             }
@@ -961,15 +1287,29 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
         across = [text.at[0], text.at[0] + text.box_width];
     }
     let last = first + (n.max(1) - 1) as f64 * line;
-    let mut bounds = [across[0], first - ascent, across[1], last - face.descender() as f64 * scale];
+    let mut bounds = [
+        across[0],
+        first - ascent,
+        across[1],
+        last - face.descender() as f64 * scale,
+    ];
     for &(x, y) in contours.iter().flatten() {
-        bounds = [bounds[0].min(x), bounds[1].min(y), bounds[2].max(x), bounds[3].max(y)];
+        bounds = [
+            bounds[0].min(x),
+            bounds[1].min(y),
+            bounds[2].max(x),
+            bounds[3].max(y),
+        ];
     }
     if !bounds[0].is_finite() {
         bounds[0] = text.at[0];
         bounds[2] = text.at[0];
     }
-    Some(Laid { contours, bounds, chars: placed })
+    Some(Laid {
+        contours,
+        bounds,
+        chars: placed,
+    })
 }
 
 /// D-371: the font's standard ligatures (`liga`, `clig`), such as the bundled font's "fi", on by
@@ -1015,7 +1355,11 @@ pub fn shaped(face: &rustybuzz::Face, chars: &[char], kerning: bool) -> Vec<Glyp
         b.guess_segment_properties();
         let s = b.script();
         // Japanese and Chinese mix kanji, kana and bopomofo in one run, as one script.
-        let s = if [script::HIRAGANA, script::KATAKANA, script::BOPOMOFO].contains(&s) { script::HAN } else { s };
+        let s = if [script::HIRAGANA, script::KATAKANA, script::BOPOMOFO].contains(&s) {
+            script::HAN
+        } else {
+            s
+        };
         (s != script::UNKNOWN).then(|| (s, b.direction()))
     };
     let mut runs: Vec<(usize, usize, Script, Direction)> = Vec::new();
@@ -1063,8 +1407,17 @@ pub fn shaped(face: &rustybuzz::Face, chars: &[char], kerning: bool) -> Vec<Glyp
 /// A box with its corners rounded by `r` pixels, as one closed outline.
 fn rounded_box(l: f64, t: f64, r_: f64, b: f64, round: f64) -> Vec<(f64, f64)> {
     let r = round.min((r_ - l) / 2.0).min((b - t) / 2.0).max(0.0);
-    let corners = [(r_ - r, t + r, -90.0), (r_ - r, b - r, 0.0), (l + r, b - r, 90.0), (l + r, t + r, 180.0)];
-    let pieces = if r > 0.0 { (r / 2.0).ceil().clamp(2.0, 64.0) as usize } else { 1 };
+    let corners = [
+        (r_ - r, t + r, -90.0),
+        (r_ - r, b - r, 0.0),
+        (l + r, b - r, 90.0),
+        (l + r, t + r, 180.0),
+    ];
+    let pieces = if r > 0.0 {
+        (r / 2.0).ceil().clamp(2.0, 64.0) as usize
+    } else {
+        1
+    };
     let mut outline = Vec::new();
     for (cx, cy, from) in corners {
         for i in 0..=pieces {
@@ -1077,16 +1430,30 @@ fn rounded_box(l: f64, t: f64, r_: f64, b: f64, round: f64) -> Vec<(f64, f64)> {
 
 /// Every pixel's cover by the band within `reach` of the outlines, which is shape strokes'
 /// field asked only over the outlines' box; D-529: of the rows `rows` only, row `rows.start` first.
-fn around(contours: &[Vec<(f64, f64)>], reach: f64, w: usize, h: usize, rows: std::ops::Range<usize>) -> Vec<f32> {
+fn around(
+    contours: &[Vec<(f64, f64)>],
+    reach: f64,
+    w: usize,
+    h: usize,
+    rows: std::ops::Range<usize>,
+) -> Vec<f32> {
     let mut field = vec![0.0f32; w * rows.len()];
     let points = || contours.iter().flatten();
     if contours.is_empty() || w == 0 || h == 0 {
         return field;
     }
-    let left = (points().map(|p| p.0).fold(f64::INFINITY, f64::min) - reach - 1.0).floor().clamp(0.0, w as f64) as usize;
-    let top = (points().map(|p| p.1).fold(f64::INFINITY, f64::min) - reach - 1.0).floor().clamp(0.0, h as f64) as usize;
-    let right = (points().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max) + reach + 2.0).ceil().clamp(0.0, w as f64) as usize;
-    let bottom = (points().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max) + reach + 2.0).ceil().clamp(0.0, h as f64) as usize;
+    let left = (points().map(|p| p.0).fold(f64::INFINITY, f64::min) - reach - 1.0)
+        .floor()
+        .clamp(0.0, w as f64) as usize;
+    let top = (points().map(|p| p.1).fold(f64::INFINITY, f64::min) - reach - 1.0)
+        .floor()
+        .clamp(0.0, h as f64) as usize;
+    let right = (points().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max) + reach + 2.0)
+        .ceil()
+        .clamp(0.0, w as f64) as usize;
+    let bottom = (points().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max) + reach + 2.0)
+        .ceil()
+        .clamp(0.0, h as f64) as usize;
     if right <= left || bottom <= top {
         return field;
     }
@@ -1115,24 +1482,48 @@ fn union(into: &mut [f32], other: &[f32]) {
 /// cover: its covered pixels' box, moved, and one more pixel right and down for the sampling
 /// between pixels. `None` when nothing is covered or it all moves out of the frame.
 fn moved_box(field: &[f32], w: usize, h: usize, dx: f64, dy: f64) -> Option<[usize; 4]> {
-    let rows: Vec<usize> = (0..h).filter(|y| field[y * w..(y + 1) * w].iter().any(|v| *v != 0.0)).collect();
+    let rows: Vec<usize> = (0..h)
+        .filter(|y| field[y * w..(y + 1) * w].iter().any(|v| *v != 0.0))
+        .collect();
     let (&top, &bottom) = (rows.first()?, rows.last()?);
     let row = |y: usize| &field[y * w..(y + 1) * w];
-    let left = rows.iter().filter_map(|y| row(*y).iter().position(|v| *v != 0.0)).min()?;
-    let right = rows.iter().filter_map(|y| row(*y).iter().rposition(|v| *v != 0.0)).max()?;
+    let left = rows
+        .iter()
+        .filter_map(|y| row(*y).iter().position(|v| *v != 0.0))
+        .min()?;
+    let right = rows
+        .iter()
+        .filter_map(|y| row(*y).iter().rposition(|v| *v != 0.0))
+        .max()?;
     let (fx, fy) = (dx.floor() as i64, dy.floor() as i64);
     let clamp = |v: i64, most: usize| v.clamp(0, most as i64) as usize;
     let (l, t) = (clamp(left as i64 + fx, w), clamp(top as i64 + fy, h));
-    let (r, b) = (clamp(right as i64 + fx + 2, w), clamp(bottom as i64 + fy + 2, h));
+    let (r, b) = (
+        clamp(right as i64 + fx + 2, w),
+        clamp(bottom as i64 + fy + 2, h),
+    );
     (r > l && b > t).then_some([l, t, r, b])
 }
 
 /// A field moved by (dx, dy) pixels, sampled between pixels bilinearly; what moves in from
 /// outside is empty. Only the part `[l, t, r, b]` of the frame is given, row by row.
-fn shifted(field: &[f32], w: usize, h: usize, dx: f64, dy: f64, [l, t, r, b]: [usize; 4]) -> Vec<f32> {
+fn shifted(
+    field: &[f32],
+    w: usize,
+    h: usize,
+    dx: f64,
+    dy: f64,
+    [l, t, r, b]: [usize; 4],
+) -> Vec<f32> {
     let (fx, fy) = (dx.floor(), dy.floor());
     let (tx, ty) = ((dx - fx) as f32, (dy - fy) as f32);
-    let at = |x: i64, y: i64| if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h { field[y as usize * w + x as usize] } else { 0.0 };
+    let at = |x: i64, y: i64| {
+        if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
+            field[y as usize * w + x as usize]
+        } else {
+            0.0
+        }
+    };
     let (fx, fy) = (fx as i64, fy as i64);
     let mut out = vec![0.0f32; (r - l) * (b - t)];
     out.par_chunks_mut(r - l).enumerate().for_each(|(k, row)| {
@@ -1159,24 +1550,41 @@ pub fn fill(contours: &[Vec<(f64, f64)>], w: usize, h: usize) -> Vec<f32> {
 
 /// D-529: [`fill`] of the rows `rows` only, row `rows.start` first; each row worked as [`fill`]
 /// works it, so every value is the same.
-fn fill_rows(contours: &[Vec<(f64, f64)>], w: usize, h: usize, rows: std::ops::Range<usize>) -> Vec<f32> {
+fn fill_rows(
+    contours: &[Vec<(f64, f64)>],
+    w: usize,
+    h: usize,
+    rows: std::ops::Range<usize>,
+) -> Vec<f32> {
     let n = SAMPLES_PER_SIDE;
     let mut field = vec![0.0f32; w * rows.len()];
     let edges: Vec<[f64; 4]> = contours
         .iter()
-        .flat_map(|c| (0..c.len()).map(move |i| {
-            let (a, b) = (c[i], c[(i + 1) % c.len()]);
-            [a.0, a.1, b.0, b.1]
-        }))
+        .flat_map(|c| {
+            (0..c.len()).map(move |i| {
+                let (a, b) = (c[i], c[(i + 1) % c.len()]);
+                [a.0, a.1, b.0, b.1]
+            })
+        })
         .filter(|e| e[1] != e[3])
         .collect();
     if edges.is_empty() || w == 0 {
         return field;
     }
-    let top = edges.iter().map(|e| e[1].min(e[3])).fold(f64::INFINITY, f64::min);
-    let bottom = edges.iter().map(|e| e[1].max(e[3])).fold(f64::NEG_INFINITY, f64::max);
-    let first = (top.floor().max(0.0) as usize).min(h).clamp(rows.start, rows.end);
-    let last = (bottom.ceil().max(0.0) as usize).min(h).clamp(first, rows.end);
+    let top = edges
+        .iter()
+        .map(|e| e[1].min(e[3]))
+        .fold(f64::INFINITY, f64::min);
+    let bottom = edges
+        .iter()
+        .map(|e| e[1].max(e[3]))
+        .fold(f64::NEG_INFINITY, f64::max);
+    let first = (top.floor().max(0.0) as usize)
+        .min(h)
+        .clamp(rows.start, rows.end);
+    let last = (bottom.ceil().max(0.0) as usize)
+        .min(h)
+        .clamp(first, rows.end);
     field[(first - rows.start) * w..(last - rows.start) * w]
         .par_chunks_mut(w)
         .enumerate()
@@ -1194,7 +1602,10 @@ fn fill_rows(contours: &[Vec<(f64, f64)>], w: usize, h: usize, rows: std::ops::R
                             crossings.push((x0 + t * (x1 - x0), if y1 > y0 { 1 } else { -1 }));
                         }
                     }
-                    crossings.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("an edge crossing is never NaN"));
+                    crossings.sort_by(|a, b| {
+                        a.0.partial_cmp(&b.0)
+                            .expect("an edge crossing is never NaN")
+                    });
                     let (mut at, mut count) = (0, 0);
                     for (xi, hit) in hits.iter_mut().enumerate() {
                         for i in 0..n {

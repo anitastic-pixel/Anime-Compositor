@@ -52,9 +52,19 @@ fn shot(extra: J) -> String {
 fn frame(extra: J) -> Vec<[f32; 4]> {
     let loaded = persist::load_str(&shot(extra)).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let f = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 256, &mut log)
-        .expect("the frame draws");
-    (0..16).flat_map(|y| (0..16).map(move |x| (x, y))).map(|(x, y)| f.pixel(x, y)).collect()
+    let f = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        256,
+        &mut log,
+    )
+    .expect("the frame draws");
+    (0..16)
+        .flat_map(|y| (0..16).map(move |x| (x, y)))
+        .map(|(x, y)| f.pixel(x, y))
+        .collect()
 }
 
 #[test]
@@ -62,35 +72,77 @@ fn off_is_the_bolt_alone_and_on_is_as_before() {
     let before = frame(json!({}));
     let on = frame(json!({"composite": "on"}));
     let off = frame(json!({"composite": "off"}));
-    assert_eq!(before, on, "a file without the setting draws as before, which is on");
+    assert_eq!(
+        before, on,
+        "a file without the setting draws as before, which is on"
+    );
     let (mut lit, mut clear) = (0, 0);
     for (i, (a, b)) in on.iter().zip(&off).enumerate() {
         if b[3] == 0.0 {
             assert_eq!(*b, [0.0; 4], "pixel {i}: off and unlit is clear");
-            assert_eq!(*a, [1.0, 0.0, 0.0, 1.0], "pixel {i}: on and unlit is the red");
+            assert_eq!(
+                *a,
+                [1.0, 0.0, 0.0, 1.0],
+                "pixel {i}: on and unlit is the red"
+            );
             clear += 1;
             continue;
         }
         lit += 1;
-        assert!((a[0] - b[0] - 1.0).abs() < 1e-6, "pixel {i}: on's red is off's plus the solid's: {a:?} {b:?}");
-        assert!((a[1] - b[1]).abs() < 1e-6 && (a[2] - b[2]).abs() < 1e-6, "pixel {i}: the same light: {a:?} {b:?}");
+        assert!(
+            (a[0] - b[0] - 1.0).abs() < 1e-6,
+            "pixel {i}: on's red is off's plus the solid's: {a:?} {b:?}"
+        );
+        assert!(
+            (a[1] - b[1]).abs() < 1e-6 && (a[2] - b[2]).abs() < 1e-6,
+            "pixel {i}: the same light: {a:?} {b:?}"
+        );
         assert_eq!(a[3], 1.0, "pixel {i}: on stays opaque");
-        assert!(b[3] > 0.0 && b[3] <= 1.0, "pixel {i}: off covers by the bolt's own share: {}", b[3]);
+        assert!(
+            b[3] > 0.0 && b[3] <= 1.0,
+            "pixel {i}: off covers by the bolt's own share: {}",
+            b[3]
+        );
     }
-    assert!(lit > 16 && clear > 16, "the bolt lights some pixels and not others: {lit} lit, {clear} clear");
+    assert!(
+        lit > 16 && clear > 16,
+        "the bolt lights some pixels and not others: {lit} lit, {clear} clear"
+    );
 }
 
 #[test]
 fn the_file_keeps_it_and_reports_a_wrong_one() {
     let saved = |text: &str| {
         let loaded = persist::load_str(text).expect("the shot reads");
-        let saved: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
+        let saved: J = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
         saved["compositions"][0]["layers"][0]["effects"][0]["parameters"].clone()
     };
-    assert!(saved(&shot(json!({}))).get("composite").is_none(), "on is not written, so the file saves as before");
-    assert_eq!(saved(&shot(json!({"composite": "on"})))["composite"], "on", "a file that wrote on keeps it as written");
-    assert_eq!(saved(&shot(json!({"composite": "off"})))["composite"], "off", "off is kept");
+    assert!(
+        saved(&shot(json!({}))).get("composite").is_none(),
+        "on is not written, so the file saves as before"
+    );
+    assert_eq!(
+        saved(&shot(json!({"composite": "on"})))["composite"],
+        "on",
+        "a file that wrote on keeps it as written"
+    );
+    assert_eq!(
+        saved(&shot(json!({"composite": "off"})))["composite"],
+        "off",
+        "off is kept"
+    );
     let loaded = persist::load_str(&shot(json!({"composite": "maybe"}))).expect("the shot reads");
-    let e = &loaded.document.project().compositions[0].layer(&Id::new("red")).unwrap().effects[0].effect;
-    assert_eq!(e.why_invalid(), "Lightning Bolt's composite on original is \"off\" or \"on\", and this is \"maybe\".");
+    let e = &loaded.document.project().compositions[0]
+        .layer(&Id::new("red"))
+        .unwrap()
+        .effects[0]
+        .effect;
+    assert_eq!(
+        e.why_invalid(),
+        "Lightning Bolt's composite on original is \"off\" or \"on\", and this is \"maybe\"."
+    );
 }

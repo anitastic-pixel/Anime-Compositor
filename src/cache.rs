@@ -52,10 +52,10 @@ use rayon::prelude::*;
 
 use crate::compose::retag;
 use crate::diagnostics::Diagnostic;
-use crate::model::Id;
 use crate::effects::{Bypassed, EffectInstance};
 use crate::mask::Mask;
 use crate::media;
+use crate::model::Id;
 use crate::model::Interpretation;
 use crate::{ImageBuffer, WorkingBuffer};
 
@@ -109,7 +109,10 @@ pub const DEFAULT_EFFECT_BUDGET_BYTES: usize = 448 * 1024 * 1024;
 #[cfg(windows)]
 pub fn installed_memory() -> Option<u64> {
     use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
-    let mut status = MEMORYSTATUSEX { dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32, ..Default::default() };
+    let mut status = MEMORYSTATUSEX {
+        dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
+        ..Default::default()
+    };
     // SAFETY: `status` is ours and its length is set, as the call requires.
     unsafe { GlobalMemoryStatusEx(&mut status) }.ok()?;
     Some(status.ullTotalPhys)
@@ -123,13 +126,17 @@ pub fn installed_memory() -> Option<u64> {
 /// D-105: what the viewer's cache may hold when the memory setting is Automatic. A quarter of the
 /// machine's memory, and never less than D-40's gibibyte.
 pub fn automatic_budget() -> usize {
-    installed_memory().map_or(DEFAULT_BUDGET_BYTES, |m| ((m / 4) as usize).max(DEFAULT_BUDGET_BYTES))
+    installed_memory().map_or(DEFAULT_BUDGET_BYTES, |m| {
+        ((m / 4) as usize).max(DEFAULT_BUDGET_BYTES)
+    })
 }
 
 /// D-105: the most a Custom setting may give the viewer's cache: three quarters of the machine's
 /// memory, so Windows and every other program keep a quarter.
 pub fn largest_budget() -> usize {
-    installed_memory().map_or(DEFAULT_BUDGET_BYTES, |m| ((m / 4 * 3) as usize).max(DEFAULT_BUDGET_BYTES))
+    installed_memory().map_or(DEFAULT_BUDGET_BYTES, |m| {
+        ((m / 4 * 3) as usize).max(DEFAULT_BUDGET_BYTES)
+    })
 }
 
 /// The way a budget is written in the pages that quote one, so a page and the constant it is
@@ -173,7 +180,14 @@ const DISK_BYTES_PER_MS: f64 = 2_000_000.0;
 
 /// B-171b: a composition frame on its way to disk: the folder, its file, its key and file list,
 /// the frame, and where a failure to write it is noted for the cache that kept it.
-type Job = (DiskCache, PathBuf, String, String, Arc<WorkingBuffer>, Arc<Mutex<Vec<String>>>);
+type Job = (
+    DiskCache,
+    PathBuf,
+    String,
+    String,
+    Arc<WorkingBuffer>,
+    Arc<Mutex<Vec<String>>>,
+);
 
 /// B-171b: the one worker that writes composition frames to disk, so the frame that drew one does
 /// not wait for the disk, and the files it has still to write, so a reader waits for one rather
@@ -255,7 +269,11 @@ impl DiskCache {
     /// The file a cel with `key` is kept in. `None` for a file dated before 1970, which has no
     /// time that can be written into a name.
     fn file(&self, key: &Key) -> Option<PathBuf> {
-        let since = key.modified.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+        let since = key
+            .modified
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()?
+            .as_nanos();
         // Document 27 line 29's key: the media's identity (path, length, time), its
         // interpretation, and the decoder's version.
         let identity = format!(
@@ -265,40 +283,58 @@ impl DiskCache {
             key.interpretation.color_space,
             key.interpretation.alpha,
         );
-        Some(self.folder.join(format!("{}.cel", crate::sha256::hex(identity.as_bytes()))))
+        Some(
+            self.folder
+                .join(format!("{}.cel", crate::sha256::hex(identity.as_bytes()))),
+        )
     }
 
     /// The drawing kept in `file`, as [`media::from_8bit`] makes it: `Ok(None)` when there is none,
     /// `Err` with the reason when the file is there but is not a whole, unchanged copy.
     fn load(&self, file: &Path) -> Result<Option<ImageBuffer>, String> {
-        let mut f = match std::fs::OpenOptions::new().read(true).write(true).open(file) {
+        let mut f = match std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(file)
+        {
             Ok(f) => f,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(format!("it could not be opened ({e})")),
         };
         let mut head = [0u8; HEADER];
-        f.read_exact(&mut head).map_err(|_| "it is shorter than its own header".to_string())?;
+        f.read_exact(&mut head)
+            .map_err(|_| "it is shorter than its own header".to_string())?;
         if &head[..8] != MAGIC {
             return Err("it does not begin the way a copy does".into());
         }
-        let word = |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().expect("eight bytes"));
+        let word =
+            |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().expect("eight bytes"));
         let (w, h, sum) = (word(8) as usize, word(16) as usize, word(24));
         // Checked against the file's length before anything is allocated, so a damaged header
         // cannot ask for more memory than the file holds.
         let bytes = w.checked_mul(h).and_then(|n| n.checked_mul(4));
-        let length = f.metadata().map_err(|e| format!("its length could not be read ({e})"))?.len();
+        let length = f
+            .metadata()
+            .map_err(|e| format!("its length could not be read ({e})"))?
+            .len();
         let whole = bytes.and_then(|n| n.checked_add(HEADER)).map(|n| n as u64);
         if whole != Some(length) {
-            return Err(format!("it holds {length} bytes, not the {} a {w}x{h} copy holds", whole.unwrap_or(0)));
+            return Err(format!(
+                "it holds {length} bytes, not the {} a {w}x{h} copy holds",
+                whole.unwrap_or(0)
+            ));
         }
         let mut rgba = vec![0u8; bytes.expect("checked above")];
-        f.read_exact(&mut rgba).map_err(|e| format!("it could not be read to the end ({e})"))?;
+        f.read_exact(&mut rgba)
+            .map_err(|e| format!("it could not be read to the end ({e})"))?;
         if checksum(&rgba) != sum {
             return Err("its pixels do not match the checksum written with them".into());
         }
         // Least recently used is judged by this time, so reading a copy counts as using it.
         let _ = f.set_modified(SystemTime::now());
-        media::from_8bit(file, w, h, &rgba).map(Some).map_err(|d| format!("its header is not a picture's ({})", d.detail))
+        media::from_8bit(file, w, h, &rgba)
+            .map(Some)
+            .map_err(|d| format!("its header is not a picture's ({})", d.detail))
     }
 
     /// Keep `buffer` in `file`.
@@ -313,28 +349,48 @@ impl DiskCache {
 
     /// B-171 (G12): the file the composition frame kept under `key` is in.
     fn frame_file(&self, key: &str) -> PathBuf {
-        self.folder.join(format!("{}.frame", crate::sha256::hex(key.as_bytes())))
+        self.folder
+            .join(format!("{}.frame", crate::sha256::hex(key.as_bytes())))
     }
 
     /// B-171: the composition frame kept in `file` under `key`, and the files it was drawn from, as
     /// [`load`](Self::load) reads a cel: `Ok(None)` when there is none, `Err` with the reason when
     /// the file is there but is not a whole copy of that frame. The key is kept whole in the file
     /// and compared, so two keys whose names happened to match could not be mistaken for each other.
-    fn load_frame(&self, file: &Path, key: &str) -> Result<Option<(WorkingBuffer, Vec<Stamp>)>, String> {
-        let mut f = match std::fs::OpenOptions::new().read(true).write(true).open(file) {
+    fn load_frame(
+        &self,
+        file: &Path,
+        key: &str,
+    ) -> Result<Option<(WorkingBuffer, Vec<Stamp>)>, String> {
+        let mut f = match std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(file)
+        {
             Ok(f) => f,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(format!("it could not be opened ({e})")),
         };
         let mut head = [0u8; FRAME_HEADER];
-        f.read_exact(&mut head).map_err(|_| "it is shorter than its own header".to_string())?;
+        f.read_exact(&mut head)
+            .map_err(|_| "it is shorter than its own header".to_string())?;
         if &head[..8] != FRAME_MAGIC {
             return Err("it does not begin the way a copy does".into());
         }
-        let word = |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().expect("eight bytes"));
-        let (w, h, text, text_sum, pixel_sum) = (word(8) as usize, word(16) as usize, word(24) as usize, word(32), word(40));
+        let word =
+            |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().expect("eight bytes"));
+        let (w, h, text, text_sum, pixel_sum) = (
+            word(8) as usize,
+            word(16) as usize,
+            word(24) as usize,
+            word(32),
+            word(40),
+        );
         // Checked against the file's length before anything is allocated, as a cel's is.
-        let length = f.metadata().map_err(|e| format!("its length could not be read ({e})"))?.len();
+        let length = f
+            .metadata()
+            .map_err(|e| format!("its length could not be read ({e})"))?
+            .len();
         let whole = w
             .checked_mul(h)
             .and_then(|n| n.checked_mul(16))
@@ -342,18 +398,26 @@ impl DiskCache {
             .and_then(|n| n.checked_add(text))
             .map(|n| n as u64);
         if whole != Some(length) {
-            return Err(format!("it holds {length} bytes, not the {} a {w}x{h} frame holds", whole.unwrap_or(0)));
+            return Err(format!(
+                "it holds {length} bytes, not the {} a {w}x{h} frame holds",
+                whole.unwrap_or(0)
+            ));
         }
         let mut words = vec![0u8; text];
-        f.read_exact(&mut words).map_err(|e| format!("it could not be read to the end ({e})"))?;
+        f.read_exact(&mut words)
+            .map_err(|e| format!("it could not be read to the end ({e})"))?;
         let mut picture = WorkingBuffer::transparent(w, h);
         f.read_exact(bytemuck::cast_slice_mut(picture.data_mut()))
             .map_err(|e| format!("it could not be read to the end ({e})"))?;
-        if checksum(&words) != text_sum || checksum(bytemuck::cast_slice(picture.data())) != pixel_sum {
+        if checksum(&words) != text_sum
+            || checksum(bytemuck::cast_slice(picture.data())) != pixel_sum
+        {
             return Err("its contents do not match the checksums written with them".into());
         }
         let words = String::from_utf8(words).map_err(|_| "its text is not text".to_string())?;
-        let (kept, stamps) = words.split_once('\0').ok_or("its text has no end to its key")?;
+        let (kept, stamps) = words
+            .split_once('\0')
+            .ok_or("its text has no end to its key")?;
         if kept != key {
             return Err("it was kept for another frame".into());
         }
@@ -364,14 +428,26 @@ impl DiskCache {
 
     /// B-171: keep `picture`, drawn from `files`, in `file` under `key`. Its floats are written as
     /// they are in memory, which is little-endian on every machine this program runs on.
-    fn store_frame(&self, file: &Path, key: &str, files: &str, picture: &WorkingBuffer) -> std::io::Result<()> {
+    fn store_frame(
+        &self,
+        file: &Path,
+        key: &str,
+        files: &str,
+        picture: &WorkingBuffer,
+    ) -> std::io::Result<()> {
         let text = format!("{key}\0{files}");
         let pixels: &[u8] = bytemuck::cast_slice(picture.data());
         let mut head = [0u8; FRAME_HEADER];
         head[..8].copy_from_slice(FRAME_MAGIC);
-        for (at, word) in [picture.width() as u64, picture.height() as u64, text.len() as u64, checksum(text.as_bytes()), checksum(pixels)]
-            .into_iter()
-            .enumerate()
+        for (at, word) in [
+            picture.width() as u64,
+            picture.height() as u64,
+            text.len() as u64,
+            checksum(text.as_bytes()),
+            checksum(pixels),
+        ]
+        .into_iter()
+        .enumerate()
         {
             head[8 + at * 8..16 + at * 8].copy_from_slice(&word.to_le_bytes());
         }
@@ -407,7 +483,9 @@ impl DiskCache {
     /// The copies in the folder, oldest use first, with their lengths. A `.part` more than an
     /// hour old is what a closed or crashed window left half written, and is deleted on the way.
     fn copies(&self) -> Vec<(SystemTime, u64, PathBuf)> {
-        let Ok(list) = std::fs::read_dir(&self.folder) else { return Vec::new() };
+        let Ok(list) = std::fs::read_dir(&self.folder) else {
+            return Vec::new();
+        };
         let mut copies = Vec::new();
         for entry in list.flatten() {
             let path = entry.path();
@@ -415,7 +493,11 @@ impl DiskCache {
             let time = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
             match path.extension().and_then(|e| e.to_str()) {
                 Some("cel" | "frame") => copies.push((time, meta.len(), path)),
-                Some("part") if time.elapsed().is_ok_and(|age| age > Duration::from_secs(3600)) => {
+                Some("part")
+                    if time
+                        .elapsed()
+                        .is_ok_and(|age| age > Duration::from_secs(3600)) =>
+                {
                     let _ = std::fs::remove_file(&path);
                 }
                 _ => {}
@@ -458,8 +540,13 @@ fn checksum(bytes: &[u8]) -> u64 {
         .par_chunks(1 << 18)
         .map(|chunk| {
             let words = chunk.chunks_exact(8);
-            let tail = words.remainder().iter().fold(0, |h, b| h << 8 | u64::from(*b));
-            let h = words.fold(0xcbf2_9ce4_8422_2325, |h, w| fnv(h, u64::from_le_bytes(w.try_into().expect("eight"))));
+            let tail = words
+                .remainder()
+                .iter()
+                .fold(0, |h, b| h << 8 | u64::from(*b));
+            let h = words.fold(0xcbf2_9ce4_8422_2325, |h, w| {
+                fnv(h, u64::from_le_bytes(w.try_into().expect("eight")))
+            });
             fnv(h, tail)
         })
         .collect();
@@ -477,7 +564,10 @@ fn working_cel(
     interpretation: Interpretation,
     notes: &mut Vec<String>,
 ) -> Result<(WorkingBuffer, bool), Diagnostic> {
-    let name = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
     let working = |image: ImageBuffer| retag(image, interpretation).into_working();
     // An EXR decodes straight to floats and has no 8-bit bytes to keep.
     let copy = disk
@@ -784,15 +874,35 @@ impl CelCache {
     /// the disk folder too when drawing it took longer than reading it back would
     /// ([`DISK_BYTES_PER_MS`]). A frame that read a file with no modification time is not kept.
     /// B-171b: the disk copy is written by a worker, and this returns before it is.
-    pub fn store_inner(&mut self, key: String, files: Vec<Stamp>, picture: Arc<WorkingBuffer>, took: Duration) {
-        if self.effect_budget == 0 || !files.iter().all(|(_, was)| was.is_none_or(|(_, modified)| modified.is_some())) {
+    pub fn store_inner(
+        &mut self,
+        key: String,
+        files: Vec<Stamp>,
+        picture: Arc<WorkingBuffer>,
+        took: Duration,
+    ) {
+        if self.effect_budget == 0
+            || !files
+                .iter()
+                .all(|(_, was)| was.is_none_or(|(_, modified)| modified.is_some()))
+        {
             return;
         }
         let heavy = took.as_secs_f64() * 1000.0 * DISK_BYTES_PER_MS >= bytes_of(&picture) as f64;
         if let (Some(disk), true, Some(text)) = (&self.disk, heavy, stamps_text(&files)) {
             let (w, file) = (writer(), disk.frame_file(&key));
-            w.pending.lock().unwrap_or_else(|p| p.into_inner()).push(file.clone());
-            let job = (disk.clone(), file.clone(), key.clone(), text, Arc::clone(&picture), Arc::clone(&self.late_notes));
+            w.pending
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .push(file.clone());
+            let job = (
+                disk.clone(),
+                file.clone(),
+                key.clone(),
+                text,
+                Arc::clone(&picture),
+                Arc::clone(&self.late_notes),
+            );
             if w.jobs.try_send(job).is_err() {
                 // The disk is behind: this frame is kept in memory only, rather than the frame
                 // waiting for the disk.
@@ -878,8 +988,13 @@ impl CelCache {
         let buffer = match ready {
             Some(buffer) => buffer,
             None => {
-                let (buffer, from_disk) =
-                    working_cel(self.disk.as_ref(), key.as_ref(), path, interpretation, &mut self.disk_notes)?;
+                let (buffer, from_disk) = working_cel(
+                    self.disk.as_ref(),
+                    key.as_ref(),
+                    path,
+                    interpretation,
+                    &mut self.disk_notes,
+                )?;
                 self.disk_hits += u64::from(from_disk);
                 Arc::new(buffer)
             }
@@ -999,7 +1114,8 @@ impl CelCache {
                         // stage table sum to more than the frame.
                         let mut notes = Vec::new();
                         let (buffer, from_disk) = crate::perf::untimed(|| {
-                            working_cel(disk, Some(&key), &key.path, key.interpretation, &mut notes).ok()
+                            working_cel(disk, Some(&key), &key.path, key.interpretation, &mut notes)
+                                .ok()
                         })?;
                         Some((key, Arc::new(buffer), from_disk, notes))
                     })
@@ -1169,7 +1285,12 @@ impl CelCache {
         if self.effect_budget == 0 {
             return None;
         }
-        if self.below.0.as_ref().is_none_or(|(c, f)| c != composition || *f != frame) {
+        if self
+            .below
+            .0
+            .as_ref()
+            .is_none_or(|(c, f)| c != composition || *f != frame)
+        {
             self.below.0 = Some((composition.clone(), frame));
             self.below.1.forget();
         }
@@ -1282,7 +1403,11 @@ fn stamps_text(files: &[Stamp]) -> Option<String> {
         match was {
             None => text.push_str(&format!("- - {path}\n")),
             Some((len, modified)) => {
-                let since = modified.as_ref()?.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+                let since = modified
+                    .as_ref()?
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_nanos();
                 text.push_str(&format!("{len} {since} {path}\n"));
             }
         }
@@ -1298,7 +1423,10 @@ fn stamps_of(text: &str) -> Option<Vec<Stamp>> {
             let (len, since, path) = (words.next()?, words.next()?, words.next()?);
             let was = match len {
                 "-" => None,
-                _ => Some((len.parse().ok()?, Some(SystemTime::UNIX_EPOCH + Duration::from_nanos(since.parse().ok()?)))),
+                _ => Some((
+                    len.parse().ok()?,
+                    Some(SystemTime::UNIX_EPOCH + Duration::from_nanos(since.parse().ok()?)),
+                )),
             };
             Some((PathBuf::from(path), was))
         })
@@ -1313,7 +1441,12 @@ pub fn build() -> Option<&'static str> {
         .get_or_init(|| {
             let exe = std::env::current_exe().ok()?;
             let meta = std::fs::metadata(&exe).ok()?;
-            let since = meta.modified().ok()?.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+            let since = meta
+                .modified()
+                .ok()?
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .ok()?
+                .as_nanos();
             Some(format!("{}\n{}\n{since}", exe.display(), meta.len()))
         })
         .as_deref()
@@ -1364,7 +1497,11 @@ const MOST_SIGHTS: usize = 16;
 
 impl FrameCache {
     pub fn with_budget(budget: usize) -> FrameCache {
-        FrameCache { budget, held: 0, sights: Vec::new() }
+        FrameCache {
+            budget,
+            held: 0,
+            sights: Vec::new(),
+        }
     }
 
     /// A new budget, from the Preferences memory setting. What no longer fits goes, oldest sight
@@ -1410,8 +1547,17 @@ impl FrameCache {
     /// wanted. `false` when it did not fit, or a file it read has no modified time to check. A file
     /// changed while the frame was being made is not looked for here: [`get`](Self::get) looks at
     /// every file before sending, and looking twice cost the card's first pass (B-154).
-    pub fn store(&mut self, sight: Sight, frame: i32, files: Vec<Stamp>, finished: Finished) -> bool {
-        if files.iter().any(|(_, was)| was.is_some_and(|(_, modified)| modified.is_none())) {
+    pub fn store(
+        &mut self,
+        sight: Sight,
+        frame: i32,
+        files: Vec<Stamp>,
+        finished: Finished,
+    ) -> bool {
+        if files
+            .iter()
+            .any(|(_, was)| was.is_some_and(|(_, modified)| modified.is_none()))
+        {
             return false;
         }
         let s = match self.sights.iter().position(|(k, _)| *k == sight) {
@@ -1429,7 +1575,9 @@ impl FrameCache {
             self.held -= old.pixels.len();
         }
         let bytes = finished.pixels.len();
-        while (self.held + bytes > self.budget || self.sights.len() > MOST_SIGHTS) && self.sights.len() > 1 {
+        while (self.held + bytes > self.budget || self.sights.len() > MOST_SIGHTS)
+            && self.sights.len() > 1
+        {
             self.forget(0);
         }
         if self.held + bytes > self.budget {
@@ -1478,7 +1626,14 @@ mod frame_cache {
     }
 
     fn finished(bytes: usize) -> Finished {
-        Finished { pixels: Arc::new(vec![7; bytes]), width: 1, height: 1, fell_back: false, warnings: Vec::new(), on_processor: String::new() }
+        Finished {
+            pixels: Arc::new(vec![7; bytes]),
+            width: 1,
+            height: 1,
+            fell_back: false,
+            warnings: Vec::new(),
+            on_processor: String::new(),
+        }
     }
 
     #[test]

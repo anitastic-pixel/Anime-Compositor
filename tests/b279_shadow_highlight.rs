@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -45,7 +46,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=21 {
         let file = format!("fx_shhi_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -53,7 +58,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ShadowHighlight { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ShadowHighlight { .. })
+                });
             }
         }
         t.row(
@@ -71,9 +78,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -87,7 +103,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ShadowHighlight { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ShadowHighlight { .. })
+                });
                 t.row(
                     &format!("the reference shot, Shadow/Highlight {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -101,7 +119,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -113,14 +134,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 #[test]
@@ -163,26 +199,57 @@ fn b279_shadow_highlight() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let want = want.replace('_', " ");
-        t.row(&format!("{file} is refused in a sentence naming its {want}"), &why, why.contains(&want));
+        t.row(
+            &format!("{file} is refused in a sentence naming its {want}"),
+            &why,
+            why.contains(&want),
+        );
     }
     let rest = r#""highlight_amount": 0, "shadow_tonal_width": 50, "shadow_radius": 30, "highlight_tonal_width": 50, "highlight_radius": 30, "color_correction": 20"#;
-    t.shape_refused("fx_shhi_001.json", "a Shadow/Highlight whose shadow amount is a word", &format!(r#"{{"shadow_amount": "fifty", {rest}}}"#));
-    t.shape_refused("fx_shhi_001.json", "a Shadow/Highlight without its shadow amount", &format!("{{{rest}}}"));
+    t.shape_refused(
+        "fx_shhi_001.json",
+        "a Shadow/Highlight whose shadow amount is a word",
+        &format!(r#"{{"shadow_amount": "fifty", {rest}}}"#),
+    );
+    t.shape_refused(
+        "fx_shhi_001.json",
+        "a Shadow/Highlight without its shadow amount",
+        &format!("{{{rest}}}"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_shhi_001.json").document;
-    let over = changed(&t, "fx_shhi_001.json", |e| if let Effect::ShadowHighlight { shadow_amount, .. } = e { *shadow_amount = 101.0 });
-    let wide = changed(&t, "fx_shhi_001.json", |e| if let Effect::ShadowHighlight { highlight_radius, .. } = e { *highlight_radius = 501.0 });
+    let over = changed(&t, "fx_shhi_001.json", |e| {
+        if let Effect::ShadowHighlight { shadow_amount, .. } = e {
+            *shadow_amount = 101.0
+        }
+    });
+    let wide = changed(&t, "fx_shhi_001.json", |e| {
+        if let Effect::ShadowHighlight {
+            highlight_radius, ..
+        } = e
+        {
+            *highlight_radius = 501.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("shadow amount 101", set(over)),
             ("highlight radius 501", set(wide)),
-            ("shadow amount keyed to 150", keys("shadow_amount", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "shadow amount keyed to 150",
+                keys("shadow_amount", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let lights = changed(&t, "fx_shhi_001.json", |e| {
-        if let Effect::ShadowHighlight { highlight_amount, highlight_radius, .. } = e {
+        if let Effect::ShadowHighlight {
+            highlight_amount,
+            highlight_radius,
+            ..
+        } = e
+        {
             *highlight_amount = 70.0;
             *highlight_radius = 4.0;
         }
@@ -192,7 +259,10 @@ fn b279_shadow_highlight() {
         "fx_shhi_001.json",
         vec![
             ("highlight 70 at radius 4", set(lights)),
-            ("shadow amount keyed from 0 to 100", keys("shadow_amount", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "shadow amount keyed from 0 to 100",
+                keys("shadow_amount", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -216,20 +286,42 @@ fn b279_shadow_highlight() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("shadow 80, highlight 60, radii 12 and 40", json!({"shadow_amount": 80, "highlight_amount": 60, "shadow_radius": 12, "highlight_radius": 40}), 3),
-            ("shadow 100, widths 100, colour correction 100", json!({"shadow_amount": 100, "shadow_tonal_width": 100, "highlight_tonal_width": 100, "color_correction": 100}), 3),
+            (
+                "shadow 80, highlight 60, radii 12 and 40",
+                json!({"shadow_amount": 80, "highlight_amount": 60, "shadow_radius": 12, "highlight_radius": 40}),
+                3,
+            ),
+            (
+                "shadow 100, widths 100, colour correction 100",
+                json!({"shadow_amount": 100, "shadow_tonal_width": 100, "highlight_tonal_width": 100, "color_correction": 100}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-400 pictures/`");
     let dir = repo("verification/D-400 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({"shadow_amount": 0}));
     t.row(
         "both amounts 0 changes nothing: the street byte for byte; draws cleanly",
@@ -241,8 +333,12 @@ fn b279_shadow_highlight() {
     // As added: the shadows lift; nothing darkens by more than a level.
     let (after, said) = street(json!({}));
     write("2_as_added.png", TOWN, &after);
-    let darker = pairs(&before, &after).filter(|(b, a)| luma(a) < luma(b) - 1.0).count();
-    let lifted = pairs(&before, &after).filter(|(b, a)| luma(a) > luma(b) + 1.0).count();
+    let darker = pairs(&before, &after)
+        .filter(|(b, a)| luma(a) < luma(b) - 1.0)
+        .count();
+    let lifted = pairs(&before, &after)
+        .filter(|(b, a)| luma(a) > luma(b) + 1.0)
+        .count();
     t.row(
         "2_as_added.png, as added (shadow 50, radius 30): the dark doorways and shade lifted; no pixel more than a level darker; draws cleanly",
         &format!("{said:?}, {lifted} pixels lifted, {darker} darker"),
@@ -258,17 +354,23 @@ fn b279_shadow_highlight() {
     );
 
     // Highlights only, small radius: the lights come down; nothing brightens by more than a level.
-    let (after, said) = street(json!({"shadow_amount": 0, "highlight_amount": 80, "highlight_radius": 4}));
+    let (after, said) =
+        street(json!({"shadow_amount": 0, "highlight_amount": 80, "highlight_radius": 4}));
     write("4_highlight_80.png", TOWN, &after);
-    let brighter = pairs(&before, &after).filter(|(b, a)| luma(a) > luma(b) + 1.0).count();
-    let lowered = pairs(&before, &after).filter(|(b, a)| luma(a) < luma(b) - 1.0).count();
+    let brighter = pairs(&before, &after)
+        .filter(|(b, a)| luma(a) > luma(b) + 1.0)
+        .count();
+    let lowered = pairs(&before, &after)
+        .filter(|(b, a)| luma(a) < luma(b) - 1.0)
+        .count();
     t.row(
         "4_highlight_80.png, shadow 0, highlight 80 at radius 4: the sky and lit walls brought down; no pixel more than a level brighter; draws cleanly",
         &format!("{said:?}, {lowered} pixels lowered, {brighter} brighter"),
         said.is_empty() && lowered > 0 && brighter == 0,
     );
 
-    let (after, said) = street(json!({"shadow_amount": 70, "highlight_amount": 60, "highlight_radius": 10}));
+    let (after, said) =
+        street(json!({"shadow_amount": 70, "highlight_amount": 60, "highlight_radius": 10}));
     write("5_both.png", TOWN, &after);
     t.row(
         "5_both.png, shadow 70 and highlight 60 at radius 10: the street's range drawn in from both ends; draws cleanly",
@@ -281,7 +383,12 @@ fn b279_shadow_highlight() {
     write("6_colour_0.png", TOWN, &grey);
     write("7_colour_100.png", TOWN, &rich);
     let sat = |p: &[u8]| p[..3].iter().max().unwrap() - p[..3].iter().min().unwrap();
-    let total = |v: &[u8]| v.chunks_exact(4).filter(|p| p[3] > 0).map(|p| sat(p) as u64).sum::<u64>();
+    let total = |v: &[u8]| {
+        v.chunks_exact(4)
+            .filter(|p| p[3] > 0)
+            .map(|p| sat(p) as u64)
+            .sum::<u64>()
+    };
     t.row(
         "6_colour_0.png and 7_colour_100.png, shadow 100 with colour correction 0 and 100: the lifted shadows paler at 0, more coloured at 100; draw cleanly",
         &format!("{said0:?} {said1:?}, total saturation {} and {}", total(&grey), total(&rich)),
@@ -316,22 +423,50 @@ fn b279_shadow_highlight_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Shadow/Highlight as added (shadow 50, radius 30)", Some(json!({}))),
-        ("Noise, then Shadow/Highlight, shadow 80, highlight 60, radii 12 and 40", Some(json!({"shadow_amount": 80, "highlight_amount": 60, "shadow_radius": 12, "highlight_radius": 40}))),
+        (
+            "Noise, then Shadow/Highlight as added (shadow 50, radius 30)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Shadow/Highlight, shadow 80, highlight 60, radii 12 and 40",
+            Some(
+                json!({"shadow_amount": 80, "highlight_amount": 60, "shadow_radius": 12, "highlight_radius": 40}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B279_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-279_timing_raw.md"));
+    let out = std::env::var("B279_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-279_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

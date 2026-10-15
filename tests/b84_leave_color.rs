@@ -38,7 +38,11 @@ fn b84_leave_color() {
 
     t.heading("How far it reaches");
     let got = leave("#ff0000", 100.0, 100.0, 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = leave("#ff0000", 15.0, 10.0, 100.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -91,17 +95,32 @@ fn b84_leave_color() {
             ("softness -1", set(leave("#ff0000", 15.0, -1.0, 100.0))),
             ("amount 101", set(leave("#ff0000", 15.0, 10.0, 101.0))),
             ("the colour \"red\"", set(leave("red", 15.0, 10.0, 100.0))),
-            ("the colour \"#ff00\"", set(leave("#ff00", 15.0, 10.0, 100.0))),
-            ("tolerance keyed to 150", keys("tolerance", &[(0, &[15.0]), (4, &[150.0])])),
+            (
+                "the colour \"#ff00\"",
+                set(leave("#ff00", 15.0, 10.0, 100.0)),
+            ),
+            (
+                "tolerance keyed to 150",
+                keys("tolerance", &[(0, &[15.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_leave_001.json",
         vec![
-            ("every number at 0, the bottom,", set(leave("#4060ff", 0.0, 0.0, 0.0))),
-            ("every number at 100, the top,", set(leave("#808080", 100.0, 100.0, 100.0))),
-            ("amount keyed from 0 to 100", keys("amount", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "every number at 0, the bottom,",
+                set(leave("#4060ff", 0.0, 0.0, 0.0)),
+            ),
+            (
+                "every number at 100, the top,",
+                set(leave("#808080", 100.0, 100.0, 100.0)),
+            ),
+            (
+                "amount keyed from 0 to 100",
+                keys("amount", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

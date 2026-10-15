@@ -156,7 +156,15 @@ impl FrameRate {
         let digits = fraction.len().min(6) as u32;
         let scale = 10u32.pow(digits);
         let fraction: u32 = fraction.get(..digits as usize)?.parse().ok()?;
-        Self::new(whole.parse::<u32>().ok()?.checked_mul(scale)?.checked_add(fraction)?, scale).ok()
+        Self::new(
+            whole
+                .parse::<u32>()
+                .ok()?
+                .checked_mul(scale)?
+                .checked_add(fraction)?,
+            scale,
+        )
+        .ok()
     }
 
     /// The conventional decimal label, for display only. Never stored, never read back.

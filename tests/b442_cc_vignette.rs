@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -29,7 +30,8 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// A CC Vignette with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
-    let mut all = json!({"amount": 100, "angle_of_view": 90, "center": [50, 50], "pin_highlights": 0});
+    let mut all =
+        json!({"amount": 100, "angle_of_view": 90, "center": [50, 50], "pin_highlights": 0});
     for (k, v) in p.as_object().unwrap() {
         all[k] = v.clone();
     }
@@ -42,7 +44,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=25 {
         let file = format!("fx_ccvig_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +56,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CcVignette { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CcVignette { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +76,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -84,7 +101,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CcVignette { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::CcVignette { .. })
+                });
                 t.row(
                     &format!("the reference shot, CC Vignette {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -98,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,14 +132,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 /// The sum of the three channels at `(x, y)` of a straight 8-bit picture `w` wide.
@@ -165,27 +202,62 @@ fn b442_cc_vignette() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
-    t.shape_refused("fx_ccvig_001.json", "a CC Vignette whose amount is a word", r#"{"amount": "lots", "angle_of_view": 90, "center": [50, 50], "pin_highlights": 0}"#);
-    t.shape_refused("fx_ccvig_001.json", "a CC Vignette without its angle of view", r#"{"amount": 100, "center": [50, 50], "pin_highlights": 0}"#);
-    t.shape_refused("fx_ccvig_001.json", "a CC Vignette whose centre is one number", r#"{"amount": 100, "angle_of_view": 90, "center": 50, "pin_highlights": 0}"#);
+    t.shape_refused(
+        "fx_ccvig_001.json",
+        "a CC Vignette whose amount is a word",
+        r#"{"amount": "lots", "angle_of_view": 90, "center": [50, 50], "pin_highlights": 0}"#,
+    );
+    t.shape_refused(
+        "fx_ccvig_001.json",
+        "a CC Vignette without its angle of view",
+        r#"{"amount": 100, "center": [50, 50], "pin_highlights": 0}"#,
+    );
+    t.shape_refused(
+        "fx_ccvig_001.json",
+        "a CC Vignette whose centre is one number",
+        r#"{"amount": 100, "angle_of_view": 90, "center": 50, "pin_highlights": 0}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_ccvig_001.json").document;
-    let over = changed(&t, "fx_ccvig_001.json", |e| if let Effect::CcVignette { amount, .. } = e { *amount = 101.0 });
-    let wide = changed(&t, "fx_ccvig_001.json", |e| if let Effect::CcVignette { angle_of_view, .. } = e { *angle_of_view = 180.0 });
+    let over = changed(&t, "fx_ccvig_001.json", |e| {
+        if let Effect::CcVignette { amount, .. } = e {
+            *amount = 101.0
+        }
+    });
+    let wide = changed(&t, "fx_ccvig_001.json", |e| {
+        if let Effect::CcVignette { angle_of_view, .. } = e {
+            *angle_of_view = 180.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("amount 101", set(over)),
             ("angle of view 180", set(wide)),
-            ("pin highlights keyed to 150", keys("pin_highlights", &[(0, &[0.0]), (4, &[150.0])])),
-            ("centre keyed to 50, -1001", keys("center", &[(0, &[50.0, 50.0]), (4, &[50.0, -1001.0])])),
+            (
+                "pin highlights keyed to 150",
+                keys("pin_highlights", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
+            (
+                "centre keyed to 50, -1001",
+                keys("center", &[(0, &[50.0, 50.0]), (4, &[50.0, -1001.0])]),
+            ),
         ],
     );
     let bright = changed(&t, "fx_ccvig_001.json", |e| {
-        if let Effect::CcVignette { amount, pin_highlights, .. } = e {
+        if let Effect::CcVignette {
+            amount,
+            pin_highlights,
+            ..
+        } = e
+        {
             *amount = -40.0;
             *pin_highlights = 60.0;
         }
@@ -195,7 +267,10 @@ fn b442_cc_vignette() {
         "fx_ccvig_001.json",
         vec![
             ("amount -40, pin highlights 60", set(bright)),
-            ("angle of view keyed from 0 to 179", keys("angle_of_view", &[(0, &[0.0]), (4, &[179.0])])),
+            (
+                "angle of view keyed from 0 to 179",
+                keys("angle_of_view", &[(0, &[0.0]), (4, &[179.0])]),
+            ),
         ],
     );
 
@@ -221,21 +296,46 @@ fn b442_cc_vignette() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("amount -60, angle of view 150, pin highlights 50", json!({"amount": -60, "angle_of_view": 150, "pin_highlights": 50}), 3),
-            ("angle of view 120 about 20, 80", json!({"angle_of_view": 120, "center": [20, 80]}), 3),
+            (
+                "amount -60, angle of view 150, pin highlights 50",
+                json!({"amount": -60, "angle_of_view": 150, "pin_highlights": 50}),
+                3,
+            ),
+            (
+                "angle of view 120 about 20, 80",
+                json!({"angle_of_view": 120, "center": [20, 80]}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-562 pictures/`");
     let dir = repo("verification/D-562 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
-    for (what, p) in [("amount 0", json!({"amount": 0})), ("angle of view 0", json!({"angle_of_view": 0}))] {
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
+    for (what, p) in [
+        ("amount 0", json!({"amount": 0})),
+        ("angle of view 0", json!({"angle_of_view": 0})),
+    ] {
         let (same, said) = street(p);
         t.row(
             &format!("{what} changes nothing: the street byte for byte; draws cleanly"),
@@ -258,7 +358,12 @@ fn b442_cc_vignette() {
 
     let (lighter, said) = street(json!({"amount": -100}));
     write("3_amount_minus_100.png", TOWN, &lighter);
-    let none_darker = pairs(&before, &lighter).all(|(b, a)| a[..3].iter().zip(&b[..3]).all(|(x, y)| u16::from(*x) + 1 >= u16::from(*y)));
+    let none_darker = pairs(&before, &lighter).all(|(b, a)| {
+        a[..3]
+            .iter()
+            .zip(&b[..3])
+            .all(|(x, y)| u16::from(*x) + 1 >= u16::from(*y))
+    });
     t.row(
         "3_amount_minus_100.png, amount -100: the corners lighter than the street's and no pixel darker; draws cleanly",
         &format!("{said:?}, corners {} and {} against {} and {}, none darker: {none_darker}", corner(&lighter), far(&lighter), corner(&before), far(&before)),
@@ -275,7 +380,12 @@ fn b442_cc_vignette() {
 
     let (pinned, said) = street(json!({"pin_highlights": 100}));
     write("5_pin_highlights_100.png", TOWN, &pinned);
-    let kept = pairs(&added, &pinned).all(|(a, p)| p[..3].iter().zip(&a[..3]).all(|(x, y)| u16::from(*x) + 1 >= u16::from(*y)));
+    let kept = pairs(&added, &pinned).all(|(a, p)| {
+        p[..3]
+            .iter()
+            .zip(&a[..3])
+            .all(|(x, y)| u16::from(*x) + 1 >= u16::from(*y))
+    });
     t.row(
         "5_pin_highlights_100.png, as added with Pin Highlights 100: no pixel darker than in 2_as_added.png, and the picture nearer the street; draws cleanly",
         &format!("{said:?}, none darker than 2: {kept}, largest difference from the street {} against 2's {}", distance(&pinned, &before).0, distance(&added, &before).0),
@@ -319,21 +429,44 @@ fn b442_cc_vignette_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
         ("Noise, then CC Vignette as added", Some(json!({}))),
-        ("Noise, then CC Vignette, amount -60, angle of view 150, pin highlights 50", Some(json!({"amount": -60, "angle_of_view": 150, "pin_highlights": 50}))),
+        (
+            "Noise, then CC Vignette, amount -60, angle of view 150, pin highlights 50",
+            Some(json!({"amount": -60, "angle_of_view": 150, "pin_highlights": 50})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B442_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-442_timing_raw.md"));
+    let out = std::env::var("B442_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-442_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

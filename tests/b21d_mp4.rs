@@ -70,9 +70,18 @@ fn time_numbers(file: &Path) -> (u32, u64, Vec<(u32, u32)>, String) {
     };
     let stts = find(b"stts");
     let runs = (0..u32_at(&bytes, stts + 4) as usize)
-        .map(|i| (u32_at(&bytes, stts + 8 + i * 8), u32_at(&bytes, stts + 12 + i * 8)))
+        .map(|i| {
+            (
+                u32_at(&bytes, stts + 8 + i * 8),
+                u32_at(&bytes, stts + 12 + i * 8),
+            )
+        })
         .collect();
-    let codec = if bytes.windows(4).any(|w| w == b"avc1") { "H.264" } else { "not H.264" };
+    let codec = if bytes.windows(4).any(|w| w == b"avc1") {
+        "H.264"
+    } else {
+        "not H.264"
+    };
     (timescale, duration, runs, codec.to_string())
 }
 
@@ -96,16 +105,27 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
         &fs::read_to_string(repo("Fixtures/formats/expected_formats.json")).unwrap(),
     )
     .unwrap();
-    for (i, case) in expected["cases"]["FX-FMT-030"]["rows"].as_array().unwrap().iter().enumerate() {
+    for (i, case) in expected["cases"]["FX-FMT-030"]["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+    {
         let n = |key: &str| case[key].as_u64().unwrap();
-        let (num, den) = (case["frame_rate"][0].as_u64().unwrap(), case["frame_rate"][1].as_u64().unwrap());
+        let (num, den) = (
+            case["frame_rate"][0].as_u64().unwrap(),
+            case["frame_rate"][1].as_u64().unwrap(),
+        );
         let rate = FrameRate::new(num as u32, den as u32).unwrap();
         let file = tmp.join(format!("row{i}.mp4"));
         let (w, h) = (64usize, 64usize);
-        let mut film = Mp4::create(&file, w, h, rate, Default::default()).unwrap_or_else(|e| panic!("{e}"));
+        let mut film =
+            Mp4::create(&file, w, h, rate, Default::default()).unwrap_or_else(|e| panic!("{e}"));
         for f in 0..n("frames") {
             // A grey that climbs, so no two frames are the same picture.
-            let frame: Vec<u8> = (0..w * h).flat_map(|_| [(f * 5) as u8, 128, 200, 255]).collect();
+            let frame: Vec<u8> = (0..w * h)
+                .flat_map(|_| [(f * 5) as u8, 128, 200, 255])
+                .collect();
             film.push(&frame).unwrap_or_else(|e| panic!("{e}"));
         }
         film.finish().unwrap_or_else(|e| panic!("{e}"));
@@ -122,16 +142,32 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
     // ---- B-21e: the same rows through ffmpeg, the road for macOS and Linux ------------------------
     // Run here on Windows because this is where the tests run; skipped, and said so, on a
     // machine with no ffmpeg.
-    if std::process::Command::new("ffmpeg").arg("-version").output().is_ok() {
-        for (i, case) in expected["cases"]["FX-FMT-030"]["rows"].as_array().unwrap().iter().enumerate() {
+    if std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .is_ok()
+    {
+        for (i, case) in expected["cases"]["FX-FMT-030"]["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+        {
             let n = |key: &str| case[key].as_u64().unwrap();
-            let (num, den) = (case["frame_rate"][0].as_u64().unwrap(), case["frame_rate"][1].as_u64().unwrap());
+            let (num, den) = (
+                case["frame_rate"][0].as_u64().unwrap(),
+                case["frame_rate"][1].as_u64().unwrap(),
+            );
             let rate = FrameRate::new(num as u32, den as u32).unwrap();
             let file = tmp.join(format!("ffmpeg_row{i}.mp4"));
             let (w, h) = (64usize, 64usize);
-            let mut film = mp4_out::through_ffmpeg::Mp4::create(&file, w, h, rate, Default::default()).unwrap_or_else(|e| panic!("{e}"));
+            let mut film =
+                mp4_out::through_ffmpeg::Mp4::create(&file, w, h, rate, Default::default())
+                    .unwrap_or_else(|e| panic!("{e}"));
             for f in 0..n("frames") {
-                let frame: Vec<u8> = (0..w * h).flat_map(|_| [(f * 5) as u8, 128, 200, 255]).collect();
+                let frame: Vec<u8> = (0..w * h)
+                    .flat_map(|_| [(f * 5) as u8, 128, 200, 255])
+                    .collect();
                 film.push(&frame).unwrap_or_else(|e| panic!("{e}"));
             }
             film.finish().unwrap_or_else(|e| panic!("{e}"));
@@ -139,13 +175,27 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
             let frames: u32 = runs.iter().map(|r| r.0).sum();
             let lengths: Vec<String> = runs.iter().map(|r| r.1.to_string()).collect();
             t.row(
-                &format!("B-21e, through ffmpeg: FX-FMT-030, {num}/{den} frames a second, {} frames", n("frames")),
-                format!("{}, {}, {}, {}, H.264", n("timescale"), n("frame_duration"), n("frames"), n("duration")),
-                format!("{timescale}, {}, {frames}, {duration}, {codec}", lengths.join(" and ")),
+                &format!(
+                    "B-21e, through ffmpeg: FX-FMT-030, {num}/{den} frames a second, {} frames",
+                    n("frames")
+                ),
+                format!(
+                    "{}, {}, {}, {}, H.264",
+                    n("timescale"),
+                    n("frame_duration"),
+                    n("frames"),
+                    n("duration")
+                ),
+                format!(
+                    "{timescale}, {}, {frames}, {duration}, {codec}",
+                    lengths.join(" and ")
+                ),
             );
         }
     } else {
-        t.out.push_str("| B-21e, through ffmpeg | not run: this machine has no ffmpeg | | skipped |\n");
+        t.out.push_str(
+            "| B-21e, through ffmpeg | not run: this machine has no ffmpeg | | skipped |\n",
+        );
     }
 
     // ---- the colour ----------------------------------------------------------------------------
@@ -156,7 +206,11 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
         ("red", [255, 0, 0, 255], "63 102 240"),
         ("green", [0, 255, 0, 255], "173 42 26"),
         ("blue", [0, 0, 255, 255], "32 240 118"),
-        ("white that is wholly see-through, which is black in a film", [255, 255, 255, 0], "16 128 128"),
+        (
+            "white that is wholly see-through, which is black in a film",
+            [255, 255, 255, 0],
+            "16 128 128",
+        ),
     ] {
         let nv12 = mp4_out::nv12_bt709(&rgba.repeat(4), 2, 2);
         t.row(
@@ -167,7 +221,11 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
     }
 
     // ---- the refusals --------------------------------------------------------------------------
-    for (w, h, names) in [(1921, 1080, "its width, 1921, is odd"), (1920, 1079, "its height, 1079, is odd"), (1921, 1079, "its width, 1921, and its height, 1079, are odd")] {
+    for (w, h, names) in [
+        (1921, 1080, "its width, 1921, is odd"),
+        (1920, 1079, "its height, 1079, is odd"),
+        (1921, 1079, "its width, 1921, and its height, 1079, are odd"),
+    ] {
         t.row(
             &format!("a {w}x{h} composition is refused, and the sentence names the odd side"),
             names,
@@ -176,7 +234,15 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
                 .unwrap_or_else(|| "not refused, or not named".into()),
         );
     }
-    t.row("a 1920x1080 composition is not refused", "taken", if mp4_out::refusal(1920, 1080).is_none() { "taken" } else { "refused" });
+    t.row(
+        "a 1920x1080 composition is not refused",
+        "taken",
+        if mp4_out::refusal(1920, 1080).is_none() {
+            "taken"
+        } else {
+            "refused"
+        },
+    );
 
     // ---- the film ------------------------------------------------------------------------------
     let source = repo("verification/B-08a_project.json");
@@ -201,7 +267,11 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
     let root = repo("Fixtures/reference_shot");
     let report = export_sequence(&project, &root, &request(&out), &AtomicBool::new(false));
     fs::write(repo("verification/B-21d_mp4_table.md"), &t.out).unwrap();
-    assert!(report.succeeded(), "the film did not export: {:?}", report.diagnostics);
+    assert!(
+        report.succeeded(),
+        "the film did not export: {:?}",
+        report.diagnostics
+    );
     t.row(
         "frames 16 to 37 of the reference shot, the longest run with no missing drawing, go out as one file",
         "true, 1 file, 22 frames",
@@ -213,7 +283,10 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
         "24, 1, 22, 22, H.264",
         format!(
             "{timescale}, {}, {}, {duration}, {codec}",
-            runs.iter().map(|r| r.1.to_string()).collect::<Vec<_>>().join(" and "),
+            runs.iter()
+                .map(|r| r.1.to_string())
+                .collect::<Vec<_>>()
+                .join(" and "),
             runs.iter().map(|r| r.0).sum::<u32>()
         ),
     );
@@ -222,10 +295,15 @@ fn an_mp4_counts_time_in_the_frame_rates_own_numbers() {
     t.row(
         "a cancelled MP4 leaves no half-made file",
         "Cancelled, file there: false",
-        format!("{:?}, file there: {}", cancelled.status, tmp.join("reference_shot.mp4").exists()),
+        format!(
+            "{:?}, file there: {}",
+            cancelled.status,
+            tmp.join("reference_shot.mp4").exists()
+        ),
     );
 
-    t.out.push_str(&format!("\n**{} of {} match.**\n", t.passed, t.checks));
+    t.out
+        .push_str(&format!("\n**{} of {} match.**\n", t.passed, t.checks));
     fs::write(repo("verification/B-21d_mp4_table.md"), &t.out).unwrap();
     assert_eq!(t.passed, t.checks, "see verification/B-21d_mp4_table.md");
 }

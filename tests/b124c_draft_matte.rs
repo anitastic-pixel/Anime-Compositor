@@ -57,10 +57,18 @@ fn composition(id: &str, layers: Vec<J>) -> J {
 /// placed at `at`, scaled and turned, the square switched off and used only as the matte; or the
 /// orange square itself placed so. `nested` puts the same inside a composition layer.
 fn shot(matted: bool, at: [f64; 2], scale: f64, turn: f64, nested: bool) -> Document {
-    let mut layers = vec![solid("ground", [0.02, 0.03, 0.06], (960, 540), [480.0, 270.0], 100.0, 0.0)];
+    let mut layers = vec![solid(
+        "ground",
+        [0.02, 0.03, 0.06],
+        (960, 540),
+        [480.0, 270.0],
+        100.0,
+        0.0,
+    )];
     if matted {
         let mut picture = solid("picture", ORANGE, (960, 540), [480.0, 270.0], 100.0, 0.0);
-        picture["matte"] = serde_json::json!({"layer_id": "square", "mode": "alpha", "matte_only": true});
+        picture["matte"] =
+            serde_json::json!({"layer_id": "square", "mode": "alpha", "matte_only": true});
         let mut square = solid("square", [1.0, 1.0, 1.0], (200, 200), at, scale, turn);
         square["enabled"] = J::Bool(false);
         layers.extend([picture, square]);
@@ -74,7 +82,10 @@ fn shot(matted: bool, at: [f64; 2], scale: f64, turn: f64, nested: bool) -> Docu
         record.insert("kind".into(), "composition".into());
         record.insert("composition_id".into(), "comp-inner".into());
         record.insert("source_offset_frames".into(), 0.into());
-        vec![composition(MAIN, vec![inner]), composition("comp-inner", layers)]
+        vec![
+            composition(MAIN, vec![inner]),
+            composition("comp-inner", layers),
+        ]
     } else {
         vec![composition(MAIN, layers)]
     };
@@ -83,14 +94,24 @@ fn shot(matted: bool, at: [f64; 2], scale: f64, turn: f64, nested: bool) -> Docu
         "color_settings": {"working_space": "linear-srgb", "alpha_mode": "premultiplied"},
         "assets": [], "compositions": compositions
     });
-    persist::load_str(&project.to_string()).expect("the shot reads").document
+    persist::load_str(&project.to_string())
+        .expect("the shot reads")
+        .document
 }
 
 fn draw(document: &Document, quality: PreviewQuality) -> WorkingBuffer {
     let root = effect_table::repo("Fixtures");
     let mut log = FrameLog::new(8);
-    let frame = preview::preview_frame(document.project(), &Id::new(MAIN), 0, &root, quality, 64, &mut log)
-        .expect("the frame draws");
+    let frame = preview::preview_frame(
+        document.project(),
+        &Id::new(MAIN),
+        0,
+        &root,
+        quality,
+        64,
+        &mut log,
+    )
+    .expect("the frame draws");
     assert!(log.finish().is_empty(), "the shot draws without a word");
     frame
 }
@@ -98,8 +119,14 @@ fn draw(document: &Document, quality: PreviewQuality) -> WorkingBuffer {
 /// The Draft frame as it was drawn before this fix: every placement shrunk, the matte's not.
 fn draft_before(document: &Document) -> WorkingBuffer {
     let root = effect_table::repo("Fixtures");
-    let plan = compose::plan_frame(document.project(), &Id::new(MAIN), 0, &root, &mut FrameLog::new(8))
-        .expect("the frame plans");
+    let plan = compose::plan_frame(
+        document.project(),
+        &Id::new(MAIN),
+        0,
+        &root,
+        &mut FrameLog::new(8),
+    )
+    .expect("the frame plans");
     let mut before = preview::scale_plan(plan.clone(), PreviewQuality::Draft);
     for (small, full) in before.layers.iter_mut().zip(&plan.layers) {
         if let (Some(small), Some(full)) = (&mut small.matte, &full.matte) {
@@ -142,23 +169,61 @@ fn b124c_draft_matte_table() {
          Full is what an export writes and was never touched. Tolerance 1e-6.\n",
     );
     let places: [(&str, [f64; 2], f64, f64, bool); 4] = [
-        ("the square straight, its corner at (300, 148)", [400.0, 248.0], 100.0, 0.0, false),
-        ("the square turned 30 degrees in the middle", [480.0, 270.0], 100.0, 30.0, false),
-        ("the square at 150% turned 45 degrees, near a corner", [760.0, 140.0], 150.0, 45.0, false),
-        ("the square turned 30 degrees, inside a composition layer", [480.0, 270.0], 100.0, 30.0, true),
+        (
+            "the square straight, its corner at (300, 148)",
+            [400.0, 248.0],
+            100.0,
+            0.0,
+            false,
+        ),
+        (
+            "the square turned 30 degrees in the middle",
+            [480.0, 270.0],
+            100.0,
+            30.0,
+            false,
+        ),
+        (
+            "the square at 150% turned 45 degrees, near a corner",
+            [760.0, 140.0],
+            150.0,
+            45.0,
+            false,
+        ),
+        (
+            "the square turned 30 degrees, inside a composition layer",
+            [480.0, 270.0],
+            100.0,
+            30.0,
+            true,
+        ),
     ];
     t.heading("The matted layer is the square it is matted by");
     for &(what, at, scale, turn, nested) in &places {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             let matted = draw(&shot(true, at, scale, turn, nested), quality);
             let square = draw(&shot(false, at, scale, turn, nested), quality);
-            let d = largest_difference(&matted, &J::Array(
-                square.data().chunks_exact(4).map(|p| p.iter().map(|&v| J::from(v as f64)).collect()).collect(),
-            ));
+            let d = largest_difference(
+                &matted,
+                &J::Array(
+                    square
+                        .data()
+                        .chunks_exact(4)
+                        .map(|p| p.iter().map(|&v| J::from(v as f64)).collect())
+                        .collect(),
+                ),
+            );
             let size = (matted.width(), matted.height());
-            let want = if quality == PreviewQuality::Full { (960, 540) } else { (240, 135) };
+            let want = if quality == PreviewQuality::Full {
+                (960, 540)
+            } else {
+                (240, 135)
+            };
             t.row(
-                &format!("{what}, at {quality:?}: {} by {}, and the same as the orange square", want.0, want.1),
+                &format!(
+                    "{what}, at {quality:?}: {} by {}, and the same as the orange square",
+                    want.0, want.1
+                ),
                 &format!("{} by {}, largest difference {d:.1e}", size.0, size.1),
                 size == want && d <= 1e-6,
             );
@@ -167,8 +232,14 @@ fn b124c_draft_matte_table() {
 
     t.heading("Draft is Full a quarter of the size each way");
     let (_, at, scale, turn, nested) = places[0];
-    let full = orange(&draw(&shot(true, at, scale, turn, nested), PreviewQuality::Full));
-    let draft = orange(&draw(&shot(true, at, scale, turn, nested), PreviewQuality::Draft));
+    let full = orange(&draw(
+        &shot(true, at, scale, turn, nested),
+        PreviewQuality::Full,
+    ));
+    let draft = orange(&draw(
+        &shot(true, at, scale, turn, nested),
+        PreviewQuality::Draft,
+    ));
     let before = orange(&draft_before(&shot(true, at, scale, turn, nested)));
     t.row(
         "the straight square: 40,000 orange pixels at Full, and 40,000 / 16 = 2,500 at Draft",
@@ -201,7 +272,15 @@ fn b124c_draft_matte_table() {
     }
     let dir = effect_table::repo("verification/B-124c pictures");
     fs::create_dir_all(&dir).unwrap();
-    png_out::write_rgba(&dir.join("before_after.png"), w, h, OutputDepth::Eight, &[], &sheet).unwrap();
+    png_out::write_rgba(
+        &dir.join("before_after.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &sheet,
+    )
+    .unwrap();
     t.heading("The picture");
     t.row(
         "`verification/B-124c pictures/before_after.png`: the turned square at Full; at Draft \

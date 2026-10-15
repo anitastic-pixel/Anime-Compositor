@@ -83,16 +83,28 @@ fn b63_chromatic_aberration() {
             ("amount -1", set(split(-1.0, [50.0, 50.0]))),
             ("centre 1001, 50", set(split(3.0, [1001.0, 50.0]))),
             ("centre 50, -1001", set(split(3.0, [50.0, -1001.0]))),
-            ("amount keyed to 150", keys("amount", &[(0, &[3.0]), (4, &[150.0])])),
+            (
+                "amount keyed to 150",
+                keys("amount", &[(0, &[3.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_chroma_001.json",
         vec![
-            ("amount 100 and centre 1000, 1000, the tops,", set(split(100.0, [1000.0, 1000.0]))),
-            ("amount 0 and centre -1000, -1000, the bottoms,", set(split(0.0, [-1000.0, -1000.0]))),
-            ("centre keyed from 50, 50 to 0, 50", keys("center", &[(0, &[50.0, 50.0]), (4, &[0.0, 50.0])])),
+            (
+                "amount 100 and centre 1000, 1000, the tops,",
+                set(split(100.0, [1000.0, 1000.0])),
+            ),
+            (
+                "amount 0 and centre -1000, -1000, the bottoms,",
+                set(split(0.0, [-1000.0, -1000.0])),
+            ),
+            (
+                "centre keyed from 50, 50 to 0, 50",
+                keys("center", &[(0, &[50.0, 50.0]), (4, &[0.0, 50.0])]),
+            ),
         ],
     );
 

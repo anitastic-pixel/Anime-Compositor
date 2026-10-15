@@ -265,14 +265,7 @@ fn b24b_masks() {
     t.heading("Commands (document 24)");
     let mut document = load("fx_msk_001.json");
     let before = document.project().clone();
-    let square = |x: f64| {
-        Mask::polygon(vec![
-            (x, 0.0),
-            (x + 2.0, 0.0),
-            (x + 2.0, 2.0),
-            (x, 2.0),
-        ])
-    };
+    let square = |x: f64| Mask::polygon(vec![(x, 0.0), (x + 2.0, 0.0), (x + 2.0, 2.0), (x, 2.0)]);
     let set = |document: &mut Document, masks: Vec<Mask>| {
         document
             .apply(Command::SetMasks {
@@ -351,7 +344,9 @@ fn b24b_masks() {
     ] {
         let refused = set(&mut document, vec![bad]);
         t.row(
-            &format!("mask.set with {what}: COMMAND_INVALID_VALUE, in a sentence, and nothing changes"),
+            &format!(
+                "mask.set with {what}: COMMAND_INVALID_VALUE, in a sentence, and nothing changes"
+            ),
             &format!("{refused:?}"),
             matches!(&refused, Err((DiagnosticId::CommandInvalidValue, _)))
                 && document.project() == &before,

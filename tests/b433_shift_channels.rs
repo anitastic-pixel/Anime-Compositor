@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -43,7 +44,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=20 {
         let file = format!("fx_shift_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -51,7 +56,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ShiftChannels { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ShiftChannels { .. })
+                });
             }
         }
         t.row(
@@ -69,9 +76,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -85,7 +101,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ShiftChannels { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ShiftChannels { .. })
+                });
                 t.row(
                     &format!("the reference shot, Shift Channels {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -99,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,14 +132,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 #[test]
@@ -157,16 +193,34 @@ fn b433_shift_channels() {
         ("fx_shift_020.json", "takes blue from"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence saying Shift Channels {want} ..."), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence saying Shift Channels {want} ..."),
+            &why,
+            why.contains(want),
+        );
     }
-    t.shape_refused("fx_shift_001.json", "a Shift Channels whose take red is a number", r#"{"take_alpha": "alpha", "take_red": 1, "take_green": "green", "take_blue": "blue"}"#);
-    t.shape_refused("fx_shift_001.json", "a Shift Channels without its take blue", r#"{"take_alpha": "alpha", "take_red": "red", "take_green": "green"}"#);
+    t.shape_refused(
+        "fx_shift_001.json",
+        "a Shift Channels whose take red is a number",
+        r#"{"take_alpha": "alpha", "take_red": 1, "take_green": "green", "take_blue": "blue"}"#,
+    );
+    t.shape_refused(
+        "fx_shift_001.json",
+        "a Shift Channels without its take blue",
+        r#"{"take_alpha": "alpha", "take_red": "red", "take_green": "green"}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_shift_001.json").document;
     let word = |what: &'static str, w: &'static str| {
         changed(&t, "fx_shift_001.json", move |e| {
-            if let Effect::ShiftChannels { take_alpha, take_red, take_green, take_blue } = e {
+            if let Effect::ShiftChannels {
+                take_alpha,
+                take_red,
+                take_green,
+                take_blue,
+            } = e
+            {
                 *match what {
                     "alpha" => take_alpha,
                     "red" => take_red,
@@ -176,9 +230,24 @@ fn b433_shift_channels() {
             }
         })
     };
-    let (full, yes, luminance, hue) = (word("red", "Full"), word("alpha", "yes"), word("alpha", "luminance"), word("blue", "hue"));
-    t.refused(&mut document, vec![("red from Full", set(full)), ("alpha from yes", set(yes))]);
-    t.taken(&mut document, "fx_shift_001.json", vec![("alpha from luminance", set(luminance)), ("blue from hue", set(hue))]);
+    let (full, yes, luminance, hue) = (
+        word("red", "Full"),
+        word("alpha", "yes"),
+        word("alpha", "luminance"),
+        word("blue", "hue"),
+    );
+    t.refused(
+        &mut document,
+        vec![("red from Full", set(full)), ("alpha from yes", set(yes))],
+    );
+    t.taken(
+        &mut document,
+        "fx_shift_001.json",
+        vec![
+            ("alpha from luminance", set(luminance)),
+            ("blue from hue", set(hue)),
+        ],
+    );
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[
@@ -201,20 +270,40 @@ fn b433_shift_channels() {
         &mut gpu,
         &[
             ("alpha from luminance", json!({"take_alpha": "luminance"})),
-            ("red and blue swapped", json!({"take_red": "blue", "take_blue": "red"})),
-            ("red from hue, green from saturation, blue from lightness, alpha full", json!({"take_alpha": "full", "take_red": "hue", "take_green": "saturation", "take_blue": "lightness"})),
+            (
+                "red and blue swapped",
+                json!({"take_red": "blue", "take_blue": "red"}),
+            ),
+            (
+                "red from hue, green from saturation, blue from lightness, alpha full",
+                json!({"take_alpha": "full", "take_red": "hue", "take_green": "saturation", "take_blue": "lightness"}),
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-553 pictures/`");
     let dir = repo("verification/D-553 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({}));
     t.row(
         "the settings as they start change nothing: the street byte for byte; draws cleanly",
@@ -224,8 +313,11 @@ fn b433_shift_channels() {
 
     let (glitch, said) = street(json!({"take_alpha": "luminance"}));
     write("2_alpha_from_luminance.png", TOWN, &glitch);
-    let fainter = pairs(&before, &glitch).all(|(_, a)| a[3] < 255 || a[..3].iter().all(|v| *v >= 250));
-    let darkest_gone = pairs(&before, &glitch).filter(|(b, _)| b[..3].iter().all(|v| *v <= 8)).all(|(_, a)| a[3] <= 8);
+    let fainter =
+        pairs(&before, &glitch).all(|(_, a)| a[3] < 255 || a[..3].iter().all(|v| *v >= 250));
+    let darkest_gone = pairs(&before, &glitch)
+        .filter(|(b, _)| b[..3].iter().all(|v| *v <= 8))
+        .all(|(_, a)| a[3] <= 8);
     t.row(
         "2_alpha_from_luminance.png, alpha from luminance (the Colorful Glitch use): only white (or within 5 levels of it) stays solid, and the darkest parts (every channel 8 or below) keep at most 8 of 255; draws cleanly",
         &format!("{said:?}, only white solid: {fainter}, the darkest gone: {darkest_gone}"),
@@ -236,7 +328,12 @@ fn b433_shift_channels() {
     write("3_red_blue_swapped.png", TOWN, &swap);
     let swapped = pairs(&before, &swap)
         .filter(|(b, _)| b[3] == 255)
-        .all(|(b, a)| a[0].abs_diff(b[2]) <= 1 && a[1].abs_diff(b[1]) <= 1 && a[2].abs_diff(b[0]) <= 1 && a[3] == 255);
+        .all(|(b, a)| {
+            a[0].abs_diff(b[2]) <= 1
+                && a[1].abs_diff(b[1]) <= 1
+                && a[2].abs_diff(b[0]) <= 1
+                && a[3] == 255
+        });
     t.row(
         "3_red_blue_swapped.png, red from blue and blue from red: every solid pixel's red and blue traded, its green kept, within 1 level; draws cleanly",
         &format!("{said:?}, traded: {swapped}"),
@@ -246,7 +343,9 @@ fn b433_shift_channels() {
     let (hues, said) = street(json!({"take_red": "hue", "take_green": "hue", "take_blue": "hue"}));
     write("4_hue_as_grey.png", TOWN, &hues);
     let grey = pairs(&before, &hues).all(|(_, a)| a[0] == a[1] && a[1] == a[2]);
-    let greys_black = pairs(&before, &hues).filter(|(b, _)| b[3] == 255 && b[0] == b[1] && b[1] == b[2]).all(|(_, a)| a[..3] == [0, 0, 0]);
+    let greys_black = pairs(&before, &hues)
+        .filter(|(b, _)| b[3] == 255 && b[0] == b[1] && b[1] == b[2])
+        .all(|(_, a)| a[..3] == [0, 0, 0]);
     t.row(
         "4_hue_as_grey.png, red, green and blue from hue: the street in greys, light where its colour is far round the wheel, and every grey of the street black; draws cleanly",
         &format!("{said:?}, all grey: {grey}, the street's greys black: {greys_black}"),
@@ -256,7 +355,9 @@ fn b433_shift_channels() {
     let (solid, said) = street(json!({"take_alpha": "full"}));
     write("5_alpha_full.png", TOWN, &solid);
     let all_solid = solid.chunks_exact(4).all(|p| p[3] == 255);
-    let kept = pairs(&before, &solid).filter(|(b, _)| b[3] == 255).all(|(b, a)| b == a);
+    let kept = pairs(&before, &solid)
+        .filter(|(b, _)| b[3] == 255)
+        .all(|(b, a)| b == a);
     t.row(
         "5_alpha_full.png, alpha full: every pixel solid, the street's solid pixels as they were; draws cleanly",
         &format!("{said:?}, every pixel solid: {all_solid}, solid pixels kept: {kept}"),
@@ -296,17 +397,37 @@ fn b433_shift_channels_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B433_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-433_timing_raw.md"));
+    let out = std::env::var("B433_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-433_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

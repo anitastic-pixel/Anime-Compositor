@@ -35,7 +35,11 @@ fn b96_mirror() {
 
     t.heading("How far it reaches");
     let got = mirror(MIDDLE, 45.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = mirror(MIDDLE, 30.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -79,16 +83,28 @@ fn b96_mirror() {
             ("centre 50, -1001", set(mirror([50.0, -1001.0], 0.0))),
             ("angle 3601", set(mirror(MIDDLE, 3601.0))),
             ("angle -3601", set(mirror(MIDDLE, -3601.0))),
-            ("angle keyed to 4000", keys("angle", &[(0, &[0.0]), (4, &[4000.0])])),
+            (
+                "angle keyed to 4000",
+                keys("angle", &[(0, &[0.0]), (4, &[4000.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_mirror_001.json",
         vec![
-            ("every number at its bottom,", set(mirror([-1000.0, -1000.0], -3600.0))),
-            ("every number at its top,", set(mirror([1000.0, 1000.0], 3600.0))),
-            ("angle keyed from 0 to 180", keys("angle", &[(0, &[0.0]), (4, &[180.0])])),
+            (
+                "every number at its bottom,",
+                set(mirror([-1000.0, -1000.0], -3600.0)),
+            ),
+            (
+                "every number at its top,",
+                set(mirror([1000.0, 1000.0], 3600.0)),
+            ),
+            (
+                "angle keyed from 0 to 180",
+                keys("angle", &[(0, &[0.0]), (4, &[180.0])]),
+            ),
         ],
     );
 

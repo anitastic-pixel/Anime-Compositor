@@ -27,7 +27,11 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn polar(conversion: &str, shape: &str) -> Effect {
-    Effect::PolarCoordinates { interpolation: 100.0, conversion: conversion.to_string(), shape: shape.to_string() }
+    Effect::PolarCoordinates {
+        interpolation: 100.0,
+        conversion: conversion.to_string(),
+        shape: shape.to_string(),
+    }
 }
 
 /// A 16:9 plate, as tutorial 1's.
@@ -56,7 +60,10 @@ fn plate() -> Vec<u8> {
 
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/polar_coordinates/fx_polar_016.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/polar_coordinates/fx_polar_016.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("plate.png");
@@ -70,15 +77,30 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
-            let check = if (x / 12 + y / 12) % 2 == 0 { 96.0 } else { 128.0 };
+            let check = if (x / 12 + y / 12) % 2 == 0 {
+                96.0
+            } else {
+                128.0
+            };
             let a = bytes[i + 3] as f64 / 255.0;
             let over = |c: u8| (c as f64 * a + check * (1.0 - a)).round() as u8;
             [over(bytes[i]), over(bytes[i + 1]), over(bytes[i + 2]), 255]
@@ -113,8 +135,18 @@ fn b201_polar_circle() {
     t.fixtures("expected_polar_circle.json");
 
     t.heading("The file");
-    t.round_trips(&["fx_polar_016.json", "fx_polar_017.json", "fx_polar_019.json", "fx_polar_021.json", "fx_polar_022.json"]);
-    for file in ["fx_polar_001.json", "fx_polar_003.json", "fx_polar_011.json"] {
+    t.round_trips(&[
+        "fx_polar_016.json",
+        "fx_polar_017.json",
+        "fx_polar_019.json",
+        "fx_polar_021.json",
+        "fx_polar_022.json",
+    ]);
+    for file in [
+        "fx_polar_001.json",
+        "fx_polar_003.json",
+        "fx_polar_011.json",
+    ] {
         let saved = t.saved_parameters(file);
         t.row(
             &format!("{file}, from before D-320, has no shape and is saved without one"),
@@ -123,7 +155,11 @@ fn b201_polar_circle() {
         );
     }
     let saved = t.saved_parameters("fx_polar_016.json");
-    t.row("A circle is saved as shape: circle", &saved.to_string(), saved["shape"] == "circle");
+    t.row(
+        "A circle is saved as shape: circle",
+        &saved.to_string(),
+        saved["shape"] == "circle",
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_polar_001.json").document;
@@ -131,37 +167,99 @@ fn b201_polar_circle() {
         &mut document,
         vec![
             ("shape \"square\"", set(polar("rect_to_polar", "square"))),
-            ("shape \"Circle\", written in capitals", set(polar("rect_to_polar", "Circle"))),
+            (
+                "shape \"Circle\", written in capitals",
+                set(polar("rect_to_polar", "Circle")),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_polar_001.json",
-        vec![("FX-POLAR-001 set to a circle,", set(polar("rect_to_polar", "circle")))],
+        vec![(
+            "FX-POLAR-001 set to a circle,",
+            set(polar("rect_to_polar", "circle")),
+        )],
     );
     let mut document = t.load("fx_polar_001.json").document;
-    document.apply(set(polar("rect_to_polar", "circle"))).unwrap();
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_polar_circle.json")).unwrap()).unwrap();
-    let d = effect_table::largest_difference(&t.render(&document, 0, 64), &expected["cases"]["FX-POLAR-016"]["frames"]["0"]);
-    t.row("FX-POLAR-001 set to a circle by the command draws FX-POLAR-016's frame", &format!("largest difference {d:.1e}"), d <= 2e-5);
+    document
+        .apply(set(polar("rect_to_polar", "circle")))
+        .unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("expected_polar_circle.json")).unwrap(),
+    )
+    .unwrap();
+    let d = effect_table::largest_difference(
+        &t.render(&document, 0, 64),
+        &expected["cases"]["FX-POLAR-016"]["frames"]["0"],
+    );
+    t.row(
+        "FX-POLAR-001 set to a circle by the command draws FX-POLAR-016's frame",
+        &format!("largest difference {d:.1e}"),
+        d <= 2e-5,
+    );
 
     t.heading("The preview card");
     match Gpu::new() {
-        Err(why) => t.row("The card draws the circle", &format!("NOT RUN: no usable card ({why})"), false),
+        Err(why) => t.row(
+            "The card draws the circle",
+            &format!("NOT RUN: no usable card ({why})"),
+            false,
+        ),
         Ok(mut gpu) => {
-            for name in ["fx_polar_016.json", "fx_polar_017.json", "fx_polar_019.json", "fx_polar_020.json", "fx_polar_001.json", "fx_polar_003.json"] {
+            for name in [
+                "fx_polar_016.json",
+                "fx_polar_017.json",
+                "fx_polar_019.json",
+                "fx_polar_020.json",
+                "fx_polar_001.json",
+                "fx_polar_003.json",
+            ] {
                 let project = t.load(name).document.project().clone();
                 let comp = Id::new("comp-main");
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let cpu = preview::preview_frame_cached(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).unwrap().to_srgb8_straight();
+                let cpu = preview::preview_frame_cached(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap()
+                .to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (card, ..) = preview::preview_frame_srgb8(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).unwrap();
-                let on_cpu = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-                let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+                let (card, ..) = preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap();
+                let on_cpu = log
+                    .finish()
+                    .iter()
+                    .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+                let worst = cpu
+                    .iter()
+                    .zip(&card)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap_or(0);
                 t.row(
                     &format!("{name}: drawn on the card, within 1 level of 255 of the CPU"),
-                    &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
+                    &format!(
+                        "{}, largest difference {worst} of 255",
+                        if on_cpu { "CPU" } else { "card" }
+                    ),
                     !on_cpu && worst <= 1,
                 );
             }
@@ -173,20 +271,36 @@ fn b201_polar_circle() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("plate.png", &plate(), 1);
     let (_, big, said) = picture(&dir, json!([]));
     write("1_plate.png", &big, 3);
-    t.row("1_plate.png, the plate with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_plate.png, the plate with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     // How far out from the middle the band's ring starts, straight right and straight down.
     let blue = |bytes: &[u8], x: usize, y: usize| {
         let i = (y * w + x) * 4;
         bytes[i + 3] > 128 && bytes[i + 2] as i32 > bytes[i] as i32 + 60
     };
     let reach = |bytes: &[u8]| {
-        let right = (w / 2..w).find(|&x| blue(bytes, x, h / 2)).map(|x| x - w / 2);
-        let down = (h / 2..h).find(|&y| blue(bytes, w / 2, y)).map(|y| y - h / 2);
+        let right = (w / 2..w)
+            .find(|&x| blue(bytes, x, h / 2))
+            .map(|x| x - w / 2);
+        let down = (h / 2..h)
+            .find(|&y| blue(bytes, w / 2, y))
+            .map(|y| y - h / 2);
         (right, down)
     };
     for (name, shape, what) in [
@@ -214,7 +328,11 @@ fn b201_polar_circle() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_polar_016.json", 0), ("fx_polar_017.json", 0), ("fx_polar_019.json", 0)]);
+    t.tiles(&[
+        ("fx_polar_016.json", 0),
+        ("fx_polar_017.json", 0),
+        ("fx_polar_019.json", 0),
+    ]);
 
     t.finish("D-320_polar_circle_table.md");
 }

@@ -17,7 +17,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, same_json, saved, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, same_json, saved, set, time_passes,
+    town, Table, MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -34,25 +35,44 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.light_rays" => json!({"intensity": 100, "center": [50, 50], "radius": 50, "warp_softness": 50, "shape": "round", "direction": 0, "color_from_source": "on", "allow_brightening": "on", "color": "#ffffff", "transfer_mode": "none"}),
+        "core.light_rays" => {
+            json!({"intensity": 100, "center": [50, 50], "radius": 50, "warp_softness": 50, "shape": "round", "direction": 0, "color_from_source": "on", "allow_brightening": "on", "color": "#ffffff", "transfer_mode": "none"})
+        }
         // D-124's form, as an older project holds it.
-        "old" => json!({"center": [50, 50], "length": 50, "threshold": 0, "intensity": 1, "color": "#ffffff"}),
+        "old" => {
+            json!({"center": [50, 50], "length": 50, "threshold": 0, "intensity": 1, "color": "#ffffff"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
         all[k] = v.clone();
     }
-    let type_id = if type_id == "old" { "core.light_rays" } else { type_id };
+    let type_id = if type_id == "old" {
+        "core.light_rays"
+    } else {
+        type_id
+    };
     json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": all})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -73,14 +93,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -107,7 +143,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -119,23 +158,56 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The street drawn plain and with each of `shots` of `type_id`, written as numbered pictures
 /// into `verification/{d} pictures/`; a row each that it draws cleanly and changes what it says
 /// it changes.
-fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+fn street(
+    t: &mut Table,
+    d: &str,
+    type_id: &str,
+    shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)],
+) {
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]));
@@ -155,8 +227,20 @@ fn changed(a: &[u8], b: &[u8]) -> bool {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -219,7 +303,15 @@ fn b302_light_rays_cc() {
         // fx_rays_010.json's colour is written #FF8000 and is saved in small letters, as before D-423.
         let old: J = serde_json::from_str(&text.replace("#FF8000", "#ff8000")).unwrap();
         let loaded = persist::load_str(&text).unwrap();
-        let effect = &loaded.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect;
+        let effect = &loaded
+            .document
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect;
         let is_old = matches!(effect, Effect::LightRays { .. });
         let kept = same_json(&saved(&loaded), &old);
         t.row(
@@ -231,8 +323,16 @@ fn b302_light_rays_cc() {
     let dir = repo("verification/D-423 pictures");
     fs::create_dir_all(&dir).unwrap();
     for (what, new, old) in [
-        ("as it starts", json!({"radius": 10000, "warp_softness": 0, "transfer_mode": "add"}), json!({"length": 100})),
-        ("round 30, 70", json!({"radius": 10000, "warp_softness": 0, "transfer_mode": "add", "center": [30, 70]}), json!({"length": 100, "center": [30, 70]})),
+        (
+            "as it starts",
+            json!({"radius": 10000, "warp_softness": 0, "transfer_mode": "add"}),
+            json!({"length": 100}),
+        ),
+        (
+            "round 30, 70",
+            json!({"radius": 10000, "warp_softness": 0, "transfer_mode": "add", "center": [30, 70]}),
+            json!({"length": 100, "center": [30, 70]}),
+        ),
     ] {
         let (a, _) = picture(&dir, json!([fx("core.light_rays", "fx-0-0", &new)]));
         let (c, _) = picture(&dir, json!([fx("old", "fx-0-0", &old)]));
@@ -245,9 +345,22 @@ fn b302_light_rays_cc() {
     }
 
     t.heading("How far it reaches");
-    let got = cc([0.0, 0.0], [2000.0, 10000.0, 1000.0, 0.0], ["square", "on", "on", "#ffffff", "add"]).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing: rays past the layer's edge are cut", &got.to_string(), got == 0);
-    let mut draft = cc([30.0, 70.0], [250.0, 80.0, 120.0, 30.0], ["square", "off", "off", "#ff8000", "screen"]);
+    let got = cc(
+        [0.0, 0.0],
+        [2000.0, 10000.0, 1000.0, 0.0],
+        ["square", "on", "on", "#ffffff", "add"],
+    )
+    .bounds_expansion();
+    t.row(
+        "it grows the drawing's bounds by nothing: rays past the layer's edge are cut",
+        &got.to_string(),
+        got == 0,
+    );
+    let mut draft = cc(
+        [30.0, 70.0],
+        [250.0, 80.0, 120.0, 30.0],
+        ["square", "off", "off", "#ff8000", "screen"],
+    );
     draft.scale_distances(|d| d * 0.5);
     t.row(
         "a half-size draft preview halves the radius alone: the centre is a share of the drawing, the warp and direction angles",
@@ -257,7 +370,10 @@ fn b302_light_rays_cc() {
 
     t.heading("The file");
     // fx_rayscc_011.json's capitals are saved in small letters, the row after next.
-    let all: Vec<String> = files("fx_rayscc", 39).into_iter().filter(|f| f != "fx_rayscc_011.json").collect();
+    let all: Vec<String> = files("fx_rayscc", 39)
+        .into_iter()
+        .filter(|f| f != "fx_rayscc_011.json")
+        .collect();
     t.round_trips(&all.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_rayscc_026.json");
     t.row(
@@ -276,7 +392,11 @@ fn b302_light_rays_cc() {
             && saved.as_object().unwrap().len() == 10,
     );
     let saved = t.saved_parameters("fx_rayscc_011.json");
-    t.row("fx_rayscc_011.json's colour written #FF8000 is read and saved in small letters", &saved.to_string(), saved["color"] == "#ff8000");
+    t.row(
+        "fx_rayscc_011.json's colour written #FF8000 is read and saved in small letters",
+        &saved.to_string(),
+        saved["color"] == "#ff8000",
+    );
     why(
         &mut t,
         &[
@@ -295,8 +415,16 @@ fn b302_light_rays_cc() {
         ],
     );
     let rest = r##""radius": 50, "warp_softness": 50, "shape": "round", "direction": 0, "color_from_source": "on", "allow_brightening": "on", "color": "#ffffff", "transfer_mode": "none""##;
-    t.shape_refused("fx_rayscc_001.json", "a Light Rays with no `center`", &format!("{{\"intensity\": 100, {rest}}}"));
-    t.shape_refused("fx_rayscc_001.json", "a Light Rays with one number for its centre", &format!("{{\"intensity\": 100, \"center\": [50], {rest}}}"));
+    t.shape_refused(
+        "fx_rayscc_001.json",
+        "a Light Rays with no `center`",
+        &format!("{{\"intensity\": 100, {rest}}}"),
+    );
+    t.shape_refused(
+        "fx_rayscc_001.json",
+        "a Light Rays with one number for its centre",
+        &format!("{{\"intensity\": 100, \"center\": [50], {rest}}}"),
+    );
     t.shape_refused(
         "fx_rayscc_001.json",
         "a Light Rays with no `radius`",
@@ -313,15 +441,39 @@ fn b302_light_rays_cc() {
     t.refused(
         &mut document,
         vec![
-            ("radius 10001", set(cc(MID, [100.0, 10001.0, 50.0, 0.0], WORDS))),
-            ("intensity 2001", set(cc(MID, [2001.0, 50.0, 50.0, 0.0], WORDS))),
-            ("warp softness -1", set(cc(MID, [100.0, 50.0, -1.0, 0.0], WORDS))),
-            ("direction -3601", set(cc(MID, [100.0, 50.0, 50.0, -3601.0], WORDS))),
+            (
+                "radius 10001",
+                set(cc(MID, [100.0, 10001.0, 50.0, 0.0], WORDS)),
+            ),
+            (
+                "intensity 2001",
+                set(cc(MID, [2001.0, 50.0, 50.0, 0.0], WORDS)),
+            ),
+            (
+                "warp softness -1",
+                set(cc(MID, [100.0, 50.0, -1.0, 0.0], WORDS)),
+            ),
+            (
+                "direction -3601",
+                set(cc(MID, [100.0, 50.0, 50.0, -3601.0], WORDS)),
+            ),
             ("centre 50, 1001", set(cc([50.0, 1001.0], START, WORDS))),
-            ("shape \"triangle\"", set(cc(MID, START, ["triangle", "on", "on", "#ffffff", "none"]))),
-            ("transfer mode \"multiply\"", set(cc(MID, START, ["round", "on", "on", "#ffffff", "multiply"]))),
-            ("colour \"orange\"", set(cc(MID, START, ["round", "off", "on", "orange", "none"]))),
-            ("radius keyed to 20000", keys("radius", &[(0, &[50.0]), (4, &[20000.0])])),
+            (
+                "shape \"triangle\"",
+                set(cc(MID, START, ["triangle", "on", "on", "#ffffff", "none"])),
+            ),
+            (
+                "transfer mode \"multiply\"",
+                set(cc(MID, START, ["round", "on", "on", "#ffffff", "multiply"])),
+            ),
+            (
+                "colour \"orange\"",
+                set(cc(MID, START, ["round", "off", "on", "orange", "none"])),
+            ),
+            (
+                "radius keyed to 20000",
+                keys("radius", &[(0, &[50.0]), (4, &[20000.0])]),
+            ),
         ],
     );
     t.taken(
@@ -355,7 +507,14 @@ fn b302_light_rays_cc() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_rayscc", 39, &[2, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39], is_cc);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_rayscc",
+        39,
+        &[2, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+        is_cc,
+    );
     card_reference(
         &mut t,
         &mut gpu,
@@ -363,7 +522,10 @@ fn b302_light_rays_cc() {
         "core.light_rays",
         &[
             ("as it starts (round, radius 50, warp 50, none)", json!({})),
-            ("radius 400, warp 300, Add", json!({"radius": 400, "warp_softness": 300, "transfer_mode": "add"})),
+            (
+                "radius 400, warp 300, Add",
+                json!({"radius": 400, "warp_softness": 300, "transfer_mode": "add"}),
+            ),
             (
                 "square 300 turned 30, Color from Source off #ff8000, intensity 250, Screen",
                 json!({"shape": "square", "radius": 300, "direction": 30, "color_from_source": "off", "color": "#ff8000", "intensity": 250, "transfer_mode": "screen"}),
@@ -422,25 +584,59 @@ fn b302_light_rays_cc_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Light Rays as added (round, radius 50, warp 50, none)", Some(("core.light_rays", json!({})))),
-        ("Noise, then Light Rays, radius 400, warp 300, add", Some(("core.light_rays", json!({"radius": 400, "warp_softness": 300, "transfer_mode": "add"})))),
+        (
+            "Noise, then Light Rays as added (round, radius 50, warp 50, none)",
+            Some(("core.light_rays", json!({}))),
+        ),
+        (
+            "Noise, then Light Rays, radius 400, warp 300, add",
+            Some((
+                "core.light_rays",
+                json!({"radius": 400, "warp_softness": 300, "transfer_mode": "add"}),
+            )),
+        ),
         (
             "Noise, then Light Rays, square 300, warp 0, Color from Source off, screen",
-            Some(("core.light_rays", json!({"shape": "square", "radius": 300, "direction": 30, "warp_softness": 0, "color_from_source": "off", "color": "#ff8000", "transfer_mode": "screen"}))),
+            Some((
+                "core.light_rays",
+                json!({"shape": "square", "radius": 300, "direction": 30, "warp_softness": 0, "color_from_source": "off", "color": "#ff8000", "transfer_mode": "screen"}),
+            )),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B302_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-302_timing_raw.md"));
+    let out = std::env::var("B302_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-302_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -33,7 +33,11 @@ fn b85_solarize() {
 
     t.heading("How far it reaches");
     let got = solarize(0.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = solarize(128.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -69,7 +73,10 @@ fn b85_solarize() {
         vec![
             ("threshold -1", set(solarize(-1.0))),
             ("threshold 255.5", set(solarize(255.5))),
-            ("threshold keyed to 300", keys("threshold", &[(0, &[128.0]), (4, &[300.0])])),
+            (
+                "threshold keyed to 300",
+                keys("threshold", &[(0, &[128.0]), (4, &[300.0])]),
+            ),
         ],
     );
     t.taken(
@@ -78,12 +85,19 @@ fn b85_solarize() {
         vec![
             ("threshold 0, the bottom,", set(solarize(0.0))),
             ("threshold 255, the top,", set(solarize(255.0))),
-            ("threshold keyed from 0 to 255", keys("threshold", &[(0, &[0.0]), (4, &[255.0])])),
+            (
+                "threshold keyed from 0 to 255",
+                keys("threshold", &[(0, &[0.0]), (4, &[255.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_solar_001.json", 0), ("fx_solar_007.json", 0), ("fx_solar_009.json", 2)]);
+    t.tiles(&[
+        ("fx_solar_001.json", 0),
+        ("fx_solar_007.json", 0),
+        ("fx_solar_009.json", 2),
+    ]);
 
     t.finish("B-85_solarize_table.md");
 }

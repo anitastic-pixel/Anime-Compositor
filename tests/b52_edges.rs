@@ -13,15 +13,29 @@ use effect_table::{set, Table};
 use anime_compositor::effects::Effect;
 
 fn gauss(sigma_px: f64, edges: &str) -> Effect {
-    Effect::GaussianBlur { sigma_px, edges: edges.into(), dimensions: "both".into(), units: "sigma".into() }
+    Effect::GaussianBlur {
+        sigma_px,
+        edges: edges.into(),
+        dimensions: "both".into(),
+        units: "sigma".into(),
+    }
 }
 
 fn streak(direction: f64, length: f64, edges: &str) -> Effect {
-    Effect::DirectionalBlur { direction, length, edges: edges.into() }
+    Effect::DirectionalBlur {
+        direction,
+        length,
+        edges: edges.into(),
+    }
 }
 
 fn turn(kind: &str, amount: f64, edges: &str) -> Effect {
-    Effect::RadialBlur { kind: kind.into(), amount, center: [50.0, 50.0], edges: edges.into() }
+    Effect::RadialBlur {
+        kind: kind.into(),
+        amount,
+        center: [50.0, 50.0],
+        edges: edges.into(),
+    }
 }
 
 #[test]
@@ -41,11 +55,31 @@ fn b52_edges() {
 
     t.heading("How far it reaches");
     for (what, effect, want) in [
-        ("a Gaussian Blur of sigma 4 repeating its edges does not grow", gauss(4.0, "repeat"), 0),
-        ("one leaving them transparent grows by its radius, as before", gauss(4.0, "transparent"), 12),
-        ("a Directional Blur 20 long repeating its edges does not grow", streak(30.0, 20.0, "repeat"), 0),
-        ("one leaving them transparent grows by half its length, as before", streak(30.0, 20.0, "transparent"), 10),
-        ("a Radial Blur repeating its edges does not grow, as it never did", turn("zoom", 40.0, "repeat"), 0),
+        (
+            "a Gaussian Blur of sigma 4 repeating its edges does not grow",
+            gauss(4.0, "repeat"),
+            0,
+        ),
+        (
+            "one leaving them transparent grows by its radius, as before",
+            gauss(4.0, "transparent"),
+            12,
+        ),
+        (
+            "a Directional Blur 20 long repeating its edges does not grow",
+            streak(30.0, 20.0, "repeat"),
+            0,
+        ),
+        (
+            "one leaving them transparent grows by half its length, as before",
+            streak(30.0, 20.0, "transparent"),
+            10,
+        ),
+        (
+            "a Radial Blur repeating its edges does not grow, as it never did",
+            turn("zoom", 40.0, "repeat"),
+            0,
+        ),
     ] {
         let got = effect.bounds_expansion();
         t.row(what, &got.to_string(), got == want);
@@ -98,17 +132,40 @@ fn b52_edges() {
 
     t.heading("Commands");
     for (file, wrong, right) in [
-        ("fx_edges_001.json", gauss(1.0, "wrap"), gauss(1.0, "transparent")),
-        ("fx_edges_004.json", streak(90.0, 6.0, "Repeat"), streak(90.0, 6.0, "transparent")),
-        ("fx_edges_007.json", turn("spin", 30.0, ""), turn("spin", 30.0, "transparent")),
+        (
+            "fx_edges_001.json",
+            gauss(1.0, "wrap"),
+            gauss(1.0, "transparent"),
+        ),
+        (
+            "fx_edges_004.json",
+            streak(90.0, 6.0, "Repeat"),
+            streak(90.0, 6.0, "transparent"),
+        ),
+        (
+            "fx_edges_007.json",
+            turn("spin", 30.0, ""),
+            turn("spin", 30.0, "transparent"),
+        ),
     ] {
         let mut document = t.load(file).document;
-        t.refused(&mut document, vec![(&format!("{file}: {wrong:?}"), set(wrong.clone()))]);
-        t.taken(&mut document, file, vec![(&format!("{file}: {right:?}"), set(right))]);
+        t.refused(
+            &mut document,
+            vec![(&format!("{file}: {wrong:?}"), set(wrong.clone()))],
+        );
+        t.taken(
+            &mut document,
+            file,
+            vec![(&format!("{file}: {right:?}"), set(right))],
+        );
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_edges_001.json", 0), ("fx_edges_005.json", 0), ("fx_edges_008.json", 0)]);
+    t.tiles(&[
+        ("fx_edges_001.json", 0),
+        ("fx_edges_005.json", 0),
+        ("fx_edges_008.json", 0),
+    ]);
 
     t.finish("B-52_edges_table.md");
 }

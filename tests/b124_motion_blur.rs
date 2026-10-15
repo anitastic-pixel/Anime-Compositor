@@ -33,7 +33,11 @@ fn shutter(v: &J) -> MotionBlur {
 }
 
 fn numbers(v: &J) -> Vec<f64> {
-    v.as_array().unwrap().iter().map(|x| x.as_f64().unwrap()).collect()
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_f64().unwrap())
+        .collect()
 }
 
 /// The largest difference between two lists of numbers, or infinity when their lengths differ.
@@ -41,7 +45,10 @@ fn apart(a: &[f64], b: &[f64]) -> f64 {
     if a.len() != b.len() {
         return f64::INFINITY;
     }
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
 }
 
 /// FX-MB-011's file with the bar's switch set to `on`.
@@ -75,7 +82,13 @@ fn draft(document: &Document, root: &std::path::Path, frame: i32) -> WorkingBuff
 /// while it turns 30 degrees a frame, and a white bar turning 60 degrees a frame in place. Both
 /// have their switch on; `bar_switch` turns the bar's off.
 fn shot(shutter: J, bar_switch: bool) -> Document {
-    let solid = |id: &str, color: [f64; 3], (w, h): (u32, u32), from: [f64; 2], to: [f64; 2], turn: f64, blur: bool| {
+    let solid = |id: &str,
+                 color: [f64; 3],
+                 (w, h): (u32, u32),
+                 from: [f64; 2],
+                 to: [f64; 2],
+                 turn: f64,
+                 blur: bool| {
         serde_json::json!({
             "id": id, "kind": "solid", "name": id, "enabled": true, "locked": false,
             "in_frame": 0, "out_frame": 12,
@@ -111,7 +124,9 @@ fn shot(shutter: J, bar_switch: bool) -> Document {
             "motion_blur": shutter
         }]
     });
-    persist::load_str(&project.to_string()).expect("the shot reads").document
+    persist::load_str(&project.to_string())
+        .expect("the shot reads")
+        .document
 }
 
 #[test]
@@ -152,15 +167,31 @@ fn b124_motion_blur() {
         // The property is put on the bar, as its rotation when it is a number and as its
         // position when it is a pair, and read back through the file format.
         let two = case["property"]["base"].is_array();
-        let (key, prop) = if two { ("position", Prop::Position) } else { ("rotation", Prop::Rotation) };
+        let (key, prop) = if two {
+            ("position", Prop::Position)
+        } else {
+            ("rotation", Prop::Rotation)
+        };
         let mut file = template.clone();
         file["compositions"][0]["layers"][0]["transform"][key] = case["property"].clone();
         let loaded = persist::load_str(&file.to_string()).expect("the property reads");
-        let comp = loaded.document.project().composition(&Id::new(MAIN)).unwrap();
-        let property = comp.layer(&Id::new("bar")).unwrap().transform.get(prop).unwrap();
+        let comp = loaded
+            .document
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap();
+        let property = comp
+            .layer(&Id::new("bar"))
+            .unwrap()
+            .transform
+            .get(prop)
+            .unwrap();
         let mut got = Vec::new();
         let mut want = Vec::new();
-        for (time, value) in numbers(&case["times"]).into_iter().zip(case["values"].as_array().unwrap()) {
+        for (time, value) in numbers(&case["times"])
+            .into_iter()
+            .zip(case["values"].as_array().unwrap())
+        {
             let v = property.value_at_time(time);
             if two {
                 let (x, y) = v.as_vec2().unwrap();
@@ -196,7 +227,11 @@ fn b124_motion_blur() {
     t.heading("What the pictures claim beyond their numbers");
     let on = t.render(&t.load("fx_mb_010.json").document, 1, 64);
     let off = t.render(&with_switch(&t, "fx_mb_010.json", false), 1, 64);
-    let same = on.data().iter().zip(off.data()).all(|(a, b)| a.to_bits() == b.to_bits());
+    let same = on
+        .data()
+        .iter()
+        .zip(off.data())
+        .all(|(a, b)| a.to_bits() == b.to_bits());
     t.row(
         "FX-MB-010: the still bar with its switch on is the picture with it off, bit for bit",
         if same { "the same bits" } else { "differs" },
@@ -206,7 +241,9 @@ fn b124_motion_blur() {
         serde_json::from_str(&fs::read_to_string(t.root.join("fx_mb_014.json")).unwrap()).unwrap();
     let kept = saved(&t.load("fx_mb_014.json"));
     let neither = kept["compositions"][0].get("motion_blur").is_none()
-        && kept["compositions"][0]["layers"][0].get("motion_blur").is_none();
+        && kept["compositions"][0]["layers"][0]
+            .get("motion_blur")
+            .is_none();
     t.row(
         "FX-MB-014: the file from before motion blur, saved again, holds what it held and neither field",
         if same_json(&kept, &original) && neither { "the same, neither field" } else { "differs" },
@@ -234,9 +271,13 @@ fn b124_motion_blur() {
             &mut CelCache::none(),
         )
         .unwrap();
-        (plan.layers.iter().any(|l| l.motion_blur), plan.layers.iter().any(|l| !l.moments.is_empty()))
+        (
+            plan.layers.iter().any(|l| l.motion_blur),
+            plan.layers.iter().any(|l| !l.moments.is_empty()),
+        )
     };
-    let [(_, summed), (matte, _), (still, still_summed)] = ["fx_mb_011.json", "fx_mb_025.json", "fx_mb_010.json"].map(blurred);
+    let [(_, summed), (matte, _), (still, still_summed)] =
+        ["fx_mb_011.json", "fx_mb_025.json", "fx_mb_010.json"].map(blurred);
     let marks = [summed, matte, still || still_summed];
     t.row(
         "FX-MB-011's frame leaves the bar's moments for the card to add up (B-156b; before it, the processor averaged them, B-152)",
@@ -259,7 +300,12 @@ fn b124_motion_blur() {
     let moving = t.load("fx_mb_011.json").document;
     let comp = moving.project().composition(&Id::new(MAIN)).unwrap();
     let times = comp.motion_blur.times(1);
-    let position = comp.layer(&Id::new("bar")).unwrap().transform.get(Prop::Position).unwrap();
+    let position = comp
+        .layer(&Id::new("bar"))
+        .unwrap()
+        .transform
+        .get(Prop::Position)
+        .unwrap();
     let mut sum: Vec<f64> = Vec::new();
     for &time in &times {
         let (x, y) = position.value_at_time(time).as_vec2().unwrap();
@@ -274,7 +320,11 @@ fn b124_motion_blur() {
         }
     }
     let average: Vec<f64> = sum.iter().map(|s| s / times.len() as f64).collect();
-    let got: Vec<f64> = draft(&moving, &t.root, 1).data().iter().map(|v| *v as f64).collect();
+    let got: Vec<f64> = draft(&moving, &t.root, 1)
+        .data()
+        .iter()
+        .map(|v| *v as f64)
+        .collect();
     let d = apart(&got, &average);
     t.row(
         "Draft uses the same four moments: FX-MB-011 at Draft is the average of the bar drawn still at each",
@@ -285,15 +335,35 @@ fn b124_motion_blur() {
     t.heading("FX-MB-050: where a corner lands at each moment (1920 by 1080)");
     let points = &expected["points"]["FX-MB-050"];
     let loaded = t.load(points["project"].as_str().unwrap());
-    let comp = loaded.document.project().composition(&Id::new(MAIN)).unwrap();
+    let comp = loaded
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap();
     let parent = comp.layer(&Id::new("P")).unwrap();
     let child = comp.layer(&Id::new("C")).unwrap();
     for row in points["rows"].as_array().unwrap() {
         let frame = row["frame"].as_i64().unwrap() as i32;
         let time = row["time"].as_f64().unwrap();
-        let listed = comp.motion_blur.times(frame).iter().any(|&m| (m - time).abs() <= tolerance);
-        let rotation = parent.transform.get(Prop::Rotation).unwrap().value_at_time(time).as_scalar().unwrap();
-        let (px, py) = child.transform.get(Prop::Position).unwrap().value_at_time(time).as_vec2().unwrap();
+        let listed = comp
+            .motion_blur
+            .times(frame)
+            .iter()
+            .any(|&m| (m - time).abs() <= tolerance);
+        let rotation = parent
+            .transform
+            .get(Prop::Rotation)
+            .unwrap()
+            .value_at_time(time)
+            .as_scalar()
+            .unwrap();
+        let (px, py) = child
+            .transform
+            .get(Prop::Position)
+            .unwrap()
+            .value_at_time(time)
+            .as_vec2()
+            .unwrap();
         let depth = compose::camera_at_time(comp, frame, time).unwrap().depth;
         let screen = compose::screen_transform_at(comp, &Id::new("C"), frame, time).unwrap();
         let (ax, ay) = screen.apply(0.0, 0.0);
@@ -309,7 +379,11 @@ fn b124_motion_blur() {
         );
         let corners = apart(
             &[ax, ay, bx, by],
-            &[numbers(&row["(0, 0) on screen"]), numbers(&row["(100, 0) on screen"])].concat(),
+            &[
+                numbers(&row["(0, 0) on screen"]),
+                numbers(&row["(100, 0) on screen"]),
+            ]
+            .concat(),
         );
         t.row(
             &format!("frame {frame}, moment {time}: a moment of the frame; the parent's rotation, the child's position and the camera's depth; both corners on screen"),
@@ -321,7 +395,11 @@ fn b124_motion_blur() {
     t.heading("FX-MB-030 to 041: files that are refused");
     for (name, case) in expected["refused"].as_object().unwrap() {
         let got = persist::load(&t.root.join(case["project"].as_str().unwrap()));
-        let code = got.as_ref().err().map(|d| d.id.as_str().to_string()).unwrap_or("opened".into());
+        let code = got
+            .as_ref()
+            .err()
+            .map(|d| d.id.as_str().to_string())
+            .unwrap_or("opened".into());
         t.row(
             &format!("{name}: {}", case["says"].as_str().unwrap()),
             &code,
@@ -331,36 +409,107 @@ fn b124_motion_blur() {
 
     t.heading("The two commands");
     let mut document = t.load("fx_mb_011.json").document;
-    let set = |mb: MotionBlur| Command::SetMotionBlur { composition: Id::new(MAIN), motion_blur: mb };
-    let as_added = MotionBlur { enabled: true, ..MotionBlur::default() };
+    let set = |mb: MotionBlur| Command::SetMotionBlur {
+        composition: Id::new(MAIN),
+        motion_blur: mb,
+    };
+    let as_added = MotionBlur {
+        enabled: true,
+        ..MotionBlur::default()
+    };
     for (what, mb) in [
-        ("an angle above 720", MotionBlur { shutter_angle: 720.5, ..as_added }),
-        ("an angle below 0", MotionBlur { shutter_angle: -1.0, ..as_added }),
-        ("a phase below -360", MotionBlur { shutter_phase: -361.0, ..as_added }),
-        ("one sample", MotionBlur { samples: 1, ..as_added }),
-        ("sixty-five samples", MotionBlur { samples: 65, ..as_added }),
-        ("an angle that is not a number", MotionBlur { shutter_angle: f64::NAN, ..as_added }),
+        (
+            "an angle above 720",
+            MotionBlur {
+                shutter_angle: 720.5,
+                ..as_added
+            },
+        ),
+        (
+            "an angle below 0",
+            MotionBlur {
+                shutter_angle: -1.0,
+                ..as_added
+            },
+        ),
+        (
+            "a phase below -360",
+            MotionBlur {
+                shutter_phase: -361.0,
+                ..as_added
+            },
+        ),
+        (
+            "one sample",
+            MotionBlur {
+                samples: 1,
+                ..as_added
+            },
+        ),
+        (
+            "sixty-five samples",
+            MotionBlur {
+                samples: 65,
+                ..as_added
+            },
+        ),
+        (
+            "an angle that is not a number",
+            MotionBlur {
+                shutter_angle: f64::NAN,
+                ..as_added
+            },
+        ),
     ] {
         let refused = document.apply(set(mb)).is_err();
-        t.row(&format!("the composition's shutter with {what} is refused"), &format!("{refused}"), refused);
+        t.row(
+            &format!("the composition's shutter with {what} is refused"),
+            &format!("{refused}"),
+            refused,
+        );
     }
     let taken = document.apply(set(as_added)).is_ok();
-    let now = document.project().composition(&Id::new(MAIN)).unwrap().motion_blur;
+    let now = document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .motion_blur;
     let undone = document.undo().is_some()
-        && document.project().composition(&Id::new(MAIN)).unwrap().motion_blur.samples == 4;
+        && document
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .motion_blur
+            .samples
+            == 4;
     t.row(
         "shutter 180, phase -90, 16 samples is taken, and undo puts back the file's 4",
         &format!("taken {taken}, {} samples, undone {undone}", now.samples),
         taken && now.samples == 16 && undone,
     );
-    let null = t.load("fx_mb_019.json").document.project().composition(&Id::new(MAIN)).unwrap()
-        .layers_in_order().find(|l| l.kind == anime_compositor::model::LayerKind::Null)
-        .map(|l| l.id.clone()).unwrap();
+    let null = t
+        .load("fx_mb_019.json")
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| l.kind == anime_compositor::model::LayerKind::Null)
+        .map(|l| l.id.clone())
+        .unwrap();
     let mut on_null = t.load("fx_mb_019.json").document;
     let refused = on_null
-        .apply(Command::SetLayerMotionBlur { composition: Id::new(MAIN), layer_id: null, value: true })
+        .apply(Command::SetLayerMotionBlur {
+            composition: Id::new(MAIN),
+            layer_id: null,
+            value: true,
+        })
         .is_err();
-    t.row("the switch on a null is refused", &format!("{refused}"), refused);
+    t.row(
+        "the switch on a null is refused",
+        &format!("{refused}"),
+        refused,
+    );
     let off = with_switch(&t, "fx_mb_011.json", false);
     let sharp = largest_difference(
         &t.render(&off, 1, 64),
@@ -375,37 +524,93 @@ fn b124_motion_blur() {
     t.heading("Pictures for the playtest, frame 5 of a 960 by 540 shot, in `verification/B-124 pictures/`");
     let dir = effect_table::repo("verification/B-124 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let shutter = |on: bool, angle: f64, phase: f64, samples: u32| {
-        serde_json::json!({"enabled": on, "shutter_angle": angle, "shutter_phase": phase, "samples": samples})
-    };
+    let shutter = |on: bool, angle: f64, phase: f64, samples: u32| serde_json::json!({"enabled": on, "shutter_angle": angle, "shutter_phase": phase, "samples": samples});
     let root = t.root.clone();
     let draw = |document: &Document, quality: PreviewQuality| {
         let mut log = FrameLog::new(8);
         let drawn = preview::preview_frame_cached(
-            document.project(), &Id::new(MAIN), 5, &root, quality, 64, &mut log, &mut CelCache::none(),
+            document.project(),
+            &Id::new(MAIN),
+            5,
+            &root,
+            quality,
+            64,
+            &mut log,
+            &mut CelCache::none(),
         )
         .expect("the shot draws");
-        let said: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
+        let said: Vec<String> = log
+            .finish()
+            .iter()
+            .map(|d| d.id.as_str().to_string())
+            .collect();
         (drawn, said)
     };
-    let (sharp, _) = draw(&shot(shutter(false, 180.0, -90.0, 16), true), PreviewQuality::Full);
+    let (sharp, _) = draw(
+        &shot(shutter(false, 180.0, -90.0, 16), true),
+        PreviewQuality::Full,
+    );
     // On frame 5 the card is centred at (420, 250), and (360, 250) is just inside its left corner.
     // The bar turns about (700, 400) and stands at 300 degrees; (731, 305) is 100 pixels out at 288
     // degrees, which the sharp bar misses and the blurred one sweeps. Nothing crosses (20, 20).
-    let at = |b: &WorkingBuffer, (x, y): (usize, usize)| b.data()[(y * 960 + x) * 4..(y * 960 + x) * 4 + 4].to_vec();
+    let at = |b: &WorkingBuffer, (x, y): (usize, usize)| {
+        b.data()[(y * 960 + x) * 4..(y * 960 + x) * 4 + 4].to_vec()
+    };
     for (name, what, document, quality) in [
-        ("sharp", "the composition's switch off: both sharp", shot(shutter(false, 180.0, -90.0, 16), true), PreviewQuality::Full),
-        ("as_added", "switched on as added, shutter 180, phase -90, 16 samples", shot(shutter(true, 180.0, -90.0, 16), true), PreviewQuality::Full),
-        ("shutter_360", "shutter 360, phase -180, 32 samples: a whole frame of travel", shot(shutter(true, 360.0, -180.0, 32), true), PreviewQuality::Full),
-        ("four_samples", "shutter 180 with only 4 samples: four copies can be seen", shot(shutter(true, 180.0, -90.0, 4), true), PreviewQuality::Full),
-        ("bar_switch_off", "as added with the bar's own switch off: the card blurs, the bar is sharp", shot(shutter(true, 180.0, -90.0, 16), false), PreviewQuality::Full),
-        ("draft", "as added at Draft, a quarter of the size each way", shot(shutter(true, 180.0, -90.0, 16), true), PreviewQuality::Draft),
+        (
+            "sharp",
+            "the composition's switch off: both sharp",
+            shot(shutter(false, 180.0, -90.0, 16), true),
+            PreviewQuality::Full,
+        ),
+        (
+            "as_added",
+            "switched on as added, shutter 180, phase -90, 16 samples",
+            shot(shutter(true, 180.0, -90.0, 16), true),
+            PreviewQuality::Full,
+        ),
+        (
+            "shutter_360",
+            "shutter 360, phase -180, 32 samples: a whole frame of travel",
+            shot(shutter(true, 360.0, -180.0, 32), true),
+            PreviewQuality::Full,
+        ),
+        (
+            "four_samples",
+            "shutter 180 with only 4 samples: four copies can be seen",
+            shot(shutter(true, 180.0, -90.0, 4), true),
+            PreviewQuality::Full,
+        ),
+        (
+            "bar_switch_off",
+            "as added with the bar's own switch off: the card blurs, the bar is sharp",
+            shot(shutter(true, 180.0, -90.0, 16), false),
+            PreviewQuality::Full,
+        ),
+        (
+            "draft",
+            "as added at Draft, a quarter of the size each way",
+            shot(shutter(true, 180.0, -90.0, 16), true),
+            PreviewQuality::Draft,
+        ),
     ] {
         let (drawn, said) = draw(&document, quality);
         let (w, h) = (drawn.width(), drawn.height());
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &drawn.to_srgb8_straight()).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &drawn.to_srgb8_straight(),
+        )
+        .unwrap();
         if quality == PreviewQuality::Draft {
-            t.row(&format!("{name}.png, {what}, draws cleanly at {w} by {h}"), &format!("{said:?}"), said.is_empty() && (w, h) == (240, 135));
+            t.row(
+                &format!("{name}.png, {what}, draws cleanly at {w} by {h}"),
+                &format!("{said:?}"),
+                said.is_empty() && (w, h) == (240, 135),
+            );
             continue;
         }
         let card_moved = at(&drawn, (360, 250)) != at(&sharp, (360, 250));

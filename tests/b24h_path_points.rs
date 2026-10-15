@@ -230,7 +230,11 @@ fn b24h_path_points() {
             &format!(
                 "a blob of curves, cut at {}% of segment {seg}{}",
                 tt * 100.0,
-                if seg == 3 { " -- the segment that closes the path" } else { "" }
+                if seg == 3 {
+                    " -- the segment that closes the path"
+                } else {
+                    ""
+                }
             ),
             &format!("{} points, {apart:.2e} px apart at the worst", after.len()),
             after.len() == 5 && apart < 1e-9,
@@ -259,7 +263,10 @@ fn b24h_path_points() {
         "and it is a corner: no handles on it, and none grown on its neighbours",
         &format!(
             "{:?} and {:?} on the new point, {:?} and {:?} beside it",
-            corners[2].in_handle, corners[2].out_handle, corners[1].out_handle, corners[3].in_handle
+            corners[2].in_handle,
+            corners[2].out_handle,
+            corners[1].out_handle,
+            corners[3].in_handle
         ),
         corners[2].in_handle == (0.0, 0.0)
             && corners[2].out_handle == (0.0, 0.0)
@@ -329,14 +336,21 @@ fn b24h_path_points() {
         &format!(
             "base {}, keys {:?}",
             keyed.points.len(),
-            keyed.keys.iter().map(|k| k.points.len()).collect::<Vec<_>>()
+            keyed
+                .keys
+                .iter()
+                .map(|k| k.points.len())
+                .collect::<Vec<_>>()
         ),
         keyed.points.len() == 5 && keyed.keys.iter().all(|k| k.points.len() == 5),
     );
     for (i, key) in keyed.keys.iter().enumerate() {
         let apart = curves_apart(&was.keys[i].points, &key.points, 2, 0.35);
         t.row(
-            &format!("the key at frame {}: its own curve is where it was", key.frame),
+            &format!(
+                "the key at frame {}: its own curve is where it was",
+                key.frame
+            ),
             &format!("{apart:.2e} px apart at the worst"),
             apart < 1e-9,
         );
@@ -362,7 +376,11 @@ fn b24h_path_points() {
         &format!(
             "base {} points, keys {:?}",
             short.points.len(),
-            short.keys.iter().map(|k| k.points.len()).collect::<Vec<_>>()
+            short
+                .keys
+                .iter()
+                .map(|k| k.points.len())
+                .collect::<Vec<_>>()
         ),
         short.points.len() == 3
             && short.keys.iter().all(|k| k.points.len() == 3)
@@ -401,7 +419,14 @@ fn b24h_path_points() {
         },
         MaskKey {
             frame: 6,
-            points: mask.points.iter().map(|p| MaskPoint { point: (p.point.0 + 4.0, p.point.1), ..*p }).collect(),
+            points: mask
+                .points
+                .iter()
+                .map(|p| MaskPoint {
+                    point: (p.point.0 + 4.0, p.point.1),
+                    ..*p
+                })
+                .collect(),
             interp: Interp::Linear,
         },
     ];
@@ -497,77 +522,170 @@ fn b24h_path_points() {
     t.heading("What the history entry says (B-24h)");
     while document.undo().is_some() {}
     let mut d = document;
-    did(&mut t, &mut d, "drew a second mask", "Draw Mask 2", |masks| {
-        masks.push(Mask {
-            name: "Mask 2".to_string(),
-            points: square(),
-            ..Default::default()
-        })
+    did(
+        &mut t,
+        &mut d,
+        "drew a second mask",
+        "Draw Mask 2",
+        |masks| {
+            masks.push(Mask {
+                name: "Mask 2".to_string(),
+                points: square(),
+                ..Default::default()
+            })
+        },
+    );
+    did(
+        &mut t,
+        &mut d,
+        "pulled one point",
+        "Move a point of Mask 1",
+        |masks| masks[0].points[1].point.0 += 5.0,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "pulled the whole path",
+        "Move Mask 1's path",
+        |masks| masks[0].points.iter_mut().for_each(|p| p.point.1 += 2.0),
+    );
+    did(
+        &mut t,
+        &mut d,
+        "set a feather",
+        "Set Mask 1's feather to 6 px",
+        |masks| masks[0].feather_px = 6.0,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "set an expansion",
+        "Set Mask 1's expansion to -3.5 px",
+        |masks| masks[0].expansion_px = -3.5,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "set an opacity",
+        "Set Mask 1's opacity to 40%",
+        |masks| masks[0].opacity = 0.4,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "changed the mode",
+        "Set Mask 1 to subtract",
+        |masks| masks[0].mode = anime_compositor::mask::MaskMode::Subtract,
+    );
+    did(&mut t, &mut d, "inverted it", "Invert Mask 1", |masks| {
+        masks[0].inverted = true
     });
-    did(&mut t, &mut d, "pulled one point", "Move a point of Mask 1", |masks| {
-        masks[0].points[1].point.0 += 5.0
-    });
-    did(&mut t, &mut d, "pulled the whole path", "Move Mask 1's path", |masks| {
-        masks[0].points.iter_mut().for_each(|p| p.point.1 += 2.0)
-    });
-    did(&mut t, &mut d, "set a feather", "Set Mask 1's feather to 6 px", |masks| {
-        masks[0].feather_px = 6.0
-    });
-    did(&mut t, &mut d, "set an expansion", "Set Mask 1's expansion to -3.5 px", |masks| {
-        masks[0].expansion_px = -3.5
-    });
-    did(&mut t, &mut d, "set an opacity", "Set Mask 1's opacity to 40%", |masks| {
-        masks[0].opacity = 0.4
-    });
-    did(&mut t, &mut d, "changed the mode", "Set Mask 1 to subtract", |masks| {
-        masks[0].mode = anime_compositor::mask::MaskMode::Subtract
-    });
-    did(&mut t, &mut d, "inverted it", "Invert Mask 1", |masks| masks[0].inverted = true);
-    did(&mut t, &mut d, "switched it off", "Switch Mask 1 off", |masks| {
-        masks[0].enabled = false
-    });
-    did(&mut t, &mut d, "renamed it", "Rename Mask 1 to Face", |masks| {
-        masks[0].name = "Face".to_string()
-    });
-    did(&mut t, &mut d, "pressed the path's stopwatch", "Start Face's path moving", |masks| {
-        masks[0].keys = vec![MaskKey {
-            frame: 0,
-            points: masks[0].points.clone(),
-            interp: Interp::Linear,
-        }]
-    });
-    did(&mut t, &mut d, "put a second key down", "Key Face's path at frame 6", |masks| {
-        let mut moved = masks[0].points.clone();
-        moved[0].point.0 += 7.0;
-        masks[0].keys.push(MaskKey {
-            frame: 6,
-            points: moved,
-            interp: Interp::Linear,
-        })
-    });
-    did(&mut t, &mut d, "pulled a point at a key", "Move a point of Face at frame 6", |masks| {
-        masks[0].keys[1].points[2].point.1 += 3.0
-    });
-    did(&mut t, &mut d, "dragged that key along its row", "Move Face's path key from frame 6 to 9", |masks| {
-        masks[0].keys[1].frame = 9
-    });
-    did(&mut t, &mut d, "eased it with F9", "Change the ease on Face's path key at frame 0", |masks| {
-        masks[0].keys[0].interp = Interp::Ease { x1: 0.33, y1: 0.0, x2: 0.67, y2: 1.0 }
-    });
-    did(&mut t, &mut d, "added a point to the moving path", "Add a point to Face", |masks| {
-        let mask = &mut masks[0];
-        mask::insert_point(&mut mask.points, &mut mask.keys, 1, 0.5)
-    });
-    did(&mut t, &mut d, "took it off again", "Remove a point from Face", |masks| {
-        let mask = &mut masks[0];
-        mask::remove_point(&mut mask.points, &mut mask.keys, 2)
-    });
-    did(&mut t, &mut d, "took the stopwatch off", "Stop Face's path moving", |masks| {
-        masks[0].keys.clear()
-    });
-    did(&mut t, &mut d, "deleted the second mask", "Delete Mask 2", |masks| {
-        masks.remove(1);
-    });
+    did(
+        &mut t,
+        &mut d,
+        "switched it off",
+        "Switch Mask 1 off",
+        |masks| masks[0].enabled = false,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "renamed it",
+        "Rename Mask 1 to Face",
+        |masks| masks[0].name = "Face".to_string(),
+    );
+    did(
+        &mut t,
+        &mut d,
+        "pressed the path's stopwatch",
+        "Start Face's path moving",
+        |masks| {
+            masks[0].keys = vec![MaskKey {
+                frame: 0,
+                points: masks[0].points.clone(),
+                interp: Interp::Linear,
+            }]
+        },
+    );
+    did(
+        &mut t,
+        &mut d,
+        "put a second key down",
+        "Key Face's path at frame 6",
+        |masks| {
+            let mut moved = masks[0].points.clone();
+            moved[0].point.0 += 7.0;
+            masks[0].keys.push(MaskKey {
+                frame: 6,
+                points: moved,
+                interp: Interp::Linear,
+            })
+        },
+    );
+    did(
+        &mut t,
+        &mut d,
+        "pulled a point at a key",
+        "Move a point of Face at frame 6",
+        |masks| masks[0].keys[1].points[2].point.1 += 3.0,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "dragged that key along its row",
+        "Move Face's path key from frame 6 to 9",
+        |masks| masks[0].keys[1].frame = 9,
+    );
+    did(
+        &mut t,
+        &mut d,
+        "eased it with F9",
+        "Change the ease on Face's path key at frame 0",
+        |masks| {
+            masks[0].keys[0].interp = Interp::Ease {
+                x1: 0.33,
+                y1: 0.0,
+                x2: 0.67,
+                y2: 1.0,
+            }
+        },
+    );
+    did(
+        &mut t,
+        &mut d,
+        "added a point to the moving path",
+        "Add a point to Face",
+        |masks| {
+            let mask = &mut masks[0];
+            mask::insert_point(&mut mask.points, &mut mask.keys, 1, 0.5)
+        },
+    );
+    did(
+        &mut t,
+        &mut d,
+        "took it off again",
+        "Remove a point from Face",
+        |masks| {
+            let mask = &mut masks[0];
+            mask::remove_point(&mut mask.points, &mut mask.keys, 2)
+        },
+    );
+    did(
+        &mut t,
+        &mut d,
+        "took the stopwatch off",
+        "Stop Face's path moving",
+        |masks| masks[0].keys.clear(),
+    );
+    did(
+        &mut t,
+        &mut d,
+        "deleted the second mask",
+        "Delete Mask 2",
+        |masks| {
+            masks.remove(1);
+        },
+    );
 
     // -----------------------------------------------------------------------------------
     t.out.push_str(&format!(

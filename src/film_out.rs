@@ -40,7 +40,9 @@ impl Film {
     /// Why this job cannot be a GIF, or `None`. Asked before any file is made.
     pub fn gif_refusal(width: usize, height: usize) -> Option<String> {
         (width > u16::MAX as usize || height > u16::MAX as usize).then(|| {
-            format!("A GIF cannot be wider or taller than 65535 pixels, and this is {width}x{height}.")
+            format!(
+                "A GIF cannot be wider or taller than 65535 pixels, and this is {width}x{height}."
+            )
         })
     }
 
@@ -55,12 +57,25 @@ impl Film {
         })
     }
 
-    pub fn gif(path: &Path, width: usize, height: usize, rate: FrameRate, dither: bool) -> Result<Self, String> {
+    pub fn gif(
+        path: &Path,
+        width: usize,
+        height: usize,
+        rate: FrameRate,
+        dither: bool,
+    ) -> Result<Self, String> {
         let file = BufWriter::new(File::create(path).map_err(|e| e.to_string())?);
         let mut encoder =
             gif::Encoder::new(file, width as u16, height as u16, &[]).map_err(|e| e.to_string())?;
-        encoder.set_repeat(gif::Repeat::Infinite).map_err(|e| e.to_string())?;
-        Ok(Film::Gif { encoder, rate, frames: 0, dither })
+        encoder
+            .set_repeat(gif::Repeat::Infinite)
+            .map_err(|e| e.to_string())?;
+        Ok(Film::Gif {
+            encoder,
+            rate,
+            frames: 0,
+            dither,
+        })
     }
 
     pub fn apng(
@@ -89,21 +104,41 @@ impl Film {
                 .add_itxt_chunk((*key).to_string(), value.clone())
                 .map_err(|e| e.to_string())?;
         }
-        Ok(Film::Apng(encoder.write_header().map_err(|e| e.to_string())?))
+        Ok(Film::Apng(
+            encoder.write_header().map_err(|e| e.to_string())?,
+        ))
     }
 
     /// Add one frame. `srgb8` is 8-bit straight RGBA and is what a GIF is made from; `samples`
     /// is what an exported PNG frame would hold and is what an animated PNG is made from.
-    pub fn push(&mut self, width: usize, height: usize, srgb8: &[u8], samples: &[u8]) -> Result<(), String> {
+    pub fn push(
+        &mut self,
+        width: usize,
+        height: usize,
+        srgb8: &[u8],
+        samples: &[u8],
+    ) -> Result<(), String> {
         match self {
-            Film::Gif { encoder, rate, frames, dither } => {
+            Film::Gif {
+                encoder,
+                rate,
+                frames,
+                dither,
+            } => {
                 // Alpha is on or off: half or more is on. The colour under a pixel that is off
                 // is dropped, so it cannot take a place in the 256-colour palette.
                 let mut rgba: Vec<u8> = srgb8
                     .chunks_exact(4)
-                    .flat_map(|p| if p[3] >= 128 { [p[0], p[1], p[2], 255] } else { [0; 4] })
+                    .flat_map(|p| {
+                        if p[3] >= 128 {
+                            [p[0], p[1], p[2], 255]
+                        } else {
+                            [0; 4]
+                        }
+                    })
                     .collect();
-                let mut frame = gif::Frame::from_rgba_speed(width as u16, height as u16, &mut rgba, 10);
+                let mut frame =
+                    gif::Frame::from_rgba_speed(width as u16, height as u16, &mut rgba, 10);
                 if *dither {
                     // The colours are the ones just picked; only which pixel gets which changes.
                     let palette: Vec<[u8; 3]> = frame
@@ -153,7 +188,12 @@ impl Film {
 ///
 /// ponytail: the nearest colour is a plain search of the palette, remembered for each value
 /// met. Flat cel colour meets few; a frame of photographic noise is slow. A k-d tree if it bites.
-pub fn dither_indices(rgba: &[u8], width: usize, palette: &[[u8; 3]], not: Option<u8>) -> Vec<Option<u8>> {
+pub fn dither_indices(
+    rgba: &[u8],
+    width: usize,
+    palette: &[[u8; 3]],
+    not: Option<u8>,
+) -> Vec<Option<u8>> {
     let height = rgba.len() / 4 / width;
     let mut carried = vec![[0i32; 3]; width * height];
     let mut met = std::collections::HashMap::new();

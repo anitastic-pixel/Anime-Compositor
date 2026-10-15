@@ -14,7 +14,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -31,7 +33,9 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.lens_flare" => json!({"flare_center": [30, 30], "flare_brightness": 100, "lens_type": "zoom", "blend_with_original": 0}),
+        "core.lens_flare" => {
+            json!({"flare_center": [30, 30], "flare_brightness": 100, "lens_type": "zoom", "blend_with_original": 0})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -42,11 +46,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -67,14 +82,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -128,7 +159,12 @@ fn flare(change: impl FnOnce(&mut Effect)) -> Effect {
 
 /// Set the `holder` layer's Lens Flare; its fixtures' drawing is `holder`, not `art`.
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's Lens Flare, linearly.
@@ -138,19 +174,38 @@ fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// Each command is refused with a sentence and leaves the `holder` layer's effect as it was.
 fn refused_holder(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
-    let held = |d: &Document| format!("{:?}", d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0]);
+    let held = |d: &Document| {
+        format!(
+            "{:?}",
+            d.project()
+                .composition(&Id::new(MAIN))
+                .unwrap()
+                .layer(&Id::new("holder"))
+                .unwrap()
+                .effects[0]
+        )
+    };
     let before = held(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && held(document) == before,
         );
     }
@@ -159,14 +214,29 @@ fn refused_holder(t: &mut Table, document: &mut Document, commands: Vec<(&str, C
 fn why_holder(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
 /// `effects` on the street at frame 0, drawn, straight 8-bit, with what it warned of.
 fn street(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -178,8 +248,20 @@ fn street(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -203,7 +285,11 @@ fn b305_lens_flare() {
 
     t.heading("How far it reaches");
     let got = flare(|_| {}).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing: the flare is drawn on the layer as it is", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing: the flare is drawn on the layer as it is",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = flare(|_| {});
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -229,24 +315,70 @@ fn b305_lens_flare() {
     t.row(
         "fx_flare_011.json is saved with the centre's two keys",
         &keyed["flare_center"].to_string(),
-        keyed["flare_center"]["keyframes"].as_array().is_some_and(|k| k.len() == 2),
+        keyed["flare_center"]["keyframes"]
+            .as_array()
+            .is_some_and(|k| k.len() == 2),
     );
     why_holder(
         &mut t,
         &[
-            ("fx_flare_015.json", "Lens Flare's flare brightness runs from 0 to 300, and this is 301."),
-            ("fx_flare_016.json", "Lens Flare's flare brightness runs from 0 to 300, and this is -1."),
-            ("fx_flare_017.json", "Lens Flare's blend with original runs from 0 to 100, and this is 101."),
-            ("fx_flare_018.json", "Lens Flare's lens type is \"zoom\", \"35mm\" or \"105mm\", and this is \"200mm\"."),
-            ("fx_flare_019.json", "Lens Flare's flare center runs from -1000 to 1000, and this is 1001."),
+            (
+                "fx_flare_015.json",
+                "Lens Flare's flare brightness runs from 0 to 300, and this is 301.",
+            ),
+            (
+                "fx_flare_016.json",
+                "Lens Flare's flare brightness runs from 0 to 300, and this is -1.",
+            ),
+            (
+                "fx_flare_017.json",
+                "Lens Flare's blend with original runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_flare_018.json",
+                "Lens Flare's lens type is \"zoom\", \"35mm\" or \"105mm\", and this is \"200mm\".",
+            ),
+            (
+                "fx_flare_019.json",
+                "Lens Flare's flare center runs from -1000 to 1000, and this is 1001.",
+            ),
         ],
     );
     let rest = r#""flare_brightness": 100, "lens_type": "zoom", "blend_with_original": 0"#;
-    t.shape_refused("fx_flare_001.json", "a Lens Flare with no `flare_center`", &format!("{{{rest}}}"));
-    t.shape_refused("fx_flare_001.json", "a Lens Flare whose centre is one number", &format!("{{\"flare_center\": 30, {rest}}}"));
-    t.shape_refused("fx_flare_001.json", "a Lens Flare whose brightness is a word", &format!("{{\"flare_center\": [30, 30], {}}}", rest.replace("100", "\"100\"")));
-    t.shape_refused("fx_flare_001.json", "a Lens Flare whose lens type is a number", &format!("{{\"flare_center\": [30, 30], {}}}", rest.replace("\"zoom\"", "50")));
-    t.shape_refused("fx_flare_001.json", "a Lens Flare with no `lens_type`", &format!("{{\"flare_center\": [30, 30], {}}}", rest.replace(", \"lens_type\": \"zoom\"", "")));
+    t.shape_refused(
+        "fx_flare_001.json",
+        "a Lens Flare with no `flare_center`",
+        &format!("{{{rest}}}"),
+    );
+    t.shape_refused(
+        "fx_flare_001.json",
+        "a Lens Flare whose centre is one number",
+        &format!("{{\"flare_center\": 30, {rest}}}"),
+    );
+    t.shape_refused(
+        "fx_flare_001.json",
+        "a Lens Flare whose brightness is a word",
+        &format!(
+            "{{\"flare_center\": [30, 30], {}}}",
+            rest.replace("100", "\"100\"")
+        ),
+    );
+    t.shape_refused(
+        "fx_flare_001.json",
+        "a Lens Flare whose lens type is a number",
+        &format!(
+            "{{\"flare_center\": [30, 30], {}}}",
+            rest.replace("\"zoom\"", "50")
+        ),
+    );
+    t.shape_refused(
+        "fx_flare_001.json",
+        "a Lens Flare with no `lens_type`",
+        &format!(
+            "{{\"flare_center\": [30, 30], {}}}",
+            rest.replace(", \"lens_type\": \"zoom\"", "")
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_flare_001.json").document;
@@ -254,13 +386,64 @@ fn b305_lens_flare() {
         &mut t,
         &mut document,
         vec![
-            ("brightness 300.5", set_holder(flare(|e| if let Effect::LensFlare { flare_brightness, .. } = e { *flare_brightness = 300.5 }))),
-            ("brightness -0.5", set_holder(flare(|e| if let Effect::LensFlare { flare_brightness, .. } = e { *flare_brightness = -0.5 }))),
-            ("blend 100.5", set_holder(flare(|e| if let Effect::LensFlare { blend_with_original, .. } = e { *blend_with_original = 100.5 }))),
-            ("lens type \"fisheye\"", set_holder(flare(|e| if let Effect::LensFlare { lens_type, .. } = e { *lens_type = "fisheye".to_string() }))),
-            ("centre -1001, 50", set_holder(flare(|e| if let Effect::LensFlare { flare_center, .. } = e { *flare_center = [-1001.0, 50.0] }))),
-            ("brightness keyed to 301", keys_holder("flare_brightness", &[(0, &[0.0]), (4, &[301.0])])),
-            ("centre keyed to 50, 1001", keys_holder("flare_center", &[(0, &[0.0, 0.0]), (4, &[50.0, 1001.0])])),
+            (
+                "brightness 300.5",
+                set_holder(flare(|e| {
+                    if let Effect::LensFlare {
+                        flare_brightness, ..
+                    } = e
+                    {
+                        *flare_brightness = 300.5
+                    }
+                })),
+            ),
+            (
+                "brightness -0.5",
+                set_holder(flare(|e| {
+                    if let Effect::LensFlare {
+                        flare_brightness, ..
+                    } = e
+                    {
+                        *flare_brightness = -0.5
+                    }
+                })),
+            ),
+            (
+                "blend 100.5",
+                set_holder(flare(|e| {
+                    if let Effect::LensFlare {
+                        blend_with_original,
+                        ..
+                    } = e
+                    {
+                        *blend_with_original = 100.5
+                    }
+                })),
+            ),
+            (
+                "lens type \"fisheye\"",
+                set_holder(flare(|e| {
+                    if let Effect::LensFlare { lens_type, .. } = e {
+                        *lens_type = "fisheye".to_string()
+                    }
+                })),
+            ),
+            (
+                "centre -1001, 50",
+                set_holder(flare(|e| {
+                    if let Effect::LensFlare { flare_center, .. } = e {
+                        *flare_center = [-1001.0, 50.0]
+                    }
+                })),
+            ),
+            (
+                "brightness keyed to 301",
+                keys_holder("flare_brightness", &[(0, &[0.0]), (4, &[301.0])]),
+            ),
+            (
+                "centre keyed to 50, 1001",
+                keys_holder("flare_center", &[(0, &[0.0, 0.0]), (4, &[50.0, 1001.0])]),
+            ),
         ],
     );
     t.taken(
@@ -270,7 +453,14 @@ fn b305_lens_flare() {
             (
                 "the tops: centre 1000, 1000, brightness 300, blend 100, the 35mm prime",
                 set_holder(flare(|e| {
-                    if let Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, .. } = e {
+                    if let Effect::LensFlare {
+                        flare_center,
+                        flare_brightness,
+                        lens_type,
+                        blend_with_original,
+                        ..
+                    } = e
+                    {
                         *flare_center = [1000.0, 1000.0];
                         *flare_brightness = 300.0;
                         *lens_type = "35mm".to_string();
@@ -281,7 +471,14 @@ fn b305_lens_flare() {
             (
                 "the bottoms: centre -1000, -1000, brightness 0, blend 0, the 105mm prime",
                 set_holder(flare(|e| {
-                    if let Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, .. } = e {
+                    if let Effect::LensFlare {
+                        flare_center,
+                        flare_brightness,
+                        lens_type,
+                        blend_with_original,
+                        ..
+                    } = e
+                    {
                         *flare_center = [-1000.0, -1000.0];
                         *flare_brightness = 0.0;
                         *lens_type = "105mm".to_string();
@@ -289,8 +486,14 @@ fn b305_lens_flare() {
                     }
                 })),
             ),
-            ("brightness keyed from 0 to 300", keys_holder("flare_brightness", &[(0, &[0.0]), (4, &[300.0])])),
-            ("centre keyed from 0, 0 to 100, 100", keys_holder("flare_center", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])])),
+            (
+                "brightness keyed from 0 to 300",
+                keys_holder("flare_brightness", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
+            (
+                "centre keyed from 0, 0 to 100, 100",
+                keys_holder("flare_center", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])]),
+            ),
         ],
     );
 
@@ -308,7 +511,14 @@ fn b305_lens_flare() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_flare", 19, &[15, 16, 17, 18, 19], is_flare);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_flare",
+        19,
+        &[15, 16, 17, 18, 19],
+        is_flare,
+    );
     let across = json!({"base": [0, 0], "keyframes": [{"frame": 0, "value": [10, 20], "interp": "linear"}, {"frame": 239, "value": [90, 80], "interp": "linear"}]});
     card_reference(
         &mut t,
@@ -316,9 +526,18 @@ fn b305_lens_flare() {
         "Lens Flare",
         "core.lens_flare",
         &[
-            ("as it starts (the 50-300mm zoom at 30, 30, brightness 100)", json!({})),
-            ("the 35mm prime at 80, 60, brightness 200, blend 30", json!({"lens_type": "35mm", "flare_center": [80, 60], "flare_brightness": 200, "blend_with_original": 30})),
-            ("the 105mm prime, its centre keyed from 10, 20 to 90, 80", json!({"lens_type": "105mm", "flare_center": across})),
+            (
+                "as it starts (the 50-300mm zoom at 30, 30, brightness 100)",
+                json!({}),
+            ),
+            (
+                "the 35mm prime at 80, 60, brightness 200, blend 30",
+                json!({"lens_type": "35mm", "flare_center": [80, 60], "flare_brightness": 200, "blend_with_original": 30}),
+            ),
+            (
+                "the 105mm prime, its centre keyed from 10, 20 to 90, 80",
+                json!({"lens_type": "105mm", "flare_center": across}),
+            ),
         ],
         is_flare,
     );
@@ -326,11 +545,25 @@ fn b305_lens_flare() {
     t.heading("Pictures: the street at frame 0, in `verification/D-426 pictures/`");
     let dir = repo("verification/D-426 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = street(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let shots: [(&str, J, &str); 5] = [
         ("as_added", json!({}), "as it starts: the 50-300mm zoom at 30, 30, a hot glow and rays up and left, a blue halo, ghosts down to the right"),
         ("prime_35mm", json!({"lens_type": "35mm"}), "the 35mm prime: a smaller, whiter glow with eight rays and three ghosts"),
@@ -377,22 +610,59 @@ fn b305_lens_flare_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Lens Flare as added (the 50-300mm zoom, ten parts)", Some(("core.lens_flare", json!({})))),
-        ("Noise, then Lens Flare, the 35mm prime (six parts), brightness 200", Some(("core.lens_flare", json!({"lens_type": "35mm", "flare_brightness": 200})))),
-        ("Noise, then Lens Flare, the 105mm prime at 75, 25, blend 30", Some(("core.lens_flare", json!({"lens_type": "105mm", "flare_center": [75, 25], "blend_with_original": 30})))),
+        (
+            "Noise, then Lens Flare as added (the 50-300mm zoom, ten parts)",
+            Some(("core.lens_flare", json!({}))),
+        ),
+        (
+            "Noise, then Lens Flare, the 35mm prime (six parts), brightness 200",
+            Some((
+                "core.lens_flare",
+                json!({"lens_type": "35mm", "flare_brightness": 200}),
+            )),
+        ),
+        (
+            "Noise, then Lens Flare, the 105mm prime at 75, 25, blend 30",
+            Some((
+                "core.lens_flare",
+                json!({"lens_type": "105mm", "flare_center": [75, 25], "blend_with_original": 30}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B305_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-305_timing_raw.md"));
+    let out = std::env::var("B305_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-305_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

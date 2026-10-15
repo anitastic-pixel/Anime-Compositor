@@ -42,7 +42,11 @@ impl Table {
 }
 
 fn list(delays: &[u16]) -> String {
-    delays.iter().map(u16::to_string).collect::<Vec<_>>().join(" ")
+    delays
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[test]
@@ -77,7 +81,11 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
         let built: Vec<u16> = (0..case["frames"].as_u64().unwrap())
             .map(|i| gif_delay(i, rate))
             .collect();
-        t.row(&format!("{id}: {}", case["says"].as_str().unwrap()), list(&want), list(&built));
+        t.row(
+            &format!("{id}: {}", case["says"].as_str().unwrap()),
+            list(&want),
+            list(&built),
+        );
         t.row(
             &format!("{id}: the delays add up to, in hundredths"),
             case["total_hundredths"].as_u64().unwrap(),
@@ -113,19 +121,34 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
     let go = |r: &ExportRequest| export_sequence(&project, &root, r, &AtomicBool::new(false));
 
     let sequence = go(&request(&frames_dir, "f_%04d.png", OutputFormat::Png));
-    assert!(sequence.succeeded(), "the PNG sequence did not export: {:?}", sequence.diagnostics);
+    assert!(
+        sequence.succeeded(),
+        "the PNG sequence did not export: {:?}",
+        sequence.diagnostics
+    );
 
     // GIF
     let report = go(&request(&out, "reference_shot.gif", OutputFormat::Gif));
     t.row(
         "a GIF export of 8 frames writes one file and says it succeeded",
         "true, 1 file, 8 frames",
-        format!("{}, {} file, {} frames", report.succeeded(), report.written.len(), report.frames_requested),
+        format!(
+            "{}, {} file, {} frames",
+            report.succeeded(),
+            report.written.len(),
+            report.frames_requested
+        ),
     );
-    assert!(report.succeeded(), "the GIF did not export: {:?}", report.diagnostics);
+    assert!(
+        report.succeeded(),
+        "the GIF did not export: {:?}",
+        report.diagnostics
+    );
     let mut options = gif::DecodeOptions::new();
     options.set_color_output(gif::ColorOutput::RGBA);
-    let mut decoder = options.read_info(fs::File::open(out.join("reference_shot.gif")).unwrap()).unwrap();
+    let mut decoder = options
+        .read_info(fs::File::open(out.join("reference_shot.gif")).unwrap())
+        .unwrap();
     let size = format!("{}x{}", decoder.width(), decoder.height());
     let mut delays = Vec::new();
     let mut worst = 0i32;
@@ -160,24 +183,43 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
     ));
 
     // Animated PNG
-    let report = go(&request(&out, "reference_shot_animated.png", OutputFormat::Apng));
+    let report = go(&request(
+        &out,
+        "reference_shot_animated.png",
+        OutputFormat::Apng,
+    ));
     t.row(
         "an animated PNG export of 8 frames writes one file and says it succeeded",
         "true, 1 file, 8 frames",
-        format!("{}, {} file, {} frames", report.succeeded(), report.written.len(), report.frames_requested),
+        format!(
+            "{}, {} file, {} frames",
+            report.succeeded(),
+            report.written.len(),
+            report.frames_requested
+        ),
     );
     let decoder = png::Decoder::new(std::io::BufReader::new(
         fs::File::open(out.join("reference_shot_animated.png")).unwrap(),
     ));
     let mut reader = decoder.read_info().unwrap();
-    let control = reader.info().animation_control.expect("the file is animated");
-    t.row("it says it holds 8 frames and plays for ever (0 plays means for ever)", "8 frames, 0 plays", format!("{} frames, {} plays", control.num_frames, control.num_plays));
+    let control = reader
+        .info()
+        .animation_control
+        .expect("the file is animated");
+    t.row(
+        "it says it holds 8 frames and plays for ever (0 plays means for ever)",
+        "8 frames, 0 plays",
+        format!("{} frames, {} plays", control.num_frames, control.num_plays),
+    );
     let mut same = 0;
     let mut delay = String::new();
     for written in &sequence.written {
         let mut raw = vec![0u8; reader.output_buffer_size().unwrap()];
         let info = reader.next_frame(&mut raw).unwrap();
-        let fc = reader.info().frame_control.expect("every frame has its control");
+        let fc = reader
+            .info()
+            .frame_control
+            .expect("every frame has its control");
         delay = format!("{}/{}", fc.delay_num, fc.delay_den);
         let twin = media::decode(written).unwrap();
         let exact = raw[..info.buffer_size()]
@@ -186,8 +228,16 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
             .all(|(a, b)| *a as i32 == (b * 255.0).round() as i32);
         same += exact as usize;
     }
-    t.row("every frame lasts exactly the frame rate's denominator over its numerator", "1/24", delay);
-    t.row("each of its 8 frames is value for value the exported PNG frame", 8, same);
+    t.row(
+        "every frame lasts exactly the frame rate's denominator over its numerator",
+        "1/24",
+        delay,
+    );
+    t.row(
+        "each of its 8 frames is value for value the exported PNG frame",
+        8,
+        same,
+    );
 
     // ---- refusals and cancelling ----------------------------------------------------------------
     t.row(
@@ -195,8 +245,16 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
         "taken, refused",
         format!(
             "{}, {}",
-            if Film::apng_refusal(FrameRate::new(24000, 1001).unwrap()).is_none() { "taken" } else { "refused" },
-            if Film::apng_refusal(FrameRate::new(120000, 1001).unwrap()).is_some() { "refused" } else { "taken" },
+            if Film::apng_refusal(FrameRate::new(24000, 1001).unwrap()).is_none() {
+                "taken"
+            } else {
+                "refused"
+            },
+            if Film::apng_refusal(FrameRate::new(120000, 1001).unwrap()).is_some() {
+                "refused"
+            } else {
+                "taken"
+            },
         ),
     );
     let cancelled = export_sequence(
@@ -208,11 +266,16 @@ fn a_gif_and_an_animated_png_hold_every_frame_for_the_right_time() {
     t.row(
         "a cancelled GIF leaves no half-made file",
         "Cancelled, file there: false",
-        format!("{:?}, file there: {}", cancelled.status, frames_dir.join("stopped.gif").exists()),
+        format!(
+            "{:?}, file there: {}",
+            cancelled.status,
+            frames_dir.join("stopped.gif").exists()
+        ),
     );
     assert_eq!(cancelled.status, ExportStatus::Cancelled);
 
-    t.out.push_str(&format!("\n**{} of {} match.**\n", t.passed, t.checks));
+    t.out
+        .push_str(&format!("\n**{} of {} match.**\n", t.passed, t.checks));
     fs::write(repo("verification/B-21c_films_table.md"), &t.out).unwrap();
     assert_eq!(t.passed, t.checks, "see verification/B-21c_films_table.md");
 }

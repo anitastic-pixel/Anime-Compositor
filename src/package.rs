@@ -67,8 +67,7 @@ fn stored_files(asset: &Asset) -> Vec<(&str, Vec<u32>)> {
     // A still and a sound file (D-71) are each one file at `path`, a sequence its numbered
     // frames. Audit B1: both are taken whatever the kind says, so a hand-edited file holding
     // both cannot leave a path with no place in the package (that ended the program).
-    let mut out: Vec<(&str, Vec<u32>)> =
-        asset.path.iter().map(|p| (p.as_str(), vec![])).collect();
+    let mut out: Vec<(&str, Vec<u32>)> = asset.path.iter().map(|p| (p.as_str(), vec![])).collect();
     for (number, path) in &asset.frames {
         match out.iter_mut().find(|(p, _)| *p == path) {
             Some((_, numbers)) => numbers.push(*number),
@@ -394,7 +393,10 @@ pub fn check(project_file: &Path) -> Result<Vec<Row>, Diagnostic> {
             .as_str()
             // P-25: split on both separators, and no drive or stream colon, so that a manifest
             // naming \\host\share or C:\ is refused rather than joined onto the package.
-            .filter(|p| !p.split(['/', '\\']).any(|s| s == ".." || s.is_empty() || s.contains(':')))
+            .filter(|p| {
+                !p.split(['/', '\\'])
+                    .any(|s| s == ".." || s.is_empty() || s.contains(':'))
+            })
             .ok_or_else(|| invalid("a file has no usable path".into()))?;
         let data = fs::read(root.join(path)).ok();
         let (answer, id, severity, message) = match (&data, f["sha256"].as_str()) {
@@ -457,7 +459,15 @@ mod tests {
             check(&dir.join("shot.json")).is_ok()
         };
         assert!(checked("media/a.png"));
-        for bad in ["../a.png", r"media\..\..\a.png", r"\\host\share\a.png", "//host/share/a.png", r"C:\a.png", "C:a.png", "media/a.png:stream"] {
+        for bad in [
+            "../a.png",
+            r"media\..\..\a.png",
+            r"\\host\share\a.png",
+            "//host/share/a.png",
+            r"C:\a.png",
+            "C:a.png",
+            "media/a.png:stream",
+        ] {
             assert!(!checked(bad), "{bad} was not refused");
         }
         fs::remove_dir_all(&dir).unwrap();

@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -31,7 +32,15 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// A Noise HLS Auto: its noise and [hue, lightness, saturation, grain size, animation speed].
 fn hls(noise: &str, n: [f64; 5]) -> Effect {
     let [hue, lightness, saturation, grain_size, animation_speed] = n;
-    Effect::NoiseHlsAuto { noise: noise.to_string(), hue, lightness, saturation, grain_size, animation_speed, frame: 0 }
+    Effect::NoiseHlsAuto {
+        noise: noise.to_string(),
+        hue,
+        lightness,
+        saturation,
+        grain_size,
+        animation_speed,
+        frame: 0,
+    }
 }
 
 const ADDED: [f64; 5] = [0.0, 10.0, 0.0, 1.0, 1.0];
@@ -48,7 +57,9 @@ fn numbers(change: &[(usize, f64)]) -> [f64; 5] {
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.noise_hls_auto" => json!({"noise": "uniform", "hue": 0, "lightness": 10, "saturation": 0, "grain_size": 1, "animation_speed": 1}),
+        "core.noise_hls_auto" => {
+            json!({"noise": "uniform", "hue": 0, "lightness": 10, "saturation": 0, "grain_size": 1, "animation_speed": 1})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -59,17 +70,31 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -90,14 +115,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -125,7 +166,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 /// `effects` on the street at `frame` of a two-second shot, drawn, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -140,8 +184,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -151,21 +207,42 @@ type Shot<'a> = (&'a str, J, i32, &'a str, fn(&[u8], &[u8]) -> bool);
 /// pictures into `verification/{d} pictures/`; a row each that it draws cleanly and changes what
 /// it says it changes.
 fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, frame, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]), *frame);
         write(&file, &bytes);
         t.row(
             &format!("{file}, frame {frame}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}, the largest by {} of 255", distance(&bytes, &before).1, TOWN.0 * TOWN.1, distance(&bytes, &before).0),
+            &format!(
+                "{said:?}, {} pixels changed of {}, the largest by {} of 255",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1,
+                distance(&bytes, &before).0
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -174,8 +251,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -193,7 +282,10 @@ fn is_noise_hls_auto(e: &Effect) -> bool {
 /// pixel moved by more than `most` of 255 in any channel.
 fn flecked(a: &[u8], b: &[u8], most: u8) -> bool {
     let (largest, changed) = distance(a, b);
-    let covering_kept = a.chunks_exact(4).zip(b.chunks_exact(4)).all(|(p, q)| p[3].abs_diff(q[3]) <= 1);
+    let covering_kept = a
+        .chunks_exact(4)
+        .zip(b.chunks_exact(4))
+        .all(|(p, q)| p[3].abs_diff(q[3]) <= 1);
     changed > a.len() / 4 / 2 && covering_kept && largest <= most
 }
 
@@ -233,7 +325,11 @@ fn b332_noisehlsauto() {
     t.row(
         "fx_noisehlsauto_015.json is saved with its words and numbers as written",
         &saved.to_string(),
-        saved["noise"] == "grain" && saved["grain_size"] == 3 && saved["hue"] == 20 && saved["lightness"] == 25 && saved["saturation"] == 60
+        saved["noise"] == "grain"
+            && saved["grain_size"] == 3
+            && saved["hue"] == 20
+            && saved["lightness"] == 25
+            && saved["saturation"] == 60
             && saved["animation_speed"] == 0.75,
     );
     why(
@@ -250,8 +346,16 @@ fn b332_noisehlsauto() {
         ],
     );
     let p = r#""hue": 0, "lightness": 10, "saturation": 0, "grain_size": 1, "animation_speed": 1"#;
-    t.shape_refused("fx_noisehlsauto_001.json", "a Noise HLS Auto with no `noise`", &format!("{{{p}}}"));
-    t.shape_refused("fx_noisehlsauto_001.json", "a Noise HLS Auto whose noise is a number", &format!("{{{p}, \"noise\": 2}}"));
+    t.shape_refused(
+        "fx_noisehlsauto_001.json",
+        "a Noise HLS Auto with no `noise`",
+        &format!("{{{p}}}"),
+    );
+    t.shape_refused(
+        "fx_noisehlsauto_001.json",
+        "a Noise HLS Auto whose noise is a number",
+        &format!("{{{p}, \"noise\": 2}}"),
+    );
     t.shape_refused("fx_noisehlsauto_001.json", "a Noise HLS Auto with no `animation_speed`", "{\"noise\": \"uniform\", \"hue\": 0, \"lightness\": 10, \"saturation\": 0, \"grain_size\": 1}");
 
     t.heading("Commands");
@@ -262,18 +366,33 @@ fn b332_noisehlsauto() {
             ("hue 101", set(hls("uniform", numbers(&[(0, 101.0)])))),
             ("saturation -5", set(hls("uniform", numbers(&[(2, -5.0)])))),
             ("grain size 0.4", set(hls("grain", numbers(&[(3, 0.4)])))),
-            ("animation speed 10.5", set(hls("uniform", numbers(&[(4, 10.5)])))),
+            (
+                "animation speed 10.5",
+                set(hls("uniform", numbers(&[(4, 10.5)]))),
+            ),
             ("noise \"Grain\"", set(hls("Grain", ADDED))),
-            ("lightness keyed to 120", keys("lightness", &[(0, &[10.0]), (4, &[120.0])])),
+            (
+                "lightness keyed to 120",
+                keys("lightness", &[(0, &[10.0]), (4, &[120.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_noisehlsauto_001.json",
         vec![
-            ("Grain, hue 35, lightness 20, saturation 55, grain size 2.5, speed 0.4", set(hls("grain", [35.0, 20.0, 55.0, 2.5, 0.4]))),
-            ("lightness keyed from 0 to 40", keys("lightness", &[(0, &[0.0]), (4, &[40.0])])),
-            ("animation speed keyed from 0 to 2", keys("animation_speed", &[(0, &[0.0]), (4, &[2.0])])),
+            (
+                "Grain, hue 35, lightness 20, saturation 55, grain size 2.5, speed 0.4",
+                set(hls("grain", [35.0, 20.0, 55.0, 2.5, 0.4])),
+            ),
+            (
+                "lightness keyed from 0 to 40",
+                keys("lightness", &[(0, &[0.0]), (4, &[40.0])]),
+            ),
+            (
+                "animation speed keyed from 0 to 2",
+                keys("animation_speed", &[(0, &[0.0]), (4, &[2.0])]),
+            ),
         ],
     );
 
@@ -294,7 +413,14 @@ fn b332_noisehlsauto() {
     // refused, so the card is not asked.
     let mut none: Vec<u32> = vec![9];
     none.extend(16..=24);
-    card_fixtures(&mut t, &mut gpu, "fx_noisehlsauto", 24, &none, is_noise_hls_auto);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_noisehlsauto",
+        24,
+        &none,
+        is_noise_hls_auto,
+    );
     card_reference(
         &mut t,
         &mut gpu,
@@ -302,8 +428,14 @@ fn b332_noisehlsauto() {
         "core.noise_hls_auto",
         &[
             ("as added (Uniform, lightness 10, speed 1)", json!({})),
-            ("Squared, hue 60, saturation 40, lightness 0, speed 0.3", json!({"noise": "squared", "hue": 60, "saturation": 40, "lightness": 0, "animation_speed": 0.3})),
-            ("Grain, grain size 4, hue 25, lightness 30, saturation 50, speed 0.1", json!({"noise": "grain", "grain_size": 4, "hue": 25, "lightness": 30, "saturation": 50, "animation_speed": 0.1})),
+            (
+                "Squared, hue 60, saturation 40, lightness 0, speed 0.3",
+                json!({"noise": "squared", "hue": 60, "saturation": 40, "lightness": 0, "animation_speed": 0.3}),
+            ),
+            (
+                "Grain, grain size 4, hue 25, lightness 30, saturation 50, speed 0.1",
+                json!({"noise": "grain", "grain_size": 4, "hue": 25, "lightness": 30, "saturation": 50, "animation_speed": 0.1}),
+            ),
             (
                 // Not from 0: with every amount 0 the effect changes nothing and is rightly not sent.
                 "Grain, grain size 1.5, lightness keyed 5 to 60 and speed keyed 0 to 4",
@@ -338,17 +470,40 @@ fn b332_noisehlsauto() {
         ],
     );
     let dir = repo("verification/D-452 pictures");
-    let (zero, _) = picture(&dir, json!([fx("core.noise_hls_auto", "fx-0-0", &json!({}))]), 0);
-    let (one, _) = picture(&dir, json!([fx("core.noise_hls_auto", "fx-0-0", &json!({}))]), 1);
+    let (zero, _) = picture(
+        &dir,
+        json!([fx("core.noise_hls_auto", "fx-0-0", &json!({}))]),
+        0,
+    );
+    let (one, _) = picture(
+        &dir,
+        json!([fx("core.noise_hls_auto", "fx-0-0", &json!({}))]),
+        1,
+    );
     let moved = distance(&zero, &one).1;
     t.row(
         "2_as_added.png and 3_as_added_frame_1.png differ: it moves by itself, with nothing keyed",
         &format!("{moved} pixels differ of {}", TOWN.0 * TOWN.1),
         moved > TOWN.0 * TOWN.1 / 2,
     );
-    let still = |frame| picture(&dir, json!([fx("core.noise_hls_auto", "fx-0-0", &json!({"animation_speed": 0}))]), frame).0;
+    let still = |frame| {
+        picture(
+            &dir,
+            json!([fx(
+                "core.noise_hls_auto",
+                "fx-0-0",
+                &json!({"animation_speed": 0})
+            )]),
+            frame,
+        )
+        .0
+    };
     let held = distance(&still(0), &still(24)).1;
-    t.row("with speed 0 the street at frame 24 is the street at frame 0: the noise holds still", &format!("{held} pixels differ"), held == 0);
+    t.row(
+        "with speed 0 the street at frame 24 is the street at frame 0: the noise holds still",
+        &format!("{held} pixels differ"),
+        held == 0,
+    );
 
     t.finish("D-452_noisehlsauto_table.md");
 }
@@ -378,22 +533,55 @@ fn b332_noisehlsauto_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Noise HLS Auto as added (Uniform, lightness 10, speed 1)", Some(json!({}))),
-        ("Noise, then Noise HLS Auto Squared, hue 40, lightness 20, saturation 40", Some(json!({"noise": "squared", "hue": 40, "lightness": 20, "saturation": 40}))),
-        ("Noise, then Noise HLS Auto Grain, grain size 2.5, hue 40, lightness 20, saturation 40", Some(json!({"noise": "grain", "grain_size": 2.5, "hue": 40, "lightness": 20, "saturation": 40}))),
+        (
+            "Noise, then Noise HLS Auto as added (Uniform, lightness 10, speed 1)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Noise HLS Auto Squared, hue 40, lightness 20, saturation 40",
+            Some(json!({"noise": "squared", "hue": 40, "lightness": 20, "saturation": 40})),
+        ),
+        (
+            "Noise, then Noise HLS Auto Grain, grain size 2.5, hue 40, lightness 20, saturation 40",
+            Some(
+                json!({"noise": "grain", "grain_size": 2.5, "hue": 40, "lightness": 20, "saturation": 40}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.noise_hls_auto", &format!("{id}h"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B332_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-332_timing_raw.md"));
+    let out = std::env::var("B332_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-332_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

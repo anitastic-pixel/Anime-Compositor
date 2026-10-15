@@ -1,7 +1,9 @@
 use super::*;
 
 fn fixture(file: &str) -> String {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../Fixtures/preset_file").join(file);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../Fixtures/preset_file")
+        .join(file);
     std::fs::read_to_string(path).expect("read the fixture")
 }
 
@@ -10,15 +12,25 @@ fn a_name_the_window_has_comes_in_with_a_number() {
     let have = ["Poster".to_string(), "Night 2".to_string()];
     let text = fixture("fx_pre_002.fxpreset");
     let (list, said) = imported_presets(&text, "fx_pre_002.fxpreset", &have).expect("imported");
-    let names: Vec<&str> = list.as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap()).collect();
+    let names: Vec<&str> = list
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
     assert_eq!(names, ["Night", "Poster 2", "Lifted"]);
     assert_eq!(
         said,
         "Imported 3 presets from fx_pre_002.fxpreset. Names you already had came in with a number: \"Poster\" as \"Poster 2\"."
     );
-    let again = imported_presets(&text, "f", &["Night".into(), "Night 2".into()]).unwrap().0;
+    let again = imported_presets(&text, "f", &["Night".into(), "Night 2".into()])
+        .unwrap()
+        .0;
     assert_eq!(again[0]["name"], "Night 3");
-    assert_eq!(again[0]["effects"], serde_json::from_str::<serde_json::Value>(&text).unwrap()["presets"][0]["effects"]);
+    assert_eq!(
+        again[0]["effects"],
+        serde_json::from_str::<serde_json::Value>(&text).unwrap()["presets"][0]["effects"]
+    );
 }
 
 #[test]

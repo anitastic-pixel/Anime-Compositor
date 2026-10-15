@@ -15,7 +15,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN};
+use effect_table::{
+    both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -33,7 +35,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=27 {
         let file = format!("fx_cyl_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -41,7 +47,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CcCylinder { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CcCylinder { .. })
+                });
             }
         }
         t.row(
@@ -59,9 +67,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -75,7 +92,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CcCylinder { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::CcCylinder { .. })
+                });
                 t.row(
                     &format!("the reference shot, CC Cylinder {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -89,7 +108,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -101,8 +123,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -167,7 +201,11 @@ fn b410_cc_cylinder() {
         ("fx_cyl_027.json", "light height"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_cyl_001.json",
@@ -188,9 +226,21 @@ fn b410_cc_cylinder() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("render inside, tipped, an orange light, metal 0", json!({"render": "inside", "rotation_x": 30, "light_color": "#ff8000", "metal": 0}), 3),
-            ("radius 100, lying on its side, rough", json!({"radius": 100, "rotation_z": 90, "roughness": 50, "specular": 100}), 3),
-            ("Rotation Y keyed one whole turn", json!({"rotation_y": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 360, "interp": "linear"}]}}), 3),
+            (
+                "render inside, tipped, an orange light, metal 0",
+                json!({"render": "inside", "rotation_x": 30, "light_color": "#ff8000", "metal": 0}),
+                3,
+            ),
+            (
+                "radius 100, lying on its side, rough",
+                json!({"radius": 100, "rotation_z": 90, "roughness": 50, "specular": 100}),
+                3,
+            ),
+            (
+                "Rotation Y keyed one whole turn",
+                json!({"rotation_y": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 360, "interp": "linear"}]}}),
+                3,
+            ),
         ],
     );
 
@@ -204,14 +254,28 @@ fn b410_cc_cylinder() {
         ("2_inside", json!({"render": "inside"})),
         ("3_turned_a_quarter", json!({"rotation_y": 90})),
         ("4_tipped_towards_you", json!({"rotation_x": 30})),
-        ("5_on_its_side_orange", json!({"rotation_z": 90, "light_color": "#ffa040", "metal": 0})),
+        (
+            "5_on_its_side_orange",
+            json!({"rotation_z": 90, "light_color": "#ffa040", "metal": 0}),
+        ),
     ] {
         let (bytes, said) = picture(&dir, "1_left.png", (480, 270), json!([fx("pic", &p)]));
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let middle = at(&bytes, (240, 135));
         t.row(
             &format!("{name}.png: drawn without a warning, the street changed, the middle drawn"),
-            &format!("{} pixels changed; middle {middle:?}; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; middle {middle:?}; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0 && middle[3] > 0,
         );
     }
@@ -244,22 +308,48 @@ fn b410_cc_cylinder_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then CC Cylinder as added", Some(json!({}))),
-        ("Noise, then CC Cylinder, render inside, tipped", Some(json!({"render": "inside", "rotation_x": 30}))),
-        ("Noise, then CC Cylinder, radius 100, on its side", Some(json!({"radius": 100, "rotation_z": 90}))),
+        (
+            "Noise, then CC Cylinder, render inside, tipped",
+            Some(json!({"render": "inside", "rotation_x": 30})),
+        ),
+        (
+            "Noise, then CC Cylinder, radius 100, on its side",
+            Some(json!({"radius": 100, "rotation_z": 90})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B410_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-410_timing_raw.md"));
+    let out = std::env::var("B410_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-410_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

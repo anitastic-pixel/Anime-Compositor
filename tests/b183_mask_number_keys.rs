@@ -62,9 +62,19 @@ fn shot(opacity: J, feather: J, expansion: J) -> String {
 fn frame(text: &str, at: i32) -> Vec<[f32; 4]> {
     let loaded = persist::load_str(text).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let f = render_frame(loaded.document.project(), &Id::new(MAIN), at, std::path::Path::new("."), 64, &mut log)
-        .expect("the frame draws");
-    (0..8).flat_map(|y| (0..8).map(move |x| (x, y))).map(|(x, y)| f.pixel(x, y)).collect()
+    let f = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        at,
+        std::path::Path::new("."),
+        64,
+        &mut log,
+    )
+    .expect("the frame draws");
+    (0..8)
+        .flat_map(|y| (0..8).map(move |x| (x, y)))
+        .map(|(x, y)| f.pixel(x, y))
+        .collect()
 }
 
 #[test]
@@ -72,7 +82,10 @@ fn a_keyed_opacity_is_halfway_at_the_halfway_frame() {
     let text = shot(keys(1.0, 0.0), json!(0), json!(0));
     for (at, want) in [(0, 1.0), (5, 0.5), (10, 0.0)] {
         let got = frame(&text, at)[4 * 8 + 4][0] as f64;
-        assert!((got - want).abs() < 1e-6, "frame {at}: {got} against {want}");
+        assert!(
+            (got - want).abs() < 1e-6,
+            "frame {at}: {got} against {want}"
+        );
     }
 }
 
@@ -82,21 +95,37 @@ fn keyed_feather_and_expansion_draw_as_their_plain_values() {
     let plain = frame(&shot(json!(1), json!(4), json!(0)), 5);
     assert_eq!(keyed, plain, "frame 5 is feather 4 and expansion 0");
     let start = frame(&shot(json!(1), keys(0.0, 8.0), keys(-2.0, 2.0)), 0);
-    assert_eq!(start, frame(&shot(json!(1), json!(0), json!(-2)), 0), "frame 0 is the first keys");
+    assert_eq!(
+        start,
+        frame(&shot(json!(1), json!(0), json!(-2)), 0),
+        "frame 0 is the first keys"
+    );
 }
 
 #[test]
 fn the_file_keeps_the_keys_and_refuses_what_d77_refuses() {
     let loaded = persist::load_str(&shot(keys(1.0, 0.0), json!(3), json!(0))).expect("keys open");
-    let saved: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
+    let saved: J = serde_json::from_str(&persist::to_json(
+        loaded.document.project(),
+        &loaded.preserved,
+    ))
+    .unwrap();
     let mask = &saved["compositions"][0]["layers"][0]["masks"][0];
     assert_eq!(mask["opacity"]["keyframes"][1]["value"].as_f64(), Some(0.0));
-    assert_eq!(mask["feather_px"].as_f64(), Some(3.0), "a number without keys stays plain");
+    assert_eq!(
+        mask["feather_px"].as_f64(),
+        Some(3.0),
+        "a number without keys stays plain"
+    );
     for bad in [
         shot(keys(1.0, 1.5), json!(0), json!(0)),
         shot(json!(1), keys(0.0, -1.0), json!(0)),
         shot(json!(1), json!(0), keys(0.0, 9000.0)),
-        shot(json!({"base": 1, "keyframes": [], "expression": {"text": "1", "enabled": true}}), json!(0), json!(0)),
+        shot(
+            json!({"base": 1, "keyframes": [], "expression": {"text": "1", "enabled": true}}),
+            json!(0),
+            json!(0),
+        ),
     ] {
         assert!(persist::load_str(&bad).is_err(), "refused: {bad}");
     }
@@ -104,8 +133,14 @@ fn the_file_keeps_the_keys_and_refuses_what_d77_refuses() {
 
 #[test]
 fn the_command_takes_keys_and_refuses_one_out_of_range() {
-    let mut document = persist::load_str(&shot(json!(1), json!(0), json!(0))).unwrap().document;
-    let mut masks = document.project().compositions[0].layer(&Id::new("white")).unwrap().masks.clone();
+    let mut document = persist::load_str(&shot(json!(1), json!(0), json!(0)))
+        .unwrap()
+        .document;
+    let mut masks = document.project().compositions[0]
+        .layer(&Id::new("white"))
+        .unwrap()
+        .masks
+        .clone();
     let mut track = masks[0].channel("opacity").unwrap();
     let key = |frame, v| Keyframe {
         frame,
@@ -118,12 +153,27 @@ fn the_command_takes_keys_and_refuses_one_out_of_range() {
     track.set_keyframe(key(0, 1.0));
     track.set_keyframe(key(10, -0.1));
     masks[0].set_channel("opacity", track.clone());
-    let set = |masks| Command::SetMasks { composition: Id::new(MAIN), layer_id: Id::new("white"), masks };
-    let refused = document.apply(set(masks.clone())).err().expect("an opacity of -0.1 is refused");
-    assert_eq!(refused.message, "Mask \"m\" was given an opacity of -0.1, which is not from 0 to 1.");
+    let set = |masks| Command::SetMasks {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("white"),
+        masks,
+    };
+    let refused = document
+        .apply(set(masks.clone()))
+        .err()
+        .expect("an opacity of -0.1 is refused");
+    assert_eq!(
+        refused.message,
+        "Mask \"m\" was given an opacity of -0.1, which is not from 0 to 1."
+    );
     track.set_keyframe(key(10, 0.0));
     masks[0].set_channel("opacity", track);
-    document.apply(set(masks)).expect("keys inside the range are taken");
-    let held = &document.project().compositions[0].layer(&Id::new("white")).unwrap().masks[0];
+    document
+        .apply(set(masks))
+        .expect("keys inside the range are taken");
+    let held = &document.project().compositions[0]
+        .layer(&Id::new("white"))
+        .unwrap()
+        .masks[0];
     assert_eq!(held.at(5).opacity, 0.5);
 }

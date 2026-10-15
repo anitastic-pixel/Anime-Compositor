@@ -22,7 +22,14 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The two points, `[length, time, start thickness, end thickness, softness]`, the two colours
 /// and the composite word.
-fn beam(start: [f64; 2], end: [f64; 2], n: [f64; 5], inside: &str, outside: &str, composite: &str) -> Effect {
+fn beam(
+    start: [f64; 2],
+    end: [f64; 2],
+    n: [f64; 5],
+    inside: &str,
+    outside: &str,
+    composite: &str,
+) -> Effect {
     Effect::Beam {
         start,
         end,
@@ -49,12 +56,24 @@ fn plain(n: [f64; 5]) -> Effect {
 /// A small made-up night: a sky darkening upward and dark rooftops along the bottom.
 fn drawing() -> Vec<u8> {
     let (w, h) = PLATE;
-    let roofs = [(0, 30, 70), (30, 52, 80), (52, 90, 64), (90, 118, 76), (118, 160, 68)];
+    let roofs = [
+        (0, 30, 70),
+        (30, 52, 80),
+        (52, 90, 64),
+        (90, 118, 76),
+        (118, 160, 68),
+    ];
     let mut bytes = Vec::with_capacity(w * h * 4);
     for y in 0..h {
         for x in 0..w {
-            let roof = roofs.iter().any(|&(x0, x1, top)| (x0..=x1).contains(&x) && y >= top);
-            bytes.extend(if roof { [14, 16, 28, 255] } else { [20 + y as u8 / 4, 30 + y as u8 / 3, 70 + y as u8 / 2, 255] });
+            let roof = roofs
+                .iter()
+                .any(|&(x0, x1, top)| (x0..=x1).contains(&x) && y >= top);
+            bytes.extend(if roof {
+                [14, 16, 28, 255]
+            } else {
+                [20 + y as u8 / 4, 30 + y as u8 / 3, 70 + y as u8 / 2, 255]
+            });
         }
     }
     bytes
@@ -63,9 +82,10 @@ fn drawing() -> Vec<u8> {
 /// The drawing as the composition's one layer, with `effects`, drawn, straight 8-bit; and the
 /// same enlarged three times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
-    let mut project: J =
-        serde_json::from_str(&fs::read_to_string(effect_table::repo("Fixtures/beam/fx_beam_001.json")).unwrap())
-            .unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(effect_table::repo("Fixtures/beam/fx_beam_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("drawing.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(PLATE.0);
@@ -77,9 +97,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -141,7 +172,11 @@ fn b142_beam() {
 
     t.heading("How far it reaches");
     let got = plain(START).bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = plain([40.0, 30.0, 6.0, 20.0, 50.0]);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -151,7 +186,10 @@ fn b142_beam() {
     );
 
     t.heading("The file");
-    let files: Vec<String> = (1..=29).filter(|&n| n != 10).map(|n| format!("fx_beam_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=29)
+        .filter(|&n| n != 10)
+        .map(|n| format!("fx_beam_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_beam_010.json");
     t.row(
@@ -185,16 +223,65 @@ fn b142_beam() {
             ("length 101", set(plain([101.0, 0.0, 8.0, 8.0, 50.0]))),
             ("time -1", set(plain([25.0, -1.0, 8.0, 8.0, 50.0]))),
             ("time 101", set(plain([25.0, 101.0, 8.0, 8.0, 50.0]))),
-            ("starting thickness -1", set(plain([25.0, 0.0, -1.0, 8.0, 50.0]))),
-            ("ending thickness 501", set(plain([25.0, 0.0, 8.0, 501.0, 50.0]))),
+            (
+                "starting thickness -1",
+                set(plain([25.0, 0.0, -1.0, 8.0, 50.0])),
+            ),
+            (
+                "ending thickness 501",
+                set(plain([25.0, 0.0, 8.0, 501.0, 50.0])),
+            ),
             ("softness 101", set(plain([25.0, 0.0, 8.0, 8.0, 101.0]))),
             ("start -1001 across", set(with([-1001.0, 50.0], START))),
             ("start 1001 down", set(with([10.0, 1001.0], START))),
-            ("inside colour \"#12345\"", set(beam([10.0, 50.0], [90.0, 50.0], START, "#12345", BLUE, "on"))),
-            ("outside colour \"blue\"", set(beam([10.0, 50.0], [90.0, 50.0], START, "#ffffff", "blue", "on"))),
-            ("composite \"yes\"", set(beam([10.0, 50.0], [90.0, 50.0], START, "#ffffff", BLUE, "yes"))),
-            ("composite \"On\", written with a capital", set(beam([10.0, 50.0], [90.0, 50.0], START, "#ffffff", BLUE, "On"))),
-            ("time keyed to 101", keys("time", &[(0, &[0.0]), (4, &[101.0])])),
+            (
+                "inside colour \"#12345\"",
+                set(beam(
+                    [10.0, 50.0],
+                    [90.0, 50.0],
+                    START,
+                    "#12345",
+                    BLUE,
+                    "on",
+                )),
+            ),
+            (
+                "outside colour \"blue\"",
+                set(beam(
+                    [10.0, 50.0],
+                    [90.0, 50.0],
+                    START,
+                    "#ffffff",
+                    "blue",
+                    "on",
+                )),
+            ),
+            (
+                "composite \"yes\"",
+                set(beam(
+                    [10.0, 50.0],
+                    [90.0, 50.0],
+                    START,
+                    "#ffffff",
+                    BLUE,
+                    "yes",
+                )),
+            ),
+            (
+                "composite \"On\", written with a capital",
+                set(beam(
+                    [10.0, 50.0],
+                    [90.0, 50.0],
+                    START,
+                    "#ffffff",
+                    BLUE,
+                    "On",
+                )),
+            ),
+            (
+                "time keyed to 101",
+                keys("time", &[(0, &[0.0]), (4, &[101.0])]),
+            ),
         ],
     );
     t.taken(
@@ -203,26 +290,59 @@ fn b142_beam() {
         vec![
             (
                 "every number at its bottom,",
-                set(beam([-1000.0, -1000.0], [-1000.0, -1000.0], [0.0; 5], "#000000", "#000000", "off")),
+                set(beam(
+                    [-1000.0, -1000.0],
+                    [-1000.0, -1000.0],
+                    [0.0; 5],
+                    "#000000",
+                    "#000000",
+                    "off",
+                )),
             ),
             (
                 "every number at its top,",
-                set(beam([1000.0, 1000.0], [1000.0, 1000.0], [100.0, 100.0, 500.0, 500.0, 100.0], "#FFFFFF", "#FFFFFF", "on")),
+                set(beam(
+                    [1000.0, 1000.0],
+                    [1000.0, 1000.0],
+                    [100.0, 100.0, 500.0, 500.0, 100.0],
+                    "#FFFFFF",
+                    "#FFFFFF",
+                    "on",
+                )),
             ),
-            ("time keyed from 0 to 100", keys("time", &[(0, &[0.0]), (4, &[100.0])])),
-            ("start keyed from (0, 0) to (100, 100)", keys("start", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])])),
+            (
+                "time keyed from 0 to 100",
+                keys("time", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
+            (
+                "start keyed from (0, 0) to (100, 100)",
+                keys("start", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_beam_001.json", 0), ("fx_beam_007.json", 0), ("fx_beam_013.json", 0), ("fx_beam_015.json", 2)]);
+    t.tiles(&[
+        ("fx_beam_001.json", 0),
+        ("fx_beam_007.json", 0),
+        ("fx_beam_013.json", 0),
+        ("fx_beam_015.json", 2),
+    ]);
 
     t.heading("Pictures: a made-up night, in `verification/B-142 pictures/`, three times enlarged");
     let dir = effect_table::repo("verification/B-142 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -233,12 +353,22 @@ fn b142_beam() {
     let every = || (0..h).flat_map(move |y| (0..w).map(move |x| (x, y)));
     let (before, big, said) = picture(&dir, stack(&[]));
     write("before.png", &big, 3);
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // The pixels that differ from before.png, and whether all of them lie in a box.
-    let changed = |after: &[u8]| every().filter(|&p| !near(px(after, p), px(&before, p))).collect::<Vec<_>>();
+    let changed = |after: &[u8]| {
+        every()
+            .filter(|&p| !near(px(after, p), px(&before, p)))
+            .collect::<Vec<_>>()
+    };
     let inside = |after: &[u8], (x0, x1, y0, y1): (usize, usize, usize, usize)| {
-        changed(after).iter().all(|&(x, y)| (x0..=x1).contains(&x) && (y0..=y1).contains(&y))
+        changed(after)
+            .iter()
+            .all(|&(x, y)| (x0..=x1).contains(&x) && (y0..=y1).contains(&y))
     };
     let white = |p: [u8; 4]| p[..3].iter().all(|&c| c >= 230);
     let same = |after: &[u8], p| near(px(after, p), px(&before, p));
@@ -317,7 +447,17 @@ fn b142_beam() {
             && changed(&soft).len() > changed(&hard).len(),
     );
 
-    let (slant, big, said) = picture(&dir, stack(&[&beam([10.0, 90.0], [90.0, 10.0], [100.0, 0.0, 12.0, 12.0, 50.0], "#ffe080", "#ff3020", "on")]));
+    let (slant, big, said) = picture(
+        &dir,
+        stack(&[&beam(
+            [10.0, 90.0],
+            [90.0, 10.0],
+            [100.0, 0.0, 12.0, 12.0, 50.0],
+            "#ffe080",
+            "#ff3020",
+            "on",
+        )]),
+    );
     write("yellow_in_red.png", &big, 3);
     let mid = px(&slant, (80, 50));
     t.row(
@@ -332,7 +472,17 @@ fn b142_beam() {
             && same(&slant, (155, 95)),
     );
 
-    let (alone, big, said) = picture(&dir, stack(&[&beam([10.0, 50.0], [90.0, 50.0], [100.0, 0.0, 8.0, 8.0, 50.0], "#ffffff", BLUE, "off")]));
+    let (alone, big, said) = picture(
+        &dir,
+        stack(&[&beam(
+            [10.0, 50.0],
+            [90.0, 50.0],
+            [100.0, 0.0, 8.0, 8.0, 50.0],
+            "#ffffff",
+            BLUE,
+            "off",
+        )]),
+    );
     write("composite_off.png", &big, 3);
     let clear = every().filter(|&p| px(&alone, p)[3] == 0).count();
     t.row(

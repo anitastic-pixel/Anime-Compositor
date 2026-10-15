@@ -64,7 +64,9 @@ fn grey(p: &WorkingBuffer, weights: [f64; 3]) -> Planes {
         w: p.width(),
         h: p.height(),
         c: [
-            px.clone().map(|q| wr * q[0] as f64 + wg * q[1] as f64 + wb * q[2] as f64).collect(),
+            px.clone()
+                .map(|q| wr * q[0] as f64 + wg * q[1] as f64 + wb * q[2] as f64)
+                .collect(),
             px.map(|q| q[3] as f64).collect(),
         ],
     }
@@ -138,7 +140,9 @@ pub(crate) fn finest(vector_detail: f64, top: usize) -> usize {
     if vector_detail <= 0.0 {
         return top;
     }
-    ((100.0 / vector_detail).log2() + 0.5).floor().clamp(0.0, top as f64) as usize
+    ((100.0 / vector_detail).log2() + 0.5)
+        .floor()
+        .clamp(0.0, top as f64) as usize
 }
 
 /// `field` read at (x + 0.5)/f - 0.5 for each pixel of a `w2` by `h2` picture, times f.
@@ -148,7 +152,10 @@ fn enlarge(field: &Field, w2: usize, h2: usize, f: f64) -> Field {
         .map(|i| {
             let sx = ((i % w2) as f64 + 0.5) / f - 0.5;
             let sy = ((i / w2) as f64 + 0.5) / f - 0.5;
-            (f * bilinear_held(&field.x, field.w, field.h, sx, sy), f * bilinear_held(&field.y, field.w, field.h, sx, sy))
+            (
+                f * bilinear_held(&field.x, field.w, field.h, sx, sy),
+                f * bilinear_held(&field.y, field.w, field.h, sx, sy),
+            )
         })
         .unzip();
     Field { w: w2, h: h2, x, y }
@@ -159,12 +166,20 @@ fn enlarge(field: &Field, w2: usize, h2: usize, f: f64) -> Field {
 pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Field {
     let (w, h) = (a.width(), a.height());
     if w == 0 || h == 0 {
-        return Field { w, h, x: Vec::new(), y: Vec::new() };
+        return Field {
+            w,
+            h,
+            x: Vec::new(),
+            y: Vec::new(),
+        };
     }
     let ca = grey(a, s.weights);
     let mut cb = grey(b, s.weights);
     if s.correct_luminance {
-        let (ma, mb) = (ca.c[0].iter().sum::<f64>() / (w * h) as f64, cb.c[0].iter().sum::<f64>() / (w * h) as f64);
+        let (ma, mb) = (
+            ca.c[0].iter().sum::<f64>() / (w * h) as f64,
+            cb.c[0].iter().sum::<f64>() / (w * h) as f64,
+        );
         if mb > 0.0 {
             cb.c[0].iter_mut().for_each(|v| *v *= ma / mb);
         }
@@ -175,7 +190,11 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
     for _ in 0..top {
         let (pa, pb) = levels.last().unwrap();
         let (lw, lh) = (pa.w, pa.h);
-        let next = |p: &Planes| Planes { w: lw.div_ceil(2), h: lh.div_ceil(2), c: [halve(&p.c[0], lw, lh), halve(&p.c[1], lw, lh)] };
+        let next = |p: &Planes| Planes {
+            w: lw.div_ceil(2),
+            h: lh.div_ceil(2),
+            c: [halve(&p.c[0], lw, lh), halve(&p.c[1], lw, lh)],
+        };
         let pair = (next(pa), next(pb));
         levels.push(pair);
     }
@@ -188,7 +207,12 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         let (lw, lh) = (pa.w, pa.h);
         let n = lw * lh;
         let Field { mut x, mut y, .. } = match &field {
-            None => Field { w: lw, h: lh, x: vec![0.0; n], y: vec![0.0; n] },
+            None => Field {
+                w: lw,
+                h: lh,
+                x: vec![0.0; n],
+                y: vec![0.0; n],
+            },
             Some(f) => enlarge(f, lw, lh, 2.0),
         };
         let grad = |c: &[f64], dx: isize, dy: isize| -> Vec<f64> {
@@ -196,15 +220,38 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
                 .into_par_iter()
                 .map(|i| {
                     let (px, py) = ((i % lw) as isize, (i / lw) as isize);
-                    (c[held(py + dy, lh) * lw + held(px + dx, lw)] - c[held(py - dy, lh) * lw + held(px - dx, lw)]) / 2.0
+                    (c[held(py + dy, lh) * lw + held(px + dx, lw)]
+                        - c[held(py - dy, lh) * lw + held(px - dx, lw)])
+                        / 2.0
                 })
                 .collect()
         };
         let gx = [grad(&pa.c[0], 1, 0), grad(&pa.c[1], 1, 0)];
         let gy = [grad(&pa.c[0], 0, 1), grad(&pa.c[1], 0, 1)];
-        let gxx = boxed(&(0..n).map(|i| gx[0][i] * gx[0][i] + gx[1][i] * gx[1][i]).collect::<Vec<_>>(), lw, lh, r);
-        let gxy = boxed(&(0..n).map(|i| gx[0][i] * gy[0][i] + gx[1][i] * gy[1][i]).collect::<Vec<_>>(), lw, lh, r);
-        let gyy = boxed(&(0..n).map(|i| gy[0][i] * gy[0][i] + gy[1][i] * gy[1][i]).collect::<Vec<_>>(), lw, lh, r);
+        let gxx = boxed(
+            &(0..n)
+                .map(|i| gx[0][i] * gx[0][i] + gx[1][i] * gx[1][i])
+                .collect::<Vec<_>>(),
+            lw,
+            lh,
+            r,
+        );
+        let gxy = boxed(
+            &(0..n)
+                .map(|i| gx[0][i] * gy[0][i] + gx[1][i] * gy[1][i])
+                .collect::<Vec<_>>(),
+            lw,
+            lh,
+            r,
+        );
+        let gyy = boxed(
+            &(0..n)
+                .map(|i| gy[0][i] * gy[0][i] + gy[1][i] * gy[1][i])
+                .collect::<Vec<_>>(),
+            lw,
+            lh,
+            r,
+        );
         for _ in 0..s.iterations {
             let (ex, ey): (Vec<f64>, Vec<f64>) = (0..n)
                 .into_par_iter()
@@ -216,17 +263,24 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
                 })
                 .unzip();
             let (bx, by) = (boxed(&ex, lw, lh, r), boxed(&ey, lw, lh, r));
-            x.par_iter_mut().zip(y.par_iter_mut()).enumerate().for_each(|(i, (ux, uy))| {
-                let (a, d, c) = (gxx[i] + ridge, gyy[i] + ridge, gxy[i]);
-                let det = a * d - c * c;
-                *ux -= (d * bx[i] - c * by[i]) / det;
-                *uy -= (a * by[i] - c * bx[i]) / det;
-            });
+            x.par_iter_mut()
+                .zip(y.par_iter_mut())
+                .enumerate()
+                .for_each(|(i, (ux, uy))| {
+                    let (a, d, c) = (gxx[i] + ridge, gyy[i] + ridge, gxy[i]);
+                    let det = a * d - c * c;
+                    *ux -= (d * bx[i] - c * by[i]) / det;
+                    *uy -= (a * by[i] - c * bx[i]) / det;
+                });
         }
         let smooth = s.local_smoothness;
         let (mx, my) = (boxed(&x, lw, lh, r), boxed(&y, lw, lh, r));
-        x.iter_mut().zip(&mx).for_each(|(u, m)| *u += smooth * (m / area - *u));
-        y.iter_mut().zip(&my).for_each(|(u, m)| *u += smooth * (m / area - *u));
+        x.iter_mut()
+            .zip(&mx)
+            .for_each(|(u, m)| *u += smooth * (m / area - *u));
+        y.iter_mut()
+            .zip(&my)
+            .for_each(|(u, m)| *u += smooth * (m / area - *u));
         field = Some(Field { w: lw, h: lh, x, y });
     }
     let field = field.unwrap();
@@ -241,24 +295,36 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
 /// to the frames before and after; `share` the share of a frame the shutter is open and
 /// `samples` the moments. Each pixel is the mean of `o` read bilinearly (document 21,
 /// transparent outside) at the pixel less |s_k| times the vector of its half of the shutter.
-pub(crate) fn gather(o: &WorkingBuffer, back: &Field, ahead: &Field, share: f64, samples: u32) -> WorkingBuffer {
+pub(crate) fn gather(
+    o: &WorkingBuffer,
+    back: &Field,
+    ahead: &Field,
+    share: f64,
+    samples: u32,
+) -> WorkingBuffer {
     let (w, h) = (o.width(), o.height());
     let mut out = WorkingBuffer::transparent(w, h);
-    let times: Vec<f64> = (0..samples).map(|k| share * ((k as f64 + 0.5) / samples as f64 - 0.5)).collect();
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-        let mut acc = [0.0f32; 4];
-        for &s in &times {
-            let f = if s < 0.0 { back } else { ahead };
-            let q = crate::render::sample_bilinear(o, x - s.abs() * f.x[i], y - s.abs() * f.y[i]);
-            for c in 0..4 {
-                acc[c] += q[c];
+    let times: Vec<f64> = (0..samples)
+        .map(|k| share * ((k as f64 + 0.5) / samples as f64 - 0.5))
+        .collect();
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let mut acc = [0.0f32; 4];
+            for &s in &times {
+                let f = if s < 0.0 { back } else { ahead };
+                let q =
+                    crate::render::sample_bilinear(o, x - s.abs() * f.x[i], y - s.abs() * f.y[i]);
+                for c in 0..4 {
+                    acc[c] += q[c];
+                }
             }
-        }
-        for c in 0..4 {
-            px[c] = acc[c] / samples as f32;
-        }
-    });
+            for c in 0..4 {
+                px[c] = acc[c] / samples as f32;
+            }
+        });
     out
 }
 
@@ -282,13 +348,23 @@ pub(crate) fn tween(
 ) -> Vec<[f64; 4]> {
     let w = pa.width();
     let h = g.clamp(0.0, 1.0);
-    let read: fn(&WorkingBuffer, f64, f64) -> [f32; 4] = if extreme { crate::layer_fx::sample_bicubic } else { crate::render::sample_bilinear };
+    let read: fn(&WorkingBuffer, f64, f64) -> [f32; 4] = if extreme {
+        crate::layer_fx::sample_bicubic
+    } else {
+        crate::render::sample_bilinear
+    };
     (0..w * pa.height())
         .into_par_iter()
         .map(|i| {
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            let (ax, ay) = (-(1.0 - g) * g * f01.x[i] + g * g * f10.x[i], -(1.0 - g) * g * f01.y[i] + g * g * f10.y[i]);
-            let (bx, by) = ((1.0 - g) * (1.0 - g) * f01.x[i] - g * (1.0 - g) * f10.x[i], (1.0 - g) * (1.0 - g) * f01.y[i] - g * (1.0 - g) * f10.y[i]);
+            let (ax, ay) = (
+                -(1.0 - g) * g * f01.x[i] + g * g * f10.x[i],
+                -(1.0 - g) * g * f01.y[i] + g * g * f10.y[i],
+            );
+            let (bx, by) = (
+                (1.0 - g) * (1.0 - g) * f01.x[i] - g * (1.0 - g) * f10.x[i],
+                (1.0 - g) * (1.0 - g) * f01.y[i] - g * (1.0 - g) * f10.y[i],
+            );
             let a = read(pa, x + ax, y + ay).map(f64::from);
             let b = read(pb, x + bx, y + by).map(f64::from);
             let (qa, qb) = (&pa.data()[i * 4..i * 4 + 4], &pb.data()[i * 4..i * 4 + 4]);
@@ -328,10 +404,23 @@ mod tests {
     /// moving so at its middle (1.962, 0.950 there), and a still one not at all.
     #[test]
     fn a_moving_square_is_found_moving() {
-        let u = estimate(&square(14.0, 15.0), &square(16.0, 16.0), &Tuning::added(100.0));
+        let u = estimate(
+            &square(14.0, 15.0),
+            &square(16.0, 16.0),
+            &Tuning::added(100.0),
+        );
         let i = 15 * 32 + 14;
-        assert!((u.x[i] - 1.962).abs() < 1e-3 && (u.y[i] - 0.950).abs() < 1e-3, "{} {}", u.x[i], u.y[i]);
-        let still = estimate(&square(14.0, 15.0), &square(14.0, 15.0), &Tuning::added(20.0));
+        assert!(
+            (u.x[i] - 1.962).abs() < 1e-3 && (u.y[i] - 0.950).abs() < 1e-3,
+            "{} {}",
+            u.x[i],
+            u.y[i]
+        );
+        let still = estimate(
+            &square(14.0, 15.0),
+            &square(14.0, 15.0),
+            &Tuning::added(20.0),
+        );
         assert!(still.x.iter().chain(&still.y).all(|v| *v == 0.0));
     }
 }

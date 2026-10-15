@@ -17,7 +17,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -48,7 +49,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=26 {
         let file = format!("fx_cdk_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -56,7 +61,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ColorDifferenceKey { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ColorDifferenceKey { .. })
+                });
             }
         }
         t.row(
@@ -74,9 +81,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -90,7 +106,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ColorDifferenceKey { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ColorDifferenceKey { .. })
+                });
                 t.row(
                     &format!("the reference shot, Color Difference Key {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -104,7 +122,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -116,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -139,7 +172,9 @@ fn portrait() -> Vec<u8> {
             } else if r < 1.0 {
                 // The spill, from none 14 pixels in to 60% of the screen at the edge.
                 let spill = (1.0 - (1.0 - r) * 70.0 / 14.0).clamp(0.0, 1.0) * 0.6;
-                std::array::from_fn(|c| (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8)
+                std::array::from_fn(|c| {
+                    (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8
+                })
             } else {
                 SCREEN
             };
@@ -195,33 +230,65 @@ fn b339_color_difference_key() {
         ("fx_cdk_026.json", "key colour"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let numbers = r##""partial_a_in_black": 0, "partial_a_in_white": 255, "partial_a_gamma": 1, "partial_a_out_black": 0, "partial_a_out_white": 255, "partial_b_in_black": 0, "partial_b_in_white": 255, "partial_b_gamma": 1, "partial_b_out_black": 0, "partial_b_out_white": 255, "matte_in_black": 0, "matte_in_white": 255"##;
     t.shape_refused(
         "fx_cdk_001.json",
         "a Color Difference Key whose matte gamma is a word",
-        &format!(r##"{{"view": "final", "key_color": "#0000ff", {numbers}, "matte_gamma": "soft"}}"##),
+        &format!(
+            r##"{{"view": "final", "key_color": "#0000ff", {numbers}, "matte_gamma": "soft"}}"##
+        ),
     );
-    t.shape_refused("fx_cdk_001.json", "a Color Difference Key without its view", &format!(r##"{{"key_color": "#0000ff", {numbers}, "matte_gamma": 1}}"##));
-    t.shape_refused("fx_cdk_001.json", "a Color Difference Key without its matte gamma", &format!(r##"{{"view": "final", "key_color": "#0000ff", {numbers}}}"##));
+    t.shape_refused(
+        "fx_cdk_001.json",
+        "a Color Difference Key without its view",
+        &format!(r##"{{"key_color": "#0000ff", {numbers}, "matte_gamma": 1}}"##),
+    );
+    t.shape_refused(
+        "fx_cdk_001.json",
+        "a Color Difference Key without its matte gamma",
+        &format!(r##"{{"view": "final", "key_color": "#0000ff", {numbers}}}"##),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_cdk_001.json").document;
-    let over = changed(&t, "fx_cdk_001.json", |e| if let Effect::ColorDifferenceKey { partial_a, .. } = e { partial_a[2] = 11.0 });
-    let word = changed(&t, "fx_cdk_001.json", |e| if let Effect::ColorDifferenceKey { view, .. } = e { *view = "all".into() });
-    let colour = changed(&t, "fx_cdk_001.json", |e| if let Effect::ColorDifferenceKey { key_color, .. } = e { *key_color = "blue".into() });
+    let over = changed(&t, "fx_cdk_001.json", |e| {
+        if let Effect::ColorDifferenceKey { partial_a, .. } = e {
+            partial_a[2] = 11.0
+        }
+    });
+    let word = changed(&t, "fx_cdk_001.json", |e| {
+        if let Effect::ColorDifferenceKey { view, .. } = e {
+            *view = "all".into()
+        }
+    });
+    let colour = changed(&t, "fx_cdk_001.json", |e| {
+        if let Effect::ColorDifferenceKey { key_color, .. } = e {
+            *key_color = "blue".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("partial A gamma 11", set(over)),
             ("view \"all\"", set(word)),
             ("key colour \"blue\"", set(colour)),
-            ("matte in white keyed to 300", keys("matte_in_white", &[(0, &[255.0]), (4, &[300.0])])),
+            (
+                "matte in white keyed to 300",
+                keys("matte_in_white", &[(0, &[255.0]), (4, &[300.0])]),
+            ),
         ],
     );
     let green = changed(&t, "fx_cdk_001.json", |e| {
-        if let Effect::ColorDifferenceKey { view, key_color, .. } = e {
+        if let Effect::ColorDifferenceKey {
+            view, key_color, ..
+        } = e
+        {
             *view = "matte".into();
             *key_color = "#00ff00".into();
         }
@@ -229,7 +296,13 @@ fn b339_color_difference_key() {
     t.taken(
         &mut document,
         "fx_cdk_001.json",
-        vec![("view matte with a green key", set(green)), ("matte gamma keyed from 1 to 3", keys("matte_gamma", &[(0, &[1.0]), (4, &[3.0])]))],
+        vec![
+            ("view matte with a green key", set(green)),
+            (
+                "matte gamma keyed from 1 to 3",
+                keys("matte_gamma", &[(0, &[1.0]), (4, &[3.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -252,7 +325,11 @@ fn b339_color_difference_key() {
         &mut gpu,
         &[
             ("as added (blue key, final)", json!({}), 3),
-            ("view matte, green key, matte gamma 0.6", json!({"view": "matte", "key_color": "#00ff00", "matte_gamma": 0.6}), 3),
+            (
+                "view matte, green key, matte gamma 0.6",
+                json!({"view": "matte", "key_color": "#00ff00", "matte_gamma": 0.6}),
+                3,
+            ),
             (
                 "final, key #28b43c, every levels set",
                 json!({"key_color": "#28b43c", "partial_a_in_black": 40, "partial_a_in_white": 200, "partial_a_gamma": 1.5, "partial_a_out_black": 10, "partial_a_out_white": 245,
@@ -265,7 +342,17 @@ fn b339_color_difference_key() {
     t.heading("Pictures: in `verification/D-459 pictures/`");
     let dir = repo("verification/D-459 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("portrait.png", TOWN, &portrait());
     let shot = |p: J| picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "portrait.png", TOWN, json!([]));
@@ -287,7 +374,11 @@ fn b339_color_difference_key() {
     let key = "#28b43c";
     let (after, said) = shot(json!({"view": "matte_uncorrected", "key_color": key}));
     write("2_matte_uncorrected.png", TOWN, &after);
-    let (s, f, sh) = (grey(&after, screen), grey(&after, face), grey(&after, shirt));
+    let (s, f, sh) = (
+        grey(&after, screen),
+        grey(&after, face),
+        grey(&after, shirt),
+    );
     t.row(
         "2_matte_uncorrected.png, the matte as grey, key #28b43c (the screen's green), no levels: the screen darkest (103 by hand), the face lighter (182), the shirt lightest (226); the screen is not yet black, which is what the levels are for; draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, shirt {sh}"),
@@ -301,7 +392,12 @@ fn b339_color_difference_key() {
     matte_view["view"] = J::from("matte");
     let (after, said) = shot(matte_view);
     write("3_matte.png", TOWN, &after);
-    let (s, f, e, sh) = (grey(&after, screen), grey(&after, face), grey(&after, edge), grey(&after, shirt));
+    let (s, f, e, sh) = (
+        grey(&after, screen),
+        grey(&after, face),
+        grey(&after, edge),
+        grey(&after, shirt),
+    );
     t.row(
         "3_matte.png, the corrected matte with matte in black 110 and in white 180: the screen black, the face and the shirt white, the face's spilled green edge grey; draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, edge {e}, shirt {sh}"),
@@ -311,8 +407,14 @@ fn b339_color_difference_key() {
     let (after, said) = shot(tuned);
     write("4_final.png", TOWN, &after);
     let gone = at(&after, screen.0, screen.1)[3];
-    let kept = [face, shirt].iter().all(|&(x, y)| at(&after, x, y) == at(&before, x, y));
-    let colour_kept = after.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(a, _)| a[3] >= 16).all(|(a, b)| (0..3).all(|c| a[c].abs_diff(b[c]) <= 1));
+    let kept = [face, shirt]
+        .iter()
+        .all(|&(x, y)| at(&after, x, y) == at(&before, x, y));
+    let colour_kept = after
+        .chunks_exact(4)
+        .zip(before.chunks_exact(4))
+        .filter(|(a, _)| a[3] >= 16)
+        .all(|(a, b)| (0..3).all(|c| a[c].abs_diff(b[c]) <= 1));
     let soft = at(&after, edge.0, edge.1)[3];
     t.row(
         "4_final.png, Final Output with the same levels: the screen see-through, the face and the shirt exactly as they were, the spilled edge part covered; wherever anything is left its colour is the shot's (the key takes covering, never colour, so the green spill stays for a spill suppressor); draws cleanly",
@@ -324,7 +426,12 @@ fn b339_color_difference_key() {
     // the violet (128, 64, 255) half, green all kept.
     for (file, name, c, want) in [
         ("blue.png", "pure blue", [0u8, 0, 255], 0u8),
-        ("violet.png", "the violet (128, 64, 255)", [128, 64, 255], 128),
+        (
+            "violet.png",
+            "the violet (128, 64, 255)",
+            [128, 64, 255],
+            128,
+        ),
         ("green.png", "pure green", [0, 255, 0], 255),
     ] {
         write(file, (4, 4), &[c[0], c[1], c[2], 255].repeat(16));
@@ -364,22 +471,50 @@ fn b339_color_difference_key_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Color Difference Key, as added", Some(json!({}))),
-        ("Noise, then Color Difference Key, every levels set", Some(json!({"key_color": "#28b43c", "partial_a_in_black": 40, "partial_b_gamma": 0.7, "matte_in_black": 60, "matte_in_white": 220, "matte_gamma": 1.3}))),
+        (
+            "Noise, then Color Difference Key, as added",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Color Difference Key, every levels set",
+            Some(
+                json!({"key_color": "#28b43c", "partial_a_in_black": 40, "partial_b_gamma": 0.7, "matte_in_black": 60, "matte_in_white": 220, "matte_gamma": 1.3}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B339_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-339_timing_raw.md"));
+    let out = std::env::var("B339_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-339_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

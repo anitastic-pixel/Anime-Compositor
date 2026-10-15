@@ -25,11 +25,19 @@ use anime_compositor::preview::{preview_frame_srgb8, PreviewQuality};
 const MAIN: &str = "comp-main";
 
 fn to_linear(e: f64) -> f64 {
-    if e <= 0.04045 { e / 12.92 } else { ((e + 0.055) / 1.055).powf(2.4) }
+    if e <= 0.04045 {
+        e / 12.92
+    } else {
+        ((e + 0.055) / 1.055).powf(2.4)
+    }
 }
 
 fn to_srgb(l: f64) -> f64 {
-    if l <= 0.0031308 { l * 12.92 } else { 1.055 * l.powf(1.0 / 2.4) - 0.055 }
+    if l <= 0.0031308 {
+        l * 12.92
+    } else {
+        1.055 * l.powf(1.0 / 2.4) - 0.055
+    }
 }
 
 /// A 4x4 solid of display grey `e` at `x`, with one Color Balance.
@@ -83,7 +91,15 @@ const ON: [[f64; 3]; 3] = [[0.0, 0.0, 0.0], [0.8937, 0.3937, 0.3937], [1.0, 1.0,
 fn cpu(keep: Option<&str>) -> Vec<[f64; 3]> {
     let loaded = persist::load_str(&shot(keep)).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 64, &mut log).expect("the frame draws");
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        64,
+        &mut log,
+    )
+    .expect("the frame draws");
     assert!(log.finish().is_empty(), "the shot draws without a word");
     [2, 6, 10]
         .iter()
@@ -99,7 +115,10 @@ fn each_solid_lands_where_it_was_worked_by_hand() {
     for (keep, want) in [(None, OFF), (Some("off"), OFF), (Some("on"), ON)] {
         let got = cpu(keep);
         for (g, w) in got.iter().zip(want) {
-            assert!((0..3).all(|c| (g[c] - w[c]).abs() < 1e-5), "{keep:?}: {g:?} against {w:?}");
+            assert!(
+                (0..3).all(|c| (g[c] - w[c]).abs() < 1e-5),
+                "{keep:?}: {g:?} against {w:?}"
+            );
         }
     }
 }
@@ -113,13 +132,27 @@ fn the_card_draws_it_as_the_cpu_does() {
     let loaded = persist::load_str(&shot(Some("on"))).unwrap();
     let mut log = FrameLog::new(8);
     let mut cache = CelCache::with_budget(1 << 24);
-    let (px, w, _) = preview_frame_srgb8(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-        .expect("the card draws");
+    let (px, w, _) = preview_frame_srgb8(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        PreviewQuality::Full,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        &mut gpu,
+    )
+    .expect("the card draws");
     for (x, want) in [2usize, 6, 10].into_iter().zip(ON) {
         let at = (2 * w + x) * 4;
         for c in 0..3 {
             let level = (want[c] * 255.0).round() as i32;
-            assert!((px[at + c] as i32 - level).abs() <= 1, "x {x} channel {c}: {} against {level}", px[at + c]);
+            assert!(
+                (px[at + c] as i32 - level).abs() <= 1,
+                "x {x} channel {c}: {} against {level}",
+                px[at + c]
+            );
         }
     }
 }
@@ -130,12 +163,28 @@ fn the_file_keeps_it_only_when_it_is_on_and_refuses_a_wrong_word() {
         let loaded = persist::load_str(&shot(keep)).unwrap();
         persist::to_json(loaded.document.project(), &loaded.preserved)
     };
-    assert!(!saved(None).contains("preserve_luminosity"), "a file from before it saves as before");
+    assert!(
+        !saved(None).contains("preserve_luminosity"),
+        "a file from before it saves as before"
+    );
     let on: J = serde_json::from_str(&saved(Some("on"))).unwrap();
-    assert_eq!(on["compositions"][0]["layers"][0]["effects"][0]["parameters"]["preserve_luminosity"], "on");
+    assert_eq!(
+        on["compositions"][0]["layers"][0]["effects"][0]["parameters"]["preserve_luminosity"],
+        "on"
+    );
     let loaded = persist::load_str(&shot(Some("maybe"))).unwrap();
     let mut log = FrameLog::new(8);
-    let _ = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 64, &mut log);
+    let _ = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        64,
+        &mut log,
+    );
     let said = format!("{:?}", log.finish());
-    assert!(said.contains("preserve luminosity is \\\"off\\\" or \\\"on\\\""), "{said}");
+    assert!(
+        said.contains("preserve luminosity is \\\"off\\\" or \\\"on\\\""),
+        "{said}"
+    );
 }

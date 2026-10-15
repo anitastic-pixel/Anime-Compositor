@@ -188,7 +188,9 @@ fn b30_line_smooth() {
         let original: J =
             serde_json::from_str(&fs::read_to_string(root().join(file)).unwrap()).unwrap();
         t.row(
-            &format!("{file} opened and saved holds what it held, out-of-range values and keys included"),
+            &format!(
+                "{file} opened and saved holds what it held, out-of-range values and keys included"
+            ),
             if same_json(&written, &original) {
                 "the same"
             } else {
@@ -307,5 +309,8 @@ fn b30_line_smooth() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-30b_line_smooth_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-30b_line_smooth_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-30b_line_smooth_table.md"
+    );
 }

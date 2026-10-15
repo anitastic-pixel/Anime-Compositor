@@ -122,10 +122,9 @@ fn settings(document: &Document) -> String {
 
 #[test]
 fn b31_selective_blur() {
-    let expected: J = serde_json::from_str(
-        &fs::read_to_string(root().join("expected_selblur.json")).unwrap(),
-    )
-    .unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(root().join("expected_selblur.json")).unwrap())
+            .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     let mut t = Table {
         out: String::new(),
@@ -192,13 +191,15 @@ fn b31_selective_blur() {
             serde_json::from_str(&fs::read_to_string(root().join(file)).unwrap()).unwrap();
         let same = same_json(&saved(&load(file)), &original);
         t.row(
-            &format!("{file} opened and saved holds what it held, out-of-range values and keys included"),
+            &format!(
+                "{file} opened and saved holds what it held, out-of-range values and keys included"
+            ),
             if same { "the same" } else { "differs" },
             same,
         );
     }
-    let colors = &saved(&load("fx_selblur_015.json"))["compositions"][0]["layers"][0]["effects"]
-        [0]["parameters"]["colors"];
+    let colors = &saved(&load("fx_selblur_015.json"))["compositions"][0]["layers"][0]["effects"][0]
+        ["parameters"]["colors"];
     t.row(
         "fx_selblur_015.json, written in capitals, is saved in small letters (D-87)",
         &colors.to_string(),
@@ -216,8 +217,14 @@ fn b31_selective_blur() {
     );
     for (what, parameters) in [
         ("no `colors` at all", r#"{"blur": 6}"#),
-        ("`colors` that is not a list", r##"{"blur": 6, "colors": "#f6d6be"}"##),
-        ("a colour that is a number", r#"{"blur": 6, "colors": [16176830]}"#),
+        (
+            "`colors` that is not a list",
+            r##"{"blur": 6, "colors": "#f6d6be"}"##,
+        ),
+        (
+            "a colour that is a number",
+            r#"{"blur": 6, "colors": [16176830]}"#,
+        ),
     ] {
         let text = fs::read_to_string(root().join("fx_selblur_001.json")).unwrap();
         let mut file: J = serde_json::from_str(&text).unwrap();
@@ -266,8 +273,10 @@ fn b31_selective_blur() {
     };
     let keys = |values: &[(i32, f64)]| keys_of("blur", values);
     let skin = ["#f6d6be", "#dba08e"];
-    let nine = ["#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007",
-        "#000008", "#000009"];
+    let nine = [
+        "#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008",
+        "#000009",
+    ];
     for (what, command) in [
         ("blur 201", set(201.0, &skin)),
         ("blur -1", set(-1.0, &skin)),
@@ -276,7 +285,10 @@ fn b31_selective_blur() {
         ("blur keyed to 250", keys(&[(0, 0.0), (4, 250.0)])),
         ("tolerance 256", with(6.0, &skin, 256.0)),
         ("tolerance -1", with(6.0, &skin, -1.0)),
-        ("tolerance keyed to 300", keys_of("tolerance", &[(0, 0.0), (4, 300.0)])),
+        (
+            "tolerance keyed to 300",
+            keys_of("tolerance", &[(0, 0.0), (4, 300.0)]),
+        ),
     ] {
         let refused = document.apply(command).err();
         let untouched = settings(&document) == held;
@@ -344,11 +356,18 @@ fn b31_selective_blur() {
     t.heading("The draft preview (D-66)");
     // An adjustment layer's stack runs on the quarter-size frame, so its blur, a distance in
     // pixels, shrinks with it as a Gaussian blur's sigma does. FX-ADJ-007 lends the layer.
-    let adjust = persist::load(&repo("Fixtures/adjust/fx_adj_007.json")).unwrap().document;
+    let adjust = persist::load(&repo("Fixtures/adjust/fx_adj_007.json"))
+        .unwrap()
+        .document;
     let mut log = FrameLog::new(8);
-    let mut plan =
-        plan_frame(adjust.project(), &Id::new(MAIN), 0, &repo("Fixtures/adjust"), &mut log)
-            .unwrap();
+    let mut plan = plan_frame(
+        adjust.project(),
+        &Id::new(MAIN),
+        0,
+        &repo("Fixtures/adjust"),
+        &mut log,
+    )
+    .unwrap();
     for layer in &mut plan.layers {
         for instance in layer.adjust.iter_mut().flatten() {
             instance.effect = Effect::SelectiveColorBlur {
@@ -391,8 +410,8 @@ fn b31_selective_blur() {
         },
         package.contains("F-s-PluginsProjects-LICENSE.txt"),
     );
-    let noticed = port.contains("Copyright (c) 2019 bryful")
-        && licence.contains("Copyright (c) 2019 bryful");
+    let noticed =
+        port.contains("Copyright (c) 2019 bryful") && licence.contains("Copyright (c) 2019 bryful");
     t.row(
         "the port and the licence file carry F's Plugins' copyright notice",
         if noticed { "both" } else { "not both" },
@@ -404,5 +423,8 @@ fn b31_selective_blur() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-31b_selective_blur_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-31b_selective_blur_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-31b_selective_blur_table.md"
+    );
 }

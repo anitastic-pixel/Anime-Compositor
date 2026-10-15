@@ -53,7 +53,12 @@ fn main_comp() -> Id {
 
 /// Set the `art` layer's CC Rainfall.
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: main_comp(), layer_id: Id::new("art"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: main_comp(),
+        layer_id: Id::new("art"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `art` layer's CC Rainfall, linearly.
@@ -63,13 +68,23 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("art"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
@@ -79,23 +94,33 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
 fn read(file: &str) -> J {
-    serde_json::from_str(&fs::read_to_string(repo(&format!("Fixtures/cc_rainfall/{file}"))).unwrap()).unwrap()
+    serde_json::from_str(
+        &fs::read_to_string(repo(&format!("Fixtures/cc_rainfall/{file}"))).unwrap(),
+    )
+    .unwrap()
 }
 
 fn open(project: &J) -> Document {
-    persist::load_str(&project.to_string()).expect("the project reads").document
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
 }
 
 /// The largest difference between two frames.
 fn apart(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f32::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f32::max)
 }
 
 /// FX-RAIN3D-001's project at the street's size in `dir`, its CC Rainfall's settings changed by
@@ -117,9 +142,21 @@ fn picture(dir: &Path, p: Option<J>, frame: i32) -> (Vec<u8>, Vec<String>) {
     }
     let document = open(&project);
     let mut log = FrameLog::new(3);
-    let drawn = preview::preview_frame(document.project(), &main_comp(), frame, dir, PreviewQuality::Full, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = preview::preview_frame(
+        document.project(),
+        &main_comp(),
+        frame,
+        dir,
+        PreviewQuality::Full,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -141,11 +178,22 @@ fn b471_cc_rainfall() {
 
     t.heading("How far it reaches");
     let got = rain(|_| {}).bounds_expansion();
-    t.row("CC Rainfall never grows the layer's bounds", &got.to_string(), got == 0);
+    t.row(
+        "CC Rainfall never grows the layer's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = rain(|_| {});
     draft.scale_distances(|d| d * 0.5);
     let want = rain(|e| {
-        if let Effect::CcRainfall { size, scene_depth, speed, wind, .. } = e {
+        if let Effect::CcRainfall {
+            size,
+            scene_depth,
+            speed,
+            wind,
+            ..
+        } = e
+        {
             (*size, *scene_depth, *speed, *wind) = (1.5, 2500.0, 2000.0, 0.0);
         }
     });
@@ -159,7 +207,9 @@ fn b471_cc_rainfall() {
     t.heading("Where the drops are");
     let alone = t.render(&t.load("fx_rain3d_017.json").document, 1, 64);
     let mut grown = read("fx_rain3d_017.json");
-    let effects = grown["compositions"][0]["layers"][0]["effects"].as_array_mut().unwrap();
+    let effects = grown["compositions"][0]["layers"][0]["effects"]
+        .as_array_mut()
+        .unwrap();
     effects.insert(0, json!({"instance_id": "fx-0", "type_id": "core.gaussian_blur", "enabled": true, "parameters": {"sigma_px": 6}}));
     let after_blur = t.render(&open(&grown), 1, 64);
     let d = apart(alone.data(), after_blur.data());
@@ -182,10 +232,17 @@ fn b471_cc_rainfall() {
 
     t.heading("The file");
     // FX-RAIN3D-022 is saved in small letters, checked below, as fx_rain_015 is for Rain.
-    let files: Vec<String> = (1..=37).filter(|&n| n != 22).map(|n| format!("fx_rain3d_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=37)
+        .filter(|&n| n != 22)
+        .map(|n| format!("fx_rain3d_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_rain3d_001.json");
-    t.row("the clock the effect falls by is never saved", &format!("{:?}", params.get("clock")), params.get("clock").is_none());
+    t.row(
+        "the clock the effect falls by is never saved",
+        &format!("{:?}", params.get("clock")),
+        params.get("clock").is_none(),
+    );
     let capitals = t.saved_parameters("fx_rain3d_022.json");
     t.row(
         "fx_rain3d_022.json, its colour written in capitals, is saved in small letters, as Rain's is",
@@ -193,10 +250,22 @@ fn b471_cc_rainfall() {
         capitals["color"] == "#c8d8ff",
     );
     for (what, parameters) in [
-        ("no `random_seed` at all", r##"{"drops": 5000, "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "color": "#b4bec8", "opacity": 25, "transfer_mode": "lighten", "composite_with_original": "on", "ground_level": 100}"##),
-        ("no `color` at all", r##"{"drops": 5000, "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "opacity": 25, "transfer_mode": "lighten", "composite_with_original": "on", "ground_level": 100, "random_seed": 0}"##),
-        ("a drop count that is a word", r##"{"drops": "many", "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "color": "#b4bec8", "opacity": 25, "transfer_mode": "lighten", "composite_with_original": "on", "ground_level": 100, "random_seed": 0}"##),
-        ("a transfer mode that is a number", r##"{"drops": 5000, "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "color": "#b4bec8", "opacity": 25, "transfer_mode": 1, "composite_with_original": "on", "ground_level": 100, "random_seed": 0}"##),
+        (
+            "no `random_seed` at all",
+            r##"{"drops": 5000, "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "color": "#b4bec8", "opacity": 25, "transfer_mode": "lighten", "composite_with_original": "on", "ground_level": 100}"##,
+        ),
+        (
+            "no `color` at all",
+            r##"{"drops": 5000, "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "opacity": 25, "transfer_mode": "lighten", "composite_with_original": "on", "ground_level": 100, "random_seed": 0}"##,
+        ),
+        (
+            "a drop count that is a word",
+            r##"{"drops": "many", "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "color": "#b4bec8", "opacity": 25, "transfer_mode": "lighten", "composite_with_original": "on", "ground_level": 100, "random_seed": 0}"##,
+        ),
+        (
+            "a transfer mode that is a number",
+            r##"{"drops": 5000, "size": 3, "scene_depth": 5000, "speed": 4000, "wind": 0, "wind_variation": 0, "spread": 15, "color": "#b4bec8", "opacity": 25, "transfer_mode": 1, "composite_with_original": "on", "ground_level": 100, "random_seed": 0}"##,
+        ),
     ] {
         t.shape_refused("fx_rain3d_001.json", what, parameters);
     }
@@ -207,13 +276,62 @@ fn b471_cc_rainfall() {
         &mut t,
         &mut document,
         vec![
-            ("Drops 50001", set(rain(|e| if let Effect::CcRainfall { drops, .. } = e { *drops = 50001.0 }))),
-            ("Size -1", set(rain(|e| if let Effect::CcRainfall { size, .. } = e { *size = -1.0 }))),
-            ("Spread 91", set(rain(|e| if let Effect::CcRainfall { spread, .. } = e { *spread = 91.0 }))),
-            ("Transfer Mode \"screen\"", set(rain(|e| if let Effect::CcRainfall { transfer_mode, .. } = e { *transfer_mode = "screen".into() }))),
-            ("Composite With Original \"maybe\"", set(rain(|e| if let Effect::CcRainfall { composite_with_original, .. } = e { *composite_with_original = "maybe".into() }))),
-            ("Color \"blue\"", set(rain(|e| if let Effect::CcRainfall { color, .. } = e { *color = "blue".into() }))),
-            ("Wind keyed to 6000 at frame 4", keys("wind", &[(0, 0.0), (4, 6000.0)])),
+            (
+                "Drops 50001",
+                set(rain(|e| {
+                    if let Effect::CcRainfall { drops, .. } = e {
+                        *drops = 50001.0
+                    }
+                })),
+            ),
+            (
+                "Size -1",
+                set(rain(|e| {
+                    if let Effect::CcRainfall { size, .. } = e {
+                        *size = -1.0
+                    }
+                })),
+            ),
+            (
+                "Spread 91",
+                set(rain(|e| {
+                    if let Effect::CcRainfall { spread, .. } = e {
+                        *spread = 91.0
+                    }
+                })),
+            ),
+            (
+                "Transfer Mode \"screen\"",
+                set(rain(|e| {
+                    if let Effect::CcRainfall { transfer_mode, .. } = e {
+                        *transfer_mode = "screen".into()
+                    }
+                })),
+            ),
+            (
+                "Composite With Original \"maybe\"",
+                set(rain(|e| {
+                    if let Effect::CcRainfall {
+                        composite_with_original,
+                        ..
+                    } = e
+                    {
+                        *composite_with_original = "maybe".into()
+                    }
+                })),
+            ),
+            (
+                "Color \"blue\"",
+                set(rain(|e| {
+                    if let Effect::CcRainfall { color, .. } = e {
+                        *color = "blue".into()
+                    }
+                })),
+            ),
+            (
+                "Wind keyed to 6000 at frame 4",
+                keys("wind", &[(0, 0.0), (4, 6000.0)]),
+            ),
         ],
     );
     t.taken(
@@ -223,47 +341,134 @@ fn b471_cc_rainfall() {
             (
                 "Composite, alone, wind -300 with variation 40, Color #ffffff",
                 set(rain(|e| {
-                    if let Effect::CcRainfall { transfer_mode, composite_with_original, wind, wind_variation, color, .. } = e {
-                        (*transfer_mode, *composite_with_original, *wind, *wind_variation, *color) =
-                            ("composite".into(), "off".into(), -300.0, 40.0, "#ffffff".into());
+                    if let Effect::CcRainfall {
+                        transfer_mode,
+                        composite_with_original,
+                        wind,
+                        wind_variation,
+                        color,
+                        ..
+                    } = e
+                    {
+                        (
+                            *transfer_mode,
+                            *composite_with_original,
+                            *wind,
+                            *wind_variation,
+                            *color,
+                        ) = (
+                            "composite".into(),
+                            "off".into(),
+                            -300.0,
+                            40.0,
+                            "#ffffff".into(),
+                        );
                     }
                 })),
             ),
-            ("Drops keyed from 0 at frame 0 to 20000 at frame 4", keys("drops", &[(0, 0.0), (4, 20000.0)])),
+            (
+                "Drops keyed from 0 at frame 0 to 20000 at frame 4",
+                keys("drops", &[(0, 0.0), (4, 20000.0)]),
+            ),
         ],
     );
 
     t.heading("Pictures: rain over a street, in `verification/D-582 pictures/`");
     let dir = std::env::temp_dir().join("b471_pictures");
     fs::create_dir_all(&dir).unwrap();
-    png_out::write_rgba(&dir.join("town.png"), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        TOWN.0,
+        TOWN.1,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
     let out = repo("verification/D-582 pictures");
     fs::create_dir_all(&out).unwrap();
     let street = picture(&dir, None, 2).0;
-    let changed = |a: &[u8]| a.chunks_exact(4).zip(street.chunks_exact(4)).filter(|(p, q)| p != q).count();
+    let changed = |a: &[u8]| {
+        a.chunks_exact(4)
+            .zip(street.chunks_exact(4))
+            .filter(|(p, q)| p != q)
+            .count()
+    };
     let lighter = |a: &[u8]| {
-        a.chunks_exact(4).zip(street.chunks_exact(4)).all(|(p, q)| (0..3).all(|c| p[c] >= q[c]))
+        a.chunks_exact(4)
+            .zip(street.chunks_exact(4))
+            .all(|(p, q)| (0..3).all(|c| p[c] >= q[c]))
     };
     for (name, p, frame, what) in [
         ("1_before", None, 2, "the street with no effect"),
-        ("2_as_added", Some(json!({})), 2, "as added: 5000 fine pale drops through a deep volume, Lighten, so nothing darker"),
-        ("3_storm", Some(json!({"drops": 8000, "size": 4, "speed": 6000, "wind": 1500, "wind_variation": 40, "opacity": 45, "random_seed": 4})), 2, "a storm: more, bigger, faster drops blown to the right"),
-        ("4_near_drops", Some(json!({"drops": 300, "scene_depth": 400, "size": 6, "speed": 2400, "spread": 30, "opacity": 60, "color": "#e0e8ff", "random_seed": 9})), 2, "a few big near drops, each its own tilt"),
-        ("5_ground_level_70", Some(json!({"drops": 8000, "ground_level": 70, "opacity": 40, "size": 4})), 2, "Ground Level 70: no rain on the road"),
-        ("6_dark_rain_composite", Some(json!({"drops": 4000, "size": 4, "color": "#202838", "opacity": 60, "transfer_mode": "composite"})), 2, "dark drops with Composite: they darken the street"),
-        ("7_rain_alone", Some(json!({"drops": 8000, "size": 4, "opacity": 60, "composite_with_original": "off"})), 2, "the rain alone, without the street"),
+        (
+            "2_as_added",
+            Some(json!({})),
+            2,
+            "as added: 5000 fine pale drops through a deep volume, Lighten, so nothing darker",
+        ),
+        (
+            "3_storm",
+            Some(
+                json!({"drops": 8000, "size": 4, "speed": 6000, "wind": 1500, "wind_variation": 40, "opacity": 45, "random_seed": 4}),
+            ),
+            2,
+            "a storm: more, bigger, faster drops blown to the right",
+        ),
+        (
+            "4_near_drops",
+            Some(
+                json!({"drops": 300, "scene_depth": 400, "size": 6, "speed": 2400, "spread": 30, "opacity": 60, "color": "#e0e8ff", "random_seed": 9}),
+            ),
+            2,
+            "a few big near drops, each its own tilt",
+        ),
+        (
+            "5_ground_level_70",
+            Some(json!({"drops": 8000, "ground_level": 70, "opacity": 40, "size": 4})),
+            2,
+            "Ground Level 70: no rain on the road",
+        ),
+        (
+            "6_dark_rain_composite",
+            Some(
+                json!({"drops": 4000, "size": 4, "color": "#202838", "opacity": 60, "transfer_mode": "composite"}),
+            ),
+            2,
+            "dark drops with Composite: they darken the street",
+        ),
+        (
+            "7_rain_alone",
+            Some(
+                json!({"drops": 8000, "size": 4, "opacity": 60, "composite_with_original": "off"}),
+            ),
+            2,
+            "the rain alone, without the street",
+        ),
     ] {
         let (bytes, said) = picture(&dir, p.clone(), frame);
-        png_out::write_rgba(&out.join(format!("{name}.png")), TOWN.0, TOWN.1, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let n = changed(&bytes);
         let road_untouched = bytes[210 * TOWN.0 * 4..] == street[210 * TOWN.0 * 4..];
         let shape = match name {
             "1_before" => n == 0,
             "2_as_added" | "3_storm" | "4_near_drops" => n > 0 && lighter(&bytes),
             // Ground level 70 of 270 rows: nothing from row 189 down.
-            "5_ground_level_70" => n > 0 && road_untouched && bytes[189 * TOWN.0 * 4..] == street[189 * TOWN.0 * 4..],
+            "5_ground_level_70" => {
+                n > 0 && road_untouched && bytes[189 * TOWN.0 * 4..] == street[189 * TOWN.0 * 4..]
+            }
             "6_dark_rain_composite" => n > 0 && !lighter(&bytes),
-            _ => bytes.chunks_exact(4).any(|p| p[3] == 0) && bytes.chunks_exact(4).any(|p| p[3] > 0),
+            _ => {
+                bytes.chunks_exact(4).any(|p| p[3] == 0) && bytes.chunks_exact(4).any(|p| p[3] > 0)
+            }
         };
         t.row(
             &format!("{name}.png, frame {frame}, {what}: drawn without a warning"),
@@ -279,11 +484,28 @@ fn b471_cc_rainfall() {
         let same = (0..5)
             .filter(|&frame| {
                 let mut log = FrameLog::new(3);
-                let warm = preview::preview_frame_cached(played.project(), &main_comp(), frame, &t.root, PreviewQuality::Full, 64, &mut log, &mut cache)
-                    .expect("the frame draws");
+                let warm = preview::preview_frame_cached(
+                    played.project(),
+                    &main_comp(),
+                    frame,
+                    &t.root,
+                    PreviewQuality::Full,
+                    64,
+                    &mut log,
+                    &mut cache,
+                )
+                .expect("the frame draws");
                 let mut log = FrameLog::new(3);
-                let alone = preview::preview_frame(played.project(), &main_comp(), frame, &t.root, PreviewQuality::Full, 64, &mut log)
-                    .expect("the frame draws");
+                let alone = preview::preview_frame(
+                    played.project(),
+                    &main_comp(),
+                    frame,
+                    &t.root,
+                    PreviewQuality::Full,
+                    64,
+                    &mut log,
+                )
+                .expect("the frame draws");
                 warm.data() == alone.data()
             })
             .count();
@@ -297,7 +519,12 @@ fn b471_cc_rainfall() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_rain3d_001.json", 2), ("fx_rain3d_009.json", 1), ("fx_rain3d_018.json", 1), ("fx_rain3d_021.json", 3)]);
+    t.tiles(&[
+        ("fx_rain3d_001.json", 2),
+        ("fx_rain3d_009.json", 1),
+        ("fx_rain3d_018.json", 1),
+        ("fx_rain3d_021.json", 3),
+    ]);
 
     t.finish("D-582_cc_rainfall_table.md");
 }
@@ -321,21 +548,39 @@ fn b471_cc_rainfall_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
-    let base = read("fx_rain3d_001.json")["compositions"][0]["layers"][0]["effects"][0]["parameters"].clone();
+    let base = read("fx_rain3d_001.json")["compositions"][0]["layers"][0]["effects"][0]
+        ["parameters"]
+        .clone();
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then CC Rainfall as added (5000 drops)", Some(json!({}))),
-        ("Noise, then CC Rainfall, 20000 drops, size 4", Some(json!({"drops": 20000, "size": 4}))),
-        ("Noise, then CC Rainfall, 5000 near drops (depth 500), size 6", Some(json!({"scene_depth": 500, "size": 6}))),
+        (
+            "Noise, then CC Rainfall as added (5000 drops)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then CC Rainfall, 20000 drops, size 4",
+            Some(json!({"drops": 20000, "size": 4})),
+        ),
+        (
+            "Noise, then CC Rainfall, 5000 near drops (depth 500), size 6",
+            Some(json!({"scene_depth": 500, "size": 6})),
+        ),
     ];
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     for (name, p) in shots {
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let (0, Some(p)) = (i, &p) {
                 let mut all = base.clone();
                 for (k, v) in p.as_object().unwrap() {
@@ -345,11 +590,33 @@ fn b471_cc_rainfall_timing() {
             }
             j["compositions"][0]["layers"][i]["effects"] = J::Array(v);
         }
-        let project = persist::load_str(&j.to_string()).expect("the reference shot reads").document.project().clone();
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let project = persist::load_str(&j.to_string())
+            .expect("the reference shot reads")
+            .document
+            .project()
+            .clone();
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B471_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-471_timing_raw.md"));
+    let out = std::env::var("B471_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-471_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

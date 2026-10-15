@@ -97,9 +97,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -163,7 +174,11 @@ fn b144_cell_pattern() {
 
     t.heading("How far it reaches");
     let got = plain(START).bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = plain(START);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -180,7 +195,10 @@ fn b144_cell_pattern() {
     );
 
     t.heading("The file");
-    let files: Vec<String> = (1..=33).filter(|&n| n != 14).map(|n| format!("fx_cell_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=33)
+        .filter(|&n| n != 14)
+        .map(|n| format!("fx_cell_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_cell_014.json");
     t.row(
@@ -222,13 +240,34 @@ fn b144_cell_pattern() {
             ("seed -1", set(with(4, -1.0))),
             ("seed 100001", set(with(4, 100001.0))),
             ("opacity 101", set(with(5, 101.0))),
-            ("pattern \"tubular\"", set(worded("tubular", "off", "#000000", "#ffffff", "normal"))),
-            ("pattern \"Bubbles\", written with a capital", set(worded("Bubbles", "off", "#000000", "#ffffff", "normal"))),
-            ("invert \"yes\"", set(worded("bubbles", "yes", "#000000", "#ffffff", "normal"))),
-            ("dark colour \"#12345\"", set(worded("bubbles", "off", "#12345", "#ffffff", "normal"))),
-            ("light colour \"white\"", set(worded("bubbles", "off", "#000000", "white", "normal"))),
-            ("blend \"darken\"", set(worded("bubbles", "off", "#000000", "#ffffff", "darken"))),
-            ("disperse keyed to 1.6", keys("disperse", &[(0, &[1.0]), (4, &[1.6])])),
+            (
+                "pattern \"tubular\"",
+                set(worded("tubular", "off", "#000000", "#ffffff", "normal")),
+            ),
+            (
+                "pattern \"Bubbles\", written with a capital",
+                set(worded("Bubbles", "off", "#000000", "#ffffff", "normal")),
+            ),
+            (
+                "invert \"yes\"",
+                set(worded("bubbles", "yes", "#000000", "#ffffff", "normal")),
+            ),
+            (
+                "dark colour \"#12345\"",
+                set(worded("bubbles", "off", "#12345", "#ffffff", "normal")),
+            ),
+            (
+                "light colour \"white\"",
+                set(worded("bubbles", "off", "#000000", "white", "normal")),
+            ),
+            (
+                "blend \"darken\"",
+                set(worded("bubbles", "off", "#000000", "#ffffff", "darken")),
+            ),
+            (
+                "disperse keyed to 1.6",
+                keys("disperse", &[(0, &[1.0]), (4, &[1.6])]),
+            ),
             ("size keyed to 0", keys("size", &[(0, &[4.0]), (4, &[0.0])])),
         ],
     );
@@ -238,14 +277,34 @@ fn b144_cell_pattern() {
         vec![
             (
                 "every number at its bottom,",
-                set(cells("static_plates", "on", [0.0, 0.0, 1.0, -100000.0, 0.0, 0.0], "#000000", "#000000", "add")),
+                set(cells(
+                    "static_plates",
+                    "on",
+                    [0.0, 0.0, 1.0, -100000.0, 0.0, 0.0],
+                    "#000000",
+                    "#000000",
+                    "add",
+                )),
             ),
             (
                 "every number at its top,",
-                set(cells("plates", "off", [1000.0, 1.5, 1000.0, 100000.0, 100000.0, 100.0], "#FFFFFF", "#FFFFFF", "screen")),
+                set(cells(
+                    "plates",
+                    "off",
+                    [1000.0, 1.5, 1000.0, 100000.0, 100000.0, 100.0],
+                    "#FFFFFF",
+                    "#FFFFFF",
+                    "screen",
+                )),
             ),
-            ("evolution keyed from 0 to 3600", keys("evolution", &[(0, &[0.0]), (4, &[3600.0])])),
-            ("seed keyed from 0 to 100", keys("seed", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "evolution keyed from 0 to 3600",
+                keys("evolution", &[(0, &[0.0]), (4, &[3600.0])]),
+            ),
+            (
+                "seed keyed from 0 to 100",
+                keys("seed", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -263,7 +322,15 @@ fn b144_cell_pattern() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -273,24 +340,33 @@ fn b144_cell_pattern() {
     let every = || (0..h).flat_map(move |y| (0..w).map(move |x| (x, y)));
     let (before, big, said) = picture(&dir, stack(&[]));
     write("before.png", &big, 3);
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // Every pixel keeps its covering: the empty ones stay empty and the card's edge stays where it is.
     let kept = |after: &[u8]| every().all(|p| px(after, p)[3] == px(&before, p)[3]);
     let shown = || every().filter(|&p| px(&before, p)[3] > 0);
-    let grey = |bytes: &[u8]| shown().all(|p| {
-        let q = px(bytes, p);
-        q[0].abs_diff(q[1]) <= 1 && q[1].abs_diff(q[2]) <= 1
-    });
+    let grey = |bytes: &[u8]| {
+        shown().all(|p| {
+            let q = px(bytes, p);
+            q[0].abs_diff(q[1]) <= 1 && q[1].abs_diff(q[2]) <= 1
+        })
+    };
     let mean = |bytes: &[u8]| {
         let v: Vec<f64> = shown().map(|p| f64::from(px(bytes, p)[1])).collect();
         v.iter().sum::<f64>() / v.len() as f64
     };
-    let count = |bytes: &[u8], f: &dyn Fn(u8) -> bool| shown().filter(|&p| f(px(bytes, p)[1])).count();
+    let count =
+        |bytes: &[u8], f: &dyn Fn(u8) -> bool| shown().filter(|&p| f(px(bytes, p)[1])).count();
 
     let (start, big, said) = picture(&dir, stack(&[&plain(START)]));
     write("bubbles.png", &big, 3);
-    let (lo, hi) = shown().fold((255, 0), |(lo, hi), p| (px(&start, p)[1].min(lo), px(&start, p)[1].max(hi)));
+    let (lo, hi) = shown().fold((255, 0), |(lo, hi), p| {
+        (px(&start, p)[1].min(lo), px(&start, p)[1].max(hi))
+    });
     t.row(
         "bubbles.png, bubbles sixteen pixels a cell: grey balls over the whole card, white at their \
          middles and near black where they meet, the drawing under them gone; every covering kept, \
@@ -299,7 +375,12 @@ fn b144_cell_pattern() {
         said.is_empty() && kept(&start) && grey(&start) && lo < 40 && hi > 230,
     );
 
-    let (crystal, big, said) = picture(&dir, stack(&[&cells("crystals", "off", START, "#000000", "#ffffff", "normal")]));
+    let (crystal, big, said) = picture(
+        &dir,
+        stack(&[&cells(
+            "crystals", "off", START, "#000000", "#ffffff", "normal",
+        )]),
+    );
     write("crystals.png", &big, 3);
     t.row(
         "crystals.png, crystals: faceted cones, the same cells darker on the whole than the bubbles; draws cleanly",
@@ -307,7 +388,12 @@ fn b144_cell_pattern() {
         said.is_empty() && kept(&crystal) && grey(&crystal) && mean(&crystal) + 20.0 < mean(&start),
     );
 
-    let (plate, big, said) = picture(&dir, stack(&[&cells("plates", "off", START, "#000000", "#ffffff", "normal")]));
+    let (plate, big, said) = picture(
+        &dir,
+        stack(&[&cells(
+            "plates", "off", START, "#000000", "#ffffff", "normal",
+        )]),
+    );
     write("plates.png", &big, 3);
     let white = count(&plate, &|v| v == 255);
     let total = shown().count();
@@ -319,20 +405,44 @@ fn b144_cell_pattern() {
             && count(&start, &|v| v == 255) * 10 < total && count(&plate, &|v| v < 40) > 0,
     );
 
-    let (flat, big, said) = picture(&dir, stack(&[&cells("static_plates", "off", START, "#000000", "#ffffff", "normal")]));
+    let (flat, big, said) = picture(
+        &dir,
+        stack(&[&cells(
+            "static_plates",
+            "off",
+            START,
+            "#000000",
+            "#ffffff",
+            "normal",
+        )]),
+    );
     write("static_plates.png", &big, 3);
-    let pairs = (0..h).flat_map(|y| (0..w - 1).map(move |x| (x, y)))
+    let pairs = (0..h)
+        .flat_map(|y| (0..w - 1).map(move |x| (x, y)))
         .filter(|&(x, y)| px(&before, (x, y))[3] > 0 && px(&before, (x + 1, y))[3] > 0);
-    let (same, all) = pairs.fold((0, 0), |(s, a), (x, y)| (s + usize::from(px(&flat, (x, y)) == px(&flat, (x + 1, y))), a + 1));
+    let (same, all) = pairs.fold((0, 0), |(s, a), (x, y)| {
+        (
+            s + usize::from(px(&flat, (x, y)) == px(&flat, (x + 1, y))),
+            a + 1,
+        )
+    });
     t.row(
         "static_plates.png, static plates: each cell one flat grey, so nine in ten pixels match the one to their right; draws cleanly",
         &format!("{said:?}, {same} of {all} matching"),
         said.is_empty() && kept(&flat) && grey(&flat) && same * 10 > all * 9,
     );
 
-    let (turned, big, said) = picture(&dir, stack(&[&cells("bubbles", "on", START, "#000000", "#ffffff", "normal")]));
+    let (turned, big, said) = picture(
+        &dir,
+        stack(&[&cells(
+            "bubbles", "on", START, "#000000", "#ffffff", "normal",
+        )]),
+    );
     write("invert.png", &big, 3);
-    let off = shown().map(|p| (i32::from(px(&turned, p)[1]) + i32::from(px(&start, p)[1]) - 255).abs()).max().unwrap();
+    let off = shown()
+        .map(|p| (i32::from(px(&turned, p)[1]) + i32::from(px(&start, p)[1]) - 255).abs())
+        .max()
+        .unwrap();
     t.row(
         "invert.png, invert on: the bubbles turned over, dark balls on light seams, each pixel and the bubbles' same pixel adding to white within 2; draws cleanly",
         &format!("{said:?}, furthest {off}"),
@@ -350,7 +460,8 @@ fn b144_cell_pattern() {
 
     let (grid, big, said) = picture(&dir, stack(&[&with(1, 0.0)]));
     write("disperse_0.png", &big, 3);
-    let repeats = shown().filter(|&(x, y)| x + 16 < w && px(&before, (x + 16, y))[3] > 0)
+    let repeats = shown()
+        .filter(|&(x, y)| x + 16 < w && px(&before, (x + 16, y))[3] > 0)
         .all(|(x, y)| px(&grid, (x, y)) == px(&grid, (x + 16, y)));
     t.row(
         "disperse_0.png, disperse 0: every point in its cell's middle, the balls in a square grid repeating every 16 pixels across; draws cleanly",
@@ -367,10 +478,21 @@ fn b144_cell_pattern() {
         said.is_empty() && kept(&moved) && changed * 2 > total,
     );
 
-    let (dusk, big, said) = picture(&dir, stack(&[&cells("bubbles", "off", START, "#203070", "#ffd060", "multiply")]));
+    let (dusk, big, said) = picture(
+        &dir,
+        stack(&[&cells(
+            "bubbles", "off", START, "#203070", "#ffd060", "multiply",
+        )]),
+    );
     write("navy_gold_multiply.png", &big, 3);
-    let lightest = shown().filter(|&p| px(&before, p) == [190, 200, 214, 255]).max_by_key(|&p| px(&start, p)[1]).unwrap();
-    let darkest = shown().filter(|&p| px(&before, p) == [190, 200, 214, 255]).min_by_key(|&p| px(&start, p)[1]).unwrap();
+    let lightest = shown()
+        .filter(|&p| px(&before, p) == [190, 200, 214, 255])
+        .max_by_key(|&p| px(&start, p)[1])
+        .unwrap();
+    let darkest = shown()
+        .filter(|&p| px(&before, p) == [190, 200, 214, 255])
+        .min_by_key(|&p| px(&start, p)[1])
+        .unwrap();
     let (l, d) = (px(&dusk, lightest), px(&dusk, darkest));
     t.row(
         "navy_gold_multiply.png, navy to gold laid on by multiply: the card warm in the balls, red over blue, \

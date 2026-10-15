@@ -36,7 +36,11 @@ fn b83_vibrance() {
 
     t.heading("How far it reaches");
     let got = vib(100.0, 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = vib(40.0, 20.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -56,7 +60,11 @@ fn b83_vibrance() {
         "fx_vibrance_016.json",
         "fx_vibrance_018.json",
     ]);
-    t.shape_refused("fx_vibrance_001.json", "no `saturation` at all", r#"{"vibrance": 0}"#);
+    t.shape_refused(
+        "fx_vibrance_001.json",
+        "no `saturation` at all",
+        r#"{"vibrance": 0}"#,
+    );
     t.shape_refused(
         "fx_vibrance_001.json",
         "a vibrance that is a word",
@@ -72,16 +80,28 @@ fn b83_vibrance() {
             ("vibrance -101", set(vib(-101.0, 0.0))),
             ("saturation 101", set(vib(0.0, 101.0))),
             ("saturation -101", set(vib(0.0, -101.0))),
-            ("vibrance keyed to -150", keys("vibrance", &[(0, &[0.0]), (4, &[-150.0])])),
+            (
+                "vibrance keyed to -150",
+                keys("vibrance", &[(0, &[0.0]), (4, &[-150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_vibrance_001.json",
         vec![
-            ("vibrance -100 and saturation 100, the ends,", set(vib(-100.0, 100.0))),
-            ("vibrance 100 and saturation -100, the other ends,", set(vib(100.0, -100.0))),
-            ("saturation keyed from -100 to 100", keys("saturation", &[(0, &[-100.0]), (4, &[100.0])])),
+            (
+                "vibrance -100 and saturation 100, the ends,",
+                set(vib(-100.0, 100.0)),
+            ),
+            (
+                "vibrance 100 and saturation -100, the other ends,",
+                set(vib(100.0, -100.0)),
+            ),
+            (
+                "saturation keyed from -100 to 100",
+                keys("saturation", &[(0, &[-100.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

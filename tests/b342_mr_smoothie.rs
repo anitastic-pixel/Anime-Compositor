@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -43,7 +44,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=26 {
         let file = format!("fx_smoothie_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -51,7 +56,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::MrSmoothie { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::MrSmoothie { .. })
+                });
             }
         }
         t.row(
@@ -69,9 +76,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -85,7 +101,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::MrSmoothie { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::MrSmoothie { .. })
+                });
                 t.row(
                     &format!("the reference shot, Mr. Smoothie {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -98,8 +116,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,15 +138,35 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The `art` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
@@ -131,12 +178,25 @@ fn at(p: &[u8], w: usize, x: usize, y: usize) -> &[u8] {
 
 /// How many pixels of `p` and `q` are within one level of each other, out of those of `p`.
 fn alike(p: &[u8], q: &[u8]) -> usize {
-    p.chunks_exact(4).zip(q.chunks_exact(4)).filter(|(a, b)| a.iter().zip(*b).all(|(x, y)| x.abs_diff(*y) <= 1)).count()
+    p.chunks_exact(4)
+        .zip(q.chunks_exact(4))
+        .filter(|(a, b)| a.iter().zip(*b).all(|(x, y)| x.abs_diff(*y) <= 1))
+        .count()
 }
 
 /// `command` aimed at the `holder` layer's effect `fx-1`; the fixtures' drawing is `holder`, not `art`.
 fn holder(mut command: Command) -> Command {
-    if let Command::SetEffectParameters { layer_id, instance_id, .. } | Command::SetEffectKeys { layer_id, instance_id, .. } = &mut command {
+    if let Command::SetEffectParameters {
+        layer_id,
+        instance_id,
+        ..
+    }
+    | Command::SetEffectKeys {
+        layer_id,
+        instance_id,
+        ..
+    } = &mut command
+    {
         *layer_id = Id::new("holder");
         *instance_id = Id::new("fx-1");
     }
@@ -158,7 +218,9 @@ fn b342_mr_smoothie() {
     t.fixtures_numbered("expected_mr_smoothie.json", 1..=26);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=26).map(|n| format!("fx_smoothie_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=26)
+        .map(|n| format!("fx_smoothie_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_smoothie_011.json");
     t.row(
@@ -184,37 +246,93 @@ fn b342_mr_smoothie() {
         ("fx_smoothie_025.json", "fit"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Mr. Smoothie and its {want}"), &why, why.contains("Mr. Smoothie") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Mr. Smoothie and its {want}"),
+            &why,
+            why.contains("Mr. Smoothie") && why.contains(want),
+        );
     }
     let full = r#"{"layer": "", "fit": "stretch", "property": "luminance", "smoothness": 5, "sample_a": [25, 50], "sample_b": [75, 50], "phase": 0, "color_loop": "aba"}"#;
-    t.shape_refused("fx_smoothie_001.json", "a Mr. Smoothie whose smoothness is a word", &full.replace("\"smoothness\": 5", "\"smoothness\": \"soft\""));
-    t.shape_refused("fx_smoothie_001.json", "a Mr. Smoothie without its color loop", &full.replace(", \"color_loop\": \"aba\"", ""));
-    t.shape_refused("fx_smoothie_001.json", "a Mr. Smoothie whose sample A is one number", &full.replace("[25, 50]", "25"));
-    t.shape_refused("fx_smoothie_001.json", "a Mr. Smoothie whose property is a number", &full.replace("\"luminance\"", "4"));
+    t.shape_refused(
+        "fx_smoothie_001.json",
+        "a Mr. Smoothie whose smoothness is a word",
+        &full.replace("\"smoothness\": 5", "\"smoothness\": \"soft\""),
+    );
+    t.shape_refused(
+        "fx_smoothie_001.json",
+        "a Mr. Smoothie without its color loop",
+        &full.replace(", \"color_loop\": \"aba\"", ""),
+    );
+    t.shape_refused(
+        "fx_smoothie_001.json",
+        "a Mr. Smoothie whose sample A is one number",
+        &full.replace("[25, 50]", "25"),
+    );
+    t.shape_refused(
+        "fx_smoothie_001.json",
+        "a Mr. Smoothie whose property is a number",
+        &full.replace("\"luminance\"", "4"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_smoothie_001.json").document;
-    let over = changed(&t, "fx_smoothie_001.json", |e| if let Effect::MrSmoothie { smoothness, .. } = e { *smoothness = 101.0 });
-    let far = changed(&t, "fx_smoothie_001.json", |e| if let Effect::MrSmoothie { sample_b, .. } = e { *sample_b = [50.0, -1001.0] });
-    let word = changed(&t, "fx_smoothie_001.json", |e| if let Effect::MrSmoothie { color_loop, .. } = e { *color_loop = "abab".into() });
-    let effect_of = |d: &Document| d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].clone();
+    let over = changed(&t, "fx_smoothie_001.json", |e| {
+        if let Effect::MrSmoothie { smoothness, .. } = e {
+            *smoothness = 101.0
+        }
+    });
+    let far = changed(&t, "fx_smoothie_001.json", |e| {
+        if let Effect::MrSmoothie { sample_b, .. } = e {
+            *sample_b = [50.0, -1001.0]
+        }
+    });
+    let word = changed(&t, "fx_smoothie_001.json", |e| {
+        if let Effect::MrSmoothie { color_loop, .. } = e {
+            *color_loop = "abab".into()
+        }
+    });
+    let effect_of = |d: &Document| {
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .clone()
+    };
     let held = format!("{:?}", effect_of(&document));
     for (what, command) in [
         ("smoothness 101", set(over)),
         ("sample B 50, -1001", set(far)),
         ("color loop abab", set(word)),
-        ("smoothness keyed to 150", keys("smoothness", &[(0, &[5.0]), (4, &[150.0])])),
+        (
+            "smoothness keyed to 150",
+            keys("smoothness", &[(0, &[5.0]), (4, &[150.0])]),
+        ),
     ] {
         let refused = document.apply(holder(command)).err();
         let untouched = format!("{:?}", effect_of(&document)) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
     let moved = changed(&t, "fx_smoothie_001.json", |e| {
-        if let Effect::MrSmoothie { layer, fit, property, smoothness, sample_a, sample_b, phase, color_loop, .. } = e {
+        if let Effect::MrSmoothie {
+            layer,
+            fit,
+            property,
+            smoothness,
+            sample_a,
+            sample_b,
+            phase,
+            color_loop,
+            ..
+        } = e
+        {
             *layer = json!("ramp");
             *fit = "tile".into();
             *property = "hue".into();
@@ -229,8 +347,14 @@ fn b342_mr_smoothie() {
         &mut document,
         "fx_smoothie_001.json",
         vec![
-            ("the ramp tiled, Hue, smoothness 3, samples 10, 20 and 90, 80, phase 45, BAB", holder(set(moved))),
-            ("sample A keyed from 0, 50 to 100, 50", holder(keys("sample_a", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])]))),
+            (
+                "the ramp tiled, Hue, smoothness 3, samples 10, 20 and 90, 80, phase 45, BAB",
+                holder(set(moved)),
+            ),
+            (
+                "sample A keyed from 0, 50 to 100, 50",
+                holder(keys("sample_a", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])])),
+            ),
         ],
     );
 
@@ -260,19 +384,37 @@ fn b342_mr_smoothie() {
                 json!({"layer": "layer-4", "property": "hue", "smoothness": 20, "sample_a": [10, 20], "sample_b": [90, 80], "phase": 90, "color_loop": "bab"}),
                 3,
             ),
-            ("Alpha, smoothness 0, AB, phase 45", json!({"property": "alpha", "smoothness": 0, "color_loop": "ab", "phase": 45}), 3),
+            (
+                "Alpha, smoothness 0, AB, phase 45",
+                json!({"property": "alpha", "smoothness": 0, "color_loop": "ab", "phase": 45}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-462 pictures/`");
     let dir = repo("verification/D-462 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (w, h) = TOWN;
     let all = w * h;
     let coverings = |p: &[u8]| p.chunks_exact(4).map(|q| q[3]).collect::<Vec<_>>();
@@ -305,7 +447,10 @@ fn b342_mr_smoothie() {
     let (one, said) = street(json!({"sample_a": [50, 50], "sample_b": [50, 50]}));
     write("5_one_point.png", TOWN, &one);
     let first = at(&one, w, 0, 0).to_vec();
-    let same = one.chunks_exact(4).filter(|q| q.iter().zip(&first).all(|(x, y)| x.abs_diff(*y) <= 1)).count();
+    let same = one
+        .chunks_exact(4)
+        .filter(|q| q.iter().zip(&first).all(|(x, y)| x.abs_diff(*y) <= 1))
+        .count();
     t.row(
         "5_one_point.png, both samples at the middle: every pixel the one colour found there (within 1 level); draws cleanly",
         &format!("{said:?}, {same} of {all} pixels the colour {first:?}"),
@@ -349,21 +494,44 @@ fn b342_mr_smoothie_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
         ("Noise, then Mr. Smoothie as added", Some(json!({}))),
-        ("the same, Hue, smoothness 30, BAB, phase 90", Some(json!({"property": "hue", "smoothness": 30, "color_loop": "bab", "phase": 90}))),
+        (
+            "the same, Hue, smoothness 30, BAB, phase 90",
+            Some(json!({"property": "hue", "smoothness": 30, "color_loop": "bab", "phase": 90})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B342_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-342_timing_raw.md"));
+    let out = std::env::var("B342_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-342_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

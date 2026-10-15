@@ -49,7 +49,8 @@ struct Shot {
 /// then a spin on the second, so the centre is found after the buffer grew, and the most spin
 /// there is on the third, which takes 256 samples a pixel over most of it.
 fn blurred_reference() -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let radial = |id: &str, kind: &str, amount: f64, center: [f64; 2]| {
         json!({"instance_id": id, "type_id": "core.radial_blur", "enabled": true,
@@ -62,7 +63,8 @@ fn blurred_reference() -> Shot {
         radial("b46-c", "spin", 12.0, [35.0, 60.0])
     ]);
     layers[2]["effects"] = json!([radial("b46-d", "spin", 100.0, [50.0, 50.0])]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the blurred reference shot: {}", d.message));
+    let loaded = persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the blurred reference shot: {}", d.message));
     Shot {
         name: "the reference shot with three Radial Blurs".into(),
         project: loaded.document.project().clone(),
@@ -82,8 +84,18 @@ fn fixtures() -> Vec<Shot> {
                 .unwrap_or_else(|d| panic!("{name}: {}", d.message));
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
-            let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
-            Shot { name, project, root: repo("Fixtures/radial_blur"), comp: id, frames, invalid: n >= 13 }
+            let (id, frames) = (
+                comp.id.clone(),
+                (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+            );
+            Shot {
+                name,
+                project,
+                root: repo("Fixtures/radial_blur"),
+                comp: id,
+                frames,
+                invalid: n >= 13,
+            }
         })
         .collect()
 }
@@ -93,7 +105,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -103,12 +120,24 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// How many layers of the card's plan have a Radial Blur left for the card.
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> usize {
     let mut log = FrameLog::new(3);
-    compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer())
-        .expect("plan the frame")
-        .layers
-        .iter()
-        .filter(|l| l.on_card.iter().any(|c| matches!(c, anime_compositor::render::OnCard::Radial(_))))
-        .count()
+    compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame")
+    .layers
+    .iter()
+    .filter(|l| {
+        l.on_card
+            .iter()
+            .any(|c| matches!(c, anime_compositor::render::OnCard::Radial(_)))
+    })
+    .count()
 }
 
 #[test]
@@ -131,8 +160,19 @@ fn b46_gpu_radial() {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -143,15 +183,31 @@ fn b46_gpu_radial() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let n = left(shot, frame, quality);
                 let d = distance(&c, &g);
                 let pass = !on_cpu
                     && said_cpu == said_gpu
-                    && if shot.invalid { n == 0 && d == (0, 0) && said_gpu.contains("EFFECT_PARAMETER_INVALID") } else { n > 0 && d.0 <= LIMIT };
+                    && if shot.invalid {
+                        n == 0 && d == (0, 0) && said_gpu.contains("EFFECT_PARAMETER_INVALID")
+                    } else {
+                        n > 0 && d.0 <= LIMIT
+                    };
                 checks += 1;
                 passed += pass as usize;
                 let case = format!("{} frame {frame}, {}", shot.name, quality.label());
@@ -188,8 +244,21 @@ fn b46_gpu_radial() {
             PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
         };
         let plan = |card: bool, log: &mut FrameLog| {
-            let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-            let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
+            let make = if card {
+                compose::plan_frame_for_card
+            } else {
+                compose::plan_frame_at
+            };
+            let p = make(
+                &reference.project,
+                &reference.comp,
+                100,
+                &reference.root,
+                quality,
+                log,
+                &mut CelCache::viewer(),
+            )
+            .expect("plan");
             preview::scale_plan(p, quality)
         };
         let a = render::render(&plan(false, &mut log), tile);
@@ -224,7 +293,8 @@ fn b46_gpu_radial() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let s = format!(
@@ -289,9 +359,35 @@ fn b46_gpu_radial_timing() {
                     let mut log = FrameLog::new(3);
                     let t = Instant::now();
                     if on_card {
-                        drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, tile, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                        drop(
+                            preview::preview_frame_srgb8(
+                                &shot.project,
+                                &shot.comp,
+                                frame,
+                                &shot.root,
+                                quality,
+                                tile,
+                                &mut log,
+                                &mut cache,
+                                &mut gpu,
+                            )
+                            .expect("GPU frame"),
+                        );
                     } else {
-                        drop(preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, tile, &mut log, &mut cache).expect("CPU frame").to_srgb8_straight());
+                        drop(
+                            preview::preview_frame_cached(
+                                &shot.project,
+                                &shot.comp,
+                                frame,
+                                &shot.root,
+                                quality,
+                                tile,
+                                &mut log,
+                                &mut cache,
+                            )
+                            .expect("CPU frame")
+                            .to_srgb8_straight(),
+                        );
                     }
                     times.push(t.elapsed().as_secs_f64() * 1000.0);
                 }
@@ -300,5 +396,6 @@ fn b46_gpu_radial_timing() {
         }
         let _ = writeln!(s, "{row}");
     }
-    fs::write(repo("verification/B-46_gpu_radial_timing_table.md"), s).expect("write the timing table");
+    fs::write(repo("verification/B-46_gpu_radial_timing_table.md"), s)
+        .expect("write the timing table");
 }

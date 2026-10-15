@@ -17,9 +17,9 @@ use effect_table::{both, distance, median, reference, repo, time_passes, town, T
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
+use anime_compositor::command::Command;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::command::Command;
 use anime_compositor::effects::{Effect, EffectKey};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Interp, Project};
@@ -27,9 +27,24 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, render, OutputDepth};
 
 /// The Aerial Hazes the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -60,7 +75,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=25 {
         let file = format!("fx_haze_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -86,9 +105,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -116,7 +144,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -128,14 +159,31 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Set the `holder` layer's first effect (the fixtures' own names).
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's first effect, linearly.
@@ -145,13 +193,23 @@ fn keys_holder(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// The street with `effects`, and a hidden layer `matte` showing `matte.png` (from `dir`).
 fn picture_matte(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-matte");
@@ -173,11 +231,26 @@ fn picture_matte(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     matte["enabled"] = J::from(false);
     matte["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().insert(0, matte);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("matte"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("matte"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -197,21 +270,29 @@ fn b282_aerial_haze() {
     t.fixtures_numbered("expected_aerial_haze.json", 1..=25);
 
     t.heading("Files whose layers read each other (document 25)");
-    let expected: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/aerial_haze/expected_aerial_haze.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/aerial_haze/expected_aerial_haze.json")).unwrap(),
+    )
+    .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
         let got = persist::load(&t.root.join(file)).err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
 
     t.heading("The file");
     // 005, its colour in capitals, is saved in small letters (the row after).
-    let files: Vec<String> = (1..=25).filter(|n| *n != 5).map(|n| format!("fx_haze_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=25)
+        .filter(|n| *n != 5)
+        .map(|n| format!("fx_haze_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let caps = t.saved_parameters("fx_haze_005.json");
     t.row(
@@ -223,7 +304,10 @@ fn b282_aerial_haze() {
     t.row(
         "fx_haze_011.json is saved with its four settings, the layer as written",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 4 && saved["layer"] == "card" && saved["fit"] == "center" && saved["amount"] == 100.0,
+        saved.as_object().unwrap().len() == 4
+            && saved["layer"] == "card"
+            && saved["fit"] == "center"
+            && saved["amount"] == 100.0,
     );
     for (file, want) in [
         ("fx_haze_020.json", "amount"),
@@ -233,11 +317,27 @@ fn b282_aerial_haze() {
         ("fx_haze_025.json", "matte layer"),
     ] {
         let why = holder_effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
-    t.shape_refused("fx_haze_001.json", "an Aerial Haze whose amount is a word", r##"{"haze_color": "#b4c8dc", "amount": "some", "layer": "", "fit": "stretch"}"##);
-    t.shape_refused("fx_haze_001.json", "an Aerial Haze without its layer", r##"{"haze_color": "#b4c8dc", "amount": 30, "fit": "stretch"}"##);
-    t.shape_refused("fx_haze_001.json", "an Aerial Haze whose colour is a number", r##"{"haze_color": 7, "amount": 30, "layer": "", "fit": "stretch"}"##);
+    t.shape_refused(
+        "fx_haze_001.json",
+        "an Aerial Haze whose amount is a word",
+        r##"{"haze_color": "#b4c8dc", "amount": "some", "layer": "", "fit": "stretch"}"##,
+    );
+    t.shape_refused(
+        "fx_haze_001.json",
+        "an Aerial Haze without its layer",
+        r##"{"haze_color": "#b4c8dc", "amount": 30, "fit": "stretch"}"##,
+    );
+    t.shape_refused(
+        "fx_haze_001.json",
+        "an Aerial Haze whose colour is a number",
+        r##"{"haze_color": 7, "amount": 30, "layer": "", "fit": "stretch"}"##,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_haze_001.json").document;
@@ -246,9 +346,21 @@ fn b282_aerial_haze() {
         f(&mut e);
         e
     };
-    let over = with(&|e| if let Effect::AerialHaze { amount, .. } = e { *amount = 101.0 });
-    let bad = with(&|e| if let Effect::AerialHaze { haze_color, .. } = e { *haze_color = "#abc".into() });
-    let fill = with(&|e| if let Effect::AerialHaze { fit, .. } = e { *fit = "fill".into() });
+    let over = with(&|e| {
+        if let Effect::AerialHaze { amount, .. } = e {
+            *amount = 101.0
+        }
+    });
+    let bad = with(&|e| {
+        if let Effect::AerialHaze { haze_color, .. } = e {
+            *haze_color = "#abc".into()
+        }
+    });
+    let fill = with(&|e| {
+        if let Effect::AerialHaze { fit, .. } = e {
+            *fit = "fill".into()
+        }
+    });
     let ramp = with(&|e| {
         if let Effect::AerialHaze { layer, amount, .. } = e {
             *layer = J::from("ramp");
@@ -262,14 +374,23 @@ fn b282_aerial_haze() {
             ("amount 101", set_holder(over)),
             ("Haze Color #abc", set_holder(bad)),
             ("fit fill", set_holder(fill)),
-            ("amount keyed to 150", keys_holder("amount", &[(0, 0.0), (4, 150.0)])),
+            (
+                "amount keyed to 150",
+                keys_holder("amount", &[(0, 0.0), (4, 150.0)]),
+            ),
         ],
     );
     taken(
         &mut t,
         &mut document,
         "fx_haze_001.json",
-        vec![("the ramp as the matte at 60", set_holder(ramp)), ("amount keyed from 0 to 100", keys_holder("amount", &[(0, 0.0), (4, 100.0)]))],
+        vec![
+            ("the ramp as the matte at 60", set_holder(ramp)),
+            (
+                "amount keyed from 0 to 100",
+                keys_holder("amount", &[(0, 0.0), (4, 100.0)]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -295,15 +416,33 @@ fn b282_aerial_haze() {
         &mut gpu,
         &[
             ("as added (even)", json!({}), 3),
-            ("through layer 4 as the matte at 80", json!({"amount": 80, "layer": "layer-4"}), 3),
-            ("white haze through layer 4 centred at 50", json!({"haze_color": "#ffffff", "amount": 50, "layer": "layer-4", "fit": "center"}), 3),
+            (
+                "through layer 4 as the matte at 80",
+                json!({"amount": 80, "layer": "layer-4"}),
+                3,
+            ),
+            (
+                "white haze through layer 4 centred at 50",
+                json!({"haze_color": "#ffffff", "amount": 50, "layer": "layer-4", "fit": "center"}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-403 pictures/`");
     let dir = repo("verification/D-403 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     // The matte: white at the top (far away) to black at the bottom (near).
     let matte: Vec<u8> = (0..TOWN.1)
@@ -316,7 +455,11 @@ fn b282_aerial_haze() {
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({"amount": 0}));
     t.row(
         "amount 0 changes nothing: the street byte for byte; draws cleanly",
@@ -331,7 +474,13 @@ fn b282_aerial_haze() {
     };
     let (even, said) = street(json!({}));
     write("2_as_added.png", TOWN, &even);
-    let darkest = |p: &[u8]| p.chunks_exact(4).filter(|q| q[3] > 0).map(|q| q[0] as u32 + q[1] as u32 + q[2] as u32).min().unwrap();
+    let darkest = |p: &[u8]| {
+        p.chunks_exact(4)
+            .filter(|q| q[3] > 0)
+            .map(|q| q[0] as u32 + q[1] as u32 + q[2] as u32)
+            .min()
+            .unwrap()
+    };
     t.row(
         "2_as_added.png, as added (pale sky blue, 30, even): the whole street paler and bluer, its blacks lifted and its contrast lower; draws cleanly",
         &format!("{said:?}, darkest pixel {} against {}, red spread {} against {}", darkest(&even), darkest(&before), spread(&even), spread(&before)),
@@ -342,15 +491,26 @@ fn b282_aerial_haze() {
     write("3_amount_70.png", TOWN, &thick);
     t.row(
         "3_amount_70.png, amount 70: a thick fog, nearer the sky blue than 2 is; draws cleanly",
-        &format!("{said:?}, red spread {} against 2's {}", spread(&thick), spread(&even)),
+        &format!(
+            "{said:?}, red spread {} against 2's {}",
+            spread(&thick),
+            spread(&even)
+        ),
         said.is_empty() && spread(&thick) < spread(&even),
     );
 
     let row_change = |a: &[u8], y: usize| {
         let w = TOWN.0 * 4;
-        a[y * w..(y + 1) * w].iter().zip(&before[y * w..(y + 1) * w]).map(|(p, q)| p.abs_diff(*q) as u32).sum::<u32>()
+        a[y * w..(y + 1) * w]
+            .iter()
+            .zip(&before[y * w..(y + 1) * w])
+            .map(|(p, q)| p.abs_diff(*q) as u32)
+            .sum::<u32>()
     };
-    let (faded, said) = picture_matte(&dir, json!([fx("fx-0-0", &json!({"amount": 80, "layer": "matte"}))]));
+    let (faded, said) = picture_matte(
+        &dir,
+        json!([fx("fx-0-0", &json!({"amount": 80, "layer": "matte"}))]),
+    );
     write("4_matte_top_far.png", TOWN, &faded);
     let (top, bottom) = (row_change(&faded, 0), row_change(&faded, TOWN.1 - 1));
     t.row(
@@ -372,42 +532,74 @@ fn b282_aerial_haze() {
 /// The `holder` layer's effect in `file`.
 fn holder_effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    let layer = d.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().find(|l| l.effects.iter().any(|e| matches!(e.effect, Effect::AerialHaze { .. })));
-    layer.expect("a layer with an Aerial Haze").effects[0].effect.clone()
+    let layer = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| {
+            l.effects
+                .iter()
+                .any(|e| matches!(e.effect, Effect::AerialHaze { .. }))
+        });
+    layer.expect("a layer with an Aerial Haze").effects[0]
+        .effect
+        .clone()
 }
-
 
 /// The whole composition, to see that a refused command changed nothing (the effect is on
 /// `holder`, not on the table's `art` layer).
 fn everything(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    )
 }
 
-fn refused(t: &mut Table, document: &mut anime_compositor::command::Document, commands: Vec<(&str, Command)>) {
+fn refused(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    commands: Vec<(&str, Command)>,
+) {
     let held = everything(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
-fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file: &str, commands: Vec<(&str, Command)>) {
+fn taken(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    file: &str,
+    commands: Vec<(&str, Command)>,
+) {
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
@@ -435,22 +627,48 @@ fn b282_aerial_haze_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Aerial Haze as added (pale sky blue, 30, even)", Some(json!({}))),
-        ("Noise, then Aerial Haze at 80 through layer 4 as the matte", Some(json!({"amount": 80, "layer": "layer-4"}))),
+        (
+            "Noise, then Aerial Haze as added (pale sky blue, 30, even)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Aerial Haze at 80 through layer 4 as the matte",
+            Some(json!({"amount": 80, "layer": "layer-4"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B282_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-282_timing_raw.md"));
+    let out = std::env::var("B282_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-282_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

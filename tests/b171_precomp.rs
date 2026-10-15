@@ -35,7 +35,8 @@ const OUTER: &str = "comp-b171-outer";
 /// The reference shot made heavy, with an outer composition showing it; `inner` and `outer` are
 /// the opacities of an inner layer and of the outer composition layer.
 fn nested(inner: f64, outer: f64) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let comp = &mut j["compositions"][0];
     comp["layers"][0]["effects"] = json!([{"instance_id": "b171-b", "type_id": "core.gaussian_blur", "enabled": true,
@@ -54,8 +55,15 @@ fn nested(inner: f64, outer: f64) -> Project {
                 "scale": v(json!([100, 100])), "rotation": v(json!(0)), "opacity": v(json!(outer))},
             "mask": null, "matte": null, "blend_mode": "normal", "effects": []}]
     });
-    j["compositions"].as_array_mut().expect("compositions").push(outer_comp);
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{}", d.message)).document.project().clone()
+    j["compositions"]
+        .as_array_mut()
+        .expect("compositions")
+        .push(outer_comp);
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("{}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 fn copy_dir(from: &Path, to: &Path) {
@@ -83,18 +91,39 @@ fn files_in(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-fn draw(project: &Project, frame: i32, root: &Path, quality: PreviewQuality, cache: &mut CelCache) -> (Vec<u8>, u64) {
+fn draw(
+    project: &Project,
+    frame: i32,
+    root: &Path,
+    quality: PreviewQuality,
+    cache: &mut CelCache,
+) -> (Vec<u8>, u64) {
     let asked = cache.hits() + cache.misses();
     let mut log = FrameLog::new(3);
-    let picture = preview::preview_frame_cached(project, &Id::new(OUTER), frame, root, quality, DEFAULT_TILE_SIZE, &mut log, cache)
-        .expect("the frame draws");
+    let picture = preview::preview_frame_cached(
+        project,
+        &Id::new(OUTER),
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        cache,
+    )
+    .expect("the frame draws");
     assert!(log.finish().is_empty(), "frame {frame} said something");
-    (picture.to_srgb8_straight(), cache.hits() + cache.misses() - asked)
+    (
+        picture.to_srgb8_straight(),
+        cache.hits() + cache.misses() - asked,
+    )
 }
 
 fn viewer(disk: &Path) -> CelCache {
     let mut cache = CelCache::viewer();
-    cache.set_disk(Some(DiskCache { folder: disk.to_path_buf(), cap: 20_000_000_000 }));
+    cache.set_disk(Some(DiskCache {
+        folder: disk.to_path_buf(),
+        cap: 20_000_000_000,
+    }));
     cache
 }
 
@@ -106,52 +135,114 @@ fn a_composition_inside_another_is_kept() {
     let _ = fs::remove_dir_all(&disk);
     copy_dir(&repo("Fixtures/reference_shot"), &root);
     let (base, outer_edit, inner_edit) = (nested(1.0, 1.0), nested(1.0, 0.8), nested(0.5, 1.0));
-    let export = |project: &Project, frame: i32, quality: PreviewQuality| draw(project, frame, &root, quality, &mut CelCache::none()).0;
+    let export = |project: &Project, frame: i32, quality: PreviewQuality| {
+        draw(project, frame, &root, quality, &mut CelCache::none()).0
+    };
 
     let mut rows = String::new();
     let (mut checks, mut passed) = (0, 0);
-    let mut row = |quality: PreviewQuality, frame: i32, what: &str, asked: u64, same: bool, ok: bool| {
-        checks += 1;
-        passed += ok as usize;
-        writeln!(
-            rows,
-            "| {} | {frame} | {what} | {asked} | {} | {} |",
-            quality.label(),
-            if same { "yes" } else { "NO" },
-            if ok { "pass" } else { "FAIL" }
-        )
-        .unwrap();
-    };
+    let mut row =
+        |quality: PreviewQuality, frame: i32, what: &str, asked: u64, same: bool, ok: bool| {
+            checks += 1;
+            passed += ok as usize;
+            writeln!(
+                rows,
+                "| {} | {frame} | {what} | {asked} | {} | {} |",
+                quality.label(),
+                if same { "yes" } else { "NO" },
+                if ok { "pass" } else { "FAIL" }
+            )
+            .unwrap();
+        };
     for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
         for frame in [0, 1, 100] {
             let want = export(&base, frame, quality);
             let mut first = viewer(&disk);
             let (got, asked) = draw(&base, frame, &root, quality, &mut first);
-            row(quality, frame, "drawn the first time", asked, got == want, got == want && asked > 0);
+            row(
+                quality,
+                frame,
+                "drawn the first time",
+                asked,
+                got == want,
+                got == want && asked > 0,
+            );
             let (got, asked) = draw(&base, frame, &root, quality, &mut first);
-            row(quality, frame, "drawn again", asked, got == want, got == want && asked == 0);
+            row(
+                quality,
+                frame,
+                "drawn again",
+                asked,
+                got == want,
+                got == want && asked == 0,
+            );
             // B-171b: the copy is written by a worker; wait for it.
             anime_compositor::cache::disk_writes_done();
-            let copies = files_in(&disk).iter().filter(|p| p.extension().is_some_and(|e| e == "frame")).count();
-            row(quality, frame, &format!("copies of composition frames on disk: {copies}"), 0, true, copies > 0);
+            let copies = files_in(&disk)
+                .iter()
+                .filter(|p| p.extension().is_some_and(|e| e == "frame"))
+                .count();
+            row(
+                quality,
+                frame,
+                &format!("copies of composition frames on disk: {copies}"),
+                0,
+                true,
+                copies > 0,
+            );
             let mut reopened = viewer(&disk);
             let (got, asked) = draw(&base, frame, &root, quality, &mut reopened);
-            row(quality, frame, "drawn by a new viewer, the program opened again", asked, got == want, got == want && asked == 0);
+            row(
+                quality,
+                frame,
+                "drawn by a new viewer, the program opened again",
+                asked,
+                got == want,
+                got == want && asked == 0,
+            );
             let want_outer = export(&outer_edit, frame, quality);
             let (got, asked) = draw(&outer_edit, frame, &root, quality, &mut reopened);
-            row(quality, frame, "the outer layer's opacity edited", asked, got == want_outer, got == want_outer && asked == 0);
+            row(
+                quality,
+                frame,
+                "the outer layer's opacity edited",
+                asked,
+                got == want_outer,
+                got == want_outer && asked == 0,
+            );
             let want_inner = export(&inner_edit, frame, quality);
             let (got, asked) = draw(&inner_edit, frame, &root, quality, &mut reopened);
-            row(quality, frame, "an inner layer's opacity edited", asked, got == want_inner, got == want_inner && asked > 0);
+            row(
+                quality,
+                frame,
+                "an inner layer's opacity edited",
+                asked,
+                got == want_inner,
+                got == want_inner && asked > 0,
+            );
             // Every drawing file dated a minute later: the same pixels, but not the same files.
             for file in files_in(&root.join("layer1")) {
-                let f = fs::File::options().write(true).open(&file).expect("open a drawing");
-                let then = f.metadata().and_then(|m| m.modified()).expect("a modified time");
-                f.set_modified(then + std::time::Duration::from_secs(60)).expect("date a drawing");
+                let f = fs::File::options()
+                    .write(true)
+                    .open(&file)
+                    .expect("open a drawing");
+                let then = f
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .expect("a modified time");
+                f.set_modified(then + std::time::Duration::from_secs(60))
+                    .expect("date a drawing");
             }
             let mut touched = viewer(&disk);
             let (got, asked) = draw(&base, frame, &root, quality, &mut touched);
-            row(quality, frame, "drawn after the drawings were dated anew", asked, got == want, got == want && asked > 0);
+            row(
+                quality,
+                frame,
+                "drawn after the drawings were dated anew",
+                asked,
+                got == want,
+                got == want && asked > 0,
+            );
         }
     }
     let table = format!(
@@ -189,7 +280,10 @@ fn b171_timing() {
         let _ = fs::remove_dir_all(&disk);
         let fresh = || {
             let mut cache = CelCache::viewer_sized(anime_compositor::cache::automatic_budget());
-            cache.set_disk(Some(DiskCache { folder: disk.clone(), cap: 20_000_000_000 }));
+            cache.set_disk(Some(DiskCache {
+                folder: disk.clone(),
+                cap: 20_000_000_000,
+            }));
             cache
         };
         let pass = |project: &Project, cache: &mut CelCache, gpu: &mut Gpu| {
@@ -197,8 +291,18 @@ fn b171_timing() {
                 .map(|frame| {
                     let mut log = FrameLog::new(3);
                     let at = std::time::Instant::now();
-                    preview::preview_frame_srgb8(project, &Id::new(OUTER), frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, cache, gpu)
-                        .expect("the frame draws");
+                    preview::preview_frame_srgb8(
+                        project,
+                        &Id::new(OUTER),
+                        frame,
+                        &root,
+                        quality,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        cache,
+                        gpu,
+                    )
+                    .expect("the frame draws");
                     at.elapsed().as_secs_f64() * 1000.0
                 })
                 .collect();
@@ -212,7 +316,12 @@ fn b171_timing() {
         let edited = pass(&outer_edit, &mut viewer, &mut gpu);
         gpu.forget();
         let reopened = pass(&base, &mut fresh(), &mut gpu);
-        writeln!(rows, "| {} | {first:.1} | {again:.1} | {edited:.1} | {reopened:.1} |", quality.label()).unwrap();
+        writeln!(
+            rows,
+            "| {} | {first:.1} | {again:.1} | {edited:.1} | {reopened:.1} |",
+            quality.label()
+        )
+        .unwrap();
     }
     fs::write(
         repo("verification/B-171_timing_raw.md"),

@@ -33,7 +33,11 @@ fn b80_posterize() {
 
     t.heading("How far it reaches");
     let got = posterize(2.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = posterize(6.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -56,7 +60,11 @@ fn b80_posterize() {
         "fx_poster_018.json",
     ]);
     t.shape_refused("fx_poster_001.json", "no `levels` at all", r#"{}"#);
-    t.shape_refused("fx_poster_001.json", "levels that is a word", r#"{"levels": "six"}"#);
+    t.shape_refused(
+        "fx_poster_001.json",
+        "levels that is a word",
+        r#"{"levels": "six"}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_poster_001.json").document;
@@ -66,7 +74,10 @@ fn b80_posterize() {
             ("levels 1", set(posterize(1.0))),
             ("levels 257", set(posterize(257.0))),
             ("levels 256.5", set(posterize(256.5))),
-            ("levels keyed to 300", keys("levels", &[(0, &[6.0]), (4, &[300.0])])),
+            (
+                "levels keyed to 300",
+                keys("levels", &[(0, &[6.0]), (4, &[300.0])]),
+            ),
         ],
     );
     t.taken(
@@ -75,12 +86,19 @@ fn b80_posterize() {
         vec![
             ("levels 2, the bottom,", set(posterize(2.0))),
             ("levels 256, the top,", set(posterize(256.0))),
-            ("levels keyed from 2 to 10", keys("levels", &[(0, &[2.0]), (4, &[10.0])])),
+            (
+                "levels keyed from 2 to 10",
+                keys("levels", &[(0, &[2.0]), (4, &[10.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_poster_001.json", 0), ("fx_poster_004.json", 0), ("fx_poster_008.json", 2)]);
+    t.tiles(&[
+        ("fx_poster_001.json", 0),
+        ("fx_poster_004.json", 0),
+        ("fx_poster_008.json", 2),
+    ]);
 
     t.finish("B-80_posterize_table.md");
 }

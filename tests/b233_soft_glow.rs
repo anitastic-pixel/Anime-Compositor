@@ -25,7 +25,9 @@ use anime_compositor::{persist, png_out, render, OutputDepth};
 
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("art")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
@@ -38,7 +40,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -59,19 +66,39 @@ fn physical(changes: J) -> J {
 /// The reference shot (1920 by 1080) with a Soft Physical Glow of `parameters` on its first three
 /// layers, as B-223 has it.
 fn reference(parameters: &J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = json!([{"instance_id": format!("b233-{id}"), "type_id": "core.glow", "enabled": true, "parameters": parameters}]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The Soft Physical Glows the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -81,18 +108,49 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// The town (480 by 270) in a composition 160 pixels wider and taller, set in its middle, with
@@ -118,7 +176,11 @@ fn framed(dir: &Path, effects: J) -> Project {
         }]
     });
     let _ = dir;
-    persist::load_str(&project.to_string()).unwrap_or_else(|d| panic!("the framed town opens: {}", d.message)).document.project().clone()
+    persist::load_str(&project.to_string())
+        .unwrap_or_else(|d| panic!("the framed town opens: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -150,13 +212,28 @@ fn b233_soft_glow() {
         &params.to_string(),
         params["falloff"] == "physical" && params.get("based_on").is_none() && params.get("intensity").is_none(),
     );
-    t.shape_refused("fx_sglow_001.json", "Soft Physical Glow with no radius", &physical(json!({})).as_object().map(|o| {
-        let mut o = o.clone();
-        o.remove("radius");
-        J::Object(o).to_string()
-    }).unwrap());
-    t.shape_refused("fx_sglow_001.json", "an exposure written as a word", &physical(json!({"exposure": "lots"})).to_string());
-    t.shape_refused("fx_sglow_001.json", "unmult written as a number", &physical(json!({"unmult": 1})).to_string());
+    t.shape_refused(
+        "fx_sglow_001.json",
+        "Soft Physical Glow with no radius",
+        &physical(json!({}))
+            .as_object()
+            .map(|o| {
+                let mut o = o.clone();
+                o.remove("radius");
+                J::Object(o).to_string()
+            })
+            .unwrap(),
+    );
+    t.shape_refused(
+        "fx_sglow_001.json",
+        "an exposure written as a word",
+        &physical(json!({"exposure": "lots"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_sglow_001.json",
+        "unmult written as a number",
+        &physical(json!({"unmult": 1})).to_string(),
+    );
     for (file, said) in [
         ("fx_sglow_033.json", "Glow's falloff is \"classic\" or \"physical\", and this is \"gaussian\"."),
         ("fx_sglow_034.json", "Soft Physical Glow's radius runs from 0 to 2000, and this is 2001."),
@@ -186,20 +263,48 @@ fn b233_soft_glow() {
     t.refused(
         &mut document,
         vec![
-            ("radius 2001", set(with(&|e| if let Effect::SoftGlow { radius, .. } = e { *radius = 2001.0 }))),
-            ("threshold mode \"rgb\"", set(with(&|e| if let Effect::SoftGlow { threshold_mode, .. } = e { *threshold_mode = "rgb".into() }))),
+            (
+                "radius 2001",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { radius, .. } = e {
+                        *radius = 2001.0
+                    }
+                })),
+            ),
+            (
+                "threshold mode \"rgb\"",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { threshold_mode, .. } = e {
+                        *threshold_mode = "rgb".into()
+                    }
+                })),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_sglow_001.json",
         vec![
-            ("threshold 30 in luminance, exposure 2", set(with(&|e| if let Effect::SoftGlow { threshold, threshold_mode, exposure, .. } = e {
-                *threshold = 30.0;
-                *threshold_mode = "luminance".into();
-                *exposure = 2.0;
-            }))),
-            ("radius keyed 0 to 100 over frames 0 to 4", keys("radius", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "threshold 30 in luminance, exposure 2",
+                set(with(&|e| {
+                    if let Effect::SoftGlow {
+                        threshold,
+                        threshold_mode,
+                        exposure,
+                        ..
+                    } = e
+                    {
+                        *threshold = 30.0;
+                        *threshold_mode = "luminance".into();
+                        *exposure = 2.0;
+                    }
+                })),
+            ),
+            (
+                "radius keyed 0 to 100 over frames 0 to 4",
+                keys("radius", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -219,7 +324,11 @@ fn b233_soft_glow() {
     let fixture_root = effect_table::repo("Fixtures/soft_glow");
     for n in 1..=32 {
         let file = format!("fx_sglow_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -244,17 +353,40 @@ fn b233_soft_glow() {
     let ref_root = effect_table::repo("Fixtures/reference_shot");
     for (what, p) in [
         ("as added (radius 500)", physical(json!({}))),
-        ("radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5", physical(json!({"radius": 60, "threshold": 40, "threshold_smooth": 50, "threshold_mode": "luminance", "saturation_bias": 30, "exposure": 1.5}))),
-        ("radius 150, aspect 1.6 at 25 degrees, add, source opacity 60, unmult off", physical(json!({"radius": 150, "aspect_ratio": 1.6, "aspect_angle": 25, "operation": "add", "source_opacity": 60, "unmult": "off"}))),
+        (
+            "radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5",
+            physical(
+                json!({"radius": 60, "threshold": 40, "threshold_smooth": 50, "threshold_mode": "luminance", "saturation_bias": 30, "exposure": 1.5}),
+            ),
+        ),
+        (
+            "radius 150, aspect 1.6 at 25 degrees, add, source opacity 60, unmult off",
+            physical(
+                json!({"radius": 150, "aspect_ratio": 1.6, "aspect_angle": 25, "operation": "add", "source_opacity": 60, "unmult": "off"}),
+            ),
+        ),
     ] {
         let project = reference(&p);
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &ref_comp,
+                100,
+                &ref_root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
-        let plain = persist::load(&effect_table::repo("verification/B-08a_project.json")).expect("the reference shot").document.project().clone();
+        let plain = persist::load(&effect_table::repo("verification/B-08a_project.json"))
+            .expect("the reference shot")
+            .document
+            .project()
+            .clone();
         let changed = distance(&cpu(&project), &cpu(&plain)).1;
         t.row(
             &format!("the reference shot, Soft Physical Glow {what}: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect"),
@@ -285,12 +417,34 @@ fn b233_soft_glow() {
     let dir = effect_table::repo("verification/D-353 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &town(),
+    )
+    .unwrap();
     let (fw, fh) = (w + 160, h + 160);
     let draw = |effects: J| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(&framed(&dir, effects.clone()), &Id::new(MAIN), 0, &dir, 64, &mut log).expect("the town draws");
-        (b.to_srgb8_straight(), log.finish().iter().map(|d| d.id.as_str().to_string()).collect::<Vec<_>>())
+        let b = render_frame(
+            &framed(&dir, effects.clone()),
+            &Id::new(MAIN),
+            0,
+            &dir,
+            64,
+            &mut log,
+        )
+        .expect("the town draws");
+        (
+            b.to_srgb8_straight(),
+            log.finish()
+                .iter()
+                .map(|d| d.id.as_str().to_string())
+                .collect::<Vec<_>>(),
+        )
     };
     // How far the glow carries past the layer: the brightest pixel 40 pixels out from the
     // town's left edge (the town starts at column 80), and in the frame's far corner.
@@ -300,8 +454,23 @@ fn b233_soft_glow() {
     };
     let fx = |p: J| json!([{"instance_id": "fx-0-0", "type_id": "core.glow", "enabled": true, "parameters": p}]);
     let (before, said) = draw(json!([]));
-    png_out::write_rgba(&dir.join("before.png"), fw, fh, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the town with no glow: nothing outside the town", &format!("covering 40 pixels out {}, warnings {said:?}", reach(&before).0), said.is_empty() && reach(&before).0 == 0);
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        fw,
+        fh,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the town with no glow: nothing outside the town",
+        &format!(
+            "covering 40 pixels out {}, warnings {said:?}",
+            reach(&before).0
+        ),
+        said.is_empty() && reach(&before).0 == 0,
+    );
     let classic = json!({"based_on": "bright", "threshold": 60, "colors": [], "tolerance": 0, "radius": 60, "intensity": 1, "operation": "screen", "tint": "", "units": "after_effects"});
     for (file, what, effects, check) in [
         ("classic_glow.png", "the classic Glow, Bright parts above 60 %, radius 60, for comparison: one blur, a short even halo", fx(classic.clone()), 0usize),
@@ -343,35 +512,76 @@ fn b233_soft_glow_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let fx = |id: &str, p: J| json!({"instance_id": id, "type_id": "core.glow", "enabled": true, "parameters": p});
     let shots: [(&str, Option<J>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Soft Physical Glow as added, radius 500", Some(physical(json!({})))),
-        ("Noise, then Soft Physical Glow, radius 60, threshold 40 smooth 50", Some(physical(json!({"radius": 60, "threshold": 40, "threshold_smooth": 50})))),
-        ("Noise, then Soft Physical Glow, radius 2000", Some(physical(json!({"radius": 2000})))),
-        ("Noise, then Soft Physical Glow, radius 60, threshold 40, no smooth (processor)", Some(physical(json!({"radius": 60, "threshold": 40})))),
+        (
+            "Noise, then Soft Physical Glow as added, radius 500",
+            Some(physical(json!({}))),
+        ),
+        (
+            "Noise, then Soft Physical Glow, radius 60, threshold 40 smooth 50",
+            Some(physical(
+                json!({"radius": 60, "threshold": 40, "threshold_smooth": 50}),
+            )),
+        ),
+        (
+            "Noise, then Soft Physical Glow, radius 2000",
+            Some(physical(json!({"radius": 2000}))),
+        ),
+        (
+            "Noise, then Soft Physical Glow, radius 60, threshold 40, no smooth (processor)",
+            Some(physical(json!({"radius": 60, "threshold": 40}))),
+        ),
     ];
     for (name, e) in shots {
         let stack = |id: &str| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p.clone()));
             }
             v
         };
-        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         let layers = &mut j["compositions"][0]["layers"];
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
             layers[i]["effects"] = J::Array(stack(id));
         }
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
-        let (project, comp, root) = (loaded.document.project().clone(), Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let (project, comp, root) = (
+            loaded.document.project().clone(),
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B233_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-233_timing_raw.md"));
+    let out = std::env::var("B233_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-233_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

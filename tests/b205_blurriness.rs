@@ -27,7 +27,12 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn blur(number: f64, units: &str) -> Effect {
-    Effect::GaussianBlur { sigma_px: number, edges: "transparent".into(), dimensions: "both".into(), units: units.into() }
+    Effect::GaussianBlur {
+        sigma_px: number,
+        edges: "transparent".into(),
+        dimensions: "both".into(),
+        units: units.into(),
+    }
 }
 
 /// A 16:9 plate holding a white square 24 pixels across in its middle, clear round it.
@@ -38,7 +43,11 @@ fn square() -> Vec<u8> {
     (0..w * h)
         .flat_map(|i| {
             let (x, y) = (i % w, i / w);
-            if (84..108).contains(&x) && (42..66).contains(&y) { [255; 4] } else { [0; 4] }
+            if (84..108).contains(&x) && (42..66).contains(&y) {
+                [255; 4]
+            } else {
+                [0; 4]
+            }
         })
         .collect()
 }
@@ -61,16 +70,29 @@ fn picture(dir: &Path, effects: J, float: bool) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     // Over black in linear light: the premultiplied colour itself, held to white, so a Float
     // value past 1 shows as white rather than being lost with the straight colour's clip.
     let black = frame
         .data()
         .chunks(4)
         .flat_map(|p| {
-            let over = |c: f32| (anime_compositor::color::linear_to_srgb(c.clamp(0.0, 1.0)) * 255.0).round() as u8;
+            let over = |c: f32| {
+                (anime_compositor::color::linear_to_srgb(c.clamp(0.0, 1.0)) * 255.0).round() as u8
+            };
             [over(p[0]), over(p[1]), over(p[2]), 255]
         })
         .collect();
@@ -82,7 +104,9 @@ fn stack(number: f64, units: &str, stops: Option<f64>) -> J {
     if !units.is_empty() {
         parameters["units"] = J::from(units);
     }
-    let mut effects = vec![json!({ "instance_id": "fx-0-0", "type_id": "core.gaussian_blur", "enabled": true, "parameters": parameters })];
+    let mut effects = vec![
+        json!({ "instance_id": "fx-0-0", "type_id": "core.gaussian_blur", "enabled": true, "parameters": parameters }),
+    ];
     if let Some(stops) = stops {
         effects.push(json!({ "instance_id": "fx-0-1", "type_id": "core.exposure", "enabled": true, "parameters": { "stops": stops } }));
     }
@@ -109,11 +133,25 @@ fn b205_blurriness() {
     t.fixtures("expected_blurriness.json");
 
     t.heading("The file");
-    t.round_trips(&["fx_blurry_001.json", "fx_blurry_002.json", "fx_blurry_003.json", "fx_blurry_007.json", "fx_blurry_008.json"]);
+    t.round_trips(&[
+        "fx_blurry_001.json",
+        "fx_blurry_002.json",
+        "fx_blurry_003.json",
+        "fx_blurry_007.json",
+        "fx_blurry_008.json",
+    ]);
     let saved = t.saved_parameters("fx_blurry_002.json");
-    t.row("fx_blurry_002.json, a blur with no units as before D-321, is saved without units", &saved.to_string(), saved.get("units").is_none());
+    t.row(
+        "fx_blurry_002.json, a blur with no units as before D-321, is saved without units",
+        &saved.to_string(),
+        saved.get("units").is_none(),
+    );
     let saved = t.saved_parameters("fx_blurry_001.json");
-    t.row("A blur in Blurriness is saved as units: blurriness", &saved.to_string(), saved["units"] == "blurriness");
+    t.row(
+        "A blur in Blurriness is saved as units: blurriness",
+        &saved.to_string(),
+        saved["units"] == "blurriness",
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_blurry_002.json").document;
@@ -121,33 +159,94 @@ fn b205_blurriness() {
         &mut document,
         vec![
             ("units \"pixels\"", set(blur(10.0, "pixels"))),
-            ("units \"Blurriness\", written with a capital", set(blur(10.0, "Blurriness"))),
+            (
+                "units \"Blurriness\", written with a capital",
+                set(blur(10.0, "Blurriness")),
+            ),
         ],
     );
-    t.taken(&mut document, "fx_blurry_002.json", vec![("FX-BLURRY-002 set to Blurriness,", set(blur(10.0, "blurriness")))]);
+    t.taken(
+        &mut document,
+        "fx_blurry_002.json",
+        vec![(
+            "FX-BLURRY-002 set to Blurriness,",
+            set(blur(10.0, "blurriness")),
+        )],
+    );
     let mut document = t.load("fx_blurry_002.json").document;
     document.apply(set(blur(10.0, "blurriness"))).unwrap();
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_blurriness.json")).unwrap()).unwrap();
-    let d = effect_table::largest_difference(&t.render(&document, 0, 64), &expected["cases"]["FX-BLURRY-001"]["frames"]["0"]);
-    t.row("FX-BLURRY-002 set to Blurriness by the command draws FX-BLURRY-001's frame", &format!("largest difference {d:.1e}"), d <= 2e-5);
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_blurriness.json")).unwrap())
+            .unwrap();
+    let d = effect_table::largest_difference(
+        &t.render(&document, 0, 64),
+        &expected["cases"]["FX-BLURRY-001"]["frames"]["0"],
+    );
+    t.row(
+        "FX-BLURRY-002 set to Blurriness by the command draws FX-BLURRY-001's frame",
+        &format!("largest difference {d:.1e}"),
+        d <= 2e-5,
+    );
 
     t.heading("The preview card");
     match Gpu::new() {
-        Err(why) => t.row("The card draws Blurriness", &format!("NOT RUN: no usable card ({why})"), false),
+        Err(why) => t.row(
+            "The card draws Blurriness",
+            &format!("NOT RUN: no usable card ({why})"),
+            false,
+        ),
         Ok(mut gpu) => {
-            for name in ["fx_blurry_001.json", "fx_blurry_002.json", "fx_blurry_004.json", "fx_blurry_006.json"] {
+            for name in [
+                "fx_blurry_001.json",
+                "fx_blurry_002.json",
+                "fx_blurry_004.json",
+                "fx_blurry_006.json",
+            ] {
                 let project = t.load(name).document.project().clone();
                 let comp = Id::new("comp-main");
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let cpu = preview::preview_frame_cached(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).unwrap().to_srgb8_straight();
+                let cpu = preview::preview_frame_cached(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap()
+                .to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (card, ..) = preview::preview_frame_srgb8(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).unwrap();
-                let on_cpu = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-                let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+                let (card, ..) = preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap();
+                let on_cpu = log
+                    .finish()
+                    .iter()
+                    .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+                let worst = cpu
+                    .iter()
+                    .zip(&card)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap_or(0);
                 t.row(
                     &format!("{name}: drawn on the card, within 1 level of 255 of the CPU"),
-                    &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
+                    &format!(
+                        "{}, largest difference {worst} of 255",
+                        if on_cpu { "CPU" } else { "card" }
+                    ),
                     !on_cpu && worst <= 1,
                 );
             }
@@ -158,7 +257,9 @@ fn b205_blurriness() {
     let dir = effect_table::repo("verification/D-321 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     write("square.png", &square());
     // Along the middle row, right of the square: the middle's level, and the last lit pixel's.
     let row = |bytes: &[u8]| {
@@ -196,7 +297,11 @@ fn b205_blurriness() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_blurry_001.json", 0), ("fx_blurry_004.json", 0), ("fx_blurry_007.json", 0)]);
+    t.tiles(&[
+        ("fx_blurry_001.json", 0),
+        ("fx_blurry_004.json", 0),
+        ("fx_blurry_007.json", 0),
+    ]);
 
     t.finish("D-321_blurriness_table.md");
 }

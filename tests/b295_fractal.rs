@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -28,12 +29,13 @@ use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
-
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.fractal" => json!({"set_choice": "mandelbrot", "equation": "z2", "mandelbrot_center": [-0.75, 0], "mandelbrot_magnification": 0, "mandelbrot_escape_limit": 100, "julia_center": [0, 0], "julia_magnification": 0, "julia_escape_limit": 100, "overlay": "off", "transparency": "off", "palette": "lightness_gradient", "hue": 0, "cycle_steps": 10, "cycle_offset": 0, "edge_highlight": "off", "oversample_method": "edge_detect", "oversample_factor": 2}),
+        "core.fractal" => {
+            json!({"set_choice": "mandelbrot", "equation": "z2", "mandelbrot_center": [-0.75, 0], "mandelbrot_magnification": 0, "mandelbrot_escape_limit": 100, "julia_center": [0, 0], "julia_magnification": 0, "julia_escape_limit": 100, "overlay": "off", "transparency": "off", "palette": "lightness_gradient", "hue": 0, "cycle_steps": 10, "cycle_offset": 0, "edge_highlight": "off", "oversample_method": "edge_detect", "oversample_factor": 2})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -44,11 +46,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -69,14 +82,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -103,7 +132,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -115,23 +147,56 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The street drawn plain and with each of `shots` of `type_id`, written as numbered pictures
 /// into `verification/{d} pictures/`; a row each that it draws cleanly and changes what it says
 /// it changes.
-fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+fn street(
+    t: &mut Table,
+    d: &str,
+    type_id: &str,
+    shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)],
+) {
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]));
@@ -151,8 +216,20 @@ fn changed(a: &[u8], b: &[u8]) -> bool {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -168,7 +245,11 @@ fn is_fractal(e: &Effect) -> bool {
 
 /// A Fractal as it starts but for the set, the magnification, escape limit, hue, cycle steps
 /// and oversample factor.
-fn fractal(set_choice: &str, [mandelbrot_magnification, mandelbrot_escape_limit, hue, cycle_steps, oversample_factor]: [f64; 5]) -> Effect {
+fn fractal(
+    set_choice: &str,
+    [mandelbrot_magnification, mandelbrot_escape_limit, hue, cycle_steps, oversample_factor]: [f64;
+        5],
+) -> Effect {
     let w = |s: &str| s.to_string();
     Effect::Fractal {
         set_choice: w(set_choice),
@@ -253,59 +334,143 @@ fn b295_fractal() {
         ],
     );
     let base = r##""set_choice": "mandelbrot", "equation": "z2", "mandelbrot_magnification": 0, "mandelbrot_escape_limit": 100, "julia_center": [0, 0], "julia_magnification": 0, "julia_escape_limit": 100, "overlay": "off", "transparency": "off", "palette": "lightness_gradient", "hue": 0, "cycle_steps": 10, "cycle_offset": 0, "edge_highlight": "off", "oversample_method": "edge_detect""##;
-    t.shape_refused("fx_fractal_001.json", "a Fractal with no `oversample_factor`", &format!(r#"{{{base}, "mandelbrot_center": [-0.75, 0]}}"#));
-    t.shape_refused("fx_fractal_001.json", "a Fractal with a factor in words", &format!(r#"{{{base}, "mandelbrot_center": [-0.75, 0], "oversample_factor": "two"}}"#));
-    t.shape_refused("fx_fractal_001.json", "a Fractal whose centre is one number", &format!(r#"{{{base}, "mandelbrot_center": [-0.75], "oversample_factor": 2}}"#));
+    t.shape_refused(
+        "fx_fractal_001.json",
+        "a Fractal with no `oversample_factor`",
+        &format!(r#"{{{base}, "mandelbrot_center": [-0.75, 0]}}"#),
+    );
+    t.shape_refused(
+        "fx_fractal_001.json",
+        "a Fractal with a factor in words",
+        &format!(r#"{{{base}, "mandelbrot_center": [-0.75, 0], "oversample_factor": "two"}}"#),
+    );
+    t.shape_refused(
+        "fx_fractal_001.json",
+        "a Fractal whose centre is one number",
+        &format!(r#"{{{base}, "mandelbrot_center": [-0.75], "oversample_factor": 2}}"#),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_fractal_001.json").document;
     t.refused(
         &mut document,
         vec![
-            ("set choice \"burning_ship\"", set(fractal("burning_ship", PLAIN))),
-            ("escape limit 0", set(fractal("mandelbrot", [0.0, 0.0, 0.0, 10.0, 2.0]))),
-            ("oversample factor 9", set(fractal("mandelbrot", [0.0, 100.0, 0.0, 10.0, 9.0]))),
-            ("magnification keyed to 41", keys("mandelbrot_magnification", &[(0, &[0.0]), (4, &[41.0])])),
+            (
+                "set choice \"burning_ship\"",
+                set(fractal("burning_ship", PLAIN)),
+            ),
+            (
+                "escape limit 0",
+                set(fractal("mandelbrot", [0.0, 0.0, 0.0, 10.0, 2.0])),
+            ),
+            (
+                "oversample factor 9",
+                set(fractal("mandelbrot", [0.0, 100.0, 0.0, 10.0, 9.0])),
+            ),
+            (
+                "magnification keyed to 41",
+                keys("mandelbrot_magnification", &[(0, &[0.0]), (4, &[41.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_fractal_001.json",
         vec![
-            ("Julia, hue 120, cycle steps 3, factor 1", set(fractal("julia", [0.0, 100.0, 120.0, 3.0, 1.0]))),
-            ("magnification keyed from 0 to 4", keys("mandelbrot_magnification", &[(0, &[0.0]), (4, &[4.0])])),
-            ("Mandelbrot centre keyed from -0.75, 0 to -0.75, 0.1", keys("mandelbrot_center", &[(0, &[-0.75, 0.0]), (4, &[-0.75, 0.1])])),
+            (
+                "Julia, hue 120, cycle steps 3, factor 1",
+                set(fractal("julia", [0.0, 100.0, 120.0, 3.0, 1.0])),
+            ),
+            (
+                "magnification keyed from 0 to 4",
+                keys("mandelbrot_magnification", &[(0, &[0.0]), (4, &[4.0])]),
+            ),
+            (
+                "Mandelbrot centre keyed from -0.75, 0 to -0.75, 0.1",
+                keys(
+                    "mandelbrot_center",
+                    &[(0, &[-0.75, 0.0]), (4, &[-0.75, 0.1])],
+                ),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_fractal_001.json", 0), ("fx_fractal_002.json", 0), ("fx_fractal_004.json", 0), ("fx_fractal_013.json", 0), ("fx_fractal_020.json", 0), ("fx_fractal_027.json", 0), ("fx_fractal_028.json", 0)]);
+    t.tiles(&[
+        ("fx_fractal_001.json", 0),
+        ("fx_fractal_002.json", 0),
+        ("fx_fractal_004.json", 0),
+        ("fx_fractal_013.json", 0),
+        ("fx_fractal_020.json", 0),
+        ("fx_fractal_027.json", 0),
+        ("fx_fractal_028.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_fractal", 42, &[31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42], is_fractal);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_fractal",
+        42,
+        &[31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42],
+        is_fractal,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Fractal",
         "core.fractal",
         &[
-            ("as it starts (the Mandelbrot set, Lightness Gradient, Edge Detect 2 by 2)", json!({})),
-            ("Julia, Hue Wheel, hue 200", json!({"set_choice": "julia", "palette": "hue_wheel", "hue": 200})),
-            ("Brute Force 4 by 4, Black And White", json!({"oversample_method": "brute_force", "oversample_factor": 4, "palette": "black_and_white"})),
-            ("factor 1 with Edge Highlight, Transparency", json!({"oversample_factor": 1, "edge_highlight": "on", "transparency": "on"})),
-            ("Overlay, Mandelbrot Over Julia from 0.3, 0.2", json!({"set_choice": "mandelbrot_over_julia", "julia_center": [0.3, 0.2], "overlay": "on"})),
-            ("z^4, Julia Inverse, Solid Color", json!({"equation": "z4", "set_choice": "julia_inverse", "palette": "solid_color"})),
-            ("magnification 30 at the seahorse valley, Escape Limit 500", json!({"mandelbrot_center": [-0.743643887037151, 0.131825904205330], "mandelbrot_magnification": 30, "mandelbrot_escape_limit": 500})),
-            ("Mandelbrot Inverse at 0, 0, cycle steps 3, offset 2", json!({"set_choice": "mandelbrot_inverse", "mandelbrot_center": [0, 0], "cycle_steps": 3, "cycle_offset": 2})),
+            (
+                "as it starts (the Mandelbrot set, Lightness Gradient, Edge Detect 2 by 2)",
+                json!({}),
+            ),
+            (
+                "Julia, Hue Wheel, hue 200",
+                json!({"set_choice": "julia", "palette": "hue_wheel", "hue": 200}),
+            ),
+            (
+                "Brute Force 4 by 4, Black And White",
+                json!({"oversample_method": "brute_force", "oversample_factor": 4, "palette": "black_and_white"}),
+            ),
+            (
+                "factor 1 with Edge Highlight, Transparency",
+                json!({"oversample_factor": 1, "edge_highlight": "on", "transparency": "on"}),
+            ),
+            (
+                "Overlay, Mandelbrot Over Julia from 0.3, 0.2",
+                json!({"set_choice": "mandelbrot_over_julia", "julia_center": [0.3, 0.2], "overlay": "on"}),
+            ),
+            (
+                "z^4, Julia Inverse, Solid Color",
+                json!({"equation": "z4", "set_choice": "julia_inverse", "palette": "solid_color"}),
+            ),
+            (
+                "magnification 30 at the seahorse valley, Escape Limit 500",
+                json!({"mandelbrot_center": [-0.743643887037151, 0.131825904205330], "mandelbrot_magnification": 30, "mandelbrot_escape_limit": 500}),
+            ),
+            (
+                "Mandelbrot Inverse at 0, 0, cycle steps 3, offset 2",
+                json!({"set_choice": "mandelbrot_inverse", "mandelbrot_center": [0, 0], "cycle_steps": 3, "cycle_offset": 2}),
+            ),
         ],
         is_fractal,
     );
     // D-416's guard: 1920 by 1080, 5 + 2 * 2 escapes a pixel, Escape Limit 10000, is 1.9e11
     // steps, past the card's 1e10; at 5, 0 every point escapes at once, so the processor is quick.
-    let heavy = reference(|id| json!([fx("core.fractal", &format!("b295-{id}"), &json!({"mandelbrot_center": [5, 0], "mandelbrot_escape_limit": 10000}))]));
+    let heavy = reference(|id| {
+        json!([fx(
+            "core.fractal",
+            &format!("b295-{id}"),
+            &json!({"mandelbrot_center": [5, 0], "mandelbrot_escape_limit": 10000})
+        )])
+    });
     for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
         let (d, r, a, b) = both(&mut gpu, &heavy, &comp, &root, 100, quality);
         let card = on_card(&heavy, &comp, &root, 100, quality, is_fractal);
         t.row(
@@ -356,23 +521,66 @@ fn b295_fractal_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Fractal as added (Escape Limit 100, Edge Detect 2 by 2)", Some(("core.fractal", json!({})))),
-        ("Noise, then Fractal, Julia, Hue Wheel", Some(("core.fractal", json!({"set_choice": "julia", "palette": "hue_wheel"})))),
-        ("Noise, then Fractal, Brute Force 4 by 4", Some(("core.fractal", json!({"oversample_method": "brute_force", "oversample_factor": 4})))),
-        ("Noise, then Fractal, magnification 20 at the seahorse valley, Escape Limit 1000", Some(("core.fractal", json!({"mandelbrot_center": [-0.743643887037151, 0.131825904205330], "mandelbrot_magnification": 20, "mandelbrot_escape_limit": 1000})))),
+        (
+            "Noise, then Fractal as added (Escape Limit 100, Edge Detect 2 by 2)",
+            Some(("core.fractal", json!({}))),
+        ),
+        (
+            "Noise, then Fractal, Julia, Hue Wheel",
+            Some((
+                "core.fractal",
+                json!({"set_choice": "julia", "palette": "hue_wheel"}),
+            )),
+        ),
+        (
+            "Noise, then Fractal, Brute Force 4 by 4",
+            Some((
+                "core.fractal",
+                json!({"oversample_method": "brute_force", "oversample_factor": 4}),
+            )),
+        ),
+        (
+            "Noise, then Fractal, magnification 20 at the seahorse valley, Escape Limit 1000",
+            Some((
+                "core.fractal",
+                json!({"mandelbrot_center": [-0.743643887037151, 0.131825904205330], "mandelbrot_magnification": 20, "mandelbrot_escape_limit": 1000}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B295_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-295_timing_raw.md"));
+    let out = std::env::var("B295_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-295_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

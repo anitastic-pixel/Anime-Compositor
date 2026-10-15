@@ -67,7 +67,9 @@ pub(crate) fn white(px: &[f32], threshold: f64) -> bool {
 /// B-47: the lowest 8-bit level [`bright`] lets through, 256 for none, so the card compares
 /// whole numbers as the CPU does.
 pub(crate) fn bright_level(threshold: f64) -> u32 {
-    (0..256).find(|&q| 100.0 * q as f64 >= 255.0 * threshold).unwrap_or(256)
+    (0..256)
+        .find(|&q| 100.0 * q as f64 >= 255.0 * threshold)
+        .unwrap_or(256)
 }
 
 /// Lay the bloom of `source` on top of it, in place, and return how far it grew on each side.
@@ -128,7 +130,8 @@ pub(crate) fn bloom(
     // Length 0 is the light itself, whatever the lines.
     for j in 0..lines {
         let u = along(angle + j as f64 * 180.0 / lines as f64);
-        let streak = (length != 0.0).then(|| by_lines(&light, u, &streak_weights(u, length), grow, false));
+        let streak =
+            (length != 0.0).then(|| by_lines(&light, u, &streak_weights(u, length), grow, false));
         let share = 1.0 / lines as f32;
         halo.data_mut()
             .par_chunks_exact_mut(gw * 4)

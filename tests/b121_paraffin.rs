@@ -45,7 +45,9 @@ const BACK: [f64; 3] = [200.0, 214.0, 226.0];
 fn cel() -> Vec<u8> {
     let part = |x: i64, y: i64| -> usize {
         let (fx, fy) = (x as f64 + 0.5, y as f64 + 0.5);
-        let inside = |cx: f64, cy: f64, rx: f64, ry: f64| ((fx - cx) / rx).powi(2) + ((fy - cy) / ry).powi(2) <= 1.0;
+        let inside = |cx: f64, cy: f64, rx: f64, ry: f64| {
+            ((fx - cx) / rx).powi(2) + ((fy - cy) / ry).powi(2) <= 1.0
+        };
         let across = |top: f64, bottom: f64, l0: f64, r0: f64, l1: f64, r1: f64| {
             let t = (fy - top) / (bottom - top);
             (0.0..1.0).contains(&t) && fx >= l0 + t * (l1 - l0) && fx <= r0 + t * (r1 - r0)
@@ -66,13 +68,29 @@ fn cel() -> Vec<u8> {
             0
         }
     };
-    let colors = [[0, 0, 0], [246, 214, 190], [70, 50, 60], [246, 214, 190], [240, 240, 245], [60, 80, 150], [246, 214, 190]];
+    let colors = [
+        [0, 0, 0],
+        [246, 214, 190],
+        [70, 50, 60],
+        [246, 214, 190],
+        [240, 240, 245],
+        [60, 80, 150],
+        [246, 214, 190],
+    ];
     let mut bytes = Vec::new();
     for y in 0..CEL.1 as i64 {
         for x in 0..CEL.0 as i64 {
             let p = part(x, y);
-            let edge = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|(dx, dy)| part(x + dx, y + dy) != p);
-            let c = if p == 0 { [0, 0, 0] } else if edge { [30, 26, 36] } else { colors[p] };
+            let edge = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                .iter()
+                .any(|(dx, dy)| part(x + dx, y + dy) != p);
+            let c = if p == 0 {
+                [0, 0, 0]
+            } else if edge {
+                [30, 26, 36]
+            } else {
+                colors[p]
+            };
             bytes.extend([c[0], c[1], c[2], if p == 0 { 0 } else { 255 }]);
         }
     }
@@ -97,24 +115,46 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let lin = |v: f64| {
         let v = v / 255.0;
-        if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+        if v <= 0.04045 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
     };
     let enc = |v: f64| {
         let v = v.clamp(0.0, 1.0);
-        255.0 * if v <= 0.0031308 { v * 12.92 } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 }
+        255.0
+            * if v <= 0.0031308 {
+                v * 12.92
+            } else {
+                1.055 * v.powf(1.0 / 2.4) - 0.055
+            }
     };
     let big: Vec<u8> = (0..CEL.1 * 3)
         .flat_map(|y| (0..CEL.0 * 3).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
             let i = (y / 3 * CEL.0 + x / 3) * 4;
             let a = f64::from(bytes[i + 3]) / 255.0;
-            let mix = |c: usize| enc(lin(f64::from(bytes[i + c])) * a + lin(BACK[c]) * (1.0 - a)).round() as u8;
+            let mix = |c: usize| {
+                enc(lin(f64::from(bytes[i + c])) * a + lin(BACK[c]) * (1.0 - a)).round() as u8
+            };
             [mix(0), mix(1), mix(2), 255]
         })
         .collect();
@@ -137,7 +177,11 @@ fn b121_paraffin() {
 
     t.heading("How far it reaches");
     let got = wash("#6450a0", 90.0, 100.0, 100.0, "add").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing: the wash stays on the covering", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing: the wash stays on the covering",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = added();
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -176,22 +220,52 @@ fn b121_paraffin() {
     t.refused(
         &mut document,
         vec![
-            ("direction 361", set(wash("#6450a0", 361.0, 70.0, 50.0, "multiply"))),
-            ("direction -1", set(wash("#6450a0", -1.0, 70.0, 50.0, "multiply"))),
-            ("spread 101", set(wash("#6450a0", 180.0, 101.0, 50.0, "multiply"))),
-            ("opacity 101", set(wash("#6450a0", 180.0, 70.0, 101.0, "multiply"))),
-            ("blend \"color_burn\"", set(wash("#6450a0", 180.0, 70.0, 50.0, "color_burn"))),
-            ("colour \"#12345\"", set(wash("#12345", 180.0, 70.0, 50.0, "multiply"))),
-            ("spread keyed to 150", keys("spread", &[(0, &[50.0]), (4, &[150.0])])),
+            (
+                "direction 361",
+                set(wash("#6450a0", 361.0, 70.0, 50.0, "multiply")),
+            ),
+            (
+                "direction -1",
+                set(wash("#6450a0", -1.0, 70.0, 50.0, "multiply")),
+            ),
+            (
+                "spread 101",
+                set(wash("#6450a0", 180.0, 101.0, 50.0, "multiply")),
+            ),
+            (
+                "opacity 101",
+                set(wash("#6450a0", 180.0, 70.0, 101.0, "multiply")),
+            ),
+            (
+                "blend \"color_burn\"",
+                set(wash("#6450a0", 180.0, 70.0, 50.0, "color_burn")),
+            ),
+            (
+                "colour \"#12345\"",
+                set(wash("#12345", 180.0, 70.0, 50.0, "multiply")),
+            ),
+            (
+                "spread keyed to 150",
+                keys("spread", &[(0, &[50.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_para_001.json",
         vec![
-            ("direction 360, spread 100 and opacity 100, the tops, soft light,", set(wash("#ffffff", 360.0, 100.0, 100.0, "soft_light"))),
-            ("direction 0, spread 0, opacity 0, overlay,", set(wash("#000000", 0.0, 0.0, 0.0, "overlay"))),
-            ("direction keyed from 0 to 360", keys("direction", &[(0, &[0.0]), (4, &[360.0])])),
+            (
+                "direction 360, spread 100 and opacity 100, the tops, soft light,",
+                set(wash("#ffffff", 360.0, 100.0, 100.0, "soft_light")),
+            ),
+            (
+                "direction 0, spread 0, opacity 0, overlay,",
+                set(wash("#000000", 0.0, 0.0, 0.0, "overlay")),
+            ),
+            (
+                "direction keyed from 0 to 360",
+                keys("direction", &[(0, &[0.0]), (4, &[360.0])]),
+            ),
         ],
     );
 
@@ -201,12 +275,37 @@ fn b121_paraffin() {
     let (w, h) = CEL;
     png_out::write_rgba(&dir.join("cel.png"), w, h, OutputDepth::Eight, &[], &cel()).unwrap();
     let (before, big, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the cel with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
-    let (hair, face, shirt, shirt_right, skirt_left, leg, clear) =
-        ((50, 9), (50, 27), (50, 58), (62, 58), (37, 85), (43, 110), (5, 5));
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the cel with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
+    let (hair, face, shirt, shirt_right, skirt_left, leg, clear) = (
+        (50, 9),
+        (50, 27),
+        (50, 58),
+        (62, 58),
+        (37, 85),
+        (43, 110),
+        (5, 5),
+    );
     for (name, e, what, changed, kept) in [
-        ("as_added", added(), "as it is added, violet multiplied up from below", vec![shirt, leg], vec![hair, face, clear]),
+        (
+            "as_added",
+            added(),
+            "as it is added, violet multiplied up from below",
+            vec![shirt, leg],
+            vec![hair, face, clear],
+        ),
         (
             "warm_from_above",
             wash("#ffb070", 0.0, 50.0, 70.0, "screen"),
@@ -229,15 +328,32 @@ fn b121_paraffin() {
             vec![clear],
         ),
     ] {
-        let Effect::Paraffin { color, direction, spread, opacity, blend } = &e else { unreachable!() };
+        let Effect::Paraffin {
+            color,
+            direction,
+            spread,
+            opacity,
+            blend,
+        } = &e
+        else {
+            unreachable!()
+        };
         let effects = serde_json::json!([{
             "instance_id": "fx-0-0", "type_id": "core.paraffin", "enabled": true,
             "parameters": {"color": color, "direction": direction, "spread": spread, "opacity": opacity, "blend": blend},
         }]);
         let (bytes, big, said) = picture(&dir, effects);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w * 3, h * 3, OutputDepth::Eight, &[], &big)
-            .unwrap();
-        let at = |b: &[u8], (x, y): (usize, usize)| b[(y * w + x) * 4..(y * w + x) * 4 + 4].to_vec();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w * 3,
+            h * 3,
+            OutputDepth::Eight,
+            &[],
+            &big,
+        )
+        .unwrap();
+        let at =
+            |b: &[u8], (x, y): (usize, usize)| b[(y * w + x) * 4..(y * w + x) * 4 + 4].to_vec();
         let moved = |p| at(&bytes, p) != at(&before, p);
         t.row(
             &format!("{name}.png, {what}, draws cleanly, changes {changed:?} and leaves {kept:?} exactly"),

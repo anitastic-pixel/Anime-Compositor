@@ -69,7 +69,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -105,7 +110,10 @@ impl Table {
         self.row(
             case,
             "at most 1 level",
-            format!("largest difference {} of 255, pixels differing: {}", d.0, d.1),
+            format!(
+                "largest difference {} of 255, pixels differing: {}",
+                d.0, d.1
+            ),
             d.0 <= LIMIT,
         );
         if self.worst.as_ref().is_none_or(|w| d > w.0) {
@@ -115,18 +123,38 @@ impl Table {
 }
 
 /// A frame through the window's own path, on the CPU and on the GPU.
-fn both(gpu: &mut Gpu, shot: &Shot, frame: i32, quality: PreviewQuality) -> (Vec<u8>, Vec<u8>, (usize, usize), FrameLog) {
+fn both(
+    gpu: &mut Gpu,
+    shot: &Shot,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (Vec<u8>, Vec<u8>, (usize, usize), FrameLog) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
     let on_cpu = preview::preview_frame_cached(
-        &shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache,
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
     )
     .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
     let (w, h) = (on_cpu.width(), on_cpu.height());
     let on_cpu = on_cpu.to_srgb8_straight();
     let mut log = FrameLog::new(3);
     let (on_gpu, gw, gh) = preview::preview_frame_srgb8(
-        &shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu,
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
     )
     .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
     assert_eq!((w, h), (gw, gh));
@@ -136,7 +164,13 @@ fn both(gpu: &mut Gpu, shot: &Shot, frame: i32, quality: PreviewQuality) -> (Vec
 fn plan(shot: &Shot, frame: i32, quality: PreviewQuality) -> FramePlan {
     let mut log = FrameLog::new(3);
     let plan = compose::plan_frame_at(
-        &shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer(),
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
     )
     .unwrap_or_else(|d| panic!("{} frame {frame}: {}", shot.name, d.message));
     preview::scale_plan(plan, quality)
@@ -167,7 +201,12 @@ fn b44_gpu_preview() {
             return;
         }
     };
-    let mut t = Table { rows: String::new(), checks: 0, passed: 0, worst: None };
+    let mut t = Table {
+        rows: String::new(),
+        checks: 0,
+        passed: 0,
+        worst: None,
+    };
     let shots = shots();
     let (reference, declared) = (&shots[0], &shots[1]);
 
@@ -190,8 +229,8 @@ fn b44_gpu_preview() {
                 let (c, g, size, log) = both(&mut gpu, shot, frame, quality);
                 let case = format!("{} frame {frame}, {}", shot.name, quality.label());
                 if let Some(why) = fell_back(log) {
-                panic!("{case} was drawn by the CPU: {why}");
-            }
+                    panic!("{case} was drawn by the CPU: {why}");
+                }
                 t.compare(&case, c, g, size);
             }
         }
@@ -210,14 +249,26 @@ fn b44_gpu_preview() {
             .then(Affine::translation(far, far));
     }
     let size = (hard.width, hard.height);
-    let g = gpu.draw(&hard, &CelCache::none()).unwrap_or_else(|d| panic!("the hard case on the GPU: {}", d.message));
-    t.compare("P-07's hard case: frame 100 turned 0.001 deg about a point 8,388,608 px off canvas", cpu(&hard), g, size);
+    let g = gpu
+        .draw(&hard, &CelCache::none())
+        .unwrap_or_else(|d| panic!("the hard case on the GPU: {}", d.message));
+    t.compare(
+        "P-07's hard case: frame 100 turned 0.001 deg about a point 8,388,608 px off canvas",
+        cpu(&hard),
+        g,
+        size,
+    );
 
     // Document 21's four blend modes and opacity. The fixtures use only Normal at full opacity,
     // so the test changes the plan: every layer in one mode, every other layer at 60%. The
     // ten-layer fixture brings its two mattes and its blurred, tinted drawings with it.
     for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
-        for mode in [BlendMode::Normal, BlendMode::Multiply, BlendMode::Screen, BlendMode::Add] {
+        for mode in [
+            BlendMode::Normal,
+            BlendMode::Multiply,
+            BlendMode::Screen,
+            BlendMode::Add,
+        ] {
             let mut p = plan(declared, 100, quality);
             for (i, layer) in p.layers.iter_mut().enumerate() {
                 layer.blend = mode;
@@ -226,9 +277,15 @@ fn b44_gpu_preview() {
                 }
             }
             let size = (p.width, p.height);
-            let g = gpu.draw(&p, &CelCache::none()).unwrap_or_else(|d| panic!("{mode:?} on the GPU: {}", d.message));
+            let g = gpu
+                .draw(&p, &CelCache::none())
+                .unwrap_or_else(|d| panic!("{mode:?} on the GPU: {}", d.message));
             t.compare(
-                &format!("ten-layer frame 100, {}, every layer {}, every other at 60%", quality.label(), mode.as_str()),
+                &format!(
+                    "ten-layer frame 100, {}, every layer {}, every other at 60%",
+                    quality.label(),
+                    mode.as_str()
+                ),
                 cpu(&p),
                 g,
                 size,
@@ -238,11 +295,18 @@ fn b44_gpu_preview() {
 
     // The same frame drawn twice gives the same bytes: nothing is left over between frames.
     let p = plan(declared, 100, PreviewQuality::Full);
-    let (a, b) = (gpu.draw(&p, &CelCache::none()).expect("draw once"), gpu.draw(&p, &CelCache::none()).expect("draw again"));
+    let (a, b) = (
+        gpu.draw(&p, &CelCache::none()).expect("draw once"),
+        gpu.draw(&p, &CelCache::none()).expect("draw again"),
+    );
     t.row(
         "ten-layer frame 100, Full, drawn twice on the GPU",
         "the same bytes both times",
-        if a == b { "the same bytes".into() } else { format!("{} pixels differ", distance(&a, &b).1) },
+        if a == b {
+            "the same bytes".into()
+        } else {
+            format!("{} pixels differ", distance(&a, &b).1)
+        },
         a == b,
     );
 
@@ -254,11 +318,17 @@ fn b44_gpu_preview() {
     let budget = gpu.budget;
     for (drawings, quality) in [(1, PreviewQuality::Draft), (3, PreviewQuality::Full)] {
         gpu.forget();
-        gpu.budget = if drawings == 1 { 1 } else { drawings * 1920 * 1080 * 8 };
+        gpu.budget = if drawings == 1 {
+            1
+        } else {
+            drawings * 1920 * 1080 * 8
+        };
         let mut worst = (0u8, 0usize);
         for frame in (0..240).step_by(5) {
             let p = plan(reference, frame, quality);
-            let g = gpu.draw(&p, &CelCache::none()).expect("draw with the small budget");
+            let g = gpu
+                .draw(&p, &CelCache::none())
+                .expect("draw with the small budget");
             worst = worst.max(distance(&cpu(&p), &g));
         }
         t.row(
@@ -278,8 +348,16 @@ fn b44_gpu_preview() {
     // it, so the same frame read again from disk into a new cache sends nothing.
     let named = |cache: &mut CelCache| {
         let mut log = FrameLog::new(3);
-        let p = compose::plan_frame_at(&declared.project, &declared.comp, 100, &declared.root, PreviewQuality::Full, &mut log, cache)
-            .expect("plan the frame");
+        let p = compose::plan_frame_at(
+            &declared.project,
+            &declared.comp,
+            100,
+            &declared.root,
+            PreviewQuality::Full,
+            &mut log,
+            cache,
+        )
+        .expect("plan the frame");
         preview::scale_plan(p, PreviewQuality::Full)
     };
     gpu.forget();
@@ -296,20 +374,29 @@ fn b44_gpu_preview() {
     t.row(
         "ten-layer frame 100, Full, read again into a new CPU cache after the first let go",
         "no drawing sent again, and at most 1 level",
-        format!("drawings sent again: {again}; largest difference {} of 255", d.0),
+        format!(
+            "drawings sent again: {again}; largest difference {} of 255",
+            d.0
+        ),
         again == 0 && d.0 <= LIMIT,
     );
 
     // The fallback: a frame with an adjustment layer is drawn wholly by the CPU, and says so.
     // B-222 (D-341): the card now draws fx_adj_001's Exposure there (B-156), so its adjustment
     // layer is given a Kaleidoscope instead, which stays the CPU's (D-240).
-    let text = fs::read_to_string(repo("Fixtures/adjust/fx_adj_001.json")).expect("read fx_adj_001");
-    let text = text.replacen(r#""core.exposure""#, r#""core.kaleidoscope""#, 1).replacen(
-        r#""stops": 1"#,
-        r#""segments": 6, "rotation": 0, "size": 100, "center": [50, 50], "mode": "mirror""#,
-        1,
+    let text =
+        fs::read_to_string(repo("Fixtures/adjust/fx_adj_001.json")).expect("read fx_adj_001");
+    let text = text
+        .replacen(r#""core.exposure""#, r#""core.kaleidoscope""#, 1)
+        .replacen(
+            r#""stops": 1"#,
+            r#""segments": 6, "rotation": 0, "size": 100, "center": [50, 50], "mode": "mirror""#,
+            1,
+        );
+    assert!(
+        text.contains("core.kaleidoscope"),
+        "fx_adj_001's Exposure was not found"
     );
-    assert!(text.contains("core.kaleidoscope"), "fx_adj_001's Exposure was not found");
     let adjusted = persist::load_str(&text).unwrap_or_else(|d| panic!("fx_adj_001: {}", d.message));
     let shot = Shot {
         name: "fx_adj_001",
@@ -340,7 +427,8 @@ fn b44_gpu_preview() {
     // The worst frame, as three pictures.
     let pictures = repo("verification/B-44 pictures");
     fs::create_dir_all(&pictures).expect("make the pictures folder");
-    let ((largest, count), worst_case, c, g, w, h) = t.worst.take().expect("something was compared");
+    let ((largest, count), worst_case, c, g, w, h) =
+        t.worst.take().expect("something was compared");
     let mut diff = vec![0u8; c.len()];
     for p in (0..w * h).filter(|&p| c[p * 4..p * 4 + 4] != g[p * 4..p * 4 + 4]) {
         // A differing pixel is drawn as a white 7 by 7 square, so one pixel of 2,073,600 can be
@@ -356,7 +444,11 @@ fn b44_gpu_preview() {
     for px in diff.chunks_exact_mut(4) {
         px[3] = 255;
     }
-    for (name, bytes) in [("cpu (old).png", &c), ("gpu (new).png", &g), ("difference.png", &diff)] {
+    for (name, bytes) in [
+        ("cpu (old).png", &c),
+        ("gpu (new).png", &g),
+        ("difference.png", &diff),
+    ] {
         png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
             .expect("write a picture");
     }
@@ -379,7 +471,11 @@ fn b44_gpu_preview() {
     );
     s.push_str(&t.rows);
     fs::write(&out, s).expect("write the B-44 table");
-    assert_eq!(t.passed, t.checks, "B-44: {} of {} checks pass", t.passed, t.checks);
+    assert_eq!(
+        t.passed, t.checks,
+        "B-44: {} of {} checks pass",
+        t.passed, t.checks
+    );
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -424,8 +520,16 @@ fn b44_gpu_timing() {
                 let before = gpu.sent();
                 for frame in 0..240 {
                     let mut log = FrameLog::new(3);
-                    let p = compose::plan_frame_at(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut cache)
-                        .expect("plan the frame");
+                    let p = compose::plan_frame_at(
+                        &shot.project,
+                        &shot.comp,
+                        frame,
+                        &shot.root,
+                        quality,
+                        &mut log,
+                        &mut cache,
+                    )
+                    .expect("plan the frame");
                     let p = preview::scale_plan(p, quality);
                     if pass == 0 {
                         let t = Instant::now();

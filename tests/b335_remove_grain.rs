@@ -16,7 +16,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -43,7 +45,12 @@ fn removing(noise_reduction: f64, passes: f64, mode: &str) -> Effect {
 }
 
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-0-0"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-0-0"),
+        effect,
+    }
 }
 
 fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
@@ -52,35 +59,66 @@ fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-0-0"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 fn holder_effect(d: &Document) -> Effect {
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 /// Each command on the `holder` file is refused with a sentence and leaves it as it was; then
 /// each taken one is taken, and as many undos give back `file`'s frame 0 exactly.
-fn holder_commands(t: &mut Table, file: &str, refused: Vec<(&str, Command)>, taken: Vec<(&str, Command)>) {
+fn holder_commands(
+    t: &mut Table,
+    file: &str,
+    refused: Vec<(&str, Command)>,
+    taken: Vec<(&str, Command)>,
+) {
     let mut document = t.load(file).document;
     let held = format!("{:?}", document.project());
     for (what, command) in refused {
         let why = document.apply(command).err();
         let untouched = format!("{:?}", document.project()) == held;
-        t.row(&format!("{what} is refused with a sentence, and nothing changes"), &why.as_ref().map_or("taken".into(), |d| d.message.clone()), why.is_some() && untouched);
+        t.row(
+            &format!("{what} is refused with a sentence, and nothing changes"),
+            &why.as_ref().map_or("taken".into(), |d| d.message.clone()),
+            why.is_some() && untouched,
+        );
     }
     let n = taken.len();
     for (what, command) in taken {
         let ok = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if ok { "taken" } else { "refused" }, ok);
+        t.row(
+            &format!("{what} is taken"),
+            if ok { "taken" } else { "refused" },
+            ok,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// Remove Grain's settings as it is added.
@@ -90,7 +128,11 @@ const STARTING: &str = r#"{"noise_reduction": 1, "passes": 1, "mode": "multichan
 /// An effect of `type_id` with the settings `p`; for Remove Grain every setting `p` leaves out is
 /// the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
-    let mut all = if type_id == "core.remove_grain" { serde_json::from_str(STARTING).unwrap() } else { json!({}) };
+    let mut all = if type_id == "core.remove_grain" {
+        serde_json::from_str(STARTING).unwrap()
+    } else {
+        json!({})
+    };
     for (k, v) in p.as_object().unwrap() {
         all[k] = v.clone();
     }
@@ -99,23 +141,41 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A Noise changing every frame, the grain Remove Grain is shown.
 fn grain(id: &str) -> J {
-    fx("core.noise", id, &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))
+    fx(
+        "core.noise",
+        id,
+        &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+    )
 }
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing, are left to the processor, or are refused, so the
 /// card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -141,13 +201,27 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)], pick: fn
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|id| json!([grain(&format!("{id}n"))])));
     for (what, p) in settings {
-        let project = reference(|id| json!([grain(&format!("{id}n")), fx("core.remove_grain", &format!("b335-{id}"), p)]));
+        let project = reference(|id| {
+            json!([
+                grain(&format!("{id}n")),
+                fx("core.remove_grain", &format!("b335-{id}"), p)
+            ])
+        });
         let changed = distance(&cpu(&project), &plain).1;
         t.row(
             &format!("the reference shot with Noise, Remove Grain {what}: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect"),
@@ -170,7 +244,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)], pick: fn
 
 /// `effects` on the street at frame 0. Drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -182,8 +259,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -208,7 +297,11 @@ fn edges(a: &[u8], clean: &[u8]) -> f64 {
         if (i + 1) % w == 0 {
             continue;
         }
-        let step = |b: &[u8]| (0..3).map(|c| (b[4 * i + c] as f64 - b[4 * i + 4 + c] as f64).abs()).sum::<f64>();
+        let step = |b: &[u8]| {
+            (0..3)
+                .map(|c| (b[4 * i + c] as f64 - b[4 * i + 4 + c] as f64).abs())
+                .sum::<f64>()
+        };
         if step(clean) >= 40.0 {
             sum += step(a);
             n += 1.0;
@@ -225,7 +318,10 @@ fn flat(a: &[u8], clean: &[u8]) -> f64 {
         if (i + 1) % TOWN.0 == 0 || clean[4 * i..4 * i + 3] != clean[4 * i + 4..4 * i + 7] {
             continue;
         }
-        sum += (0..3).map(|c| (a[4 * i + c] as f64 - a[4 * i + 4 + c] as f64).abs()).sum::<f64>() / 3.0;
+        sum += (0..3)
+            .map(|c| (a[4 * i + c] as f64 - a[4 * i + 4 + c] as f64).abs())
+            .sum::<f64>()
+            / 3.0;
         n += 1.0;
     }
     sum / n
@@ -257,7 +353,9 @@ fn b335_remove_grain() {
     t.fixtures("expected_remove_grain.json");
 
     t.heading("The file");
-    let files: Vec<String> = (1..=21).map(|n| format!("fx_removegrain_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=21)
+        .map(|n| format!("fx_removegrain_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_removegrain_013.json");
     t.row(
@@ -272,24 +370,44 @@ fn b335_remove_grain() {
         ("fx_removegrain_020.json", "600"),
     ] {
         let why = holder_effect(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want) && why.starts_with("Remove Grain"));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want) && why.starts_with("Remove Grain"),
+        );
     }
     let mut no_passes: J = serde_json::from_str(STARTING).unwrap();
     no_passes.as_object_mut().unwrap().remove("passes");
-    t.shape_refused("fx_removegrain_001.json", "a Remove Grain with no `passes`", &no_passes.to_string());
+    t.shape_refused(
+        "fx_removegrain_001.json",
+        "a Remove Grain with no `passes`",
+        &no_passes.to_string(),
+    );
 
     t.heading("Commands");
     holder_commands(
         &mut t,
         "fx_removegrain_001.json",
         vec![
-            ("noise reduction 3.5", set_holder(removing(3.5, 1.0, "multichannel"))),
+            (
+                "noise reduction 3.5",
+                set_holder(removing(3.5, 1.0, "multichannel")),
+            ),
             ("mode \"both\"", set_holder(removing(1.0, 1.0, "both"))),
-            ("passes keyed to 5", keys_holder("passes", &[(0, &[1.0]), (4, &[5.0])])),
+            (
+                "passes keyed to 5",
+                keys_holder("passes", &[(0, &[1.0]), (4, &[5.0])]),
+            ),
         ],
         vec![
-            ("noise reduction 2, two passes, single channel", set_holder(removing(2.0, 2.0, "single_channel"))),
-            ("passes keyed from 1 to 4", keys_holder("passes", &[(0, &[1.0]), (4, &[4.0])])),
+            (
+                "noise reduction 2, two passes, single channel",
+                set_holder(removing(2.0, 2.0, "single_channel")),
+            ),
+            (
+                "passes keyed from 1 to 4",
+                keys_holder("passes", &[(0, &[1.0]), (4, &[4.0])]),
+            ),
         ],
     );
 
@@ -316,8 +434,14 @@ fn b335_remove_grain() {
         &mut gpu,
         &[
             ("as added", json!({})),
-            ("Noise Reduction 2, three passes, single channel", json!({"noise_reduction": 2, "passes": 3, "mode": "single_channel"})),
-            ("Noise Reduction keyed 0.5 to 3, Unsharp Mask 150 at radius 2", json!({"noise_reduction": keyed(&[(0, json!(0.5)), (239, json!(3))]), "unsharp_amount": 150, "unsharp_radius": 2})),
+            (
+                "Noise Reduction 2, three passes, single channel",
+                json!({"noise_reduction": 2, "passes": 3, "mode": "single_channel"}),
+            ),
+            (
+                "Noise Reduction keyed 0.5 to 3, Unsharp Mask 150 at radius 2",
+                json!({"noise_reduction": keyed(&[(0, json!(0.5)), (239, json!(3))]), "unsharp_amount": 150, "unsharp_radius": 2}),
+            ),
         ],
         is_remove,
     );
@@ -325,11 +449,25 @@ fn b335_remove_grain() {
     t.heading("Pictures: the street, in `verification/D-455 pictures/`");
     let dir = repo("verification/D-455 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (clean, said) = picture(&dir, json!([]));
     write("1_clean.png", &clean);
-    t.row("1_clean.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_clean.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let stack = |p: J| json!([grain("n"), fx("core.remove_grain", "fx-0-0", &p)]);
     let (grainy, said) = picture(&dir, json!([grain("n")]));
     write("2_grainy.png", &grainy);
@@ -355,13 +493,22 @@ fn b335_remove_grain() {
     );
     let (strong, said) = picture(&dir, stack(json!({"noise_reduction": 3, "passes": 3})));
     write("4_strong.png", &strong);
-    let (f_added, f_strong, edge_strong) = (flat(&added, &clean), flat(&strong, &clean), edges(&strong, &clean));
+    let (f_added, f_strong, edge_strong) = (
+        flat(&added, &clean),
+        flat(&strong, &clean),
+        edges(&strong, &clean),
+    );
     t.row(
         "4_strong.png, Noise Reduction 3, three passes: plain areas smoother than in 3, at the cost of softer edges (the colour spread is now wider than most edges); draws cleanly",
         &format!("{said:?}, roughness of plain areas {f_strong:.2} levels against {f_added:.2} in 3; edges {edge_strong:.1} against {edge_clean:.1} clean"),
         said.is_empty() && f_strong < f_added,
     );
-    let (sharp, said) = picture(&dir, stack(json!({"noise_reduction": 3, "passes": 3, "unsharp_amount": 150, "unsharp_radius": 1.5})));
+    let (sharp, said) = picture(
+        &dir,
+        stack(
+            json!({"noise_reduction": 3, "passes": 3, "unsharp_amount": 150, "unsharp_radius": 1.5}),
+        ),
+    );
     write("5_strong_sharpened.png", &sharp);
     let edge_sharp = edges(&sharp, &clean);
     t.row(
@@ -399,8 +546,14 @@ fn b335_remove_grain_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Remove Grain as added", Some(json!({}))),
-        ("Noise, then Remove Grain Noise Reduction 2, three passes, single channel", Some(json!({"noise_reduction": 2, "passes": 3, "mode": "single_channel"}))),
-        ("Noise, then Remove Grain as added with Unsharp Mask 150", Some(json!({"unsharp_amount": 150}))),
+        (
+            "Noise, then Remove Grain Noise Reduction 2, three passes, single channel",
+            Some(json!({"noise_reduction": 2, "passes": 3, "mode": "single_channel"})),
+        ),
+        (
+            "Noise, then Remove Grain as added with Unsharp Mask 150",
+            Some(json!({"unsharp_amount": 150})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
@@ -410,10 +563,28 @@ fn b335_remove_grain_timing() {
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B335_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-335_timing_raw.md"));
+    let out = std::env::var("B335_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-335_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

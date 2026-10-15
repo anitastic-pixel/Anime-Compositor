@@ -9,20 +9,12 @@
 
 use rayon::prelude::*;
 
+mod along;
 pub mod audio;
-pub mod cache;
 mod bloom;
 mod blurs;
-mod along;
+pub mod cache;
 mod cel_fx;
-mod hsv_key;
-mod flow;
-mod line_blur;
-mod median;
-pub mod particles;
-pub mod playground;
-pub mod simulate;
-mod line_width;
 pub mod color;
 pub mod command;
 pub mod compose;
@@ -31,34 +23,42 @@ pub mod diagnostics;
 pub mod effects;
 pub mod export;
 pub mod expr;
-pub mod film_out;
-pub mod gpu;
-pub mod mp4_out;
-pub mod keykind;
-mod line_smooth;
-pub mod selective_blur;
 pub mod exr_io;
+pub mod film_out;
+mod flow;
+pub mod frame_stats;
 mod glow;
+pub mod gpu;
+mod grade;
+mod hsv_key;
+pub mod keykind;
 mod layer_fx;
 mod layer_map;
-mod mesh;
-mod matte_refine;
-mod soft_glow;
-mod grade;
-pub mod frame_stats;
+mod line_blur;
+mod line_smooth;
+mod line_width;
 pub mod lut;
 pub mod mask;
+mod matte_refine;
 pub mod media;
+mod median;
+mod mesh;
 pub mod model;
+pub mod mp4_out;
 pub mod package;
+pub mod particles;
 pub mod perf;
 pub mod persist;
+pub mod playground;
 pub mod png_out;
 pub mod preview;
 pub mod render;
+pub mod selective_blur;
 pub mod session_log;
 pub mod sha256;
 pub mod shape;
+pub mod simulate;
+mod soft_glow;
 pub mod text;
 pub mod time;
 pub mod timesheet;
@@ -228,19 +228,21 @@ impl ImageBuffer {
         } = self;
         // P-18: across the pool, as the dequantise before it. Each pixel is its own.
         perf::time(perf::Stage::ToLinear, || {
-            data.par_chunks_exact_mut(4).with_min_len(4096).for_each(|px| {
-                if color_space == ColorSpace::Srgb {
-                    for c in &mut px[..3] {
-                        *c = color::srgb_to_linear(*c);
+            data.par_chunks_exact_mut(4)
+                .with_min_len(4096)
+                .for_each(|px| {
+                    if color_space == ColorSpace::Srgb {
+                        for c in &mut px[..3] {
+                            *c = color::srgb_to_linear(*c);
+                        }
                     }
-                }
-                if alpha_mode == AlphaMode::Straight {
-                    let a = px[3];
-                    for c in &mut px[..3] {
-                        *c *= a;
+                    if alpha_mode == AlphaMode::Straight {
+                        let a = px[3];
+                        for c in &mut px[..3] {
+                            *c *= a;
+                        }
                     }
-                }
-            });
+                });
         });
         WorkingBuffer(ImageBuffer {
             width,

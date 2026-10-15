@@ -206,7 +206,11 @@ fn mask_cost() {
         };
         let one = on_one_thread(&mask, 1920, 1080, 5);
         let many = median_ms(&mask, 1920, 1080, 5);
-        let _ = writeln!(out, "| {name} | {one:.2} | {many:.2} | {:.1}x |", one / many);
+        let _ = writeln!(
+            out,
+            "| {name} | {one:.2} | {many:.2} | {:.1}x |",
+            one / many
+        );
     }
 
     out.push_str(

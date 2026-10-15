@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -30,7 +31,8 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// A Texturize with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
-    let mut all = json!({"layer": "", "fit": "tile", "light_direction": 135, "texture_contrast": 1});
+    let mut all =
+        json!({"layer": "", "fit": "tile", "light_direction": 135, "texture_contrast": 1});
     for (k, v) in p.as_object().unwrap() {
         all[k] = v.clone();
     }
@@ -43,7 +45,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=20 {
         let file = format!("fx_texturize_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -51,7 +57,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Texturize { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Texturize { .. })
+                });
             }
         }
         t.row(
@@ -69,9 +77,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -85,7 +102,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Texturize { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Texturize { .. })
+                });
                 t.row(
                     &format!("the reference shot, Texturize {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -99,8 +118,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), with the still `texture` (in `dir`)
 /// beneath it as the hidden layer `bricks`, drawn on the processor at frame 0, straight 8-bit,
 /// with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), texture: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    texture: &str,
+    effects: J,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let mut bricks_asset = project["assets"][0].clone();
     bricks_asset["id"] = J::from("asset-bricks");
@@ -124,11 +152,26 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), texture: &str, effects
     hidden["transform"]["position"]["base"] = json!([0, 0]);
     hidden["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().push(hidden);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("bricks"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("bricks"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -149,7 +192,15 @@ fn brick() -> Vec<u8> {
 /// The `holder` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
@@ -161,7 +212,17 @@ fn at(p: &[u8], w: usize, x: usize, y: usize) -> &[u8] {
 
 /// `command` aimed at the `holder` layer's effect `fx-1`; the fixtures' drawing is `holder`, not `art`.
 fn holder(mut command: Command) -> Command {
-    if let Command::SetEffectParameters { layer_id, instance_id, .. } | Command::SetEffectKeys { layer_id, instance_id, .. } = &mut command {
+    if let Command::SetEffectParameters {
+        layer_id,
+        instance_id,
+        ..
+    }
+    | Command::SetEffectKeys {
+        layer_id,
+        instance_id,
+        ..
+    } = &mut command
+    {
         *layer_id = Id::new("holder");
         *instance_id = Id::new("fx-1");
     }
@@ -182,7 +243,9 @@ fn b347_texturize() {
     t.fixtures_numbered("expected_texturize.json", 1..=20);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=20).map(|n| format!("fx_texturize_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=20)
+        .map(|n| format!("fx_texturize_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_texturize_009.json");
     t.row(
@@ -202,36 +265,90 @@ fn b347_texturize() {
         ("fx_texturize_019.json", "light direction"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Texturize and its {want}"), &why, why.contains("Texturize") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Texturize and its {want}"),
+            &why,
+            why.contains("Texturize") && why.contains(want),
+        );
     }
     let full = r##"{"layer": "", "fit": "tile", "light_direction": 135, "texture_contrast": 1}"##;
-    t.shape_refused("fx_texturize_001.json", "a Texturize whose contrast is a word", &full.replace("\"texture_contrast\": 1", "\"texture_contrast\": \"strong\""));
-    t.shape_refused("fx_texturize_001.json", "a Texturize without its light direction", &full.replace(", \"light_direction\": 135", ""));
-    t.shape_refused("fx_texturize_001.json", "a Texturize whose placement is a number", &full.replace("\"tile\"", "2"));
+    t.shape_refused(
+        "fx_texturize_001.json",
+        "a Texturize whose contrast is a word",
+        &full.replace(
+            "\"texture_contrast\": 1",
+            "\"texture_contrast\": \"strong\"",
+        ),
+    );
+    t.shape_refused(
+        "fx_texturize_001.json",
+        "a Texturize without its light direction",
+        &full.replace(", \"light_direction\": 135", ""),
+    );
+    t.shape_refused(
+        "fx_texturize_001.json",
+        "a Texturize whose placement is a number",
+        &full.replace("\"tile\"", "2"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_texturize_001.json").document;
-    let over = changed(&t, "fx_texturize_001.json", |e| if let Effect::Texturize { texture_contrast, .. } = e { *texture_contrast = 2.5 });
-    let fit = changed(&t, "fx_texturize_001.json", |e| if let Effect::Texturize { fit, .. } = e { *fit = "mirror".into() });
-    let number = changed(&t, "fx_texturize_001.json", |e| if let Effect::Texturize { layer, .. } = e { *layer = json!(3) });
-    let effect_of = |d: &Document| d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].clone();
+    let over = changed(&t, "fx_texturize_001.json", |e| {
+        if let Effect::Texturize {
+            texture_contrast, ..
+        } = e
+        {
+            *texture_contrast = 2.5
+        }
+    });
+    let fit = changed(&t, "fx_texturize_001.json", |e| {
+        if let Effect::Texturize { fit, .. } = e {
+            *fit = "mirror".into()
+        }
+    });
+    let number = changed(&t, "fx_texturize_001.json", |e| {
+        if let Effect::Texturize { layer, .. } = e {
+            *layer = json!(3)
+        }
+    });
+    let effect_of = |d: &Document| {
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .clone()
+    };
     let held = format!("{:?}", effect_of(&document));
     for (what, command) in [
         ("texture contrast 2.5", set(over)),
         ("texture placement mirror", set(fit)),
         ("texture layer the number 3", set(number)),
-        ("light direction keyed to 4000", keys("light_direction", &[(0, &[0.0]), (4, &[4000.0])])),
+        (
+            "light direction keyed to 4000",
+            keys("light_direction", &[(0, &[0.0]), (4, &[4000.0])]),
+        ),
     ] {
         let refused = document.apply(holder(command)).err();
         let untouched = format!("{:?}", effect_of(&document)) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
     let moved = changed(&t, "fx_texturize_001.json", |e| {
-        if let Effect::Texturize { layer, fit, light_direction, texture_contrast, .. } = e {
+        if let Effect::Texturize {
+            layer,
+            fit,
+            light_direction,
+            texture_contrast,
+            ..
+        } = e
+        {
             *layer = json!("ramp");
             *fit = "center".into();
             *light_direction = 30.0;
@@ -242,8 +359,14 @@ fn b347_texturize() {
         &mut document,
         "fx_texturize_001.json",
         vec![
-            ("the ramp centred, Light Direction 30, Texture Contrast 0.5", holder(set(moved))),
-            ("texture contrast keyed from 0 to 2", holder(keys("texture_contrast", &[(0, &[0.0]), (4, &[2.0])]))),
+            (
+                "the ramp centred, Light Direction 30, Texture Contrast 0.5",
+                holder(set(moved)),
+            ),
+            (
+                "texture contrast keyed from 0 to 2",
+                holder(keys("texture_contrast", &[(0, &[0.0]), (4, &[2.0])])),
+            ),
         ],
     );
 
@@ -267,26 +390,65 @@ fn b347_texturize() {
         &mut t,
         &mut gpu,
         &[
-            ("with layer4 tiled as the texture", json!({"layer": "layer-4"}), 3),
-            ("with layer4 stretched, Light Direction 45, Texture Contrast 2", json!({"layer": "layer-4", "fit": "stretch", "light_direction": 45, "texture_contrast": 2}), 3),
-            ("with layer4 centred, Light Direction -100, Texture Contrast 0.4", json!({"layer": "layer-4", "fit": "center", "light_direction": -100, "texture_contrast": 0.4}), 3),
+            (
+                "with layer4 tiled as the texture",
+                json!({"layer": "layer-4"}),
+                3,
+            ),
+            (
+                "with layer4 stretched, Light Direction 45, Texture Contrast 2",
+                json!({"layer": "layer-4", "fit": "stretch", "light_direction": 45, "texture_contrast": 2}),
+                3,
+            ),
+            (
+                "with layer4 centred, Light Direction -100, Texture Contrast 0.4",
+                json!({"layer": "layer-4", "fit": "center", "light_direction": -100, "texture_contrast": 0.4}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-467 pictures/`");
     let dir = repo("verification/D-467 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     write("brick.png", (32, 16), &brick());
-    let street = |p: J| picture(&dir, "town.png", TOWN, "brick.png", json!([fx("fx-0-0", &p)]));
+    let street = |p: J| {
+        picture(
+            &dir,
+            "town.png",
+            TOWN,
+            "brick.png",
+            json!([fx("fx-0-0", &p)]),
+        )
+    };
     let (before, said) = picture(&dir, "town.png", TOWN, "brick.png", json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (w, h) = TOWN;
     let coverings = |p: &[u8]| p.chunks_exact(4).map(|q| q[3]).collect::<Vec<_>>();
     // How far a picture is from the street, summed over every colour.
-    let away = |p: &[u8]| p.iter().zip(&before).map(|(a, b)| a.abs_diff(*b) as u64).sum::<u64>();
+    let away = |p: &[u8]| {
+        p.iter()
+            .zip(&before)
+            .map(|(a, b)| a.abs_diff(*b) as u64)
+            .sum::<u64>()
+    };
     // Each pixel lighter (1), darker (-1) or the same (0) as the street, by its summed colours.
     let sign = |p: &[u8]| {
         (0..w * h)
@@ -316,8 +478,16 @@ fn b347_texturize() {
     let (turned, said) = street(json!({"layer": "bricks", "light_direction": -45}));
     write("4_light_from_bottom_right.png", TOWN, &turned);
     let (a, b) = (sign(&bricks), sign(&turned));
-    let flipped = a.iter().zip(&b).filter(|(x, y)| **x != 0 && **y == -**x).count();
-    let kept = a.iter().zip(&b).filter(|(x, y)| **x != 0 && **y == **x).count();
+    let flipped = a
+        .iter()
+        .zip(&b)
+        .filter(|(x, y)| **x != 0 && **y == -**x)
+        .count();
+    let kept = a
+        .iter()
+        .zip(&b)
+        .filter(|(x, y)| **x != 0 && **y == **x)
+        .count();
     t.row(
         "4_light_from_bottom_right.png, Light Direction -45: the light from the bottom right, so the mortar edges that 3_bricks.png lightened are darkened and the other way round, at more pixels than keep their way; draws cleanly",
         &format!("{said:?}, turned over at {flipped} pixels, kept at {kept}"),
@@ -334,7 +504,15 @@ fn b347_texturize() {
 
     let (centred, said) = street(json!({"layer": "bricks", "fit": "center"}));
     write("6_one_brick_centred.png", TOWN, &centred);
-    let corners_kept = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1), (w / 4, h / 4)].iter().all(|&(x, y)| at(&centred, w, x, y) == at(&before, w, x, y));
+    let corners_kept = [
+        (0, 0),
+        (w - 1, 0),
+        (0, h - 1),
+        (w - 1, h - 1),
+        (w / 4, h / 4),
+    ]
+    .iter()
+    .all(|&(x, y)| at(&centred, w, x, y) == at(&before, w, x, y));
     t.row(
         "6_one_brick_centred.png, Center Texture: one brick pressed into the middle, the corners and the rest of the street untouched; draws cleanly",
         &format!("{said:?}, the middle changed {}, the corners and a quarter point untouched {corners_kept}", centred != before),
@@ -369,22 +547,50 @@ fn b347_texturize_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Texturize with layer4 tiled as the texture", Some(json!({"layer": "layer-4"}))),
-        ("the same, stretched, Light Direction 45, Texture Contrast 2", Some(json!({"layer": "layer-4", "fit": "stretch", "light_direction": 45, "texture_contrast": 2}))),
+        (
+            "Noise, then Texturize with layer4 tiled as the texture",
+            Some(json!({"layer": "layer-4"})),
+        ),
+        (
+            "the same, stretched, Light Direction 45, Texture Contrast 2",
+            Some(
+                json!({"layer": "layer-4", "fit": "stretch", "light_direction": 45, "texture_contrast": 2}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B347_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-347_timing_raw.md"));
+    let out = std::env::var("B347_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-347_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -77,7 +77,11 @@ fn b71_fractal_noise() {
 
     t.heading("How far it reaches");
     let got = with(0, 1000.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = with(0, 40.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -133,10 +137,22 @@ fn b71_fractal_noise() {
             ("speed 361", set(with(5, 361.0))),
             ("seed -1", set(with(6, -1.0))),
             ("opacity 101", set(with(7, 101.0))),
-            ("dark colour \"#12345\"", set(fractal(START, "#12345", "#ffffff", "normal"))),
-            ("light colour \"white\"", set(fractal(START, "#000000", "white", "normal"))),
-            ("blend \"overlay\"", set(fractal(START, "#000000", "#ffffff", "overlay"))),
-            ("speed keyed to 400", keys("speed", &[(0, &[0.0]), (4, &[400.0])])),
+            (
+                "dark colour \"#12345\"",
+                set(fractal(START, "#12345", "#ffffff", "normal")),
+            ),
+            (
+                "light colour \"white\"",
+                set(fractal(START, "#000000", "white", "normal")),
+            ),
+            (
+                "blend \"overlay\"",
+                set(fractal(START, "#000000", "#ffffff", "overlay")),
+            ),
+            (
+                "speed keyed to 400",
+                keys("speed", &[(0, &[0.0]), (4, &[400.0])]),
+            ),
         ],
     );
     t.taken(
@@ -146,7 +162,9 @@ fn b71_fractal_noise() {
             (
                 "every number at the top of its range,",
                 set(fractal(
-                    [1000.0, 20.0, 1000.0, 1000.0, 100000.0, 360.0, 100000.0, 100.0],
+                    [
+                        1000.0, 20.0, 1000.0, 1000.0, 100000.0, 360.0, 100000.0, 100.0,
+                    ],
                     "#ffffff",
                     "#000000",
                     "add",
@@ -161,7 +179,10 @@ fn b71_fractal_noise() {
                     "multiply",
                 )),
             ),
-            ("evolution keyed from 0 to 720", keys("evolution", &[(0, &[0.0]), (4, &[720.0])])),
+            (
+                "evolution keyed from 0 to 720",
+                keys("evolution", &[(0, &[0.0]), (4, &[720.0])]),
+            ),
         ],
     );
 

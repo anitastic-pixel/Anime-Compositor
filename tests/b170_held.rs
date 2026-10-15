@@ -28,9 +28,12 @@ use common::repo;
 const SHOTS: [&str; 3] = ["mask", "mask and blur", "mask and exposure"];
 
 fn shot(kind: &str) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let layers = j["compositions"][0]["layers"].as_array_mut().expect("layers");
+    let layers = j["compositions"][0]["layers"]
+        .as_array_mut()
+        .expect("layers");
     for l in layers.iter_mut() {
         l["exposure_spans"] = (0..120)
             .map(|k| json!({"start_frame": 2 * k, "end_frame_exclusive": 2 * k + 2, "drawing_number": 2 * k}))
@@ -51,7 +54,11 @@ fn shot(kind: &str) -> Project {
         }
         _ => {}
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{kind}: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("{kind}: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -65,12 +72,29 @@ fn a_held_masked_drawing_is_kept() {
             return;
         }
     };
-    let (root, comp) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
-    let draw = |project: &Project, frame: i32, quality: PreviewQuality, cache: &mut CelCache, gpu: &mut Gpu| {
+    let (root, comp) = (
+        repo("Fixtures/reference_shot"),
+        Id::new("comp-reference-shot"),
+    );
+    let draw = |project: &Project,
+                frame: i32,
+                quality: PreviewQuality,
+                cache: &mut CelCache,
+                gpu: &mut Gpu| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_srgb8(project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, cache, gpu)
-            .expect("the frame draws")
-            .0
+        preview::preview_frame_srgb8(
+            project,
+            &comp,
+            frame,
+            &root,
+            quality,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            cache,
+            gpu,
+        )
+        .expect("the frame draws")
+        .0
     };
     perf::enable();
     let mut rows = String::new();
@@ -130,7 +154,10 @@ fn a_held_masked_drawing_is_kept() {
 #[ignore]
 fn b170_timing() {
     let mut gpu = Gpu::new().expect("a usable card");
-    let (root, comp) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
+    let (root, comp) = (
+        repo("Fixtures/reference_shot"),
+        Id::new("comp-reference-shot"),
+    );
     let mut rows = String::new();
     for kind in SHOTS {
         let project = shot(kind);
@@ -141,16 +168,37 @@ fn b170_timing() {
             for frame in 0..24 {
                 let mut log = FrameLog::new(3);
                 let at = std::time::Instant::now();
-                preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .expect("the frame draws");
+                preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    frame,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .expect("the frame draws");
                 let ms = at.elapsed().as_secs_f64() * 1000.0;
                 if frame >= 4 {
-                    if frame % 2 == 1 { held.push(ms) } else { new.push(ms) }
+                    if frame % 2 == 1 {
+                        held.push(ms)
+                    } else {
+                        new.push(ms)
+                    }
                 }
             }
             new.sort_by(f64::total_cmp);
             held.sort_by(f64::total_cmp);
-            writeln!(rows, "| {kind} | {} | {:.1} | {:.1} |", quality.label(), new[new.len() / 2], held[held.len() / 2]).unwrap();
+            writeln!(
+                rows,
+                "| {kind} | {} | {:.1} | {:.1} |",
+                quality.label(),
+                new[new.len() / 2],
+                held[held.len() / 2]
+            )
+            .unwrap();
         }
     }
     fs::write(

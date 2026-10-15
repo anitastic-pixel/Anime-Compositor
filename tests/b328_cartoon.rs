@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -45,7 +46,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=32 {
         let file = format!("fx_cartoon_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -53,7 +58,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Cartoon { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Cartoon { .. })
+                });
             }
         }
         t.row(
@@ -71,9 +78,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -87,7 +103,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Cartoon { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Cartoon { .. })
+                });
                 t.row(
                     &format!("the reference shot, Cartoon {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -100,8 +118,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -113,8 +140,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -124,7 +163,8 @@ fn edges(p: &[u8], (w, h): (usize, usize), step: u8) -> usize {
     let mut n = 0;
     for y in 0..h - 1 {
         for x in 0..w - 1 {
-            n += (r(x, y).abs_diff(r(x + 1, y)) > step) as usize + (r(x, y).abs_diff(r(x, y + 1)) > step) as usize;
+            n += (r(x, y).abs_diff(r(x + 1, y)) > step) as usize
+                + (r(x, y).abs_diff(r(x, y + 1)) > step) as usize;
         }
     }
     n
@@ -132,10 +172,14 @@ fn edges(p: &[u8], (w, h): (usize, usize), step: u8) -> usize {
 
 /// Pixels whose three colours are all at most `top` (dark), and all at least `bottom` (light).
 fn dark(p: &[u8], top: u8) -> usize {
-    p.chunks_exact(4).filter(|q| q[..3].iter().all(|&c| c <= top)).count()
+    p.chunks_exact(4)
+        .filter(|q| q[..3].iter().all(|&c| c <= top))
+        .count()
 }
 fn light(p: &[u8], bottom: u8) -> usize {
-    p.chunks_exact(4).filter(|q| q[..3].iter().all(|&c| c >= bottom)).count()
+    p.chunks_exact(4)
+        .filter(|q| q[..3].iter().all(|&c| c >= bottom))
+        .count()
 }
 
 #[test]
@@ -154,13 +198,18 @@ fn b328_cartoon() {
     t.fixtures_numbered("expected_cartoon.json", 1..=32);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=32).map(|n| format!("fx_cartoon_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=32)
+        .map(|n| format!("fx_cartoon_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_cartoon_023.json");
     t.row(
         "fx_cartoon_023.json is saved with its twelve settings",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 12 && saved["detail_radius"] == 3.0 && saved["edge_contrast"] == 0.7 && saved["render"] == "fill_and_edges",
+        saved.as_object().unwrap().len() == 12
+            && saved["detail_radius"] == 3.0
+            && saved["edge_contrast"] == 0.7
+            && saved["render"] == "fill_and_edges",
     );
     for (file, want) in [
         ("fx_cartoon_024.json", "render"),
@@ -173,27 +222,57 @@ fn b328_cartoon() {
         ("fx_cartoon_031.json", "edge black level"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Cartoon and its {want}"), &why, why.contains("Cartoon") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Cartoon and its {want}"),
+            &why,
+            why.contains("Cartoon") && why.contains(want),
+        );
     }
     let full = r#"{"render": "fill_and_edges", "detail_radius": 8, "detail_threshold": 10, "shading_steps": 8, "shading_smoothness": 40, "edge_threshold": 1.6, "edge_width": 1.5, "edge_softness": 60, "edge_opacity": 100, "edge_enhancement": 0, "edge_black_level": 0, "edge_contrast": 0.5}"#;
-    t.shape_refused("fx_cartoon_001.json", "a Cartoon whose detail radius is a word", &full.replace("\"detail_radius\": 8", "\"detail_radius\": \"wide\""));
-    t.shape_refused("fx_cartoon_001.json", "a Cartoon without its edge width", &full.replace("\"edge_width\": 1.5, ", ""));
-    t.shape_refused("fx_cartoon_001.json", "a Cartoon whose render is a number", &full.replace("\"fill_and_edges\"", "2"));
+    t.shape_refused(
+        "fx_cartoon_001.json",
+        "a Cartoon whose detail radius is a word",
+        &full.replace("\"detail_radius\": 8", "\"detail_radius\": \"wide\""),
+    );
+    t.shape_refused(
+        "fx_cartoon_001.json",
+        "a Cartoon without its edge width",
+        &full.replace("\"edge_width\": 1.5, ", ""),
+    );
+    t.shape_refused(
+        "fx_cartoon_001.json",
+        "a Cartoon whose render is a number",
+        &full.replace("\"fill_and_edges\"", "2"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_cartoon_001.json").document;
-    let one = changed(&t, "fx_cartoon_001.json", |e| if let Effect::Cartoon { shading_steps, .. } = e { *shading_steps = 1.0 });
-    let bad = changed(&t, "fx_cartoon_001.json", |e| if let Effect::Cartoon { render, .. } = e { *render = "Fill".into() });
+    let one = changed(&t, "fx_cartoon_001.json", |e| {
+        if let Effect::Cartoon { shading_steps, .. } = e {
+            *shading_steps = 1.0
+        }
+    });
+    let bad = changed(&t, "fx_cartoon_001.json", |e| {
+        if let Effect::Cartoon { render, .. } = e {
+            *render = "Fill".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("shading steps 1", set(one)),
             ("render Fill (a capital)", set(bad)),
-            ("edge opacity keyed to 150", keys("edge_opacity", &[(0, &[100.0]), (4, &[150.0])])),
+            (
+                "edge opacity keyed to 150",
+                keys("edge_opacity", &[(0, &[100.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let edged = changed(&t, "fx_cartoon_001.json", |e| {
-        if let Effect::Cartoon { render, edge_width, .. } = e {
+        if let Effect::Cartoon {
+            render, edge_width, ..
+        } = e
+        {
             *render = "edges".into();
             *edge_width = 4.0;
         }
@@ -203,7 +282,10 @@ fn b328_cartoon() {
         "fx_cartoon_001.json",
         vec![
             ("Edges, edge width 4", set(edged)),
-            ("detail radius keyed from 0 to 20", keys("detail_radius", &[(0, &[0.0]), (4, &[20.0])])),
+            (
+                "detail radius keyed from 0 to 20",
+                keys("detail_radius", &[(0, &[0.0]), (4, &[20.0])]),
+            ),
         ],
     );
 
@@ -227,20 +309,42 @@ fn b328_cartoon() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("Edges, width 4, softness 0, enhancement 60, black level 0.3", json!({"render": "edges", "edge_width": 4, "edge_softness": 0, "edge_enhancement": 60, "edge_black_level": 0.3}), 3),
-            ("Fill, radius 0, steps 3, smoothness 0", json!({"render": "fill", "detail_radius": 0, "shading_steps": 3, "shading_smoothness": 0}), 3),
+            (
+                "Edges, width 4, softness 0, enhancement 60, black level 0.3",
+                json!({"render": "edges", "edge_width": 4, "edge_softness": 0, "edge_enhancement": 60, "edge_black_level": 0.3}),
+                3,
+            ),
+            (
+                "Fill, radius 0, steps 3, smoothness 0",
+                json!({"render": "fill", "detail_radius": 0, "shading_steps": 3, "shading_smoothness": 0}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-448 pictures/`");
     let dir = repo("verification/D-448 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (added, said) = street(json!({}));
     write("2_as_added.png", TOWN, &added);
@@ -276,7 +380,8 @@ fn b328_cartoon() {
         said.is_empty() && dark(&thick, 40) > dark(&lines, 40),
     );
 
-    let (smooth, said) = street(json!({"render": "fill", "detail_radius": 20, "detail_threshold": 60}));
+    let (smooth, said) =
+        street(json!({"render": "fill", "detail_radius": 20, "detail_threshold": 60}));
     write("6_smoother.png", TOWN, &smooth);
     t.row(
         "6_smoother.png, Fill, detail radius 20, threshold 60: flatter areas, fewer edges between neighbours than 3_fill.png; draws cleanly",
@@ -321,21 +426,44 @@ fn b328_cartoon_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
         ("Noise, then Cartoon as added", Some(json!({}))),
-        ("Noise, then Cartoon detail radius 30, edge width 8, enhancement 50 (the widest reach)", Some(json!({"detail_radius": 30, "edge_width": 8, "edge_enhancement": 50}))),
+        (
+            "Noise, then Cartoon detail radius 30, edge width 8, enhancement 50 (the widest reach)",
+            Some(json!({"detail_radius": 30, "edge_width": 8, "edge_enhancement": 50})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B328_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-328_timing_raw.md"));
+    let out = std::env::var("B328_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-328_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

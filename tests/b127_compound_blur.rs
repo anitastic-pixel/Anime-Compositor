@@ -58,14 +58,20 @@ fn add(layer: &str, instance: &str, named: &str) -> Command {
     Command::AddEffect {
         composition: main_comp(),
         layer_id: Id::new(layer),
-        effect: EffectInstance::new(Id::new(instance), blur(J::from(named), "stretch", 6.0, "off", "transparent")),
+        effect: EffectInstance::new(
+            Id::new(instance),
+            blur(J::from(named), "stretch", 6.0, "off", "transparent"),
+        ),
         index: None,
     }
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command, Option<&str>)>) {
@@ -75,8 +81,13 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command,
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
-            refused.as_ref().is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id)) && untouched,
+            &refused.as_ref().map_or("taken".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
+            refused
+                .as_ref()
+                .is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id))
+                && untouched,
         );
     }
 }
@@ -99,7 +110,10 @@ fn depth() -> Vec<u8> {
 /// on the street, drawn at frame 0.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/compound_blur/fx_cblur_002.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/compound_blur/fx_cblur_002.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
@@ -110,8 +124,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     comp["layers"][0]["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &main_comp(), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &main_comp(),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -131,7 +157,10 @@ fn b127_compound_blur() {
     // D-192, accepted: FX-CBLUR-019's adjustment layer is written above the holder.
     t.fixtures_numbered("expected_compound_blur.json", 1..=26);
     let expected: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/compound_blur/expected_compound_blur.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/compound_blur/expected_compound_blur.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
@@ -139,30 +168,49 @@ fn b127_compound_blur() {
     t.heading("Files whose layers read each other (document 25)");
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
-        let opened = persist::load(&effect_table::repo(&format!("Fixtures/compound_blur/{file}")));
+        let opened = persist::load(&effect_table::repo(&format!(
+            "Fixtures/compound_blur/{file}"
+        )));
         match (case.get("refused").and_then(J::as_str), opened) {
             (Some(id), opened) => {
                 let got = opened.err();
                 t.row(
                     &format!("{file}: {says}"),
-                    &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+                    &got.as_ref().map_or("opened".to_string(), |d| {
+                        format!("{} {}", d.id.as_str(), d.message)
+                    }),
                     got.is_some_and(|d| d.id.as_str() == id),
                 );
             }
             (None, Ok(loaded)) => {
                 for (frame, pixels) in case["frames"].as_object().unwrap() {
                     let frame: i32 = frame.parse().unwrap();
-                    let d = effect_table::largest_difference(&t.render(&loaded.document, frame, 64), pixels);
-                    t.row(&format!("{file} frame {frame}: {says}"), &format!("largest difference {d:.1e}"), d <= tolerance);
+                    let d = effect_table::largest_difference(
+                        &t.render(&loaded.document, frame, 64),
+                        pixels,
+                    );
+                    t.row(
+                        &format!("{file} frame {frame}: {says}"),
+                        &format!("largest difference {d:.1e}"),
+                        d <= tolerance,
+                    );
                 }
             }
-            (None, Err(d)) => t.row(&format!("{file}: {says}"), &format!("refused: {}", d.message), false),
+            (None, Err(d)) => t.row(
+                &format!("{file}: {says}"),
+                &format!("refused: {}", d.message),
+                false,
+            ),
         }
     }
 
     t.heading("How far it reaches");
     let got = ramp(500.0).bounds_expansion();
-    t.row("Maximum Blur 500, the most, never grows the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "Maximum Blur 500, the most, never grows the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = ramp(20.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -210,10 +258,42 @@ fn b127_compound_blur() {
         vec![
             ("Maximum Blur 501", set("holder", "fx-1", ramp(501.0)), None),
             ("Maximum Blur -1", set("holder", "fx-1", ramp(-1.0)), None),
-            ("fit \"fill\"", set("holder", "fx-1", blur(J::from("ramp"), "fill", 6.0, "off", "transparent")), None),
-            ("invert \"yes\"", set("holder", "fx-1", blur(J::from("ramp"), "stretch", 6.0, "yes", "transparent")), None),
-            ("edges \"wrap\"", set("holder", "fx-1", blur(J::from("ramp"), "stretch", 6.0, "off", "wrap")), None),
-            ("a layer that is the number 3", set("holder", "fx-1", blur(J::from(3), "stretch", 6.0, "off", "transparent")), None),
+            (
+                "fit \"fill\"",
+                set(
+                    "holder",
+                    "fx-1",
+                    blur(J::from("ramp"), "fill", 6.0, "off", "transparent"),
+                ),
+                None,
+            ),
+            (
+                "invert \"yes\"",
+                set(
+                    "holder",
+                    "fx-1",
+                    blur(J::from("ramp"), "stretch", 6.0, "yes", "transparent"),
+                ),
+                None,
+            ),
+            (
+                "edges \"wrap\"",
+                set(
+                    "holder",
+                    "fx-1",
+                    blur(J::from("ramp"), "stretch", 6.0, "off", "wrap"),
+                ),
+                None,
+            ),
+            (
+                "a layer that is the number 3",
+                set(
+                    "holder",
+                    "fx-1",
+                    blur(J::from(3), "stretch", 6.0, "off", "transparent"),
+                ),
+                None,
+            ),
             (
                 "a Compound Blur on `ramp` naming `holder`, which names `ramp`",
                 add("ramp", "fx-2", "holder"),
@@ -223,12 +303,29 @@ fn b127_compound_blur() {
     );
     let n = 3;
     for (what, command) in [
-        ("naming the holder itself, which is no circle,", set("holder", "fx-1", blur(J::from("holder"), "stretch", 6.0, "off", "transparent"))),
-        ("a Compound Blur on `ramp` naming `white`", add("ramp", "fx-2", "white")),
-        ("a Compound Blur on `white` naming no layer", add("white", "fx-3", "")),
+        (
+            "naming the holder itself, which is no circle,",
+            set(
+                "holder",
+                "fx-1",
+                blur(J::from("holder"), "stretch", 6.0, "off", "transparent"),
+            ),
+        ),
+        (
+            "a Compound Blur on `ramp` naming `white`",
+            add("ramp", "fx-2", "white"),
+        ),
+        (
+            "a Compound Blur on `white` naming no layer",
+            add("white", "fx-3", ""),
+        ),
     ] {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     refused(
         &mut t,
@@ -236,7 +333,11 @@ fn b127_compound_blur() {
         vec![
             (
                 "`white`'s Compound Blur changed to name `ramp`, which names `white`",
-                set("white", "fx-3", blur(J::from("ramp"), "stretch", 6.0, "off", "transparent")),
+                set(
+                    "white",
+                    "fx-3",
+                    blur(J::from("ramp"), "stretch", 6.0, "off", "transparent"),
+                ),
                 Some("EFFECT_LAYER_CYCLE"),
             ),
             (
@@ -244,7 +345,10 @@ fn b127_compound_blur() {
                 Command::AddEffect {
                     composition: main_comp(),
                     layer_id: Id::new("white"),
-                    effect: EffectInstance { enabled: false, ..EffectInstance::new(Id::new("fx-4"), ramp(6.0)) },
+                    effect: EffectInstance {
+                        enabled: false,
+                        ..EffectInstance::new(Id::new("fx-4"), ramp(6.0))
+                    },
                     index: None,
                 },
                 Some("EFFECT_LAYER_CYCLE"),
@@ -263,16 +367,29 @@ fn b127_compound_blur() {
     );
 
     let mut document = t.load("fx_cblur_015.json").document;
-    let mut gone = document.project().composition(&main_comp()).unwrap().layer(&Id::new("white")).unwrap().clone();
+    let mut gone = document
+        .project()
+        .composition(&main_comp())
+        .unwrap()
+        .layer(&Id::new("white"))
+        .unwrap()
+        .clone();
     gone.id = Id::new("gone");
     gone.name = "gone".to_string();
-    gone.effects = vec![EffectInstance::new(Id::new("fx-9"), blur(J::from("holder"), "stretch", 6.0, "off", "transparent"))];
+    gone.effects = vec![EffectInstance::new(
+        Id::new("fx-9"),
+        blur(J::from("holder"), "stretch", 6.0, "off", "transparent"),
+    )];
     refused(
         &mut t,
         &mut document,
         vec![(
             "adding a layer `gone`, which the holder names, with a Compound Blur naming the holder",
-            Command::AddLayer { composition: main_comp(), layer: Box::new(gone), index: 0 },
+            Command::AddLayer {
+                composition: main_comp(),
+                layer: Box::new(gone),
+                index: 0,
+            },
             Some("EFFECT_LAYER_CYCLE"),
         )],
     );
@@ -281,16 +398,46 @@ fn b127_compound_blur() {
     let dir = effect_table::repo("verification/B-127 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &town()).unwrap();
-    png_out::write_rgba(&dir.join("depth.png"), w, h, OutputDepth::Eight, &[], &depth()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &town(),
+    )
+    .unwrap();
+    png_out::write_rgba(
+        &dir.join("depth.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &depth(),
+    )
+    .unwrap();
     let (before, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the street with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the street with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let rows_kept = |bytes: &[u8], rows: std::ops::RangeInclusive<usize>| {
-        rows.clone().all(|y| bytes[y * w * 4..(y + 1) * w * 4] == before[y * w * 4..(y + 1) * w * 4])
+        rows.clone()
+            .all(|y| bytes[y * w * 4..(y + 1) * w * 4] == before[y * w * 4..(y + 1) * w * 4])
     };
     let rows_changed = |bytes: &[u8], rows: std::ops::RangeInclusive<usize>| {
-        rows.clone().any(|y| bytes[y * w * 4..(y + 1) * w * 4] != before[y * w * 4..(y + 1) * w * 4])
+        rows.clone()
+            .any(|y| bytes[y * w * 4..(y + 1) * w * 4] != before[y * w * 4..(y + 1) * w * 4])
     };
     let alpha = |bytes: &[u8], (x, y): (usize, usize)| bytes[(y * w + x) * 4 + 3];
     // A quarter-size picture takes a quarter of the blur, as a quarter-size draft does: 10 here
@@ -330,7 +477,13 @@ fn b127_compound_blur() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_cblur_002.json", 0), ("fx_cblur_008.json", 0), ("fx_cblur_011.json", 0), ("fx_cblur_013.json", 0), ("fx_cblur_019.json", 0)]);
+    t.tiles(&[
+        ("fx_cblur_002.json", 0),
+        ("fx_cblur_008.json", 0),
+        ("fx_cblur_011.json", 0),
+        ("fx_cblur_013.json", 0),
+        ("fx_cblur_019.json", 0),
+    ]);
 
     t.finish("B-127_compound_blur_table.md");
 }

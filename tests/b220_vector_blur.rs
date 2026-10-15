@@ -45,7 +45,9 @@ fn disc() -> Vec<u8> {
     let mut bytes = Vec::with_capacity(w * h * 4);
     for y in 0..h {
         for x in 0..w {
-            let d = ((x as f64 + 0.5 - w as f64 / 2.0).powi(2) + (y as f64 + 0.5 - h as f64 / 2.0).powi(2)).sqrt();
+            let d = ((x as f64 + 0.5 - w as f64 / 2.0).powi(2)
+                + (y as f64 + 0.5 - h as f64 / 2.0).powi(2))
+            .sqrt();
             let v = (255.0 * (1.0 - d / 110.0)).clamp(0.0, 255.0) as u8;
             bytes.extend([v, v, v, 255]);
         }
@@ -89,9 +91,20 @@ fn picture(dir: &Path, parameters: Option<J>) -> (Vec<u8>, Vec<String>) {
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -114,7 +127,14 @@ fn b220_vector_blur() {
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let mut document = t.load("fx_vblur_001.json").document;
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
     let base = effect_of(&document);
     for (file, said) in [
@@ -127,38 +147,80 @@ fn b220_vector_blur() {
     }
 
     t.heading("Commands");
-    for (what, effect) in [("type \"Natural\"", typed(&base, "Natural", 10.0)), ("amount 501", typed(&base, "natural", 501.0))] {
+    for (what, effect) in [
+        ("type \"Natural\"", typed(&base, "Natural", 10.0)),
+        ("amount 501", typed(&base, "natural", 501.0)),
+    ] {
         let refused = document.apply(set(effect)).err();
         let untouched = effect_of(&document) == base;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
     t.taken(
         &mut document,
         "fx_vblur_001.json",
-        vec![("type perpendicular, amount 4,", set(typed(&base, "perpendicular", 4.0))), ("type direction_fading,", set(typed(&base, "direction_fading", 4.0)))],
+        vec![
+            (
+                "type perpendicular, amount 4,",
+                set(typed(&base, "perpendicular", 4.0)),
+            ),
+            (
+                "type direction_fading,",
+                set(typed(&base, "direction_fading", 4.0)),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_vblur_001.json", 0), ("fx_vblur_009.json", 0), ("fx_vblur_012.json", 0), ("fx_vblur_018.json", 0)]);
+    t.tiles(&[
+        ("fx_vblur_001.json", 0),
+        ("fx_vblur_009.json", 0),
+        ("fx_vblur_012.json", 0),
+        ("fx_vblur_018.json", 0),
+    ]);
 
     t.heading("Pictures: a street, in `verification/D-336 pictures/`");
     let dir = effect_table::repo("verification/D-336 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
     for (name, bytes) in [("town", town()), ("disc", disc())] {
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
     }
     let (before, said) = picture(&dir, None);
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the street, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the street, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let changed = |b: &[u8], far: bool| {
         (0..w * h)
             .filter(|&i| {
-                let (x, y) = ((i % w) as f64 + 0.5 - w as f64 / 2.0, (i / w) as f64 + 0.5 - h as f64 / 2.0);
+                let (x, y) = (
+                    (i % w) as f64 + 0.5 - w as f64 / 2.0,
+                    (i / w) as f64 + 0.5 - h as f64 / 2.0,
+                );
                 (!far || (x * x + y * y).sqrt() > 125.0) && b[i * 4..][..4] != before[i * 4..][..4]
             })
             .count()
@@ -172,13 +234,29 @@ fn b220_vector_blur() {
     ];
     for (name, what, kind, outside_untouched) in shots {
         let p = match name {
-            "as_added" => json!({"type": kind, "amount": 10, "angle_offset": 0, "ridge_smoothness": 10, "layer": "", "fit": "stretch", "property": "lightness", "map_softness": 30}),
-            "natural_disc" | "perpendicular_disc" => json!({"type": kind, "amount": 12, "angle_offset": 0, "ridge_smoothness": 0, "layer": "disc", "fit": "stretch", "property": "lightness", "map_softness": 0}),
-            "twist_disc" => json!({"type": kind, "amount": 6, "angle_offset": 0, "ridge_smoothness": 1, "layer": "disc", "fit": "stretch", "property": "lightness", "map_softness": 0}),
-            _ => json!({"type": kind, "amount": 4, "angle_offset": 0, "ridge_smoothness": 20, "layer": "", "fit": "stretch", "property": "lightness", "map_softness": 30}),
+            "as_added" => {
+                json!({"type": kind, "amount": 10, "angle_offset": 0, "ridge_smoothness": 10, "layer": "", "fit": "stretch", "property": "lightness", "map_softness": 30})
+            }
+            "natural_disc" | "perpendicular_disc" => {
+                json!({"type": kind, "amount": 12, "angle_offset": 0, "ridge_smoothness": 0, "layer": "disc", "fit": "stretch", "property": "lightness", "map_softness": 0})
+            }
+            "twist_disc" => {
+                json!({"type": kind, "amount": 6, "angle_offset": 0, "ridge_smoothness": 1, "layer": "disc", "fit": "stretch", "property": "lightness", "map_softness": 0})
+            }
+            _ => {
+                json!({"type": kind, "amount": 4, "angle_offset": 0, "ridge_smoothness": 20, "layer": "", "fit": "stretch", "property": "lightness", "map_softness": 30})
+            }
         };
         let (bytes, said) = picture(&dir, Some(p));
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let (all, far) = (changed(&bytes, false), changed(&bytes, true));
         t.row(
             &format!("{name}.png, {what}"),

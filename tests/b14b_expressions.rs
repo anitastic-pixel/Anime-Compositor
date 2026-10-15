@@ -22,7 +22,9 @@ use std::sync::atomic::AtomicBool;
 
 use anime_compositor::compose::plan_frame;
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
-use anime_compositor::export::{export_sequence, ExportRequest, ExportStatus, MissingSource, OutputFormat};
+use anime_compositor::export::{
+    export_sequence, ExportRequest, ExportStatus, MissingSource, OutputFormat,
+};
 use anime_compositor::expr::{evaluate, Target};
 use anime_compositor::model::{Id, Project, Prop, Value};
 use anime_compositor::persist;

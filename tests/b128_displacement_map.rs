@@ -24,7 +24,15 @@ use anime_compositor::effects::{Effect, EffectInstance};
 use anime_compositor::model::Id;
 use anime_compositor::{persist, png_out, OutputDepth};
 
-fn dmap(layer: J, fit: &str, horizontal: &str, max_horizontal: f64, vertical: &str, max_vertical: f64, wrap: &str) -> Effect {
+fn dmap(
+    layer: J,
+    fit: &str,
+    horizontal: &str,
+    max_horizontal: f64,
+    vertical: &str,
+    max_vertical: f64,
+    wrap: &str,
+) -> Effect {
     Effect::DisplacementMap {
         layer,
         fit: fit.to_string(),
@@ -44,7 +52,15 @@ fn dmap(layer: J, fit: &str, horizontal: &str, max_horizontal: f64, vertical: &s
 
 /// The ramp, red across and green down, at most `across` and `down`.
 fn ramp(across: f64, down: f64) -> Effect {
-    dmap(J::from("ramp"), "stretch", "red", across, "green", down, "off")
+    dmap(
+        J::from("ramp"),
+        "stretch",
+        "red",
+        across,
+        "green",
+        down,
+        "off",
+    )
 }
 
 fn main_comp() -> Id {
@@ -78,7 +94,10 @@ fn naming(named: &str) -> Effect {
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command, Option<&str>)>) {
@@ -88,8 +107,13 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command,
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
-            refused.as_ref().is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id)) && untouched,
+            &refused.as_ref().map_or("taken".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
+            refused
+                .as_ref()
+                .is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id))
+                && untouched,
         );
     }
 }
@@ -125,7 +149,12 @@ fn ball() -> Vec<u8> {
         for x in 0..w {
             let (px, py) = (x as f64 + 0.5, y as f64 + 0.5);
             let inside = (px - cx).hypot(py - cy) <= r;
-            bytes.extend([byte(0.5 - 0.5 * (px - cx) / r), byte(0.5 - 0.5 * (py - cy) / r), 128, if inside { 255 } else { 0 }]);
+            bytes.extend([
+                byte(0.5 - 0.5 * (px - cx) / r),
+                byte(0.5 - 0.5 * (py - cy) / r),
+                128,
+                if inside { 255 } else { 0 },
+            ]);
         }
     }
     bytes
@@ -135,7 +164,10 @@ fn ball() -> Vec<u8> {
 /// street, drawn at frame 0.
 fn picture(dir: &Path, map: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/displacement_map/fx_dmap_002.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/displacement_map/fx_dmap_002.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
@@ -150,8 +182,20 @@ fn picture(dir: &Path, map: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &main_comp(), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &main_comp(),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -172,23 +216,35 @@ fn b128_displacement_map() {
 
     t.heading("Files whose layers read each other (document 25)");
     let expected: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/displacement_map/expected_displacement_map.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/displacement_map/expected_displacement_map.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
-        let got = persist::load(&effect_table::repo(&format!("Fixtures/displacement_map/{file}"))).err();
+        let got = persist::load(&effect_table::repo(&format!(
+            "Fixtures/displacement_map/{file}"
+        )))
+        .err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
 
     t.heading("How far it reaches");
     let got = ramp(1000.0, -1000.0).bounds_expansion();
-    t.row("maxima of 1000 and -1000, the most, never grow the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "maxima of 1000 and -1000, the most, never grow the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = ramp(20.0, -8.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -235,20 +291,49 @@ fn b128_displacement_map() {
 
     t.heading("Commands");
     let mut document = t.load("fx_dmap_002.json").document;
-    let word = |h: &str, v: &str, fit: &str, wrap: &str| dmap(J::from("ramp"), fit, h, 2.0, v, 2.0, wrap);
+    let word =
+        |h: &str, v: &str, fit: &str, wrap: &str| dmap(J::from("ramp"), fit, h, 2.0, v, 2.0, wrap);
     refused(
         &mut t,
         &mut document,
         vec![
-            ("Max Horizontal Displacement 1001", set("holder", "fx-1", ramp(1001.0, 2.0)), None),
-            ("Max Vertical Displacement -1001", set("holder", "fx-1", ramp(2.0, -1001.0)), None),
-            ("across \"half\"", set("holder", "fx-1", word("half", "green", "stretch", "off")), None),
-            ("down \"purple\"", set("holder", "fx-1", word("red", "purple", "stretch", "off")), None),
-            ("fit \"fill\"", set("holder", "fx-1", word("red", "green", "fill", "off")), None),
-            ("wrap \"yes\"", set("holder", "fx-1", word("red", "green", "stretch", "yes")), None),
+            (
+                "Max Horizontal Displacement 1001",
+                set("holder", "fx-1", ramp(1001.0, 2.0)),
+                None,
+            ),
+            (
+                "Max Vertical Displacement -1001",
+                set("holder", "fx-1", ramp(2.0, -1001.0)),
+                None,
+            ),
+            (
+                "across \"half\"",
+                set("holder", "fx-1", word("half", "green", "stretch", "off")),
+                None,
+            ),
+            (
+                "down \"purple\"",
+                set("holder", "fx-1", word("red", "purple", "stretch", "off")),
+                None,
+            ),
+            (
+                "fit \"fill\"",
+                set("holder", "fx-1", word("red", "green", "fill", "off")),
+                None,
+            ),
+            (
+                "wrap \"yes\"",
+                set("holder", "fx-1", word("red", "green", "stretch", "yes")),
+                None,
+            ),
             (
                 "a layer that is the number 3",
-                set("holder", "fx-1", dmap(J::from(3), "stretch", "red", 2.0, "green", 2.0, "off")),
+                set(
+                    "holder",
+                    "fx-1",
+                    dmap(J::from(3), "stretch", "red", 2.0, "green", 2.0, "off"),
+                ),
                 None,
             ),
             (
@@ -275,19 +360,52 @@ fn b128_displacement_map() {
         ],
     );
     let taken = [
-        ("naming the holder itself, which is no circle,", set("holder", "fx-1", naming("holder"))),
-        ("luminance across instead of red", set("holder", "fx-1", word("luminance", "green", "stretch", "off"))),
-        ("a Displacement Map on `ramp` naming `white`", add("ramp", "fx-2", naming("white"))),
-        ("a Displacement Map on `white` naming no layer", add("white", "fx-3", naming(""))),
+        (
+            "naming the holder itself, which is no circle,",
+            set("holder", "fx-1", naming("holder")),
+        ),
+        (
+            "luminance across instead of red",
+            set(
+                "holder",
+                "fx-1",
+                word("luminance", "green", "stretch", "off"),
+            ),
+        ),
+        (
+            "a Displacement Map on `ramp` naming `white`",
+            add("ramp", "fx-2", naming("white")),
+        ),
+        (
+            "a Displacement Map on `white` naming no layer",
+            add("white", "fx-3", naming("")),
+        ),
     ];
     let n = taken.len();
     for (what, command) in taken {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
-    let every = ["red", "green", "blue", "alpha", "luminance", "hue", "lightness", "saturation", "full", "off"];
+    let every = [
+        "red",
+        "green",
+        "blue",
+        "alpha",
+        "luminance",
+        "hue",
+        "lightness",
+        "saturation",
+        "full",
+        "off",
+    ];
     let all_taken = every.iter().all(|w| {
-        let taken = document.apply(set("holder", "fx-1", word(w, w, "tile", "on"))).is_ok();
+        let taken = document
+            .apply(set("holder", "fx-1", word(w, w, "tile", "on")))
+            .is_ok();
         document.undo();
         taken
     });
@@ -310,18 +428,58 @@ fn b128_displacement_map() {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 
     t.heading("Pictures: B-127's street, in `verification/B-128 pictures/`");
     let dir = effect_table::repo("verification/B-128 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &town()).unwrap();
-    png_out::write_rgba(&dir.join("map_waves.png"), w, h, OutputDepth::Eight, &[], &waves()).unwrap();
-    png_out::write_rgba(&dir.join("map_ball.png"), w, h, OutputDepth::Eight, &[], &ball()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &town(),
+    )
+    .unwrap();
+    png_out::write_rgba(
+        &dir.join("map_waves.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &waves(),
+    )
+    .unwrap();
+    png_out::write_rgba(
+        &dir.join("map_ball.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &ball(),
+    )
+    .unwrap();
     let (before, said) = picture(&dir, "map_waves.png", J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the street with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the street with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let alpha = |bytes: &[u8], i: usize| bytes[i * 4 + 3];
     let changed = |bytes: &[u8], i: usize| bytes[i * 4..i * 4 + 4] != before[i * 4..i * 4 + 4];
     let count = |f: &dyn Fn(usize) -> bool| (0..w * h).filter(|&i| f(i)).count();

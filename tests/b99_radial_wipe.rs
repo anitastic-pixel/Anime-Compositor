@@ -12,7 +12,13 @@ use effect_table::{keys, set, Table};
 
 use anime_compositor::effects::Effect;
 
-fn radial_wipe(completion: f64, start_angle: f64, center: [f64; 2], wipe: &str, feather: f64) -> Effect {
+fn radial_wipe(
+    completion: f64,
+    start_angle: f64,
+    center: [f64; 2],
+    wipe: &str,
+    feather: f64,
+) -> Effect {
     Effect::RadialWipe {
         completion,
         start_angle,
@@ -41,7 +47,11 @@ fn b99_radial_wipe() {
 
     t.heading("How far it reaches");
     let got = radial_wipe(50.0, 0.0, MIDDLE, "both", 360.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = radial_wipe(50.0, 30.0, MIDDLE, "clockwise", 90.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -84,14 +94,38 @@ fn b99_radial_wipe() {
     t.refused(
         &mut document,
         vec![
-            ("completion 101", set(radial_wipe(101.0, 0.0, MIDDLE, "clockwise", 0.0))),
-            ("start angle -3601", set(radial_wipe(0.0, -3601.0, MIDDLE, "clockwise", 0.0))),
-            ("centre 1001, 50", set(radial_wipe(0.0, 0.0, [1001.0, 50.0], "clockwise", 0.0))),
-            ("feather 361", set(radial_wipe(0.0, 0.0, MIDDLE, "clockwise", 361.0))),
-            ("feather -1", set(radial_wipe(0.0, 0.0, MIDDLE, "clockwise", -1.0))),
-            ("wipe \"spiral\"", set(radial_wipe(0.0, 0.0, MIDDLE, "spiral", 0.0))),
-            ("wipe \"Clockwise\"", set(radial_wipe(0.0, 0.0, MIDDLE, "Clockwise", 0.0))),
-            ("completion keyed to 150", keys("completion", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "completion 101",
+                set(radial_wipe(101.0, 0.0, MIDDLE, "clockwise", 0.0)),
+            ),
+            (
+                "start angle -3601",
+                set(radial_wipe(0.0, -3601.0, MIDDLE, "clockwise", 0.0)),
+            ),
+            (
+                "centre 1001, 50",
+                set(radial_wipe(0.0, 0.0, [1001.0, 50.0], "clockwise", 0.0)),
+            ),
+            (
+                "feather 361",
+                set(radial_wipe(0.0, 0.0, MIDDLE, "clockwise", 361.0)),
+            ),
+            (
+                "feather -1",
+                set(radial_wipe(0.0, 0.0, MIDDLE, "clockwise", -1.0)),
+            ),
+            (
+                "wipe \"spiral\"",
+                set(radial_wipe(0.0, 0.0, MIDDLE, "spiral", 0.0)),
+            ),
+            (
+                "wipe \"Clockwise\"",
+                set(radial_wipe(0.0, 0.0, MIDDLE, "Clockwise", 0.0)),
+            ),
+            (
+                "completion keyed to 150",
+                keys("completion", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -100,13 +134,22 @@ fn b99_radial_wipe() {
         vec![
             (
                 "every number at its bottom,",
-                set(radial_wipe(0.0, -3600.0, [-1000.0, -1000.0], "counterclockwise", 0.0)),
+                set(radial_wipe(
+                    0.0,
+                    -3600.0,
+                    [-1000.0, -1000.0],
+                    "counterclockwise",
+                    0.0,
+                )),
             ),
             (
                 "every number at its top,",
                 set(radial_wipe(100.0, 3600.0, [1000.0, 1000.0], "both", 360.0)),
             ),
-            ("completion keyed from 0 to 100", keys("completion", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "completion keyed from 0 to 100",
+                keys("completion", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

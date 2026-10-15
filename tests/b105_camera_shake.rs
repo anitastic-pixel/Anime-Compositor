@@ -101,16 +101,28 @@ fn b105_camera_shake() {
             ("hold 0", set(with(2, 0.0))),
             ("hold 101", set(with(2, 101.0))),
             ("seed 100001", set(with(3, 100001.0))),
-            ("amount keyed to 1500", keys("amount", &[(0, &[10.0]), (4, &[1500.0])])),
+            (
+                "amount keyed to 1500",
+                keys("amount", &[(0, &[10.0]), (4, &[1500.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_shake_001.json",
         vec![
-            ("every number at its bottom,", set(shake([0.0, 0.0, 1.0, 0.0]))),
-            ("every number at its top,", set(shake([1000.0, 45.0, 100.0, 100000.0]))),
-            ("amount keyed from 0 to 4", keys("amount", &[(0, &[0.0]), (4, &[4.0])])),
+            (
+                "every number at its bottom,",
+                set(shake([0.0, 0.0, 1.0, 0.0])),
+            ),
+            (
+                "every number at its top,",
+                set(shake([1000.0, 45.0, 100.0, 100000.0])),
+            ),
+            (
+                "amount keyed from 0 to 4",
+                keys("amount", &[(0, &[0.0]), (4, &[4.0])]),
+            ),
         ],
     );
 

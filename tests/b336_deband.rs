@@ -48,7 +48,12 @@ fn debanding(view: &str, blur_amount: f64, diffusion_amount: f64) -> Effect {
 }
 
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-0-0"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-0-0"),
+        effect,
+    }
 }
 
 fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
@@ -57,36 +62,67 @@ fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-0-0"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// Why the `holder` layer's Deband is bypassed: a setting outside its range, the constant or a key.
 fn holder_fault(d: &Document) -> String {
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// Each command on the `holder` file is refused with a sentence and leaves it as it was; then
 /// each taken one is taken, and as many undos give back `file`'s frame 0 exactly.
-fn holder_commands(t: &mut Table, file: &str, refused: Vec<(&str, Command)>, taken: Vec<(&str, Command)>) {
+fn holder_commands(
+    t: &mut Table,
+    file: &str,
+    refused: Vec<(&str, Command)>,
+    taken: Vec<(&str, Command)>,
+) {
     let mut document = t.load(file).document;
     let held = format!("{:?}", document.project());
     for (what, command) in refused {
         let why = document.apply(command).err();
         let untouched = format!("{:?}", document.project()) == held;
-        t.row(&format!("{what} is refused with a sentence, and nothing changes"), &why.as_ref().map_or("taken".into(), |d| d.message.clone()), why.is_some() && untouched);
+        t.row(
+            &format!("{what} is refused with a sentence, and nothing changes"),
+            &why.as_ref().map_or("taken".into(), |d| d.message.clone()),
+            why.is_some() && untouched,
+        );
     }
     let n = taken.len();
     for (what, command) in taken {
         let ok = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if ok { "taken" } else { "refused" }, ok);
+        t.row(
+            &format!("{what} is taken"),
+            if ok { "taken" } else { "refused" },
+            ok,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// Deband's settings as it is added.
@@ -107,17 +143,31 @@ fn fx(id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are refused, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -143,9 +193,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)], pick: fn
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -192,7 +251,12 @@ fn sky(banded: bool) -> Vec<u8> {
             let band = (y * 15 / h) as f64;
             let g = gradient(y);
             let smooth = [g[0].round(), g[1].round(), g[2].round()];
-            let mut c = if banded { [70.0 + 3.0 * band, 90.0 + 3.0 * band, 150.0 + 2.0 * band] } else { smooth }.map(|v| v as u8);
+            let mut c = if banded {
+                [70.0 + 3.0 * band, 90.0 + 3.0 * band, 150.0 + 2.0 * band]
+            } else {
+                smooth
+            }
+            .map(|v| v as u8);
             let dx = x as f64 - 240.0;
             if y as f64 > 170.0 + dx * dx / 400.0 {
                 c = [30, 25, 40];
@@ -205,7 +269,10 @@ fn sky(banded: bool) -> Vec<u8> {
 
 /// `effects` on the banded sky at `frame`. Drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("sky.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(SKY.0);
@@ -217,8 +284,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -258,7 +337,13 @@ fn largest_step(a: &[u8]) -> f64 {
         }
         sum
     };
-    (1..h).map(|y| (0..3).map(|c| (row(y)[c] - row(y - 1)[c]).abs()).fold(0.0, f64::max)).fold(0.0, f64::max)
+    (1..h)
+        .map(|y| {
+            (0..3)
+                .map(|c| (row(y)[c] - row(y - 1)[c]).abs())
+                .fold(0.0, f64::max)
+        })
+        .fold(0.0, f64::max)
 }
 
 /// The average step across the hill's edge (a step of 40 levels or more between side-by-side or
@@ -271,7 +356,11 @@ fn edges(a: &[u8], banded: &[u8]) -> f64 {
             if j >= banded.len() / 4 || (j == i + 1 && (i + 1) % w == 0) {
                 continue;
             }
-            let step = |b: &[u8]| (0..3).map(|c| (b[4 * i + c] as f64 - b[4 * j + c] as f64).abs()).sum::<f64>();
+            let step = |b: &[u8]| {
+                (0..3)
+                    .map(|c| (b[4 * i + c] as f64 - b[4 * j + c] as f64).abs())
+                    .sum::<f64>()
+            };
             if step(banded) >= 40.0 {
                 sum += step(a);
                 n += 1.0;
@@ -283,7 +372,9 @@ fn edges(a: &[u8], banded: &[u8]) -> f64 {
 
 /// How many pixels have red at least 200 and green and blue at most 80: Selected Edge's red.
 fn reds(a: &[u8]) -> usize {
-    a.chunks_exact(4).filter(|p| p[0] >= 200 && p[1] <= 80 && p[2] <= 80).count()
+    a.chunks_exact(4)
+        .filter(|p| p[0] >= 200 && p[1] <= 80 && p[2] <= 80)
+        .count()
 }
 
 fn is_deband(e: &Effect) -> bool {
@@ -329,11 +420,19 @@ fn b336_deband() {
         ("fx_deband_024.json", "40"),
     ] {
         let why = holder_fault(&t.load(file).document);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want) && why.starts_with("Deband"));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want) && why.starts_with("Deband"),
+        );
     }
     let mut no_view: J = serde_json::from_str(STARTING).unwrap();
     no_view.as_object_mut().unwrap().remove("view");
-    t.shape_refused("fx_deband_001.json", "a Deband with no `view`", &no_view.to_string());
+    t.shape_refused(
+        "fx_deband_001.json",
+        "a Deband with no `view`",
+        &no_view.to_string(),
+    );
 
     t.heading("Commands");
     holder_commands(
@@ -342,11 +441,20 @@ fn b336_deband() {
         vec![
             ("view \"edges\"", set_holder(debanding("edges", 8.0, 1.0))),
             ("blur amount -1", set_holder(debanding("normal", -1.0, 1.0))),
-            ("noise amount keyed to 40", keys_holder("noise_amount", &[(0, &[1.0]), (4, &[40.0])])),
+            (
+                "noise amount keyed to 40",
+                keys_holder("noise_amount", &[(0, &[1.0]), (4, &[40.0])]),
+            ),
         ],
         vec![
-            ("view Edge Only, blur 12, diffusion 2", set_holder(debanding("edge_only", 12.0, 2.0))),
-            ("blur amount keyed from 0 to 16", keys_holder("blur_amount", &[(0, &[0.0]), (4, &[16.0])])),
+            (
+                "view Edge Only, blur 12, diffusion 2",
+                set_holder(debanding("edge_only", 12.0, 2.0)),
+            ),
+            (
+                "blur amount keyed from 0 to 16",
+                keys_holder("blur_amount", &[(0, &[0.0]), (4, &[16.0])]),
+            ),
         ],
     );
 
@@ -377,7 +485,10 @@ fn b336_deband() {
                 "blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge",
                 json!({"blur_amount": 30, "diffusion_amount": 4, "noise_amount": 4, "noise_reseed_interval": 3, "view": "selected_edge"}),
             ),
-            ("threshold keyed 2 to 20, Edge Blur Reduction 50", json!({"edge_threshold": keyed(&[(0, json!(2)), (239, json!(20))]), "edge_blur_reduction": 50})),
+            (
+                "threshold keyed 2 to 20, Edge Blur Reduction 50",
+                json!({"edge_threshold": keyed(&[(0, json!(2)), (239, json!(20))]), "edge_blur_reduction": 50}),
+            ),
         ],
         is_deband,
     );
@@ -385,20 +496,38 @@ fn b336_deband() {
     t.heading("Pictures: a banded dusk sky, in `verification/D-456 pictures/`");
     let dir = repo("verification/D-456 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), SKY.0, SKY.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            SKY.0,
+            SKY.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     let smooth = sky(false);
     write("sky.png", &sky(true));
     write("0_smooth.png", &smooth);
     let deband = |p: J| json!([fx("fx-0-0", &p)]);
     let (banded, said) = picture(&dir, json!([]), 0);
     write("1_banded.png", &banded);
-    let (e_banded, edge_banded, s_banded) = (error(&banded, &banded), edges(&banded, &banded), largest_step(&banded));
+    let (e_banded, edge_banded, s_banded) = (
+        error(&banded, &banded),
+        edges(&banded, &banded),
+        largest_step(&banded),
+    );
     t.row(
         "1_banded.png, the sky as drawn: bands 18 rows tall, each a step of 3 levels; draws cleanly",
         &format!("{said:?}, each row on average {e_banded:.2} levels from the smooth gradient (0_smooth.png); largest step between rows {s_banded:.2} levels"),
         said.is_empty() && e_banded > 0.5 && (s_banded - 3.0).abs() < 1e-9,
     );
-    let (off, said) = picture(&dir, deband(json!({"blur_amount": 0, "diffusion_amount": 0, "noise_amount": 0})), 0);
+    let (off, said) = picture(
+        &dir,
+        deband(json!({"blur_amount": 0, "diffusion_amount": 0, "noise_amount": 0})),
+        0,
+    );
     t.row(
         "blur, diffusion and noise 0: the sky untouched; draws cleanly",
         &format!("{said:?}, {} pixels changed", distance(&off, &banded).1),
@@ -406,7 +535,11 @@ fn b336_deband() {
     );
     let (added, said) = picture(&dir, deband(json!({})), 0);
     write("2_as_added.png", &added);
-    let (e_added, edge_added, s_added) = (error(&added, &banded), edges(&added, &banded), largest_step(&added));
+    let (e_added, edge_added, s_added) = (
+        error(&added, &banded),
+        edges(&added, &banded),
+        largest_step(&added),
+    );
     t.row(
         "2_as_added.png, Deband as added: closer to the smooth gradient than 1, smaller steps between rows, and the hill's edge keeps at least nine tenths of its step; draws cleanly",
         &format!("{said:?}, each row on average {e_added:.2} levels from the smooth gradient; largest step between rows {s_added:.2} levels; edge {edge_added:.1} against {edge_banded:.1} as drawn"),
@@ -418,7 +551,11 @@ fn b336_deband() {
         &format!("{} pixels differ", distance(&next, &added).1),
         distance(&next, &added).1 > 0,
     );
-    let (strong, said) = picture(&dir, deband(json!({"blur_amount": 40, "diffusion_amount": 3, "noise_amount": 2})), 0);
+    let (strong, said) = picture(
+        &dir,
+        deband(json!({"blur_amount": 40, "diffusion_amount": 3, "noise_amount": 2})),
+        0,
+    );
     write("3_strong.png", &strong);
     let (s_strong, edge_strong) = (largest_step(&strong), edges(&strong, &banded));
     t.row(
@@ -428,8 +565,14 @@ fn b336_deband() {
     );
     let (edge_only, said) = picture(&dir, deband(json!({"view": "edge_only"})), 0);
     write("4_edge_only.png", &edge_only);
-    let white = edge_only.chunks_exact(4).filter(|p| p[0] == 255 && p[1] == 255 && p[2] == 255).count();
-    let black = edge_only.chunks_exact(4).filter(|p| p[0] == 0 && p[1] == 0 && p[2] == 0).count();
+    let white = edge_only
+        .chunks_exact(4)
+        .filter(|p| p[0] == 255 && p[1] == 255 && p[2] == 255)
+        .count();
+    let black = edge_only
+        .chunks_exact(4)
+        .filter(|p| p[0] == 0 && p[1] == 0 && p[2] == 0)
+        .count();
     t.row(
         "4_edge_only.png, View Edge Only: the hill's outline white, the sky's 3-level bands black (not edges); draws cleanly",
         &format!("{said:?}, {white} white pixels, {black} black of {}", SKY.0 * SKY.1),
@@ -472,17 +615,38 @@ fn b336_deband_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("The shot alone", None),
         ("Deband as added", Some(json!({}))),
-        ("Deband blur 30, diffusion 4, noise 4", Some(json!({"blur_amount": 30, "diffusion_amount": 4, "noise_amount": 4}))),
+        (
+            "Deband blur 30, diffusion 4, noise 4",
+            Some(json!({"blur_amount": 30, "diffusion_amount": 4, "noise_amount": 4})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| match &e {
             Some(p) => json!([fx(&format!("{id}d"), p)]),
             None => json!([]),
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B336_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-336_timing_raw.md"));
+    let out = std::env::var("B336_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-336_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

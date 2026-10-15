@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -52,7 +53,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=30 {
         let file = format!("fx_strobe_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -60,7 +65,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::StrobeLight { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::StrobeLight { .. })
+                });
             }
         }
         t.row(
@@ -78,9 +85,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -94,7 +110,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::StrobeLight { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::StrobeLight { .. })
+                });
                 t.row(
                     &format!("the reference shot, Strobe Light {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -107,8 +125,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels) in the middle of a composition `room`
 /// pixels, drawn on the processor at `frame`, straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), room: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    room: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(room.0);
@@ -119,8 +147,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), room: (usize, usize), 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -151,7 +191,10 @@ fn b346_strobe_light() {
     t.row(
         "fx_strobe_013.json is saved with its eight settings, and not the time",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 8 && saved["strobe_color"] == "#ff0000" && saved["blend_with_original"] == 50.0 && saved["strobe_operator"] == "copy",
+        saved.as_object().unwrap().len() == 8
+            && saved["strobe_color"] == "#ff0000"
+            && saved["blend_with_original"] == 50.0
+            && saved["strobe_operator"] == "copy",
     );
     for (file, want) in [
         ("fx_strobe_025.json", "blend with original"),
@@ -161,19 +204,58 @@ fn b346_strobe_light() {
         ("fx_strobe_029.json", "strobe colour"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Strobe Light and its {want}"), &why, why.contains("Strobe Light") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Strobe Light and its {want}"),
+            &why,
+            why.contains("Strobe Light") && why.contains(want),
+        );
     }
     let full = r##"{"strobe_color": "#ffffff", "blend_with_original": 0, "strobe_duration": 0.1, "strobe_period": 1, "random_strobe_probability": 0, "strobe": "color_only", "strobe_operator": "copy", "random_seed": 0}"##;
-    t.shape_refused("fx_strobe_001.json", "a Strobe Light whose duration is a word", &full.replace("\"strobe_duration\": 0.1", "\"strobe_duration\": \"short\""));
-    t.shape_refused("fx_strobe_001.json", "a Strobe Light without its random seed", &full.replace(", \"random_seed\": 0", ""));
-    t.shape_refused("fx_strobe_001.json", "a Strobe Light whose colour is a number", &full.replace("\"#ffffff\"", "3"));
+    t.shape_refused(
+        "fx_strobe_001.json",
+        "a Strobe Light whose duration is a word",
+        &full.replace("\"strobe_duration\": 0.1", "\"strobe_duration\": \"short\""),
+    );
+    t.shape_refused(
+        "fx_strobe_001.json",
+        "a Strobe Light without its random seed",
+        &full.replace(", \"random_seed\": 0", ""),
+    );
+    t.shape_refused(
+        "fx_strobe_001.json",
+        "a Strobe Light whose colour is a number",
+        &full.replace("\"#ffffff\"", "3"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_strobe_001.json").document;
-    let over = changed(&t, "fx_strobe_001.json", |e| if let Effect::StrobeLight { blend_with_original, .. } = e { *blend_with_original = 101.0 });
-    let op = changed(&t, "fx_strobe_001.json", |e| if let Effect::StrobeLight { strobe_operator, .. } = e { *strobe_operator = "screen".into() });
-    let mode = changed(&t, "fx_strobe_001.json", |e| if let Effect::StrobeLight { strobe, .. } = e { *strobe = "flash".into() });
-    let colour = changed(&t, "fx_strobe_001.json", |e| if let Effect::StrobeLight { strobe_color, .. } = e { *strobe_color = "white".into() });
+    let over = changed(&t, "fx_strobe_001.json", |e| {
+        if let Effect::StrobeLight {
+            blend_with_original,
+            ..
+        } = e
+        {
+            *blend_with_original = 101.0
+        }
+    });
+    let op = changed(&t, "fx_strobe_001.json", |e| {
+        if let Effect::StrobeLight {
+            strobe_operator, ..
+        } = e
+        {
+            *strobe_operator = "screen".into()
+        }
+    });
+    let mode = changed(&t, "fx_strobe_001.json", |e| {
+        if let Effect::StrobeLight { strobe, .. } = e {
+            *strobe = "flash".into()
+        }
+    });
+    let colour = changed(&t, "fx_strobe_001.json", |e| {
+        if let Effect::StrobeLight { strobe_color, .. } = e {
+            *strobe_color = "white".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
@@ -181,11 +263,23 @@ fn b346_strobe_light() {
             ("strobe operator screen", set(op)),
             ("strobe flash", set(mode)),
             ("strobe colour white", set(colour)),
-            ("random strobe probability keyed to 150", keys("random_strobe_probability", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "random strobe probability keyed to 150",
+                keys("random_strobe_probability", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let moved = changed(&t, "fx_strobe_001.json", |e| {
-        if let Effect::StrobeLight { strobe_color, blend_with_original, strobe_period, strobe, strobe_operator, random_seed, .. } = e {
+        if let Effect::StrobeLight {
+            strobe_color,
+            blend_with_original,
+            strobe_period,
+            strobe,
+            strobe_operator,
+            random_seed,
+            ..
+        } = e
+        {
             *strobe_color = "#00ff80".into();
             *blend_with_original = 12.5;
             *strobe_period = 0.5;
@@ -198,8 +292,14 @@ fn b346_strobe_light() {
         &mut document,
         "fx_strobe_001.json",
         vec![
-            ("green, blend 12.5, every half second, Makes Layer Transparent, Xor, seed 42", set(moved)),
-            ("blend with original keyed from 0 to 100", keys("blend_with_original", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "green, blend 12.5, every half second, Makes Layer Transparent, Xor, seed 42",
+                set(moved),
+            ),
+            (
+                "blend with original keyed from 0 to 100",
+                keys("blend_with_original", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -222,10 +322,26 @@ fn b346_strobe_light() {
         &mut t,
         &mut gpu,
         &[
-            ("Copy in purple, always on", json!({"strobe_color": "#8040c0", "strobe_period": 0.01}), 3),
-            ("Difference in orange, Blend With Original 30, always on", json!({"strobe_color": "#ff8800", "strobe_operator": "difference", "blend_with_original": 30, "strobe_period": 0.01}), 3),
-            ("Xor in teal, always on", json!({"strobe_color": "#33cc99", "strobe_operator": "xor", "strobe_period": 0.01}), 3),
-            ("Makes Layer Transparent, Blend With Original 40, always on", json!({"strobe": "transparent", "blend_with_original": 40, "strobe_period": 0.01}), 3),
+            (
+                "Copy in purple, always on",
+                json!({"strobe_color": "#8040c0", "strobe_period": 0.01}),
+                3,
+            ),
+            (
+                "Difference in orange, Blend With Original 30, always on",
+                json!({"strobe_color": "#ff8800", "strobe_operator": "difference", "blend_with_original": 30, "strobe_period": 0.01}),
+                3,
+            ),
+            (
+                "Xor in teal, always on",
+                json!({"strobe_color": "#33cc99", "strobe_operator": "xor", "strobe_period": 0.01}),
+                3,
+            ),
+            (
+                "Makes Layer Transparent, Blend With Original 40, always on",
+                json!({"strobe": "transparent", "blend_with_original": 40, "strobe_period": 0.01}),
+                3,
+            ),
         ],
     );
 
@@ -234,13 +350,30 @@ fn b346_strobe_light() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
     let all = w * h;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     write("town.png", &town());
-    let street = |p: J, frame: i32| picture(&dir, "town.png", TOWN, TOWN, json!([fx("fx-0-0", &p)]), frame);
+    let street = |p: J, frame: i32| {
+        picture(
+            &dir,
+            "town.png",
+            TOWN,
+            TOWN,
+            json!([fx("fx-0-0", &p)]),
+            frame,
+        )
+    };
     let (before, said) = picture(&dir, "town.png", TOWN, TOWN, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street filling the frame; draws cleanly", &format!("{said:?}, covered {} of {all}", covered(&before)), said.is_empty() && covered(&before) == all);
-    let every = |p: &[u8], f: &dyn Fn(&[u8], &[u8]) -> bool| (0..all).all(|i| f(&p[4 * i..4 * i + 4], &before[4 * i..4 * i + 4]));
+    t.row(
+        "1_before.png, the street filling the frame; draws cleanly",
+        &format!("{said:?}, covered {} of {all}", covered(&before)),
+        said.is_empty() && covered(&before) == all,
+    );
+    let every = |p: &[u8], f: &dyn Fn(&[u8], &[u8]) -> bool| {
+        (0..all).all(|i| f(&p[4 * i..4 * i + 4], &before[4 * i..4 * i + 4]))
+    };
 
     let (flash, said) = street(json!({}), 0);
     write("2_as_added_frame_0.png", &flash);
@@ -258,27 +391,42 @@ fn b346_strobe_light() {
         said.is_empty() && gap == before,
     );
 
-    let (diff, said) = street(json!({"strobe_color": "#8040c0", "strobe_operator": "difference"}), 0);
+    let (diff, said) = street(
+        json!({"strobe_color": "#8040c0", "strobe_operator": "difference"}),
+        0,
+    );
     write("4_difference_purple.png", &diff);
-    let same = (0..all).filter(|&i| diff[4 * i..4 * i + 3] == before[4 * i..4 * i + 3]).count();
+    let same = (0..all)
+        .filter(|&i| diff[4 * i..4 * i + 3] == before[4 * i..4 * i + 3])
+        .count();
     t.row(
         "4_difference_purple.png, Difference with purple: the street's colours turned over against purple, nearly every pixel changed, still opaque; draws cleanly",
         &format!("{said:?}, unchanged {same} of {all}, opaque {}", covered(&diff) == all && every(&diff, &|p, _| p[3] == 255)),
         said.is_empty() && same < all / 100 && every(&diff, &|p, _| p[3] == 255),
     );
 
-    let (red, said) = street(json!({"strobe_color": "#ff0000", "blend_with_original": 50}), 0);
+    let (red, said) = street(
+        json!({"strobe_color": "#ff0000", "blend_with_original": 50}),
+        0,
+    );
     write("5_red_blend_50.png", &red);
-    let toward = every(&red, &|p, q| p[0] >= q[0] && p[1] <= q[1] && p[2] <= q[2] && p[3] == 255);
+    let toward = every(&red, &|p, q| {
+        p[0] >= q[0] && p[1] <= q[1] && p[2] <= q[2] && p[3] == 255
+    });
     t.row(
         "5_red_blend_50.png, Copy in red with Blend With Original 50: halfway to red, so every pixel at least as red and no more green or blue than the street; draws cleanly",
         &format!("{said:?}, toward red everywhere {toward}, not the street {}", red != before),
         said.is_empty() && toward && red != before,
     );
 
-    let (faded, said) = street(json!({"strobe": "transparent", "blend_with_original": 25}), 0);
+    let (faded, said) = street(
+        json!({"strobe": "transparent", "blend_with_original": 25}),
+        0,
+    );
     write("6_transparent_blend_25.png", &faded);
-    let quarter = every(&faded, &|p, q| (63..=65).contains(&p[3]) && (0..3).all(|c| p[c].abs_diff(q[c]) <= 1));
+    let quarter = every(&faded, &|p, q| {
+        (63..=65).contains(&p[3]) && (0..3).all(|c| p[c].abs_diff(q[c]) <= 1)
+    });
     t.row(
         "6_transparent_blend_25.png, Makes Layer Transparent with Blend With Original 25: the street at a quarter strength (alpha 64 of 255), its colours kept; draws cleanly",
         &format!("{said:?}, a quarter everywhere {quarter}"),
@@ -325,22 +473,50 @@ fn b346_strobe_light_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Strobe Light always on (Copy, Strobe Period 0.01)", Some(json!({"strobe_period": 0.01}))),
-        ("the same, Xor with Blend With Original 30", Some(json!({"strobe_period": 0.01, "strobe_operator": "xor", "blend_with_original": 30}))),
+        (
+            "Noise, then Strobe Light always on (Copy, Strobe Period 0.01)",
+            Some(json!({"strobe_period": 0.01})),
+        ),
+        (
+            "the same, Xor with Blend With Original 30",
+            Some(
+                json!({"strobe_period": 0.01, "strobe_operator": "xor", "blend_with_original": 30}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B346_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-346_timing_raw.md"));
+    let out = std::env::var("B346_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-346_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

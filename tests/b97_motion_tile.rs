@@ -90,19 +90,34 @@ fn b97_motion_tile() {
             ("output width 99", set(motion_tile(99.0, 100.0, "off"))),
             ("output width 1001", set(motion_tile(1001.0, 100.0, "off"))),
             ("output height 99.5", set(motion_tile(100.0, 99.5, "off"))),
-            ("output height 1000.5", set(motion_tile(100.0, 1000.5, "off"))),
+            (
+                "output height 1000.5",
+                set(motion_tile(100.0, 1000.5, "off")),
+            ),
             ("mirror \"yes\"", set(motion_tile(100.0, 100.0, "yes"))),
             ("mirror \"On\"", set(motion_tile(100.0, 100.0, "On"))),
-            ("output width keyed to 1200", keys("output_width", &[(0, &[200.0]), (4, &[1200.0])])),
+            (
+                "output width keyed to 1200",
+                keys("output_width", &[(0, &[200.0]), (4, &[1200.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_tile_001.json",
         vec![
-            ("every number at its bottom,", set(motion_tile(100.0, 100.0, "on"))),
-            ("every number at its top,", set(motion_tile(1000.0, 1000.0, "off"))),
-            ("output width keyed from 100 to 300", keys("output_width", &[(0, &[100.0]), (4, &[300.0])])),
+            (
+                "every number at its bottom,",
+                set(motion_tile(100.0, 100.0, "on")),
+            ),
+            (
+                "every number at its top,",
+                set(motion_tile(1000.0, 1000.0, "off")),
+            ),
+            (
+                "output width keyed from 100 to 300",
+                keys("output_width", &[(0, &[100.0]), (4, &[300.0])]),
+            ),
         ],
     );
 

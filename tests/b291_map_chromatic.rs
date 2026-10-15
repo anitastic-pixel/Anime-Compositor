@@ -34,11 +34,31 @@ fn is_dmap(c: &render::OnCard) -> bool {
 }
 
 /// The Displacement Maps the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_dmap(c.unmixed())).count()
-        + plan.layers
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
+    plan.layers
+        .iter()
+        .flat_map(|l| &l.on_card)
+        .filter(|c| is_dmap(c.unmixed()))
+        .count()
+        + plan
+            .layers
             .iter()
             .filter_map(|l| l.adjust.as_ref())
             .filter_map(|stack| compose::adjust_run(stack, (plan.width, plan.height)))
@@ -62,7 +82,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=19 {
         let file = format!("fx_mapchroma_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -88,19 +112,30 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project, frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, frame, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            frame,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     for (what, p) in settings {
         let project = reference(|id| json!([fx(&format!("b291-{id}"), p)]));
-        let alike = reference(|id| json!([fx(&format!("b291-{id}"), &{
-            let mut q = p.clone();
-            for k in ["red_amount", "green_amount", "blue_amount"] {
-                q[k] = J::from(100);
-            }
-            q
-        })]));
+        let alike = reference(|id| {
+            json!([fx(&format!("b291-{id}"), &{
+                let mut q = p.clone();
+                for k in ["red_amount", "green_amount", "blue_amount"] {
+                    q[k] = J::from(100);
+                }
+                q
+            })])
+        });
         let parted = distance(&cpu(&project, 102), &cpu(&alike, 102)).1;
         t.row(
             &format!("the reference shot, Displacement Map {what}: the processor's frame 102 differs from the same displacement with every colour at 100, so the comparisons below test the colours parting"),
@@ -149,7 +184,12 @@ fn ball() -> Vec<u8> {
         for x in 0..w {
             let (px, py) = (x as f64 + 0.5, y as f64 + 0.5);
             let inside = (px - cx).hypot(py - cy) <= r;
-            bytes.extend([byte(0.5 - 0.5 * (px - cx) / r), byte(0.5 - 0.5 * (py - cy) / r), 128, if inside { 255 } else { 0 }]);
+            bytes.extend([
+                byte(0.5 - 0.5 * (px - cx) / r),
+                byte(0.5 - 0.5 * (py - cy) / r),
+                128,
+                if inside { 255 } else { 0 },
+            ]);
         }
     }
     bytes
@@ -158,7 +198,10 @@ fn ball() -> Vec<u8> {
 /// The street as the holder and `map` as the switched-off `ramp` layer, with `effects` on the
 /// street, drawn at frame 0, as B-128 draws it.
 fn picture(dir: &Path, map: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/displacement_map/fx_dmap_002.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/displacement_map/fx_dmap_002.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     project["assets"][1]["path"] = J::from(map);
     let comp = &mut project["compositions"][0];
@@ -171,27 +214,59 @@ fn picture(dir: &Path, map: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
 /// The `holder` layer's Displacement Map in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
 
 fn amounts(e: &mut Effect, r: f64, g: f64, b: f64, n: f64) {
-    if let Effect::DisplacementMap { red_amount, green_amount, blue_amount, spectrum, .. } = e {
+    if let Effect::DisplacementMap {
+        red_amount,
+        green_amount,
+        blue_amount,
+        spectrum,
+        ..
+    } = e
+    {
         (*red_amount, *green_amount, *blue_amount, *spectrum) = (r, g, b, n);
     }
 }
 
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
@@ -200,7 +275,14 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -208,7 +290,17 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
 fn draw(json: &J, root: &Path, frame: i32) -> Vec<f32> {
     let loaded = persist::load_str(&json.to_string()).expect("the file reads");
     let mut log = FrameLog::new(3);
-    render_frame(loaded.document.project(), &Id::new(MAIN), frame, root, 64, &mut log).expect("the frame draws").data().to_vec()
+    render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        root,
+        64,
+        &mut log,
+    )
+    .expect("the frame draws")
+    .data()
+    .to_vec()
 }
 
 #[test]
@@ -235,7 +327,9 @@ fn b291_map_chromatic() {
     for n in 1..=31 {
         let file = format!("fx_dmap_{n:03}.json");
         let text = fs::read_to_string(root.join(&file)).unwrap();
-        let Ok(loaded) = persist::load_str(&text) else { continue };
+        let Ok(loaded) = persist::load_str(&text) else {
+            continue;
+        };
         let old: J = serde_json::from_str(&text).unwrap();
         let kept = same_json(&saved(&loaded), &old);
         // Its twin with the amounts 100 and the spectrum 3 written draws the same frames.
@@ -244,14 +338,22 @@ fn b291_map_chromatic() {
         for layer in twin["compositions"][0]["layers"].as_array_mut().unwrap() {
             for e in layer["effects"].as_array_mut().into_iter().flatten() {
                 if e["type_id"] == "core.displacement_map" {
-                    for (k, v) in [("red_amount", 100), ("green_amount", 100), ("blue_amount", 100), ("spectrum", 3)] {
+                    for (k, v) in [
+                        ("red_amount", 100),
+                        ("green_amount", 100),
+                        ("blue_amount", 100),
+                        ("spectrum", 3),
+                    ] {
                         e["parameters"][k] = J::from(v);
                     }
                     found += 1;
                 }
             }
         }
-        let same = found > 0 && [0, 4].iter().all(|&f| draw(&old, &root, f) == draw(&twin, &root, f));
+        let same = found > 0
+            && [0, 4]
+                .iter()
+                .all(|&f| draw(&old, &root, f) == draw(&twin, &root, f));
         t.row(
             &format!("displacement_map/{file} is saved as it was written, and draws frames 0 and 4 bit for bit as its twin with Red, Green and Blue Amount 100 and Spectrum 3"),
             &format!("saved {}; {}", if kept { "the same" } else { "differently" }, if same { "bit-identical" } else { "differ" }),
@@ -260,13 +362,18 @@ fn b291_map_chromatic() {
     }
 
     t.heading("The file");
-    let files: Vec<String> = (1..=19).map(|n| format!("fx_mapchroma_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=19)
+        .map(|n| format!("fx_mapchroma_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let p = t.saved_parameters("fx_mapchroma_003.json");
     t.row(
         "fx_mapchroma_003.json is saved with Red 0, Green 100, Blue 200 and Spectrum 9",
         &p.to_string(),
-        p["red_amount"] == 0.0 && p["green_amount"] == 100.0 && p["blue_amount"] == 200.0 && p["spectrum"] == 9.0,
+        p["red_amount"] == 0.0
+            && p["green_amount"] == 100.0
+            && p["blue_amount"] == 200.0
+            && p["spectrum"] == 9.0,
     );
     for (file, what, want) in [
         ("fx_mapchroma_015.json", "Red Amount 1001", "red amount"),
@@ -276,7 +383,11 @@ fn b291_map_chromatic() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace(' ', "_"));
-        t.row(&format!("{file} ({what}) is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} ({what}) is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
     t.shape_refused(
         "fx_mapchroma_002.json",
@@ -293,14 +404,23 @@ fn b291_map_chromatic() {
     let grown = |r: f64, g: f64, b: f64| {
         changed(&t, "fx_mapchroma_002.json", |e| {
             amounts(e, r, g, b, 3.0);
-            if let Effect::DisplacementMap { expand, max_horizontal, .. } = e {
+            if let Effect::DisplacementMap {
+                expand,
+                max_horizontal,
+                ..
+            } = e
+            {
                 *expand = "on".into();
                 *max_horizontal = 2.5;
             }
         })
         .bounds_expansion()
     };
-    let (a, b, c) = (grown(100.0, 100.0, 100.0), grown(0.0, 100.0, 200.0), grown(-300.0, 50.0, 20.0));
+    let (a, b, c) = (
+        grown(100.0, 100.0, 100.0),
+        grown(0.0, 100.0, 200.0),
+        grown(-300.0, 50.0, 20.0),
+    );
     t.row(
         "with Expand Output and a maximum of 2.5, the drawing grows by 3 with every colour at 100, by 5 with Blue at 200, by 8 with Red at -300",
         &format!("{a}, {b}, {c}"),
@@ -309,36 +429,76 @@ fn b291_map_chromatic() {
 
     t.heading("Commands");
     let mut document = t.load("fx_mapchroma_002.json").document;
-    let held = format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap());
+    let held = format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    );
     for (what, command) in [
-        ("Red Amount 1001", set(changed(&t, "fx_mapchroma_002.json", |e| amounts(e, 1001.0, 100.0, 100.0, 3.0)))),
-        ("Spectrum 2", set(changed(&t, "fx_mapchroma_002.json", |e| amounts(e, 0.0, 100.0, 200.0, 2.0)))),
-        ("Green Amount keyed to 2000", keys("green_amount", &[(0, 100.0), (4, 2000.0)])),
+        (
+            "Red Amount 1001",
+            set(changed(&t, "fx_mapchroma_002.json", |e| {
+                amounts(e, 1001.0, 100.0, 100.0, 3.0)
+            })),
+        ),
+        (
+            "Spectrum 2",
+            set(changed(&t, "fx_mapchroma_002.json", |e| {
+                amounts(e, 0.0, 100.0, 200.0, 2.0)
+            })),
+        ),
+        (
+            "Green Amount keyed to 2000",
+            keys("green_amount", &[(0, 100.0), (4, 2000.0)]),
+        ),
     ] {
         let refused = document.apply(command).err();
-        let untouched = format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap()) == held;
+        let untouched = format!(
+            "{:?}",
+            document.project().composition(&Id::new(MAIN)).unwrap()
+        ) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
     let taken = [
-        ("water: Red 50, Green 100, Blue 150, Spectrum 16", set(changed(&t, "fx_mapchroma_002.json", |e| amounts(e, 50.0, 100.0, 150.0, 16.0)))),
-        ("Blue Amount keyed from 100 to 300", keys("blue_amount", &[(0, 100.0), (4, 300.0)])),
-        ("Spectrum keyed from 3 to 32", keys("spectrum", &[(0, 3.0), (4, 32.0)])),
+        (
+            "water: Red 50, Green 100, Blue 150, Spectrum 16",
+            set(changed(&t, "fx_mapchroma_002.json", |e| {
+                amounts(e, 50.0, 100.0, 150.0, 16.0)
+            })),
+        ),
+        (
+            "Blue Amount keyed from 100 to 300",
+            keys("blue_amount", &[(0, 100.0), (4, 300.0)]),
+        ),
+        (
+            "Spectrum keyed from 3 to 32",
+            keys("spectrum", &[(0, 3.0), (4, 32.0)]),
+        ),
     ];
     let n = taken.len();
     for (what, command) in taken {
         let ok = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if ok { "taken" } else { "refused" }, ok);
+        t.row(
+            &format!("{what} is taken"),
+            if ok { "taken" } else { "refused" },
+            ok,
+        );
     }
     let before = t.render(&t.load("fx_mapchroma_002.json").document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[
@@ -367,7 +527,17 @@ fn b291_map_chromatic() {
     t.heading("Pictures: B-128's street and maps, in `verification/D-412 pictures/`");
     let dir = repo("verification/D-412 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     write("map_waves.png", &waves());
     write("map_ball.png", &ball());
@@ -388,10 +558,21 @@ fn b291_map_chromatic() {
         let (p, s) = picture(&dir, map, effects);
         write(name, &p);
         let differs = drawn.last().map(|q| distance(&p, q).1);
-        let ok = s.is_empty() && (name.starts_with('1') || name.starts_with('4') || differs.is_some_and(|d| d > 0));
+        let ok = s.is_empty()
+            && (name.starts_with('1') || name.starts_with('4') || differs.is_some_and(|d| d > 0));
         t.row(
-            &format!("{name}, {what}; draws cleanly{}", if differs.is_some() && !name.starts_with('4') { ", and differs from the picture before" } else { "" }),
-            &format!("{s:?}; {} pixels differ from the picture before", differs.unwrap_or(0)),
+            &format!(
+                "{name}, {what}; draws cleanly{}",
+                if differs.is_some() && !name.starts_with('4') {
+                    ", and differs from the picture before"
+                } else {
+                    ""
+                }
+            ),
+            &format!(
+                "{s:?}; {} pixels differ from the picture before",
+                differs.unwrap_or(0)
+            ),
             ok,
         );
         drawn.push(p);
@@ -423,23 +604,52 @@ fn b291_map_chromatic_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Displacement Map 12 pixels, every colour at 100", Some(json!({"red_amount": 100, "blue_amount": 100}))),
-        ("Noise, then Displacement Map 12 pixels, Red 50, Green 100, Blue 150, Spectrum 3", Some(json!({}))),
-        ("Noise, then Displacement Map 12 pixels, Red 50, Green 100, Blue 150, Spectrum 16", Some(json!({"spectrum": 16}))),
+        (
+            "Noise, then Displacement Map 12 pixels, every colour at 100",
+            Some(json!({"red_amount": 100, "blue_amount": 100})),
+        ),
+        (
+            "Noise, then Displacement Map 12 pixels, Red 50, Green 100, Blue 150, Spectrum 3",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Displacement Map 12 pixels, Red 50, Green 100, Blue 150, Spectrum 16",
+            Some(json!({"spectrum": 16})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}d"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B291_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-291_timing_raw.md"));
+    let out = std::env::var("B291_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-291_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

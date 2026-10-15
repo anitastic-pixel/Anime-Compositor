@@ -12,7 +12,13 @@ use effect_table::{keys, set, Table};
 
 use anime_compositor::effects::Effect;
 
-fn levels(input_black: f64, input_white: f64, gamma: f64, output_black: f64, output_white: f64) -> Effect {
+fn levels(
+    input_black: f64,
+    input_white: f64,
+    gamma: f64,
+    output_black: f64,
+    output_white: f64,
+) -> Effect {
     Effect::Levels {
         input_black,
         input_white,
@@ -80,7 +86,10 @@ fn b55_levels() {
     t.refused(
         &mut document,
         vec![
-            ("input black 256", set(levels(256.0, 255.0, 1.0, 0.0, 255.0))),
+            (
+                "input black 256",
+                set(levels(256.0, 255.0, 1.0, 0.0, 255.0)),
+            ),
             ("input white -1", set(levels(0.0, -1.0, 1.0, 0.0, 255.0))),
             ("gamma 0.05", set(levels(0.0, 255.0, 0.05, 0.0, 255.0))),
             ("gamma 11", set(levels(0.0, 255.0, 11.0, 0.0, 255.0))),

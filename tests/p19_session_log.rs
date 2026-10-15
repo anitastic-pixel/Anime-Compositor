@@ -35,7 +35,10 @@ const COMP: &str = "comp-reference-shot";
 fn reference() -> (Project, PathBuf) {
     let loaded = persist::load(&repo("verification/B-08a_project.json"))
         .unwrap_or_else(|d| panic!("the reference shot: {}", d.message));
-    (loaded.document.project().clone(), repo("Fixtures/reference_shot"))
+    (
+        loaded.document.project().clone(),
+        repo("Fixtures/reference_shot"),
+    )
 }
 
 /// One frame, as the window's `serve` makes it. Returns the SHA-256 of the pixels and the
@@ -73,10 +76,19 @@ fn draw(
         )
         .unwrap_or_else(|d| panic!("frame {frame}: {}", d.message));
         let after = (c.hits(), c.misses(), c.effect_hits());
-        (buffer, (after.0 - before.0, after.1 - before.1, after.2 - before.2))
+        (
+            buffer,
+            (after.0 - before.0, after.1 - before.1, after.2 - before.2),
+        )
     };
     let reading = ahead.map(|next| {
-        preview::read_ahead(project.clone(), comp.clone(), next, root.to_path_buf(), cache.clone())
+        preview::read_ahead(
+            project.clone(),
+            comp.clone(),
+            next,
+            root.to_path_buf(),
+            cache.clone(),
+        )
     });
     let pixels = buffer.to_srgb8_straight();
     let ms = began.elapsed().as_secs_f64() * 1000.0;
@@ -117,7 +129,9 @@ fn play(
     quality: PreviewQuality,
     log: &mut SessionLog,
 ) -> Vec<(i32, String)> {
-    let comp = project.composition(&Id::new(COMP)).expect("the reference composition");
+    let comp = project
+        .composition(&Id::new(COMP))
+        .expect("the reference composition");
     let (first, last) = comp.work_frames();
     let mut clock = Playback::new(first, last, comp.frame_rate);
     let cache = Arc::new(Mutex::new(CelCache::viewer()));
@@ -125,8 +139,16 @@ fn play(
         .map(|i| {
             let shown = clock.at(Duration::from_secs_f64(i as f64 / 24.0));
             let next = clock.after(shown.frame);
-            let (sha, _) =
-                draw(project, root, shown.frame, shown.skipped, Some(next), quality, &cache, log);
+            let (sha, _) = draw(
+                project,
+                root,
+                shown.frame,
+                shown.skipped,
+                Some(next),
+                quality,
+                &cache,
+                log,
+            );
             (shown.frame, sha)
         })
         .collect()
@@ -175,8 +197,15 @@ fn p19_session_log() {
     let mut log = SessionLog::default();
     assert!(!log.is_on(), "a new log must start switched off (ADR-012)");
     let off = play(&project, &root, played, PreviewQuality::Draft, &mut log);
-    assert_eq!(log.rows().len(), 0, "the log recorded rows while switched off");
-    assert!(!perf::is_enabled(), "the stopwatch was on with the log switched off");
+    assert_eq!(
+        log.rows().len(),
+        0,
+        "the log recorded rows while switched off"
+    );
+    assert!(
+        !perf::is_enabled(),
+        "the stopwatch was on with the log switched off"
+    );
     check(
         &mut s,
         "A new log is off. Playing the reference shot for 48 frames with it off records nothing, \
@@ -186,7 +215,10 @@ fn p19_session_log() {
 
     // 2. On: one row per frame drawn.
     log.switch(true);
-    assert!(perf::is_enabled(), "switching the log on did not start the stopwatch");
+    assert!(
+        perf::is_enabled(),
+        "switching the log on did not start the stopwatch"
+    );
     let on = play(&project, &root, played, PreviewQuality::Draft, &mut log);
     assert_eq!(log.rows().len(), played, "{played} frames drawn, rows kept");
     check(
@@ -205,7 +237,12 @@ fn p19_session_log() {
             r.ms
         );
     }
-    assert!(log.rows().iter().all(|r| r.stages.iter().any(|&(_, n)| n > 0)), "a row had no stage");
+    assert!(
+        log.rows()
+            .iter()
+            .all(|r| r.stages.iter().any(|&(_, n)| n > 0)),
+        "a row had no stage"
+    );
     check(
         &mut s,
         "In every row, the stages add up to no more than the frame's own time, while the next \
@@ -223,13 +260,30 @@ fn p19_session_log() {
 
     // 5. Draft and Full are told apart, and a stepped frame is not playing.
     let cache = Arc::new(Mutex::new(CelCache::viewer()));
-    draw(&project, &root, 12, 0, None, PreviewQuality::Full, &cache, &mut log);
+    draw(
+        &project,
+        &root,
+        12,
+        0,
+        None,
+        PreviewQuality::Full,
+        &cache,
+        &mut log,
+    );
     let last = log.rows().back().unwrap();
-    assert_eq!((last.quality, last.playing, last.read_ahead), (PreviewQuality::Full, false, false));
+    assert_eq!(
+        (last.quality, last.playing, last.read_ahead),
+        (PreviewQuality::Full, false, false)
+    );
     check(
         &mut s,
         "A frame stepped to at Full quality is logged as Full, not playing, not read ahead.",
-        format!("{}, playing {}, read ahead {}", last.quality.label(), last.playing, last.read_ahead),
+        format!(
+            "{}, playing {}, read ahead {}",
+            last.quality.label(),
+            last.playing,
+            last.read_ahead
+        ),
     );
 
     // 6. Switched off: the rows stay, nothing new is added, the stopwatch stops.
@@ -237,7 +291,10 @@ fn p19_session_log() {
     let kept = log.rows().len();
     play(&project, &root, 4, PreviewQuality::Draft, &mut log);
     assert_eq!(log.rows().len(), kept, "rows added after switching off");
-    assert!(!perf::is_enabled(), "the stopwatch kept running after switching off");
+    assert!(
+        !perf::is_enabled(),
+        "the stopwatch kept running after switching off"
+    );
     check(
         &mut s,
         "Switched off again, the 49 rows stay to be read or saved, 4 more frames add none, and \
@@ -254,10 +311,17 @@ fn p19_session_log() {
     ];
     let copy = log.to_markdown(&heading);
     for line in &heading {
-        assert!(copy.contains(&format!("- {line}\n")), "the saved copy lost '{line}'");
+        assert!(
+            copy.contains(&format!("- {line}\n")),
+            "the saved copy lost '{line}'"
+        );
     }
     let table: Vec<&str> = copy.lines().filter(|l| l.starts_with('|')).collect();
-    assert_eq!(table.len(), kept + 2, "a header, a rule and one line per row");
+    assert_eq!(
+        table.len(),
+        kept + 2,
+        "a header, a rule and one line per row"
+    );
     check(
         &mut s,
         "A saved copy is headed with the date, operating system, core count, version and build, \
@@ -279,11 +343,20 @@ fn p19_session_log() {
     let summary = log.summary();
     assert_eq!(log.rows().len(), KEEPS);
     assert_eq!(summary.let_go, 3);
-    assert_eq!(log.rows().front().unwrap().frame, 3, "the oldest three go first");
+    assert_eq!(
+        log.rows().front().unwrap().frame,
+        3,
+        "the oldest three go first"
+    );
     check(
         &mut s,
         "5,003 rows pushed keep the newest 5,000 and count the 3 let go.",
-        format!("{} kept, {} let go, oldest kept is row {}", log.rows().len(), summary.let_go, 3),
+        format!(
+            "{} kept, {} let go, oldest kept is row {}",
+            log.rows().len(),
+            summary.let_go,
+            3
+        ),
     );
 
     // 10. The summary's arithmetic, on rows whose times are 3 to 5002 ms.
@@ -339,8 +412,16 @@ fn p19_session_log_cost() {
                 for i in 0..frames {
                     let shown = clock.at(Duration::from_secs_f64(i as f64 / 24.0));
                     let next = clock.after(shown.frame);
-                    let (_, ms) =
-                        draw(&project, &root, shown.frame, 0, Some(next), quality, &cache, &mut log);
+                    let (_, ms) = draw(
+                        &project,
+                        &root,
+                        shown.frame,
+                        0,
+                        Some(next),
+                        quality,
+                        &cache,
+                        &mut log,
+                    );
                     times.push(ms);
                 }
                 log.switch(false);
@@ -374,6 +455,9 @@ fn p19_session_log_cost() {
         }
     }
     fs::write(repo("verification/P-19_session_log_cost_table.md"), s).expect("write the table");
-    fs::write(repo("verification/P-19_session_log_example.md"), example.unwrap())
-        .expect("write the example");
+    fs::write(
+        repo("verification/P-19_session_log_example.md"),
+        example.unwrap(),
+    )
+    .expect("write the example");
 }

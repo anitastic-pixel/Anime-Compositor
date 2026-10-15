@@ -16,25 +16,31 @@ use std::fs;
 use effect_table::{largest_difference, saved, set, Table, MAIN};
 use serde_json::Value as J;
 
+use anime_compositor::cache::CelCache;
 use anime_compositor::command::Command;
 use anime_compositor::compose::plan_frame;
+use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::model::{Asset, AssetKind, Id};
-use anime_compositor::cache::CelCache;
-use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{lut, package, persist, png_out, OutputDepth};
 
 fn lookup(lut: &str) -> Effect {
-    Effect::ColorLookup { lut: lut.to_string(), table: None }
+    Effect::ColorLookup {
+        lut: lut.to_string(),
+        table: None,
+    }
 }
 
 /// What planning `frame` of `document` says, by id.
 fn at_frame(t: &Table, document: &anime_compositor::command::Document, frame: i32) -> Vec<String> {
     let mut log = FrameLog::new(8);
     let _ = plan_frame(document.project(), &Id::new(MAIN), frame, &t.root, &mut log);
-    log.finish().iter().map(|d| d.id.as_str().to_string()).collect()
+    log.finish()
+        .iter()
+        .map(|d| d.id.as_str().to_string())
+        .collect()
 }
 
 /// Frame 100 of the reference shot at Draft, as 8-bit bytes, with what its log said.
@@ -52,19 +58,34 @@ fn shot(project: &J) -> (usize, usize, Vec<u8>, Vec<String>) {
         &mut CelCache::viewer(),
     )
     .expect("frame 100 draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
-    (frame.width(), frame.height(), frame.to_srgb8_straight(), said)
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
+    (
+        frame.width(),
+        frame.height(),
+        frame.to_srgb8_straight(),
+        said,
+    )
 }
 
 /// A package's manifest, the statuses of its files by path, and the asset with `id`.
 fn manifest(dest: &std::path::Path) -> (J, Vec<(String, String)>) {
-    let m: J = serde_json::from_str(&fs::read_to_string(dest.join(package::MANIFEST)).unwrap()).unwrap();
+    let m: J =
+        serde_json::from_str(&fs::read_to_string(dest.join(package::MANIFEST)).unwrap()).unwrap();
     let files = m["assets"]
         .as_array()
         .unwrap()
         .iter()
         .flat_map(|a| a["files"].as_array().unwrap().iter())
-        .map(|f| (f["path"].as_str().unwrap().to_string(), f["status"].as_str().unwrap().to_string()))
+        .map(|f| {
+            (
+                f["path"].as_str().unwrap().to_string(),
+                f["status"].as_str().unwrap().to_string(),
+            )
+        })
         .collect();
     (m, files)
 }
@@ -109,7 +130,10 @@ fn b118_color_lookup() {
         );
         let said = at_frame(&t, &loaded.document, frame);
         t.row(
-            &format!("frame {frame} says {}, once", u["at_each_frame"].as_str().unwrap()),
+            &format!(
+                "frame {frame} says {}, once",
+                u["at_each_frame"].as_str().unwrap()
+            ),
             &format!("{said:?}"),
             said == [u["at_each_frame"].as_str().unwrap()],
         );
@@ -117,9 +141,14 @@ fn b118_color_lookup() {
     let kept = saved(&loaded);
     t.row(
         "the asset and the setting are kept as written",
-        &format!("{} and {}", kept["assets"][1]["path"], kept["compositions"][0]["layers"][0]["effects"][0]["parameters"]["lut"]),
+        &format!(
+            "{} and {}",
+            kept["assets"][1]["path"],
+            kept["compositions"][0]["layers"][0]["effects"][0]["parameters"]["lut"]
+        ),
         kept["assets"][1]["path"] == "luts/refused/count.cube"
-            && kept["compositions"][0]["layers"][0]["effects"][0]["parameters"]["lut"] == "asset-lut",
+            && kept["compositions"][0]["layers"][0]["effects"][0]["parameters"]["lut"]
+                == "asset-lut",
     );
 
     t.heading("The reading rule: each refused file, and its reason word for word");
@@ -139,7 +168,11 @@ fn b118_color_lookup() {
     let second = lut::read(&changing);
     t.row(
         "a lookup file changed on disk is read afresh, not kept from before",
-        &format!("{:?}, then {:?}", first.as_ref().map(|_| "read"), second.as_ref().map(|_| "read")),
+        &format!(
+            "{:?}, then {:?}",
+            first.as_ref().map(|_| "read"),
+            second.as_ref().map(|_| "read")
+        ),
         first.is_ok() && second.is_err(),
     );
     let _ = fs::remove_file(&changing);
@@ -175,8 +208,14 @@ fn b118_color_lookup() {
     t.refused(
         &mut document,
         vec![
-            ("naming asset-nothing, which the project does not have,", set(lookup("asset-nothing"))),
-            ("naming asset-bands, a drawing and not a lookup file,", set(lookup("asset-bands"))),
+            (
+                "naming asset-nothing, which the project does not have,",
+                set(lookup("asset-nothing")),
+            ),
+            (
+                "naming asset-bands, a drawing and not a lookup file,",
+                set(lookup("asset-bands")),
+            ),
         ],
     );
     let comp = document.project().composition(&Id::new(MAIN)).unwrap();
@@ -185,11 +224,17 @@ fn b118_color_lookup() {
     layer.asset_id = Id::new("asset-lut");
     layer.effects.clear();
     let said = document
-        .apply(Command::AddLayer { composition: Id::new(MAIN), layer: Box::new(layer), index: 0 })
+        .apply(Command::AddLayer {
+            composition: Id::new(MAIN),
+            layer: Box::new(layer),
+            index: 0,
+        })
         .err();
     t.row(
         "a layer showing the lookup file as its drawing is refused with a sentence",
-        &said.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &said
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         said.is_some(),
     );
     t.taken(
@@ -203,7 +248,10 @@ fn b118_color_lookup() {
     let mut document = t.load("fx_lut_007.json").document;
     let untouched = t.render(&document, 0, 64);
     document.apply(set(lookup("asset-lut"))).unwrap();
-    let d = largest_difference(&t.render(&document, 0, 64), &cases["FX-LUT-002"]["frames"]["0"]);
+    let d = largest_difference(
+        &t.render(&document, 0, 64),
+        &cases["FX-LUT-002"]["frames"]["0"],
+    );
     t.row(
         "FX-LUT-007 with warm_17.cube chosen is FX-LUT-002's frame",
         &format!("largest difference {d:.1e}"),
@@ -212,16 +260,23 @@ fn b118_color_lookup() {
     document.undo();
     let mut cool = Asset::still(Id::new("asset-cool"), "cool_3", "luts/cool_3.cube");
     cool.kind = AssetKind::Lut;
-    let took = document.apply_all(vec![
-        Command::AddAsset { asset: cool },
-        set(lookup("asset-cool")),
-    ])
-    .is_ok();
-    let d = largest_difference(&t.render(&document, 0, 64), &cases["FX-LUT-003"]["frames"]["0"]);
+    let took = document
+        .apply_all(vec![
+            Command::AddAsset { asset: cool },
+            set(lookup("asset-cool")),
+        ])
+        .is_ok();
+    let d = largest_difference(
+        &t.render(&document, 0, 64),
+        &cases["FX-LUT-003"]["frames"]["0"],
+    );
     t.row(
         "choosing cool_3.cube, a file the project does not have yet, brings it in and uses it: \
          FX-LUT-003's frame",
-        &format!("{}, largest difference {d:.1e}", if took { "taken" } else { "refused" }),
+        &format!(
+            "{}, largest difference {d:.1e}",
+            if took { "taken" } else { "refused" }
+        ),
         took && d <= tolerance,
     );
     document.undo();
@@ -229,7 +284,11 @@ fn b118_color_lookup() {
         && document.project().assets.len() == 2;
     t.row(
         "one undo takes back both the new file and the setting",
-        if back { "the frame and the asset list as they were" } else { "differ" },
+        if back {
+            "the frame and the asset list as they were"
+        } else {
+            "differ"
+        },
         back,
     );
 
@@ -258,28 +317,49 @@ fn b118_color_lookup() {
         &format!("{got:?}"),
         done.is_ok() && got == want,
     );
-    let lut_asset = m["assets"].as_array().unwrap().iter().find(|a| a["id"] == "asset-lut");
+    let lut_asset = m["assets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["id"] == "asset-lut");
     t.row(
         "the manifest lists the lookup file as kind lut, used by the layer whose effect names it",
         &format!("{:?}", lut_asset.map(|a| (&a["kind"], &a["used_by"]))),
         lut_asset.is_some_and(|a| a["kind"] == c["kind"] && a["used_by"] == c["used_by"]),
     );
     let collected = persist::load(&dest.join("fx_lut_002.json"));
-    let names = collected.as_ref().ok().map(|l| saved(l)["assets"][1]["path"].clone());
+    let names = collected
+        .as_ref()
+        .ok()
+        .map(|l| saved(l)["assets"][1]["path"].clone());
     let same = collected.as_ref().is_ok_and(|l| {
         let mut log = FrameLog::new(8);
-        anime_compositor::compose::render_frame(l.document.project(), &Id::new(MAIN), 0, &dest, 64, &mut log)
-            .is_ok_and(|f| f.data() == t.render(&loaded.document, 0, 64).data())
+        anime_compositor::compose::render_frame(
+            l.document.project(),
+            &Id::new(MAIN),
+            0,
+            &dest,
+            64,
+            &mut log,
+        )
+        .is_ok_and(|f| f.data() == t.render(&loaded.document, 0, 64).data())
     });
     t.row(
         "the collected project names the copy, and draws the same frame from it",
-        &format!("{names:?}, {}", if same { "the same frame" } else { "differs" }),
+        &format!(
+            "{names:?}, {}",
+            if same { "the same frame" } else { "differs" }
+        ),
         names == Some(J::from("media/asset-lut/warm_17.cube")) && same,
     );
     let rows = package::check(&dest.join("fx_lut_002.json"));
     let answers: Vec<String> = rows
         .as_ref()
-        .map(|r| r.iter().map(|r| format!("{} {}", r.path, r.answer.as_str())).collect())
+        .map(|r| {
+            r.iter()
+                .map(|r| format!("{} {}", r.path, r.answer.as_str()))
+                .collect()
+        })
         .unwrap_or_default();
     t.row(
         "Check Package finds the lookup file and the drawing whole",
@@ -297,11 +377,18 @@ fn b118_color_lookup() {
     let (m, files) = manifest(&dest);
     let (path, status) = c["missing"].as_object().unwrap().iter().next().unwrap();
     t.row(
-        &format!("FX-LUT-009 collected: {path} is listed as {}, and the asset is kept", status.as_str().unwrap()),
+        &format!(
+            "FX-LUT-009 collected: {path} is listed as {}, and the asset is kept",
+            status.as_str().unwrap()
+        ),
         &format!("{files:?}"),
         done.is_ok()
             && files.contains(&(path.clone(), status.as_str().unwrap().to_string()))
-            && m["assets"].as_array().unwrap().iter().any(|a| a["id"] == "asset-lut"),
+            && m["assets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|a| a["id"] == "asset-lut"),
     );
     let _ = fs::remove_dir_all(&dest);
 
@@ -313,18 +400,38 @@ fn b118_color_lookup() {
     )
     .unwrap();
     let (w, h, before, said) = shot(&base);
-    png_out::write_rgba(&pictures.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the shot with no lookup, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &pictures.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the shot with no lookup, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for name in ["warm_17", "cool_3", "tint_1d"] {
         // On an adjustment layer above all four, as a grade is used; layer-4 made into one.
         let mut project = base.clone();
-        project["assets"].as_array_mut().unwrap().push(serde_json::json!({
-            "id": "asset-look", "kind": "lut", "name": name,
-            "path": format!("../cube_lut/luts/{name}.cube"),
-        }));
+        project["assets"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "id": "asset-look", "kind": "lut", "name": name,
+                "path": format!("../cube_lut/luts/{name}.cube"),
+            }));
         let comp = &mut project["compositions"][0];
-        let mut grade =
-            comp["layers"].as_array().unwrap().iter().find(|l| l["id"] == "layer-4").unwrap().clone();
+        let mut grade = comp["layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["id"] == "layer-4")
+            .unwrap()
+            .clone();
         let fields = grade.as_object_mut().unwrap();
         for k in ["asset_id", "exposure_spans", "source_offset_frames"] {
             fields.remove(k);
@@ -340,11 +447,25 @@ fn b118_color_lookup() {
             }]),
         );
         comp["layers"].as_array_mut().unwrap().push(grade);
-        comp["layer_order"].as_array_mut().unwrap().push(J::from("layer-grade"));
+        comp["layer_order"]
+            .as_array_mut()
+            .unwrap()
+            .push(J::from("layer-grade"));
         let (w, h, bytes, said) = shot(&project);
-        png_out::write_rgba(&pictures.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes)
-            .unwrap();
-        let changed = bytes.chunks(4).zip(before.chunks(4)).filter(|(a, b)| a != b).count();
+        png_out::write_rgba(
+            &pictures.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
+        let changed = bytes
+            .chunks(4)
+            .zip(before.chunks(4))
+            .filter(|(a, b)| a != b)
+            .count();
         t.row(
             &format!(
                 "{name}.png: {name}.cube on an adjustment layer above the shot draws cleanly and \
@@ -356,7 +477,11 @@ fn b118_color_lookup() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_lut_002.json", 0), ("fx_lut_004.json", 0), ("fx_lut_012.json", 0)]);
+    t.tiles(&[
+        ("fx_lut_002.json", 0),
+        ("fx_lut_004.json", 0),
+        ("fx_lut_012.json", 0),
+    ]);
 
     t.finish("B-118_color_lookup_table.md");
 }

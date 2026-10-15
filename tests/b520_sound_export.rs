@@ -17,7 +17,9 @@ use std::process::Command;
 use std::sync::atomic::AtomicBool;
 
 use anime_compositor::audio;
-use anime_compositor::export::{export_sequence, ExportChoices, ExportReport, ExportRequest, MissingSource, OutputFormat};
+use anime_compositor::export::{
+    export_sequence, ExportChoices, ExportReport, ExportRequest, MissingSource, OutputFormat,
+};
 use anime_compositor::exr_io::ExrSamples;
 use anime_compositor::model::Project;
 use anime_compositor::{persist, OutputAlpha, OutputDepth};
@@ -26,7 +28,15 @@ use serde_json::Value as J;
 
 const FULL: f64 = 8_388_607.0;
 
-fn export(project: &Project, root: &Path, into: &Path, naming: &str, format: OutputFormat, (a, b): (i32, i32), wav: bool) -> ExportReport {
+fn export(
+    project: &Project,
+    root: &Path,
+    into: &Path,
+    naming: &str,
+    format: OutputFormat,
+    (a, b): (i32, i32),
+    wav: bool,
+) -> ExportReport {
     let _ = std::fs::remove_dir_all(into);
     std::fs::create_dir_all(into).unwrap();
     let request = ExportRequest {
@@ -40,7 +50,10 @@ fn export(project: &Project, root: &Path, into: &Path, naming: &str, format: Out
         tile_size: anime_compositor::compose::DEFAULT_TILE_SIZE,
         missing: MissingSource::Block,
         format,
-        choices: ExportChoices { wav, ..Default::default() },
+        choices: ExportChoices {
+            wav,
+            ..Default::default()
+        },
     };
     export_sequence(project, root, &request, &AtomicBool::new(false))
 }
@@ -50,15 +63,29 @@ fn ffmpeg_left(file: &Path) -> Vec<f32> {
     let out = Command::new("ffmpeg")
         .args(["-v", "error", "-i"])
         .arg(file)
-        .args(["-map", "0:a:0", "-f", "f32le", "-ac", "2", "-ar", "48000", "-"])
+        .args([
+            "-map", "0:a:0", "-f", "f32le", "-ac", "2", "-ar", "48000", "-",
+        ])
         .output()
         .expect("ffmpeg 8.1 on the PATH");
-    out.stdout.chunks_exact(8).map(|c| f32::from_le_bytes(c[..4].try_into().unwrap())).collect()
+    out.stdout
+        .chunks_exact(8)
+        .map(|c| f32::from_le_bytes(c[..4].try_into().unwrap()))
+        .collect()
 }
 
 fn probe(file: &Path) -> String {
     let out = Command::new("ffprobe")
-        .args(["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_name,sample_rate,channels,bit_rate", "-of", "csv=p=0"])
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "a",
+            "-show_entries",
+            "stream=codec_name,sample_rate,channels,bit_rate",
+            "-of",
+            "csv=p=0",
+        ])
         .arg(file)
         .output()
         .expect("ffprobe");
@@ -78,7 +105,13 @@ fn ids(report: &ExportReport) -> Vec<&'static str> {
 
 fn tracks(file: &Path) -> (usize, usize) {
     let bytes = std::fs::read(file).unwrap();
-    let count = |kind: &[u8]| bytes.windows(4).enumerate().filter(|(i, w)| *w == b"hdlr" && bytes.get(i + 12..i + 16) == Some(kind)).count();
+    let count = |kind: &[u8]| {
+        bytes
+            .windows(4)
+            .enumerate()
+            .filter(|(i, w)| *w == b"hdlr" && bytes.get(i + 12..i + 16) == Some(kind))
+            .count()
+    };
     (count(b"vide"), count(b"soun"))
 }
 
@@ -96,7 +129,10 @@ fn b520_sound_export() {
          compared value for value (tolerance 2e-5 of full level). The **click table** is at the \
          bottom.\n",
     );
-    let expected: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("expected_sound_export.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &std::fs::read_to_string(t.root.join("expected_sound_export.json")).unwrap(),
+    )
+    .unwrap();
     let tol = expected["tolerance"].as_f64().unwrap();
     let tmp = std::env::temp_dir().join("anime_compositor_b520");
     let mut click_rows = String::new();
@@ -107,14 +143,42 @@ fn b520_sound_export() {
         t.heading(&format!("{name}: {}", case["what"].as_str().unwrap()));
         let loaded = t.load(file);
         let project = loaded.document.project();
-        let range = (case["first_frame"].as_i64().unwrap() as i32, case["last_frame"].as_i64().unwrap() as i32);
+        let range = (
+            case["first_frame"].as_i64().unwrap() as i32,
+            case["last_frame"].as_i64().unwrap() as i32,
+        );
         let into = tmp.join(name);
-        let report = export(project, &t.root, &into, "film.mp4", OutputFormat::Mp4, range, false);
+        let report = export(
+            project,
+            &t.root,
+            &into,
+            "film.mp4",
+            OutputFormat::Mp4,
+            range,
+            false,
+        );
         let film = into.join("film.mp4");
-        t.row("the MP4 is written", &format!("{:?}, {} file", report.status, report.written.len()), report.succeeded());
-        let warned: Vec<&str> = case["warnings"].as_array().unwrap().iter().map(|w| w.as_str().unwrap()).collect();
-        t.row("its warnings", &format!("{:?}", ids(&report)), ids(&report) == warned);
-        t.row("one picture track and one sound track", &format!("{:?}", tracks(&film)), tracks(&film) == (1, 1));
+        t.row(
+            "the MP4 is written",
+            &format!("{:?}, {} file", report.status, report.written.len()),
+            report.succeeded(),
+        );
+        let warned: Vec<&str> = case["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|w| w.as_str().unwrap())
+            .collect();
+        t.row(
+            "its warnings",
+            &format!("{:?}", ids(&report)),
+            ids(&report) == warned,
+        );
+        t.row(
+            "one picture track and one sound track",
+            &format!("{:?}", tracks(&film)),
+            tracks(&film) == (1, 1),
+        );
         let probed = probe(&film);
         let parts: Vec<&str> = probed.split(',').collect();
         let bits: f64 = parts.get(3).and_then(|b| b.parse().ok()).unwrap_or(0.0);
@@ -123,11 +187,19 @@ fn b520_sound_export() {
         t.row(
             "AAC, 48,000 a second, two channels, about 192 kilobits a second (ffprobe)",
             &probed,
-            parts.first() == Some(&"aac") && parts.get(1) == Some(&"48000") && parts.get(2) == Some(&"2") && (bits - 192_000.0).abs() < 192_000.0 * 0.05,
+            parts.first() == Some(&"aac")
+                && parts.get(1) == Some(&"48000")
+                && parts.get(2) == Some(&"2")
+                && (bits - 192_000.0).abs() < 192_000.0 * 0.05,
         );
         let samples = case["samples"].as_u64().unwrap() as usize;
         let by_ffmpeg = ffmpeg_left(&film);
-        let windows = audio::read_file(&film).map(|s| s.working()[0].iter().map(|v| *v as f32).collect::<Vec<f32>>());
+        let windows = audio::read_file(&film).map(|s| {
+            s.working()[0]
+                .iter()
+                .map(|v| *v as f32)
+                .collect::<Vec<f32>>()
+        });
         let windows = windows.unwrap_or_else(|d| panic!("{}: {}", d.message, d.detail));
         t.row(
             "length at 48,000 a second: Windows' decoder (by the file's edit list) / ffmpeg (at least)",
@@ -135,26 +207,57 @@ fn b520_sound_export() {
             windows.len() == samples && by_ffmpeg.len() >= samples,
         );
         for click in case["clicks"].as_array().unwrap() {
-            let (f, at) = (click["frame"].as_i64().unwrap(), click["sample"].as_u64().unwrap() as usize);
+            let (f, at) = (
+                click["frame"].as_i64().unwrap(),
+                click["sample"].as_u64().unwrap() as usize,
+            );
             let (ff, ffv) = loudest(&by_ffmpeg, at, 1000);
             let (wi, wiv) = loudest(&windows, at, 1000);
-            t.row(&format!("the click on frame {f} lands on sample {at} (ffmpeg / Windows)"), &format!("{ff} / {wi}"), ff == at && wi == at);
+            t.row(
+                &format!("the click on frame {f} lands on sample {at} (ffmpeg / Windows)"),
+                &format!("{ff} / {wi}"),
+                ff == at && wi == at,
+            );
             click_rows.push_str(&format!(
                 "| {name} | {f} | {at} | {ff} ({ffv:.2}) | {wi} ({wiv:.2}) | {} |\n",
-                if ff == at && wi == at { "yes" } else { "**NO**" }
+                if ff == at && wi == at {
+                    "yes"
+                } else {
+                    "**NO**"
+                }
             ));
         }
     }
 
     // ---- no sound layer: the film is what it always was ---------------------------------------
     let case = &expected["silent"];
-    t.heading(&format!("{}: {}", case["project"].as_str().unwrap().trim_end_matches(".json"), case["what"].as_str().unwrap()));
+    t.heading(&format!(
+        "{}: {}",
+        case["project"].as_str().unwrap().trim_end_matches(".json"),
+        case["what"].as_str().unwrap()
+    ));
     let loaded = t.load(case["project"].as_str().unwrap());
     let into = tmp.join("silent");
-    let report = export(loaded.document.project(), &t.root, &into, "film.mp4", OutputFormat::Mp4, (0, 11), false);
-    t.row("written, with no warning", &format!("{:?}, {:?}", report.status, ids(&report)), report.succeeded() && report.diagnostics.is_empty());
+    let report = export(
+        loaded.document.project(),
+        &t.root,
+        &into,
+        "film.mp4",
+        OutputFormat::Mp4,
+        (0, 11),
+        false,
+    );
+    t.row(
+        "written, with no warning",
+        &format!("{:?}, {:?}", report.status, ids(&report)),
+        report.succeeded() && report.diagnostics.is_empty(),
+    );
     let film = into.join("film.mp4");
-    t.row("picture tracks, sound tracks", &format!("{:?}", tracks(&film)), tracks(&film) == (1, 0));
+    t.row(
+        "picture tracks, sound tracks",
+        &format!("{:?}", tracks(&film)),
+        tracks(&film) == (1, 0),
+    );
 
     // ---- the WAV beside ------------------------------------------------------------------------
     for case in expected["wavs"].as_array().unwrap() {
@@ -167,30 +270,75 @@ fn b520_sound_export() {
             "apng" => OutputFormat::Apng,
             _ => OutputFormat::Exr(ExrSamples::Half),
         };
-        let range = (case["first_frame"].as_i64().unwrap() as i32, case["last_frame"].as_i64().unwrap() as i32);
+        let range = (
+            case["first_frame"].as_i64().unwrap() as i32,
+            case["last_frame"].as_i64().unwrap() as i32,
+        );
         let into = tmp.join(name);
-        let report = export(loaded.document.project(), &t.root, &into, case["naming"].as_str().unwrap(), format, range, true);
+        let report = export(
+            loaded.document.project(),
+            &t.root,
+            &into,
+            case["naming"].as_str().unwrap(),
+            format,
+            range,
+            true,
+        );
         let wav = into.join(case["file"].as_str().unwrap());
         t.row(
-            &format!("written, the WAV among the files, as {}", case["file"].as_str().unwrap()),
-            &format!("{:?}, {} of {} files, WAV there: {}", report.status, report.written.len(), report.files_expected, report.written.contains(&wav)),
+            &format!(
+                "written, the WAV among the files, as {}",
+                case["file"].as_str().unwrap()
+            ),
+            &format!(
+                "{:?}, {} of {} files, WAV there: {}",
+                report.status,
+                report.written.len(),
+                report.files_expected,
+                report.written.contains(&wav)
+            ),
             report.succeeded() && report.written.contains(&wav),
         );
         let past = case["past_full"].as_u64().unwrap();
-        let clipped: Vec<&str> = ids(&report).into_iter().filter(|i| *i == "EXPORT_SOUND_CLIPPED").collect();
-        let said = report.diagnostics.iter().find(|d| d.id.as_str() == "EXPORT_SOUND_CLIPPED").map_or(String::new(), |d| d.message.clone());
+        let clipped: Vec<&str> = ids(&report)
+            .into_iter()
+            .filter(|i| *i == "EXPORT_SOUND_CLIPPED")
+            .collect();
+        let said = report
+            .diagnostics
+            .iter()
+            .find(|d| d.id.as_str() == "EXPORT_SOUND_CLIPPED")
+            .map_or(String::new(), |d| d.message.clone());
         t.row(
             &format!("values past full level: {past}, and a warning only then"),
             &format!("{} EXPORT_SOUND_CLIPPED warning(s): {said}", clipped.len()),
-            if past > 0 { clipped.len() == 1 && said.contains(&format!(" {past} places")) } else { clipped.is_empty() },
+            if past > 0 {
+                clipped.len() == 1 && said.contains(&format!(" {past} places"))
+            } else {
+                clipped.is_empty()
+            },
         );
         let bytes = std::fs::read(&wav).unwrap_or_default();
         let u16_at = |i: usize| u16::from_le_bytes(bytes[i..i + 2].try_into().unwrap());
         let u32_at = |i: usize| u32::from_le_bytes(bytes[i..i + 4].try_into().unwrap());
-        let head = format!("{} {} {} {}", u16_at(20), u16_at(22), u32_at(24), u16_at(34));
-        t.row("format, channels, rate, bits", &head, head == "1 2 48000 24" && &bytes[..4] == b"RIFF" && &bytes[36..40] == b"data");
+        let head = format!(
+            "{} {} {} {}",
+            u16_at(20),
+            u16_at(22),
+            u32_at(24),
+            u16_at(34)
+        );
+        t.row(
+            "format, channels, rate, bits",
+            &head,
+            head == "1 2 48000 24" && &bytes[..4] == b"RIFF" && &bytes[36..40] == b"data",
+        );
         let n = u32_at(40) as usize / 6;
-        t.row("length in samples", &n.to_string(), n == case["samples"].as_u64().unwrap() as usize);
+        t.row(
+            "length in samples",
+            &n.to_string(),
+            n == case["samples"].as_u64().unwrap() as usize,
+        );
         let value = |i: usize, c: usize| {
             let at = 44 + i * 6 + c * 3;
             (i32::from_le_bytes([0, bytes[at], bytes[at + 1], bytes[at + 2]]) >> 8) as f64
@@ -199,40 +347,87 @@ fn b520_sound_export() {
         let places = case["places"].as_array().unwrap();
         for (p, want) in places.iter().zip(case["values"].as_array().unwrap()) {
             for c in 0..2 {
-                let (got, want) = (value(p.as_u64().unwrap() as usize, c), want[c].as_f64().unwrap());
+                let (got, want) = (
+                    value(p.as_u64().unwrap() as usize, c),
+                    want[c].as_f64().unwrap(),
+                );
                 worst = worst.max((got - want).abs());
                 exact += (got == want) as usize;
             }
         }
         t.row(
-            &format!("the {} places in both channels, within {tol} of full level", places.len()),
-            &format!("largest difference {worst} steps of 8,388,607; {exact} of {} exact", places.len() * 2),
+            &format!(
+                "the {} places in both channels, within {tol} of full level",
+                places.len()
+            ),
+            &format!(
+                "largest difference {worst} steps of 8,388,607; {exact} of {} exact",
+                places.len() * 2
+            ),
             worst / FULL <= tol,
         );
     }
 
     // ---- a GIF writes no WAV -------------------------------------------------------------------
     let case = &expected["gif"];
-    t.heading(&format!("{}: {}", case["project"].as_str().unwrap().trim_end_matches(".json"), case["what"].as_str().unwrap()));
+    t.heading(&format!(
+        "{}: {}",
+        case["project"].as_str().unwrap().trim_end_matches(".json"),
+        case["what"].as_str().unwrap()
+    ));
     let loaded = t.load(case["project"].as_str().unwrap());
     let into = tmp.join("gif");
-    let report = export(loaded.document.project(), &t.root, &into, "preview.gif", OutputFormat::Gif, (0, 5), true);
-    let names: Vec<String> = std::fs::read_dir(&into).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
-    t.row("the folder holds the GIF and nothing else", &format!("{:?}, {names:?}", report.status), report.succeeded() && names == ["preview.gif"]);
+    let report = export(
+        loaded.document.project(),
+        &t.root,
+        &into,
+        "preview.gif",
+        OutputFormat::Gif,
+        (0, 5),
+        true,
+    );
+    let names: Vec<String> = std::fs::read_dir(&into)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    t.row(
+        "the folder holds the GIF and nothing else",
+        &format!("{:?}, {names:?}", report.status),
+        report.succeeded() && names == ["preview.gif"],
+    );
 
     // ---- the owner's film: a white flash and a click on the same frames ------------------------
     t.heading("The owner's film: `verification/D-641 film/flash_and_click.mp4`");
     let (project, flashes) = flash_and_click();
     let into = repo("verification/D-641 film");
-    let report = export(&project, &t.root, &into, "flash_and_click.mp4", OutputFormat::Mp4, (0, 71), false);
+    let report = export(
+        &project,
+        &t.root,
+        &into,
+        "flash_and_click.mp4",
+        OutputFormat::Mp4,
+        (0, 71),
+        false,
+    );
     let film = into.join("flash_and_click.mp4");
-    t.row("72 frames at 24 a second, with its sound", &format!("{:?}, tracks {:?}", report.status, tracks(&film)), report.succeeded() && tracks(&film) == (1, 1));
+    t.row(
+        "72 frames at 24 a second, with its sound",
+        &format!("{:?}, tracks {:?}", report.status, tracks(&film)),
+        report.succeeded() && tracks(&film) == (1, 1),
+    );
     let by_ffmpeg = ffmpeg_left(&film);
     for f in flashes {
         let at = f as usize * 2000;
         let (ff, ffv) = loudest(&by_ffmpeg, at, 1000);
-        t.row(&format!("the click with the flash on frame {f} lands on sample {at}"), &ff.to_string(), ff == at);
-        click_rows.push_str(&format!("| flash_and_click | {f} | {at} | {ff} ({ffv:.2}) | | {} |\n", if ff == at { "yes" } else { "**NO**" }));
+        t.row(
+            &format!("the click with the flash on frame {f} lands on sample {at}"),
+            &ff.to_string(),
+            ff == at,
+        );
+        click_rows.push_str(&format!(
+            "| flash_and_click | {f} | {at} | {ff} ({ffv:.2}) | | {} |\n",
+            if ff == at { "yes" } else { "**NO**" }
+        ));
     }
 
     let mut out = String::new();
@@ -241,7 +436,11 @@ fn b520_sound_export() {
                   | Case | Frame | Must land on | ffmpeg | Windows | Lands |\n| --- | --- | --- | --- | --- | --- |\n");
     out.push_str(&click_rows);
     t.heading("Every click");
-    t.row("every click lands", "see below", !click_rows.contains("**NO**"));
+    t.row(
+        "every click lands",
+        "see below",
+        !click_rows.contains("**NO**"),
+    );
     t.finish("D-641_sound_export_table.md");
     let file = repo("verification/D-641_sound_export_table.md");
     let mut table = std::fs::read_to_string(&file).unwrap();
@@ -277,6 +476,7 @@ fn flash_and_click() -> (Project, Vec<i32>) {
     });
     let file: PathBuf = std::env::temp_dir().join("anime_compositor_b520_flash.json");
     std::fs::write(&file, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
-    let loaded = persist::load(&file).unwrap_or_else(|d| panic!("the flash project opens: {}", d.message));
+    let loaded =
+        persist::load(&file).unwrap_or_else(|d| panic!("the flash project opens: {}", d.message));
     (loaded.document.project().clone(), flashes)
 }

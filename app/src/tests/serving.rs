@@ -174,17 +174,38 @@ fn the_graph_editor_can_ask_for_the_cameras_curve() {
     };
     let lens = samples("target=camera&prop=zoom&from=0&to=24");
     assert_eq!(lens.len(), 25);
-    assert!((lens[0] - 50.0).abs() < 1e-9, "an unmoved camera is a 50 mm lens: {}", lens[0]);
+    assert!(
+        (lens[0] - 50.0).abs() < 1e-9,
+        "an unmoved camera is a 50 mm lens: {}",
+        lens[0]
+    );
 
     let width = {
         let viewer = held(&viewer);
-        viewer.document.project().composition(&viewer.composition).expect("a composition").width
+        viewer
+            .document
+            .project()
+            .composition(&viewer.composition)
+            .expect("a composition")
+            .width
     };
-    run(&viewer, "keyframe.add_remove?target=camera&prop=zoom&frame=0");
-    run(&viewer, &format!("property.set_base?target=camera&prop=zoom&value={width}&frame=24"));
+    run(
+        &viewer,
+        "keyframe.add_remove?target=camera&prop=zoom&frame=0",
+    );
+    run(
+        &viewer,
+        &format!("property.set_base?target=camera&prop=zoom&value={width}&frame=24"),
+    );
     let lens = samples("target=camera&prop=zoom&from=0&to=24");
-    assert!((lens[0] - 50.0).abs() < 1e-9 && (lens[24] - 36.0).abs() < 1e-9, "{lens:?}");
-    assert!(lens[12] < 50.0 && lens[12] > 36.0, "the curve goes between its keys: {lens:?}");
+    assert!(
+        (lens[0] - 50.0).abs() < 1e-9 && (lens[24] - 36.0).abs() < 1e-9,
+        "{lens:?}"
+    );
+    assert!(
+        lens[12] < 50.0 && lens[12] > 36.0,
+        "the curve goes between its keys: {lens:?}"
+    );
 
     assert!(samples("target=camera&prop=opacity&from=0&to=24").is_empty());
 }
@@ -443,9 +464,8 @@ fn what_the_page_gets_is_the_frame_it_asked_for() {
     // Everything above counts the bytes without reading one. The page draws these straight
     // into an ImageData, which is straight alpha and nothing else, so a picture handed over
     // premultiplied would be the right size, the right frame and the wrong colour.
-    let known = Mutex::new(
-        open(&a_half_transparent_red_project()).expect("open the four-pixel project"),
-    );
+    let known =
+        Mutex::new(open(&a_half_transparent_red_project()).expect("open the four-pixel project"));
     let got = ask(&known, &export, "/frame/0", Some("q=full"));
     check(
         "a four by four picture is sixty-four bytes",
@@ -469,8 +489,7 @@ fn what_the_page_gets_is_the_frame_it_asked_for() {
     );
 
     write_artifact(&rows);
-    let failed: Vec<&(String, String, String)> =
-        rows.iter().filter(|(_, e, a)| e != a).collect();
+    let failed: Vec<&(String, String, String)> = rows.iter().filter(|(_, e, a)| e != a).collect();
     assert!(
         failed.is_empty(),
         "{} of {} checks failed, see verification/B-08_shell_table.md: {:#?}",
@@ -490,36 +509,67 @@ fn the_gpu_switch_draws_the_same_picture_and_says_where() {
     let viewer = Mutex::new(demo());
     let export = Mutex::new(Export::default());
     let card = Mutex::new(Card::default());
-    let frame = |ask: Ask, quality| {
-        serve_logged(&viewer, &export, None, Some(&card), ask, Some(quality))
-    };
+    let frame =
+        |ask: Ask, quality| serve_logged(&viewer, &export, None, Some(&card), ask, Some(quality));
 
     let before = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("the switch starts on the CPU".into(), "CPU".into(), header(&before, "x-drawn-on")));
+    rows.push((
+        "the switch starts on the CPU".into(),
+        "CPU".into(),
+        header(&before, "x-drawn-on"),
+    ));
     let said = card.lock().unwrap().set(DrawOn::Gpu);
     if !card.lock().unwrap().on {
-        std::fs::write(&out, format!("# B-44: the switch in the window
+        std::fs::write(
+            &out,
+            format!(
+                "# B-44: the switch in the window
 
 **NOT RUN.** {said}
-"))
-            .expect("write the table");
+"
+            ),
+        )
+        .expect("write the table");
         return;
     }
-    rows.push(("pressing it says which card".into(), "names the card".into(),
-        if said.contains(&card.lock().unwrap().about()) { "names the card".into() } else { said.clone() }));
+    rows.push((
+        "pressing it says which card".into(),
+        "names the card".into(),
+        if said.contains(&card.lock().unwrap().about()) {
+            "names the card".into()
+        } else {
+            said.clone()
+        },
+    ));
     for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
         card.lock().unwrap().on = false;
         let cpu = frame(Ask::Frame(100), quality);
         card.lock().unwrap().on = true;
         let gpu = frame(Ask::Frame(100), quality);
-        rows.push((format!("frame 100 at {} says it was drawn on the GPU", quality.label()), "GPU".into(), header(&gpu, "x-drawn-on")));
-        let largest = cpu.body().iter().zip(gpu.body()).map(|(a, b)| a.abs_diff(*b)).max();
+        rows.push((
+            format!(
+                "frame 100 at {} says it was drawn on the GPU",
+                quality.label()
+            ),
+            "GPU".into(),
+            header(&gpu, "x-drawn-on"),
+        ));
+        let largest = cpu
+            .body()
+            .iter()
+            .zip(gpu.body())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max();
         rows.push((
             format!("and is within 1 level of the CPU's picture, at the same size"),
             "at most 1, 1920×1080 or its draft".into(),
             match (cpu.body().len() == gpu.body().len(), largest) {
                 (true, Some(l)) if l <= 1 => "at most 1, 1920×1080 or its draft".into(),
-                _ => format!("largest {largest:?}, {} against {} bytes", gpu.body().len(), cpu.body().len()),
+                _ => format!(
+                    "largest {largest:?}, {} against {} bytes",
+                    gpu.body().len(),
+                    cpu.body().len()
+                ),
             },
         ));
     }
@@ -535,61 +585,168 @@ fn the_gpu_switch_draws_the_same_picture_and_says_where() {
         n if n.is_empty() => "no note".to_string(),
         n => format!("partly on the processor ({n})"),
     };
-    edit(&viewer, add("w8-blur", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }, None));
+    edit(
+        &viewer,
+        add(
+            "w8-blur",
+            Effect::GaussianBlur {
+                sigma_px: 4.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+            None,
+        ),
+    );
     let blurred = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("a Gaussian Blur on layer 2, which the card draws: frame 100 is drawn on the GPU".into(), "GPU".into(), header(&blurred, "x-drawn-on")));
-    rows.push(("and the viewer has no processor note beside it".into(), "no note".into(), note(&blurred)));
-    edit(&viewer, add("w8-echo", new_effect(ECHO).expect("an Echo"), Some(0)));
+    rows.push((
+        "a Gaussian Blur on layer 2, which the card draws: frame 100 is drawn on the GPU".into(),
+        "GPU".into(),
+        header(&blurred, "x-drawn-on"),
+    ));
+    rows.push((
+        "and the viewer has no processor note beside it".into(),
+        "no note".into(),
+        note(&blurred),
+    ));
+    edit(
+        &viewer,
+        add("w8-echo", new_effect(ECHO).expect("an Echo"), Some(0)),
+    );
     let echoed = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("an Echo put before the blur, which only the processor draws: still drawn on the GPU".into(), "GPU".into(), header(&echoed, "x-drawn-on")));
-    rows.push(("and the viewer's note names it".into(), "partly on the processor (Echo)".into(), note(&echoed)));
+    rows.push((
+        "an Echo put before the blur, which only the processor draws: still drawn on the GPU"
+            .into(),
+        "GPU".into(),
+        header(&echoed, "x-drawn-on"),
+    ));
+    rows.push((
+        "and the viewer's note names it".into(),
+        "partly on the processor (Echo)".into(),
+        note(&echoed),
+    ));
     undo(&viewer);
     // Audit W9: in 8 bpc the card runs none of a layer's effects; the note names them.
-    let comp = viewer.lock().unwrap().document.project().composition(&Id::new("comp-reference-shot")).unwrap().clone();
-    edit(&viewer, Command::SetCompositionSettings {
-        composition: comp.id.clone(),
-        name: comp.name.clone(),
-        width: comp.width,
-        height: comp.height,
-        frame_rate: comp.frame_rate,
-        duration_frames: comp.duration_frames,
-        sheet_details: comp.sheet_details.clone(),
-        background_color: comp.background_color,
-        float_depth: false,
-        eight_bpc: true,
-        ae_32bpc: false,
-    });
+    let comp = viewer
+        .lock()
+        .unwrap()
+        .document
+        .project()
+        .composition(&Id::new("comp-reference-shot"))
+        .unwrap()
+        .clone();
+    edit(
+        &viewer,
+        Command::SetCompositionSettings {
+            composition: comp.id.clone(),
+            name: comp.name.clone(),
+            width: comp.width,
+            height: comp.height,
+            frame_rate: comp.frame_rate,
+            duration_frames: comp.duration_frames,
+            sheet_details: comp.sheet_details.clone(),
+            background_color: comp.background_color,
+            float_depth: false,
+            eight_bpc: true,
+            ae_32bpc: false,
+        },
+    );
     let eight = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("the blur alone in an 8 bpc composition, where the card runs no effects: the note names it".into(), "partly on the processor (Gaussian Blur)".into(), note(&eight)));
+    rows.push((
+        "the blur alone in an 8 bpc composition, where the card runs no effects: the note names it"
+            .into(),
+        "partly on the processor (Gaussian Blur)".into(),
+        note(&eight),
+    ));
     undo(&viewer);
     undo(&viewer);
     let said = card.lock().unwrap().set(DrawOn::Cpu);
     let after = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("choosing CPU goes back to the CPU".into(), "CPU".into(), header(&after, "x-drawn-on")));
-    rows.push(("and says so".into(), "The preview is drawn on the CPU.".into(), said));
+    rows.push((
+        "choosing CPU goes back to the CPU".into(),
+        "CPU".into(),
+        header(&after, "x-drawn-on"),
+    ));
+    rows.push((
+        "and says so".into(),
+        "The preview is drawn on the CPU.".into(),
+        said,
+    ));
     // B-48, D-105: Auto draws on the card, and gives it up once, and says so, when it fails.
     let said = card.lock().unwrap().set(DrawOn::Auto);
-    rows.push(("choosing Auto says the card is used whenever it can be".into(), "yes".into(),
-        if said.contains("whenever it can be") { "yes".into() } else { said.clone() }));
+    rows.push((
+        "choosing Auto says the card is used whenever it can be".into(),
+        "yes".into(),
+        if said.contains("whenever it can be") {
+            "yes".into()
+        } else {
+            said.clone()
+        },
+    ));
     let auto = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("and the next frame is drawn on the GPU".into(), "GPU".into(), header(&auto, "x-drawn-on")));
+    rows.push((
+        "and the next frame is drawn on the GPU".into(),
+        "GPU".into(),
+        header(&auto, "x-drawn-on"),
+    ));
     let failures = card.lock().unwrap().failures();
-    rows.push(("a frame the card did not fail leaves Auto on the card".into(), "no sentence".into(),
-        card.lock().unwrap().give_up_if_failed(failures).unwrap_or("no sentence".into())));
-    let said = card.lock().unwrap().give_up_if_failed(failures.wrapping_sub(1));
-    rows.push(("a frame the card failed makes Auto give it up, and say so".into(), "says so".into(),
-        match said { Some(s) if s.starts_with("The graphics card failed, so Auto") => "says so".into(), other => format!("{other:?}") }));
+    rows.push((
+        "a frame the card did not fail leaves Auto on the card".into(),
+        "no sentence".into(),
+        card.lock()
+            .unwrap()
+            .give_up_if_failed(failures)
+            .unwrap_or("no sentence".into()),
+    ));
+    let said = card
+        .lock()
+        .unwrap()
+        .give_up_if_failed(failures.wrapping_sub(1));
+    rows.push((
+        "a frame the card failed makes Auto give it up, and say so".into(),
+        "says so".into(),
+        match said {
+            Some(s) if s.starts_with("The graphics card failed, so Auto") => "says so".into(),
+            other => format!("{other:?}"),
+        },
+    ));
     let given_up = frame(Ask::Frame(100), PreviewQuality::Full);
-    rows.push(("and the next frame is drawn on the CPU".into(), "CPU".into(), header(&given_up, "x-drawn-on")));
-    rows.push(("the tooltip says Auto gave the card up".into(), "yes".into(),
-        if card.lock().unwrap().about().ends_with("Auto gave it up after it failed") { "yes".into() } else { card.lock().unwrap().about() }));
-    rows.push(("once, not on every frame".into(), "no sentence".into(),
-        card.lock().unwrap().give_up_if_failed(failures.wrapping_sub(1)).unwrap_or("no sentence".into())));
+    rows.push((
+        "and the next frame is drawn on the CPU".into(),
+        "CPU".into(),
+        header(&given_up, "x-drawn-on"),
+    ));
+    rows.push((
+        "the tooltip says Auto gave the card up".into(),
+        "yes".into(),
+        if card
+            .lock()
+            .unwrap()
+            .about()
+            .ends_with("Auto gave it up after it failed")
+        {
+            "yes".into()
+        } else {
+            card.lock().unwrap().about()
+        },
+    ));
+    rows.push((
+        "once, not on every frame".into(),
+        "no sentence".into(),
+        card.lock()
+            .unwrap()
+            .give_up_if_failed(failures.wrapping_sub(1))
+            .unwrap_or("no sentence".into()),
+    ));
     card.lock().unwrap().set(DrawOn::Cpu);
     rows.push((
         "the CPU's picture after the GPU is byte for byte the one before it".into(),
         "identical".into(),
-        if after.body() == before.body() { "identical".into() } else { "different".into() },
+        if after.body() == before.body() {
+            "identical".into()
+        } else {
+            "different".into()
+        },
     ));
 
     let passed = rows.iter().filter(|(_, e, a)| e == a).count();
@@ -609,8 +766,11 @@ from. Card: {}.
         rows.len()
     );
     for (what, expected, actual) in &rows {
-        text += &format!("| {what} | {expected} | {actual} | {} |
-", if expected == actual { "PASS" } else { "FAIL" });
+        text += &format!(
+            "| {what} | {expected} | {actual} | {} |
+",
+            if expected == actual { "PASS" } else { "FAIL" }
+        );
     }
     std::fs::write(&out, text).expect("write the table");
     assert_eq!(passed, rows.len(), "see {}", out.display());
@@ -791,8 +951,7 @@ fn looking_at_the_alpha_channel_changes_nothing_but_the_looking() {
     run(&viewer, "viewer.toggle_alpha");
 
     write_inspect_artifact(&rows);
-    let failed: Vec<&(String, String, String)> =
-        rows.iter().filter(|(_, e, a)| e != a).collect();
+    let failed: Vec<&(String, String, String)> = rows.iter().filter(|(_, e, a)| e != a).collect();
     assert!(
         failed.is_empty(),
         "{} of {} checks failed, see verification/B-12a_inspect_table.md: {:#?}",

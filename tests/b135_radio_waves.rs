@@ -48,7 +48,9 @@ fn waves(producer_point: [f64; 2], n: [f64; 13], words: [&str; 2]) -> Effect {
 }
 
 const MIDDLE: [f64; 2] = [50.0, 50.0];
-const ADDED: [f64; 13] = [64.0, 24.0, 5.0, 0.0, 90.0, 0.0, 0.0, 96.0, 100.0, 0.0, 48.0, 5.0, 5.0];
+const ADDED: [f64; 13] = [
+    64.0, 24.0, 5.0, 0.0, 90.0, 0.0, 0.0, 96.0, 100.0, 0.0, 48.0, 5.0, 5.0,
+];
 const WORDS: [&str; 2] = ["square", "#ffffff"];
 
 fn with(i: usize, v: f64) -> Effect {
@@ -109,9 +111,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<u8>, Vec<String>
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), frame, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = drawn.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -119,7 +132,12 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<u8>, Vec<String>
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
             let a = bytes[i + 3] as f64 / 255.0;
             let over = |c: u8, b: f64| (c as f64 * a + b * (1.0 - a)).round() as u8;
-            [over(bytes[i], BACK[0]), over(bytes[i + 1], BACK[1]), over(bytes[i + 2], BACK[2]), 255]
+            [
+                over(bytes[i], BACK[0]),
+                over(bytes[i + 1], BACK[1]),
+                over(bytes[i + 2], BACK[2]),
+                255,
+            ]
         })
         .collect();
     (bytes, big, said)
@@ -141,14 +159,29 @@ fn b135_radio_waves() {
 
     t.heading("How far it reaches");
     for (what, e) in [
-        ("as added, it never grows the drawing's bounds", waves(MIDDLE, ADDED, WORDS)),
-        ("expansion 1000, the most, does not grow them either", with(2, 1000.0)),
-        ("end width 1000, the most, does not grow them either", with(12, 1000.0)),
+        (
+            "as added, it never grows the drawing's bounds",
+            waves(MIDDLE, ADDED, WORDS),
+        ),
+        (
+            "expansion 1000, the most, does not grow them either",
+            with(2, 1000.0),
+        ),
+        (
+            "end width 1000, the most, does not grow them either",
+            with(12, 1000.0),
+        ),
     ] {
         let got = e.bounds_expansion();
         t.row(what, &got.to_string(), got == 0);
     }
-    let mut draft = waves(MIDDLE, [64.0, 24.0, 5.0, 0.0, 90.0, 3.0, 2.0, 96.0, 100.0, 0.0, 48.0, 5.0, 8.0], WORDS);
+    let mut draft = waves(
+        MIDDLE,
+        [
+            64.0, 24.0, 5.0, 0.0, 90.0, 3.0, 2.0, 96.0, 100.0, 0.0, 48.0, 5.0, 8.0,
+        ],
+        WORDS,
+    );
     draft.scale_distances(|d| d * 0.5);
     t.row(
         "a half-size draft preview halves the expansion, 5 to 2.5, the velocity, 3 to 1.5, and the \
@@ -208,7 +241,10 @@ fn b135_radio_waves() {
     t.refused(
         &mut document,
         vec![
-            ("producer x 1000.5", set(waves([1000.5, 50.0], ADDED, WORDS))),
+            (
+                "producer x 1000.5",
+                set(waves([1000.5, 50.0], ADDED, WORDS)),
+            ),
             ("sides 2.9", set(with(0, 2.9))),
             ("sides 64.5", set(with(0, 64.5))),
             ("interval 0.9", set(with(1, 0.9))),
@@ -223,9 +259,18 @@ fn b135_radio_waves() {
             ("fade-out time 1000.5", set(with(10, 1000.5))),
             ("start width -1", set(with(11, -1.0))),
             ("end width 1000.5", set(with(12, 1000.5))),
-            ("profile \"bell\"", set(waves(MIDDLE, ADDED, ["bell", "#ffffff"]))),
-            ("colour \"#fff\"", set(waves(MIDDLE, ADDED, ["square", "#fff"]))),
-            ("sides keyed to 70", keys("sides", &[(0, &[64.0]), (4, &[70.0])])),
+            (
+                "profile \"bell\"",
+                set(waves(MIDDLE, ADDED, ["bell", "#ffffff"])),
+            ),
+            (
+                "colour \"#fff\"",
+                set(waves(MIDDLE, ADDED, ["square", "#fff"])),
+            ),
+            (
+                "sides keyed to 70",
+                keys("sides", &[(0, &[64.0]), (4, &[70.0])]),
+            ),
         ],
     );
     t.taken(
@@ -236,7 +281,10 @@ fn b135_radio_waves() {
                 "every number at its top, the last profile,",
                 set(waves(
                     [1000.0, 1000.0],
-                    [64.0, 1000.0, 1000.0, 3600.0, 3600.0, 1000.0, 360.0, 1000.0, 100.0, 1000.0, 1000.0, 1000.0, 1000.0],
+                    [
+                        64.0, 1000.0, 1000.0, 3600.0, 3600.0, 1000.0, 360.0, 1000.0, 100.0, 1000.0,
+                        1000.0, 1000.0, 1000.0,
+                    ],
                     ["sine", "#000000"],
                 )),
             ),
@@ -244,12 +292,20 @@ fn b135_radio_waves() {
                 "every number at its bottom, the other profile,",
                 set(waves(
                     [-1000.0, -1000.0],
-                    [3.0, 1.0, 0.0, -3600.0, -3600.0, 0.0, -360.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [
+                        3.0, 1.0, 0.0, -3600.0, -3600.0, 0.0, -360.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    ],
                     ["triangle", "#ffb040"],
                 )),
             ),
-            ("the producer point keyed across the layer", keys("producer_point", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])])),
-            ("the spin keyed from 0 to 90", keys("spin", &[(0, &[0.0]), (4, &[90.0])])),
+            (
+                "the producer point keyed across the layer",
+                keys("producer_point", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])]),
+            ),
+            (
+                "the spin keyed from 0 to 90",
+                keys("spin", &[(0, &[0.0]), (4, &[90.0])]),
+            ),
         ],
     );
 
@@ -258,10 +314,30 @@ fn b135_radio_waves() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let drawn = plate();
-    png_out::write_rgba(&dir.join("plate.png"), w, h, OutputDepth::Eight, &[], &drawn).unwrap();
+    png_out::write_rgba(
+        &dir.join("plate.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &drawn,
+    )
+    .unwrap();
     let (_, big, said) = picture(&dir, J::Array(vec![]), 0);
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the badge with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the badge with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
         let i = (y * w + x) * 4;
         [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
@@ -364,7 +440,11 @@ fn b135_radio_waves() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_rwave_001.json", 0), ("fx_rwave_008.json", 4), ("fx_rwave_019.json", 2)]);
+    t.tiles(&[
+        ("fx_rwave_001.json", 0),
+        ("fx_rwave_008.json", 4),
+        ("fx_rwave_019.json", 2),
+    ]);
 
     t.finish("B-135_radio_waves_table.md");
 }

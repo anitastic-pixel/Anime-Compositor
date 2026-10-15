@@ -84,22 +84,52 @@ fn b66_distance_gradation() {
     t.refused(
         &mut document,
         vec![
-            ("width 1001", set(shade("#6450a0", 1001.0, 50.0, "off", "multiply"))),
-            ("width -1", set(shade("#6450a0", -1.0, 50.0, "off", "multiply"))),
-            ("opacity 101", set(shade("#6450a0", 10.0, 101.0, "off", "multiply"))),
-            ("invert \"yes\"", set(shade("#6450a0", 10.0, 50.0, "yes", "multiply"))),
-            ("blend \"overlay\"", set(shade("#6450a0", 10.0, 50.0, "off", "overlay"))),
-            ("colour \"#12345\"", set(shade("#12345", 10.0, 50.0, "off", "multiply"))),
-            ("opacity keyed to 150", keys("opacity", &[(0, &[50.0]), (4, &[150.0])])),
+            (
+                "width 1001",
+                set(shade("#6450a0", 1001.0, 50.0, "off", "multiply")),
+            ),
+            (
+                "width -1",
+                set(shade("#6450a0", -1.0, 50.0, "off", "multiply")),
+            ),
+            (
+                "opacity 101",
+                set(shade("#6450a0", 10.0, 101.0, "off", "multiply")),
+            ),
+            (
+                "invert \"yes\"",
+                set(shade("#6450a0", 10.0, 50.0, "yes", "multiply")),
+            ),
+            (
+                "blend \"overlay\"",
+                set(shade("#6450a0", 10.0, 50.0, "off", "overlay")),
+            ),
+            (
+                "colour \"#12345\"",
+                set(shade("#12345", 10.0, 50.0, "off", "multiply")),
+            ),
+            (
+                "opacity keyed to 150",
+                keys("opacity", &[(0, &[50.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_distgrad_001.json",
         vec![
-            ("width 1000 and opacity 100, the tops,", set(shade("#6450a0", 1000.0, 100.0, "off", "multiply"))),
-            ("width 0, opacity 0, invert on and screen", set(shade("#ffffff", 0.0, 0.0, "on", "screen"))),
-            ("width keyed from 0 to 4", keys("width", &[(0, &[0.0]), (4, &[4.0])])),
+            (
+                "width 1000 and opacity 100, the tops,",
+                set(shade("#6450a0", 1000.0, 100.0, "off", "multiply")),
+            ),
+            (
+                "width 0, opacity 0, invert on and screen",
+                set(shade("#ffffff", 0.0, 0.0, "on", "screen")),
+            ),
+            (
+                "width keyed from 0 to 4",
+                keys("width", &[(0, &[0.0]), (4, &[4.0])]),
+            ),
         ],
     );
 

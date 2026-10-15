@@ -40,7 +40,12 @@ const FRAME: i32 = 100;
 
 /// D-235's rule: the largest factor up to 8 that keeps the small sigma at 6 or more.
 fn factor(sigma: f64) -> usize {
-    let small = |f: f64| (sigma * sigma - (2.0 * f * f + 1.0) / 12.0 - f * f / 6.0).max(0.0).sqrt() / f;
+    let small = |f: f64| {
+        (sigma * sigma - (2.0 * f * f + 1.0) / 12.0 - f * f / 6.0)
+            .max(0.0)
+            .sqrt()
+            / f
+    };
     let mut f = 8;
     while f > 1 && small(f as f64) < 6.0 {
         f /= 2;
@@ -51,14 +56,20 @@ fn factor(sigma: f64) -> usize {
 /// The effect, its blurs' sigmas as the CPU works them, and its JSON.
 fn effect(kind: &str, size: f64) -> (Vec<f64>, serde_json::Value) {
     match kind {
-        "Gaussian Blur" => (vec![size], json!({"type_id": "core.gaussian_blur", "parameters": {"sigma_px": size}})),
+        "Gaussian Blur" => (
+            vec![size],
+            json!({"type_id": "core.gaussian_blur", "parameters": {"sigma_px": size}}),
+        ),
         "Glow" => (
             vec![size / 3.0],
             json!({"type_id": "core.glow", "parameters": {"based_on": "bright", "threshold": 60, "colors": [], "tolerance": 0,
                    "radius": size, "intensity": 1, "operation": "add", "tint": ""}}),
         ),
         _ => (
-            [1.0, 0.5, 0.25, 0.125].iter().map(|s| size / 3.0 * s).collect(),
+            [1.0, 0.5, 0.25, 0.125]
+                .iter()
+                .map(|s| size / 3.0 * s)
+                .collect(),
             json!({"type_id": "core.bloom", "parameters": {"threshold": 80, "radius": size, "intensity": 1.0,
                    "streaks": "none", "length": 0.0, "angle": 0.0}}),
         ),
@@ -66,15 +77,26 @@ fn effect(kind: &str, size: f64) -> (Vec<f64>, serde_json::Value) {
 }
 
 fn shot(e: &serde_json::Value) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-    for (i, layer) in j["compositions"][0]["layers"].as_array_mut().expect("layers").iter_mut().take(3).enumerate() {
+    for (i, layer) in j["compositions"][0]["layers"]
+        .as_array_mut()
+        .expect("layers")
+        .iter_mut()
+        .take(3)
+        .enumerate()
+    {
         let mut e = e.clone();
         e["instance_id"] = json!(format!("b164-{i}"));
         e["enabled"] = json!(true);
         layer["effects"] = json!([e]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot with {e}: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot with {e}: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
@@ -82,7 +104,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -100,7 +127,10 @@ fn b164_downsampled_blurs() {
             return;
         }
     };
-    let (root, comp): (PathBuf, Id) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
+    let (root, comp): (PathBuf, Id) = (
+        repo("Fixtures/reference_shot"),
+        Id::new("comp-reference-shot"),
+    );
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     for kind in ["Gaussian Blur", "Glow", "Bloom"] {
@@ -109,12 +139,24 @@ fn b164_downsampled_blurs() {
             let project = shot(&e);
             for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
                 // Draft works a layer's effects on a smaller drawing, its distances divided.
-                let factors: Vec<usize> = sigmas.iter().map(|&s| factor(s / quality.divisor() as f64)).collect();
+                let factors: Vec<usize> = sigmas
+                    .iter()
+                    .map(|&s| factor(s / quality.divisor() as f64))
+                    .collect();
                 let small = factors.iter().filter(|&&f| f > 1).count();
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&project, &comp, FRAME, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{kind} {size} on the CPU: {}", d.message));
+                let c = preview::preview_frame_cached(
+                    &project,
+                    &comp,
+                    FRAME,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| panic!("{kind} {size} on the CPU: {}", d.message));
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
                     ids.sort();
@@ -125,19 +167,37 @@ fn b164_downsampled_blurs() {
                 let (w, h) = (c.width(), c.height());
                 let c = c.to_srgb8_straight();
                 let mut plan_log = FrameLog::new(3);
-                let on_card = compose::plan_frame_for_card(&project, &comp, FRAME, &root, quality, &mut plan_log, &mut CelCache::viewer())
-                    .expect("plan the frame")
-                    .layers
-                    .iter()
-                    .filter(|l| !l.on_card.is_empty())
-                    .count();
+                let on_card = compose::plan_frame_for_card(
+                    &project,
+                    &comp,
+                    FRAME,
+                    &root,
+                    quality,
+                    &mut plan_log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan the frame")
+                .layers
+                .iter()
+                .filter(|l| !l.on_card.is_empty())
+                .count();
                 // Nothing kept from the last row: Draft works a layer's effects at the same size
                 // as Full, so the card could reuse Full's blur and work nothing small.
                 gpu.forget();
                 let before = gpu.shrunk();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&project, &comp, FRAME, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{kind} {size} on the GPU: {}", d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    FRAME,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| panic!("{kind} {size} on the GPU: {}", d.message));
                 let worked = gpu.shrunk() - before;
                 let expected = (small * on_card) as u64;
                 let said_gpu = said(log);
@@ -175,9 +235,25 @@ fn b164_downsampled_blurs() {
     fs::create_dir_all(&pictures).expect("make the pictures folder");
     let ((largest, count), worst_case, c, g, w, h) = worst.expect("something was worked small");
     // Each channel's difference times 64, so 1 level shows as a quarter grey.
-    let diff: Vec<u8> = c.iter().zip(&g).enumerate().map(|(i, (x, y))| if i % 4 == 3 { 255 } else { x.abs_diff(*y).saturating_mul(64) }).collect();
-    for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference x64.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+    let diff: Vec<u8> = c
+        .iter()
+        .zip(&g)
+        .enumerate()
+        .map(|(i, (x, y))| {
+            if i % 4 == 3 {
+                255
+            } else {
+                x.abs_diff(*y).saturating_mul(64)
+            }
+        })
+        .collect();
+    for (name, bytes) in [
+        ("cpu.png", &c),
+        ("gpu.png", &g),
+        ("difference x64.png", &diff),
+    ] {
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
     let table = format!(
         "# B-164: big blurs worked small on the card (D-235)\n\n\
@@ -197,7 +273,13 @@ fn b164_downsampled_blurs() {
         gpu.about()
     );
     fs::write(&out, table).expect("write the B-164 table");
-    assert_eq!(passed, checks, "B-164: {} of {checks} checks fail; see {}", checks - passed, out.display());
+    assert_eq!(
+        passed,
+        checks,
+        "B-164: {} of {checks} checks fail; see {}",
+        checks - passed,
+        out.display()
+    );
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -218,11 +300,29 @@ fn b164_downsampled_blurs_timing() {
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
-    let (root, comp) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
-    for (kind, size) in [("none", 0.0), ("Gaussian Blur", 20.0), ("Gaussian Blur", 50.0), ("Gaussian Blur", 100.0), ("Gaussian Blur", 200.0), ("Glow", 100.0), ("Glow", 200.0), ("Bloom", 100.0), ("Bloom", 200.0)] {
+    let (root, comp) = (
+        repo("Fixtures/reference_shot"),
+        Id::new("comp-reference-shot"),
+    );
+    for (kind, size) in [
+        ("none", 0.0),
+        ("Gaussian Blur", 20.0),
+        ("Gaussian Blur", 50.0),
+        ("Gaussian Blur", 100.0),
+        ("Gaussian Blur", 200.0),
+        ("Glow", 100.0),
+        ("Glow", 200.0),
+        ("Bloom", 100.0),
+        ("Bloom", 200.0),
+    ] {
         let project = if kind == "none" {
-            let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-            persist::load_str(&text).expect("the reference shot").document.project().clone()
+            let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+                .expect("read the reference shot");
+            persist::load_str(&text)
+                .expect("the reference shot")
+                .document
+                .project()
+                .clone()
         } else {
             shot(&effect(kind, size).1)
         };
@@ -233,12 +333,30 @@ fn b164_downsampled_blurs_timing() {
                 gpu.forget();
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&project, &comp, FRAME, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        &project,
+                        &comp,
+                        FRAME,
+                        &root,
+                        quality,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("GPU frame"),
+                );
                 if pass > 0 {
                     times.push(t.elapsed().as_secs_f64() * 1000.0);
                 }
             }
-            let _ = writeln!(s, "| {kind} {size} | {} | {:.1} |", quality.label(), median(times));
+            let _ = writeln!(
+                s,
+                "| {kind} {size} | {} | {:.1} |",
+                quality.label(),
+                median(times)
+            );
         }
     }
     fs::write(repo("verification/B-164_timing_raw.md"), s).expect("write the timing table");

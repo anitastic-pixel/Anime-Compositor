@@ -72,8 +72,10 @@ impl EffectInstance {
     /// this build does not have. D-350: nor a text animator, which moves letters. D-642: nor a
     /// sound effect.
     pub fn has_mix(&self) -> bool {
-        !matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::Unsupported { .. })
-            && !self.effect.is_sound()
+        !matches!(
+            self.effect,
+            Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::Unsupported { .. }
+        ) && !self.effect.is_sound()
     }
 
     /// [`Effect::arity`], with the Mix as a setting of one number.
@@ -105,13 +107,26 @@ impl EffectInstance {
     /// that is not a plain 100 (NaN when it is 100 with keys).
     fn bad_mix(&self) -> Option<f64> {
         let keys: Vec<f64> = self.tracks.get("mix").map_or(Vec::new(), |t| {
-            t[0].keyframes().iter().map(|k| k.value.as_scalar().unwrap_or(f64::NAN)).collect()
+            t[0].keyframes()
+                .iter()
+                .map(|k| k.value.as_scalar().unwrap_or(f64::NAN))
+                .collect()
         });
-        if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) || self.effect.is_sound() {
-            return (self.mix != 100.0 || !keys.is_empty())
-                .then(|| keys.into_iter().chain([self.mix]).find(|m| *m != 100.0).unwrap_or(f64::NAN));
+        if matches!(
+            self.effect,
+            Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }
+        ) || self.effect.is_sound()
+        {
+            return (self.mix != 100.0 || !keys.is_empty()).then(|| {
+                keys.into_iter()
+                    .chain([self.mix])
+                    .find(|m| *m != 100.0)
+                    .unwrap_or(f64::NAN)
+            });
         }
-        std::iter::once(self.mix).chain(keys).find(|m| !(0.0..=100.0).contains(m))
+        std::iter::once(self.mix)
+            .chain(keys)
+            .find(|m| !(0.0..=100.0).contains(m))
     }
 
     /// Whether this instance, as [`EffectInstance::at`] gives it, runs: its settings and its
@@ -132,20 +147,30 @@ impl EffectInstance {
     /// D-202: why the Mix, the constant or a key, is outside its range, when it is.
     pub(crate) fn mix_fault(&self) -> Option<String> {
         let m = self.bad_mix()?;
-        Some(if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) || self.effect.is_sound() {
-            // A NaN here is `bad_mix`'s mark for a Mix of 100 with keys.
-            let m = if m.is_nan() { "keyed".to_string() } else { format!("{m}") };
-            let what = if self.effect.is_sound() {
-                "A sound effect works on sound and has no picture to mix"
-            } else if matches!(self.effect, Effect::TextAnimator { .. }) {
-                "Text Animator moves the letters before there is a picture"
+        Some(
+            if matches!(
+                self.effect,
+                Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }
+            ) || self.effect.is_sound()
+            {
+                // A NaN here is `bad_mix`'s mark for a Mix of 100 with keys.
+                let m = if m.is_nan() {
+                    "keyed".to_string()
+                } else {
+                    format!("{m}")
+                };
+                let what = if self.effect.is_sound() {
+                    "A sound effect works on sound and has no picture to mix"
+                } else if matches!(self.effect, Effect::TextAnimator { .. }) {
+                    "Text Animator moves the letters before there is a picture"
+                } else {
+                    "Posterize Time holds its layer in time and has no picture to mix"
+                };
+                format!("{what}, so its Mix is a plain 100, and this is {m}.")
             } else {
-                "Posterize Time holds its layer in time and has no picture to mix"
-            };
-            format!("{what}, so its Mix is a plain 100, and this is {m}.")
-        } else {
-            format!("Mix is 0 to 100 per cent, and this is {m}.")
-        })
+                format!("Mix is 0 to 100 per cent, and this is {m}.")
+            },
+        )
     }
 
     /// D-68: every key of the setting `name`, as a command would give them back.
@@ -170,7 +195,10 @@ impl EffectInstance {
             return;
         };
         // D-291: an expression on the setting stays through any change of its keys.
-        let expression = self.tracks.get(name).and_then(|t| t[0].expression().cloned());
+        let expression = self
+            .tracks
+            .get(name)
+            .and_then(|t| t[0].expression().cloned());
         let mut track = vec![Property::constant(Value::Scalar(0.0)); count];
         track[0].set_expression(expression);
         if keys.is_empty() && track[0].expression().is_none() {
@@ -194,7 +222,11 @@ impl EffectInstance {
 
     /// D-291: the expression on the number setting `name`, or none. Its keys are kept, and a
     /// setting with neither keys nor an expression is constant again.
-    pub(crate) fn set_expression(&mut self, name: &str, expression: Option<crate::model::Expression>) {
+    pub(crate) fn set_expression(
+        &mut self,
+        name: &str,
+        expression: Option<crate::model::Expression>,
+    ) {
         let track = self
             .tracks
             .entry(name.to_string())
@@ -262,7 +294,11 @@ impl EffectInstance {
         } else {
             // D-291: a setting with an expression and no keys is its constant until the
             // expression is run, which needs the composition, in `expr::effect_at`.
-            for (name, track) in self.tracks.iter().filter(|(_, t)| !t[0].keyframes().is_empty()) {
+            for (name, track) in self
+                .tracks
+                .iter()
+                .filter(|(_, t)| !t[0].keyframes().is_empty())
+            {
                 let v: Vec<f64> = track
                     .iter()
                     .map(|p| p.value_at_time(u).as_scalar().unwrap_or(0.0))
@@ -275,19 +311,37 @@ impl EffectInstance {
                 }
             }
             // D-702: Reshape's Interpolation between two of Percent's keys.
-            if let Effect::Reshape { interpolation, between, .. } = &mut effect {
-                *between = self.tracks.get("percent").map_or_else(Vec::new, |t| crate::mesh::reshape_between(interpolation, t[0].keyframes(), u));
+            if let Effect::Reshape {
+                interpolation,
+                between,
+                ..
+            } = &mut effect
+            {
+                *between = self.tracks.get("percent").map_or_else(Vec::new, |t| {
+                    crate::mesh::reshape_between(interpolation, t[0].keyframes(), u)
+                });
             }
             // D-119: the grain's frame, 0 when it does not move.
-            if let Effect::Noise { animate, frame: f, .. } = &mut effect {
+            if let Effect::Noise {
+                animate, frame: f, ..
+            } = &mut effect
+            {
                 *f = if animate == "on" { frame } else { 0 };
             }
             // D-447: new strokes each frame, or the same ones.
-            if let Effect::BrushStrokes { animate, frame: f, .. } = &mut effect {
+            if let Effect::BrushStrokes {
+                animate, frame: f, ..
+            } = &mut effect
+            {
                 *f = if animate == "on" { frame } else { 0 };
             }
             // D-465: a new jumble each frame, or the same one.
-            if let Effect::Scatter { randomize, frame: f, .. } = &mut effect {
+            if let Effect::Scatter {
+                randomize,
+                frame: f,
+                ..
+            } = &mut effect
+            {
                 *f = if randomize == "on" { frame } else { 0 };
             }
             // D-125, D-127 and D-128: the flicker's, the wobble's and the clouds' frame.
@@ -374,7 +428,10 @@ impl EffectInstance {
         // D-202: the Mix at this frame, held inside 0 to 100; one outside it is kept, so the
         // effect is bypassed.
         let mix = self.bad_mix().unwrap_or_else(|| {
-            let keyed = self.tracks.get("mix").and_then(|t| t[0].value_at(frame).as_scalar());
+            let keyed = self
+                .tracks
+                .get("mix")
+                .and_then(|t| t[0].value_at(frame).as_scalar());
             keyed.unwrap_or(self.mix).clamp(0.0, 100.0)
         });
         EffectInstance {
@@ -411,7 +468,15 @@ pub struct LensDirt {
 impl Default for LensDirt {
     /// No dirt, every setting as added.
     fn default() -> Self {
-        LensDirt { layer: serde_json::Value::from(""), opacity: 100.0, inherit: 0.0, exposure: 0.0, gamma: 1.0, repeat: "on".into(), map: None }
+        LensDirt {
+            layer: serde_json::Value::from(""),
+            opacity: 100.0,
+            inherit: 0.0,
+            exposure: 0.0,
+            gamma: 1.0,
+            repeat: "on".into(),
+            map: None,
+        }
     }
 }
 
@@ -425,7 +490,10 @@ impl LensDirt {
     /// The dirt as the processor and the card take it; `None` when none is added (no layer, an
     /// empty picture, or Opacity 0, which adds nothing).
     pub(crate) fn lit(&self) -> Option<crate::soft_glow::Dirt> {
-        let m = self.map.as_ref().filter(|m| m.0.width() > 0 && m.0.height() > 0 && self.opacity > 0.0)?;
+        let m = self
+            .map
+            .as_ref()
+            .filter(|m| m.0.width() > 0 && m.0.height() > 0 && self.opacity > 0.0)?;
         Some(crate::soft_glow::Dirt {
             picture: m.0.clone(),
             opacity: (self.opacity / 100.0) as f32,
@@ -438,9 +506,17 @@ impl LensDirt {
 
     fn fault(&self, name: &str) -> Option<String> {
         if !self.layer.is_string() {
-            return Some(format!("{name}'s dirt layer is the name of a layer of this composition, and this is {}.", self.layer));
+            return Some(format!(
+                "{name}'s dirt layer is the name of a layer of this composition, and this is {}.",
+                self.layer
+            ));
         }
-        (!["on", "off"].contains(&self.repeat.as_str())).then(|| format!("{name}'s dirt repeat is \"on\" or \"off\", and this is \"{}\".", self.repeat))
+        (!["on", "off"].contains(&self.repeat.as_str())).then(|| {
+            format!(
+                "{name}'s dirt repeat is \"on\" or \"off\", and this is \"{}\".",
+                self.repeat
+            )
+        })
     }
 
     fn numbers(&mut self) -> [(&'static str, Vec<&mut f64>, f64, f64); 4] {
@@ -469,7 +545,13 @@ pub struct Glint {
 impl Default for Glint {
     /// One colour and no shimmer, every setting as added: Cross Glare as it was.
     fn default() -> Self {
-        Glint { ray_colors: "one".into(), color_2: "#80c0ff".into(), shimmer: 0.0, shimmer_period: 24.0, frame: 0 }
+        Glint {
+            ray_colors: "one".into(),
+            color_2: "#80c0ff".into(),
+            shimmer: 0.0,
+            shimmer_period: 24.0,
+            frame: 0,
+        }
     }
 }
 
@@ -483,7 +565,13 @@ impl Glint {
         let phi = (5f64.sqrt() - 1.0) / 2.0;
         let s = self.shimmer / 100.0;
         let m = |j: usize| {
-            let g = 0.5 + 0.5 * (2.0 * std::f64::consts::PI * (self.frame as f64 / self.shimmer_period + (j as f64 * phi).rem_euclid(1.0))).cos();
+            let g = 0.5
+                + 0.5
+                    * (2.0
+                        * std::f64::consts::PI
+                        * (self.frame as f64 / self.shimmer_period
+                            + (j as f64 * phi).rem_euclid(1.0)))
+                    .cos();
             1.0 - s * (1.0 - g)
         };
         let c = encoded(color).map(crate::grade::to_linear);
@@ -514,7 +602,12 @@ impl Glint {
     fn numbers(&mut self) -> [(&'static str, Vec<&mut f64>, f64, f64); 2] {
         [
             ("shimmer", vec![&mut self.shimmer], 0.0, 100.0),
-            ("shimmer_period", vec![&mut self.shimmer_period], 1.0, 1000.0),
+            (
+                "shimmer_period",
+                vec![&mut self.shimmer_period],
+                1.0,
+                1000.0,
+            ),
         ]
     }
 }
@@ -534,13 +627,23 @@ pub enum Effect {
     /// Document 21: "parameter is stops `e`; linear premultiplied RGB is multiplied by `2^e`;
     /// alpha is unchanged." D-335: After Effects' Offset and Gamma Correction, and `bypass`, "off"
     /// or "on", its Bypass Linear Light Conversion.
-    Exposure { stops: f64, offset: f64, gamma: f64, bypass: String },
+    Exposure {
+        stops: f64,
+        offset: f64,
+        gamma: f64,
+        bypass: String,
+    },
     /// Document 21: "parameter `sigma_px >= 0` ... kernel radius `ceil(3*sigma_px)`."
     /// D-109: `edges`, "transparent" or "repeat", as Directional and Radial Blur have.
     /// D-303: `dimensions`, "both", "horizontal" or "vertical", the axes it blurs along.
     /// D-321: `units`, "sigma" (`sigma_px` is the sigma) or "blurriness" (After Effects'
     /// Blurriness, [`blur_reach`]).
-    GaussianBlur { sigma_px: f64, edges: String, dimensions: String, units: String },
+    GaussianBlur {
+        sigma_px: f64,
+        edges: String,
+        dimensions: String,
+        units: String,
+    },
     /// D-549: After Effects' Reduce Interlace Flicker (Obsolete), a second name over Gaussian
     /// Blur ([`second_name`]): `softness`, 0 to 500, the sigma in pixels of a Gaussian Blur
     /// along the vertical only, its edges repeated.
@@ -550,14 +653,29 @@ pub enum Effect {
     /// D-401: After Effects' Tint under the same `core.tint`: `map_black_to` and `map_white_to`,
     /// `#rrggbb`, kept as written; `amount_to_tint`, 0 to 100. A file with `color` is the older
     /// [`Tint`](Self::Tint), drawn as it always was.
-    TintMap { map_black_to: String, map_white_to: String, amount_to_tint: f64 },
+    TintMap {
+        map_black_to: String,
+        map_white_to: String,
+        amount_to_tint: f64,
+    },
     /// D-402: After Effects' Tritone, a second name over Gradient Map's engine: `highlights`,
     /// `midtones` and `shadows`, `#rrggbb`, kept as written; `blend_with_original`, 0 to 100.
-    Tritone { highlights: String, midtones: String, shadows: String, blend_with_original: f64 },
+    Tritone {
+        highlights: String,
+        midtones: String,
+        shadows: String,
+        blend_with_original: f64,
+    },
     /// D-403: Aerial Haze, PLUGINS.md's pick #8: `haze_color`, `#rrggbb`, kept as written;
     /// `amount`, 0 to 100; `layer`, D-189's layer setting as written, "" for none (even haze);
     /// `fit`, `center`, `stretch` or `tile`. `map` is not a setting and is never saved.
-    AerialHaze { haze_color: String, amount: f64, layer: serde_json::Value, fit: String, map: Option<crate::layer_map::Map> },
+    AerialHaze {
+        haze_color: String,
+        amount: f64,
+        layer: serde_json::Value,
+        fit: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-408: After Effects' Transform: `anchor_point` and `position`, x then y, -1000 to 1000
     /// per cent of the drawing's own width and height; `uniform_scale`, "on" or "off";
     /// `scale_height` and `scale_width`, -10000 to 10000 per cent; `skew`, -85 to 85 degrees;
@@ -617,7 +735,11 @@ pub enum Effect {
     },
     /// D-92: `direction`, degrees clockwise from up, -3600 to 3600, and `length`, the whole
     /// streak in pixels, 0 to 500. D-109: `edges`, "transparent" or "repeat".
-    DirectionalBlur { direction: f64, length: f64, edges: String },
+    DirectionalBlur {
+        direction: f64,
+        length: f64,
+        edges: String,
+    },
     /// D-93: `colors` and `tolerance` as D-88's, and `keep`, "chosen" or "others": the pixels
     /// kept, every other one made transparent.
     SelectColor {
@@ -686,7 +808,11 @@ pub enum Effect {
     /// green, blue and alpha, named as [`LEVELS_NAMES`]. `individual` is Levels (Individual
     /// Controls), the same rule under its own name; otherwise `channel`, "rgb", "red", "green",
     /// "blue" or "alpha", is which set Levels' controls show, and never changes the picture.
-    ChannelLevels { individual: bool, channel: String, sets: [[f64; 5]; 5] },
+    ChannelLevels {
+        individual: bool,
+        channel: String,
+        sets: [[f64; 5]; 5],
+    },
     /// D-113: `hue`, -180 to 180 degrees the hue is turned; `saturation`, -100 to 100 per cent
     /// it is scaled by; and `lightness`, -100 to 100 per cent of the way to white, or to black
     /// below 0. D-307: `ranges`, After Effects' Reds, Yellows, Greens, Cyans, Blues and Magentas
@@ -1003,16 +1129,10 @@ pub enum Effect {
     },
     /// D-134: `channel`, "rgb", "red", "green", "blue" or "alpha", kept as written so a wrong one
     /// is reported; `amount`, 0 to 100 per cent of the way to the opposite.
-    Invert {
-        channel: String,
-        amount: f64,
-    },
+    Invert { channel: String, amount: f64 },
     /// D-135: `brightness`, -150 to 150 levels of 255 added to every channel; `contrast`, -100
     /// to 100, the tones drawn together (below 0) or pushed apart (above 0) around half.
-    BrightnessContrast {
-        brightness: f64,
-        contrast: f64,
-    },
+    BrightnessContrast { brightness: f64, contrast: f64 },
     /// D-136: how light each of six colour ranges turns in grey, -200 to 300 per cent.
     BlackWhite {
         reds: f64,
@@ -1039,10 +1159,7 @@ pub enum Effect {
     },
     /// D-140: `vibrance`, -100 to 100, the dull colours moved from their grey most and the vivid
     /// ones least; `saturation`, -100 to 100, every colour moved alike.
-    Vibrance {
-        vibrance: f64,
-        saturation: f64,
-    },
+    Vibrance { vibrance: f64, saturation: f64 },
     /// D-141: `color`, `#rrggbb`, the hue kept; `tolerance`, 0 to 100, how far round the wheel a
     /// hue is kept whole; `softness`, 0 to 100, the band past it where the keeping fades; and
     /// `amount`, 0 to 100, how far every other colour is turned grey.
@@ -1081,7 +1198,11 @@ pub enum Effect {
     FindEdges { invert: String, amount: f64 },
     /// D-147: `amount`, 0 to 500, how far each colour is pushed from its blur; `radius`, 0 to
     /// 100 pixels, the sigma of that blur.
-    Sharpen { amount: f64, radius: f64, threshold: f64 },
+    Sharpen {
+        amount: f64,
+        radius: f64,
+        threshold: f64,
+    },
     /// D-148: `radius`, 0 to 500 pixels, how far the glow spreads, three times its blur's sigma;
     /// `amount`, 0 to 100, how much of it is laid on; `blend`, "screen", "lighten" or "normal".
     /// D-364: `second_amount`, 0 to 100 (0, off), how much of the same glow is laid on again
@@ -1259,10 +1380,17 @@ pub enum Effect {
     },
     /// D-182: `lut`, the id of an asset of kind lut, or empty for none. `table` is not a setting
     /// and is never saved: it is the file `lut` names, read for the frame by `crate::lut::fill`.
-    ColorLookup { lut: String, table: Option<crate::lut::Table> },
+    ColorLookup {
+        lut: String,
+        table: Option<crate::lut::Table>,
+    },
     /// D-183: `length`, 0 to 50 pixels along the line; `strength`, 0 to 100 per cent; and
     /// `lines_only`, "off" or "on", each pixel's move scaled by its own ink.
-    LineBlur { length: f64, strength: f64, lines_only: String },
+    LineBlur {
+        length: f64,
+        strength: f64,
+        lines_only: String,
+    },
     /// D-184: windows of `hue`, 0 to 360 degrees, within `hue_range`, 0 to 180, and of
     /// `saturation` and `value`, 0 to 100 per cent, within their ranges, 0 to 100; and
     /// `invert`, "off" or "on".
@@ -1865,33 +1993,62 @@ pub enum Effect {
     /// "rect_to_polar" or "polar_to_rect". The word is kept as written, so a wrong one is
     /// reported. D-320: `shape`, "ellipse", the one that touches the drawing's sides (a file
     /// without it), or "circle", round the middle, half the shorter side across.
-    PolarCoordinates { interpolation: f64, conversion: String, shape: String },
+    PolarCoordinates {
+        interpolation: f64,
+        conversion: String,
+        shape: String,
+    },
     /// D-203: `radius`, 0 to 10 pixels; and `operate_on_alpha`, "off" or "on". The word is kept
     /// as written, so a wrong one is reported.
-    Median { radius: f64, operate_on_alpha: String },
+    Median {
+        radius: f64,
+        operate_on_alpha: String,
+    },
     /// D-203: `radius`, 0 to 10 pixels; and `threshold`, 0 to 255 8-bit steps.
     SmartBlur { radius: f64, threshold: f64 },
     /// D-358: `radius`, 0 to 50 pixels; `threshold`, 0 to 255 steps of the sRGB curve; and
     /// `colorize`, "on" or "off". The word is kept as written, so a wrong one is reported.
-    BilateralBlur { radius: f64, threshold: f64, colorize: String },
+    BilateralBlur {
+        radius: f64,
+        threshold: f64,
+        colorize: String,
+    },
     /// D-360: after CycoreFX's CC Cross Blur. The layer blurred across by one box of Fast Box
     /// Blur's `radius_x` and, apart, down by one of `radius_y`, each 0 to 500 pixels, laid
     /// together by `mode`, one of [`CROSS_MODES`]; `edges` as Gaussian Blur's. The words are kept
     /// as written, so a wrong one is reported.
-    CrossBlur { radius_x: f64, radius_y: f64, mode: String, edges: String },
+    CrossBlur {
+        radius_x: f64,
+        radius_y: f64,
+        mode: String,
+        edges: String,
+    },
     /// D-361: after CycoreFX's CC Radial Blur. `kind`, the file's `type`, one of
     /// [`SPIN_ZOOM_TYPES`]; `amount`, -360 to 360, degrees for the turns or per cent of the
     /// distance for the zooms; `quality`, 1 to 100, samples a pixel of path by 50; and `center`
     /// as Radial Blur's (D-95).
-    SpinZoomBlur { kind: String, amount: f64, quality: f64, center: [f64; 2] },
+    SpinZoomBlur {
+        kind: String,
+        amount: f64,
+        quality: f64,
+        center: [f64; 2],
+    },
     /// D-362: after CycoreFX's CC Radial Fast Blur. `amount`, 0 to 100 per cent of the
     /// distance; `center` as Radial Blur's (D-95); and `zoom`, "standard", "brightest" or
     /// "darkest".
-    FastZoomBlur { amount: f64, center: [f64; 2], zoom: String },
+    FastZoomBlur {
+        amount: f64,
+        center: [f64; 2],
+        zoom: String,
+    },
     /// D-365: after After Effects' Broadcast Colors. `locale`, "ntsc" or "pal"; `method`, one of
     /// [`BROADCAST_METHODS`]; `max_amplitude`, 90 to 120 IRE. The words are kept as written, so
     /// a wrong one is reported.
-    BroadcastSafe { locale: String, method: String, max_amplitude: f64 },
+    BroadcastSafe {
+        locale: String,
+        method: String,
+        max_amplitude: f64,
+    },
     /// D-366: after CycoreFX's CC Color Neutralizer. The three unbalance colours, `#rrggbb`, each
     /// turned to the grey of its own lightness; `shadows`, `midtones` and `highlights`, each red,
     /// green and blue, -255 to 255 levels added (kept as written, so a wrong count is reported);
@@ -1909,14 +2066,32 @@ pub enum Effect {
     },
     /// D-367: after CycoreFX's CC Color Offset. `red_phase`, `green_phase` and `blue_phase`,
     /// -3600 to 3600 degrees; `overflow`, "wrap", "solarize" or "polarize", kept as written.
-    ColorOffset { red_phase: f64, green_phase: f64, blue_phase: f64, overflow: String },
+    ColorOffset {
+        red_phase: f64,
+        green_phase: f64,
+        blue_phase: f64,
+        overflow: String,
+    },
     /// D-368: after CycoreFX's CC Kernel. `line_1`, `line_2` and `line_3`, the grid's rows top to
     /// bottom, three numbers each, -1000 to 1000 (kept as written, so a wrong count is reported);
     /// `divider`, 0.01 to 1000; `absolute_values`, "off" or "on", kept as written.
-    Kernel { line_1: Vec<f64>, line_2: Vec<f64>, line_3: Vec<f64>, divider: f64, absolute_values: String },
+    Kernel {
+        line_1: Vec<f64>,
+        line_2: Vec<f64>,
+        line_3: Vec<f64>,
+        divider: f64,
+        absolute_values: String,
+    },
     /// D-369: after CycoreFX's CC Toner. `tones`, "duotone", "tritone" or "pentone"; the five
     /// colours, `#rrggbb`, all kept as written so a wrong one is reported.
-    Toner { tones: String, highlights: String, brights: String, midtones: String, darktones: String, shadows: String },
+    Toner {
+        tones: String,
+        highlights: String,
+        brights: String,
+        midtones: String,
+        darktones: String,
+        shadows: String,
+    },
     /// D-370: after After Effects' Change Color. `view`, "corrected" or "mask"; `hue_transform`,
     /// -3600 to 3600 degrees; `lightness_transform` and `saturation_transform`, -100 to 100;
     /// `color_to_change`, `#rrggbb`; `tolerance` and `softness`, 0 to 100; `match_colors`, "rgb",
@@ -1934,14 +2109,28 @@ pub enum Effect {
     },
     /// D-374: after After Effects' Color Balance (HLS). `hue`, -3600 to 3600 degrees;
     /// `lightness` and `saturation`, -100 to 100.
-    ColorBalanceHls { hue: f64, lightness: f64, saturation: f64 },
+    ColorBalanceHls {
+        hue: f64,
+        lightness: f64,
+        saturation: f64,
+    },
     /// D-382: after After Effects' Gamma/Pedestal/Gain. `black_stretch`, 1 to 4; for red, green
     /// and blue in that order a gamma, 0.1 to 10, a pedestal, -1 to 1, and a gain, 0 to 4.
-    GammaPedestalGain { black_stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3] },
+    GammaPedestalGain {
+        black_stretch: f64,
+        gamma: [f64; 3],
+        pedestal: [f64; 3],
+        gain: [f64; 3],
+    },
     /// D-384: after After Effects' Photo Filter. `filter`, one of `PHOTO_FILTERS` or "custom";
     /// `color`, `#rrggbb`, used only for "custom"; `density`, 0 to 100; `preserve_luminosity`,
     /// "off" or "on". Words kept as written.
-    PhotoFilter { filter: String, color: String, density: f64, preserve_luminosity: String },
+    PhotoFilter {
+        filter: String,
+        color: String,
+        density: f64,
+        preserve_luminosity: String,
+    },
     /// D-397: after Lumetri Color, under our own name. `values`, the settings of
     /// `COLOR_GRADE_SETTINGS` in that order; `look`, the id of an asset of kind lut, or empty for
     /// none. `table` is not a setting and is never saved: it is the file `look` names, read for
@@ -2186,7 +2375,11 @@ pub enum Effect {
     /// D-383 and D-394): `blurriness`, 0 to 1000, drawn as Fast Box Blur at radius
     /// [`FAST_BLUR_LEGACY_FACTOR`] times it and 3 iterations; `edges` and `dimensions` as Fast
     /// Box Blur's.
-    FastBlurLegacy { blurriness: f64, edges: String, dimensions: String },
+    FastBlurLegacy {
+        blurriness: f64,
+        edges: String,
+        dimensions: String,
+    },
     /// D-472: After Effects' Gaussian Blur (Legacy), a second name over Gaussian Blur's engine in
     /// Blurriness (D-321, as D-383 and D-394): `blurriness`, 0 to 500, sigma 0.3 times it;
     /// `dimensions` as Gaussian Blur's; no Repeat Edge Pixels, so its edges are always clear.
@@ -2289,11 +2482,23 @@ pub enum Effect {
     /// `start` and `end`, per cent of the drawing as Radial Blur's centre is (D-95), -1000 to
     /// 1000; `render_prestart`, one of [`BEND_IT_PRESTARTS`]; `distort`, "legal" or "extended".
     /// The words are kept as written, so a wrong one is reported.
-    BendIt { bend: f64, start: [f64; 2], end: [f64; 2], render_prestart: String, distort: String },
+    BendIt {
+        bend: f64,
+        start: [f64; 2],
+        end: [f64; 2],
+        render_prestart: String,
+        distort: String,
+    },
     /// D-378: after CycoreFX's CC Bender. `amount`, -1000 to 1000 pixels, or per cent of the
     /// axis with `adjust_to_distance` "on" ("off" or "on"); `style`, one of [`BENDER_STYLES`];
     /// `top` and `base`, per cent of the drawing as Radial Blur's centre is, -1000 to 1000.
-    Bender { amount: f64, style: String, adjust_to_distance: String, top: [f64; 2], base: [f64; 2] },
+    Bender {
+        amount: f64,
+        style: String,
+        adjust_to_distance: String,
+        top: [f64; 2],
+        base: [f64; 2],
+    },
     /// D-385: after CycoreFX's CC Flo Motion. `knot_1` and `knot_2`, per cent of the drawing as
     /// Radial Blur's centre is, -1000 to 1000; `amount_1` and `amount_2`, -1000 to 1000;
     /// `falloff`, 0 to 10; `tile_edges` and `finer_controls`, "off" or "on"; `antialiasing`, one
@@ -2311,10 +2516,20 @@ pub enum Effect {
     /// D-386: after CycoreFX's CC Griddler. `horizontal_scale` and `vertical_scale`, -1000 to
     /// 1000 per cent; `tile_size`, 0.1 to 100 per cent of the drawing's width; `rotation`, -3600
     /// to 3600 degrees; `cut_tiles`, "off" or "on".
-    Griddler { horizontal_scale: f64, vertical_scale: f64, tile_size: f64, rotation: f64, cut_tiles: String },
+    Griddler {
+        horizontal_scale: f64,
+        vertical_scale: f64,
+        tile_size: f64,
+        rotation: f64,
+        cut_tiles: String,
+    },
     /// D-387: after CycoreFX's CC Lens. `center`, per cent of the drawing, -1000 to 1000; `size`,
     /// 0 to 1000 per cent of half the drawing's diagonal; `convergence`, -100 to 100.
-    Fisheye { center: [f64; 2], size: f64, convergence: f64 },
+    Fisheye {
+        center: [f64; 2],
+        size: f64,
+        convergence: f64,
+    },
     /// D-388: after CycoreFX's CC Page Turn. `controls`, one of [`PAGE_TURN_CONTROLS`];
     /// `fold_position`, per cent of the drawing, -1000 to 1000; `fold_direction` and
     /// `light_direction`, -3600 to 3600 degrees clockwise from up; `fold_radius`, 0 to 1000
@@ -2351,18 +2566,33 @@ pub enum Effect {
     /// D-602: after After Effects' Bezier Warp (`mesh::bezier_mesh`, document 21). `points`, the
     /// twelve in [`BEZIER_POINTS`]' order, per cent of the drawing, -400 to 500 each way;
     /// `quality`, 1 to 10. With every point where it starts, the drawing as it was.
-    BezierWarp { points: [[f64; 2]; 12], quality: f64 },
+    BezierWarp {
+        points: [[f64; 2]; 12],
+        quality: f64,
+    },
     /// D-603: after After Effects' Mesh Warp (`mesh::warp_mesh`, document 21). `rows` and
     /// `columns`, 1 to 31, rounded; `quality`, 1 to 10; `distortion_mesh`, empty for the mesh
     /// at rest, or x then y for each vertex row by row from the top left, per cent of the
     /// drawing, -400 to 500. D-701: `vertex_handles`, empty for none moved, or eight numbers for
     /// each vertex in the same order (right, left, lower and upper handle, x then y), how far each
     /// is moved from where the smooth mesh has it, per cent of the drawing, -400 to 400.
-    MeshWarp { rows: f64, columns: f64, quality: f64, distortion_mesh: Vec<f64>, vertex_handles: Vec<f64> },
+    MeshWarp {
+        rows: f64,
+        columns: f64,
+        quality: f64,
+        distortion_mesh: Vec<f64>,
+        vertex_handles: Vec<f64>,
+    },
     /// D-604: after After Effects' Warp (`mesh::warp_preset_mesh`, document 21). `warp_style`,
     /// one of [`WARP_STYLES`]; `warp_axis`, "horizontal" or "vertical"; `bend`,
     /// `horizontal_distortion` and `vertical_distortion`, -100 to 100.
-    Warp { warp_style: String, warp_axis: String, bend: f64, horizontal_distortion: f64, vertical_distortion: f64 },
+    Warp {
+        warp_style: String,
+        warp_axis: String,
+        bend: f64,
+        horizontal_distortion: f64,
+        vertical_distortion: f64,
+    },
     /// D-605: after After Effects' Liquify (`mesh::liquify`, document 21). `tool`, one of
     /// [`LIQUIFY_TOOLS`]; `brush_size`, 1 to 1000 pixels; `brush_pressure`, 1 to 100;
     /// `stroke`, the brush's path, empty or x then y for each point, per cent of the drawing,
@@ -2419,31 +2649,72 @@ pub enum Effect {
     /// compose fills it each frame with the source's outline and, when one is named, the
     /// boundary's, flattened, in the drawing's space at the size the effects run at, `None` when
     /// there is no source or a mask named is not there.
-    MaskSmear { source_mask: f64, boundary_mask: f64, mask_offset: [f64; 2], mask_rotation: f64, mask_scale: f64, percent: f64, elasticity: String, paths: Option<Vec<Vec<(f64, f64)>>> },
+    MaskSmear {
+        source_mask: f64,
+        boundary_mask: f64,
+        mask_offset: [f64; 2],
+        mask_rotation: f64,
+        mask_scale: f64,
+        percent: f64,
+        elasticity: String,
+        paths: Option<Vec<Vec<(f64, f64)>>>,
+    },
     /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
     /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
     /// level now and at each frame of the time span before, which compose reads for a frame.
-    RipplePulse { center: [f64; 2], pulse_level: f64, time_span: f64, amplitude: f64, render_bump_map: String, levels: Vec<f64> },
+    RipplePulse {
+        center: [f64; 2],
+        pulse_level: f64,
+        time_span: f64,
+        amplitude: f64,
+        render_bump_map: String,
+        levels: Vec<f64>,
+    },
     /// D-391: after CycoreFX's CC Slant. `slant`, -80 to 80 degrees; `stretching` and
     /// `set_color`, "off" or "on"; `height`, 0 to 1000 per cent; `floor`, per cent of the
     /// drawing, -1000 to 1000, only its height counting; `color`, `#rrggbb`.
-    Slant { slant: f64, stretching: String, height: f64, floor: [f64; 2], set_color: String, color: String },
+    Slant {
+        slant: f64,
+        stretching: String,
+        height: f64,
+        floor: [f64; 2],
+        set_color: String,
+        color: String,
+    },
     /// D-392: after CycoreFX's CC Smear. `from` and `to`, per cent of the drawing, -1000 to 1000;
     /// `reach`, -1000 to 1000 per cent; `radius`, 0 to 1000 pixels.
-    Smear { from: [f64; 2], to: [f64; 2], reach: f64, radius: f64 },
+    Smear {
+        from: [f64; 2],
+        to: [f64; 2],
+        reach: f64,
+        radius: f64,
+    },
     /// D-393: after CycoreFX's CC Split. `point_a` and `point_b`, per cent of the drawing, -1000
     /// to 1000; `split`, 0 to 1000 pixels, the gap's width at the middle.
-    Split { point_a: [f64; 2], point_b: [f64; 2], split: f64 },
+    Split {
+        point_a: [f64; 2],
+        point_b: [f64; 2],
+        split: f64,
+    },
     /// D-394: after CycoreFX's CC Split 2, Split's rule under a second name with each side's
     /// own amount, 0 to 1000 pixels: `split_1` the side on the left walking from A to B,
     /// `split_2` the right.
-    Split2 { point_a: [f64; 2], point_b: [f64; 2], split_1: f64, split_2: f64 },
+    Split2 {
+        point_a: [f64; 2],
+        point_b: [f64; 2],
+        split_1: f64,
+        split_2: f64,
+    },
     /// D-404: after CycoreFX's CC Tiler, Motion Tile's sized tile held at the layer's size.
     /// `scale`, 1 to 100 per cent, each tile's size; `center`, per cent of the picture as it
     /// reaches the effect, -1000 to 1000, where a tile sits; `blend`, 0 to 100 per cent of the
     /// original mixed back.
-    Tiles { scale: f64, center: [f64; 2], blend: f64 },
+    Tiles {
+        scale: f64,
+        center: [f64; 2],
+        blend: f64,
+    },
     /// D-405: after After Effects' Magnify. `shape` "circle" or "square"; `center`, per cent of
     /// the picture as it reaches the effect, -1000 to 1000; `magnification`, 100 to 1000 per
     /// cent; `link` "none", "size" or "size_feather" (the radius, and the feather, times the
@@ -2741,12 +3012,20 @@ pub enum Effect {
     },
     /// D-453: after After Effects' Dust & Scratches, D-203's Median with a threshold. `radius`,
     /// 0 to 10 pixels; `threshold`, 0 to 255 levels; `operate_on_alpha`, "off" or "on".
-    DustScratches { radius: f64, threshold: f64, operate_on_alpha: String },
+    DustScratches {
+        radius: f64,
+        threshold: f64,
+        operate_on_alpha: String,
+    },
     /// D-454: after After Effects' Match Grain (`grade::matched_grain`, document 21). `layer`,
     /// D-189's layer setting, read whole, "" no source (nothing measured); `grain`, an
     /// [`Effect::AddGrain`] holding Add Grain's settings, whose ranges and checks it shares.
     /// `map` is not a setting and is never saved: compose reads the named layer into it.
-    MatchGrain { layer: serde_json::Value, grain: Box<Effect>, map: Option<crate::layer_map::Map> },
+    MatchGrain {
+        layer: serde_json::Value,
+        grain: Box<Effect>,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-455: after After Effects' Remove Grain (`grade::remove_grain`, document 21).
     /// `noise_reduction`, 0 to 3; `passes`, 1 to 4, its whole part; `mode`, "multichannel" or
     /// "single_channel"; `unsharp_amount`, 0 to 500 per cent; `unsharp_radius`, 0 to 100 pixels;
@@ -2969,7 +3248,10 @@ pub enum Effect {
     /// D-548: After Effects' Spill Suppressor (Obsolete), a second name over Screen Key's
     /// despill with its matte off ([`second_name`]): `color_to_suppress`, "#rrggbb", whose
     /// largest channel is the one held down; `suppression`, 0 to 100, the despill.
-    SpillSuppressor { color_to_suppress: String, suppression: f64 },
+    SpillSuppressor {
+        color_to_suppress: String,
+        suppression: f64,
+    },
     /// D-505: after After Effects' Unmult, its rule and its settings when added ours
     /// (`grade::unmult`, document 21). `background_color`, "black" or "white"; `black_level`
     /// (used with black), `white_level` (used with white) and `softness`, 0 to 100 per cent;
@@ -3562,7 +3844,11 @@ pub enum Effect {
     /// 100; `center`, per cent of the picture as it reaches the effect, -1000 to 1000 each; `seed`,
     /// 0 to 100000, its whole part. Everything is a share of the picture, so nothing is
     /// draft-scaled.
-    BurnFilm { burn: f64, center: [f64; 2], seed: f64 },
+    BurnFilm {
+        burn: f64,
+        center: [f64; 2],
+        seed: f64,
+    },
     /// D-461: after After Effects' CC HexTile (`layer_fx::hex_tile`, document 21). `render`, one
     /// of [`HEX_TILE_RENDERS`], and `lock_center`, "on" or "off", kept as written so a wrong one
     /// is reported; `radius`, 1 to 4000 pixels, draft-scaled; `center`, per cent of the drawing,
@@ -3680,7 +3966,12 @@ pub enum Effect {
     /// (`grade::channel_threshold`, as D-383 and D-394): `threshold`, 0 to 255; `channel`,
     /// "luminance", "rgb", "saturation" or "alpha"; `invert`, "off" or "on";
     /// `blend_with_original`, 0 to 100.
-    ChannelThreshold { threshold: f64, channel: String, invert: String, blend_with_original: f64 },
+    ChannelThreshold {
+        threshold: f64,
+        channel: String,
+        invert: String,
+        blend_with_original: f64,
+    },
     /// D-469: CycoreFX's CC Threshold RGB as Threshold RGB, a second name over Channel
     /// Threshold's rule (D-468) with a level and an Invert for each of red, green and blue:
     /// `red_threshold`, `green_threshold`, `blue_threshold`, 0 to 255; `invert_red`,
@@ -3741,7 +4032,11 @@ pub enum Effect {
     /// D-407: after After Effects' Detail-preserving Upscale. `scale`, 100 to 1000 per cent, the
     /// layer growing with it about its middle; `reduce_noise`, 0 to 100, a softening before;
     /// `detail`, 0 to 100, a sharpening after.
-    DetailUpscale { scale: f64, reduce_noise: f64, detail: f64 },
+    DetailUpscale {
+        scale: f64,
+        reduce_noise: f64,
+        detail: f64,
+    },
     /// D-420: after After Effects' Audio Spectrum. `audio_layer`, a sound layer's id ("" none,
     /// silence); `start_point` and `end_point`, per cent of the drawing, -1000 to 1000; `path`, 0
     /// to 1000, a mask's number (0 none); `use_polar_path`, "on" or "off"; `start_frequency` and
@@ -3839,12 +4134,20 @@ pub enum Effect {
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
     /// alpha table. `table` is not a setting: it is the file, read by `crate::lut::fill`.
-    ArbitraryMap { map: String, phase: f64, apply_to_alpha: String, table: Option<crate::lut::Map> },
+    ArbitraryMap {
+        map: String,
+        phase: f64,
+        apply_to_alpha: String,
+        table: Option<crate::lut::Map>,
+    },
     /// D-396: after After Effects' Selective Color. `method`, "relative" or "absolute";
     /// `families`, one per name of [`SELECTIVE_COLOR_FAMILIES`] in its order, each the cyan,
     /// magenta, yellow and black change, -100 to 100 per cent. Kept as written, so a family of
     /// the wrong count is reported rather than refusing the file.
-    SelectiveColor { method: String, families: [Vec<f64>; 9] },
+    SelectiveColor {
+        method: String,
+        families: [Vec<f64>; 9],
+    },
     /// D-400: after After Effects' Shadow/Highlight, by darktable's rule. `shadow_amount` and
     /// `highlight_amount`, 0 to 100; `shadow_tonal_width` and `highlight_tonal_width`, 0 to
     /// 100; `shadow_radius` and `highlight_radius`, 0 to 500 pixels; `color_correction`, 0 to 100.
@@ -4337,11 +4640,41 @@ pub const LEVELS: &str = "core.levels";
 pub const LEVELS_INDIVIDUAL: &str = "core.levels_individual";
 /// D-383: each set's five names in the file, RGB (D-112's own), red, green, blue and alpha.
 pub const LEVELS_NAMES: [[&str; 5]; 5] = [
-    ["input_black", "input_white", "gamma", "output_black", "output_white"],
-    ["red_input_black", "red_input_white", "red_gamma", "red_output_black", "red_output_white"],
-    ["green_input_black", "green_input_white", "green_gamma", "green_output_black", "green_output_white"],
-    ["blue_input_black", "blue_input_white", "blue_gamma", "blue_output_black", "blue_output_white"],
-    ["alpha_input_black", "alpha_input_white", "alpha_gamma", "alpha_output_black", "alpha_output_white"],
+    [
+        "input_black",
+        "input_white",
+        "gamma",
+        "output_black",
+        "output_white",
+    ],
+    [
+        "red_input_black",
+        "red_input_white",
+        "red_gamma",
+        "red_output_black",
+        "red_output_white",
+    ],
+    [
+        "green_input_black",
+        "green_input_white",
+        "green_gamma",
+        "green_output_black",
+        "green_output_white",
+    ],
+    [
+        "blue_input_black",
+        "blue_input_white",
+        "blue_gamma",
+        "blue_output_black",
+        "blue_output_white",
+    ],
+    [
+        "alpha_input_black",
+        "alpha_input_white",
+        "alpha_gamma",
+        "alpha_output_black",
+        "alpha_output_white",
+    ],
 ];
 /// D-112's five that change nothing.
 pub const LEVELS_PLAIN: [f64; 5] = [0.0, 255.0, 1.0, 0.0, 255.0];
@@ -4403,7 +4736,16 @@ pub const PARAFFIN: &str = "core.paraffin";
 pub const KIRA_KIRA: &str = "core.kira_kira";
 pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
 /// D-324: Lightning Bolt's lightning types.
-pub const LIGHTNING_KINDS: [&str; 8] = ["direction", "strike", "breaking", "bouncy", "omni", "anywhere", "vertical", "two_way"];
+pub const LIGHTNING_KINDS: [&str; 8] = [
+    "direction",
+    "strike",
+    "breaking",
+    "bouncy",
+    "omni",
+    "anywhere",
+    "vertical",
+    "two_way",
+];
 pub const COMPOUND_BLUR: &str = "core.compound_blur";
 pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
@@ -4444,11 +4786,25 @@ pub const SHATTER_PATTERNS: [&str; 21] = [
     "carpenters_wheel",
 ];
 pub const SHATTER_TUMBLE: [&str; 8] = ["free", "none", "x", "y", "z", "xy", "xz", "yz"];
-pub const SHATTER_MODES: [&str; 6] =
-    ["color", "layer", "tinted_layer", "color_plus_opacity", "layer_plus_opacity", "tinted_layer_plus_opacity"];
+pub const SHATTER_MODES: [&str; 6] = [
+    "color",
+    "layer",
+    "tinted_layer",
+    "color_plus_opacity",
+    "layer_plus_opacity",
+    "tinted_layer_plus_opacity",
+];
 /// D-632: what Card Dance's sources, multipliers and offsets move, in their order.
-pub const CARD_DANCE_TRANSFORMS: [&str; 8] =
-    ["x_position", "y_position", "z_position", "x_rotation", "y_rotation", "z_rotation", "x_scale", "y_scale"];
+pub const CARD_DANCE_TRANSFORMS: [&str; 8] = [
+    "x_position",
+    "y_position",
+    "z_position",
+    "x_rotation",
+    "y_rotation",
+    "z_rotation",
+    "x_scale",
+    "y_scale",
+];
 const CARD_DANCE_MULTIPLIERS: [&str; 8] = [
     "x_position_multiplier",
     "y_position_multiplier",
@@ -4568,16 +4924,45 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 55] = [
     ("sharpen", -100.0, 100.0, 0.0),
 ];
 /// D-398: Color Grade's curves' names, in the order `curves` holds them.
-pub const COLOR_GRADE_CURVES: [&str; 4] = ["curve_master", "curve_red", "curve_green", "curve_blue"];
+pub const COLOR_GRADE_CURVES: [&str; 4] =
+    ["curve_master", "curve_red", "curve_green", "curve_blue"];
 /// D-571: Color Grade's other curves, in the order `more_curves` holds them: each name, its
 /// words in a sentence, its two numbers' words, the top of its first number (a hue's 360 not
 /// taken), the range of its second, and the second's flat value, where the curve changes
 /// nothing.
 pub const COLOR_GRADE_MORE_CURVES: [(&str, &str, (&str, &str), f64, (f64, f64), f64); 4] = [
-    ("hue_hue", "hue versus hue", ("hue", "shift"), 360.0, (-180.0, 180.0), 0.0),
-    ("hue_luma", "hue versus luma", ("hue", "luma"), 360.0, (-100.0, 100.0), 0.0),
-    ("luma_saturation", "luma versus saturation", ("luma", "saturation"), 100.0, (0.0, 200.0), 100.0),
-    ("saturation_saturation", "saturation versus saturation", ("saturation", "saturation"), 100.0, (0.0, 200.0), 100.0),
+    (
+        "hue_hue",
+        "hue versus hue",
+        ("hue", "shift"),
+        360.0,
+        (-180.0, 180.0),
+        0.0,
+    ),
+    (
+        "hue_luma",
+        "hue versus luma",
+        ("hue", "luma"),
+        360.0,
+        (-100.0, 100.0),
+        0.0,
+    ),
+    (
+        "luma_saturation",
+        "luma versus saturation",
+        ("luma", "saturation"),
+        100.0,
+        (0.0, 200.0),
+        100.0,
+    ),
+    (
+        "saturation_saturation",
+        "saturation versus saturation",
+        ("saturation", "saturation"),
+        100.0,
+        (0.0, 200.0),
+        100.0,
+    ),
 ];
 /// D-384: Photo Filter's presets and their colours, those published for Photoshop's Photo
 /// Filter (fmwconcepts' colorfilter; Aspose agrees on Warming (85)). "custom" uses `color`.
@@ -4590,9 +4975,23 @@ pub const PHOTO_FILTERS: [(&str, &str); 6] = [
     ("underwater", "#00c2b1"),
 ];
 /// D-375: Color Link's samples.
-pub const LINK_SAMPLES: [&str; 6] = ["average", "median", "brightest", "darkest", "max_rgb", "min_rgb"];
+pub const LINK_SAMPLES: [&str; 6] = [
+    "average",
+    "median",
+    "brightest",
+    "darkest",
+    "max_rgb",
+    "min_rgb",
+];
 /// D-375: Color Link's blending modes, Paraffin's six.
-pub const LINK_BLENDS: [&str; 6] = ["normal", "multiply", "screen", "add", "overlay", "soft_light"];
+pub const LINK_BLENDS: [&str; 6] = [
+    "normal",
+    "multiply",
+    "screen",
+    "add",
+    "overlay",
+    "soft_light",
+];
 /// D-376: Color Stabilizer's modes.
 pub const STABILIZE_MODES: [&str; 3] = ["brightness", "levels", "curves"];
 /// D-369: Toner's tone counts.
@@ -4600,13 +4999,25 @@ pub const TONER_TONES: [&str; 3] = ["duotone", "tritone", "pentone"];
 /// D-370: Change Color's matches, in the order the card numbers them.
 pub const CHANGE_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 /// D-365: Broadcast Safe's methods, in the order the card numbers them.
-pub const BROADCAST_METHODS: [&str; 4] = ["reduce_luminance", "reduce_saturation", "key_out_unsafe", "key_out_safe"];
+pub const BROADCAST_METHODS: [&str; 4] = [
+    "reduce_luminance",
+    "reduce_saturation",
+    "key_out_unsafe",
+    "key_out_safe",
+];
 /// D-367: Color Offset's overflows, in the order the card numbers them.
 pub const OFFSET_OVERFLOWS: [&str; 3] = ["wrap", "solarize", "polarize"];
 /// D-360: Cross Blur's modes, in the order the card numbers them.
 pub const CROSS_MODES: [&str; 6] = ["blend", "add", "screen", "multiply", "lighten", "darken"];
 /// D-361: Spin & Zoom Blur's types.
-pub const SPIN_ZOOM_TYPES: [&str; 6] = ["straight_zoom", "fading_zoom", "centered_zoom", "rotate", "scratch", "rotate_fading"];
+pub const SPIN_ZOOM_TYPES: [&str; 6] = [
+    "straight_zoom",
+    "fading_zoom",
+    "centered_zoom",
+    "rotate",
+    "scratch",
+    "rotate_fading",
+];
 pub const SNOWFALL: &str = "core.snowfall";
 pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
@@ -4634,14 +5045,35 @@ pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
 /// D-381: Colorama's phase words, D-316's six first in their order, then After Effects' others.
-pub const COLORAMA_GET: [&str; 11] =
-    ["intensity", "luminance", "red", "green", "blue", "alpha", "hue", "lightness", "saturation", "value", "zero"];
+pub const COLORAMA_GET: [&str; 11] = [
+    "intensity",
+    "luminance",
+    "red",
+    "green",
+    "blue",
+    "alpha",
+    "hue",
+    "lightness",
+    "saturation",
+    "value",
+    "zero",
+];
 /// D-381: how Colorama adds the Add Phase layer's phase to the pixel's.
 pub const COLORAMA_ADD_MODES: [&str; 4] = ["wrap", "clamp", "average", "screen"];
 /// D-381: what of the ring's colour Colorama gives the pixel.
-pub const COLORAMA_MODIFY: [&str; 8] = ["all", "hue", "lightness", "saturation", "red", "green", "blue", "none"];
+pub const COLORAMA_MODIFY: [&str; 8] = [
+    "all",
+    "hue",
+    "lightness",
+    "saturation",
+    "red",
+    "green",
+    "blue",
+    "none",
+];
 /// D-381: how Colorama reads its mask layer.
-pub const COLORAMA_MASKING: [&str; 4] = ["luminance", "inverse_luminance", "alpha", "inverse_alpha"];
+pub const COLORAMA_MASKING: [&str; 4] =
+    ["luminance", "inverse_luminance", "alpha", "inverse_alpha"];
 pub const GLASS: &str = "core.glass";
 pub const VECTOR_BLUR: &str = "core.vector_blur";
 pub const BEND_IT: &str = "core.bend_it";
@@ -4704,29 +5136,71 @@ pub const SPHERIZE: &str = "core.spherize";
 pub const CHECKERBOARD: &str = "core.checkerboard";
 pub const CIRCLE: &str = "core.circle";
 /// D-414: Circle's edges, After Effects' five.
-pub const CIRCLE_EDGES: [&str; 5] = ["none", "edge_radius", "thickness", "thickness_radius", "thickness_feather_radius"];
+pub const CIRCLE_EDGES: [&str; 5] = [
+    "none",
+    "edge_radius",
+    "thickness",
+    "thickness_radius",
+    "thickness_feather_radius",
+];
 pub const ELLIPSE: &str = "core.ellipse";
 /// D-413: how a generator's pattern is laid on the layer, "none" replacing it
 /// (`layer_fx::lay_pattern`).
-pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "screen", "overlay", "soft_light", "stencil_alpha"];
+pub const PATTERN_MODES: [&str; 8] = [
+    "none",
+    "normal",
+    "add",
+    "multiply",
+    "screen",
+    "overlay",
+    "soft_light",
+    "stencil_alpha",
+];
 pub const DETAIL_UPSCALE: &str = "core.detail_upscale";
 pub const AUDIO_SPECTRUM: &str = "core.audio_spectrum";
 pub const AUDIO_WAVEFORM: &str = "core.audio_waveform";
 pub const FRACTAL: &str = "core.fractal";
 /// D-416: Fractal's sets and palettes, After Effects' own.
-pub const FRACTAL_SETS: [&str; 6] = ["mandelbrot", "mandelbrot_inverse", "mandelbrot_over_julia", "mandelbrot_inverse_over_julia", "julia", "julia_inverse"];
-pub const FRACTAL_PALETTES: [&str; 4] = ["lightness_gradient", "hue_wheel", "black_and_white", "solid_color"];
+pub const FRACTAL_SETS: [&str; 6] = [
+    "mandelbrot",
+    "mandelbrot_inverse",
+    "mandelbrot_over_julia",
+    "mandelbrot_inverse_over_julia",
+    "julia",
+    "julia_inverse",
+];
+pub const FRACTAL_PALETTES: [&str; 4] = [
+    "lightness_gradient",
+    "hue_wheel",
+    "black_and_white",
+    "solid_color",
+];
 pub const GRID: &str = "core.grid";
 pub const FILL: &str = "core.fill";
 pub const EYEDROPPER_FILL: &str = "core.eyedropper_fill";
 /// D-419: Eyedropper Fill's Average Pixel Colors, in After Effects' order.
-pub const EYEDROPPER_AVERAGES: [&str; 4] = ["skip_empty", "all", "all_premultiplied", "including_alpha"];
+pub const EYEDROPPER_AVERAGES: [&str; 4] =
+    ["skip_empty", "all", "all_premultiplied", "including_alpha"];
 pub const PAINT_BUCKET: &str = "core.paint_bucket";
 /// D-440: Paint Bucket's Fill Selector, Stroke and Blending Mode, in After Effects' order (the
 /// blending modes this program has, then Fill Only).
-pub const PAINT_BUCKET_SELECTORS: [&str; 5] = ["color_and_alpha", "straight_color", "transparency", "opacity", "alpha_channel"];
+pub const PAINT_BUCKET_SELECTORS: [&str; 5] = [
+    "color_and_alpha",
+    "straight_color",
+    "transparency",
+    "opacity",
+    "alpha_channel",
+];
 pub const PAINT_BUCKET_STROKES: [&str; 5] = ["antialias", "feather", "spread", "choke", "stroke"];
-pub const PAINT_BUCKET_MODES: [&str; 7] = ["normal", "add", "multiply", "screen", "overlay", "soft_light", "fill_only"];
+pub const PAINT_BUCKET_MODES: [&str; 7] = [
+    "normal",
+    "add",
+    "multiply",
+    "screen",
+    "overlay",
+    "soft_light",
+    "fill_only",
+];
 pub const WRITE_ON: &str = "core.write_on";
 /// D-441: Write-on's Paint and Brush Time Properties: which settings each mark keeps from the
 /// time it was laid.
@@ -4735,7 +5209,14 @@ pub const WRITE_ON_BRUSH_TIMES: [&str; 4] = ["none", "size", "hardness", "size_a
 pub const SCRIBBLE: &str = "core.scribble";
 /// D-442: Scribble's words: which masks it fills, how, and how its lines wiggle.
 pub const SCRIBBLE_MASKS: [&str; 3] = ["single_mask", "all_masks", "all_masks_using_modes"];
-pub const SCRIBBLE_FILL_TYPES: [&str; 6] = ["inside", "centered_edge", "inside_edge", "outside_edge", "left_edge", "right_edge"];
+pub const SCRIBBLE_FILL_TYPES: [&str; 6] = [
+    "inside",
+    "centered_edge",
+    "inside_edge",
+    "outside_edge",
+    "left_edge",
+    "right_edge",
+];
 pub const SCRIBBLE_WIGGLES: [&str; 3] = ["static", "jumpy", "smooth"];
 pub const ADD_GRAIN: &str = "core.add_grain";
 /// D-443: how Add Grain lays its grain on.
@@ -4743,7 +5224,12 @@ pub const ADD_GRAIN_BLENDS: [&str; 3] = ["film", "add", "overlay"];
 pub const NOISE_ALPHA: &str = "core.noise_alpha";
 /// D-450: Noise Alpha's kinds of noise, its ways with the covering there was, and what happens
 /// to a covering pushed out of 0 to 1.
-pub const NOISE_ALPHA_KINDS: [&str; 4] = ["uniform_random", "squared_random", "uniform_animation", "squared_animation"];
+pub const NOISE_ALPHA_KINDS: [&str; 4] = [
+    "uniform_random",
+    "squared_random",
+    "uniform_animation",
+    "squared_animation",
+];
 pub const NOISE_ALPHA_ORIGINALS: [&str; 4] = ["clamp", "add", "scale", "edges"];
 pub const NOISE_ALPHA_OVERFLOWS: [&str; 3] = ["clip", "wrap_back", "wrap"];
 pub const NOISE_HLS: &str = "core.noise_hls";
@@ -4763,7 +5249,14 @@ pub const NOISE_GATE: &str = "core.noise_gate";
 pub const COMPRESSOR: &str = "core.compressor";
 pub const DISTORTION: &str = "core.distortion";
 /// D-644: Distortion's types, in After Effects 26.0's order.
-pub const DISTORTION_TYPES: [&str; 6] = ["soft_clip", "hard_clip", "saturation_1", "saturation_2", "tube", "fuzz"];
+pub const DISTORTION_TYPES: [&str; 6] = [
+    "soft_clip",
+    "hard_clip",
+    "saturation_1",
+    "saturation_2",
+    "tube",
+    "fuzz",
+];
 /// D-447: Brush Strokes' paint surfaces, in the card's numbering.
 pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "black"];
 pub const CARTOON: &str = "core.cartoon";
@@ -4835,7 +5328,12 @@ pub const STRETCH_WIPE: &str = "core.stretch_wipe";
 pub const TWISTER: &str = "core.twister";
 pub const WARP_BLEND: &str = "core.warp_blend";
 /// D-518: what Warp Blend's pull follows, in the card's order.
-pub const WARP_BLEND_REACTORS: [&str; 4] = ["brightness", "contrast_differences", "brightness_differences", "local_differences"];
+pub const WARP_BLEND_REACTORS: [&str; 4] = [
+    "brightness",
+    "contrast_differences",
+    "brightness_differences",
+    "local_differences",
+];
 /// D-518: the ways Warp Blend pulls the two layers, in the card's order.
 pub const WARP_BLEND_DIRECTIONS: [&str; 3] = ["joint", "opposing", "twisting"];
 /// D-513: Glow Wipe's shapes.
@@ -4848,8 +5346,16 @@ pub const TILE_SHAPES: [&str; 3] = ["doors", "radial", "rectangle"];
 pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
 /// D-507: CC Spotlight's renders; D-519: the four Gel renders after them, each its Light render
 /// with the light let through the gel.
-pub const SPOT_RENDERS: [&str; 8] =
-    ["light_only", "light_add", "light_add_plus", "light_shadow", "gel_only", "gel_add", "gel_add_plus", "gel_shadow"];
+pub const SPOT_RENDERS: [&str; 8] = [
+    "light_only",
+    "light_add",
+    "light_add_plus",
+    "light_shadow",
+    "gel_only",
+    "gel_add",
+    "gel_add_plus",
+    "gel_shadow",
+];
 pub const PARTICLE_SPACE: &str = "core.particle_space";
 /// D-610: Particle Space's keyable settings, in the order `values` holds them: name, lowest,
 /// highest, and the value when the effect is added. Distances are in the layer's widths, the
@@ -4909,7 +5415,16 @@ pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
     (
         "animation",
         &[
-            "explosive", "direction_axis", "cone_axis", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni",
+            "explosive",
+            "direction_axis",
+            "cone_axis",
+            "viscous",
+            "twirl",
+            "twirly",
+            "vortex",
+            "fire",
+            "jet_sideways",
+            "fractal_omni",
             "fractal_uni",
         ],
         "explosive",
@@ -4917,11 +5432,34 @@ pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
     ("floor_action", &["none", "ice", "glue", "bounce"], "none"),
     (
         "particle_type",
-        &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "textured_square", "textured_disc", "textured_faded_disc"],
+        &[
+            "line",
+            "faded_sphere",
+            "shaded_sphere",
+            "disc",
+            "bubble",
+            "textured_square",
+            "textured_disc",
+            "textured_faded_disc",
+        ],
         "line",
     ),
-    ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
-    ("transfer_mode", &["composite", "screen", "add"], "composite"),
+    (
+        "color_map",
+        &[
+            "birth_to_death",
+            "origin_to_death",
+            "birth_to_origin",
+            "origin_constant",
+            "custom",
+        ],
+        "birth_to_death",
+    ),
+    (
+        "transfer_mode",
+        &["composite", "screen", "add"],
+        "composite",
+    ),
     ("depth_cue", &["none", "fade", "fog"], "none"),
     ("composite_on_original", &["off", "on"], "off"),
 ];
@@ -4953,7 +5491,11 @@ pub const BUBBLES_SETTINGS: [(&str, f64, f64, f64); 6] = [
 /// D-671: Bubbles' words: name, the words, the word when added.
 pub const BUBBLES_WORDS: [(&str, &[&str], &str); 2] = [
     ("reflection", &["inverse", "world"], "inverse"),
-    ("shading", &["none", "lighten", "darken", "fade_inwards", "fade_outwards"], "fade_inwards"),
+    (
+        "shading",
+        &["none", "lighten", "darken", "fade_inwards", "fade_outwards"],
+        "fade_inwards",
+    ),
 ];
 pub const DRIZZLE: &str = "core.drizzle";
 /// D-672: Drizzle's keyable settings, in the order `values` holds them: name, lowest, highest,
@@ -4980,7 +5522,8 @@ pub const DRIZZLE_SETTINGS: [(&str, f64, f64, f64); 16] = [
     ("metal", 0.0, 100.0, 100.0),
 ];
 /// D-672: Drizzle's words: name, the words, the word when added.
-pub const DRIZZLE_WORDS: [(&str, &[&str], &str); 1] = [("light_type", &["distant", "point"], "distant")];
+pub const DRIZZLE_WORDS: [(&str, &[&str], &str); 1] =
+    [("light_type", &["distant", "point"], "distant")];
 pub const PARTICLE_PLANE: &str = "core.particle_plane";
 /// D-612: Particle Plane's keyable settings, in the order `values` holds them: name, lowest,
 /// highest, and the value when the effect is added. Distances are in the layer's widths, the
@@ -5019,13 +5562,63 @@ pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 25] = [
 pub const PARTICLE_PLANE_WORDS: [(&str, &[&str], &str); 6] = [
     (
         "animation",
-        &["explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni"],
+        &[
+            "explosive",
+            "direction",
+            "cone",
+            "viscous",
+            "twirl",
+            "twirly",
+            "vortex",
+            "fire",
+            "jet_sideways",
+            "fractal_omni",
+            "fractal_uni",
+        ],
         "explosive",
     ),
-    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", "textured_square"], "line"),
-    ("opacity_map", &["constant", "fade_in", "fade_out", "fade_in_and_out", "custom"], "constant"),
-    ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
-    ("transfer_mode", &["composite", "screen", "add"], "composite"),
+    (
+        "particle_type",
+        &[
+            "line",
+            "faded_sphere",
+            "shaded_sphere",
+            "disc",
+            "bubble",
+            "star",
+            "textured_disc",
+            "textured_faded_disc",
+            "textured_square",
+        ],
+        "line",
+    ),
+    (
+        "opacity_map",
+        &[
+            "constant",
+            "fade_in",
+            "fade_out",
+            "fade_in_and_out",
+            "custom",
+        ],
+        "constant",
+    ),
+    (
+        "color_map",
+        &[
+            "birth_to_death",
+            "origin_to_death",
+            "birth_to_origin",
+            "origin_constant",
+            "custom",
+        ],
+        "birth_to_death",
+    ),
+    (
+        "transfer_mode",
+        &["composite", "screen", "add"],
+        "composite",
+    ),
     ("composite_on_original", &["off", "on"], "off"),
 ];
 /// D-612: Particle Plane's colours and each when added: Particle Space's but Depth Cue's.
@@ -5141,23 +5734,63 @@ pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 21] = [
     "mass",
 ];
 /// D-614: the Ephemeral Property Mapper's operators on the property and the map's value.
-pub const PARTICLE_PLAYGROUND_OPERATORS: [&str; 7] = ["set", "add", "difference", "subtract", "multiply", "min", "max"];
+pub const PARTICLE_PLAYGROUND_OPERATORS: [&str; 7] = [
+    "set",
+    "add",
+    "difference",
+    "subtract",
+    "multiply",
+    "min",
+    "max",
+];
 /// D-613: Particle Playground's words: name, the words, the word when added. D-614: then the
 /// mappers' Particles From, each channel's property, and the Ephemeral operator.
 pub const PARTICLE_PLAYGROUND_WORDS: [(&str, &[&str], &str); 14] = [
-    ("particle_exploder_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    (
+        "particle_exploder_particles_from",
+        &PARTICLE_PLAYGROUND_FROM,
+        "all",
+    ),
     ("layer_map_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("gravity_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("wall_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("auto_orient", &["off", "on"], "off"),
-    ("persistent_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    (
+        "persistent_particles_from",
+        &PARTICLE_PLAYGROUND_FROM,
+        "all",
+    ),
     ("ephemeral_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
-    ("persistent_map_red_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
-    ("persistent_map_green_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
-    ("persistent_map_blue_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
-    ("ephemeral_map_red_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
-    ("ephemeral_map_green_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
-    ("ephemeral_map_blue_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    (
+        "persistent_map_red_to",
+        &PARTICLE_PLAYGROUND_PROPERTIES,
+        "none",
+    ),
+    (
+        "persistent_map_green_to",
+        &PARTICLE_PLAYGROUND_PROPERTIES,
+        "none",
+    ),
+    (
+        "persistent_map_blue_to",
+        &PARTICLE_PLAYGROUND_PROPERTIES,
+        "none",
+    ),
+    (
+        "ephemeral_map_red_to",
+        &PARTICLE_PLAYGROUND_PROPERTIES,
+        "none",
+    ),
+    (
+        "ephemeral_map_green_to",
+        &PARTICLE_PLAYGROUND_PROPERTIES,
+        "none",
+    ),
+    (
+        "ephemeral_map_blue_to",
+        &PARTICLE_PLAYGROUND_PROPERTIES,
+        "none",
+    ),
     ("ephemeral_operator", &PARTICLE_PLAYGROUND_OPERATORS, "set"),
 ];
 /// D-613: Particle Playground's layer settings, each "" (none) when added. D-614: then each
@@ -5175,7 +5808,8 @@ pub const PARTICLE_PLAYGROUND_LAYERS: [&str; 10] = [
     "ephemeral_selection_map",
 ];
 /// D-613: Particle Playground's colours and each when added.
-pub const PARTICLE_PLAYGROUND_COLORS: [(&str, &str); 2] = [("cannon_color", "#ff0000"), ("grid_color", "#ffff00")];
+pub const PARTICLE_PLAYGROUND_COLORS: [(&str, &str); 2] =
+    [("cannon_color", "#ff0000"), ("grid_color", "#ffff00")];
 pub const HAIR: &str = "core.hair";
 /// D-673: Hair's keyable settings, in the order `values` holds them: name, lowest, highest, and
 /// the value when the effect is added. Length in thousandths of the drawing's height; thickness
@@ -5266,13 +5900,40 @@ pub const PARTICLE_EMITTER_SETTINGS: [(&str, f64, f64, f64); 54] = [
 /// system's last, off when added.
 pub const PARTICLE_EMITTER_WORDS: [(&str, &[&str], &str); 9] = [
     ("emitter_type", &["point", "box", "sphere", "grid"], "point"),
-    ("direction", &["uniform", "directional", "bi_directional", "disc", "outwards", "inwards"], "uniform"),
-    ("particle_type", &["sphere", "glow_sphere", "star", "cloudlet", "streak"], "sphere"),
-    ("set_color", &["at_birth", "over_life", "random_from_gradient"], "at_birth"),
+    (
+        "direction",
+        &[
+            "uniform",
+            "directional",
+            "bi_directional",
+            "disc",
+            "outwards",
+            "inwards",
+        ],
+        "uniform",
+    ),
+    (
+        "particle_type",
+        &["sphere", "glow_sphere", "star", "cloudlet", "streak"],
+        "sphere",
+    ),
+    (
+        "set_color",
+        &["at_birth", "over_life", "random_from_gradient"],
+        "at_birth",
+    ),
     ("transfer_mode", &["normal", "add", "screen"], "normal"),
-    ("floor_action", &["none", "bounce", "slide", "stick"], "none"),
+    (
+        "floor_action",
+        &["none", "bounce", "slide", "stick"],
+        "none",
+    ),
     ("aux_emit", &["off", "continuously", "at_bounce"], "off"),
-    ("aux_particle_type", &["sphere", "glow_sphere", "star", "cloudlet", "streak"], "sphere"),
+    (
+        "aux_particle_type",
+        &["sphere", "glow_sphere", "star", "cloudlet", "streak"],
+        "sphere",
+    ),
     ("aux_set_color", &["from_main", "own"], "from_main"),
 ];
 /// D-615: Particle Emitter's colours and each when added; the gradient ours, white through
@@ -5323,8 +5984,16 @@ pub const PARTICLE_GRID_SETTINGS: [(&str, f64, f64, f64); 28] = [
 ];
 /// D-616: Particle Grid's words: name, the words, the word when added.
 pub const PARTICLE_GRID_WORDS: [(&str, &[&str], &str); 3] = [
-    ("base_form", &["box_grid", "sphere_layered", "box_strings", "layer"], "box_grid"),
-    ("particle_type", &["sphere", "glow_sphere", "star", "cloudlet"], "sphere"),
+    (
+        "base_form",
+        &["box_grid", "sphere_layered", "box_strings", "layer"],
+        "box_grid",
+    ),
+    (
+        "particle_type",
+        &["sphere", "glow_sphere", "star", "cloudlet"],
+        "sphere",
+    ),
     ("transfer_mode", &["normal", "add", "screen"], "normal"),
 ];
 /// D-616: Particle Grid's layer settings, each stretched to the drawing; D-712 added the Base
@@ -5368,8 +6037,16 @@ pub const MERCURY_SETTINGS: [(&str, f64, f64, f64); 24] = [
 ];
 /// D-674: Mercury's words: name, the words, the word when added.
 pub const MERCURY_WORDS: [(&str, &[&str], &str); 3] = [
-    ("animation", &["explosive", "direction", "twirl", "vortex", "fixed"], "explosive"),
-    ("influence_map", &["in_out", "in", "out", "constant"], "in_out"),
+    (
+        "animation",
+        &["explosive", "direction", "twirl", "vortex", "fixed"],
+        "explosive",
+    ),
+    (
+        "influence_map",
+        &["in_out", "in", "out", "constant"],
+        "in_out",
+    ),
     ("light_type", &["distant", "point"], "distant"),
 ];
 pub const POLYGON_SHARDS: &str = "core.polygon_shards";
@@ -5391,7 +6068,11 @@ pub const POLYGON_SHARDS_SETTINGS: [(&str, f64, f64, f64); 9] = [
 ];
 /// D-675: Polygon Shards' words: name, the words, the word when added.
 pub const POLYGON_SHARDS_WORDS: [(&str, &[&str], &str); 2] = [
-    ("object", &["polygon", "textured_polygon", "square", "textured_square"], "textured_polygon"),
+    (
+        "object",
+        &["polygon", "textured_polygon", "square", "textured_square"],
+        "textured_polygon",
+    ),
     ("depth_sort", &["off", "on"], "on"),
 ];
 pub const FOAM: &str = "core.foam";
@@ -5434,9 +6115,21 @@ pub const FOAM_SETTINGS: [(&str, f64, f64, f64); 26] = [
 pub const FOAM_WORDS: [(&str, &[&str], &str); 6] = [
     ("view", &["draft", "rendered"], "draft"),
     ("zoom_producer_point", &["off", "on"], "off"),
-    ("blend_mode", &["transparent", "solid_old_on_top", "solid_new_on_top"], "transparent"),
-    ("bubble_texture", &["default_bubble", "spit", "bubblegum", "dishwater", "layer"], "default_bubble"),
-    ("bubble_orientation", &["fixed", "physical", "velocity"], "fixed"),
+    (
+        "blend_mode",
+        &["transparent", "solid_old_on_top", "solid_new_on_top"],
+        "transparent",
+    ),
+    (
+        "bubble_texture",
+        &["default_bubble", "spit", "bubblegum", "dishwater", "layer"],
+        "default_bubble",
+    ),
+    (
+        "bubble_orientation",
+        &["fixed", "physical", "velocity"],
+        "fixed",
+    ),
     ("quality", &["normal", "high", "intense"], "normal"),
 ];
 pub const SCATTERIZE: &str = "core.scatterize";
@@ -5449,7 +6142,11 @@ pub const SCATTERIZE_SETTINGS: [(&str, f64, f64, f64); 3] = [
     ("left_twist", -36000.0, 36000.0, 0.0),
 ];
 /// D-676: Scatterize's words: name, the words, the word when added.
-pub const SCATTERIZE_WORDS: [(&str, &[&str], &str); 1] = [("transfer_mode", &["composite", "screen", "add", "alpha_add"], "composite")];
+pub const SCATTERIZE_WORDS: [(&str, &[&str], &str); 1] = [(
+    "transfer_mode",
+    &["composite", "screen", "add", "alpha_add"],
+    "composite",
+)];
 pub const STAR_BURST: &str = "core.star_burst";
 /// D-677: Star Burst's keyable settings, in the order `values` holds them: name, lowest, highest,
 /// and the value when the effect is added. Scatter in per cent of the grid spacing and of the
@@ -5469,8 +6166,23 @@ pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
 /// "turbulent" is After Effects' Turbulent Basic. The place in the list is `grade::Look::kind`.
 pub const FRACTAL_TYPES: [&str; 17] = [
-    "basic", "turbulent", "turbulent_smooth", "turbulent_sharp", "dynamic", "dynamic_progressive", "dynamic_twist", "max",
-    "smeary", "swirly", "rocky", "cloudy", "terrain", "subscale", "small_bumps", "strings", "threads",
+    "basic",
+    "turbulent",
+    "turbulent_smooth",
+    "turbulent_sharp",
+    "dynamic",
+    "dynamic_progressive",
+    "dynamic_twist",
+    "max",
+    "smeary",
+    "swirly",
+    "rocky",
+    "cloudy",
+    "terrain",
+    "subscale",
+    "small_bumps",
+    "strings",
+    "threads",
 ];
 /// D-567: their noise types: this program's smooth (D-128), then After Effects' four. The place
 /// in the list is `grade::Look::noise`.
@@ -5535,11 +6247,22 @@ const TURBULENT_BLENDS: [&str; 17] = [
     "overlay",
     "hue",
 ];
-pub const BALL_AXES: [&str; 9] =["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
+pub const BALL_AXES: [&str; 9] = ["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
 /// D-551: CC Ball Action's twist properties, as CycoreFX lists them.
 pub const BALL_TWISTS: [&str; 13] = [
-    "x_axis", "y_axis", "center_x", "center_y", "radius", "random", "red", "green", "blue", "brightness", "diamond",
-    "rectangle", "fast_top",
+    "x_axis",
+    "y_axis",
+    "center_x",
+    "center_y",
+    "radius",
+    "random",
+    "red",
+    "green",
+    "blue",
+    "brightness",
+    "diamond",
+    "rectangle",
+    "fast_top",
 ];
 pub const ENERGY_STROKE: &str = "core.energy_stroke";
 /// D-508: where Energy Stroke's beam runs.
@@ -5601,8 +6324,20 @@ pub const STROBE_LIGHT: &str = "core.strobe_light";
 /// D-466: Strobe Light's Strobe, After Effects' two in its order.
 pub const STROBE_LIGHT_MODES: [&str; 2] = ["color_only", "transparent"];
 /// D-466: Strobe Light's operators, Copy first as it starts; the list past Copy is ours.
-pub const STROBE_LIGHT_OPERATORS: [&str; 12] =
-    ["copy", "add", "subtract", "multiply", "difference", "and", "or", "xor", "minimum", "maximum", "darken", "lighten"];
+pub const STROBE_LIGHT_OPERATORS: [&str; 12] = [
+    "copy",
+    "add",
+    "subtract",
+    "multiply",
+    "difference",
+    "and",
+    "or",
+    "xor",
+    "minimum",
+    "maximum",
+    "darken",
+    "lighten",
+];
 pub const TEXTURIZE: &str = "core.texturize";
 pub const CHANNEL_THRESHOLD: &str = "core.channel_threshold";
 pub const THRESHOLD_RGB: &str = "core.threshold_rgb";
@@ -5658,8 +6393,23 @@ pub(crate) fn transform_moment(effect: &Effect) -> Option<[f64; 10]> {
             opacity,
             ..
         } => {
-            let across = if uniform_scale == "on" { *scale_height } else { *scale_width };
-            Some([*ax, *ay, *px, *py, *scale_height, across, *skew, *skew_axis, *rotation, *opacity])
+            let across = if uniform_scale == "on" {
+                *scale_height
+            } else {
+                *scale_width
+            };
+            Some([
+                *ax,
+                *ay,
+                *px,
+                *py,
+                *scale_height,
+                across,
+                *skew,
+                *skew_axis,
+                *rotation,
+                *opacity,
+            ])
         }
         _ => None,
     }
@@ -5667,19 +6417,36 @@ pub(crate) fn transform_moment(effect: &Effect) -> Option<[f64; 10]> {
 /// D-409: how many samples each channel of Chromatic Aberration's new form takes, red, green,
 /// blue: one with no smear, else one a pixel of its longest shift and one more. `scales` and
 /// `fringe_blur` are fractions. The processor and the card both read it, so they sum alike.
-pub(crate) fn lens_aberration_counts(amount: f64, scales: [f64; 3], fringe_blur: f64) -> [usize; 3] {
-    scales.map(|s| if fringe_blur * s == 0.0 { 1 } else { (amount * s.abs() * fringe_blur).ceil() as usize + 1 })
+pub(crate) fn lens_aberration_counts(
+    amount: f64,
+    scales: [f64; 3],
+    fringe_blur: f64,
+) -> [usize; 3] {
+    scales.map(|s| {
+        if fringe_blur * s == 0.0 {
+            1
+        } else {
+            (amount * s.abs() * fringe_blur).ceil() as usize + 1
+        }
+    })
 }
 /// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
-pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
-    ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
+pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] = [
+    "reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks",
+];
 
 /// D-396: Selective Color's families as numbers; each is four once the effect is valid.
 pub fn selective_color_amounts(families: &[Vec<f64>; 9]) -> [[f64; 4]; 9] {
     std::array::from_fn(|i| std::array::from_fn(|c| families[i][c]))
 }
 /// D-388: Page Turn's ways of placing the fold, the line itself or the corner turned.
-pub const PAGE_TURN_CONTROLS: [&str; 5] = ["classic", "top_left", "top_right", "bottom_left", "bottom_right"];
+pub const PAGE_TURN_CONTROLS: [&str; 5] = [
+    "classic",
+    "top_left",
+    "top_right",
+    "bottom_left",
+    "bottom_right",
+];
 /// D-388: what Page Turn draws, in the order the card numbers them.
 pub const PAGE_TURN_RENDERS: [&str; 3] = ["full", "front", "back"];
 /// D-385: Flow Motion's antialiasing, in the order of its points a side, 1, 2 and 4.
@@ -5729,7 +6496,8 @@ pub const WARP_STYLES: [&str; 15] = [
 /// D-378: Bender's styles, in the order the card numbers them.
 pub const BENDER_STYLES: [&str; 4] = ["bend", "marilyn", "sharp", "boxer"];
 /// D-379: what Blobbylize reads its blob from, a share of [`VECTOR_BLUR_PROPERTIES`].
-pub const BLOBBYLIZE_PROPERTIES: [&str; 6] = ["red", "green", "blue", "alpha", "luminance", "lightness"];
+pub const BLOBBYLIZE_PROPERTIES: [&str; 6] =
+    ["red", "green", "blue", "alpha", "luminance", "lightness"];
 pub const MOMENT_MAP: &str = "core.moment_map";
 pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
@@ -5754,7 +6522,12 @@ pub const NUMBERS_TYPES: [&str; 10] = [
     "hexadecimal",
 ];
 /// D-526: how Numbers draws its fill and stroke.
-pub const NUMBERS_DISPLAYS: [&str; 4] = ["fill_only", "stroke_only", "fill_over_stroke", "stroke_over_fill"];
+pub const NUMBERS_DISPLAYS: [&str; 4] = [
+    "fill_only",
+    "stroke_only",
+    "fill_over_stroke",
+    "stroke_over_fill",
+];
 pub const TIMECODE: &str = "core.timecode";
 /// D-527: how Timecode writes its count.
 pub const TIMECODE_FORMATS: [&str; 4] = ["smpte", "frames", "feet_frames_35mm", "feet_frames_16mm"];
@@ -5781,18 +6554,58 @@ pub const VEGAS_MODES: [&str; 4] = ["over", "under", "transparent", "stencil"];
 pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
 /// D-350: what a text animator's selector counts, and the shapes of its range.
 pub const TEXT_BASED_ON: [&str; 3] = ["characters", "characters_excluding_spaces", "words"];
-pub const TEXT_SHAPES: [&str; 6] = ["square", "ramp_up", "ramp_down", "triangle", "round", "smooth"];
+pub const TEXT_SHAPES: [&str; 6] = [
+    "square",
+    "ramp_up",
+    "ramp_down",
+    "triangle",
+    "round",
+    "smooth",
+];
 /// D-349: Pass Extract's passes.
 pub const PASSES: [&str; 5] = ["depth", "normals", "object_id", "material_id", "named"];
 /// D-336: CC Vector Blur's types.
-pub const VECTOR_BLUR_TYPES: [&str; 5] = ["natural", "constant", "perpendicular", "direction_center", "direction_fading"];
+pub const VECTOR_BLUR_TYPES: [&str; 5] = [
+    "natural",
+    "constant",
+    "perpendicular",
+    "direction_center",
+    "direction_fading",
+];
 /// D-336: what CC Vector Blur reads its height from.
-pub const VECTOR_BLUR_PROPERTIES: [&str; 8] = ["red", "green", "blue", "alpha", "luminance", "lightness", "hue", "saturation"];
+pub const VECTOR_BLUR_PROPERTIES: [&str; 8] = [
+    "red",
+    "green",
+    "blue",
+    "alpha",
+    "luminance",
+    "lightness",
+    "hue",
+    "saturation",
+];
 /// D-307: Hue/Saturation's colour ranges as the file names them, centred 0, 60 ... 300 degrees.
-pub const HUE_RANGES: [&str; 6] = ["reds_hsl", "yellows_hsl", "greens_hsl", "cyans_hsl", "blues_hsl", "magentas_hsl"];
+pub const HUE_RANGES: [&str; 6] = [
+    "reds_hsl",
+    "yellows_hsl",
+    "greens_hsl",
+    "cyans_hsl",
+    "blues_hsl",
+    "magentas_hsl",
+];
 /// D-305: what Shift Channels can take a channel from.
-pub const SHIFT_CHANNELS_FROM: [&str; 11] =
-    ["alpha", "red", "green", "blue", "luminance", "hue", "lightness", "saturation", "full", "half", "off"];
+pub const SHIFT_CHANNELS_FROM: [&str; 11] = [
+    "alpha",
+    "red",
+    "green",
+    "blue",
+    "luminance",
+    "hue",
+    "lightness",
+    "saturation",
+    "full",
+    "half",
+    "off",
+];
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -5814,7 +6627,12 @@ fn key_numbers(track: &[Property], i: usize) -> Vec<f64> {
 impl Effect {
     /// An Exposure of `stops` and nothing else.
     pub fn exposure(stops: f64) -> Effect {
-        Effect::Exposure { stops, offset: 0.0, gamma: 1.0, bypass: "off".to_string() }
+        Effect::Exposure {
+            stops,
+            offset: 0.0,
+            gamma: 1.0,
+            bypass: "off".to_string(),
+        }
     }
 
     /// Every setting that is numbers: its name in the file, its numbers, and the range document
@@ -5825,26 +6643,50 @@ impl Effect {
             // D-90: a sigma past 500 a machine's memory. D-318: After Effects' Exposure runs
             // to 40 stops either way, and `2^40` is still a plain number in single precision.
             // D-335: After Effects' own ranges for the other two.
-            Effect::Exposure { stops, offset, gamma, .. } => vec![
+            Effect::Exposure {
+                stops,
+                offset,
+                gamma,
+                ..
+            } => vec![
                 ("stops", vec![stops], -40.0, 40.0),
                 ("offset", vec![offset], -0.5, 0.5),
                 ("gamma", vec![gamma], 0.01, 9.99),
             ],
             Effect::GaussianBlur { sigma_px, .. } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
-            Effect::ReduceInterlaceFlicker { softness } => vec![("softness", vec![softness], 0.0, 500.0)],
-            Effect::SpillSuppressor { suppression, .. } => vec![("suppression", vec![suppression], 0.0, 100.0)],
+            Effect::ReduceInterlaceFlicker { softness } => {
+                vec![("softness", vec![softness], 0.0, 500.0)]
+            }
+            Effect::SpillSuppressor { suppression, .. } => {
+                vec![("suppression", vec![suppression], 0.0, 100.0)]
+            }
             // A colour in linear light has no range but being a number.
             Effect::Tint { color, amount } => vec![
                 ("color", color.iter_mut().collect(), f64::MIN, f64::MAX),
                 ("amount", vec![amount], 0.0, 1.0),
             ],
-            Effect::TintMap { amount_to_tint, .. } => vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)],
-            Effect::Tritone { blend_with_original, .. } => vec![("blend_with_original", vec![blend_with_original], 0.0, 100.0)],
+            Effect::TintMap { amount_to_tint, .. } => {
+                vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)]
+            }
+            Effect::Tritone {
+                blend_with_original,
+                ..
+            } => vec![("blend_with_original", vec![blend_with_original], 0.0, 100.0)],
             Effect::AerialHaze { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
-            Effect::DifferenceMatte { matching_tolerance, matching_softness, blur_before_difference, .. } => vec![
+            Effect::DifferenceMatte {
+                matching_tolerance,
+                matching_softness,
+                blur_before_difference,
+                ..
+            } => vec![
                 ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
                 ("matching_softness", vec![matching_softness], 0.0, 100.0),
-                ("blur_before_difference", vec![blur_before_difference], 0.0, 100.0),
+                (
+                    "blur_before_difference",
+                    vec![blur_before_difference],
+                    0.0,
+                    100.0,
+                ),
             ],
             Effect::InnerOuterKey {
                 foreground,
@@ -5858,18 +6700,36 @@ impl Effect {
             } => vec![
                 ("foreground", vec![foreground], 0.0, 1000.0),
                 ("background", vec![background], 0.0, 1000.0),
-                ("single_mask_highlight_radius", vec![single_mask_highlight_radius], 0.0, 1000.0),
+                (
+                    "single_mask_highlight_radius",
+                    vec![single_mask_highlight_radius],
+                    0.0,
+                    1000.0,
+                ),
                 ("edge_thin", vec![edge_thin], -100.0, 100.0),
                 ("edge_feather", vec![edge_feather], 0.0, 1000.0),
                 ("edge_threshold", vec![edge_threshold], 0.0, 100.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
-            Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => vec![
-                ("additional_edge_radius", vec![additional_edge_radius], 0.0, 100.0),
+            Effect::KeyCleaner {
+                additional_edge_radius,
+                alpha_contrast,
+                strength,
+            } => vec![
+                (
+                    "additional_edge_radius",
+                    vec![additional_edge_radius],
+                    0.0,
+                    100.0,
+                ),
                 ("alpha_contrast", vec![alpha_contrast], 0.0, 100.0),
                 ("strength", vec![strength], 0.0, 100.0),
             ],
-            Effect::LinearColorKey { matching_tolerance, matching_softness, .. } => vec![
+            Effect::LinearColorKey {
+                matching_tolerance,
+                matching_softness,
+                ..
+            } => vec![
                 ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
                 ("matching_softness", vec![matching_softness], 0.0, 100.0),
             ],
@@ -5895,73 +6755,159 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("edge_refine", vec![edge_refine], 0.0, 100.0),
             ],
-            Effect::Unmult { black_level, white_level, softness, .. } => vec![
+            Effect::Unmult {
+                black_level,
+                white_level,
+                softness,
+                ..
+            } => vec![
                 ("black_level", vec![black_level], 0.0, 100.0),
                 ("white_level", vec![white_level], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
-            Effect::ThreeDGlasses { scene_convergence, vertical_alignment, balance, .. } => vec![
-                ("scene_convergence", vec![scene_convergence], -1000.0, 1000.0),
-                ("vertical_alignment", vec![vertical_alignment], -1000.0, 1000.0),
+            Effect::ThreeDGlasses {
+                scene_convergence,
+                vertical_alignment,
+                balance,
+                ..
+            } => vec![
+                (
+                    "scene_convergence",
+                    vec![scene_convergence],
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "vertical_alignment",
+                    vec![vertical_alignment],
+                    -1000.0,
+                    1000.0,
+                ),
                 ("balance", vec![balance], 0.0, 10.0),
             ],
-            Effect::GlassMelt { completion, softness, displacement_amount, .. } => vec![
+            Effect::GlassMelt {
+                completion,
+                softness,
+                displacement_amount,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
-                ("displacement_amount", vec![displacement_amount], -500.0, 500.0),
+                (
+                    "displacement_amount",
+                    vec![displacement_amount],
+                    -500.0,
+                    500.0,
+                ),
             ],
-            Effect::TileWipe { completion, center, rotation, border, tiles, .. } => vec![
+            Effect::TileWipe {
+                completion,
+                center,
+                rotation,
+                border,
+                tiles,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
             ],
-            Effect::WarpBlend { completion, smoothness, warp_amount, blend_span, .. } => vec![
+            Effect::WarpBlend {
+                completion,
+                smoothness,
+                warp_amount,
+                blend_span,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("smoothness", vec![smoothness], 0.0, 100.0),
                 ("warp_amount", vec![warp_amount], -500.0, 500.0),
                 ("blend_span", vec![blend_span], 0.0, 100.0),
             ],
-            Effect::Twister { completion, center, axis, .. } => vec![
+            Effect::Twister {
+                completion,
+                center,
+                axis,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("axis", vec![axis], -3600.0, 3600.0),
             ],
-            Effect::StretchWipe { scale, center, direction } => vec![
+            Effect::StretchWipe {
+                scale,
+                center,
+                direction,
+            } => vec![
                 ("scale", vec![scale], 100.0, 100000.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("direction", vec![direction], -3600.0, 3600.0),
             ],
-            Effect::PushIris { completion, center, .. } => vec![
+            Effect::PushIris {
+                completion, center, ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::StripeSweep { completion, direction, thickness, slant, .. } => vec![
+            Effect::StripeSweep {
+                completion,
+                direction,
+                thickness,
+                slant,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("thickness", vec![thickness], 1.0, 1000.0),
                 ("slant", vec![slant], 0.0, 99.0),
             ],
-            Effect::GlowWipe { completion, center, intensity, direction, .. } => vec![
+            Effect::GlowWipe {
+                completion,
+                center,
+                intensity,
+                direction,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("intensity", vec![intensity], 0.0, 1000.0),
                 ("direction", vec![direction], -3600.0, 3600.0),
             ],
-            Effect::TeethWipe { completion, center, direction, height, width, .. } => vec![
+            Effect::TeethWipe {
+                completion,
+                center,
+                direction,
+                height,
+                width,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("height", vec![height], 0.0, 1000.0),
                 ("width", vec![width], 1.0, 1000.0),
             ],
-            Effect::ChannelWipe { completion, softness, blur, .. } => vec![
+            Effect::ChannelWipe {
+                completion,
+                softness,
+                blur,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
                 ("blur", vec![blur], 0.0, 100.0),
             ],
-            Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, intensity, .. } => vec![
+            Effect::CcSpotlight {
+                from,
+                to,
+                height,
+                cone_angle,
+                edge_softness,
+                intensity,
+                ..
+            } => vec![
                 ("from", from.iter_mut().collect(), -1000.0, 1000.0),
                 ("to", to.iter_mut().collect(), -1000.0, 1000.0),
                 ("height", vec![height], 0.0, 1000.0),
@@ -5989,13 +6935,28 @@ impl Effect {
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
-            Effect::ParticlePlayground { values, cannon_position, grid_position, .. } => PARTICLE_PLAYGROUND_SETTINGS
+            Effect::ParticlePlayground {
+                values,
+                cannon_position,
+                grid_position,
+                ..
+            } => PARTICLE_PLAYGROUND_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .chain([
-                    ("cannon_position", cannon_position.iter_mut().collect(), -1000.0, 1000.0),
-                    ("grid_position", grid_position.iter_mut().collect(), -1000.0, 1000.0),
+                    (
+                        "cannon_position",
+                        cannon_position.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
+                    (
+                        "grid_position",
+                        grid_position.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
                 ])
                 .collect(),
             Effect::Hair { values, .. } => HAIR_SETTINGS
@@ -6003,17 +6964,35 @@ impl Effect {
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
-            Effect::ParticleEmitter { values, emitter_position, .. } => PARTICLE_EMITTER_SETTINGS
+            Effect::ParticleEmitter {
+                values,
+                emitter_position,
+                ..
+            } => PARTICLE_EMITTER_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
-                .chain([("emitter_position", emitter_position.iter_mut().collect(), -1000.0, 1000.0)])
+                .chain([(
+                    "emitter_position",
+                    emitter_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                )])
                 .collect(),
-            Effect::ParticleGrid { values, form_center, .. } => PARTICLE_GRID_SETTINGS
+            Effect::ParticleGrid {
+                values,
+                form_center,
+                ..
+            } => PARTICLE_GRID_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
-                .chain([("form_center", form_center.iter_mut().collect(), -1000.0, 1000.0)])
+                .chain([(
+                    "form_center",
+                    form_center.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                )])
                 .collect(),
             Effect::Mercury { values, .. } => MERCURY_SETTINGS
                 .iter()
@@ -6040,13 +7019,26 @@ impl Effect {
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
-            Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
+            Effect::CcBallAction {
+                scatter,
+                rotation,
+                twist_angle,
+                grid_spacing,
+                ball_size,
+                instability_state,
+                ..
+            } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
                 ("rotation", vec![rotation], -36000.0, 36000.0),
                 ("twist_angle", vec![twist_angle], -36000.0, 36000.0),
                 ("grid_spacing", vec![grid_spacing], 2.0, 200.0),
                 ("ball_size", vec![ball_size], 0.0, 400.0),
-                ("instability_state", vec![instability_state], -36000.0, 36000.0),
+                (
+                    "instability_state",
+                    vec![instability_state],
+                    -36000.0,
+                    36000.0,
+                ),
             ],
             Effect::EnergyStroke {
                 core_start,
@@ -6070,7 +7062,12 @@ impl Effect {
                 end_roundness,
                 ..
             } => vec![
-                ("core_start", core_start.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "core_start",
+                    core_start.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("core_end", core_end.iter_mut().collect(), -1000.0, 1000.0),
                 ("evolution", vec![evolution], -3600.0, 3600.0),
                 ("start_offset", vec![start_offset], 0.0, 100.0),
@@ -6179,7 +7176,12 @@ impl Effect {
                 highlight_sharpness,
                 ..
             } => vec![
-                ("transition_completion", vec![transition_completion], 0.0, 100.0),
+                (
+                    "transition_completion",
+                    vec![transition_completion],
+                    0.0,
+                    100.0,
+                ),
                 ("transition_width", vec![transition_width], 0.0, 100.0),
                 ("rows", vec![rows], 1.0, 1000.0),
                 ("columns", vec![columns], 1.0, 1000.0),
@@ -6189,22 +7191,58 @@ impl Effect {
                 ("x_rotation", vec![x_rotation], -3600.0, 3600.0),
                 ("y_rotation", vec![y_rotation], -3600.0, 3600.0),
                 ("z_rotation", vec![z_rotation], -3600.0, 3600.0),
-                ("xy_position", xy_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "xy_position",
+                    xy_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("z_position", vec![z_position], 0.01, 10.0),
                 ("focal_length", vec![focal_length], 1.0, 1000.0),
-                ("upper_left_corner", upper_left_corner.iter_mut().collect(), -1000.0, 1000.0),
-                ("upper_right_corner", upper_right_corner.iter_mut().collect(), -1000.0, 1000.0),
-                ("lower_left_corner", lower_left_corner.iter_mut().collect(), -1000.0, 1000.0),
-                ("lower_right_corner", lower_right_corner.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "upper_left_corner",
+                    upper_left_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "upper_right_corner",
+                    upper_right_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "lower_left_corner",
+                    lower_left_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "lower_right_corner",
+                    lower_right_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_intensity", vec![light_intensity], 0.0, 10.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_depth", vec![light_depth], 0.0, 10.0),
                 ("ambient_light", vec![ambient_light], 0.0, 2.0),
                 ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
                 ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
                 ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
             ],
-            Effect::CcEnvironment { horizontal_pan, tilt, roll, field_of_view, .. } => vec![
+            Effect::CcEnvironment {
+                horizontal_pan,
+                tilt,
+                roll,
+                field_of_view,
+                ..
+            } => vec![
                 ("horizontal_pan", vec![horizontal_pan], -3600.0, 3600.0),
                 ("tilt", vec![tilt], -3600.0, 3600.0),
                 ("roll", vec![roll], -3600.0, 3600.0),
@@ -6222,7 +7260,12 @@ impl Effect {
                 shutter_angle,
                 ..
             } => vec![
-                ("anchor_point", anchor_point.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "anchor_point",
+                    anchor_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("position", position.iter_mut().collect(), -1000.0, 1000.0),
                 ("scale_height", vec![scale_height], -10000.0, 10000.0),
                 ("scale_width", vec![scale_width], -10000.0, 10000.0),
@@ -6260,7 +7303,9 @@ impl Effect {
             Effect::LineRecolor { tolerance, .. } | Effect::SelectColor { tolerance, .. } => {
                 vec![("tolerance", vec![tolerance], 0.0, 255.0)]
             }
-            Effect::DirectionalBlur { direction, length, .. } => vec![
+            Effect::DirectionalBlur {
+                direction, length, ..
+            } => vec![
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("length", vec![length], 0.0, 500.0),
             ],
@@ -6332,7 +7377,12 @@ impl Effect {
                     ("lightness", vec![lightness], -100.0, 100.0),
                 ];
                 // D-307: one range for all three; saturation and lightness are held to 100 where used.
-                n.extend(HUE_RANGES.into_iter().zip(ranges.iter_mut()).map(|(k, r)| (k, r.iter_mut().collect(), -180.0, 180.0)));
+                n.extend(
+                    HUE_RANGES
+                        .into_iter()
+                        .zip(ranges.iter_mut())
+                        .map(|(k, r)| (k, r.iter_mut().collect(), -180.0, 180.0)),
+                );
                 n
             }
             Effect::Gradient {
@@ -6443,12 +7493,24 @@ impl Effect {
                 ("threshold", vec![threshold], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
             ],
-            Effect::LightBurst { center, intensity, ray_length, .. } => vec![
+            Effect::LightBurst {
+                center,
+                intensity,
+                ray_length,
+                ..
+            } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("intensity", vec![intensity], 0.0, 2000.0),
                 ("ray_length", vec![ray_length], 0.0, 100.0),
             ],
-            Effect::CcLightRays { intensity, center, radius, warp_softness, direction, .. } => vec![
+            Effect::CcLightRays {
+                intensity,
+                center,
+                radius,
+                warp_softness,
+                direction,
+                ..
+            } => vec![
                 ("intensity", vec![intensity], 0.0, 2000.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("radius", vec![radius], 0.0, 10000.0),
@@ -6476,7 +7538,12 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::CcVignette { amount, angle_of_view, center, pin_highlights } => vec![
+            Effect::CcVignette {
+                amount,
+                angle_of_view,
+                center,
+                pin_highlights,
+            } => vec![
                 ("amount", vec![amount], -100.0, 100.0),
                 ("angle_of_view", vec![angle_of_view], 0.0, 179.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
@@ -6533,7 +7600,20 @@ impl Effect {
                 ("scale_height", vec![scale_height], 1.0, 10000.0),
                 ("cycle", vec![cycle], 0.0, 1000.0),
             ],
-            Effect::TurbulentNoise { contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, more, .. } => vec![
+            Effect::TurbulentNoise {
+                contrast,
+                brightness,
+                size,
+                scale_width,
+                scale_height,
+                offset,
+                complexity,
+                evolution,
+                seed,
+                opacity,
+                more,
+                ..
+            } => vec![
                 ("contrast", vec![contrast], 0.0, 1000.0),
                 ("brightness", vec![brightness], -1000.0, 1000.0),
                 ("size", vec![size], 1.0, 1000.0),
@@ -6548,8 +7628,18 @@ impl Effect {
                 ("rotation", vec![&mut more.rotation], -100000.0, 100000.0),
                 ("sub_influence", vec![&mut more.sub_influence], 0.0, 100.0),
                 ("sub_scaling", vec![&mut more.sub_scaling], 10.0, 100.0),
-                ("sub_rotation", vec![&mut more.sub_rotation], -100000.0, 100000.0),
-                ("sub_offset", more.sub_offset.iter_mut().collect(), -100000.0, 100000.0),
+                (
+                    "sub_rotation",
+                    vec![&mut more.sub_rotation],
+                    -100000.0,
+                    100000.0,
+                ),
+                (
+                    "sub_offset",
+                    more.sub_offset.iter_mut().collect(),
+                    -100000.0,
+                    100000.0,
+                ),
             ],
             Effect::GradientMap {
                 midpoint, amount, ..
@@ -6577,11 +7667,21 @@ impl Effect {
                 ("intensity", vec![intensity], 0.0, 400.0),
             ],
             Effect::Invert { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
-            Effect::BrightnessContrast { brightness, contrast } => vec![
+            Effect::BrightnessContrast {
+                brightness,
+                contrast,
+            } => vec![
                 ("brightness", vec![brightness], -150.0, 150.0),
                 ("contrast", vec![contrast], -100.0, 100.0),
             ],
-            Effect::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => vec![
+            Effect::BlackWhite {
+                reds,
+                yellows,
+                greens,
+                cyans,
+                blues,
+                magentas,
+            } => vec![
                 ("reds", vec![reds], -200.0, 300.0),
                 ("yellows", vec![yellows], -200.0, 300.0),
                 ("greens", vec![greens], -200.0, 300.0),
@@ -6591,12 +7691,17 @@ impl Effect {
             ],
             Effect::Posterize { levels } => vec![("levels", vec![levels], 2.0, 256.0)],
             Effect::Threshold { level } => vec![("level", vec![level], 0.0, 255.0)],
-            Effect::ChannelMixer { red, green, blue, .. } => vec![
+            Effect::ChannelMixer {
+                red, green, blue, ..
+            } => vec![
                 ("red", red.iter_mut().collect(), -200.0, 200.0),
                 ("green", green.iter_mut().collect(), -200.0, 200.0),
                 ("blue", blue.iter_mut().collect(), -200.0, 200.0),
             ],
-            Effect::Vibrance { vibrance, saturation } => vec![
+            Effect::Vibrance {
+                vibrance,
+                saturation,
+            } => vec![
                 ("vibrance", vec![vibrance], -100.0, 100.0),
                 ("saturation", vec![saturation], -100.0, 100.0),
             ],
@@ -6633,12 +7738,21 @@ impl Effect {
                 ("contrast", vec![contrast], 0.0, 1000.0),
             ],
             Effect::FindEdges { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
-            Effect::Sharpen { amount, radius, threshold } => vec![
+            Effect::Sharpen {
+                amount,
+                radius,
+                threshold,
+            } => vec![
                 ("amount", vec![amount], 0.0, 500.0),
                 ("radius", vec![radius], 0.0, 100.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
-            Effect::Diffusion { radius, amount, second_amount, .. } => vec![
+            Effect::Diffusion {
+                radius,
+                amount,
+                second_amount,
+                ..
+            } => vec![
                 ("radius", vec![radius], 0.0, 500.0),
                 ("amount", vec![amount], 0.0, 100.0),
                 ("second_amount", vec![second_amount], 0.0, 100.0),
@@ -6709,7 +7823,12 @@ impl Effect {
             } => vec![
                 ("output_width", vec![output_width], 100.0, 1000.0),
                 ("output_height", vec![output_height], 100.0, 1000.0),
-                ("tile_center", tile_center.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "tile_center",
+                    tile_center.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("tile_width", vec![tile_width], 1.0, 1000.0),
                 ("tile_height", vec![tile_height], 1.0, 1000.0),
             ],
@@ -6831,7 +7950,11 @@ impl Effect {
             Effect::ColorLookup { .. } => vec![],
             Effect::ShiftChannels { .. } => vec![],
             Effect::Toner { .. } => vec![],
-            Effect::SolidComposite { source_opacity, opacity, .. } => vec![
+            Effect::SolidComposite {
+                source_opacity,
+                opacity,
+                ..
+            } => vec![
                 ("source_opacity", vec![source_opacity], 0.0, 100.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
@@ -6847,12 +7970,18 @@ impl Effect {
                 ("blue_blurriness", vec![blue_blurriness], 0.0, 500.0),
                 ("alpha_blurriness", vec![alpha_blurriness], 0.0, 500.0),
             ],
-            Effect::FastBoxBlur { radius, iterations, .. } => vec![
+            Effect::FastBoxBlur {
+                radius, iterations, ..
+            } => vec![
                 ("radius", vec![radius], 0.0, 500.0),
                 ("iterations", vec![iterations], 1.0, 50.0),
             ],
-            Effect::FastBlurLegacy { blurriness, .. } => vec![("blurriness", vec![blurriness], 0.0, 1000.0)],
-            Effect::GaussianBlurLegacy { blurriness, .. } => vec![("blurriness", vec![blurriness], 0.0, 500.0)],
+            Effect::FastBlurLegacy { blurriness, .. } => {
+                vec![("blurriness", vec![blurriness], 0.0, 1000.0)]
+            }
+            Effect::GaussianBlurLegacy { blurriness, .. } => {
+                vec![("blurriness", vec![blurriness], 0.0, 500.0)]
+            }
             Effect::Colorama {
                 phase_shift,
                 cycle_repetitions,
@@ -6900,94 +8029,223 @@ impl Effect {
                 ("light_angle", vec![light_angle], -3600.0, 3600.0),
                 ("light_intensity", vec![light_intensity], 0.0, 100.0),
                 ("light_height", vec![light_height], -1000.0, 1000.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("ambient", vec![ambient], 0.0, 100.0),
                 ("diffuse", vec![diffuse], 0.0, 100.0),
                 ("specular", vec![specular], 0.0, 100.0),
                 ("roughness", vec![roughness], 0.001, 1.0),
                 ("metal", vec![metal], 0.0, 100.0),
             ],
-            Effect::VectorBlur { amount, angle_offset, ridge_smoothness, map_softness, .. } => vec![
+            Effect::VectorBlur {
+                amount,
+                angle_offset,
+                ridge_smoothness,
+                map_softness,
+                ..
+            } => vec![
                 ("amount", vec![amount], 0.0, 500.0),
                 ("angle_offset", vec![angle_offset], -3600.0, 3600.0),
                 ("ridge_smoothness", vec![ridge_smoothness], 0.0, 100.0),
                 ("map_softness", vec![map_softness], 0.0, 100.0),
             ],
-            Effect::BendIt { bend, start, end, .. } => vec![
+            Effect::BendIt {
+                bend, start, end, ..
+            } => vec![
                 ("bend", vec![bend], -360.0, 360.0),
                 ("start", start.iter_mut().collect(), -1000.0, 1000.0),
                 ("end", end.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::Bender { amount, top, base, .. } => vec![
+            Effect::Bender {
+                amount, top, base, ..
+            } => vec![
                 ("amount", vec![amount], -1000.0, 1000.0),
                 ("top", top.iter_mut().collect(), -1000.0, 1000.0),
                 ("base", base.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, .. } => vec![
+            Effect::FlowMotion {
+                knot_1,
+                amount_1,
+                knot_2,
+                amount_2,
+                falloff,
+                ..
+            } => vec![
                 ("knot_1", knot_1.iter_mut().collect(), -1000.0, 1000.0),
                 ("amount_1", vec![amount_1], -1000.0, 1000.0),
                 ("knot_2", knot_2.iter_mut().collect(), -1000.0, 1000.0),
                 ("amount_2", vec![amount_2], -1000.0, 1000.0),
                 ("falloff", vec![falloff], 0.0, 10.0),
             ],
-            Effect::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, .. } => vec![
+            Effect::Griddler {
+                horizontal_scale,
+                vertical_scale,
+                tile_size,
+                rotation,
+                ..
+            } => vec![
                 ("horizontal_scale", vec![horizontal_scale], -1000.0, 1000.0),
                 ("vertical_scale", vec![vertical_scale], -1000.0, 1000.0),
                 ("tile_size", vec![tile_size], 0.1, 100.0),
                 ("rotation", vec![rotation], -3600.0, 3600.0),
             ],
-            Effect::Fisheye { center, size, convergence } => vec![
+            Effect::Fisheye {
+                center,
+                size,
+                convergence,
+            } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("size", vec![size], 0.0, 1000.0),
                 ("convergence", vec![convergence], -100.0, 100.0),
             ],
-            Effect::PageTurn { fold_position, fold_direction, fold_radius, light_direction, back_opacity, .. } => vec![
-                ("fold_position", fold_position.iter_mut().collect(), -1000.0, 1000.0),
+            Effect::PageTurn {
+                fold_position,
+                fold_direction,
+                fold_radius,
+                light_direction,
+                back_opacity,
+                ..
+            } => vec![
+                (
+                    "fold_position",
+                    fold_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("fold_direction", vec![fold_direction], -3600.0, 3600.0),
                 ("fold_radius", vec![fold_radius], 0.0, 1000.0),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("back_opacity", vec![back_opacity], 0.0, 100.0),
             ],
-            Effect::MaskSmear { source_mask, boundary_mask, mask_offset, mask_rotation, mask_scale, percent, .. } => vec![
+            Effect::MaskSmear {
+                source_mask,
+                boundary_mask,
+                mask_offset,
+                mask_rotation,
+                mask_scale,
+                percent,
+                ..
+            } => vec![
                 ("source_mask", vec![source_mask], 0.0, 1000.0),
                 ("boundary_mask", vec![boundary_mask], 0.0, 1000.0),
-                ("mask_offset", mask_offset.iter_mut().collect(), -10000.0, 10000.0),
+                (
+                    "mask_offset",
+                    mask_offset.iter_mut().collect(),
+                    -10000.0,
+                    10000.0,
+                ),
                 ("mask_rotation", vec![mask_rotation], -3600.0, 3600.0),
                 ("mask_scale", vec![mask_scale], 0.0, 1000.0),
                 ("percent", vec![percent], 0.0, 100.0),
             ],
-            Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, correspondence_points, .. } => vec![
+            Effect::Reshape {
+                source_mask,
+                destination_mask,
+                boundary_mask,
+                percent,
+                correspondence_points,
+                ..
+            } => vec![
                 ("source_mask", vec![source_mask], 0.0, 1000.0),
                 ("destination_mask", vec![destination_mask], 0.0, 1000.0),
                 ("boundary_mask", vec![boundary_mask], 0.0, 1000.0),
                 ("percent", vec![percent], 0.0, 100.0),
-                ("correspondence_points", correspondence_points.iter_mut().collect(), 0.0, 100.0),
+                (
+                    "correspondence_points",
+                    correspondence_points.iter_mut().collect(),
+                    0.0,
+                    100.0,
+                ),
             ],
-            Effect::Liquify { brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, turbulent_jitter, clone_offset, freeze_area_mask, .. } => vec![
+            Effect::Liquify {
+                brush_size,
+                brush_pressure,
+                stroke,
+                distortion_percentage,
+                distortion_mesh_offset,
+                turbulent_jitter,
+                clone_offset,
+                freeze_area_mask,
+                ..
+            } => vec![
                 ("brush_size", vec![brush_size], 1.0, 1000.0),
                 ("brush_pressure", vec![brush_pressure], 1.0, 100.0),
                 ("stroke", stroke.iter_mut().collect(), -100.0, 200.0),
-                ("distortion_percentage", vec![distortion_percentage], 0.0, 200.0),
-                ("distortion_mesh_offset", distortion_mesh_offset.iter_mut().collect(), -10000.0, 10000.0),
+                (
+                    "distortion_percentage",
+                    vec![distortion_percentage],
+                    0.0,
+                    200.0,
+                ),
+                (
+                    "distortion_mesh_offset",
+                    distortion_mesh_offset.iter_mut().collect(),
+                    -10000.0,
+                    10000.0,
+                ),
                 // D-700.
                 ("turbulent_jitter", vec![turbulent_jitter], 1.0, 100.0),
-                ("clone_offset", clone_offset.iter_mut().collect(), -10000.0, 10000.0),
+                (
+                    "clone_offset",
+                    clone_offset.iter_mut().collect(),
+                    -10000.0,
+                    10000.0,
+                ),
                 ("freeze_area_mask", vec![freeze_area_mask], 0.0, 1000.0),
             ],
-            Effect::Warp { bend, horizontal_distortion, vertical_distortion, .. } => vec![
+            Effect::Warp {
+                bend,
+                horizontal_distortion,
+                vertical_distortion,
+                ..
+            } => vec![
                 ("bend", vec![bend], -100.0, 100.0),
-                ("horizontal_distortion", vec![horizontal_distortion], -100.0, 100.0),
-                ("vertical_distortion", vec![vertical_distortion], -100.0, 100.0),
+                (
+                    "horizontal_distortion",
+                    vec![horizontal_distortion],
+                    -100.0,
+                    100.0,
+                ),
+                (
+                    "vertical_distortion",
+                    vec![vertical_distortion],
+                    -100.0,
+                    100.0,
+                ),
             ],
-            Effect::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => vec![
+            Effect::MeshWarp {
+                rows,
+                columns,
+                quality,
+                distortion_mesh,
+                vertex_handles,
+            } => vec![
                 ("rows", vec![rows], 1.0, 31.0),
                 ("columns", vec![columns], 1.0, 31.0),
                 ("quality", vec![quality], 1.0, 10.0),
-                ("distortion_mesh", distortion_mesh.iter_mut().collect(), -400.0, 500.0),
-                ("vertex_handles", vertex_handles.iter_mut().collect(), -400.0, 400.0),
+                (
+                    "distortion_mesh",
+                    distortion_mesh.iter_mut().collect(),
+                    -400.0,
+                    500.0,
+                ),
+                (
+                    "vertex_handles",
+                    vertex_handles.iter_mut().collect(),
+                    -400.0,
+                    400.0,
+                ),
             ],
             Effect::BezierWarp { points, quality } => {
-                let mut v: Vec<_> = BEZIER_POINTS.iter().zip(points.iter_mut()).map(|(n, p)| (*n, p.iter_mut().collect(), -400.0, 500.0)).collect();
+                let mut v: Vec<_> = BEZIER_POINTS
+                    .iter()
+                    .zip(points.iter_mut())
+                    .map(|(n, p)| (*n, p.iter_mut().collect(), -400.0, 500.0))
+                    .collect();
                 v.push(("quality", vec![quality], 1.0, 10.0));
                 v
             }
@@ -7005,37 +8263,75 @@ impl Effect {
             } => vec![
                 ("top_left", top_left.iter_mut().collect(), -400.0, 500.0),
                 ("top_right", top_right.iter_mut().collect(), -400.0, 500.0),
-                ("bottom_left", bottom_left.iter_mut().collect(), -400.0, 500.0),
-                ("bottom_right", bottom_right.iter_mut().collect(), -400.0, 500.0),
+                (
+                    "bottom_left",
+                    bottom_left.iter_mut().collect(),
+                    -400.0,
+                    500.0,
+                ),
+                (
+                    "bottom_right",
+                    bottom_right.iter_mut().collect(),
+                    -400.0,
+                    500.0,
+                ),
                 ("perspective", vec![perspective], 0.0, 100.0),
                 ("expansion_top", vec![expansion_top], -40.0, 100.0),
                 ("expansion_left", vec![expansion_left], -40.0, 100.0),
                 ("expansion_right", vec![expansion_right], -40.0, 100.0),
                 ("expansion_bottom", vec![expansion_bottom], -40.0, 100.0),
             ],
-            Effect::RipplePulse { center, pulse_level, time_span, amplitude, .. } => vec![
+            Effect::RipplePulse {
+                center,
+                pulse_level,
+                time_span,
+                amplitude,
+                ..
+            } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("pulse_level", vec![pulse_level], -1000.0, 1000.0),
                 ("time_span", vec![time_span], 0.0, 10.0),
                 ("amplitude", vec![amplitude], 0.0, 1000.0),
             ],
-            Effect::Slant { slant, height, floor, .. } => vec![
+            Effect::Slant {
+                slant,
+                height,
+                floor,
+                ..
+            } => vec![
                 ("slant", vec![slant], -80.0, 80.0),
                 ("height", vec![height], 0.0, 1000.0),
                 ("floor", floor.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::Smear { from, to, reach, radius } => vec![
+            Effect::Smear {
+                from,
+                to,
+                reach,
+                radius,
+            } => vec![
                 ("from", from.iter_mut().collect(), -1000.0, 1000.0),
                 ("to", to.iter_mut().collect(), -1000.0, 1000.0),
                 ("reach", vec![reach], -1000.0, 1000.0),
                 ("radius", vec![radius], 0.0, 1000.0),
             ],
-            Effect::Split { point_a, point_b, split } => vec![
+            Effect::Split {
+                point_a,
+                point_b,
+                split,
+            } => vec![
                 ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
                 ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("split", vec![split], 0.0, 1000.0),
             ],
-            Effect::SimpleWireRemoval { point_a, point_b, thickness, slope, mirror_blend, frame_offset, .. } => vec![
+            Effect::SimpleWireRemoval {
+                point_a,
+                point_b,
+                thickness,
+                slope,
+                mirror_blend,
+                frame_offset,
+                ..
+            } => vec![
                 ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
                 ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("thickness", vec![thickness], 0.0, 100.0),
@@ -7043,18 +8339,34 @@ impl Effect {
                 ("mirror_blend", vec![mirror_blend], 0.0, 100.0),
                 ("frame_offset", vec![frame_offset], -1000.0, 1000.0),
             ],
-            Effect::Split2 { point_a, point_b, split_1, split_2 } => vec![
+            Effect::Split2 {
+                point_a,
+                point_b,
+                split_1,
+                split_2,
+            } => vec![
                 ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
                 ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("split_1", vec![split_1], 0.0, 1000.0),
                 ("split_2", vec![split_2], 0.0, 1000.0),
             ],
-            Effect::Tiles { scale, center, blend } => vec![
+            Effect::Tiles {
+                scale,
+                center,
+                blend,
+            } => vec![
                 ("scale", vec![scale], 1.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("blend", vec![blend], 0.0, 100.0),
             ],
-            Effect::Magnify { center, magnification, size, feather, opacity, .. } => vec![
+            Effect::Magnify {
+                center,
+                magnification,
+                size,
+                feather,
+                opacity,
+                ..
+            } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("magnification", vec![magnification], 100.0, 1000.0),
                 ("size", vec![size], 0.0, 1000.0),
@@ -7065,7 +8377,16 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 2500.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::Checkerboard { anchor, corner, width, height, feather_width, feather_height, opacity, .. } => vec![
+            Effect::Checkerboard {
+                anchor,
+                corner,
+                width,
+                height,
+                feather_width,
+                feather_height,
+                opacity,
+                ..
+            } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
                 ("width", vec![width], 1.0, 10000.0),
@@ -7074,7 +8395,15 @@ impl Effect {
                 ("feather_height", vec![feather_height], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::Circle { center, radius, edge_thickness, feather_outer, feather_inner, opacity, .. } => vec![
+            Effect::Circle {
+                center,
+                radius,
+                edge_thickness,
+                feather_outer,
+                feather_inner,
+                opacity,
+                ..
+            } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("radius", vec![radius], 0.0, 10000.0),
                 ("edge_thickness", vec![edge_thickness], 0.0, 10000.0),
@@ -7082,27 +8411,69 @@ impl Effect {
                 ("feather_inner", vec![feather_inner], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::Fill { mask, horizontal_feather, vertical_feather, opacity, .. } => vec![
+            Effect::Fill {
+                mask,
+                horizontal_feather,
+                vertical_feather,
+                opacity,
+                ..
+            } => vec![
                 ("mask", vec![mask], 0.0, 1000.0),
                 ("horizontal_feather", vec![horizontal_feather], 0.0, 1000.0),
                 ("vertical_feather", vec![vertical_feather], 0.0, 1000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::EyedropperFill { sample_point, sample_radius, blend_with_original, .. } => vec![
-                ("sample_point", sample_point.iter_mut().collect(), -1000.0, 1000.0),
+            Effect::EyedropperFill {
+                sample_point,
+                sample_radius,
+                blend_with_original,
+                ..
+            } => vec![
+                (
+                    "sample_point",
+                    sample_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("sample_radius", vec![sample_radius], 0.0, 10000.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
-            Effect::PaintBucket { fill_point, tolerance, spread_radius, stroke_width, feather_softness, opacity, .. } => vec![
-                ("fill_point", fill_point.iter_mut().collect(), -1000.0, 1000.0),
+            Effect::PaintBucket {
+                fill_point,
+                tolerance,
+                spread_radius,
+                stroke_width,
+                feather_softness,
+                opacity,
+                ..
+            } => vec![
+                (
+                    "fill_point",
+                    fill_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("tolerance", vec![tolerance], 0.0, 100.0),
                 ("spread_radius", vec![spread_radius], 0.0, 10000.0),
                 ("stroke_width", vec![stroke_width], 0.0, 10000.0),
                 ("feather_softness", vec![feather_softness], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::WriteOn { brush_position, brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, .. } => vec![
-                ("brush_position", brush_position.iter_mut().collect(), -1000.0, 1000.0),
+            Effect::WriteOn {
+                brush_position,
+                brush_size,
+                brush_hardness,
+                brush_opacity,
+                stroke_length,
+                brush_spacing,
+                ..
+            } => vec![
+                (
+                    "brush_position",
+                    brush_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("brush_size", vec![brush_size], 0.0, 200.0),
                 ("brush_hardness", vec![brush_hardness], 0.0, 100.0),
                 ("brush_opacity", vec![brush_opacity], 0.0, 100.0),
@@ -7137,7 +8508,12 @@ impl Effect {
                 ("spacing", vec![spacing], 1.0, 1000.0),
                 ("spacing_variation", vec![spacing_variation], 0.0, 1000.0),
                 ("path_overlap", vec![path_overlap], -1000.0, 1000.0),
-                ("path_overlap_variation", vec![path_overlap_variation], 0.0, 1000.0),
+                (
+                    "path_overlap_variation",
+                    vec![path_overlap_variation],
+                    0.0,
+                    1000.0,
+                ),
                 ("start", vec![start], 0.0, 100.0),
                 ("end", vec![end], 0.0, 100.0),
                 ("wiggles_per_second", vec![wiggles_per_second], 0.0, 100.0),
@@ -7175,13 +8551,26 @@ impl Effect {
                 ("animation_speed", vec![animation_speed], 0.0, 10.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
-            Effect::NoiseAlpha { amount, random_seed, noise_phase, cycle, .. } => vec![
+            Effect::NoiseAlpha {
+                amount,
+                random_seed,
+                noise_phase,
+                cycle,
+                ..
+            } => vec![
                 ("amount", vec![amount], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
                 ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
                 ("cycle", vec![cycle], 1.0, 1000.0),
             ],
-            Effect::NoiseHls { hue, lightness, saturation, grain_size, noise_phase, .. } => vec![
+            Effect::NoiseHls {
+                hue,
+                lightness,
+                saturation,
+                grain_size,
+                noise_phase,
+                ..
+            } => vec![
                 ("hue", vec![hue], 0.0, 100.0),
                 ("lightness", vec![lightness], 0.0, 100.0),
                 ("saturation", vec![saturation], 0.0, 100.0),
@@ -7189,7 +8578,27 @@ impl Effect {
                 ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
             ],
             Effect::CurlNoise {
-                softness, speed, direction, size, offset, rotation, scale, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness, ..
+                softness,
+                speed,
+                direction,
+                size,
+                offset,
+                rotation,
+                scale,
+                evolution,
+                turbulence_speed,
+                swirl,
+                density,
+                smoothness,
+                vertical_bias,
+                sample_count,
+                sample_radius,
+                flow_softness,
+                edge_definition,
+                flow_falloff,
+                contrast,
+                brightness,
+                ..
             } => vec![
                 ("softness", vec![softness], 0.0, 100.0),
                 ("speed", vec![speed], 0.0, 100.0),
@@ -7212,31 +8621,64 @@ impl Effect {
                 ("contrast", vec![contrast], 0.0, 1000.0),
                 ("brightness", vec![brightness], -1000.0, 1000.0),
             ],
-            Effect::NoiseHlsAuto { hue, lightness, saturation, grain_size, animation_speed, .. } => vec![
+            Effect::NoiseHlsAuto {
+                hue,
+                lightness,
+                saturation,
+                grain_size,
+                animation_speed,
+                ..
+            } => vec![
                 ("hue", vec![hue], 0.0, 100.0),
                 ("lightness", vec![lightness], 0.0, 100.0),
                 ("saturation", vec![saturation], 0.0, 100.0),
                 ("grain_size", vec![grain_size], 0.5, 100.0),
                 ("animation_speed", vec![animation_speed], 0.0, 10.0),
             ],
-            Effect::DustScratches { radius, threshold, .. } => {
-                vec![("radius", vec![radius], 0.0, 10.0), ("threshold", vec![threshold], 0.0, 255.0)]
+            Effect::DustScratches {
+                radius, threshold, ..
+            } => {
+                vec![
+                    ("radius", vec![radius], 0.0, 10.0),
+                    ("threshold", vec![threshold], 0.0, 255.0),
+                ]
             }
             Effect::MatchGrain { grain, .. } => grain.numbers(),
-            Effect::RemoveGrain { noise_reduction, passes, unsharp_amount, unsharp_radius, unsharp_threshold, .. } => vec![
+            Effect::RemoveGrain {
+                noise_reduction,
+                passes,
+                unsharp_amount,
+                unsharp_radius,
+                unsharp_threshold,
+                ..
+            } => vec![
                 ("noise_reduction", vec![noise_reduction], 0.0, 3.0),
                 ("passes", vec![passes], 1.0, 4.0),
                 ("unsharp_amount", vec![unsharp_amount], 0.0, 500.0),
                 ("unsharp_radius", vec![unsharp_radius], 0.0, 100.0),
                 ("unsharp_threshold", vec![unsharp_threshold], 0.0, 255.0),
             ],
-            Effect::NoiseGate { threshold, attack, hold, release } => vec![
+            Effect::NoiseGate {
+                threshold,
+                attack,
+                hold,
+                release,
+            } => vec![
                 ("threshold", vec![threshold], -60.0, 0.0),
                 ("attack", vec![attack], 0.0, 1000.0),
                 ("hold", vec![hold], 0.0, 2500.0),
                 ("release", vec![release], 5.0, 4000.0),
             ],
-            Effect::Compressor { threshold, ratio, knee, attack, release, makeup, output_limit, .. } => vec![
+            Effect::Compressor {
+                threshold,
+                ratio,
+                knee,
+                attack,
+                release,
+                makeup,
+                output_limit,
+                ..
+            } => vec![
                 ("threshold", vec![threshold], -60.0, 0.0),
                 ("ratio", vec![ratio], 0.4, 30.0),
                 ("knee", vec![knee], 0.0, 30.0),
@@ -7245,7 +8687,15 @@ impl Effect {
                 ("makeup", vec![makeup], -30.0, 30.0),
                 ("output_limit", vec![output_limit], -30.0, 0.0),
             ],
-            Effect::Distortion { drive, gain, wet, volume, resolution, downsample, .. } => vec![
+            Effect::Distortion {
+                drive,
+                gain,
+                wet,
+                volume,
+                resolution,
+                downsample,
+                ..
+            } => vec![
                 ("drive", vec![drive], 0.0, 100.0),
                 ("gain", vec![gain], 0.0, 300.0),
                 ("wet", vec![wet], 0.0, 100.0),
@@ -7253,7 +8703,16 @@ impl Effect {
                 ("resolution", vec![resolution], 1.0, 24.0),
                 ("downsample", vec![downsample], 1.0, 32.0),
             ],
-            Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, blend_with_original, random_seed, .. } => vec![
+            Effect::BrushStrokes {
+                stroke_angle,
+                brush_size,
+                stroke_length,
+                stroke_density,
+                stroke_randomness,
+                blend_with_original,
+                random_seed,
+                ..
+            } => vec![
                 ("stroke_angle", vec![stroke_angle], -100000.0, 100000.0),
                 ("brush_size", vec![brush_size], 0.5, 20.0),
                 ("stroke_length", vec![stroke_length], 0.0, 100.0),
@@ -7301,10 +8760,20 @@ impl Effect {
                 ("tolerance", vec![tolerance], 0.0, 100.0),
                 ("desaturate", vec![desaturate], 0.0, 100.0),
                 ("spill_range", vec![spill_range], 0.0, 100.0),
-                ("spill_color_correction", vec![spill_color_correction], 0.0, 100.0),
+                (
+                    "spill_color_correction",
+                    vec![spill_color_correction],
+                    0.0,
+                    100.0,
+                ),
                 ("luma_correction", vec![luma_correction], 0.0, 100.0),
             ],
-            Effect::ColorDifferenceKey { partial_a, partial_b, matte, .. } => partial_a
+            Effect::ColorDifferenceKey {
+                partial_a,
+                partial_b,
+                matte,
+                ..
+            } => partial_a
                 .iter_mut()
                 .chain(partial_b.iter_mut())
                 .chain(matte.iter_mut())
@@ -7314,7 +8783,9 @@ impl Effect {
                     false => (n, vec![v], 0.0, 255.0),
                 })
                 .collect(),
-            Effect::ColorRange { fuzziness, range, .. } => std::iter::once(("fuzziness", fuzziness))
+            Effect::ColorRange {
+                fuzziness, range, ..
+            } => std::iter::once(("fuzziness", fuzziness))
                 .chain(CRANGE_NAMES.into_iter().zip(range.iter_mut()))
                 .map(|(n, v)| (n, vec![v], 0.0, 255.0))
                 .collect(),
@@ -7336,13 +8807,35 @@ impl Effect {
                 ("blur_amount", vec![blur_amount], 0.0, 100.0),
                 ("edge_blur_reduction", vec![edge_blur_reduction], 0.0, 100.0),
                 ("diffusion_amount", vec![diffusion_amount], 0.0, 20.0),
-                ("edge_diffusion_reduction", vec![edge_diffusion_reduction], 0.0, 100.0),
-                ("diffusion_reseed_interval", vec![diffusion_reseed_interval], 0.0, 100.0),
+                (
+                    "edge_diffusion_reduction",
+                    vec![edge_diffusion_reduction],
+                    0.0,
+                    100.0,
+                ),
+                (
+                    "diffusion_reseed_interval",
+                    vec![diffusion_reseed_interval],
+                    0.0,
+                    100.0,
+                ),
                 ("noise_amount", vec![noise_amount], 0.0, 32.0),
-                ("edge_noise_reduction", vec![edge_noise_reduction], 0.0, 100.0),
-                ("noise_reseed_interval", vec![noise_reseed_interval], 0.0, 100.0),
+                (
+                    "edge_noise_reduction",
+                    vec![edge_noise_reduction],
+                    0.0,
+                    100.0,
+                ),
+                (
+                    "noise_reseed_interval",
+                    vec![noise_reseed_interval],
+                    0.0,
+                    100.0,
+                ),
             ],
-            Effect::BlockLoad { completion, scans, .. } => vec![
+            Effect::BlockLoad {
+                completion, scans, ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("scans", vec![scans], 1.0, 16.0),
             ],
@@ -7351,13 +8844,25 @@ impl Effect {
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("seed", vec![seed], 0.0, 100000.0),
             ],
-            Effect::HexTile { radius, center, rotate, smearing, .. } => vec![
+            Effect::HexTile {
+                radius,
+                center,
+                rotate,
+                smearing,
+                ..
+            } => vec![
                 ("radius", vec![radius], 1.0, 4000.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("rotate", vec![rotate], -3600.0, 3600.0),
                 ("smearing", vec![smearing], 0.0, 100.0),
             ],
-            Effect::MrSmoothie { smoothness, sample_a, sample_b, phase, .. } => vec![
+            Effect::MrSmoothie {
+                smoothness,
+                sample_a,
+                sample_b,
+                phase,
+                ..
+            } => vec![
                 ("smoothness", vec![smoothness], 0.0, 100.0),
                 ("sample_a", sample_a.iter_mut().collect(), -1000.0, 1000.0),
                 ("sample_b", sample_b.iter_mut().collect(), -1000.0, 1000.0),
@@ -7386,7 +8891,12 @@ impl Effect {
                 ("cut_max", vec![cut_max], 0.0, 100.0),
                 ("light_intensity", vec![light_intensity], 0.0, 400.0),
                 ("light_height", vec![light_height], -1000.0, 1000.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("ambient", vec![ambient], 0.0, 100.0),
                 ("diffuse", vec![diffuse], 0.0, 100.0),
@@ -7395,30 +8905,65 @@ impl Effect {
                 ("roughness", vec![roughness], 0.001, 1.0),
                 ("metal", vec![metal], 0.0, 100.0),
             ],
-            Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, blend_borders, .. } => vec![
+            Effect::RepeatTile {
+                expand_right,
+                expand_left,
+                expand_down,
+                expand_up,
+                blend_borders,
+                ..
+            } => vec![
                 ("expand_right", vec![expand_right], 0.0, 4000.0),
                 ("expand_left", vec![expand_left], 0.0, 4000.0),
                 ("expand_down", vec![expand_down], 0.0, 4000.0),
                 ("expand_up", vec![expand_up], 0.0, 4000.0),
                 ("blend_borders", vec![blend_borders], 0.0, 100.0),
             ],
-            Effect::Scatter { scatter_amount, .. } => vec![("scatter_amount", vec![scatter_amount], 0.0, 127.0)],
-            Effect::StrobeLight { blend_with_original, strobe_duration, strobe_period, random_strobe_probability, random_seed, .. } => vec![
+            Effect::Scatter { scatter_amount, .. } => {
+                vec![("scatter_amount", vec![scatter_amount], 0.0, 127.0)]
+            }
+            Effect::StrobeLight {
+                blend_with_original,
+                strobe_duration,
+                strobe_period,
+                random_strobe_probability,
+                random_seed,
+                ..
+            } => vec![
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
                 ("strobe_duration", vec![strobe_duration], 0.0, 100.0),
                 ("strobe_period", vec![strobe_period], 0.0, 100.0),
-                ("random_strobe_probability", vec![random_strobe_probability], 0.0, 100.0),
+                (
+                    "random_strobe_probability",
+                    vec![random_strobe_probability],
+                    0.0,
+                    100.0,
+                ),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
-            Effect::Texturize { light_direction, texture_contrast, .. } => vec![
+            Effect::Texturize {
+                light_direction,
+                texture_contrast,
+                ..
+            } => vec![
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("texture_contrast", vec![texture_contrast], 0.0, 2.0),
             ],
-            Effect::ChannelThreshold { threshold, blend_with_original, .. } => vec![
+            Effect::ChannelThreshold {
+                threshold,
+                blend_with_original,
+                ..
+            } => vec![
                 ("threshold", vec![threshold], 0.0, 255.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
-            Effect::ThresholdRgb { red_threshold, green_threshold, blue_threshold, blend_with_original, .. } => vec![
+            Effect::ThresholdRgb {
+                red_threshold,
+                green_threshold,
+                blue_threshold,
+                blend_with_original,
+                ..
+            } => vec![
                 ("red_threshold", vec![red_threshold], 0.0, 255.0),
                 ("green_threshold", vec![green_threshold], 0.0, 255.0),
                 ("blue_threshold", vec![blue_threshold], 0.0, 255.0),
@@ -7441,10 +8986,30 @@ impl Effect {
                 ("posterization_level", vec![posterization_level], 2.0, 32.0),
                 ("low_strength", vec![low_strength], 0.0, 100.0),
                 ("high_strength", vec![high_strength], 0.0, 100.0),
-                ("offset_flow_angles", vec![offset_flow_angles], -3600.0, 3600.0),
-                ("quantize_flow_angles", vec![quantize_flow_angles], 0.0, 90.0),
+                (
+                    "offset_flow_angles",
+                    vec![offset_flow_angles],
+                    -3600.0,
+                    3600.0,
+                ),
+                (
+                    "quantize_flow_angles",
+                    vec![quantize_flow_angles],
+                    0.0,
+                    90.0,
+                ),
             ],
-            Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
+            Effect::Grid {
+                anchor,
+                corner,
+                width,
+                height,
+                border,
+                feather_width,
+                feather_height,
+                opacity,
+                ..
+            } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
                 ("width", vec![width], 1.0, 10000.0),
@@ -7454,14 +9019,25 @@ impl Effect {
                 ("feather_height", vec![feather_height], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::Ellipse { center, width, height, thickness, softness, .. } => vec![
+            Effect::Ellipse {
+                center,
+                width,
+                height,
+                thickness,
+                softness,
+                ..
+            } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("width", vec![width], 1.0, 10000.0),
                 ("height", vec![height], 1.0, 10000.0),
                 ("thickness", vec![thickness], 0.0, 10000.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
-            Effect::DetailUpscale { scale, reduce_noise, detail } => vec![
+            Effect::DetailUpscale {
+                scale,
+                reduce_noise,
+                detail,
+            } => vec![
                 ("scale", vec![scale], 100.0, 1000.0),
                 ("reduce_noise", vec![reduce_noise], 0.0, 100.0),
                 ("detail", vec![detail], 0.0, 100.0),
@@ -7481,7 +9057,12 @@ impl Effect {
                 hue_interpolation,
                 ..
             } => vec![
-                ("start_point", start_point.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "start_point",
+                    start_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("end_point", end_point.iter_mut().collect(), -1000.0, 1000.0),
                 ("path", vec![path], 0.0, 1000.0),
                 ("start_frequency", vec![start_frequency], 1.0, 20000.0),
@@ -7492,7 +9073,12 @@ impl Effect {
                 ("audio_offset", vec![audio_offset], -30000.0, 30000.0),
                 ("thickness", vec![thickness], 0.0, 10000.0),
                 ("softness", vec![softness], 0.0, 100.0),
-                ("hue_interpolation", vec![hue_interpolation], -3600.0, 3600.0),
+                (
+                    "hue_interpolation",
+                    vec![hue_interpolation],
+                    -3600.0,
+                    3600.0,
+                ),
             ],
             Effect::AudioWaveform {
                 start_point,
@@ -7507,7 +9093,12 @@ impl Effect {
                 random_seed,
                 ..
             } => vec![
-                ("start_point", start_point.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "start_point",
+                    start_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("end_point", end_point.iter_mut().collect(), -1000.0, 1000.0),
                 ("path", vec![path], 0.0, 1000.0),
                 ("displayed_samples", vec![displayed_samples], 1.0, 4096.0),
@@ -7531,11 +9122,36 @@ impl Effect {
                 oversample_factor,
                 ..
             } => vec![
-                ("mandelbrot_center", mandelbrot_center.iter_mut().collect(), -10.0, 10.0),
-                ("mandelbrot_magnification", vec![mandelbrot_magnification], -10.0, 40.0),
-                ("mandelbrot_escape_limit", vec![mandelbrot_escape_limit], 1.0, 10000.0),
-                ("julia_center", julia_center.iter_mut().collect(), -10.0, 10.0),
-                ("julia_magnification", vec![julia_magnification], -10.0, 40.0),
+                (
+                    "mandelbrot_center",
+                    mandelbrot_center.iter_mut().collect(),
+                    -10.0,
+                    10.0,
+                ),
+                (
+                    "mandelbrot_magnification",
+                    vec![mandelbrot_magnification],
+                    -10.0,
+                    40.0,
+                ),
+                (
+                    "mandelbrot_escape_limit",
+                    vec![mandelbrot_escape_limit],
+                    1.0,
+                    10000.0,
+                ),
+                (
+                    "julia_center",
+                    julia_center.iter_mut().collect(),
+                    -10.0,
+                    10.0,
+                ),
+                (
+                    "julia_magnification",
+                    vec![julia_magnification],
+                    -10.0,
+                    40.0,
+                ),
                 ("julia_escape_limit", vec![julia_escape_limit], 1.0, 10000.0),
                 ("hue", vec![hue], -36000.0, 36000.0),
                 ("cycle_steps", vec![cycle_steps], 1.0, 1000.0),
@@ -7548,12 +9164,30 @@ impl Effect {
                 .zip(families.iter_mut())
                 .map(|(name, row)| (name, row.iter_mut().collect(), -100.0, 100.0))
                 .collect(),
-            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, temporal_smoothing, .. } => vec![
+            Effect::ShadowHighlight {
+                shadow_amount,
+                highlight_amount,
+                shadow_tonal_width,
+                shadow_radius,
+                highlight_tonal_width,
+                highlight_radius,
+                color_correction,
+                midtone_contrast,
+                black_clip,
+                white_clip,
+                temporal_smoothing,
+                ..
+            } => vec![
                 ("shadow_amount", vec![shadow_amount], 0.0, 100.0),
                 ("highlight_amount", vec![highlight_amount], 0.0, 100.0),
                 ("shadow_tonal_width", vec![shadow_tonal_width], 0.0, 100.0),
                 ("shadow_radius", vec![shadow_radius], 0.0, 500.0),
-                ("highlight_tonal_width", vec![highlight_tonal_width], 0.0, 100.0),
+                (
+                    "highlight_tonal_width",
+                    vec![highlight_tonal_width],
+                    0.0,
+                    100.0,
+                ),
                 ("highlight_radius", vec![highlight_radius], 0.0, 500.0),
                 ("color_correction", vec![color_correction], 0.0, 100.0),
                 ("midtone_contrast", vec![midtone_contrast], -100.0, 100.0),
@@ -7579,7 +9213,12 @@ impl Effect {
                 ("cut_away", vec![cut_away], 0.0, 100.0),
                 ("light_intensity", vec![light_intensity], 0.0, 400.0),
                 ("light_height", vec![light_height], -1000.0, 1000.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("ambient", vec![ambient], 0.0, 100.0),
                 ("diffuse", vec![diffuse], 0.0, 100.0),
@@ -7608,7 +9247,12 @@ impl Effect {
                 metal,
                 ..
             } => vec![
-                ("brush_position", brush_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "brush_position",
+                    brush_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("stroke_width", vec![stroke_width], 0.0, 500.0),
                 ("density", vec![density], 0.0, 100.0),
                 ("time_span", vec![time_span], 0.0, 100.0),
@@ -7619,7 +9263,12 @@ impl Effect {
                 ("wobble_speed", vec![wobble_speed], 0.0, 100.0),
                 ("light_intensity", vec![light_intensity], 0.0, 400.0),
                 ("light_height", vec![light_height], -1000.0, 1000.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("ambient", vec![ambient], 0.0, 100.0),
                 ("diffuse", vec![diffuse], 0.0, 100.0),
@@ -7627,7 +9276,16 @@ impl Effect {
                 ("roughness", vec![roughness], 0.001, 1.0),
                 ("metal", vec![metal], 0.0, 100.0),
             ],
-            Effect::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => vec![
+            Effect::Threads {
+                width,
+                height,
+                overlaps,
+                direction,
+                center,
+                coverage,
+                shadowing,
+                texture,
+            } => vec![
                 ("width", vec![width], 1.0, 1000.0),
                 ("height", vec![height], 1.0, 1000.0),
                 ("overlaps", vec![overlaps], 1.0, 10.0),
@@ -7637,8 +9295,19 @@ impl Effect {
                 ("shadowing", vec![shadowing], 0.0, 100.0),
                 ("texture", vec![texture], 0.0, 100.0),
             ],
-            Effect::LensFlare { flare_center, flare_brightness, blend_with_original, dirt, .. } => vec![
-                ("flare_center", flare_center.iter_mut().collect(), -1000.0, 1000.0),
+            Effect::LensFlare {
+                flare_center,
+                flare_brightness,
+                blend_with_original,
+                dirt,
+                ..
+            } => vec![
+                (
+                    "flare_center",
+                    flare_center.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("flare_brightness", vec![flare_brightness], 0.0, 300.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ]
@@ -7646,7 +9315,18 @@ impl Effect {
             .chain(dirt.numbers())
             .collect(),
             Effect::Vegas {
-                mask, segments, length, rotation, random_seed, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, ..
+                mask,
+                segments,
+                length,
+                rotation,
+                random_seed,
+                width,
+                hardness,
+                start_opacity,
+                mid_point_opacity,
+                mid_point_position,
+                end_opacity,
+                ..
             } => vec![
                 ("mask", vec![mask], 1.0, 1000.0),
                 ("segments", vec![segments], 1.0, 1000.0),
@@ -7660,12 +9340,20 @@ impl Effect {
                 ("mid_point_position", vec![mid_point_position], 0.0, 1.0),
                 ("end_opacity", vec![end_opacity], 0.0, 1.0),
             ],
-            Effect::MomentMap { max_time, resolution, .. } => vec![
+            Effect::MomentMap {
+                max_time,
+                resolution,
+                ..
+            } => vec![
                 ("max_time", vec![max_time], -10.0, 10.0),
                 ("resolution", vec![resolution], 1.0, 999.0),
             ],
             // D-348: a depth is in whatever units the program that rendered it chose.
-            Effect::PassExtract { black_point, white_point, .. } => vec![
+            Effect::PassExtract {
+                black_point,
+                white_point,
+                ..
+            } => vec![
                 ("black_point", vec![black_point], -1e6, 1e6),
                 ("white_point", vec![white_point], -1e6, 1e6),
             ],
@@ -7673,14 +9361,34 @@ impl Effect {
                 ("depth", vec![depth], -1e6, 1e6),
                 ("feather", vec![feather], 0.0, 1e6),
             ],
-            Effect::Timecode { time_units, starting_frame, text_position, text_size, opacity, .. } => vec![
+            Effect::Timecode {
+                time_units,
+                starting_frame,
+                text_position,
+                text_size,
+                opacity,
+                ..
+            } => vec![
                 ("time_units", vec![time_units], 1.0, 999.0),
                 ("starting_frame", vec![starting_frame], -1e7, 1e7),
-                ("text_position", text_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "text_position",
+                    text_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("text_size", vec![text_size], 1.0, 2000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::Numbers { value, decimal_places, position, stroke_width, size, tracking, .. } => vec![
+            Effect::Numbers {
+                value,
+                decimal_places,
+                position,
+                stroke_width,
+                size,
+                tracking,
+                ..
+            } => vec![
                 ("value", vec![value], -30000.0, 30000.0),
                 ("decimal_places", vec![decimal_places], 0.0, 10.0),
                 ("position", position.iter_mut().collect(), -1000.0, 1000.0),
@@ -7688,7 +9396,13 @@ impl Effect {
                 ("size", vec![size], 1.0, 2000.0),
                 ("tracking", vec![tracking], -1000.0, 1000.0),
             ],
-            Effect::BasicText { position, stroke_width, size, tracking, .. } => vec![
+            Effect::BasicText {
+                position,
+                stroke_width,
+                size,
+                tracking,
+                ..
+            } => vec![
                 ("position", position.iter_mut().collect(), -1000.0, 1000.0),
                 ("stroke_width", vec![stroke_width], 0.0, 500.0),
                 ("size", vec![size], 1.0, 2000.0),
@@ -7699,20 +9413,43 @@ impl Effect {
                 ("id", vec![id], 0.0, 1e6),
                 ("feather", vec![feather], 0.0, 100.0),
             ],
-            Effect::Fog3d { fog_start_depth, fog_end_depth, fog_opacity, scattering_density, layer_contribution, .. } => vec![
+            Effect::Fog3d {
+                fog_start_depth,
+                fog_end_depth,
+                fog_opacity,
+                scattering_density,
+                layer_contribution,
+                ..
+            } => vec![
                 ("fog_start_depth", vec![fog_start_depth], -1e6, 1e6),
                 ("fog_end_depth", vec![fog_end_depth], -1e6, 1e6),
                 ("fog_opacity", vec![fog_opacity], 0.0, 100.0),
                 ("scattering_density", vec![scattering_density], 0.0, 100.0),
                 ("layer_contribution", vec![layer_contribution], 0.0, 100.0),
             ],
-            Effect::DepthOfField { focal_plane, maximum_radius, focal_plane_thickness, focal_bias, .. } => vec![
+            Effect::DepthOfField {
+                focal_plane,
+                maximum_radius,
+                focal_plane_thickness,
+                focal_bias,
+                ..
+            } => vec![
                 ("focal_plane", vec![focal_plane], -1e6, 1e6),
                 ("maximum_radius", vec![maximum_radius], 0.0, 200.0),
-                ("focal_plane_thickness", vec![focal_plane_thickness], 0.0, 1e6),
+                (
+                    "focal_plane_thickness",
+                    vec![focal_plane_thickness],
+                    0.0,
+                    1e6,
+                ),
                 ("focal_bias", vec![focal_bias], 0.0, 100.0),
             ],
-            Effect::AutoTone { temporal_smoothing, black_clip, white_clip, .. } => vec![
+            Effect::AutoTone {
+                temporal_smoothing,
+                black_clip,
+                white_clip,
+                ..
+            } => vec![
                 ("temporal_smoothing", vec![temporal_smoothing], 0.0, 10.0),
                 ("black_clip", vec![black_clip], 0.0, 10.0),
                 ("white_clip", vec![white_clip], 0.0, 10.0),
@@ -7727,12 +9464,32 @@ impl Effect {
                 gray_level_softness_2,
                 iterations,
             } => vec![
-                ("geometric_softness_1", vec![geometric_softness_1], 0.0, 100.0),
+                (
+                    "geometric_softness_1",
+                    vec![geometric_softness_1],
+                    0.0,
+                    100.0,
+                ),
                 ("choke_1", vec![choke_1], -127.0, 127.0),
-                ("gray_level_softness_1", vec![gray_level_softness_1], 0.0, 100.0),
-                ("geometric_softness_2", vec![geometric_softness_2], 0.0, 100.0),
+                (
+                    "gray_level_softness_1",
+                    vec![gray_level_softness_1],
+                    0.0,
+                    100.0,
+                ),
+                (
+                    "geometric_softness_2",
+                    vec![geometric_softness_2],
+                    0.0,
+                    100.0,
+                ),
                 ("choke_2", vec![choke_2], -127.0, 127.0),
-                ("gray_level_softness_2", vec![gray_level_softness_2], 0.0, 100.0),
+                (
+                    "gray_level_softness_2",
+                    vec![gray_level_softness_2],
+                    0.0,
+                    100.0,
+                ),
                 ("iterations", vec![iterations], 1.0, 10.0),
             ],
             Effect::RefineMatte {
@@ -7749,8 +9506,18 @@ impl Effect {
                     ("feather", vec![feather], 0.0, 100.0),
                     ("contrast", vec![contrast], 0.0, 100.0),
                     ("shift_edge", vec![shift_edge], -100.0, 100.0),
-                    ("decontamination_amount", vec![decontamination_amount], 0.0, 100.0),
-                    ("decontamination_radius", vec![decontamination_radius], 0.0, 100.0),
+                    (
+                        "decontamination_amount",
+                        vec![decontamination_amount],
+                        0.0,
+                        100.0,
+                    ),
+                    (
+                        "decontamination_radius",
+                        vec![decontamination_radius],
+                        0.0,
+                        100.0,
+                    ),
                 ];
                 if *kind == "soft" {
                     v.insert(0, ("edge_radius", vec![edge_radius], 0.0, 100.0));
@@ -7789,13 +9556,28 @@ impl Effect {
             .into_iter()
             .chain(dirt.numbers())
             .collect(),
-            Effect::Halation { threshold, threshold_smooth, radius, amount, .. } => vec![
+            Effect::Halation {
+                threshold,
+                threshold_smooth,
+                radius,
+                amount,
+                ..
+            } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
                 ("threshold_smooth", vec![threshold_smooth], 0.0, 100.0),
                 ("radius", vec![radius], 0.0, 2000.0),
                 ("amount", vec![amount], 0.0, 400.0),
             ],
-            Effect::Stroke { mask, brush_size, brush_hardness, opacity, start, end, spacing, .. } => vec![
+            Effect::Stroke {
+                mask,
+                brush_size,
+                brush_hardness,
+                opacity,
+                start,
+                end,
+                spacing,
+                ..
+            } => vec![
                 ("mask", vec![mask], 1.0, 1000.0),
                 ("brush_size", vec![brush_size], 0.0, 200.0),
                 ("brush_hardness", vec![brush_hardness], 0.0, 100.0),
@@ -7805,7 +9587,20 @@ impl Effect {
                 ("spacing", vec![spacing], 0.0, 100.0),
             ],
             Effect::TextAnimator {
-                position, scale, rotation, opacity, color, tracking, start, end, offset, amount, smoothness, ease_high, ease_low, ..
+                position,
+                scale,
+                rotation,
+                opacity,
+                color,
+                tracking,
+                start,
+                end,
+                offset,
+                amount,
+                smoothness,
+                ease_high,
+                ease_low,
+                ..
             } => vec![
                 ("position", position.iter_mut().collect(), -1e5, 1e5),
                 ("scale", scale.iter_mut().collect(), -1e4, 1e4),
@@ -7821,7 +9616,9 @@ impl Effect {
                 ("ease_high", vec![ease_high], 0.0, 100.0),
                 ("ease_low", vec![ease_low], 0.0, 100.0),
             ],
-            Effect::LineBlur { length, strength, .. } => vec![
+            Effect::LineBlur {
+                length, strength, ..
+            } => vec![
                 ("length", vec![length], 0.0, 50.0),
                 ("strength", vec![strength], 0.0, 100.0),
             ],
@@ -7906,7 +9703,15 @@ impl Effect {
                 ("obstacle", vec![obstacle], -100.0, 100.0),
             ],
             Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
-            Effect::DisplacementMap { max_horizontal, max_vertical, red_amount, green_amount, blue_amount, spectrum, .. } => vec![
+            Effect::DisplacementMap {
+                max_horizontal,
+                max_vertical,
+                red_amount,
+                green_amount,
+                blue_amount,
+                spectrum,
+                ..
+            } => vec![
                 ("max_horizontal", vec![max_horizontal], -1000.0, 1000.0),
                 ("max_vertical", vec![max_vertical], -1000.0, 1000.0),
                 ("red_amount", vec![red_amount], -1000.0, 1000.0),
@@ -7914,25 +9719,48 @@ impl Effect {
                 ("blue_amount", vec![blue_amount], -1000.0, 1000.0),
                 ("spectrum", vec![spectrum], 3.0, 32.0),
             ],
-            Effect::GradientWipe { completion, softness, .. } => vec![
+            Effect::GradientWipe {
+                completion,
+                softness,
+                ..
+            } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
-            Effect::Echo { echo_time, echoes, intensity, decay, .. } => vec![
+            Effect::Echo {
+                echo_time,
+                echoes,
+                intensity,
+                decay,
+                ..
+            } => vec![
                 ("echo_time", vec![echo_time], -120.0, 120.0),
                 ("echoes", vec![echoes], 0.0, 30.0),
                 ("intensity", vec![intensity], 0.0, 1.0),
                 ("decay", vec![decay], 0.0, 1.0),
             ],
-            Effect::CcWideTime { forward_steps, backward_steps, .. } => vec![
+            Effect::CcWideTime {
+                forward_steps,
+                backward_steps,
+                ..
+            } => vec![
                 ("forward_steps", vec![forward_steps], 0.0, 100.0),
                 ("backward_steps", vec![backward_steps], 0.0, 100.0),
             ],
-            Effect::ForceMotionBlur { motion_blur_samples, shutter_angle, .. } => vec![
+            Effect::ForceMotionBlur {
+                motion_blur_samples,
+                shutter_angle,
+                ..
+            } => vec![
                 ("motion_blur_samples", vec![motion_blur_samples], 1.0, 64.0),
                 ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
             ],
-            Effect::PixelMotionBlur { shutter_angle, shutter_samples, vector_detail, .. } => vec![
+            Effect::PixelMotionBlur {
+                shutter_angle,
+                shutter_samples,
+                vector_detail,
+                ..
+            } => vec![
                 ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
                 ("shutter_samples", vec![shutter_samples], 2.0, 64.0),
                 ("vector_detail", vec![vector_detail], 0.0, 100.0),
@@ -7958,7 +9786,12 @@ impl Effect {
                 ("vector_detail", vec![vector_detail], 0.0, 100.0),
                 ("global_smoothness", vec![global_smoothness], 0.0, 1.0),
                 ("local_smoothness", vec![local_smoothness], 0.0, 1.0),
-                ("smoothing_iterations", vec![smoothing_iterations], 1.0, 50.0),
+                (
+                    "smoothing_iterations",
+                    vec![smoothing_iterations],
+                    1.0,
+                    50.0,
+                ),
                 ("error_threshold", vec![error_threshold], 0.0, 10.0),
                 ("block_size", vec![block_size], 2.0, 32.0),
                 ("red_weight", vec![red_weight], 0.0, 1.0),
@@ -7967,14 +9800,29 @@ impl Effect {
                 ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
                 ("shutter_samples", vec![shutter_samples], 2.0, 64.0),
             ],
-            Effect::WarpStabilizer { smoothness, maximum_scale, action_safe_margin, additional_scale, .. } => vec![
+            Effect::WarpStabilizer {
+                smoothness,
+                maximum_scale,
+                action_safe_margin,
+                additional_scale,
+                ..
+            } => vec![
                 ("smoothness", vec![smoothness], 0.0, 1000.0),
                 ("maximum_scale", vec![maximum_scale], 100.0, 1000.0),
                 ("action_safe_margin", vec![action_safe_margin], 0.0, 50.0),
                 ("additional_scale", vec![additional_scale], 1.0, 1000.0),
             ],
-            Effect::RollingShutterRepair { rolling_shutter_rate, pixel_motion_detail, .. } => vec![
-                ("rolling_shutter_rate", vec![rolling_shutter_rate], 0.0, 100.0),
+            Effect::RollingShutterRepair {
+                rolling_shutter_rate,
+                pixel_motion_detail,
+                ..
+            } => vec![
+                (
+                    "rolling_shutter_rate",
+                    vec![rolling_shutter_rate],
+                    0.0,
+                    100.0,
+                ),
                 ("pixel_motion_detail", vec![pixel_motion_detail], 0.0, 100.0),
             ],
             Effect::CcRainfall {
@@ -8044,22 +9892,57 @@ impl Effect {
                 ("steepness", vec![steepness], 0.0, 1.0),
                 ("height", vec![height], 0.0, 1.0),
                 ("wave_strength", vec![wave_strength], 0.0, 10.0),
-                ("producer_1_position", producer_1_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "producer_1_position",
+                    producer_1_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("producer_1_height", vec![producer_1_height], 0.0, 10.0),
                 ("producer_1_width", vec![producer_1_width], 0.0, 10.0),
                 ("producer_1_angle", vec![producer_1_angle], -3600.0, 3600.0),
-                ("producer_1_amplitude", vec![producer_1_amplitude], 0.0, 10.0),
-                ("producer_1_frequency", vec![producer_1_frequency], 0.0, 30.0),
+                (
+                    "producer_1_amplitude",
+                    vec![producer_1_amplitude],
+                    0.0,
+                    10.0,
+                ),
+                (
+                    "producer_1_frequency",
+                    vec![producer_1_frequency],
+                    0.0,
+                    30.0,
+                ),
                 ("producer_1_phase", vec![producer_1_phase], -3600.0, 3600.0),
-                ("producer_2_position", producer_2_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "producer_2_position",
+                    producer_2_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("producer_2_height", vec![producer_2_height], 0.0, 10.0),
                 ("producer_2_width", vec![producer_2_width], 0.0, 10.0),
                 ("producer_2_angle", vec![producer_2_angle], -3600.0, 3600.0),
-                ("producer_2_amplitude", vec![producer_2_amplitude], 0.0, 10.0),
-                ("producer_2_frequency", vec![producer_2_frequency], 0.0, 30.0),
+                (
+                    "producer_2_amplitude",
+                    vec![producer_2_amplitude],
+                    0.0,
+                    10.0,
+                ),
+                (
+                    "producer_2_frequency",
+                    vec![producer_2_frequency],
+                    0.0,
+                    30.0,
+                ),
                 ("producer_2_phase", vec![producer_2_phase], -3600.0, 3600.0),
                 // D-635: the Wireframe Controls, last so the places before them stay.
-                ("horizontal_rotation", vec![horizontal_rotation], -3600.0, 3600.0),
+                (
+                    "horizontal_rotation",
+                    vec![horizontal_rotation],
+                    -3600.0,
+                    3600.0,
+                ),
                 ("vertical_rotation", vec![vertical_rotation], -90.0, 90.0),
                 ("vertical_scale", vec![vertical_scale], 0.0, 10.0),
             ],
@@ -8096,7 +9979,12 @@ impl Effect {
                 ("sky_intensity", vec![sky_intensity], 0.0, 1.0),
                 ("sky_convergence", vec![sky_convergence], 0.0, 1.0),
                 ("light_intensity", vec![light_intensity], 0.0, 10.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_height", vec![light_height], 0.0, 10.0),
                 ("ambient_light", vec![ambient_light], 0.0, 2.0),
                 ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
@@ -8127,8 +10015,10 @@ impl Effect {
                 highlight_sharpness,
                 ..
             } => {
-                let mut table: Vec<(&'static str, Vec<&mut f64>, f64, f64)> =
-                    vec![("rows", vec![rows], 1.0, 1000.0), ("columns", vec![columns], 1.0, 1000.0)];
+                let mut table: Vec<(&'static str, Vec<&mut f64>, f64, f64)> = vec![
+                    ("rows", vec![rows], 1.0, 1000.0),
+                    ("columns", vec![columns], 1.0, 1000.0),
+                ];
                 // Card sizes for the positions, degrees for the turns, times for the scales.
                 let reach = [100.0, 100.0, 100.0, 3600.0, 3600.0, 3600.0, 10.0, 10.0];
                 for (n, (m, o)) in multipliers.iter_mut().zip(offsets.iter_mut()).enumerate() {
@@ -8136,22 +10026,67 @@ impl Effect {
                     table.push((CARD_DANCE_OFFSETS[n], vec![o], -reach[n], reach[n]));
                 }
                 table.extend([
-                    ("camera_x_rotation", vec![camera_x_rotation], -3600.0, 3600.0),
-                    ("camera_y_rotation", vec![camera_y_rotation], -3600.0, 3600.0),
-                    ("camera_z_rotation", vec![camera_z_rotation], -3600.0, 3600.0),
-                    ("camera_xy_position", camera_xy_position.iter_mut().collect(), -1000.0, 1000.0),
+                    (
+                        "camera_x_rotation",
+                        vec![camera_x_rotation],
+                        -3600.0,
+                        3600.0,
+                    ),
+                    (
+                        "camera_y_rotation",
+                        vec![camera_y_rotation],
+                        -3600.0,
+                        3600.0,
+                    ),
+                    (
+                        "camera_z_rotation",
+                        vec![camera_z_rotation],
+                        -3600.0,
+                        3600.0,
+                    ),
+                    (
+                        "camera_xy_position",
+                        camera_xy_position.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
                     ("camera_z_position", vec![camera_z_position], 0.01, 10.0),
                     ("focal_length", vec![focal_length], 1.0, 1000.0),
                     ("light_intensity", vec![light_intensity], 0.0, 10.0),
-                    ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                    (
+                        "light_position",
+                        light_position.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
                     ("light_depth", vec![light_depth], 0.0, 10.0),
                     ("ambient_light", vec![ambient_light], 0.0, 2.0),
                     ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
                     ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
-                    ("upper_left_corner", upper_left_corner.iter_mut().collect(), -1000.0, 1000.0),
-                    ("upper_right_corner", upper_right_corner.iter_mut().collect(), -1000.0, 1000.0),
-                    ("lower_left_corner", lower_left_corner.iter_mut().collect(), -1000.0, 1000.0),
-                    ("lower_right_corner", lower_right_corner.iter_mut().collect(), -1000.0, 1000.0),
+                    (
+                        "upper_left_corner",
+                        upper_left_corner.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
+                    (
+                        "upper_right_corner",
+                        upper_right_corner.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
+                    (
+                        "lower_left_corner",
+                        lower_left_corner.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
+                    (
+                        "lower_right_corner",
+                        lower_right_corner.iter_mut().collect(),
+                        -1000.0,
+                        1000.0,
+                    ),
                     ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
                 ]);
                 table
@@ -8202,11 +10137,21 @@ impl Effect {
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("origin", origin.iter_mut().collect(), -1000.0, 1000.0),
                 ("extrusion_depth", vec![extrusion_depth], 0.0, 1.0),
-                ("force_1_position", force_1_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "force_1_position",
+                    force_1_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("force_1_depth", vec![force_1_depth], -10.0, 10.0),
                 ("force_1_radius", vec![force_1_radius], 0.0, 10.0),
                 ("force_1_strength", vec![force_1_strength], -100.0, 100.0),
-                ("force_2_position", force_2_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "force_2_position",
+                    force_2_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("force_2_depth", vec![force_2_depth], -10.0, 10.0),
                 ("force_2_radius", vec![force_2_radius], 0.0, 10.0),
                 ("force_2_strength", vec![force_2_strength], -100.0, 100.0),
@@ -8216,33 +10161,94 @@ impl Effect {
                 ("viscosity", vec![viscosity], 0.0, 10.0),
                 ("mass_variance", vec![mass_variance], 0.0, 100.0),
                 ("gravity", vec![gravity], 0.0, 100.0),
-                ("gravity_direction", vec![gravity_direction], -3600.0, 3600.0),
-                ("gravity_inclination", vec![gravity_inclination], -90.0, 90.0),
+                (
+                    "gravity_direction",
+                    vec![gravity_direction],
+                    -3600.0,
+                    3600.0,
+                ),
+                (
+                    "gravity_inclination",
+                    vec![gravity_inclination],
+                    -90.0,
+                    90.0,
+                ),
                 ("opacity", vec![opacity], 0.0, 1.0),
-                ("camera_x_rotation", vec![camera_x_rotation], -3600.0, 3600.0),
-                ("camera_y_rotation", vec![camera_y_rotation], -3600.0, 3600.0),
-                ("camera_z_rotation", vec![camera_z_rotation], -3600.0, 3600.0),
-                ("camera_xy_position", camera_xy_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "camera_x_rotation",
+                    vec![camera_x_rotation],
+                    -3600.0,
+                    3600.0,
+                ),
+                (
+                    "camera_y_rotation",
+                    vec![camera_y_rotation],
+                    -3600.0,
+                    3600.0,
+                ),
+                (
+                    "camera_z_rotation",
+                    vec![camera_z_rotation],
+                    -3600.0,
+                    3600.0,
+                ),
+                (
+                    "camera_xy_position",
+                    camera_xy_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("camera_z_position", vec![camera_z_position], 0.01, 10.0),
                 ("focal_length", vec![focal_length], 1.0, 1000.0),
                 ("light_intensity", vec![light_intensity], 0.0, 10.0),
-                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "light_position",
+                    light_position.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("light_depth", vec![light_depth], 0.0, 10.0),
                 ("ambient_light", vec![ambient_light], 0.0, 2.0),
                 ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
                 ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
                 ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
                 // D-634: after the rest, so the places above hold.
-                ("upper_left_corner", upper_left_corner.iter_mut().collect(), -1000.0, 1000.0),
-                ("upper_right_corner", upper_right_corner.iter_mut().collect(), -1000.0, 1000.0),
-                ("lower_left_corner", lower_left_corner.iter_mut().collect(), -1000.0, 1000.0),
-                ("lower_right_corner", lower_right_corner.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "upper_left_corner",
+                    upper_left_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "upper_right_corner",
+                    upper_right_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "lower_left_corner",
+                    lower_left_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
+                (
+                    "lower_right_corner",
+                    lower_right_corner.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
             ],
-            Effect::TimeDifference { time_offset, contrast, .. } => vec![
+            Effect::TimeDifference {
+                time_offset,
+                contrast,
+                ..
+            } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
             ],
-            Effect::PosterizeTime { frame_rate } => vec![("frame_rate", vec![frame_rate], 0.1, 99.0)],
+            Effect::PosterizeTime { frame_rate } => {
+                vec![("frame_rate", vec![frame_rate], 0.1, 99.0)]
+            }
             Effect::ChangeToColor {
                 hue_tolerance,
                 lightness_tolerance,
@@ -8252,24 +10258,40 @@ impl Effect {
             } => vec![
                 ("hue_tolerance", vec![hue_tolerance], 0.0, 100.0),
                 ("lightness_tolerance", vec![lightness_tolerance], 0.0, 100.0),
-                ("saturation_tolerance", vec![saturation_tolerance], 0.0, 100.0),
+                (
+                    "saturation_tolerance",
+                    vec![saturation_tolerance],
+                    0.0,
+                    100.0,
+                ),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
-            Effect::PolarCoordinates { interpolation, .. } => vec![("interpolation", vec![interpolation], 0.0, 100.0)],
+            Effect::PolarCoordinates { interpolation, .. } => {
+                vec![("interpolation", vec![interpolation], 0.0, 100.0)]
+            }
             Effect::Median { radius, .. } => vec![("radius", vec![radius], 0.0, 10.0)],
             Effect::SmartBlur { radius, threshold } => vec![
                 ("radius", vec![radius], 0.0, 10.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
-            Effect::BilateralBlur { radius, threshold, .. } => vec![
+            Effect::BilateralBlur {
+                radius, threshold, ..
+            } => vec![
                 ("radius", vec![radius], 0.0, 50.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
-            Effect::CrossBlur { radius_x, radius_y, .. } => vec![
+            Effect::CrossBlur {
+                radius_x, radius_y, ..
+            } => vec![
                 ("radius_x", vec![radius_x], 0.0, 500.0),
                 ("radius_y", vec![radius_y], 0.0, 500.0),
             ],
-            Effect::SpinZoomBlur { amount, quality, center, .. } => vec![
+            Effect::SpinZoomBlur {
+                amount,
+                quality,
+                center,
+                ..
+            } => vec![
                 ("amount", vec![amount], -360.0, 360.0),
                 ("quality", vec![quality], 1.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
@@ -8278,8 +10300,18 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
-            Effect::BroadcastSafe { max_amplitude, .. } => vec![("max_amplitude", vec![max_amplitude], 90.0, 120.0)],
-            Effect::ColorNeutralizer { shadows, midtones, highlights, pinning, black_point, white_point, .. } => vec![
+            Effect::BroadcastSafe { max_amplitude, .. } => {
+                vec![("max_amplitude", vec![max_amplitude], 90.0, 120.0)]
+            }
+            Effect::ColorNeutralizer {
+                shadows,
+                midtones,
+                highlights,
+                pinning,
+                black_point,
+                white_point,
+                ..
+            } => vec![
                 ("shadows", shadows.iter_mut().collect(), -255.0, 255.0),
                 ("midtones", midtones.iter_mut().collect(), -255.0, 255.0),
                 ("highlights", highlights.iter_mut().collect(), -255.0, 255.0),
@@ -8287,30 +10319,67 @@ impl Effect {
                 ("black_point", vec![black_point], 0.0, 255.0),
                 ("white_point", vec![white_point], 0.0, 255.0),
             ],
-            Effect::ColorOffset { red_phase, green_phase, blue_phase, .. } => vec![
+            Effect::ColorOffset {
+                red_phase,
+                green_phase,
+                blue_phase,
+                ..
+            } => vec![
                 ("red_phase", vec![red_phase], -3600.0, 3600.0),
                 ("green_phase", vec![green_phase], -3600.0, 3600.0),
                 ("blue_phase", vec![blue_phase], -3600.0, 3600.0),
             ],
-            Effect::Kernel { line_1, line_2, line_3, divider, .. } => vec![
+            Effect::Kernel {
+                line_1,
+                line_2,
+                line_3,
+                divider,
+                ..
+            } => vec![
                 ("line_1", line_1.iter_mut().collect(), -1000.0, 1000.0),
                 ("line_2", line_2.iter_mut().collect(), -1000.0, 1000.0),
                 ("line_3", line_3.iter_mut().collect(), -1000.0, 1000.0),
                 ("divider", vec![divider], 0.01, 1000.0),
             ],
-            Effect::ChangeColor { hue_transform, lightness_transform, saturation_transform, tolerance, softness, .. } => vec![
+            Effect::ChangeColor {
+                hue_transform,
+                lightness_transform,
+                saturation_transform,
+                tolerance,
+                softness,
+                ..
+            } => vec![
                 ("hue_transform", vec![hue_transform], -3600.0, 3600.0),
-                ("lightness_transform", vec![lightness_transform], -100.0, 100.0),
-                ("saturation_transform", vec![saturation_transform], -100.0, 100.0),
+                (
+                    "lightness_transform",
+                    vec![lightness_transform],
+                    -100.0,
+                    100.0,
+                ),
+                (
+                    "saturation_transform",
+                    vec![saturation_transform],
+                    -100.0,
+                    100.0,
+                ),
                 ("tolerance", vec![tolerance], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
-            Effect::ColorBalanceHls { hue, lightness, saturation } => vec![
+            Effect::ColorBalanceHls {
+                hue,
+                lightness,
+                saturation,
+            } => vec![
                 ("hue", vec![hue], -3600.0, 3600.0),
                 ("lightness", vec![lightness], -100.0, 100.0),
                 ("saturation", vec![saturation], -100.0, 100.0),
             ],
-            Effect::GammaPedestalGain { black_stretch, gamma: [rg, gg, bg], pedestal: [rp, gp, bp], gain: [ra, ga, ba] } => vec![
+            Effect::GammaPedestalGain {
+                black_stretch,
+                gamma: [rg, gg, bg],
+                pedestal: [rp, gp, bp],
+                gain: [ra, ga, ba],
+            } => vec![
                 ("black_stretch", vec![black_stretch], 1.0, 4.0),
                 ("red_gamma", vec![rg], 0.1, 10.0),
                 ("red_pedestal", vec![rp], -1.0, 1.0),
@@ -8332,11 +10401,28 @@ impl Effect {
                 ("clip", vec![clip], 0.0, 49.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
-            Effect::ColorStabilizer { reference_frame, black_point, mid_point, white_point, sample_size, .. } => vec![
+            Effect::ColorStabilizer {
+                reference_frame,
+                black_point,
+                mid_point,
+                white_point,
+                sample_size,
+                ..
+            } => vec![
                 ("reference_frame", vec![reference_frame], 0.0, 1e6),
-                ("black_point", black_point.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "black_point",
+                    black_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("mid_point", mid_point.iter_mut().collect(), -1000.0, 1000.0),
-                ("white_point", white_point.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "white_point",
+                    white_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("sample_size", vec![sample_size], 0.0, 100.0),
             ],
             Effect::Snowfall {
@@ -8442,7 +10528,9 @@ impl Effect {
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
             Effect::OpticsCompensation {
-                field_of_view, center, ..
+                field_of_view,
+                center,
+                ..
             } => vec![
                 ("field_of_view", vec![field_of_view], 0.0, 180.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
@@ -8511,9 +10599,19 @@ impl Effect {
                 lower_right,
             } => vec![
                 ("upper_left", upper_left.iter_mut().collect(), -400.0, 500.0),
-                ("upper_right", upper_right.iter_mut().collect(), -400.0, 500.0),
+                (
+                    "upper_right",
+                    upper_right.iter_mut().collect(),
+                    -400.0,
+                    500.0,
+                ),
                 ("lower_left", lower_left.iter_mut().collect(), -400.0, 500.0),
-                ("lower_right", lower_right.iter_mut().collect(), -400.0, 500.0),
+                (
+                    "lower_right",
+                    lower_right.iter_mut().collect(),
+                    -400.0,
+                    500.0,
+                ),
             ],
             Effect::LightSweep {
                 center,
@@ -8548,7 +10646,12 @@ impl Effect {
                 end_width,
                 ..
             } => vec![
-                ("producer_point", producer_point.iter_mut().collect(), -1000.0, 1000.0),
+                (
+                    "producer_point",
+                    producer_point.iter_mut().collect(),
+                    -1000.0,
+                    1000.0,
+                ),
                 ("sides", vec![sides], 3.0, 64.0),
                 ("interval", vec![interval], 1.0, 1000.0),
                 ("expansion", vec![expansion], 0.0, 1000.0),
@@ -8588,7 +10691,11 @@ impl Effect {
     /// D-630: every number of this effect in its table's order, one after another: one sample
     /// of Wave World's history.
     pub fn wave_numbers(&self) -> Vec<f64> {
-        self.clone().numbers().into_iter().flat_map(|n| n.1.into_iter().map(|v| *v).collect::<Vec<_>>()).collect()
+        self.clone()
+            .numbers()
+            .into_iter()
+            .flat_map(|n| n.1.into_iter().map(|v| *v).collect::<Vec<_>>())
+            .collect()
     }
 
     /// The numbers the setting of this name holds, or `None` when this effect has no such setting.
@@ -8631,14 +10738,21 @@ impl Effect {
                 alpha_blurriness,
                 ..
             } => {
-                for s in [red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness] {
+                for s in [
+                    red_blurriness,
+                    green_blurriness,
+                    blue_blurriness,
+                    alpha_blurriness,
+                ] {
                     *s = scale(*s);
                 }
             }
             Effect::FastBoxBlur { radius, .. } => *radius = scale(*radius),
             Effect::FastBlurLegacy { blurriness, .. } => *blurriness = scale(*blurriness),
             Effect::GaussianBlurLegacy { blurriness, .. } => *blurriness = scale(*blurriness),
-            Effect::CrossBlur { radius_x, radius_y, .. } => {
+            Effect::CrossBlur {
+                radius_x, radius_y, ..
+            } => {
                 *radius_x = scale(*radius_x);
                 *radius_y = scale(*radius_y);
             }
@@ -8658,16 +10772,22 @@ impl Effect {
             Effect::Median { radius, .. }
             | Effect::SmartBlur { radius, .. }
             | Effect::BilateralBlur { radius, .. }
-            | Effect::DustScratches { radius, .. } => {
-                *radius = scale(*radius)
-            }
+            | Effect::DustScratches { radius, .. } => *radius = scale(*radius),
             // D-447: the strokes keep their size on the picture, the brush at least half a pixel.
-            Effect::BrushStrokes { brush_size, stroke_length, .. } => {
+            Effect::BrushStrokes {
+                brush_size,
+                stroke_length,
+                ..
+            } => {
                 *brush_size = scale(*brush_size).max(0.5);
                 *stroke_length = scale(*stroke_length);
             }
             // D-448: the smoothing and the line keep their size on the picture.
-            Effect::Cartoon { detail_radius, edge_width, .. } => {
+            Effect::Cartoon {
+                detail_radius,
+                edge_width,
+                ..
+            } => {
                 *detail_radius = scale(*detail_radius);
                 *edge_width = scale(*edge_width);
             }
@@ -8679,14 +10799,25 @@ impl Effect {
             // D-462: the bands keep their softness on the picture.
             Effect::MrSmoothie { smoothness, .. } => *smoothness = scale(*smoothness),
             // D-463: as Blobbylize's, a distant light's height is a slope against 100.
-            Effect::Plastic { softness, light_type, light_height, .. } => {
+            Effect::Plastic {
+                softness,
+                light_type,
+                light_height,
+                ..
+            } => {
                 *softness = scale(*softness);
                 if light_type == "point" {
                     *light_height = scale(*light_height);
                 }
             }
             // D-464: the layer grows as far on the picture.
-            Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, .. } => {
+            Effect::RepeatTile {
+                expand_right,
+                expand_left,
+                expand_down,
+                expand_up,
+                ..
+            } => {
                 for e in [expand_right, expand_left, expand_down, expand_up] {
                     *e = scale(*e);
                 }
@@ -8712,7 +10843,11 @@ impl Effect {
                 *border = scale(*border);
                 *size = scale(*size).max(1.0);
             }
-            Effect::Beam { start_thickness, end_thickness, .. } => {
+            Effect::Beam {
+                start_thickness,
+                end_thickness,
+                ..
+            } => {
                 *start_thickness = scale(*start_thickness);
                 *end_thickness = scale(*end_thickness);
             }
@@ -8720,21 +10855,35 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
-            Effect::ChromaticAberration { amount, .. } | Effect::LensChromaticAberration { amount, .. } => {
-                *amount = scale(*amount)
-            }
+            Effect::ChromaticAberration { amount, .. }
+            | Effect::LensChromaticAberration { amount, .. } => *amount = scale(*amount),
             Effect::DistanceGradation { width, .. } => *width = scale(*width),
-            Effect::TurbulentDisplace { amount, size, units, drift_speed, .. } => {
+            Effect::TurbulentDisplace {
+                amount,
+                size,
+                units,
+                drift_speed,
+                ..
+            } => {
                 // D-411: the drift is a distance a frame.
                 *drift_speed = scale(*drift_speed);
                 let push = scale(turbulent_push(*amount, *size, units));
                 // A wave under a pixel is held at one, as its range is, rather than bypassed.
                 *size = scale(*size).max(1.0);
                 // D-328: the push scaled, the amount worked back from it at the drafted size.
-                *amount = if units == "after_effects" { push * 100.0 / size.min(100.0) } else { push };
+                *amount = if units == "after_effects" {
+                    push * 100.0 / size.min(100.0)
+                } else {
+                    push
+                };
             }
             // D-128: held at one in a draft, as D-127's wave is.
-            Effect::FractalNoise { size, offset, more, .. } | Effect::TurbulentNoise { size, offset, more, .. } => {
+            Effect::FractalNoise {
+                size, offset, more, ..
+            }
+            | Effect::TurbulentNoise {
+                size, offset, more, ..
+            } => {
                 *size = scale(*size).max(1.0);
                 // D-299: the slide in pixels, as Offset's; D-647: the Sub Offset as well.
                 *offset = offset.map(&scale);
@@ -8744,11 +10893,17 @@ impl Effect {
             // D-443: the grain keeps its size on the picture, below a pixel if need be.
             Effect::AddGrain { size, .. } => *size = scale(*size),
             // D-454: as Add Grain's.
-            Effect::MatchGrain { grain, .. } => grain.scale_distances(&scale as &dyn Fn(f64) -> f64),
+            Effect::MatchGrain { grain, .. } => {
+                grain.scale_distances(&scale as &dyn Fn(f64) -> f64)
+            }
             // D-455: the Unsharp Mask's radius, as Sharpen's; the denoise's discs are kept.
             Effect::RemoveGrain { unsharp_radius, .. } => *unsharp_radius = scale(*unsharp_radius),
             // D-456: the blur and the diffusion are distances; the thresholds are levels.
-            Effect::Deband { blur_amount, diffusion_amount, .. } => {
+            Effect::Deband {
+                blur_amount,
+                diffusion_amount,
+                ..
+            } => {
                 *blur_amount = scale(*blur_amount);
                 *diffusion_amount = scale(*diffusion_amount);
             }
@@ -8758,7 +10913,14 @@ impl Effect {
                 *grain_size = scale(*grain_size).max(0.5)
             }
             // D-446: the field, its slide and the flow lines keep their size on the picture.
-            Effect::CurlNoise { size, offset, speed, sample_radius, softness, .. } => {
+            Effect::CurlNoise {
+                size,
+                offset,
+                speed,
+                sample_radius,
+                softness,
+                ..
+            } => {
                 *softness = scale(*softness);
                 *size = scale(*size).max(1.0);
                 *offset = offset.map(&scale);
@@ -8785,7 +10947,11 @@ impl Effect {
             }
             Effect::Sharpen { radius, .. } => *radius = scale(*radius),
             Effect::Diffusion { radius, .. } => *radius = scale(*radius),
-            Effect::ShadowHighlight { shadow_radius, highlight_radius, .. } => {
+            Effect::ShadowHighlight {
+                shadow_radius,
+                highlight_radius,
+                ..
+            } => {
                 *shadow_radius = scale(*shadow_radius);
                 *highlight_radius = scale(*highlight_radius);
             }
@@ -8810,7 +10976,13 @@ impl Effect {
             }
             Effect::Spherize { radius, .. } => *radius = scale(*radius),
             Effect::CcLightRays { radius, .. } => *radius = scale(*radius),
-            Effect::Checkerboard { width, height, feather_width, feather_height, .. } => {
+            Effect::Checkerboard {
+                width,
+                height,
+                feather_width,
+                feather_height,
+                ..
+            } => {
                 // At its least, as Mosaic's size: a draft's half-pixel square is drawn a pixel
                 // wide rather than the whole effect bypassed.
                 *width = scale(*width).max(1.0);
@@ -8819,7 +10991,14 @@ impl Effect {
                 *feather_height = scale(*feather_height);
             }
             // D-414: the edge and feathers given as per cent of the radius follow it unscaled.
-            Effect::Circle { radius, edge, edge_thickness, feather_outer, feather_inner, .. } => {
+            Effect::Circle {
+                radius,
+                edge,
+                edge_thickness,
+                feather_outer,
+                feather_inner,
+                ..
+            } => {
                 *radius = scale(*radius);
                 if !edge.ends_with("_radius") || edge == "edge_radius" {
                     *edge_thickness = scale(*edge_thickness);
@@ -8830,26 +11009,46 @@ impl Effect {
                 }
             }
             // D-418: the feathers are distances; the masks are scaled as they always are.
-            Effect::Fill { horizontal_feather, vertical_feather, .. } => {
+            Effect::Fill {
+                horizontal_feather,
+                vertical_feather,
+                ..
+            } => {
                 *horizontal_feather = scale(*horizontal_feather);
                 *vertical_feather = scale(*vertical_feather);
             }
             // D-501 (B-381b): the blur is a distance; the tolerance and softness are not.
-            Effect::DifferenceMatte { blur_before_difference, .. } => *blur_before_difference = scale(*blur_before_difference),
+            Effect::DifferenceMatte {
+                blur_before_difference,
+                ..
+            } => *blur_before_difference = scale(*blur_before_difference),
             // D-506: the two distances in pixels; in per cent they follow the drawing unscaled.
-            Effect::ThreeDGlasses { scene_convergence, vertical_alignment, units, .. } => {
+            Effect::ThreeDGlasses {
+                scene_convergence,
+                vertical_alignment,
+                units,
+                ..
+            } => {
                 if units == "pixels" {
                     *scene_convergence = scale(*scene_convergence);
                     *vertical_alignment = scale(*vertical_alignment);
                 }
             }
             // D-518: the smoothness and the pull are distances.
-            Effect::WarpBlend { smoothness, warp_amount, .. } => {
+            Effect::WarpBlend {
+                smoothness,
+                warp_amount,
+                ..
+            } => {
                 *smoothness = scale(*smoothness);
                 *warp_amount = scale(*warp_amount);
             }
             // D-509: the softness and the bend are distances.
-            Effect::GlassMelt { softness, displacement_amount, .. } => {
+            Effect::GlassMelt {
+                softness,
+                displacement_amount,
+                ..
+            } => {
                 *softness = scale(*softness);
                 *displacement_amount = scale(*displacement_amount);
             }
@@ -8866,14 +11065,27 @@ impl Effect {
             Effect::ChannelWipe { blur, .. } => *blur = scale(*blur),
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
             // always are.
-            Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {
+            Effect::InnerOuterKey {
+                single_mask_highlight_radius,
+                edge_thin,
+                edge_feather,
+                ..
+            } => {
                 *single_mask_highlight_radius = scale(*single_mask_highlight_radius);
                 *edge_thin = scale(*edge_thin);
                 *edge_feather = scale(*edge_feather);
             }
             // D-503: the radius is a distance; the contrast and strength are not.
-            Effect::KeyCleaner { additional_edge_radius, .. } => *additional_edge_radius = scale(*additional_edge_radius),
-            Effect::ScreenKey { shrink_grow, softness, edge_refine, .. } => {
+            Effect::KeyCleaner {
+                additional_edge_radius,
+                ..
+            } => *additional_edge_radius = scale(*additional_edge_radius),
+            Effect::ScreenKey {
+                shrink_grow,
+                softness,
+                edge_refine,
+                ..
+            } => {
                 *shrink_grow = scale(*shrink_grow);
                 *softness = scale(*softness);
                 *edge_refine = scale(*edge_refine);
@@ -8881,13 +11093,20 @@ impl Effect {
             // D-419: the radius is a distance; the point a share of the drawing.
             Effect::EyedropperFill { sample_radius, .. } => *sample_radius = scale(*sample_radius),
             // D-440: the three distances; the point a share of the drawing.
-            Effect::PaintBucket { spread_radius, stroke_width, feather_softness, .. } => {
+            Effect::PaintBucket {
+                spread_radius,
+                stroke_width,
+                feather_softness,
+                ..
+            } => {
                 *spread_radius = scale(*spread_radius);
                 *stroke_width = scale(*stroke_width);
                 *feather_softness = scale(*feather_softness);
             }
             // D-441: the brush and every mark's size; the places are shares of the drawing.
-            Effect::WriteOn { brush_size, marks, .. } => {
+            Effect::WriteOn {
+                brush_size, marks, ..
+            } => {
                 *brush_size = scale(*brush_size);
                 for m in marks {
                     m[2] = scale(m[2]);
@@ -8897,17 +11116,44 @@ impl Effect {
             // D-527: the words' size, held at a pixel as a text's least; the box goes with it.
             Effect::Timecode { text_size, .. } => *text_size = scale(*text_size).max(1.0),
             // D-526: the words' size, held at a pixel as a text's least, and the stroke.
-            Effect::Numbers { size, stroke_width, .. } | Effect::BasicText { size, stroke_width, .. } => {
+            Effect::Numbers {
+                size, stroke_width, ..
+            }
+            | Effect::BasicText {
+                size, stroke_width, ..
+            } => {
                 *size = scale(*size).max(1.0);
                 *stroke_width = scale(*stroke_width);
             }
-            Effect::Scribble { edge_width, stroke_width, spacing, spacing_variation, path_overlap, path_overlap_variation, .. } => {
-                for d in [edge_width, stroke_width, spacing, spacing_variation, path_overlap, path_overlap_variation] {
+            Effect::Scribble {
+                edge_width,
+                stroke_width,
+                spacing,
+                spacing_variation,
+                path_overlap,
+                path_overlap_variation,
+                ..
+            } => {
+                for d in [
+                    edge_width,
+                    stroke_width,
+                    spacing,
+                    spacing_variation,
+                    path_overlap,
+                    path_overlap_variation,
+                ] {
                     *d = scale(*d);
                 }
             }
             // D-417: the cells held at least a pixel, as Checkerboard's.
-            Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
+            Effect::Grid {
+                width,
+                height,
+                border,
+                feather_width,
+                feather_height,
+                ..
+            } => {
                 *width = scale(*width).max(1.0);
                 *height = scale(*height).max(1.0);
                 *border = scale(*border);
@@ -8915,7 +11161,12 @@ impl Effect {
                 *feather_height = scale(*feather_height);
             }
             // D-415: the axes held at least a pixel, as Checkerboard's cells.
-            Effect::Ellipse { width, height, thickness, .. } => {
+            Effect::Ellipse {
+                width,
+                height,
+                thickness,
+                ..
+            } => {
                 *width = scale(*width).max(1.0);
                 *height = scale(*height).max(1.0);
                 *thickness = scale(*thickness);
@@ -8923,19 +11174,35 @@ impl Effect {
             // D-407: Scale is a share; Detail's blur follows it, so only Reduce Noise is a distance.
             Effect::DetailUpscale { reduce_noise, .. } => *reduce_noise = scale(*reduce_noise),
             // D-420, D-421: the marks' height and thickness; the points are shares.
-            Effect::AudioSpectrum { maximum_height, thickness, .. } | Effect::AudioWaveform { maximum_height, thickness, .. } => {
+            Effect::AudioSpectrum {
+                maximum_height,
+                thickness,
+                ..
+            }
+            | Effect::AudioWaveform {
+                maximum_height,
+                thickness,
+                ..
+            } => {
                 *maximum_height = scale(*maximum_height);
                 *thickness = scale(*thickness);
             }
             // D-416: the view is the drawing's own, so nothing scales; a smaller picture (a
             // draft, or a composition drawn smaller) is not oversampled, as After Effects' draft
             // quality is not, and Edge Highlight then shows.
-            Effect::Fractal { oversample_factor, .. } => {
+            Effect::Fractal {
+                oversample_factor, ..
+            } => {
                 if scale(1.0) < 1.0 {
                     *oversample_factor = 1.0;
                 }
             }
-            Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
+            Effect::Bulge {
+                radius,
+                vertical_radius,
+                taper_radius,
+                ..
+            } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
                 *taper_radius = scale(*taper_radius);
@@ -8943,11 +11210,20 @@ impl Effect {
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
-            Effect::MatteChoker { geometric_softness_1, geometric_softness_2, .. } => {
+            Effect::MatteChoker {
+                geometric_softness_1,
+                geometric_softness_2,
+                ..
+            } => {
                 *geometric_softness_1 = scale(*geometric_softness_1);
                 *geometric_softness_2 = scale(*geometric_softness_2);
             }
-            Effect::RefineMatte { edge_radius, feather, decontamination_radius, .. } => {
+            Effect::RefineMatte {
+                edge_radius,
+                feather,
+                decontamination_radius,
+                ..
+            } => {
                 *edge_radius = scale(*edge_radius);
                 *feather = scale(*feather);
                 *decontamination_radius = scale(*decontamination_radius);
@@ -8959,7 +11235,13 @@ impl Effect {
             Effect::MaskSmear { mask_offset, .. } => *mask_offset = mask_offset.map(scale),
             // D-605: the brush and the offset are distances; the stroke is a share of the drawing.
             // D-700: so are each earlier stroke's brush and clone offset, and the clone offset.
-            Effect::Liquify { brush_size, distortion_mesh_offset, clone_offset, strokes, .. } => {
+            Effect::Liquify {
+                brush_size,
+                distortion_mesh_offset,
+                clone_offset,
+                strokes,
+                ..
+            } => {
                 *brush_size = scale(*brush_size);
                 *distortion_mesh_offset = distortion_mesh_offset.map(&scale);
                 *clone_offset = clone_offset.map(&scale);
@@ -8970,13 +11252,21 @@ impl Effect {
                 }
             }
             // D-508: the paths as Path Stroke's; the points are shares of the drawing.
-            Effect::EnergyStroke { core_size, glow_spread, distortion_amount, distortion_scale, .. } => {
+            Effect::EnergyStroke {
+                core_size,
+                glow_spread,
+                distortion_amount,
+                distortion_scale,
+                ..
+            } => {
                 *core_size = scale(*core_size);
                 *glow_spread = scale(*glow_spread);
                 *distortion_amount = scale(*distortion_amount);
                 *distortion_scale = scale(*distortion_scale);
             }
-            Effect::SoftGlow { radius, .. } | Effect::Halation { radius, .. } => *radius = scale(*radius),
+            Effect::SoftGlow { radius, .. } | Effect::Halation { radius, .. } => {
+                *radius = scale(*radius)
+            }
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
             Effect::CameraShake { amount, .. } => *amount = scale(*amount),
@@ -8992,7 +11282,13 @@ impl Effect {
                 *width = scale(*width);
                 *speed = scale(*speed);
             }
-            Effect::CcRainfall { size, scene_depth, speed, wind, .. } => {
+            Effect::CcRainfall {
+                size,
+                scene_depth,
+                speed,
+                wind,
+                ..
+            } => {
                 *size = scale(*size);
                 *scene_depth = scale(*scene_depth);
                 *speed = scale(*speed);
@@ -9018,19 +11314,32 @@ impl Effect {
             // D-613: its lengths, speeds and Gravity are the drawing's pixels, and so is every
             // keyed one in its history; positions are shares of it, and the wall compose found
             // in the masks already at this size.
-            Effect::ParticlePlayground { values, history, words, .. } => {
+            Effect::ParticlePlayground {
+                values,
+                history,
+                words,
+                ..
+            } => {
                 const PIXELS: [usize; 13] = [0, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17];
                 // D-614: and a mapper's Min and Max where its channel sets a place, a speed or a
                 // force (X to Y Force in the properties' list). D-713: or a friction. D-715: not
                 // Mass, which has no unit.
                 let mapped = (0..6)
-                    .filter(|&j| PARTICLE_PLAYGROUND_PROPERTIES.iter().position(|w| *w == words[7 + j]).is_some_and(|p| (7..13).contains(&p) || (18..20).contains(&p)))
+                    .filter(|&j| {
+                        PARTICLE_PLAYGROUND_PROPERTIES
+                            .iter()
+                            .position(|w| *w == words[7 + j])
+                            .is_some_and(|p| (7..13).contains(&p) || (18..20).contains(&p))
+                    })
                     .flat_map(|j| [33 + 2 * j, 34 + 2 * j]);
                 let pixels: Vec<usize> = PIXELS.into_iter().chain(mapped).collect();
                 for &k in &pixels {
                     values[k] = scale(values[k]);
                 }
-                for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
+                for row in history
+                    .iter_mut()
+                    .flat_map(|h| std::sync::Arc::make_mut(h).iter_mut())
+                {
                     for &k in &pixels {
                         row[k] = scale(row[k]);
                     }
@@ -9040,12 +11349,20 @@ impl Effect {
             // is every keyed one in its history; the position and the floor are shares of it, and
             // the composition camera compose found is in pixels too. D-711: Aux Velocity and
             // Aux Size as well.
-            Effect::ParticleEmitter { values, view, history, .. } => {
+            Effect::ParticleEmitter {
+                values,
+                view,
+                history,
+                ..
+            } => {
                 const PIXELS: [usize; 14] = [1, 2, 3, 4, 11, 17, 33, 35, 36, 37, 38, 39, 48, 50];
                 for k in PIXELS {
                     values[k] = scale(values[k]);
                 }
-                for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
+                for row in history
+                    .iter_mut()
+                    .flat_map(|h| std::sync::Arc::make_mut(h).iter_mut())
+                {
                     for k in PIXELS {
                         row[k] = scale(row[k]);
                     }
@@ -9058,12 +11375,20 @@ impl Effect {
             // and Z and Map Displace are the layer's pixels, and so is every keyed one in its
             // history; the centre is a share of it, the maps come at the draft's size, and the
             // composition camera compose found is in pixels too.
-            Effect::ParticleGrid { values, view, history, .. } => {
+            Effect::ParticleGrid {
+                values,
+                view,
+                history,
+                ..
+            } => {
                 const PIXELS: [usize; 12] = [0, 1, 2, 6, 10, 15, 17, 18, 19, 20, 21, 26];
                 for k in PIXELS {
                     values[k] = scale(values[k]);
                 }
-                for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
+                for row in history
+                    .iter_mut()
+                    .flat_map(|h| std::sync::Arc::make_mut(h).iter_mut())
+                {
                     for k in PIXELS {
                         row[k] = scale(row[k]);
                     }
@@ -9073,7 +11398,11 @@ impl Effect {
                 }
             }
             // D-551: a spacing below 1 is worked as 1.
-            Effect::CcBallAction { scatter, grid_spacing, .. } => {
+            Effect::CcBallAction {
+                scatter,
+                grid_spacing,
+                ..
+            } => {
                 *scatter = scale(*scatter);
                 *grid_spacing = scale(*grid_spacing);
             }
@@ -9082,7 +11411,13 @@ impl Effect {
                 *glow = scale(*glow);
             }
             Effect::CompoundBlur { max_blur, .. } => *max_blur = scale(*max_blur),
-            Effect::Glass { softness, displacement, light_type, light_height, .. } => {
+            Effect::Glass {
+                softness,
+                displacement,
+                light_type,
+                light_height,
+                ..
+            } => {
                 *softness = scale(*softness);
                 *displacement = scale(*displacement);
                 // D-561: as Plastic's, a distant light's height is a slope against 100.
@@ -9090,31 +11425,50 @@ impl Effect {
                     *light_height = scale(*light_height);
                 }
             }
-            Effect::VectorBlur { amount, map_softness, .. } => {
+            Effect::VectorBlur {
+                amount,
+                map_softness,
+                ..
+            } => {
                 *amount = scale(*amount);
                 *map_softness = scale(*map_softness);
             }
             // D-378: an amount in per cent of the axis is no distance.
-            Effect::Bender { amount, adjust_to_distance, .. } if adjust_to_distance != "on" => *amount = scale(*amount),
+            Effect::Bender {
+                amount,
+                adjust_to_distance,
+                ..
+            } if adjust_to_distance != "on" => *amount = scale(*amount),
             // D-388/D-390: the cylinder's radius and the push are distances.
             Effect::PageTurn { fold_radius, .. } => *fold_radius = scale(*fold_radius),
             Effect::RipplePulse { amplitude, .. } => *amplitude = scale(*amplitude),
             // D-392/D-393: the smear's radius and the gap are distances; Slant has none.
             Effect::Smear { radius, .. } => *radius = scale(*radius),
             Effect::Split { split, .. } => *split = scale(*split),
-            Effect::Split2 { split_1, split_2, .. } => (*split_1, *split_2) = (scale(*split_1), scale(*split_2)),
+            Effect::Split2 {
+                split_1, split_2, ..
+            } => (*split_1, *split_2) = (scale(*split_1), scale(*split_2)),
             Effect::SimpleWireRemoval { thickness, .. } => *thickness = scale(*thickness),
             // D-379: a distant light's height is a slope against 100, no distance.
-            Effect::Blobbylize { softness, light_type, light_height, .. } => {
+            Effect::Blobbylize {
+                softness,
+                light_type,
+                light_height,
+                ..
+            } => {
                 *softness = scale(*softness);
                 if light_type == "point" {
                     *light_height = scale(*light_height);
                 }
             }
             // D-672: a point light's height is a distance; every other length a share.
-            Effect::Drizzle { values, words, .. } if words[0] == "point" => values[7] = scale(values[7]),
+            Effect::Drizzle { values, words, .. } if words[0] == "point" => {
+                values[7] = scale(values[7])
+            }
             // D-674: a point light's height is a distance; every other length a share.
-            Effect::Mercury { values, words, .. } if words[2] == "point" => values[15] = scale(values[15]),
+            Effect::Mercury { values, words, .. } if words[2] == "point" => {
+                values[15] = scale(values[15])
+            }
             // D-675: the grid spacing is a distance, and so is the composition camera compose
             // found; every other length a share of the drawing.
             Effect::PolygonShards { values, view, .. } => {
@@ -9131,7 +11485,14 @@ impl Effect {
                 }
             }
             // D-424: the stroke's width and the wobble are distances; the brush is a share.
-            Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } => {
+            Effect::GlueGun {
+                stroke_width,
+                wobble_width,
+                wobble_height,
+                light_type,
+                light_height,
+                ..
+            } => {
                 *stroke_width = scale(*stroke_width);
                 *wobble_width = scale(*wobble_width);
                 *wobble_height = scale(*wobble_height);
@@ -9147,7 +11508,11 @@ impl Effect {
             Effect::IdKey { feather, .. } => *feather = scale(*feather),
             // D-523: the radius in pixels, as Lens Blur's; the distances are the depth's.
             Effect::DepthOfField { maximum_radius, .. } => *maximum_radius = scale(*maximum_radius),
-            Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
+            Effect::DisplacementMap {
+                max_horizontal,
+                max_vertical,
+                ..
+            } => {
                 *max_horizontal = scale(*max_horizontal);
                 *max_vertical = scale(*max_vertical);
             }
@@ -9184,7 +11549,9 @@ impl Effect {
             Effect::Offset { shift } => *shift = shift.map(&scale),
             // D-199: so are the band's width and the edge's depth, which stays a pixel at least.
             Effect::LightSweep {
-                width, edge_thickness, ..
+                width,
+                edge_thickness,
+                ..
             } => {
                 *width = scale(*width);
                 *edge_thickness = scale(*edge_thickness).max(1.0);
@@ -9225,7 +11592,10 @@ impl Effect {
             Effect::Bloom { .. } => "Bloom",
             Effect::ColorKey { .. } => "Colour Key",
             Effect::Curves { .. } => "Curves",
-            Effect::Levels { .. } | Effect::ChannelLevels { individual: false, .. } => "Levels",
+            Effect::Levels { .. }
+            | Effect::ChannelLevels {
+                individual: false, ..
+            } => "Levels",
             Effect::ChannelLevels { .. } => "Levels (Individual Controls)",
             Effect::HueSaturation { .. } => "Hue/Saturation",
             Effect::Gradient { .. } => "Gradient",
@@ -9234,7 +11604,9 @@ impl Effect {
             Effect::RimLight { .. } => "Rim Light",
             Effect::Outline { .. } => "Outline",
             Effect::Noise { .. } => "Noise",
-            Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => "Chromatic Aberration",
+            Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => {
+                "Chromatic Aberration"
+            }
             Effect::DistanceGradation { .. } => "Distance Gradation",
             Effect::LightRays { .. } | Effect::CcLightRays { .. } => "Light Rays",
             Effect::LightBurst { .. } => "Light Burst",
@@ -9470,7 +11842,9 @@ impl Effect {
             Effect::Fog3d { .. } => "Fog 3D",
             Effect::TextAnimator { .. } => "Text Animator",
             Effect::AutoTone { kind: "levels", .. } => "Stretch Levels",
-            Effect::AutoTone { kind: "contrast", .. } => "Stretch Contrast",
+            Effect::AutoTone {
+                kind: "contrast", ..
+            } => "Stretch Contrast",
             Effect::AutoTone { .. } => "Stretch Color",
             Effect::SpreadTones { .. } => "Spread Tones",
             Effect::MatteChoker { .. } => "Matte Choker",
@@ -9501,7 +11875,10 @@ impl Effect {
             Effect::Bloom { .. } => BLOOM,
             Effect::ColorKey { .. } => COLOR_KEY,
             Effect::Curves { .. } => CURVES,
-            Effect::Levels { .. } | Effect::ChannelLevels { individual: false, .. } => LEVELS,
+            Effect::Levels { .. }
+            | Effect::ChannelLevels {
+                individual: false, ..
+            } => LEVELS,
             Effect::ChannelLevels { .. } => LEVELS_INDIVIDUAL,
             Effect::HueSaturation { .. } => HUE_SATURATION,
             Effect::Gradient { .. } => GRADIENT,
@@ -9510,7 +11887,9 @@ impl Effect {
             Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Outline { .. } => OUTLINE,
             Effect::Noise { .. } => NOISE,
-            Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => CHROMATIC_ABERRATION,
+            Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => {
+                CHROMATIC_ABERRATION
+            }
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
             Effect::LightRays { .. } | Effect::CcLightRays { .. } => LIGHT_RAYS,
             Effect::LightBurst { .. } => LIGHT_BURST,
@@ -9746,7 +12125,9 @@ impl Effect {
             Effect::Fog3d { .. } => FOG_3D,
             Effect::TextAnimator { .. } => TEXT_ANIMATOR,
             Effect::AutoTone { kind: "levels", .. } => STRETCH_LEVELS,
-            Effect::AutoTone { kind: "contrast", .. } => STRETCH_CONTRAST,
+            Effect::AutoTone {
+                kind: "contrast", ..
+            } => STRETCH_CONTRAST,
             Effect::AutoTone { .. } => STRETCH_COLOR,
             Effect::SpreadTones { .. } => SPREAD_TONES,
             Effect::MatteChoker { .. } => MATTE_CHOKER,
@@ -9774,42 +12155,72 @@ impl Effect {
             {
                 0
             }
-            Effect::GaussianBlur { sigma_px, units, .. } => {
+            Effect::GaussianBlur {
+                sigma_px, units, ..
+            } => {
                 let (sigma, long) = blur_reach(*sigma_px, units);
                 reach_radius(sigma, long)
             }
             // D-313: the alpha's blur, as Blur's; a colour reaching further has no alpha there.
-            Effect::ChannelBlur { alpha_blurriness, edges, units, .. } if edges != "repeat" => {
+            Effect::ChannelBlur {
+                alpha_blurriness,
+                edges,
+                units,
+                ..
+            } if edges != "repeat" => {
                 let (sigma, long) = blur_reach(*alpha_blurriness, units);
                 reach_radius(sigma, long)
             }
             // D-327: the box's reach, once a pass.
-            Effect::FastBoxBlur { radius, iterations, edges, .. } if edges != "repeat" => {
-                box_reach(*radius, *iterations)
-            }
+            Effect::FastBoxBlur {
+                radius,
+                iterations,
+                edges,
+                ..
+            } if edges != "repeat" => box_reach(*radius, *iterations),
             // D-471: Fast Box Blur's at its radius.
-            Effect::FastBlurLegacy { blurriness, edges, .. } if edges != "repeat" => {
-                box_reach(FAST_BLUR_LEGACY_FACTOR * blurriness, FAST_BLUR_LEGACY_ITERATIONS)
-            }
+            Effect::FastBlurLegacy {
+                blurriness, edges, ..
+            } if edges != "repeat" => box_reach(
+                FAST_BLUR_LEGACY_FACTOR * blurriness,
+                FAST_BLUR_LEGACY_ITERATIONS,
+            ),
             // D-472: Gaussian Blur's in Blurriness, its edges always clear.
             Effect::GaussianBlurLegacy { blurriness, .. } => {
                 let (sigma, long) = blur_reach(*blurriness, "blurriness");
                 reach_radius(sigma, long)
             }
             // D-360: the longer box's reach.
-            Effect::CrossBlur { radius_x, radius_y, edges, .. } if edges != "repeat" => {
-                box_reach(*radius_x, 1.0).max(box_reach(*radius_y, 1.0))
-            }
+            Effect::CrossBlur {
+                radius_x,
+                radius_y,
+                edges,
+                ..
+            } if edges != "repeat" => box_reach(*radius_x, 1.0).max(box_reach(*radius_y, 1.0)),
             // D-353: as far as any level's cells reach, stretched or not (no silent crop); D-543:
             // the widest channel's.
-            Effect::SoftGlow { radius, aspect_ratio, aspect_angle, spectral, spectral_red, spectral_green, spectral_blue, .. }
-                if self.fault().is_none() =>
-            {
-                let sizes = crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue);
+            Effect::SoftGlow {
+                radius,
+                aspect_ratio,
+                aspect_angle,
+                spectral,
+                spectral_red,
+                spectral_green,
+                spectral_blue,
+                ..
+            } if self.fault().is_none() => {
+                let sizes = crate::soft_glow::sizes(
+                    spectral,
+                    *spectral_red,
+                    *spectral_green,
+                    *spectral_blue,
+                );
                 crate::soft_glow::grow(*radius, *aspect_ratio, *aspect_angle, sizes)
             }
             // D-544: the spread's reach, round.
-            Effect::Halation { radius, .. } if self.fault().is_none() => crate::soft_glow::grow(*radius, 1.0, 0.0, None),
+            Effect::Halation { radius, .. } if self.fault().is_none() => {
+                crate::soft_glow::grow(*radius, 1.0, 0.0, None)
+            }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, units, .. } => {
                 let (sigma, long) = glow_reach(*radius, units);
@@ -9862,18 +12273,35 @@ impl Effect {
             } if *intensity > 0.0 => length.floor() as usize,
             // D-186: the size rounded up, unless nothing is added.
             Effect::KiraKira {
-                size, density, opacity, ..
+                size,
+                density,
+                opacity,
+                ..
             } if *size > 0.0 && *density > 0.0 && *opacity > 0.0 => size.ceil() as usize,
             // D-127: the push rounded up, unless a push past the edge reads the edge.
-            Effect::TurbulentDisplace { amount, size, edges, units, .. } if edges != "repeat" => {
-                turbulent_push(*amount, *size, units).ceil() as usize
-            }
+            Effect::TurbulentDisplace {
+                amount,
+                size,
+                edges,
+                units,
+                ..
+            } if edges != "repeat" => turbulent_push(*amount, *size, units).ceil() as usize,
             // D-315: with Expand Output the larger maximum rounded up, unless the push wraps; D-412:
             // the maximum times the largest amount.
-            Effect::DisplacementMap { max_horizontal, max_vertical, wrap, expand, red_amount, green_amount, blue_amount, .. }
-                if expand == "on" && wrap != "on" =>
-            {
-                let (most, a) = chromatic_amounts([*max_horizontal, *max_vertical], [*red_amount, *green_amount, *blue_amount]);
+            Effect::DisplacementMap {
+                max_horizontal,
+                max_vertical,
+                wrap,
+                expand,
+                red_amount,
+                green_amount,
+                blue_amount,
+                ..
+            } if expand == "on" && wrap != "on" => {
+                let (most, a) = chromatic_amounts(
+                    [*max_horizontal, *max_vertical],
+                    [*red_amount, *green_amount, *blue_amount],
+                );
                 let top = a.map_or(1.0, |a| a.iter().fold(0.0f64, |t, v| t.max(v.abs())));
                 (most[0].abs().max(most[1].abs()) * top).ceil() as usize
             }
@@ -9887,7 +12315,10 @@ impl Effect {
 
     /// D-642: a sound effect, which only an audio layer takes (D-638 decision 3).
     pub fn is_sound(&self) -> bool {
-        matches!(self, Effect::NoiseGate { .. } | Effect::Compressor { .. } | Effect::Distortion { .. })
+        matches!(
+            self,
+            Effect::NoiseGate { .. } | Effect::Compressor { .. } | Effect::Distortion { .. }
+        )
     }
 
     /// Whether the parameters are inside the ranges document 21 states.
@@ -9898,7 +12329,12 @@ impl Effect {
     pub fn is_valid(&self) -> bool {
         match self {
             // D-90 and D-318, as in `numbers`.
-            Effect::Exposure { stops, offset, gamma, bypass } => {
+            Effect::Exposure {
+                stops,
+                offset,
+                gamma,
+                bypass,
+            } => {
                 (-40.0..=40.0).contains(stops)
                     && (-0.5..=0.5).contains(offset)
                     && (0.01..=9.99).contains(gamma)
@@ -9924,7 +12360,9 @@ impl Effect {
                 (0.0..=200.0).contains(blur)
                     && (0.0..=255.0).contains(tolerance)
                     && colors.len() <= 8
-                    && colors.iter().all(|c| crate::selective_blur::parse_hex(c).is_some())
+                    && colors
+                        .iter()
+                        .all(|c| crate::selective_blur::parse_hex(c).is_some())
             }
             Effect::Glow { .. } => glow_fault(self).is_none(),
             Effect::Unsupported { .. } => true,
@@ -9935,13 +12373,20 @@ impl Effect {
     /// Why [`is_valid`](Self::is_valid) said no, as a sentence for a person.
     pub fn why_invalid(&self) -> String {
         match self {
-            Effect::Exposure { stops, offset, gamma, bypass } => {
+            Effect::Exposure {
+                stops,
+                offset,
+                gamma,
+                bypass,
+            } => {
                 if !(-40.0..=40.0).contains(stops) {
                     format!("Exposure runs from -40 to 40 stops, and this is {stops}.")
                 } else if !(-0.5..=0.5).contains(offset) {
                     format!("Exposure's Offset runs from -0.5 to 0.5, and this is {offset}.")
                 } else if !(0.01..=9.99).contains(gamma) {
-                    format!("Exposure's Gamma Correction runs from 0.01 to 9.99, and this is {gamma}.")
+                    format!(
+                        "Exposure's Gamma Correction runs from 0.01 to 9.99, and this is {gamma}."
+                    )
                 } else {
                     format!("Exposure's Bypass Linear Light Conversion is off or on, and this is \"{bypass}\".")
                 }
@@ -9964,7 +12409,10 @@ impl Effect {
                 colors,
                 tolerance,
             } => {
-                match colors.iter().find(|c| crate::selective_blur::parse_hex(c).is_none()) {
+                match colors
+                    .iter()
+                    .find(|c| crate::selective_blur::parse_hex(c).is_none())
+                {
                     Some(bad) => format!(
                         "A chosen colour is written # and six hexadecimal digits, such as \
                          #f6d6be, and this is \"{bad}\"."
@@ -9996,40 +12444,112 @@ impl Effect {
     /// written as a word. D-381: Colorama's mask layer is a second one, placed by its fit;
     /// its two are always both given, one not a word as "", as [`Effect::layer_settings_mut`]'s are.
     pub fn layer_settings(&self) -> Vec<(&str, &str)> {
-        if let Effect::Colorama { layer, mask_layer, fit, .. } = self {
-            return [layer, mask_layer].map(|l| (l.as_str().unwrap_or(""), fit.as_str())).to_vec();
+        if let Effect::Colorama {
+            layer,
+            mask_layer,
+            fit,
+            ..
+        } = self
+        {
+            return [layer, mask_layer]
+                .map(|l| (l.as_str().unwrap_or(""), fit.as_str()))
+                .to_vec();
         }
         // D-613: Particle Playground's six, each centred on the drawing.
         if let Effect::ParticlePlayground { layers, .. } = self {
-            return layers.iter().map(|l| (l.as_str().unwrap_or(""), "center")).collect();
+            return layers
+                .iter()
+                .map(|l| (l.as_str().unwrap_or(""), "center"))
+                .collect();
         }
         // D-616, D-712: Particle Grid's four, each stretched to the drawing.
         if let Effect::ParticleGrid { layers, .. } = self {
-            return layers.iter().map(|l| (l.as_str().unwrap_or(""), "stretch")).collect();
+            return layers
+                .iter()
+                .map(|l| (l.as_str().unwrap_or(""), "stretch"))
+                .collect();
         }
         // D-506: the two views, each centred on the drawing.
-        if let Effect::ThreeDGlasses { left_view, right_view, .. } = self {
-            return [left_view, right_view].map(|l| (l.as_str().unwrap_or(""), "center")).to_vec();
+        if let Effect::ThreeDGlasses {
+            left_view,
+            right_view,
+            ..
+        } = self
+        {
+            return [left_view, right_view]
+                .map(|l| (l.as_str().unwrap_or(""), "center"))
+                .to_vec();
         }
         // D-509: the layer to reveal centred on the drawing, the gradient stretched over it.
-        if let Effect::GlassMelt { layer_to_reveal, gradient_layer, .. } = self {
-            return vec![(layer_to_reveal.as_str().unwrap_or(""), "center"), (gradient_layer.as_str().unwrap_or(""), "stretch")];
+        if let Effect::GlassMelt {
+            layer_to_reveal,
+            gradient_layer,
+            ..
+        } = self
+        {
+            return vec![
+                (layer_to_reveal.as_str().unwrap_or(""), "center"),
+                (gradient_layer.as_str().unwrap_or(""), "stretch"),
+            ];
         }
         // D-580: the back and the gradient, each stretched to the drawing.
-        if let Effect::CardWipe { back_layer, gradient_layer, .. } = self {
-            return [back_layer, gradient_layer].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
+        if let Effect::CardWipe {
+            back_layer,
+            gradient_layer,
+            ..
+        } = self
+        {
+            return [back_layer, gradient_layer]
+                .map(|l| (l.as_str().unwrap_or(""), "stretch"))
+                .to_vec();
         }
         // D-631: the bottom and the sky read whole, placed by the effect; the water stretched.
-        if let Effect::Caustics { bottom_layer, water_surface, sky_layer, .. } = self {
-            return [(bottom_layer, "whole"), (water_surface, "stretch"), (sky_layer, "whole")].map(|(l, f)| (l.as_str().unwrap_or(""), f)).to_vec();
+        if let Effect::Caustics {
+            bottom_layer,
+            water_surface,
+            sky_layer,
+            ..
+        } = self
+        {
+            return [
+                (bottom_layer, "whole"),
+                (water_surface, "stretch"),
+                (sky_layer, "whole"),
+            ]
+            .map(|(l, f)| (l.as_str().unwrap_or(""), f))
+            .to_vec();
         }
         // D-632: the back and the two gradients, each stretched to the layer.
-        if let Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, .. } = self {
-            return [back_layer, gradient_layer_1, gradient_layer_2].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
+        if let Effect::CardDance {
+            back_layer,
+            gradient_layer_1,
+            gradient_layer_2,
+            ..
+        } = self
+        {
+            return [back_layer, gradient_layer_1, gradient_layer_2]
+                .map(|l| (l.as_str().unwrap_or(""), "stretch"))
+                .to_vec();
         }
         // D-633: the custom map, the gradient and the three textures, each stretched to the layer.
-        if let Effect::Shatter { custom_shatter_map, gradient_layer, front_layer, side_layer, back_layer, .. } = self {
-            return [custom_shatter_map, gradient_layer, front_layer, side_layer, back_layer].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
+        if let Effect::Shatter {
+            custom_shatter_map,
+            gradient_layer,
+            front_layer,
+            side_layer,
+            back_layer,
+            ..
+        } = self
+        {
+            return [
+                custom_shatter_map,
+                gradient_layer,
+                front_layer,
+                side_layer,
+                back_layer,
+            ]
+            .map(|l| (l.as_str().unwrap_or(""), "stretch"))
+            .to_vec();
         }
         self.layer_setting().into_iter().collect()
     }
@@ -10090,11 +12610,27 @@ impl Effect {
 
     /// D-189: the layer settings as written, each with the map compose reads into for a frame,
     /// in [`Effect::layer_settings`]'s order.
-    pub fn layer_settings_mut(&mut self) -> Vec<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
-        if let Effect::Colorama { layer, map, mask_layer, mask_map, .. } = self {
+    pub fn layer_settings_mut(
+        &mut self,
+    ) -> Vec<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
+        if let Effect::Colorama {
+            layer,
+            map,
+            mask_layer,
+            mask_map,
+            ..
+        } = self
+        {
             return vec![(layer, map), (mask_layer, mask_map)];
         }
-        if let Effect::ThreeDGlasses { left_view, left_map, right_view, right_map, .. } = self {
+        if let Effect::ThreeDGlasses {
+            left_view,
+            left_map,
+            right_view,
+            right_map,
+            ..
+        } = self
+        {
             return vec![(left_view, left_map), (right_view, right_map)];
         }
         if let Effect::ParticlePlayground { layers, maps, .. } = self {
@@ -10103,25 +12639,89 @@ impl Effect {
         if let Effect::ParticleGrid { layers, maps, .. } = self {
             return layers.iter_mut().zip(maps.iter_mut()).collect();
         }
-        if let Effect::GlassMelt { layer_to_reveal, reveal_map, gradient_layer, gradient_map, .. } = self {
-            return vec![(layer_to_reveal, reveal_map), (gradient_layer, gradient_map)];
+        if let Effect::GlassMelt {
+            layer_to_reveal,
+            reveal_map,
+            gradient_layer,
+            gradient_map,
+            ..
+        } = self
+        {
+            return vec![
+                (layer_to_reveal, reveal_map),
+                (gradient_layer, gradient_map),
+            ];
         }
-        if let Effect::CardWipe { back_layer, back_map, gradient_layer, gradient_map, .. } = self {
+        if let Effect::CardWipe {
+            back_layer,
+            back_map,
+            gradient_layer,
+            gradient_map,
+            ..
+        } = self
+        {
             return vec![(back_layer, back_map), (gradient_layer, gradient_map)];
         }
-        if let Effect::Caustics { bottom_layer, bottom_map, water_surface, surface_map, sky_layer, sky_map, .. } = self {
-            return vec![(bottom_layer, bottom_map), (water_surface, surface_map), (sky_layer, sky_map)];
+        if let Effect::Caustics {
+            bottom_layer,
+            bottom_map,
+            water_surface,
+            surface_map,
+            sky_layer,
+            sky_map,
+            ..
+        } = self
+        {
+            return vec![
+                (bottom_layer, bottom_map),
+                (water_surface, surface_map),
+                (sky_layer, sky_map),
+            ];
         }
-        if let Effect::CardDance { back_layer, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, .. } = self {
-            return vec![(back_layer, back_map), (gradient_layer_1, gradient_map_1), (gradient_layer_2, gradient_map_2)];
+        if let Effect::CardDance {
+            back_layer,
+            back_map,
+            gradient_layer_1,
+            gradient_map_1,
+            gradient_layer_2,
+            gradient_map_2,
+            ..
+        } = self
+        {
+            return vec![
+                (back_layer, back_map),
+                (gradient_layer_1, gradient_map_1),
+                (gradient_layer_2, gradient_map_2),
+            ];
         }
-        if let Effect::Shatter { custom_shatter_map, custom_map, gradient_layer, gradient_map, front_layer, front_map, side_layer, side_map, back_layer, back_map, .. } = self {
-            return vec![(custom_shatter_map, custom_map), (gradient_layer, gradient_map), (front_layer, front_map), (side_layer, side_map), (back_layer, back_map)];
+        if let Effect::Shatter {
+            custom_shatter_map,
+            custom_map,
+            gradient_layer,
+            gradient_map,
+            front_layer,
+            front_map,
+            side_layer,
+            side_map,
+            back_layer,
+            back_map,
+            ..
+        } = self
+        {
+            return vec![
+                (custom_shatter_map, custom_map),
+                (gradient_layer, gradient_map),
+                (front_layer, front_map),
+                (side_layer, side_map),
+                (back_layer, back_map),
+            ];
         }
         self.layer_setting_mut().into_iter().collect()
     }
 
-    fn layer_setting_mut(&mut self) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
+    fn layer_setting_mut(
+        &mut self,
+    ) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
         match self {
             Effect::CompoundBlur { layer, map, .. }
             | Effect::DisplacementMap { layer, map, .. }
@@ -10140,18 +12740,50 @@ impl Effect {
             | Effect::LensBlur { layer, map, .. }
             | Effect::ColorLink { layer, map, .. }
             | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
-            Effect::CcSpotlight { gel_layer, gel_map, .. } => Some((gel_layer, gel_map)),
+            Effect::CcSpotlight {
+                gel_layer, gel_map, ..
+            } => Some((gel_layer, gel_map)),
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
-            Effect::WaveWorld { ground_layer, ground_map, .. } => Some((ground_layer, ground_map)),
-            Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
-            Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
+            Effect::WaveWorld {
+                ground_layer,
+                ground_map,
+                ..
+            } => Some((ground_layer, ground_map)),
+            Effect::Fog3d {
+                gradient_layer,
+                map,
+                ..
+            } => Some((gradient_layer, map)),
+            Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => {
+                Some((&mut dirt.layer, &mut dirt.map))
+            }
             Effect::Twister { backside, map, .. } => Some((backside, map)),
-            Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
-            Effect::CcEnvironment { environment, map, .. } => Some((environment, map)),
-            Effect::ParticleSpace { texture_layer, texture, .. } => Some((texture_layer, texture)),
-            Effect::ParticlePlane { texture_layer, texture, .. } => Some((texture_layer, texture)),
-            Effect::ContourPaint { edge_map_layer, map, .. } => Some((edge_map_layer, map)),
-            Effect::CurlNoise { source_layer, map, .. } => Some((source_layer, map)),
+            Effect::WarpBlend {
+                layer_to_reveal,
+                map,
+                ..
+            } => Some((layer_to_reveal, map)),
+            Effect::CcEnvironment {
+                environment, map, ..
+            } => Some((environment, map)),
+            Effect::ParticleSpace {
+                texture_layer,
+                texture,
+                ..
+            } => Some((texture_layer, texture)),
+            Effect::ParticlePlane {
+                texture_layer,
+                texture,
+                ..
+            } => Some((texture_layer, texture)),
+            Effect::ContourPaint {
+                edge_map_layer,
+                map,
+                ..
+            } => Some((edge_map_layer, map)),
+            Effect::CurlNoise {
+                source_layer, map, ..
+            } => Some((source_layer, map)),
             _ => None,
         }
     }
@@ -12207,16 +14839,37 @@ impl Effect {
 /// opacity (Mid-point Opacity 0 a straight fade from start to end, clamped to 0 to 1), the end
 /// and the mid-point's place.
 pub(crate) fn vegas_fade(start: f64, mid: f64, position: f64, end: f64) -> [f64; 4] {
-    [start, (start + position * (end - start) + mid).clamp(0.0, 1.0), end, position]
+    [
+        start,
+        (start + position * (end - start) + mid).clamp(0.0, 1.0),
+        end,
+        position,
+    ]
 }
 
 /// D-527: the first of Timecode's words this build cannot use, as a sentence.
 fn timecode_fault(e: &Effect) -> Option<String> {
-    let Effect::Timecode { display_format, time_source, time_units, drop_frame, text_color, show_box, box_color, composite_on_original, .. } = e else {
+    let Effect::Timecode {
+        display_format,
+        time_source,
+        time_units,
+        drop_frame,
+        text_color,
+        show_box,
+        box_color,
+        composite_on_original,
+        ..
+    } = e
+    else {
         return None;
     };
     let one_of = |what: &str, v: &str, all: &[&str]| {
-        (!all.contains(&v)).then(|| format!("Timecode's {what} is one of {}, and this is \"{v}\".", all.join(", ")))
+        (!all.contains(&v)).then(|| {
+            format!(
+                "Timecode's {what} is one of {}, and this is \"{v}\".",
+                all.join(", ")
+            )
+        })
     };
     one_of("display format", display_format, &TIMECODE_FORMATS)
         .or_else(|| one_of("time source", time_source, &TIMECODE_SOURCES))
@@ -12234,40 +14887,98 @@ fn timecode_fault(e: &Effect) -> Option<String> {
 
 /// D-526: the first of Numbers' words this build cannot use, as a sentence.
 fn numbers_fault(e: &Effect) -> Option<String> {
-    let Effect::Numbers { kind, random_values, display, fill_color, stroke_color, proportional_spacing, composite_on_original, font, alignment, .. } = e else {
+    let Effect::Numbers {
+        kind,
+        random_values,
+        display,
+        fill_color,
+        stroke_color,
+        proportional_spacing,
+        composite_on_original,
+        font,
+        alignment,
+        ..
+    } = e
+    else {
         return None;
     };
     let one_of = |what: &str, v: &str, all: &[&str]| {
-        (!all.contains(&v)).then(|| format!("Numbers's {what} is one of {}, and this is \"{v}\".", all.join(", ")))
+        (!all.contains(&v)).then(|| {
+            format!(
+                "Numbers's {what} is one of {}, and this is \"{v}\".",
+                all.join(", ")
+            )
+        })
     };
     one_of("type", kind, &NUMBERS_TYPES)
         .or_else(|| one_of("random values", random_values, &["off", "on"]))
         .or_else(|| one_of("display", display, &NUMBERS_DISPLAYS))
         .or_else(|| one_of("proportional spacing", proportional_spacing, &["off", "on"]))
-        .or_else(|| one_of("composite on original", composite_on_original, &["off", "on"]))
+        .or_else(|| {
+            one_of(
+                "composite on original",
+                composite_on_original,
+                &["off", "on"],
+            )
+        })
         .or_else(|| one_of("alignment", alignment, &["left", "center", "right"]))
         .or_else(|| hex_fault("Numbers", "fill colour", fill_color))
         .or_else(|| hex_fault("Numbers", "stroke colour", stroke_color))
-        .or_else(|| crate::text::Text { font: font.clone(), ..Default::default() }.problem().map(|p| format!("Numbers needs {p}.")))
+        .or_else(|| {
+            crate::text::Text {
+                font: font.clone(),
+                ..Default::default()
+            }
+            .problem()
+            .map(|p| format!("Numbers needs {p}."))
+        })
 }
 
 /// D-473: the first of Basic Text's words this build cannot use, as a sentence.
 fn basic_text_fault(e: &Effect) -> Option<String> {
-    let Effect::BasicText { text, display, fill_color, stroke_color, composite_on_original, font, alignment, .. } = e else {
+    let Effect::BasicText {
+        text,
+        display,
+        fill_color,
+        stroke_color,
+        composite_on_original,
+        font,
+        alignment,
+        ..
+    } = e
+    else {
         return None;
     };
     let one_of = |what: &str, v: &str, all: &[&str]| {
-        (!all.contains(&v)).then(|| format!("Basic Text's {what} is one of {}, and this is \"{v}\".", all.join(", ")))
+        (!all.contains(&v)).then(|| {
+            format!(
+                "Basic Text's {what} is one of {}, and this is \"{v}\".",
+                all.join(", ")
+            )
+        })
     };
     let n = text.chars().count();
     (n > 1000)
         .then(|| format!("Basic Text's text is at most 1000 characters, and this is {n}."))
         .or_else(|| one_of("display", display, &NUMBERS_DISPLAYS))
-        .or_else(|| one_of("composite on original", composite_on_original, &["off", "on"]))
+        .or_else(|| {
+            one_of(
+                "composite on original",
+                composite_on_original,
+                &["off", "on"],
+            )
+        })
         .or_else(|| one_of("alignment", alignment, &["left", "center", "right"]))
         .or_else(|| hex_fault("Basic Text", "fill colour", fill_color))
         .or_else(|| hex_fault("Basic Text", "stroke colour", stroke_color))
-        .or_else(|| crate::text::Text { font: font.clone(), ..Default::default() }.problem().map(|p| format!("Basic Text needs {p}.")))
+        .or_else(|| {
+            crate::text::Text {
+                font: font.clone(),
+                ..Default::default()
+            }
+            .problem()
+            .map(|p| format!("Basic Text needs {p}."))
+        })
 }
 
 fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
@@ -12296,7 +15007,12 @@ pub(crate) fn encoded(c: &str) -> [f64; 3] {
 
 /// D-384: a valid Photo Filter's colour, encoded 0 to 1: the preset's, or `color` for "custom".
 pub(crate) fn photo_filter_colour(filter: &str, color: &str) -> [f64; 3] {
-    encoded(PHOTO_FILTERS.iter().find(|(f, _)| *f == filter).map_or(color, |(_, c)| c))
+    encoded(
+        PHOTO_FILTERS
+            .iter()
+            .find(|(f, _)| *f == filter)
+            .map_or(color, |(_, c)| c),
+    )
 }
 
 /// D-368: Kernel's three lines, already found to hold three numbers each, as a grid.
@@ -12362,20 +15078,36 @@ fn gradient_fault(shape: &str, start_color: &str, end_color: &str, blend: &str) 
 /// to under 360 and rising, saturation 0 to 200. D-571: any of its curves of 0 to 16 points,
 /// the first number rising from 0 to under `top` for a hue (360) or to `top` itself, the second
 /// inside `range`; `of`, the two numbers' words.
-fn points_fault(name: &str, curve: &str, (first, second): (&str, &str), top: f64, range: (f64, f64), points: &[Vec<f64>]) -> Option<String> {
+fn points_fault(
+    name: &str,
+    curve: &str,
+    (first, second): (&str, &str),
+    top: f64,
+    range: (f64, f64),
+    points: &[Vec<f64>],
+) -> Option<String> {
     if points.len() > 16 {
-        return Some(format!("{name}'s {curve} takes up to 16 points, and this has {}.", points.len()));
+        return Some(format!(
+            "{name}'s {curve} takes up to 16 points, and this has {}.",
+            points.len()
+        ));
     }
     if let Some(p) = points.iter().find(|p| p.len() != 2) {
         return Some(format!("Each point of {name}'s {curve} is two numbers, {first} then {second}, and this one is {p:?}."));
     }
     let hue = top == 360.0;
     let to = if hue { "to under" } else { "to" };
-    if let Some(p) = points.iter().find(|p| !(p[0] >= 0.0 && (p[0] < top || !hue && p[0] == top)) || !(range.0..=range.1).contains(&p[1])) {
+    if let Some(p) = points.iter().find(|p| {
+        !(p[0] >= 0.0 && (p[0] < top || !hue && p[0] == top))
+            || !(range.0..=range.1).contains(&p[1])
+    }) {
         return Some(format!("{name}'s {curve} takes {first}s from 0 {to} {top} and {second}s from {} to {}, and this point is {p:?}.", range.0, range.1));
     }
     points.windows(2).find(|w| w[1][0] <= w[0][0]).map(|w| {
-        format!("{name}'s {curve}'s {first} goes up from point to point, and {} is not above {}.", w[1][0], w[0][0])
+        format!(
+            "{name}'s {curve}'s {first} goes up from point to point, and {} is not above {}.",
+            w[1][0], w[0][0]
+        )
     })
 }
 
@@ -12392,7 +15124,11 @@ fn curve_fault(curve: &str, points: &[Vec<f64>]) -> Option<String> {
              {p:?}."
         ));
     }
-    if let Some(v) = points.iter().flatten().find(|v| !(0.0..=255.0).contains(*v)) {
+    if let Some(v) = points
+        .iter()
+        .flatten()
+        .find(|v| !(0.0..=255.0).contains(*v))
+    {
         return Some(format!(
             "Curves' {curve} curve's points run from 0 to 255, and this has {v}."
         ));
@@ -12437,7 +15173,10 @@ fn glow_fault(effect: &Effect) -> Option<String> {
     } else if !(0.0..=255.0).contains(tolerance) {
         format!("Glow's tolerance runs from 0 to 255, and this is {tolerance}.")
     } else if colors.len() > 8 {
-        format!("Glow takes up to eight colours, and this has {}.", colors.len())
+        format!(
+            "Glow takes up to eight colours, and this has {}.",
+            colors.len()
+        )
     } else if let Some(bad) = colors.iter().find(|c| !hex(c)) {
         format!(
             "A chosen colour is written # and six hexadecimal digits, such as #f6d6be, and this \
@@ -12463,28 +15202,44 @@ pub fn kernel_radius(sigma_px: f64) -> usize {
 /// "blurriness" it is After Effects' Blurriness, sigma 0.3 B as lottie-web and Skia's Skottie
 /// play After Effects' files; any other word is document 21's sigma.
 pub fn blur_reach(number: f64, units: &str) -> (f64, bool) {
-    if units == "blurriness" { (0.3 * number, true) } else { (number, false) }
+    if units == "blurriness" {
+        (0.3 * number, true)
+    } else {
+        (number, false)
+    }
 }
 
 /// D-322: a Glow's spread as a sigma and whether it takes the long reach. In "after_effects" the
 /// radius is a Gaussian Blur's Blurriness (Creative COW's measurements: "Glow Radius pretty much
 /// creates layer's Gaussian blur"); in "classic" it is D-89's sigma radius / 3.
 pub fn glow_reach(radius: f64, units: &str) -> (f64, bool) {
-    if units == "after_effects" { blur_reach(radius, "blurriness") } else { (radius / 3.0, false) }
+    if units == "after_effects" {
+        blur_reach(radius, "blurriness")
+    } else {
+        (radius / 3.0, false)
+    }
 }
 
 /// D-328: Turbulent Displace's push in pixels. In "after_effects" it shrinks with a wave under
 /// 100 pixels, this program's reading of After Effects (no source pins its own): Amount 80 at
 /// Size 2 pushes 1.6 pixels, a shimmer, where D-127's "classic" pushes 80 and breaks it to dust.
 pub fn turbulent_push(amount: f64, size: f64, units: &str) -> f64 {
-    if units == "after_effects" { amount * size.min(100.0) / 100.0 } else { amount }
+    if units == "after_effects" {
+        amount * size.min(100.0) / 100.0
+    } else {
+        amount
+    }
 }
 
 /// D-410: the seed the field takes at `frame`: the seed's whole part, plus P0-23's held step
 /// when `new_seed_every`'s whole part is 1 or more, so the warp jumps every that many frames.
 pub(crate) fn turbulent_seed(seed: f64, new_seed_every: f64, frame: i32) -> u64 {
     let n = new_seed_every.floor() as i64;
-    let step = if n < 1 { 0 } else { (frame as i64).div_euclid(n) };
+    let step = if n < 1 {
+        0
+    } else {
+        (frame as i64).div_euclid(n)
+    };
     (seed.floor() as i64).wrapping_add(step) as u64
 }
 
@@ -12579,7 +15334,13 @@ pub fn box_weights(radius: f64, iterations: f64) -> Vec<f32> {
         for (i, v) in line.iter().enumerate() {
             sums[i + 1] = sums[i] + v;
         }
-        let at = |i: isize| if (0..n as isize).contains(&i) { line[i as usize] } else { 0.0 };
+        let at = |i: isize| {
+            if (0..n as isize).contains(&i) {
+                line[i as usize]
+            } else {
+                0.0
+            }
+        };
         line = (0..n as isize)
             .map(|x| {
                 let (a, b) = ((x - k).max(0) as usize, ((x + k + 1) as usize).min(n));
@@ -12595,9 +15356,18 @@ impl Effect {
     /// `None` for any other effect, or a word that is not one.
     pub(crate) fn sweep(&self) -> Option<(bool, crate::blurs::Sweep)> {
         use crate::blurs::{Sweep, Weigh};
-        let sweep = |from, weigh, density| Sweep { from, weigh, density };
+        let sweep = |from, weigh, density| Sweep {
+            from,
+            weigh,
+            density,
+        };
         match self {
-            Effect::SpinZoomBlur { kind, amount, quality, .. } => {
+            Effect::SpinZoomBlur {
+                kind,
+                amount,
+                quality,
+                ..
+            } => {
                 let (spin, from, weigh) = match kind.as_str() {
                     "straight_zoom" => (false, 0.0, Weigh::Even),
                     "fading_zoom" => (false, 0.0, Weigh::Fading),
@@ -12632,7 +15402,11 @@ pub(crate) fn burst_sweep(burst: &str, ray_length: f64) -> crate::blurs::Sweep {
         "center" => (ray_length / 2.0, Weigh::Even),
         _ => (0.0, Weigh::Even),
     };
-    Sweep { from, weigh, density: 1.0 }
+    Sweep {
+        from,
+        weigh,
+        density: 1.0,
+    }
 }
 
 /// D-423: Light Rays' transfer modes, as the file writes them.
@@ -12671,21 +15445,36 @@ pub(crate) fn flow_motion_knots(
     offset: (usize, usize),
 ) -> ([((f64, f64), f64); 2], f64) {
     let per = if finer == "on" { 200.0 } else { 10.0 };
-    let (w0, h0) = ((size.0 - 2 * offset.0) as f64, (size.1 - 2 * offset.1) as f64);
+    let (w0, h0) = (
+        (size.0 - 2 * offset.0) as f64,
+        (size.1 - 2 * offset.1) as f64,
+    );
     let sigma = w0.hypot(h0) * 0.01 * 2f64.powf(0.7 * falloff);
-    ([0, 1].map(|k| (radial_center(knots[k], size, offset), amounts[k] / per)), sigma)
+    (
+        [0, 1].map(|k| (radial_center(knots[k], size, offset), amounts[k] / per)),
+        sigma,
+    )
 }
 
 /// D-387: Fisheye's radius in pixels, `size` per cent of half the drawing's diagonal.
 pub(crate) fn fisheye_radius(size: f64, dims: (usize, usize), offset: (usize, usize)) -> f64 {
-    let (w0, h0) = ((dims.0 - 2 * offset.0) as f64, (dims.1 - 2 * offset.1) as f64);
+    let (w0, h0) = (
+        (dims.0 - 2 * offset.0) as f64,
+        (dims.1 - 2 * offset.1) as f64,
+    );
     size / 100.0 * w0.hypot(h0) / 2.0
 }
 
 /// D-388: Page Turn's fold in the space of a drawing `dw` by `dh`: n, the unit step across the
 /// line towards the part that lifts, and the offset with d = X . n - offset; `None` when a corner
 /// is turned onto itself, which leaves the page as it was. `position` per cent of the drawing.
-pub(crate) fn page_turn_fold(controls: &str, position: [f64; 2], direction: f64, radius: f64, (dw, dh): (f64, f64)) -> Option<((f64, f64), f64)> {
+pub(crate) fn page_turn_fold(
+    controls: &str,
+    position: [f64; 2],
+    direction: f64,
+    radius: f64,
+    (dw, dh): (f64, f64),
+) -> Option<((f64, f64), f64)> {
     let (fx, fy) = (position[0] / 100.0 * dw, position[1] / 100.0 * dh);
     let (kx, ky) = match controls {
         "top_left" => (0.0, 0.0),
@@ -12703,7 +15492,10 @@ pub(crate) fn page_turn_fold(controls: &str, position: [f64; 2], direction: f64,
         return None;
     }
     let n = ((kx - fx) / d, (ky - fy) / d);
-    Some((n, fx * n.0 + fy * n.1 + (d - std::f64::consts::PI * radius) / 2.0))
+    Some((
+        n,
+        fx * n.0 + fy * n.1 + (d - std::f64::consts::PI * radius) / 2.0,
+    ))
 }
 
 /// D-376: Color Stabilizer's samples of `source` for `mode`: the black point's, then the white
@@ -12722,13 +15514,20 @@ pub(crate) fn stabilizer_samples(
         _ => vec![black, mid, white],
     };
     let size = (source.width(), source.height());
-    points.into_iter().map(|p| crate::grade::stabilizer_sample(source, radial_center(p, size, offset), r)).collect()
+    points
+        .into_iter()
+        .map(|p| crate::grade::stabilizer_sample(source, radial_center(p, size, offset), r))
+        .collect()
 }
 
 /// D-95: a Radial Blur's centre in the pixels of a buffer `w` by `h`, from its share of the
 /// drawing's own size, with the drawing's corner at `(ox, oy)` in it after the effects above it
 /// grew it.
-pub(crate) fn radial_center(center: [f64; 2], (w, h): (usize, usize), (ox, oy): (usize, usize)) -> (f64, f64) {
+pub(crate) fn radial_center(
+    center: [f64; 2],
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+) -> (f64, f64) {
     let (w0, h0) = (w - 2 * ox, h - 2 * oy);
     (
         ox as f64 + center[0] / 100.0 * w0 as f64,
@@ -12738,7 +15537,11 @@ pub(crate) fn radial_center(center: [f64; 2], (w, h): (usize, usize), (ox, oy): 
 
 /// D-441: Write-on's marks with their places in the pixels of a buffer `w` by `h`, as
 /// [`radial_center`] says. The processor and the card share it.
-pub(crate) fn write_on_marks(marks: &[[f64; 5]], size: (usize, usize), origin: (usize, usize)) -> Vec<[f64; 5]> {
+pub(crate) fn write_on_marks(
+    marks: &[[f64; 5]],
+    size: (usize, usize),
+    origin: (usize, usize),
+) -> Vec<[f64; 5]> {
     marks
         .iter()
         .map(|&[x, y, s, h, o]| {
@@ -12819,7 +15622,11 @@ pub(crate) fn apply_stack_at(
         // D-330, D-333: After Effects in 8 bpc and in its own 32 bpc has no linear working space,
         // so its blurs average the display values; in 32 bpc they are not held at white. D-337:
         // Solid Composite and Glow are laid on there too.
-        let top = if bits == Bits::Eight { 1.0 } else { f32::INFINITY };
+        let top = if bits == Bits::Eight {
+            1.0
+        } else {
+            f32::INFINITY
+        };
         let display = bits != Bits::Linear
             && instance.is_valid()
             && matches!(
@@ -12859,11 +15666,14 @@ pub(crate) fn apply_stack_at(
             // disjoint and none of them nests, so `src/perf.rs`'s promise that the table can be
             // summed still holds; what they buy is the ranking P-11's entry says it needs before
             // it decides which effect is worth caching.
-            Effect::Exposure { stops, offset, gamma, bypass } => {
-                crate::perf::time(crate::perf::Stage::EffectExposure, || {
-                    exposure(source, *stops, *offset, *gamma, bypass == "on", bits)
-                })
-            }
+            Effect::Exposure {
+                stops,
+                offset,
+                gamma,
+                bypass,
+            } => crate::perf::time(crate::perf::Stage::EffectExposure, || {
+                exposure(source, *stops, *offset, *gamma, bypass == "on", bits)
+            }),
             Effect::Tint { color, amount } => {
                 crate::perf::time(crate::perf::Stage::EffectTint, || {
                     tint(source, *color, *amount)
@@ -12871,18 +15681,38 @@ pub(crate) fn apply_stack_at(
             }
             // D-401: Gradient Map's ramp with its midtone halfway, which is the straight line
             // between the two colours.
-            Effect::TintMap { map_black_to, map_white_to, amount_to_tint } => {
-                crate::perf::time(crate::perf::Stage::EffectTint, || {
-                    crate::grade::gradient_map(source, tint_ramp(map_black_to, map_white_to), 50.0, *amount_to_tint)
-                })
-            }
+            Effect::TintMap {
+                map_black_to,
+                map_white_to,
+                amount_to_tint,
+            } => crate::perf::time(crate::perf::Stage::EffectTint, || {
+                crate::grade::gradient_map(
+                    source,
+                    tint_ramp(map_black_to, map_white_to),
+                    50.0,
+                    *amount_to_tint,
+                )
+            }),
             // D-402: Gradient Map's engine, the midpoint at the middle.
-            Effect::Tritone { highlights, midtones, shadows, blend_with_original } => {
-                crate::perf::time(crate::perf::Stage::EffectGradientMap, || {
-                    crate::grade::gradient_map(source, tritone_ramp(highlights, midtones, shadows), 50.0, 100.0 - *blend_with_original)
-                })
-            }
-            Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
+            Effect::Tritone {
+                highlights,
+                midtones,
+                shadows,
+                blend_with_original,
+            } => crate::perf::time(crate::perf::Stage::EffectGradientMap, || {
+                crate::grade::gradient_map(
+                    source,
+                    tritone_ramp(highlights, midtones, shadows),
+                    50.0,
+                    100.0 - *blend_with_original,
+                )
+            }),
+            Effect::GaussianBlur {
+                sigma_px,
+                edges,
+                dimensions,
+                units,
+            } => {
                 let axes = (dimensions != "vertical", dimensions != "horizontal");
                 let (sigma, long) = blur_reach(*sigma_px, units);
                 let taps = reach_weights(sigma, long);
@@ -12907,11 +15737,9 @@ pub(crate) fn apply_stack_at(
                 blur,
                 colors,
                 tolerance,
-            } => {
-                crate::perf::time(crate::perf::Stage::EffectSelBlur, || {
-                    crate::selective_blur::selective_color_blur(source, *blur, colors, *tolerance)
-                })
-            }
+            } => crate::perf::time(crate::perf::Stage::EffectSelBlur, || {
+                crate::selective_blur::selective_color_blur(source, *blur, colors, *tolerance)
+            }),
             Effect::Glow {
                 based_on,
                 threshold,
@@ -12925,8 +15753,8 @@ pub(crate) fn apply_stack_at(
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectGlow, || {
                     let mut g = crate::glow::settings(
-                        based_on, *threshold, colors, *tolerance, *radius, *intensity,
-                        operation, tint, units,
+                        based_on, *threshold, colors, *tolerance, *radius, *intensity, operation,
+                        tint, units,
                     );
                     g.display = display;
                     crate::glow::glow(source, &g)
@@ -12987,7 +15815,14 @@ pub(crate) fn apply_stack_at(
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
-                    crate::blurs::radial_blur(source, kind == "spin", *amount, c, edges == "repeat", None)
+                    crate::blurs::radial_blur(
+                        source,
+                        kind == "spin",
+                        *amount,
+                        c,
+                        edges == "repeat",
+                        None,
+                    )
                 })
             }
             Effect::Bloom {
@@ -13038,12 +15873,20 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectLevels, || {
                 crate::grade::levels(
                     source,
-                    [*input_black, *input_white, *gamma, *output_black, *output_white],
+                    [
+                        *input_black,
+                        *input_white,
+                        *gamma,
+                        *output_black,
+                        *output_white,
+                    ],
                 )
             }),
-            Effect::ChannelLevels { sets, .. } => crate::perf::time(crate::perf::Stage::EffectChannelLevels, || {
-                crate::grade::channel_levels(source, sets)
-            }),
+            Effect::ChannelLevels { sets, .. } => {
+                crate::perf::time(crate::perf::Stage::EffectChannelLevels, || {
+                    crate::grade::channel_levels(source, sets)
+                })
+            }
             Effect::HueSaturation {
                 hue,
                 saturation,
@@ -13085,7 +15928,12 @@ pub(crate) fn apply_stack_at(
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectDropShadow, || {
                     crate::layer_fx::drop_shadow(
-                        source, encoded(color), *opacity, *direction, *distance, *softness,
+                        source,
+                        encoded(color),
+                        *opacity,
+                        *direction,
+                        *distance,
+                        *softness,
                     )
                 });
                 ox += r;
@@ -13155,9 +16003,19 @@ pub(crate) fn apply_stack_at(
                                 focus: *focal_distance / 255.0,
                                 invert: invert == "on",
                             };
-                            crate::layer_fx::lens_blur_map(source, *radius, edges == "repeat", &iris, &m.0, (ox, oy), &read)
+                            crate::layer_fx::lens_blur_map(
+                                source,
+                                *radius,
+                                edges == "repeat",
+                                &iris,
+                                &m.0,
+                                (ox, oy),
+                                &read,
+                            )
                         }
-                        None => crate::layer_fx::lens_blur(source, *radius, edges == "repeat", &iris),
+                        None => {
+                            crate::layer_fx::lens_blur(source, *radius, edges == "repeat", &iris)
+                        }
                     });
                     ox += r;
                     oy += r;
@@ -13172,7 +16030,13 @@ pub(crate) fn apply_stack_at(
                 blend,
             } => crate::perf::time(crate::perf::Stage::EffectRimLight, || {
                 crate::layer_fx::rim_light(
-                    source, encoded(color), *direction, *width, *softness, *intensity, blend,
+                    source,
+                    encoded(color),
+                    *direction,
+                    *width,
+                    *softness,
+                    *intensity,
+                    blend,
                 )
             }),
             Effect::Outline {
@@ -13219,7 +16083,11 @@ pub(crate) fn apply_stack_at(
                     *center,
                     *angle,
                     *falloff,
-                    [*red_scale / 100.0, *green_scale / 100.0, *blue_scale / 100.0],
+                    [
+                        *red_scale / 100.0,
+                        *green_scale / 100.0,
+                        *blue_scale / 100.0,
+                    ],
                     *fringe_blur / 100.0,
                     (ox, oy),
                 )
@@ -13261,22 +16129,60 @@ pub(crate) fn apply_stack_at(
                 })
             }
             // D-422: the centre is a share of the drawing's own size, as Light Rays'.
-            Effect::LightBurst { center, intensity, ray_length, burst, set_color, color } => {
+            Effect::LightBurst {
+                center,
+                intensity,
+                ray_length,
+                burst,
+                set_color,
+                color,
+            } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 let tint = (set_color == "on").then(|| encoded(color));
                 let sweep = burst_sweep(burst, *ray_length);
                 crate::perf::time(crate::perf::Stage::EffectLightBurst, || {
-                    crate::layer_fx::light_burst(source, c, *intensity / 100.0, *ray_length, sweep, tint)
+                    crate::layer_fx::light_burst(
+                        source,
+                        c,
+                        *intensity / 100.0,
+                        *ray_length,
+                        sweep,
+                        tint,
+                    )
                 })
             }
             // D-423: the centre a share of the drawing's own size, the radius in its pixels.
-            Effect::CcLightRays { intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode } => {
+            Effect::CcLightRays {
+                intensity,
+                center,
+                radius,
+                warp_softness,
+                shape,
+                direction,
+                color_from_source,
+                allow_brightening,
+                color,
+                transfer_mode,
+            } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
-                let k = if allow_brightening == "on" { intensity / 100.0 } else { (intensity / 100.0).min(1.0) };
+                let k = if allow_brightening == "on" {
+                    intensity / 100.0
+                } else {
+                    (intensity / 100.0).min(1.0)
+                };
                 let square = (shape == "square").then(|| direction.to_radians().sin_cos());
                 let tint = (color_from_source == "off").then(|| encoded(color));
                 crate::perf::time(crate::perf::Stage::EffectLightRays, || {
-                    crate::layer_fx::cc_light_rays(source, c, k, *radius, square, warp_softness / 10.0, tint, ray_mode(transfer_mode))
+                    crate::layer_fx::cc_light_rays(
+                        source,
+                        c,
+                        k,
+                        *radius,
+                        square,
+                        warp_softness / 10.0,
+                        tint,
+                        ray_mode(transfer_mode),
+                    )
                 })
             }
             // D-125: Noise's hash of the seed and the frame over the hold gives the stops.
@@ -13313,9 +16219,23 @@ pub(crate) fn apply_stack_at(
                 })
             }
             // D-562: the falloff about the drawing's own centre, however far the layer has grown.
-            Effect::CcVignette { amount, angle_of_view, center, pin_highlights } => {
-                let k = cc_vignette_settings(*amount, *angle_of_view, *center, *pin_highlights, (source.width(), source.height()), (ox, oy));
-                crate::perf::time(crate::perf::Stage::EffectCcVignette, || crate::grade::cc_vignette(source, k))
+            Effect::CcVignette {
+                amount,
+                angle_of_view,
+                center,
+                pin_highlights,
+            } => {
+                let k = cc_vignette_settings(
+                    *amount,
+                    *angle_of_view,
+                    *center,
+                    *pin_highlights,
+                    (source.width(), source.height()),
+                    (ox, oy),
+                );
+                crate::perf::time(crate::perf::Stage::EffectCcVignette, || {
+                    crate::grade::cc_vignette(source, k)
+                })
             }
             // D-127: one full turn of evolution moves the field one wave.
             Effect::TurbulentDisplace {
@@ -13393,8 +16313,16 @@ pub(crate) fn apply_stack_at(
                     opacity: *opacity,
                     blend: blend.clone(),
                     float: *float,
-                    overflow: OVERFLOWS.iter().position(|m| *m == more.overflow).unwrap_or(0) as u8,
-                    warp: noise_warp(more, *offset, complexity.floor() as usize, (source.width() - 2 * ox, source.height() - 2 * oy)),
+                    overflow: OVERFLOWS
+                        .iter()
+                        .position(|m| *m == more.overflow)
+                        .unwrap_or(0) as u8,
+                    warp: noise_warp(
+                        more,
+                        *offset,
+                        complexity.floor() as usize,
+                        (source.width() - 2 * ox, source.height() - 2 * oy),
+                    ),
                 };
                 crate::perf::time(crate::perf::Stage::EffectFractalNoise, || {
                     crate::grade::fractal_noise(source, &f, (ox, oy))
@@ -13436,31 +16364,46 @@ pub(crate) fn apply_stack_at(
             // it as the layer is drawn (`render::wrap_layer`). In the layer's own space, and on
             // an adjustment layer, which has no drawing of its own, it changes nothing.
             Effect::LightWrap { .. } => {}
-            Effect::Invert { channel, amount } => crate::perf::time(crate::perf::Stage::EffectInvert, || {
-                match channel.as_str() {
-                    "alpha" => crate::grade::invert_alpha(source, *amount),
-                    "red" => crate::grade::invert(source, 0, *amount),
-                    "green" => crate::grade::invert(source, 1, *amount),
-                    "blue" => crate::grade::invert(source, 2, *amount),
-                    _ => crate::grade::invert(source, 3, *amount),
-                }
-            }),
-            Effect::BrightnessContrast { brightness, contrast } => {
-                crate::perf::time(crate::perf::Stage::EffectBrightnessContrast, || {
-                    crate::grade::brightness_contrast(source, *brightness, *contrast)
+            Effect::Invert { channel, amount } => {
+                crate::perf::time(crate::perf::Stage::EffectInvert, || {
+                    match channel.as_str() {
+                        "alpha" => crate::grade::invert_alpha(source, *amount),
+                        "red" => crate::grade::invert(source, 0, *amount),
+                        "green" => crate::grade::invert(source, 1, *amount),
+                        "blue" => crate::grade::invert(source, 2, *amount),
+                        _ => crate::grade::invert(source, 3, *amount),
+                    }
                 })
             }
-            Effect::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => {
-                crate::perf::time(crate::perf::Stage::EffectBlackWhite, || {
-                    crate::grade::black_white(source, [*reds, *yellows, *greens, *cyans, *blues, *magentas])
+            Effect::BrightnessContrast {
+                brightness,
+                contrast,
+            } => crate::perf::time(crate::perf::Stage::EffectBrightnessContrast, || {
+                crate::grade::brightness_contrast(source, *brightness, *contrast)
+            }),
+            Effect::BlackWhite {
+                reds,
+                yellows,
+                greens,
+                cyans,
+                blues,
+                magentas,
+            } => crate::perf::time(crate::perf::Stage::EffectBlackWhite, || {
+                crate::grade::black_white(
+                    source,
+                    [*reds, *yellows, *greens, *cyans, *blues, *magentas],
+                )
+            }),
+            Effect::Posterize { levels } => {
+                crate::perf::time(crate::perf::Stage::EffectPosterize, || {
+                    crate::grade::posterize(source, *levels)
                 })
             }
-            Effect::Posterize { levels } => crate::perf::time(crate::perf::Stage::EffectPosterize, || {
-                crate::grade::posterize(source, *levels)
-            }),
-            Effect::Threshold { level } => crate::perf::time(crate::perf::Stage::EffectThreshold, || {
-                crate::grade::threshold(source, *level)
-            }),
+            Effect::Threshold { level } => {
+                crate::perf::time(crate::perf::Stage::EffectThreshold, || {
+                    crate::grade::threshold(source, *level)
+                })
+            }
             Effect::Extract {
                 channel,
                 black_point,
@@ -13483,13 +16426,18 @@ pub(crate) fn apply_stack_at(
                 monochrome,
             } => crate::perf::time(crate::perf::Stage::EffectChannelMixer, || {
                 let row = |r: &[f64]| [r[0], r[1], r[2], r[3]];
-                crate::grade::channel_mixer(source, [row(red), row(green), row(blue)], monochrome == "on")
+                crate::grade::channel_mixer(
+                    source,
+                    [row(red), row(green), row(blue)],
+                    monochrome == "on",
+                )
             }),
-            Effect::Vibrance { vibrance, saturation } => {
-                crate::perf::time(crate::perf::Stage::EffectVibrance, || {
-                    crate::grade::vibrance(source, *vibrance, *saturation)
-                })
-            }
+            Effect::Vibrance {
+                vibrance,
+                saturation,
+            } => crate::perf::time(crate::perf::Stage::EffectVibrance, || {
+                crate::grade::vibrance(source, *vibrance, *saturation)
+            }),
             Effect::LeaveColor {
                 color,
                 tolerance,
@@ -13520,9 +16468,11 @@ pub(crate) fn apply_stack_at(
                 };
                 crate::grade::change_to_color(source, &c)
             }),
-            Effect::Solarize { threshold } => crate::perf::time(crate::perf::Stage::EffectSolarize, || {
-                crate::grade::solarize(source, *threshold)
-            }),
+            Effect::Solarize { threshold } => {
+                crate::perf::time(crate::perf::Stage::EffectSolarize, || {
+                    crate::grade::solarize(source, *threshold)
+                })
+            }
             Effect::Halftone {
                 size,
                 angle,
@@ -13557,7 +16507,13 @@ pub(crate) fn apply_stack_at(
                 light_intensity,
             } => crate::perf::time(crate::perf::Stage::EffectBevelAlpha, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
-                crate::layer_fx::bevel_alpha(source, *edge_thickness, *light_angle, light, *light_intensity)
+                crate::layer_fx::bevel_alpha(
+                    source,
+                    *edge_thickness,
+                    *light_angle,
+                    light,
+                    *light_intensity,
+                )
             }),
             Effect::BevelEdges {
                 edge_thickness,
@@ -13566,7 +16522,13 @@ pub(crate) fn apply_stack_at(
                 light_intensity,
             } => crate::perf::time(crate::perf::Stage::EffectBevelEdges, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
-                crate::layer_fx::bevel_edges(source, *edge_thickness, *light_angle, light, *light_intensity)
+                crate::layer_fx::bevel_edges(
+                    source,
+                    *edge_thickness,
+                    *light_angle,
+                    light,
+                    *light_intensity,
+                )
             }),
             // D-214: the blocks are the drawing's own, however an effect above grew it.
             Effect::BlockDissolve {
@@ -13575,7 +16537,14 @@ pub(crate) fn apply_stack_at(
                 block_height,
                 feather,
             } => crate::perf::time(crate::perf::Stage::EffectBlockDissolve, || {
-                crate::layer_fx::block_dissolve(source, *completion, *block_width, *block_height, *feather, (ox, oy))
+                crate::layer_fx::block_dissolve(
+                    source,
+                    *completion,
+                    *block_width,
+                    *block_height,
+                    *feather,
+                    (ox, oy),
+                )
             }),
             Effect::ShiftChannels {
                 take_alpha,
@@ -13583,51 +16552,120 @@ pub(crate) fn apply_stack_at(
                 take_green,
                 take_blue,
             } => crate::perf::time(crate::perf::Stage::EffectShiftChannels, || {
-                crate::grade::shift_channels(source, [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()))
+                crate::grade::shift_channels(
+                    source,
+                    [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()),
+                )
             }),
             // D-336: the map compose read for this frame, if a layer is named, is the height.
-            Effect::VectorBlur { kind, amount, angle_offset, ridge_smoothness, property, map_softness, map, .. } => {
-                crate::perf::time(crate::perf::Stage::EffectVectorBlur, || {
-                    crate::layer_fx::vector_blur(
-                        source,
-                        map.as_ref().map(|m| (&*m.0, (ox, oy))),
-                        (kind, property),
-                        [*amount, *angle_offset, *ridge_smoothness, *map_softness],
-                    )
-                })
-            }
+            Effect::VectorBlur {
+                kind,
+                amount,
+                angle_offset,
+                ridge_smoothness,
+                property,
+                map_softness,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectVectorBlur, || {
+                crate::layer_fx::vector_blur(
+                    source,
+                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                    (kind, property),
+                    [*amount, *angle_offset, *ridge_smoothness, *map_softness],
+                )
+            }),
             // D-377/D-378: the points are shares of the drawing's own size, as Radial Blur's centre is.
-            Effect::BendIt { bend, start, end, render_prestart, distort } => {
+            Effect::BendIt {
+                bend,
+                start,
+                end,
+                render_prestart,
+                distort,
+            } => {
                 let size = (source.width(), source.height());
-                let (s, e) = (radial_center(*start, size, (ox, oy)), radial_center(*end, size, (ox, oy)));
-                let prestart = BEND_IT_PRESTARTS.iter().position(|p| p == render_prestart).unwrap_or(0) as u8;
+                let (s, e) = (
+                    radial_center(*start, size, (ox, oy)),
+                    radial_center(*end, size, (ox, oy)),
+                );
+                let prestart = BEND_IT_PRESTARTS
+                    .iter()
+                    .position(|p| p == render_prestart)
+                    .unwrap_or(0) as u8;
                 crate::perf::time(crate::perf::Stage::EffectBendIt, || {
                     crate::layer_fx::bend_it(source, *bend, s, e, prestart, distort == "extended")
                 })
             }
-            Effect::Bender { amount, style, adjust_to_distance, top, base } => {
+            Effect::Bender {
+                amount,
+                style,
+                adjust_to_distance,
+                top,
+                base,
+            } => {
                 let size = (source.width(), source.height());
-                let (b, t) = (radial_center(*base, size, (ox, oy)), radial_center(*top, size, (ox, oy)));
+                let (b, t) = (
+                    radial_center(*base, size, (ox, oy)),
+                    radial_center(*top, size, (ox, oy)),
+                );
                 let a = bender_amount(*amount, adjust_to_distance, b, t);
-                crate::perf::time(crate::perf::Stage::EffectBender, || crate::layer_fx::bender(source, a, style, b, t))
+                crate::perf::time(crate::perf::Stage::EffectBender, || {
+                    crate::layer_fx::bender(source, a, style, b, t)
+                })
             }
-            Effect::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing } => {
+            Effect::FlowMotion {
+                knot_1,
+                amount_1,
+                knot_2,
+                amount_2,
+                falloff,
+                tile_edges,
+                finer_controls,
+                antialiasing,
+            } => {
                 let size = (source.width(), source.height());
-                let (knots, sigma) =
-                    flow_motion_knots([*knot_1, *knot_2], [*amount_1, *amount_2], *falloff, finer_controls, size, (ox, oy));
-                let n = 1 << FLOW_MOTION_ANTIALIASING.iter().position(|a| a == antialiasing).unwrap_or(0);
+                let (knots, sigma) = flow_motion_knots(
+                    [*knot_1, *knot_2],
+                    [*amount_1, *amount_2],
+                    *falloff,
+                    finer_controls,
+                    size,
+                    (ox, oy),
+                );
+                let n = 1
+                    << FLOW_MOTION_ANTIALIASING
+                        .iter()
+                        .position(|a| a == antialiasing)
+                        .unwrap_or(0);
                 crate::perf::time(crate::perf::Stage::EffectFlowMotion, || {
                     crate::layer_fx::flow_motion(source, knots, sigma, tile_edges == "on", n)
                 })
             }
-            Effect::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles } => {
+            Effect::Griddler {
+                horizontal_scale,
+                vertical_scale,
+                tile_size,
+                rotation,
+                cut_tiles,
+            } => {
                 let tile = tile_size / 100.0 * (source.width() - 2 * ox) as f64;
                 let scale = (horizontal_scale / 100.0, vertical_scale / 100.0);
                 crate::perf::time(crate::perf::Stage::EffectGriddler, || {
-                    crate::layer_fx::griddler(source, scale, tile, rotation.to_radians(), cut_tiles == "on", (ox, oy))
+                    crate::layer_fx::griddler(
+                        source,
+                        scale,
+                        tile,
+                        rotation.to_radians(),
+                        cut_tiles == "on",
+                        (ox, oy),
+                    )
                 })
             }
-            Effect::Fisheye { center, size, convergence } => {
+            Effect::Fisheye {
+                center,
+                size,
+                convergence,
+            } => {
                 let dims = (source.width(), source.height());
                 let c = radial_center(*center, dims, (ox, oy));
                 let radius = fisheye_radius(*size, dims, (ox, oy));
@@ -13648,12 +16686,24 @@ pub(crate) fn apply_stack_at(
                 map,
                 ..
             } => {
-                let (dw, dh) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                if let Some(fold) = page_turn_fold(controls, *fold_position, *fold_direction, *fold_radius, (dw, dh)) {
+                let (dw, dh) = (
+                    (source.width() - 2 * ox) as f64,
+                    (source.height() - 2 * oy) as f64,
+                );
+                if let Some(fold) = page_turn_fold(
+                    controls,
+                    *fold_position,
+                    *fold_direction,
+                    *fold_radius,
+                    (dw, dh),
+                ) {
                     let (lx, ly) = crate::blurs::along(*light_direction);
                     let l = lx * fold.0 .0 + ly * fold.0 .1;
                     let paper = encoded(paper_color).map(crate::grade::to_linear);
-                    let r = PAGE_TURN_RENDERS.iter().position(|x| x == render).unwrap_or(0) as u8;
+                    let r = PAGE_TURN_RENDERS
+                        .iter()
+                        .position(|x| x == render)
+                        .unwrap_or(0) as u8;
                     crate::perf::time(crate::perf::Stage::EffectPageTurn, || {
                         crate::layer_fx::page_turn(
                             source,
@@ -13671,53 +16721,139 @@ pub(crate) fn apply_stack_at(
             }
             // D-607: the masks compose found for this frame, in the drawing's own space; with none,
             // the layer is left as it is. The layer never grows.
-            Effect::MaskSmear { mask_offset, mask_rotation, mask_scale, percent, elasticity, paths, .. } => crate::perf::time(crate::perf::Stage::EffectMaskSmear, || {
+            Effect::MaskSmear {
+                mask_offset,
+                mask_rotation,
+                mask_scale,
+                percent,
+                elasticity,
+                paths,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectMaskSmear, || {
                 if let Some(paths) = paths.as_ref().filter(|_| *percent != 0.0) {
-                    let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                    let field = crate::mesh::smear(paths, *mask_offset, *mask_rotation, *mask_scale, *percent, elasticity, size);
+                    let size = (
+                        (source.width() - 2 * ox) as f64,
+                        (source.height() - 2 * oy) as f64,
+                    );
+                    let field = crate::mesh::smear(
+                        paths,
+                        *mask_offset,
+                        *mask_rotation,
+                        *mask_scale,
+                        *percent,
+                        elasticity,
+                        size,
+                    );
                     crate::mesh::draw_field(source, &field, 1.0, [0.0, 0.0], (ox, oy));
                 }
             }),
             // D-606: the masks compose found for this frame, in the drawing's own space; with none,
             // the layer is left as it is (EFFECT_PATH_MISSING was said when a mask named was not
             // there). The layer never grows.
-            Effect::Reshape { percent, elasticity, correspondence_points, between, paths, .. } => crate::perf::time(crate::perf::Stage::EffectReshape, || {
+            Effect::Reshape {
+                percent,
+                elasticity,
+                correspondence_points,
+                between,
+                paths,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectReshape, || {
                 if let Some(paths) = paths.as_ref() {
-                    let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                    if let Some(field) = crate::mesh::reshape(paths, *percent, between, correspondence_points, elasticity, size) {
+                    let size = (
+                        (source.width() - 2 * ox) as f64,
+                        (source.height() - 2 * oy) as f64,
+                    );
+                    if let Some(field) = crate::mesh::reshape(
+                        paths,
+                        *percent,
+                        between,
+                        correspondence_points,
+                        elasticity,
+                        size,
+                    ) {
                         crate::mesh::draw_field(source, &field, 1.0, [0.0, 0.0], (ox, oy));
                     }
                 }
             }),
             // D-605: the drawing pushed by the brush in its own space; the layer never grows.
             // D-700: every stroke, the freeze area mask compose found for this frame.
-            liquify @ Effect::Liquify { distortion_percentage, distortion_mesh_offset, .. } => crate::perf::time(crate::perf::Stage::EffectLiquify, || {
-                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+            liquify @ Effect::Liquify {
+                distortion_percentage,
+                distortion_mesh_offset,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectLiquify, || {
+                let size = (
+                    (source.width() - 2 * ox) as f64,
+                    (source.height() - 2 * oy) as f64,
+                );
                 if let Some(field) = crate::mesh::liquify(liquify, size) {
-                    crate::mesh::draw_field(source, &field, *distortion_percentage / 100.0, *distortion_mesh_offset, (ox, oy));
+                    crate::mesh::draw_field(
+                        source,
+                        &field,
+                        *distortion_percentage / 100.0,
+                        *distortion_mesh_offset,
+                        (ox, oy),
+                    );
                 }
             }),
             // D-604: the drawing bent to its style in its own space; the layer never grows.
-            Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => crate::perf::time(crate::perf::Stage::EffectWarp, || {
-                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                if let Some(m) = crate::mesh::warp_preset_mesh(warp_style, warp_axis, *bend, *horizontal_distortion, *vertical_distortion, size) {
+            Effect::Warp {
+                warp_style,
+                warp_axis,
+                bend,
+                horizontal_distortion,
+                vertical_distortion,
+            } => crate::perf::time(crate::perf::Stage::EffectWarp, || {
+                let size = (
+                    (source.width() - 2 * ox) as f64,
+                    (source.height() - 2 * oy) as f64,
+                );
+                if let Some(m) = crate::mesh::warp_preset_mesh(
+                    warp_style,
+                    warp_axis,
+                    *bend,
+                    *horizontal_distortion,
+                    *vertical_distortion,
+                    size,
+                ) {
                     crate::mesh::draw(source, &m, (ox, oy));
                 }
             }),
             // D-603: the drawing bent with its mesh in its own space; the layer never grows.
-            Effect::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => crate::perf::time(crate::perf::Stage::EffectMeshWarp, || {
-                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                if let Some(m) = crate::mesh::warp_mesh(*rows, *columns, *quality, distortion_mesh, vertex_handles, size) {
+            Effect::MeshWarp {
+                rows,
+                columns,
+                quality,
+                distortion_mesh,
+                vertex_handles,
+            } => crate::perf::time(crate::perf::Stage::EffectMeshWarp, || {
+                let size = (
+                    (source.width() - 2 * ox) as f64,
+                    (source.height() - 2 * oy) as f64,
+                );
+                if let Some(m) = crate::mesh::warp_mesh(
+                    *rows,
+                    *columns,
+                    *quality,
+                    distortion_mesh,
+                    vertex_handles,
+                    size,
+                ) {
                     crate::mesh::draw(source, &m, (ox, oy));
                 }
             }),
             // D-602: the drawing bent to its outline in its own space; the layer never grows.
-            Effect::BezierWarp { points, quality } => crate::perf::time(crate::perf::Stage::EffectBezierWarp, || {
-                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                if let Some(m) = crate::mesh::bezier_mesh(points, *quality, size) {
-                    crate::mesh::draw(source, &m, (ox, oy));
-                }
-            }),
+            Effect::BezierWarp { points, quality } => {
+                crate::perf::time(crate::perf::Stage::EffectBezierWarp, || {
+                    let size = (
+                        (source.width() - 2 * ox) as f64,
+                        (source.height() - 2 * oy) as f64,
+                    );
+                    if let Some(m) = crate::mesh::bezier_mesh(points, *quality, size) {
+                        crate::mesh::draw(source, &m, (ox, oy));
+                    }
+                })
+            }
             Effect::PowerPin {
                 top_left,
                 top_right,
@@ -13736,7 +16872,12 @@ pub(crate) fn apply_stack_at(
                         [*top_left, *top_right, *bottom_left, *bottom_right],
                         perspective / 100.0,
                         unstretch == "on",
-                        [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom],
+                        [
+                            *expansion_top,
+                            *expansion_left,
+                            *expansion_right,
+                            *expansion_bottom,
+                        ],
                         (ox, oy),
                     )
                 });
@@ -13745,58 +16886,160 @@ pub(crate) fn apply_stack_at(
             }
             // D-390: compose reads the levels for a frame; with none read there is no history,
             // so no rings.
-            Effect::RipplePulse { center, pulse_level, amplitude, render_bump_map, levels, .. } => {
+            Effect::RipplePulse {
+                center,
+                pulse_level,
+                amplitude,
+                render_bump_map,
+                levels,
+                ..
+            } => {
                 let dims = (source.width(), source.height());
                 let c = radial_center(*center, dims, (ox, oy));
                 let big = ((dims.0 - 2 * ox) as f64).hypot((dims.1 - 2 * oy) as f64) / 2.0;
                 let now = [*pulse_level];
-                let levels = if levels.is_empty() { &now[..] } else { &levels[..] };
+                let levels = if levels.is_empty() {
+                    &now[..]
+                } else {
+                    &levels[..]
+                };
                 crate::perf::time(crate::perf::Stage::EffectRipplePulse, || {
-                    crate::layer_fx::ripple_pulse(source, c, big, levels, *amplitude, render_bump_map == "on")
+                    crate::layer_fx::ripple_pulse(
+                        source,
+                        c,
+                        big,
+                        levels,
+                        *amplitude,
+                        render_bump_map == "on",
+                    )
                 })
             }
             // D-391: the floor line is level, so only its height counts.
-            Effect::Slant { slant, stretching, height, floor, set_color, color } => {
+            Effect::Slant {
+                slant,
+                stretching,
+                height,
+                floor,
+                set_color,
+                color,
+            } => {
                 let (_, fy) = radial_center(*floor, (source.width(), source.height()), (ox, oy));
                 let theta = slant.to_radians();
                 let s = height / 100.0 * if stretching == "on" { 1.0 } else { theta.cos() };
                 let c = (set_color == "on").then(|| encoded(color).map(crate::grade::to_linear));
-                crate::perf::time(crate::perf::Stage::EffectSlant, || crate::layer_fx::slant(source, fy, theta.tan(), s, c))
+                crate::perf::time(crate::perf::Stage::EffectSlant, || {
+                    crate::layer_fx::slant(source, fy, theta.tan(), s, c)
+                })
             }
-            Effect::Smear { from, to, reach, radius } => {
+            Effect::Smear {
+                from,
+                to,
+                reach,
+                radius,
+            } => {
                 let dims = (source.width(), source.height());
-                let (f, t) = (radial_center(*from, dims, (ox, oy)), radial_center(*to, dims, (ox, oy)));
+                let (f, t) = (
+                    radial_center(*from, dims, (ox, oy)),
+                    radial_center(*to, dims, (ox, oy)),
+                );
                 let v = ((t.0 - f.0) * reach / 100.0, (t.1 - f.1) * reach / 100.0);
-                crate::perf::time(crate::perf::Stage::EffectSmear, || crate::layer_fx::smear(source, f, v, *radius))
+                crate::perf::time(crate::perf::Stage::EffectSmear, || {
+                    crate::layer_fx::smear(source, f, v, *radius)
+                })
             }
-            Effect::Split { point_a, point_b, split } => {
+            Effect::Split {
+                point_a,
+                point_b,
+                split,
+            } => {
                 let dims = (source.width(), source.height());
-                let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
-                crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, [*split; 2]))
+                let (a, b) = (
+                    radial_center(*point_a, dims, (ox, oy)),
+                    radial_center(*point_b, dims, (ox, oy)),
+                );
+                crate::perf::time(crate::perf::Stage::EffectSplit, || {
+                    crate::layer_fx::split(source, a, b, [*split; 2])
+                })
             }
             // D-394: the same engine, each side its own amount.
-            Effect::Split2 { point_a, point_b, split_1, split_2 } => {
+            Effect::Split2 {
+                point_a,
+                point_b,
+                split_1,
+                split_2,
+            } => {
                 let dims = (source.width(), source.height());
-                let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
-                crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, [*split_1, *split_2]))
+                let (a, b) = (
+                    radial_center(*point_a, dims, (ox, oy)),
+                    radial_center(*point_b, dims, (ox, oy)),
+                );
+                crate::perf::time(crate::perf::Stage::EffectSplit, || {
+                    crate::layer_fx::split(source, a, b, [*split_1, *split_2])
+                })
             }
             // D-458: the layer never grows.
-            Effect::SimpleWireRemoval { point_a, point_b, removal_style, thickness, slope, mirror_blend, picture, .. } => {
+            Effect::SimpleWireRemoval {
+                point_a,
+                point_b,
+                removal_style,
+                thickness,
+                slope,
+                mirror_blend,
+                picture,
+                ..
+            } => {
                 let dims = (source.width(), source.height());
-                let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
+                let (a, b) = (
+                    radial_center(*point_a, dims, (ox, oy)),
+                    radial_center(*point_b, dims, (ox, oy)),
+                );
                 crate::perf::time(crate::perf::Stage::EffectSimpleWireRemoval, || {
-                    crate::layer_fx::wire_removal(source, a, b, removal_style, [*thickness, *slope, *mirror_blend], picture.as_ref().map(|m| &*m.0))
+                    crate::layer_fx::wire_removal(
+                        source,
+                        a,
+                        b,
+                        removal_style,
+                        [*thickness, *slope, *mirror_blend],
+                        picture.as_ref().map(|m| &*m.0),
+                    )
                 })
             }
             // D-404: the layer never grows.
-            Effect::Tiles { scale, center, blend } => {
-                crate::perf::time(crate::perf::Stage::EffectTiles, || crate::layer_fx::tiles(source, *scale, *center, *blend))
-            }
+            Effect::Tiles {
+                scale,
+                center,
+                blend,
+            } => crate::perf::time(crate::perf::Stage::EffectTiles, || {
+                crate::layer_fx::tiles(source, *scale, *center, *blend)
+            }),
             // D-405: Resize Layer may grow the layer to hold the area.
-            Effect::Magnify { shape, center, magnification, link, size, feather, opacity, scaling, blending_mode, resize_layer } => {
+            Effect::Magnify {
+                shape,
+                center,
+                magnification,
+                link,
+                size,
+                feather,
+                opacity,
+                scaling,
+                blending_mode,
+                resize_layer,
+            } => {
                 let g = crate::perf::time(crate::perf::Stage::EffectMagnify, || {
-                    let words = [shape.as_str(), link.as_str(), scaling.as_str(), blending_mode.as_str()];
-                    crate::layer_fx::magnify(source, words, [*magnification, *size, *feather, *opacity], *center, resize_layer == "on", (ox, oy))
+                    let words = [
+                        shape.as_str(),
+                        link.as_str(),
+                        scaling.as_str(),
+                        blending_mode.as_str(),
+                    ];
+                    crate::layer_fx::magnify(
+                        source,
+                        words,
+                        [*magnification, *size, *feather, *opacity],
+                        *center,
+                        resize_layer == "on",
+                        (ox, oy),
+                    )
                 });
                 ox += g;
                 oy += g;
@@ -13804,123 +17047,269 @@ pub(crate) fn apply_stack_at(
             // D-406: the centre is a share of the drawing's own size, as Bulge's is.
             Effect::Spherize { radius, center } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
-                crate::perf::time(crate::perf::Stage::EffectSpherize, || crate::layer_fx::spherize(source, *radius, c))
+                crate::perf::time(crate::perf::Stage::EffectSpherize, || {
+                    crate::layer_fx::spherize(source, *radius, c)
+                })
             }
             // D-413: the anchor and corner are shares of the drawing's own size; the layer never
             // grows.
-            Effect::Checkerboard { anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode } => {
-                let (a, cell) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (source.width(), source.height()), (ox, oy));
+            Effect::Checkerboard {
+                anchor,
+                size_from,
+                corner,
+                width,
+                height,
+                feather_width,
+                feather_height,
+                color,
+                opacity,
+                blending_mode,
+            } => {
+                let (a, cell) = crate::layer_fx::checker_cells(
+                    *anchor,
+                    size_from,
+                    *corner,
+                    [*width, *height],
+                    (source.width(), source.height()),
+                    (ox, oy),
+                );
                 let ramps = [*feather_width, *feather_height].map(|f| f.max(1.0) / 2.0);
                 crate::perf::time(crate::perf::Stage::EffectCheckerboard, || {
                     let cover = |x, y| crate::layer_fx::checker_cover((x, y), a, cell, ramps);
-                    crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
+                    crate::layer_fx::lay_pattern(
+                        source,
+                        cover,
+                        encoded(color).map(crate::grade::to_linear),
+                        *opacity / 100.0,
+                        blending_mode,
+                    )
                 })
             }
             // D-414: the centre is a share of the drawing's own size; the layer never grows.
-            Effect::Circle { center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode } => {
+            Effect::Circle {
+                center,
+                radius,
+                edge,
+                edge_thickness,
+                feather_outer,
+                feather_inner,
+                invert,
+                color,
+                opacity,
+                blending_mode,
+            } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
-                let ring = crate::layer_fx::circle_ring(*radius, edge, *edge_thickness, [*feather_outer, *feather_inner]);
+                let ring = crate::layer_fx::circle_ring(
+                    *radius,
+                    edge,
+                    *edge_thickness,
+                    [*feather_outer, *feather_inner],
+                );
                 let inverted = invert == "on";
                 crate::perf::time(crate::perf::Stage::EffectCircle, || {
                     let cover = |x, y| crate::layer_fx::circle_cover((x, y), c, ring, inverted);
-                    crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
+                    crate::layer_fx::lay_pattern(
+                        source,
+                        cover,
+                        encoded(color).map(crate::grade::to_linear),
+                        *opacity / 100.0,
+                        blending_mode,
+                    )
                 })
             }
             // D-420: the marks stand where compose's levels and path put them; the layer never
             // grows. With no levels the layer is left as it is.
             e @ Effect::AudioSpectrum { .. } => {
-                if let Some(marks) = crate::layer_fx::spectrum_marks(e, (source.width(), source.height()), (ox, oy)) {
-                    crate::perf::time(crate::perf::Stage::EffectAudioSpectrum, || crate::layer_fx::draw_marks(source, &marks))
+                if let Some(marks) =
+                    crate::layer_fx::spectrum_marks(e, (source.width(), source.height()), (ox, oy))
+                {
+                    crate::perf::time(crate::perf::Stage::EffectAudioSpectrum, || {
+                        crate::layer_fx::draw_marks(source, &marks)
+                    })
                 }
             }
             // D-421: as Audio Spectrum's.
             e @ Effect::AudioWaveform { .. } => {
-                if let Some(marks) = crate::layer_fx::waveform_marks(e, (source.width(), source.height()), (ox, oy)) {
-                    crate::perf::time(crate::perf::Stage::EffectAudioWaveform, || crate::layer_fx::draw_marks(source, &marks))
+                if let Some(marks) =
+                    crate::layer_fx::waveform_marks(e, (source.width(), source.height()), (ox, oy))
+                {
+                    crate::perf::time(crate::perf::Stage::EffectAudioWaveform, || {
+                        crate::layer_fx::draw_marks(source, &marks)
+                    })
                 }
             }
             // D-418: the masks compose found for this frame, in the drawing's own space however an
             // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
             // said when they were looked for). The layer never grows.
-            Effect::Fill { color, invert, horizontal_feather, vertical_feather, opacity, paths, .. } => {
+            Effect::Fill {
+                color,
+                invert,
+                horizontal_feather,
+                vertical_feather,
+                opacity,
+                paths,
+                ..
+            } => {
                 if let Some(paths) = paths {
                     crate::perf::time(crate::perf::Stage::EffectFill, || {
                         let c = encoded(color).map(crate::grade::to_linear);
-                        crate::layer_fx::fill(source, paths, (ox, oy), [*horizontal_feather, *vertical_feather], c, invert == "on", *opacity / 100.0)
+                        crate::layer_fx::fill(
+                            source,
+                            paths,
+                            (ox, oy),
+                            [*horizontal_feather, *vertical_feather],
+                            c,
+                            invert == "on",
+                            *opacity / 100.0,
+                        )
                     })
                 }
             }
             // D-419: sampled from the whole buffer as it reaches the effect (tiles and the
             // viewer's part never change it), the point a share of the drawing's own size; the
             // layer never grows.
-            Effect::EyedropperFill { sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original } => {
-                crate::perf::time(crate::perf::Stage::EffectEyedropperFill, || {
-                    let point = radial_center(*sample_point, (source.width(), source.height()), (ox, oy));
-                    let (n, rows) = crate::layer_fx::eyedropper_rows(point, *sample_radius, (source.width(), source.height()));
-                    let e = crate::layer_fx::eyedropper_colour(source, &rows, n, average_pixel_colors);
-                    crate::layer_fx::eyedropper_fill(source, e, maintain_original_alpha == "on", *blend_with_original / 100.0)
-                })
-            }
+            Effect::EyedropperFill {
+                sample_point,
+                sample_radius,
+                average_pixel_colors,
+                maintain_original_alpha,
+                blend_with_original,
+            } => crate::perf::time(crate::perf::Stage::EffectEyedropperFill, || {
+                let point =
+                    radial_center(*sample_point, (source.width(), source.height()), (ox, oy));
+                let (n, rows) = crate::layer_fx::eyedropper_rows(
+                    point,
+                    *sample_radius,
+                    (source.width(), source.height()),
+                );
+                let e = crate::layer_fx::eyedropper_colour(source, &rows, n, average_pixel_colors);
+                crate::layer_fx::eyedropper_fill(
+                    source,
+                    e,
+                    maintain_original_alpha == "on",
+                    *blend_with_original / 100.0,
+                )
+            }),
             // D-440: the area found in the whole buffer as it reaches the effect, the point a share
             // of the drawing's own size; the layer never grows.
-            Effect::PaintBucket { fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode } => {
-                crate::perf::time(crate::perf::Stage::EffectPaintBucket, || {
-                    let point = radial_center(*fill_point, (source.width(), source.height()), (ox, oy));
-                    let c = encoded(color).map(crate::grade::to_linear);
-                    let bucket = crate::layer_fx::Bucket {
-                        point,
-                        selector: fill_selector,
-                        tolerance: *tolerance / 100.0,
-                        invert: invert_fill == "on",
-                        stroke,
-                        radius: *spread_radius,
-                        width: *stroke_width,
-                        softness: *feather_softness,
-                    };
-                    crate::layer_fx::paint_bucket(source, &bucket, view_threshold == "on", c, *opacity / 100.0, blending_mode)
-                })
-            }
+            Effect::PaintBucket {
+                fill_point,
+                fill_selector,
+                tolerance,
+                view_threshold,
+                stroke,
+                invert_fill,
+                spread_radius,
+                stroke_width,
+                feather_softness,
+                color,
+                opacity,
+                blending_mode,
+            } => crate::perf::time(crate::perf::Stage::EffectPaintBucket, || {
+                let point = radial_center(*fill_point, (source.width(), source.height()), (ox, oy));
+                let c = encoded(color).map(crate::grade::to_linear);
+                let bucket = crate::layer_fx::Bucket {
+                    point,
+                    selector: fill_selector,
+                    tolerance: *tolerance / 100.0,
+                    invert: invert_fill == "on",
+                    stroke,
+                    radius: *spread_radius,
+                    width: *stroke_width,
+                    softness: *feather_softness,
+                };
+                crate::layer_fx::paint_bucket(
+                    source,
+                    &bucket,
+                    view_threshold == "on",
+                    c,
+                    *opacity / 100.0,
+                    blending_mode,
+                )
+            }),
             // D-441: the marks compose kept for this frame, places a share of the drawing's own
             // size; the layer never grows.
-            Effect::WriteOn { color, paint_style, marks, .. } => {
-                crate::perf::time(crate::perf::Stage::EffectWriteOn, || {
-                    let at = write_on_marks(marks, (source.width(), source.height()), (ox, oy));
-                    crate::along::write_on(source, &at, encoded(color).map(crate::grade::to_linear), paint_style)
-                })
-            }
+            Effect::WriteOn {
+                color,
+                paint_style,
+                marks,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectWriteOn, || {
+                let at = write_on_marks(marks, (source.width(), source.height()), (ox, oy));
+                crate::along::write_on(
+                    source,
+                    &at,
+                    encoded(color).map(crate::grade::to_linear),
+                    paint_style,
+                )
+            }),
             // D-442: the lines over the masks compose found, in the drawing's own space however an
             // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
             // said when they were looked for). The layer never grows.
-            e @ Effect::Scribble { color, opacity, stroke_width, composite, masks: Some(_), .. } => {
-                crate::perf::time(crate::perf::Stage::EffectScribble, || {
-                    let runs = crate::along::scribble_runs(e, (source.width(), source.height()), (ox, oy));
-                    crate::along::path_stroke(source, &runs, [*stroke_width, 100.0, *opacity], encoded(color).map(crate::grade::to_linear), composite)
-                })
-            }
+            e @ Effect::Scribble {
+                color,
+                opacity,
+                stroke_width,
+                composite,
+                masks: Some(_),
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectScribble, || {
+                let runs =
+                    crate::along::scribble_runs(e, (source.width(), source.height()), (ox, oy));
+                crate::along::path_stroke(
+                    source,
+                    &runs,
+                    [*stroke_width, 100.0, *opacity],
+                    encoded(color).map(crate::grade::to_linear),
+                    composite,
+                )
+            }),
             Effect::Scribble { .. } => {}
             // D-443: the grain in the drawing's own space, however an effect above grew it.
             e @ Effect::AddGrain { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectAddGrain, || crate::grade::add_grain(source, e, (ox, oy)))
+                crate::perf::time(crate::perf::Stage::EffectAddGrain, || {
+                    crate::grade::add_grain(source, e, (ox, oy))
+                })
             }
             e @ Effect::RemoveGrain { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectRemoveGrain, || crate::grade::remove_grain(source, e))
+                crate::perf::time(crate::perf::Stage::EffectRemoveGrain, || {
+                    crate::grade::remove_grain(source, e)
+                })
             }
             // D-456: the dither in the drawing's own space, however an effect above grew it.
             e @ Effect::Deband { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectDeband, || crate::grade::deband(source, e, (ox, oy)))
+                crate::perf::time(crate::perf::Stage::EffectDeband, || {
+                    crate::grade::deband(source, e, (ox, oy))
+                })
             }
-            e @ Effect::AdvancedSpillSuppressor { .. } => crate::perf::time(crate::perf::Stage::EffectAdvancedSpillSuppressor, || {
-                crate::grade::advanced_spill_suppressor(source, &crate::grade::spill_settings(e))
-            }),
-            e @ Effect::ColorDifferenceKey { .. } => crate::perf::time(crate::perf::Stage::EffectColorDifferenceKey, || {
-                crate::grade::color_difference_key(source, &crate::grade::cdk_settings(e))
-            }),
-            e @ Effect::ColorRange { .. } => crate::perf::time(crate::perf::Stage::EffectColorRange, || {
-                crate::grade::color_range(source, &crate::grade::crange_settings(e))
-            }),
+            e @ Effect::AdvancedSpillSuppressor { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectAdvancedSpillSuppressor, || {
+                    crate::grade::advanced_spill_suppressor(
+                        source,
+                        &crate::grade::spill_settings(e),
+                    )
+                })
+            }
+            e @ Effect::ColorDifferenceKey { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectColorDifferenceKey, || {
+                    crate::grade::color_difference_key(source, &crate::grade::cdk_settings(e))
+                })
+            }
+            e @ Effect::ColorRange { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectColorRange, || {
+                    crate::grade::color_range(source, &crate::grade::crange_settings(e))
+                })
+            }
             // D-501: no plate read (none named, or named but not in the composition) leaves the
             // layer as it is, the latter with D-189's warning.
-            Effect::DifferenceMatte { view, matching_tolerance, matching_softness, blur_before_difference, map, .. } => {
+            Effect::DifferenceMatte {
+                view,
+                matching_tolerance,
+                matching_softness,
+                blur_before_difference,
+                map,
+                ..
+            } => {
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectDifferenceMatte, || {
                         crate::layer_fx::difference_matte(
@@ -13965,27 +17354,44 @@ pub(crate) fn apply_stack_at(
                 }
             }
             // D-503: on the processor, the layer never grows.
-            Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => {
-                crate::perf::time(crate::perf::Stage::EffectKeyCleaner, || {
-                    crate::matte_refine::key_cleaner(source, *additional_edge_radius, *alpha_contrast, *strength / 100.0)
-                })
-            }
+            Effect::KeyCleaner {
+                additional_edge_radius,
+                alpha_contrast,
+                strength,
+            } => crate::perf::time(crate::perf::Stage::EffectKeyCleaner, || {
+                crate::matte_refine::key_cleaner(
+                    source,
+                    *additional_edge_radius,
+                    *alpha_contrast,
+                    *strength / 100.0,
+                )
+            }),
             // D-541: the run's input is there, this instance having started it if nothing did.
             e @ Effect::LinearColorKey { key_operation, .. } if key_operation == "keep" => {
                 crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
                     let before = run.as_ref().expect("a Keep Colors starts its own run");
-                    crate::grade::linear_color_keep(source, before, &crate::grade::lckey_settings(e))
+                    crate::grade::linear_color_keep(
+                        source,
+                        before,
+                        &crate::grade::lckey_settings(e),
+                    )
                 })
             }
-            e @ Effect::LinearColorKey { .. } => crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
-                crate::grade::linear_color_key(source, &crate::grade::lckey_settings(e))
-            }),
-            e @ Effect::ScreenKey { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectScreenKey, || crate::grade::screen_key(source, e))
+            e @ Effect::LinearColorKey { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
+                    crate::grade::linear_color_key(source, &crate::grade::lckey_settings(e))
+                })
             }
-            e @ Effect::Unmult { .. } => crate::perf::time(crate::perf::Stage::EffectUnmult, || {
-                crate::grade::unmult(source, &crate::grade::unmult_settings(e))
-            }),
+            e @ Effect::ScreenKey { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectScreenKey, || {
+                    crate::grade::screen_key(source, e)
+                })
+            }
+            e @ Effect::Unmult { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectUnmult, || {
+                    crate::grade::unmult(source, &crate::grade::unmult_settings(e))
+                })
+            }
             // D-506: a view named but not read (not in the composition) leaves the layer as it
             // is, with D-189's warning; a view with no name is the layer itself. Never grows.
             e @ Effect::ThreeDGlasses { .. } => {
@@ -13999,206 +17405,354 @@ pub(crate) fn apply_stack_at(
             // Never grows.
             e @ Effect::GlassMelt { .. } => {
                 if let Some(g) = crate::layer_fx::melt_settings(e) {
-                    crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectGlassMelt, || {
+                        crate::layer_fx::glass_melt(source, &g, (ox, oy))
+                    })
                 }
             }
             // D-518: a layer named but not read leaves the layer as it is, with D-189's warning.
             // Never grows.
             e @ Effect::WarpBlend { .. } => {
                 if let Some(g) = crate::layer_fx::warp_settings(e) {
-                    crate::perf::time(crate::perf::Stage::EffectWarpBlend, || crate::layer_fx::warp_blend(source, &g, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectWarpBlend, || {
+                        crate::layer_fx::warp_blend(source, &g, (ox, oy))
+                    })
                 }
             }
             // D-517: a back named but not read leaves the layer as it is, with D-189's warning.
             // Never grows.
             e @ Effect::Twister { .. } => {
                 if let Some(back) = crate::layer_fx::twist_back(e) {
-                    crate::perf::time(crate::perf::Stage::EffectTwister, || crate::layer_fx::twister(source, e, back, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectTwister, || {
+                        crate::layer_fx::twister(source, e, back, (ox, oy))
+                    })
                 }
             }
             // D-516: never grows.
-            e @ Effect::StretchWipe { .. } => crate::perf::time(crate::perf::Stage::EffectStretchWipe, || {
-                crate::layer_fx::stretch_wipe(source, e, (ox, oy))
-            }),
+            e @ Effect::StretchWipe { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectStretchWipe, || {
+                    crate::layer_fx::stretch_wipe(source, e, (ox, oy))
+                })
+            }
             // D-515: never grows.
-            e @ Effect::PushIris { .. } => crate::perf::time(crate::perf::Stage::EffectPushIris, || {
-                crate::layer_fx::push_iris(source, e, (ox, oy))
-            }),
+            e @ Effect::PushIris { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectPushIris, || {
+                    crate::layer_fx::push_iris(source, e, (ox, oy))
+                })
+            }
             // D-514: never grows.
-            e @ Effect::StripeSweep { .. } => crate::perf::time(crate::perf::Stage::EffectStripeSweep, || {
-                crate::layer_fx::stripe_sweep(source, e, (ox, oy))
-            }),
+            e @ Effect::StripeSweep { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectStripeSweep, || {
+                    crate::layer_fx::stripe_sweep(source, e, (ox, oy))
+                })
+            }
             // D-513: never grows.
-            e @ Effect::GlowWipe { .. } => crate::perf::time(crate::perf::Stage::EffectGlowWipe, || {
-                crate::layer_fx::glow_wipe(source, e, (ox, oy))
-            }),
+            e @ Effect::GlowWipe { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectGlowWipe, || {
+                    crate::layer_fx::glow_wipe(source, e, (ox, oy))
+                })
+            }
             // D-511: never grows.
-            e @ Effect::TeethWipe { .. } => crate::perf::time(crate::perf::Stage::EffectTeethWipe, || {
-                crate::layer_fx::teeth_wipe(source, e, (ox, oy))
-            }),
+            e @ Effect::TeethWipe { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectTeethWipe, || {
+                    crate::layer_fx::teeth_wipe(source, e, (ox, oy))
+                })
+            }
             // D-510: never grows.
-            e @ Effect::TileWipe { .. } => crate::perf::time(crate::perf::Stage::EffectTileWipe, || {
-                crate::layer_fx::tile_wipe(source, e, (ox, oy))
-            }),
+            e @ Effect::TileWipe { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectTileWipe, || {
+                    crate::layer_fx::tile_wipe(source, e, (ox, oy))
+                })
+            }
             // D-507: every distance a share of the drawing; never grows. D-519: a gel named but not
             // read leaves the layer as it is, with D-189's warning.
             e @ Effect::CcSpotlight { .. } => {
                 if let Some(gel) = crate::layer_fx::spot_gel(e) {
-                    crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || crate::layer_fx::cc_spotlight(source, e, gel, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || {
+                        crate::layer_fx::cc_spotlight(source, e, gel, (ox, oy))
+                    })
                 }
             }
             // D-671: the bubbles in the drawing's own space; never grows.
-            e @ Effect::Bubbles { .. } => crate::perf::time(crate::perf::Stage::EffectBubbles, || {
-                crate::simulate::bubbles(source, e, (ox, oy))
-            }),
+            e @ Effect::Bubbles { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectBubbles, || {
+                    crate::simulate::bubbles(source, e, (ox, oy))
+                })
+            }
             // D-672: the drops in the drawing's own space; never grows.
-            e @ Effect::Drizzle { .. } => crate::perf::time(crate::perf::Stage::EffectDrizzle, || {
-                crate::simulate::drizzle(source, e, (ox, oy))
-            }),
+            e @ Effect::Drizzle { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectDrizzle, || {
+                    crate::simulate::drizzle(source, e, (ox, oy))
+                })
+            }
             // D-673: the strands in the drawing's own space; never grows.
-            e @ Effect::Hair { .. } => crate::perf::time(crate::perf::Stage::EffectHair, || crate::simulate::hair(source, e, (ox, oy))),
+            e @ Effect::Hair { .. } => crate::perf::time(crate::perf::Stage::EffectHair, || {
+                crate::simulate::hair(source, e, (ox, oy))
+            }),
             // D-674: the drops in the drawing's own space; never grows.
-            e @ Effect::Mercury { .. } => crate::perf::time(crate::perf::Stage::EffectMercury, || {
-                crate::simulate::mercury(source, e, (ox, oy))
-            }),
+            e @ Effect::Mercury { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectMercury, || {
+                    crate::simulate::mercury(source, e, (ox, oy))
+                })
+            }
             // D-675: the shards through the composition camera or its own eye; never grows.
-            e @ Effect::PolygonShards { .. } => crate::perf::time(crate::perf::Stage::EffectPolygonShards, || {
-                crate::simulate::polygon_shards(source, e, (ox, oy))
-            }),
+            e @ Effect::PolygonShards { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectPolygonShards, || {
+                    crate::simulate::polygon_shards(source, e, (ox, oy))
+                })
+            }
             // D-678: the bubbles in the drawing's own space; never grows.
-            e @ Effect::Foam { .. } => crate::perf::time(crate::perf::Stage::EffectFoam, || crate::simulate::foam(source, e, (ox, oy))),
+            e @ Effect::Foam { .. } => crate::perf::time(crate::perf::Stage::EffectFoam, || {
+                crate::simulate::foam(source, e, (ox, oy))
+            }),
             // D-676: the dots in the drawing's own space, cut at its edges; never grows.
             e @ Effect::Scatterize { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectScatterize, || crate::simulate::scatterize(source, e, (ox, oy)))
+                crate::perf::time(crate::perf::Stage::EffectScatterize, || {
+                    crate::simulate::scatterize(source, e, (ox, oy))
+                })
             }
             // D-677: the stars through the composition camera or its own, in the drawing's own
             // space, cut at its edges; never grows.
             e @ Effect::StarBurst { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectStarBurst, || crate::simulate::star_burst(source, e, (ox, oy)))
+                crate::perf::time(crate::perf::Stage::EffectStarBurst, || {
+                    crate::simulate::star_burst(source, e, (ox, oy))
+                })
             }
             // D-610: the particles drawn through the composition camera or its own; never grows.
-            e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
-                crate::particles::particle_space(source, e, (ox, oy))
-            }),
+            e @ Effect::ParticleSpace { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
+                    crate::particles::particle_space(source, e, (ox, oy))
+                })
+            }
             // D-612: the particles drawn flat onto the layer; never grows.
-            e @ Effect::ParticlePlane { .. } => crate::perf::time(crate::perf::Stage::EffectParticlePlane, || {
-                crate::particles::particle_space(source, e, (ox, oy))
-            }),
+            e @ Effect::ParticlePlane { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectParticlePlane, || {
+                    crate::particles::particle_space(source, e, (ox, oy))
+                })
+            }
             // D-613: the particles drawn over a clear layer; never grows. A map not read (none
             // named, or not in the composition, which compose said) is none, and so is a wall
             // compose did not find (said too).
-            e @ Effect::ParticlePlayground { .. } => crate::perf::time(crate::perf::Stage::EffectParticlePlayground, || {
-                crate::playground::apply(source, e, (ox, oy))
-            }),
+            e @ Effect::ParticlePlayground { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectParticlePlayground, || {
+                    crate::playground::apply(source, e, (ox, oy))
+                })
+            }
             // D-615: the particles drawn over a clear layer through the composition camera, or
             // straight on; never grows.
-            e @ Effect::ParticleEmitter { .. } => crate::perf::time(crate::perf::Stage::EffectParticleEmitter, || {
-                crate::particles::particle_space(source, e, (ox, oy))
-            }),
+            e @ Effect::ParticleEmitter { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectParticleEmitter, || {
+                    crate::particles::particle_space(source, e, (ox, oy))
+                })
+            }
             // D-616: the grid drawn over a clear layer through the composition camera, or
             // straight on; never grows.
-            e @ Effect::ParticleGrid { .. } => crate::perf::time(crate::perf::Stage::EffectParticleGrid, || {
-                crate::particles::particle_space(source, e, (ox, oy))
-            }),
+            e @ Effect::ParticleGrid { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectParticleGrid, || {
+                    crate::particles::particle_space(source, e, (ox, oy))
+                })
+            }
             // D-551: its own eye and light, no comp camera (P0-12); never grows.
-            e @ Effect::CcBallAction { .. } => crate::perf::time(crate::perf::Stage::EffectCcBallAction, || {
-                crate::layer_fx::cc_ball_action(source, e, (ox, oy))
-            }),
+            e @ Effect::CcBallAction { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCcBallAction, || {
+                    crate::layer_fx::cc_ball_action(source, e, (ox, oy))
+                })
+            }
             // D-508: the paths compose found, or the points, in the drawing's own space; with no
             // path the layer is left as it is (EFFECT_PATH_MISSING was said). Never grows.
-            e @ Effect::EnergyStroke { .. } => crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {
-                crate::along::energy_stroke(source, e, (ox, oy))
-            }),
+            e @ Effect::EnergyStroke { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {
+                    crate::along::energy_stroke(source, e, (ox, oy))
+                })
+            }
             // D-531: with no environment read (none named, or one not in the composition, which
             // compose said), the layer is left as it is. Never grows.
-            e @ Effect::CcEnvironment { map: Some(_), .. } => crate::perf::time(crate::perf::Stage::EffectCcEnvironment, || {
-                crate::layer_fx::cc_environment(source, e, (ox, oy))
-            }),
+            e @ Effect::CcEnvironment { map: Some(_), .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCcEnvironment, || {
+                    crate::layer_fx::cc_environment(source, e, (ox, oy))
+                })
+            }
             Effect::CcEnvironment { .. } => {}
             // D-630: the water drawn over the drawing in its place; never grows. A ground not read
             // (none named, not in the composition, or not begun at the in point) is flat.
-            e @ Effect::WaveWorld { .. } => crate::perf::time(crate::perf::Stage::EffectWaveWorld, || {
-                crate::layer_fx::wave_world(source, e, (ox, oy))
-            }),
+            e @ Effect::WaveWorld { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectWaveWorld, || {
+                    crate::layer_fx::wave_world(source, e, (ox, oy))
+                })
+            }
             // D-631: every length a share of the layer; never grows. A bottom named but not read is
             // clear; a water surface or sky not read is none.
-            e @ Effect::Caustics { .. } => crate::perf::time(crate::perf::Stage::EffectCaustics, || {
-                crate::layer_fx::caustics(source, e, (ox, oy))
-            }),
+            e @ Effect::Caustics { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCaustics, || {
+                    crate::layer_fx::caustics(source, e, (ox, oy))
+                })
+            }
             // D-632: every length a share of the layer, the composition camera in its pixels; never
             // grows. A back not read is clear; a gradient not read is clear.
-            e @ Effect::CardDance { .. } => crate::perf::time(crate::perf::Stage::EffectCardDance, || {
-                crate::layer_fx::card_dance(source, e, (ox, oy))
-            }),
+            e @ Effect::CardDance { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCardDance, || {
+                    crate::layer_fx::card_dance(source, e, (ox, oy))
+                })
+            }
             // D-633: every length a share of the layer, the composition camera in its pixels; never
             // grows. A map named but not read is clear; no gradient named frees every piece reached.
-            e @ Effect::Shatter { .. } => crate::perf::time(crate::perf::Stage::EffectShatter, || {
-                crate::layer_fx::shatter(source, e, (ox, oy))
-            }),
+            e @ Effect::Shatter { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectShatter, || {
+                    crate::layer_fx::shatter(source, e, (ox, oy))
+                })
+            }
             // D-580: every distance a share of the drawing; never grows. A back or gradient layer
             // not read (none named, or one not in the composition, which compose said) is none.
-            e @ Effect::CardWipe { .. } => crate::perf::time(crate::perf::Stage::EffectCardWipe, || {
-                crate::layer_fx::card_wipe(source, e, (ox, oy))
-            }),
+            e @ Effect::CardWipe { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCardWipe, || {
+                    crate::layer_fx::card_wipe(source, e, (ox, oy))
+                })
+            }
             // D-532: every distance a share of the drawing; never grows.
-            e @ Effect::CcSphere { .. } => crate::perf::time(crate::perf::Stage::EffectCcSphere, || {
-                crate::layer_fx::cc_sphere(source, e, (ox, oy))
-            }),
+            e @ Effect::CcSphere { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCcSphere, || {
+                    crate::layer_fx::cc_sphere(source, e, (ox, oy))
+                })
+            }
             // D-530: every distance a share of the drawing; never grows.
-            e @ Effect::CcCylinder { .. } => crate::perf::time(crate::perf::Stage::EffectCcCylinder, || {
-                crate::layer_fx::cc_cylinder(source, e, (ox, oy))
-            }),
-            e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
-                if let Some(g) = crate::grade::matched_grain(e) {
-                    crate::grade::add_grain(source, &g, (ox, oy))
-                }
-            }),
+            e @ Effect::CcCylinder { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCcCylinder, || {
+                    crate::layer_fx::cc_cylinder(source, e, (ox, oy))
+                })
+            }
+            e @ Effect::MatchGrain { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
+                    if let Some(g) = crate::grade::matched_grain(e) {
+                        crate::grade::add_grain(source, &g, (ox, oy))
+                    }
+                })
+            }
             // D-450: the noise in the drawing's own space, however an effect above grew it.
             e @ Effect::NoiseAlpha { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectNoiseAlpha, || crate::grade::noise_alpha(source, e, (ox, oy)))
+                crate::perf::time(crate::perf::Stage::EffectNoiseAlpha, || {
+                    crate::grade::noise_alpha(source, e, (ox, oy))
+                })
             }
             // D-451: the noise in the drawing's own space; the depth is the phase in turns.
-            Effect::NoiseHls { noise, hue, lightness, saturation, grain_size, noise_phase } => {
-                crate::perf::time(crate::perf::Stage::EffectNoiseHls, || {
-                    crate::grade::noise_hls(source, noise, [*hue, *lightness, *saturation], *grain_size, noise_phase / 360.0, (ox, oy))
-                })
-            }
+            Effect::NoiseHls {
+                noise,
+                hue,
+                lightness,
+                saturation,
+                grain_size,
+                noise_phase,
+            } => crate::perf::time(crate::perf::Stage::EffectNoiseHls, || {
+                crate::grade::noise_hls(
+                    source,
+                    noise,
+                    [*hue, *lightness, *saturation],
+                    *grain_size,
+                    noise_phase / 360.0,
+                    (ox, oy),
+                )
+            }),
             // D-446: the field in the drawing's own space, however an effect above grew it.
             e @ Effect::CurlNoise { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectCurlNoise, || crate::grade::curl_noise(source, e, (ox, oy)))
-            }
-            // D-452: the same with the depth the frame times the speed.
-            Effect::NoiseHlsAuto { noise, hue, lightness, saturation, grain_size, animation_speed, frame } => {
-                crate::perf::time(crate::perf::Stage::EffectNoiseHlsAuto, || {
-                    crate::grade::noise_hls(source, noise, [*hue, *lightness, *saturation], *grain_size, *frame as f64 * animation_speed, (ox, oy))
+                crate::perf::time(crate::perf::Stage::EffectCurlNoise, || {
+                    crate::grade::curl_noise(source, e, (ox, oy))
                 })
             }
+            // D-452: the same with the depth the frame times the speed.
+            Effect::NoiseHlsAuto {
+                noise,
+                hue,
+                lightness,
+                saturation,
+                grain_size,
+                animation_speed,
+                frame,
+            } => crate::perf::time(crate::perf::Stage::EffectNoiseHlsAuto, || {
+                crate::grade::noise_hls(
+                    source,
+                    noise,
+                    [*hue, *lightness, *saturation],
+                    *grain_size,
+                    *frame as f64 * animation_speed,
+                    (ox, oy),
+                )
+            }),
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
-            Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
-                let (a, cell) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (source.width(), source.height()), (ox, oy));
+            Effect::Grid {
+                anchor,
+                size_from,
+                corner,
+                width,
+                height,
+                border,
+                feather_width,
+                feather_height,
+                invert,
+                color,
+                opacity,
+                blending_mode,
+            } => {
+                let (a, cell) = crate::layer_fx::checker_cells(
+                    *anchor,
+                    size_from,
+                    *corner,
+                    [*width, *height],
+                    (source.width(), source.height()),
+                    (ox, oy),
+                );
                 let ramps = [*feather_width, *feather_height].map(|f| f.max(1.0));
                 let inverted = invert == "on";
                 crate::perf::time(crate::perf::Stage::EffectGrid, || {
-                    let cover = |x, y| crate::layer_fx::grid_cover((x, y), a, cell, *border, ramps, inverted);
-                    crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
+                    let cover = |x, y| {
+                        crate::layer_fx::grid_cover((x, y), a, cell, *border, ramps, inverted)
+                    };
+                    crate::layer_fx::lay_pattern(
+                        source,
+                        cover,
+                        encoded(color).map(crate::grade::to_linear),
+                        *opacity / 100.0,
+                        blending_mode,
+                    )
                 })
             }
             // D-415: the centre is a share of the drawing's own size; the layer never grows.
-            Effect::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
+            Effect::Ellipse {
+                center,
+                width,
+                height,
+                thickness,
+                softness,
+                inside_color,
+                outside_color,
+                composite,
+            } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
-                let colours = [encoded(inside_color), encoded(outside_color)].map(|c| c.map(crate::grade::to_linear));
+                let colours = [encoded(inside_color), encoded(outside_color)]
+                    .map(|c| c.map(crate::grade::to_linear));
                 crate::perf::time(crate::perf::Stage::EffectEllipse, || {
-                    crate::layer_fx::ellipse(source, c, [*width / 2.0, *height / 2.0, *thickness, *softness], colours, composite == "off")
+                    crate::layer_fx::ellipse(
+                        source,
+                        c,
+                        [*width / 2.0, *height / 2.0, *thickness, *softness],
+                        colours,
+                        composite == "off",
+                    )
                 })
             }
             // D-416: the view is the drawing's own; the layer is replaced and never grows.
             Effect::Fractal { .. } => {
                 let h0 = (source.height() - 2 * oy) as f64;
-                let view = crate::layer_fx::FractalView::of(&instance.effect, h0).expect("a Fractal");
-                crate::perf::time(crate::perf::Stage::EffectFractal, || crate::layer_fx::fractal(source, (ox, oy), &view))
+                let view =
+                    crate::layer_fx::FractalView::of(&instance.effect, h0).expect("a Fractal");
+                crate::perf::time(crate::perf::Stage::EffectFractal, || {
+                    crate::layer_fx::fractal(source, (ox, oy), &view)
+                })
             }
             // D-407: grown about its middle, or not drawn when the build cannot hold the result.
-            Effect::DetailUpscale { scale, reduce_noise, detail } => {
+            Effect::DetailUpscale {
+                scale,
+                reduce_noise,
+                detail,
+            } => {
                 match crate::perf::time(crate::perf::Stage::EffectDetailUpscale, || {
                     crate::layer_fx::detail_upscale(source, *scale, *reduce_noise, *detail)
                 }) {
@@ -14232,14 +17786,28 @@ pub(crate) fn apply_stack_at(
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectBlobbylize, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
-                let point = (light_type == "point").then(|| radial_center(*light_position, (source.width(), source.height()), (ox, oy)));
+                let point = (light_type == "point").then(|| {
+                    radial_center(*light_position, (source.width(), source.height()), (ox, oy))
+                });
                 crate::layer_fx::blobbylize(
                     source,
                     map.as_ref().map(|m| (&*m.0, (ox, oy))),
                     property,
                     (*softness, cut_away / 100.0),
-                    (point, *light_direction, *light_height, light, light_intensity / 100.0),
-                    [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                    (
+                        point,
+                        *light_direction,
+                        *light_height,
+                        light,
+                        light_intensity / 100.0,
+                    ),
+                    [
+                        *ambient / 100.0,
+                        *diffuse / 100.0,
+                        *specular / 100.0,
+                        *roughness,
+                        *metal / 100.0,
+                    ],
                 )
             }),
             // D-424: the blobs from the brush's trail compose read for this frame; none, no stroke.
@@ -14268,49 +17836,89 @@ pub(crate) fn apply_stack_at(
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectGlueGun, || {
                 let dims = (source.width(), source.height());
-                let trail: Vec<(f64, f64)> = trail.iter().map(|p| radial_center(*p, dims, (ox, oy))).collect();
-                let wobble = (paint_style == "wobbly").then_some((*wobble_width, *wobble_height, *wobble_speed));
-                let blobs = if *stroke_width == 0.0 { Vec::new() } else { crate::layer_fx::glue_blobs(&trail, *clock, *density, wobble) };
+                let trail: Vec<(f64, f64)> = trail
+                    .iter()
+                    .map(|p| radial_center(*p, dims, (ox, oy)))
+                    .collect();
+                let wobble = (paint_style == "wobbly").then_some((
+                    *wobble_width,
+                    *wobble_height,
+                    *wobble_speed,
+                ));
+                let blobs = if *stroke_width == 0.0 {
+                    Vec::new()
+                } else {
+                    crate::layer_fx::glue_blobs(&trail, *clock, *density, wobble)
+                };
                 let light = encoded(light_color).map(crate::grade::to_linear);
-                let point = (light_type == "point").then(|| radial_center(*light_position, dims, (ox, oy)));
+                let point =
+                    (light_type == "point").then(|| radial_center(*light_position, dims, (ox, oy)));
                 crate::layer_fx::glue_gun(
                     source,
                     &blobs,
                     (stroke_width / 2.0, *strength / 100.0, *reflection / 100.0),
-                    (point, *light_direction, *light_height, light, light_intensity / 100.0),
-                    [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                    (
+                        point,
+                        *light_direction,
+                        *light_height,
+                        light,
+                        light_intensity / 100.0,
+                    ),
+                    [
+                        *ambient / 100.0,
+                        *diffuse / 100.0,
+                        *specular / 100.0,
+                        *roughness,
+                        *metal / 100.0,
+                    ],
                 )
             }),
             // D-425: the cloth laid about the centre, turned by the direction.
-            Effect::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => {
-                crate::perf::time(crate::perf::Stage::EffectThreads, || {
-                    let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
-                    crate::layer_fx::threads(
-                        source,
-                        c,
-                        direction.to_radians().sin_cos(),
-                        (*width, *height),
-                        overlaps.floor(),
-                        [*coverage / 100.0, *shadowing / 100.0, *texture / 100.0],
-                    )
-                })
-            }
+            Effect::Threads {
+                width,
+                height,
+                overlaps,
+                direction,
+                center,
+                coverage,
+                shadowing,
+                texture,
+            } => crate::perf::time(crate::perf::Stage::EffectThreads, || {
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                crate::layer_fx::threads(
+                    source,
+                    c,
+                    direction.to_radians().sin_cos(),
+                    (*width, *height),
+                    overlaps.floor(),
+                    [*coverage / 100.0, *shadowing / 100.0, *texture / 100.0],
+                )
+            }),
             // D-426: the flare's parts placed on the line from it through the layer's middle.
             // D-545: a dirt layer named and not read this frame leaves it drawn without (D-189).
             Effect::LensFlare { dirt, .. } if dirt.missing() => {}
-            Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, dirt } => {
-                crate::perf::time(crate::perf::Stage::EffectLensFlare, || {
-                    let dims = (source.width(), source.height());
-                    let parts = crate::layer_fx::flare_parts(
-                        lens_type,
-                        radial_center(*flare_center, dims, (ox, oy)),
-                        radial_center([50.0, 50.0], dims, (ox, oy)),
-                        ((dims.0 - 2 * ox) as f64).hypot((dims.1 - 2 * oy) as f64),
-                        flare_brightness / 100.0,
-                    );
-                    crate::layer_fx::lens_flare(source, &parts, 1.0 - blend_with_original / 100.0, dirt.lit().as_ref())
-                })
-            }
+            Effect::LensFlare {
+                flare_center,
+                flare_brightness,
+                lens_type,
+                blend_with_original,
+                dirt,
+            } => crate::perf::time(crate::perf::Stage::EffectLensFlare, || {
+                let dims = (source.width(), source.height());
+                let parts = crate::layer_fx::flare_parts(
+                    lens_type,
+                    radial_center(*flare_center, dims, (ox, oy)),
+                    radial_center([50.0, 50.0], dims, (ox, oy)),
+                    ((dims.0 - 2 * ox) as f64).hypot((dims.1 - 2 * oy) as f64),
+                    flare_brightness / 100.0,
+                );
+                crate::layer_fx::lens_flare(
+                    source,
+                    &parts,
+                    1.0 - blend_with_original / 100.0,
+                    dirt.lit().as_ref(),
+                )
+            }),
             // D-317: the map compose read for this frame, if a layer is named, is the bump.
             Effect::Glass {
                 property,
@@ -14334,9 +17942,17 @@ pub(crate) fn apply_stack_at(
                 let light = encoded(light_color).map(crate::grade::to_linear);
                 // D-561: None is the classic light; else the point, if any, and the shares.
                 let full = (light_type != "classic").then(|| crate::layer_fx::GlassLight {
-                    point: (light_type == "point").then(|| radial_center(*light_position, (source.width(), source.height()), (ox, oy))),
+                    point: (light_type == "point").then(|| {
+                        radial_center(*light_position, (source.width(), source.height()), (ox, oy))
+                    }),
                     height: *light_height,
-                    shares: [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                    shares: [
+                        *ambient / 100.0,
+                        *diffuse / 100.0,
+                        *specular / 100.0,
+                        *roughness,
+                        *metal / 100.0,
+                    ],
                 });
                 crate::layer_fx::glass(
                     source,
@@ -14382,7 +17998,8 @@ pub(crate) fn apply_stack_at(
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectColorama, || {
                 let ring = [color_1, color_2, color_3, color_4, color_5].map(|c| encoded(c));
-                let opacity = [opacity_1, opacity_2, opacity_3, opacity_4, opacity_5].map(|o| *o / 100.0);
+                let opacity =
+                    [opacity_1, opacity_2, opacity_3, opacity_4, opacity_5].map(|o| *o / 100.0);
                 let n = (stops.floor() as usize).clamp(2, 5);
                 crate::grade::colorama(
                     source,
@@ -14400,20 +18017,37 @@ pub(crate) fn apply_stack_at(
                         modify,
                         modify_alpha: modify_alpha == "on",
                         change_empty: change_empty == "on",
-                        matching: CHANGE_MATCHES.iter().position(|m| m == matching_mode).map(|kind| {
-                            (encoded(matching_color), kind, *matching_tolerance / 100.0, *matching_softness / 100.0)
-                        }),
+                        matching: CHANGE_MATCHES.iter().position(|m| m == matching_mode).map(
+                            |kind| {
+                                (
+                                    encoded(matching_color),
+                                    kind,
+                                    *matching_tolerance / 100.0,
+                                    *matching_softness / 100.0,
+                                )
+                            },
+                        ),
                         masking: masking_mode,
                         composite: composite_over == "on",
                         blend: *blend_with_original,
                     },
                 )
             }),
-            Effect::SolidComposite { source_opacity, color, opacity, blend } => {
-                crate::perf::time(crate::perf::Stage::EffectSolidComposite, || {
-                    solid_composite(source, *source_opacity, encoded(color), *opacity, blend, display)
-                })
-            }
+            Effect::SolidComposite {
+                source_opacity,
+                color,
+                opacity,
+                blend,
+            } => crate::perf::time(crate::perf::Stage::EffectSolidComposite, || {
+                solid_composite(
+                    source,
+                    *source_opacity,
+                    encoded(color),
+                    *opacity,
+                    blend,
+                    display,
+                )
+            }),
             Effect::ChannelBlur {
                 red_blurriness,
                 green_blurriness,
@@ -14428,7 +18062,13 @@ pub(crate) fn apply_stack_at(
                 let r = crate::perf::time(crate::perf::Stage::EffectChannelBlur, || {
                     channel_blur(
                         source,
-                        [*red_blurriness, *green_blurriness, *blue_blurriness, *alpha_blurriness].map(|n| reach(n).0),
+                        [
+                            *red_blurriness,
+                            *green_blurriness,
+                            *blue_blurriness,
+                            *alpha_blurriness,
+                        ]
+                        .map(|n| reach(n).0),
                         long,
                         edges == "repeat",
                         (dimensions != "vertical", dimensions != "horizontal"),
@@ -14437,7 +18077,12 @@ pub(crate) fn apply_stack_at(
                 ox += r;
                 oy += r;
             }
-            Effect::FastBoxBlur { radius, iterations, edges, dimensions } => {
+            Effect::FastBoxBlur {
+                radius,
+                iterations,
+                edges,
+                dimensions,
+            } => {
                 let taps = box_weights(*radius, *iterations);
                 let axes = (dimensions != "vertical", dimensions != "horizontal");
                 let r = crate::perf::time(crate::perf::Stage::EffectFastBoxBlur, || {
@@ -14452,17 +18097,29 @@ pub(crate) fn apply_stack_at(
                 oy += r;
             }
             // D-472: Gaussian Blur's engine and stage in Blurriness, its edges clear.
-            Effect::GaussianBlurLegacy { blurriness, dimensions } => {
+            Effect::GaussianBlurLegacy {
+                blurriness,
+                dimensions,
+            } => {
                 let axes = (dimensions != "vertical", dimensions != "horizontal");
                 let (sigma, long) = blur_reach(*blurriness, "blurriness");
                 let taps = reach_weights(sigma, long);
-                let r = crate::perf::time(crate::perf::Stage::EffectBlur, || blur_axes(source, &taps, axes));
+                let r = crate::perf::time(crate::perf::Stage::EffectBlur, || {
+                    blur_axes(source, &taps, axes)
+                });
                 ox += r;
                 oy += r;
             }
             // D-471: Fast Box Blur's engine and stage, at its radius and 3 iterations.
-            Effect::FastBlurLegacy { blurriness, edges, dimensions } => {
-                let taps = box_weights(FAST_BLUR_LEGACY_FACTOR * blurriness, FAST_BLUR_LEGACY_ITERATIONS);
+            Effect::FastBlurLegacy {
+                blurriness,
+                edges,
+                dimensions,
+            } => {
+                let taps = box_weights(
+                    FAST_BLUR_LEGACY_FACTOR * blurriness,
+                    FAST_BLUR_LEGACY_ITERATIONS,
+                );
                 let axes = (dimensions != "vertical", dimensions != "horizontal");
                 let r = crate::perf::time(crate::perf::Stage::EffectFastBoxBlur, || {
                     if edges == "repeat" {
@@ -14475,14 +18132,32 @@ pub(crate) fn apply_stack_at(
                 ox += r;
                 oy += r;
             }
-            Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
-                crate::layer_fx::find_edges(source, invert == "on", *amount)
-            }),
-            Effect::Sharpen { amount, radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
+            Effect::FindEdges { invert, amount } => {
+                crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
+                    crate::layer_fx::find_edges(source, invert == "on", *amount)
+                })
+            }
+            Effect::Sharpen {
+                amount,
+                radius,
+                threshold,
+            } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
                 crate::layer_fx::sharpen(source, *amount, *radius, *threshold)
             }),
-            Effect::Diffusion { radius, amount, blend, second_amount, second_blend } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
-                crate::layer_fx::diffusion(source, *radius, *amount, blend, (*second_amount, second_blend))
+            Effect::Diffusion {
+                radius,
+                amount,
+                blend,
+                second_amount,
+                second_blend,
+            } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
+                crate::layer_fx::diffusion(
+                    source,
+                    *radius,
+                    *amount,
+                    blend,
+                    (*second_amount, second_blend),
+                )
             }),
             // D-149: the wave slides `speed` degrees a frame.
             Effect::WaveWarp {
@@ -14522,7 +18197,14 @@ pub(crate) fn apply_stack_at(
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRipple, || {
-                    crate::layer_fx::ripple(source, c, *amplitude, *wavelength, phase + speed * *frame as f64, *fade)
+                    crate::layer_fx::ripple(
+                        source,
+                        c,
+                        *amplitude,
+                        *wavelength,
+                        phase + speed * *frame as f64,
+                        *fade,
+                    )
                 })
             }
             // D-151: the centre is a share of the drawing's own size, as Radial Blur's is.
@@ -14546,7 +18228,12 @@ pub(crate) fn apply_stack_at(
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectBulge, || {
-                    crate::layer_fx::bulge(source, [*radius, *vertical_radius, *taper_radius], *height, c)
+                    crate::layer_fx::bulge(
+                        source,
+                        [*radius, *vertical_radius, *taper_radius],
+                        *height,
+                        c,
+                    )
                 })
             }
             // D-153: the centre is a share of the drawing's own size, as Radial Blur's is.
@@ -14579,51 +18266,122 @@ pub(crate) fn apply_stack_at(
             }
             // D-201: bent round the drawing's own middle, however an effect above grew it; the
             // layer never grows.
-            Effect::PolarCoordinates { interpolation, conversion, shape } => {
-                crate::perf::time(crate::perf::Stage::EffectPolarCoordinates, || {
-                    crate::layer_fx::polar_coordinates(source, *interpolation, conversion == "rect_to_polar", shape == "circle", (ox, oy))
-                })
-            }
+            Effect::PolarCoordinates {
+                interpolation,
+                conversion,
+                shape,
+            } => crate::perf::time(crate::perf::Stage::EffectPolarCoordinates, || {
+                crate::layer_fx::polar_coordinates(
+                    source,
+                    *interpolation,
+                    conversion == "rect_to_polar",
+                    shape == "circle",
+                    (ox, oy),
+                )
+            }),
             // D-203: neither grows the layer.
-            Effect::Median { radius, operate_on_alpha } => crate::perf::time(crate::perf::Stage::EffectMedian, || {
+            Effect::Median {
+                radius,
+                operate_on_alpha,
+            } => crate::perf::time(crate::perf::Stage::EffectMedian, || {
                 crate::median::median(source, *radius, -1.0, operate_on_alpha == "on")
             }),
             // D-453: Median keeping what is within the threshold.
-            Effect::DustScratches { radius, threshold, operate_on_alpha } => {
-                crate::perf::time(crate::perf::Stage::EffectDustScratches, || {
-                    crate::median::median(source, *radius, *threshold, operate_on_alpha == "on")
-                })
-            }
+            Effect::DustScratches {
+                radius,
+                threshold,
+                operate_on_alpha,
+            } => crate::perf::time(crate::perf::Stage::EffectDustScratches, || {
+                crate::median::median(source, *radius, *threshold, operate_on_alpha == "on")
+            }),
             // D-447: the strokes in the drawing's own space; the layer never grows.
             e @ Effect::BrushStrokes { .. } => {
-                crate::perf::time(crate::perf::Stage::EffectBrushStrokes, || crate::grade::brush_strokes(source, e, (ox, oy)))
+                crate::perf::time(crate::perf::Stage::EffectBrushStrokes, || {
+                    crate::grade::brush_strokes(source, e, (ox, oy))
+                })
             }
             // D-448: the layer never grows.
-            e @ Effect::Cartoon { .. } => crate::perf::time(crate::perf::Stage::EffectCartoon, || crate::median::cartoon(source, e)),
+            e @ Effect::Cartoon { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCartoon, || {
+                    crate::median::cartoon(source, e)
+                })
+            }
             // D-449: the layer never grows.
-            Effect::BlockLoad { completion, scans, start_cleared, bilinear, pixel } => crate::perf::time(crate::perf::Stage::EffectBlockLoad, || {
-                crate::layer_fx::block_load(source, *completion, *scans, start_cleared == "on", bilinear == "on", *pixel, (ox, oy))
+            Effect::BlockLoad {
+                completion,
+                scans,
+                start_cleared,
+                bilinear,
+                pixel,
+            } => crate::perf::time(crate::perf::Stage::EffectBlockLoad, || {
+                crate::layer_fx::block_load(
+                    source,
+                    *completion,
+                    *scans,
+                    start_cleared == "on",
+                    bilinear == "on",
+                    *pixel,
+                    (ox, oy),
+                )
             }),
             // D-460: laid over the picture as it reaches the effect; the layer never grows.
             Effect::BurnFilm { burn, center, seed } => {
-                crate::perf::time(crate::perf::Stage::EffectBurnFilm, || crate::layer_fx::burn_film(source, *burn, *center, *seed))
+                crate::perf::time(crate::perf::Stage::EffectBurnFilm, || {
+                    crate::layer_fx::burn_film(source, *burn, *center, *seed)
+                })
             }
             // D-461: round the drawing's own centre, however an effect above grew it; the layer
             // never grows.
-            Effect::HexTile { render, radius, center, lock_center, rotate, smearing } => crate::perf::time(crate::perf::Stage::EffectHexTile, || {
+            Effect::HexTile {
+                render,
+                radius,
+                center,
+                lock_center,
+                rotate,
+                smearing,
+            } => crate::perf::time(crate::perf::Stage::EffectHexTile, || {
                 let size = (source.width(), source.height());
-                let k = crate::layer_fx::hex_tile_setup(render, *radius, *center, lock_center == "on", *rotate, *smearing, size, (ox, oy));
+                let k = crate::layer_fx::hex_tile_setup(
+                    render,
+                    *radius,
+                    *center,
+                    lock_center == "on",
+                    *rotate,
+                    *smearing,
+                    size,
+                    (ox, oy),
+                );
                 crate::layer_fx::hex_tile(source, &k)
             }),
             // D-462: the map compose read for this frame, if a layer is named, is the flow; the
             // points are shares of the drawing's own size, round however an effect above grew it.
-            Effect::MrSmoothie { property, smoothness, sample_a, sample_b, phase, color_loop, map, .. } => {
-                crate::perf::time(crate::perf::Stage::EffectMrSmoothie, || {
-                    let size = (source.width(), source.height());
-                    let k = crate::layer_fx::mr_smoothie_setup(*phase, color_loop, *sample_a, *sample_b, size, (ox, oy));
-                    crate::layer_fx::mr_smoothie(source, map.as_ref().map(|m| (&*m.0, (ox, oy))), property, *smoothness, &k)
-                })
-            }
+            Effect::MrSmoothie {
+                property,
+                smoothness,
+                sample_a,
+                sample_b,
+                phase,
+                color_loop,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectMrSmoothie, || {
+                let size = (source.width(), source.height());
+                let k = crate::layer_fx::mr_smoothie_setup(
+                    *phase,
+                    color_loop,
+                    *sample_a,
+                    *sample_b,
+                    size,
+                    (ox, oy),
+                );
+                crate::layer_fx::mr_smoothie(
+                    source,
+                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                    property,
+                    *smoothness,
+                    &k,
+                )
+            }),
             // D-463: the map compose read for this frame, if a layer is named, is the bump.
             Effect::Plastic {
                 property,
@@ -14649,29 +18407,64 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectPlastic, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
                 let ambient_light = encoded(ambient_light_color).map(crate::grade::to_linear);
-                let point = (light_type == "point").then(|| radial_center(*light_position, (source.width(), source.height()), (ox, oy)));
+                let point = (light_type == "point").then(|| {
+                    radial_center(*light_position, (source.width(), source.height()), (ox, oy))
+                });
                 crate::layer_fx::plastic(
                     source,
                     map.as_ref().map(|m| (&*m.0, (ox, oy))),
                     property,
                     (*softness, *height, cut_min / 100.0, cut_max / 100.0),
-                    (point, *light_direction, *light_height, light, light_intensity / 100.0),
+                    (
+                        point,
+                        *light_direction,
+                        *light_height,
+                        light,
+                        light_intensity / 100.0,
+                    ),
                     ambient_light,
-                    [*ambient / 100.0, *diffuse / 100.0, *dust / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                    [
+                        *ambient / 100.0,
+                        *diffuse / 100.0,
+                        *dust / 100.0,
+                        *specular / 100.0,
+                        *roughness,
+                        *metal / 100.0,
+                    ],
                 )
             }),
             // D-464: the whole buffer is the tile, however an effect above grew it, and the
             // layer grows by the expansions, the same both ways.
-            Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
-                let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
-                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectRepeatTile, || crate::layer_fx::repeat_tile(source, &k));
+            Effect::RepeatTile {
+                expand_right,
+                expand_left,
+                expand_down,
+                expand_up,
+                tiling,
+                blend_borders,
+            } => {
+                let k = crate::layer_fx::repeat_tile_setup(
+                    [*expand_right, *expand_left, *expand_down, *expand_up],
+                    tiling,
+                    *blend_borders,
+                );
+                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectRepeatTile, || {
+                    crate::layer_fx::repeat_tile(source, &k)
+                });
                 ox += gx;
                 oy += gy;
             }
             // D-465: each pixel read from a whole-pixel move within reach, the layer's size kept.
-            Effect::Scatter { scatter_amount, grain, frame, .. } => {
+            Effect::Scatter {
+                scatter_amount,
+                grain,
+                frame,
+                ..
+            } => {
                 let k = crate::layer_fx::scatter_setup(*scatter_amount, grain);
-                crate::perf::time(crate::perf::Stage::EffectScatter, || crate::layer_fx::scatter(source, k, *frame));
+                crate::perf::time(crate::perf::Stage::EffectScatter, || {
+                    crate::layer_fx::scatter(source, k, *frame)
+                });
             }
             // D-466: on at this moment or not; when on, the colour worked or the layer faded.
             Effect::StrobeLight {
@@ -14686,20 +18479,57 @@ pub(crate) fn apply_stack_at(
                 time,
                 count,
             } => {
-                if crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count) {
-                    let k = crate::layer_fx::strobe_setup(encoded(strobe_color).map(crate::grade::to_linear), *blend_with_original, strobe, strobe_operator);
-                    crate::perf::time(crate::perf::Stage::EffectStrobeLight, || crate::layer_fx::strobe_light(source, k));
+                if crate::layer_fx::strobe_on(
+                    *strobe_duration,
+                    *strobe_period,
+                    *random_strobe_probability,
+                    *random_seed,
+                    *time,
+                    *count,
+                ) {
+                    let k = crate::layer_fx::strobe_setup(
+                        encoded(strobe_color).map(crate::grade::to_linear),
+                        *blend_with_original,
+                        strobe,
+                        strobe_operator,
+                    );
+                    crate::perf::time(crate::perf::Stage::EffectStrobeLight, || {
+                        crate::layer_fx::strobe_light(source, k)
+                    });
                 }
             }
-            Effect::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
-                crate::perf::time(crate::perf::Stage::EffectThreshold, || {
-                    crate::grade::channel_threshold(source, [*threshold; 3], channel, [invert == "on"; 3], 1.0 - blend_with_original / 100.0)
-                })
-            }
-            Effect::ThresholdRgb { red_threshold, green_threshold, blue_threshold, invert_red, invert_green, invert_blue, blend_with_original } => {
+            Effect::ChannelThreshold {
+                threshold,
+                channel,
+                invert,
+                blend_with_original,
+            } => crate::perf::time(crate::perf::Stage::EffectThreshold, || {
+                crate::grade::channel_threshold(
+                    source,
+                    [*threshold; 3],
+                    channel,
+                    [invert == "on"; 3],
+                    1.0 - blend_with_original / 100.0,
+                )
+            }),
+            Effect::ThresholdRgb {
+                red_threshold,
+                green_threshold,
+                blue_threshold,
+                invert_red,
+                invert_green,
+                invert_blue,
+                blend_with_original,
+            } => {
                 let inverts = [invert_red, invert_green, invert_blue].map(|v| v == "on");
                 crate::perf::time(crate::perf::Stage::EffectThreshold, || {
-                    crate::grade::channel_threshold(source, [*red_threshold, *green_threshold, *blue_threshold], "rgb", inverts, 1.0 - blend_with_original / 100.0)
+                    crate::grade::channel_threshold(
+                        source,
+                        [*red_threshold, *green_threshold, *blue_threshold],
+                        "rgb",
+                        inverts,
+                        1.0 - blend_with_original / 100.0,
+                    )
                 })
             }
             // D-470: the edge map compose read for this frame, or the drawing; compose's palette,
@@ -14724,9 +18554,15 @@ pub(crate) fn apply_stack_at(
                 map,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectContourPaint, || {
-                let (sigma, turn, ways) = crate::layer_fx::contour_setup(*cleanliness, *offset_flow_angles, *quantize_flow_angles, *px);
+                let (sigma, turn, ways) = crate::layer_fx::contour_setup(
+                    *cleanliness,
+                    *offset_flow_angles,
+                    *quantize_flow_angles,
+                    *px,
+                );
                 let map = map.as_ref().map(|m| (&*m.0, (ox, oy)));
-                let flow = |b: &WorkingBuffer| crate::layer_fx::contour_flow(b, map, sigma, turn, &ways);
+                let flow =
+                    |b: &WorkingBuffer| crate::layer_fx::contour_flow(b, map, sigma, turn, &ways);
                 if view == "edge_map" {
                     let field = flow(source);
                     crate::layer_fx::contour_edges(source, &field, *px, arrowheads == "on");
@@ -14742,34 +18578,71 @@ pub(crate) fn apply_stack_at(
                     ("none", _) => Vec::new(),
                     (_, Some(p)) => p.clone(),
                     _ if perceptual => crate::layer_fx::contour_custom(colors),
-                    _ => crate::layer_fx::contour_palette(source, posterization_level.floor() as usize, reduction_method == "k_means"),
+                    _ => crate::layer_fx::contour_palette(
+                        source,
+                        posterization_level.floor() as usize,
+                        reduction_method == "k_means",
+                    ),
                 };
                 let weights = crate::layer_fx::contour_weights(*stylization, *px);
                 for _ in 0..passes {
                     let field = fixed.clone().unwrap_or_else(|| flow(source));
-                    crate::layer_fx::contour_smear(source, &field, &weights, apply_to_alpha == "off");
+                    crate::layer_fx::contour_smear(
+                        source,
+                        &field,
+                        &weights,
+                        apply_to_alpha == "off",
+                    );
                 }
                 if !palette.is_empty() {
                     let field = fixed.unwrap_or_else(|| flow(source));
                     let range = (*low_strength, *high_strength);
-                    crate::layer_fx::contour_fill(source, &field, &palette, range, draw_color_fills == "only", perceptual);
+                    crate::layer_fx::contour_fill(
+                        source,
+                        &field,
+                        &palette,
+                        range,
+                        draw_color_fills == "only",
+                        perceptual,
+                    );
                 }
             }),
             // D-467: the texture compose read for this frame; with none, nothing happens.
-            Effect::Texturize { light_direction, texture_contrast, map, .. } => {
+            Effect::Texturize {
+                light_direction,
+                texture_contrast,
+                map,
+                ..
+            } => {
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectTexturize, || {
-                        crate::layer_fx::texturize(source, (&map.0, (ox, oy)), *light_direction, *texture_contrast)
+                        crate::layer_fx::texturize(
+                            source,
+                            (&map.0, (ox, oy)),
+                            *light_direction,
+                            *texture_contrast,
+                        )
                     })
                 }
             }
-            Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
-                crate::median::smart_blur(source, *radius, *threshold)
-            }),
-            Effect::BilateralBlur { radius, threshold, colorize } => crate::perf::time(crate::perf::Stage::EffectBilateralBlur, || {
+            Effect::SmartBlur { radius, threshold } => {
+                crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
+                    crate::median::smart_blur(source, *radius, *threshold)
+                })
+            }
+            Effect::BilateralBlur {
+                radius,
+                threshold,
+                colorize,
+            } => crate::perf::time(crate::perf::Stage::EffectBilateralBlur, || {
                 crate::median::bilateral_blur(source, *radius, *threshold, colorize == "on")
             }),
-            Effect::CrossBlur { radius_x, radius_y, mode, edges } => {
+            Effect::CrossBlur {
+                radius_x,
+                radius_y,
+                mode,
+                edges,
+            } => {
                 let mode = CROSS_MODES.iter().position(|m| m == mode).unwrap_or(0);
                 let r = crate::perf::time(crate::perf::Stage::EffectCrossBlur, || {
                     crate::blurs::cross_blur(source, *radius_x, *radius_y, mode, edges == "repeat")
@@ -14778,7 +18651,8 @@ pub(crate) fn apply_stack_at(
                 oy += r;
             }
             // D-95: the centre as Radial Blur's.
-            Effect::SpinZoomBlur { amount, center, .. } | Effect::FastZoomBlur { amount, center, .. } => {
+            Effect::SpinZoomBlur { amount, center, .. }
+            | Effect::FastZoomBlur { amount, center, .. } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 let stage = if matches!(instance.effect, Effect::SpinZoomBlur { .. }) {
                     crate::perf::Stage::EffectSpinZoomBlur
@@ -14786,26 +18660,80 @@ pub(crate) fn apply_stack_at(
                     crate::perf::Stage::EffectFastZoomBlur
                 };
                 if let Some((spin, sweep)) = instance.effect.sweep() {
-                    crate::perf::time(stage, || crate::blurs::radial_blur(source, spin, *amount, c, false, Some(sweep)))
+                    crate::perf::time(stage, || {
+                        crate::blurs::radial_blur(source, spin, *amount, c, false, Some(sweep))
+                    })
                 }
             }
-            Effect::BroadcastSafe { locale, method, max_amplitude } => crate::perf::time(crate::perf::Stage::EffectBroadcastSafe, || {
-                crate::grade::broadcast_safe(source, broadcast_setup(locale), method, *max_amplitude)
+            Effect::BroadcastSafe {
+                locale,
+                method,
+                max_amplitude,
+            } => crate::perf::time(crate::perf::Stage::EffectBroadcastSafe, || {
+                crate::grade::broadcast_safe(
+                    source,
+                    broadcast_setup(locale),
+                    method,
+                    *max_amplitude,
+                )
             }),
-            Effect::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point } => {
-                let d = neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]);
+            Effect::ColorNeutralizer {
+                shadows_unbalance,
+                midtones_unbalance,
+                highlights_unbalance,
+                shadows,
+                midtones,
+                highlights,
+                pinning,
+                black_point,
+                white_point,
+            } => {
+                let d = neutral_corrections(
+                    [shadows_unbalance, midtones_unbalance, highlights_unbalance],
+                    [shadows, midtones, highlights],
+                );
                 crate::perf::time(crate::perf::Stage::EffectColorNeutralizer, || {
                     crate::grade::color_neutralizer(source, d, *pinning, *black_point, *white_point)
                 })
             }
-            Effect::ColorOffset { red_phase, green_phase, blue_phase, overflow } => crate::perf::time(crate::perf::Stage::EffectColorOffset, || {
-                crate::grade::color_offset(source, [*red_phase, *green_phase, *blue_phase], overflow)
+            Effect::ColorOffset {
+                red_phase,
+                green_phase,
+                blue_phase,
+                overflow,
+            } => crate::perf::time(crate::perf::Stage::EffectColorOffset, || {
+                crate::grade::color_offset(
+                    source,
+                    [*red_phase, *green_phase, *blue_phase],
+                    overflow,
+                )
             }),
-            Effect::Kernel { line_1, line_2, line_3, divider, absolute_values } => crate::perf::time(crate::perf::Stage::EffectKernel, || {
-                crate::layer_fx::kernel(source, kernel_grid([line_1, line_2, line_3]), *divider, absolute_values == "on")
+            Effect::Kernel {
+                line_1,
+                line_2,
+                line_3,
+                divider,
+                absolute_values,
+            } => crate::perf::time(crate::perf::Stage::EffectKernel, || {
+                crate::layer_fx::kernel(
+                    source,
+                    kernel_grid([line_1, line_2, line_3]),
+                    *divider,
+                    absolute_values == "on",
+                )
             }),
-            Effect::Toner { tones, highlights, brights, midtones, darktones, shadows } => crate::perf::time(crate::perf::Stage::EffectToner, || {
-                crate::grade::toner(source, &toner_stops(tones, [highlights, brights, midtones, darktones, shadows]))
+            Effect::Toner {
+                tones,
+                highlights,
+                brights,
+                midtones,
+                darktones,
+                shadows,
+            } => crate::perf::time(crate::perf::Stage::EffectToner, || {
+                crate::grade::toner(
+                    source,
+                    &toner_stops(tones, [highlights, brights, midtones, darktones, shadows]),
+                )
             }),
             Effect::ChangeColor {
                 view,
@@ -14820,65 +18748,140 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectChangeColor, || {
                 let c = crate::grade::ChangeColor {
                     mask: view == "mask",
-                    transforms: [*hue_transform, *lightness_transform / 100.0, *saturation_transform / 100.0],
+                    transforms: [
+                        *hue_transform,
+                        *lightness_transform / 100.0,
+                        *saturation_transform / 100.0,
+                    ],
                     color: encoded(color_to_change),
                     tolerance: *tolerance / 100.0,
                     softness: *softness / 100.0,
-                    matching: CHANGE_MATCHES.iter().position(|m| m == match_colors).unwrap_or(1),
+                    matching: CHANGE_MATCHES
+                        .iter()
+                        .position(|m| m == match_colors)
+                        .unwrap_or(1),
                     invert: invert_mask == "on",
                 };
                 crate::grade::change_color(source, &c)
             }),
-            Effect::ColorBalanceHls { hue, lightness, saturation } => crate::perf::time(crate::perf::Stage::EffectColorBalanceHls, || {
-                crate::grade::color_balance_hls(source, *hue, *lightness / 100.0, *saturation / 100.0)
+            Effect::ColorBalanceHls {
+                hue,
+                lightness,
+                saturation,
+            } => crate::perf::time(crate::perf::Stage::EffectColorBalanceHls, || {
+                crate::grade::color_balance_hls(
+                    source,
+                    *hue,
+                    *lightness / 100.0,
+                    *saturation / 100.0,
+                )
             }),
-            Effect::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => crate::perf::time(crate::perf::Stage::EffectGammaPedestalGain, || {
+            Effect::GammaPedestalGain {
+                black_stretch,
+                gamma,
+                pedestal,
+                gain,
+            } => crate::perf::time(crate::perf::Stage::EffectGammaPedestalGain, || {
                 crate::grade::gamma_pedestal_gain(source, *black_stretch, *gamma, *pedestal, *gain)
             }),
-            Effect::PhotoFilter { filter, color, density, preserve_luminosity } => crate::perf::time(crate::perf::Stage::EffectPhotoFilter, || {
-                crate::grade::photo_filter(source, photo_filter_colour(filter, color), *density / 100.0, preserve_luminosity == "on")
+            Effect::PhotoFilter {
+                filter,
+                color,
+                density,
+                preserve_luminosity,
+            } => crate::perf::time(crate::perf::Stage::EffectPhotoFilter, || {
+                crate::grade::photo_filter(
+                    source,
+                    photo_filter_colour(filter, color),
+                    *density / 100.0,
+                    preserve_luminosity == "on",
+                )
             }),
-            Effect::ColorGrade { .. } => crate::perf::time(crate::perf::Stage::EffectColorGrade, || {
-                for step in color_grade_steps(&instance.effect, (source.width(), source.height()), (ox, oy)) {                    match step {
-                        GradeStep::Tone(g, terms) => crate::grade::grade_tone(source, g, terms),
-                        GradeStep::Vibrance(v, s) => crate::grade::vibrance(source, v, s),
-                        GradeStep::Look(cube, i) => crate::grade::look(source, cube, i),
-                        GradeStep::Tints(sh, hi) => crate::grade::color_balance(source, sh, [0.0; 3], hi, false),
-                        GradeStep::Curves(c) => crate::grade::curves(source, &c[0], [&c[1], &c[2], &c[3]], &[vec![0.0, 0.0], vec![255.0, 255.0]]),
-                        GradeStep::HueSaturation(points) => crate::grade::hue_vs_saturation(source, points),
-                        GradeStep::More(which, points) => crate::grade::grade_curve(source, which, points),
-                        GradeStep::Wheels(sh, mid, hi) => crate::grade::color_balance(source, sh, mid, hi, false),
-                        GradeStep::Secondary(s) => crate::grade::secondary(source, &s),
-                        GradeStep::Vignette(v) => crate::grade::vignette(source, &v),
-                        GradeStep::Sharpen(s) => crate::layer_fx::sharpen(source, s, 1.0, 0.0),
+            Effect::ColorGrade { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectColorGrade, || {
+                    for step in color_grade_steps(
+                        &instance.effect,
+                        (source.width(), source.height()),
+                        (ox, oy),
+                    ) {
+                        match step {
+                            GradeStep::Tone(g, terms) => crate::grade::grade_tone(source, g, terms),
+                            GradeStep::Vibrance(v, s) => crate::grade::vibrance(source, v, s),
+                            GradeStep::Look(cube, i) => crate::grade::look(source, cube, i),
+                            GradeStep::Tints(sh, hi) => {
+                                crate::grade::color_balance(source, sh, [0.0; 3], hi, false)
+                            }
+                            GradeStep::Curves(c) => crate::grade::curves(
+                                source,
+                                &c[0],
+                                [&c[1], &c[2], &c[3]],
+                                &[vec![0.0, 0.0], vec![255.0, 255.0]],
+                            ),
+                            GradeStep::HueSaturation(points) => {
+                                crate::grade::hue_vs_saturation(source, points)
+                            }
+                            GradeStep::More(which, points) => {
+                                crate::grade::grade_curve(source, which, points)
+                            }
+                            GradeStep::Wheels(sh, mid, hi) => {
+                                crate::grade::color_balance(source, sh, mid, hi, false)
+                            }
+                            GradeStep::Secondary(s) => crate::grade::secondary(source, &s),
+                            GradeStep::Vignette(v) => crate::grade::vignette(source, &v),
+                            GradeStep::Sharpen(s) => crate::layer_fx::sharpen(source, s, 1.0, 0.0),
+                        }
                     }
-                }
-            }),
+                })
+            }
             // D-375: a named layer's statistics from the map compose read; "" the picture as it
             // reaches this effect. A named layer with no map (not in the composition, which
             // compose said) or a picture where nothing shows leaves the layer as it is.
-            Effect::ColorLink { layer, sample, clip, stencil, opacity, blending_mode, map } => {
-                crate::perf::time(crate::perf::Stage::EffectColorLink, || {
-                    let stats = match map {
-                        Some(m) => crate::frame_stats::Stats::of(&m.0),
-                        None if layer.as_str() == Some("") => crate::frame_stats::Stats::of(source),
-                        None => None,
-                    };
-                    if let Some(s) = stats {
-                        let c = crate::frame_stats::link_colour(&s, sample, *clip);
-                        crate::frame_stats::link(source, c, *opacity / 100.0, stencil == "on", blending_mode);
-                    }
-                })
-            }
-            Effect::ColorStabilizer { stabilize, black_point, mid_point, white_point, sample_size, reference, .. } => {
-                crate::perf::time(crate::perf::Stage::EffectColorStabilizer, || {
-                    let Some(then) = reference else { return };
-                    let now = stabilizer_samples(source, stabilize, [*black_point, *mid_point, *white_point], *sample_size, (ox, oy));
-                    if let Some(now) = now {
-                        crate::grade::color_stabilize(source, stabilize, &now, then);
-                    }
-                })
-            }
+            Effect::ColorLink {
+                layer,
+                sample,
+                clip,
+                stencil,
+                opacity,
+                blending_mode,
+                map,
+            } => crate::perf::time(crate::perf::Stage::EffectColorLink, || {
+                let stats = match map {
+                    Some(m) => crate::frame_stats::Stats::of(&m.0),
+                    None if layer.as_str() == Some("") => crate::frame_stats::Stats::of(source),
+                    None => None,
+                };
+                if let Some(s) = stats {
+                    let c = crate::frame_stats::link_colour(&s, sample, *clip);
+                    crate::frame_stats::link(
+                        source,
+                        c,
+                        *opacity / 100.0,
+                        stencil == "on",
+                        blending_mode,
+                    );
+                }
+            }),
+            Effect::ColorStabilizer {
+                stabilize,
+                black_point,
+                mid_point,
+                white_point,
+                sample_size,
+                reference,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectColorStabilizer, || {
+                let Some(then) = reference else { return };
+                let now = stabilizer_samples(
+                    source,
+                    stabilize,
+                    [*black_point, *mid_point, *white_point],
+                    *sample_size,
+                    (ox, oy),
+                );
+                if let Some(now) = now {
+                    crate::grade::color_stabilize(source, stabilize, &now, then);
+                }
+            }),
             // D-204: the planes are fixed to the drawing's own space; it grows nothing.
             Effect::Snowfall {
                 color,
@@ -14894,9 +18897,18 @@ pub(crate) fn apply_stack_at(
                 opacity,
                 frame,
             } => {
-                let numbers = [*density, *spacing, *size, *depth, *speed, *wind, *wiggle, *period, *seed, *opacity];
+                let numbers = [
+                    *density, *spacing, *size, *depth, *speed, *wind, *wiggle, *period, *seed,
+                    *opacity,
+                ];
                 crate::perf::time(crate::perf::Stage::EffectSnowfall, || {
-                    crate::layer_fx::snowfall(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
+                    crate::layer_fx::snowfall(
+                        source,
+                        encoded(color).map(crate::grade::to_linear),
+                        numbers,
+                        *frame,
+                        (ox, oy),
+                    )
                 })
             }
             // D-206: the noise is the drawing's own, however an effect above grew it; the layer
@@ -14912,8 +18924,15 @@ pub(crate) fn apply_stack_at(
                 seed,
                 frame,
             } => {
-                let color = (edge_type == "roughen_color").then(|| encoded(edge_color).map(crate::grade::to_linear));
-                let numbers = [*border, *size, complexity.floor(), *seed, depth(*evolution, *speed, *frame)];
+                let color = (edge_type == "roughen_color")
+                    .then(|| encoded(edge_color).map(crate::grade::to_linear));
+                let numbers = [
+                    *border,
+                    *size,
+                    complexity.floor(),
+                    *seed,
+                    depth(*evolution, *speed, *frame),
+                ];
                 crate::perf::time(crate::perf::Stage::EffectRoughenEdges, || {
                     crate::layer_fx::roughen_edges(source, color, numbers, (ox, oy))
                 })
@@ -14932,8 +18951,12 @@ pub(crate) fn apply_stack_at(
                 outside_color,
                 composite,
             } => crate::perf::time(crate::perf::Stage::EffectBeam, || {
-                let colours = [encoded(inside_color), encoded(outside_color)].map(|c| c.map(crate::grade::to_linear));
-                let ends = [radial_center(*start, (source.width(), source.height()), (ox, oy)), radial_center(*end, (source.width(), source.height()), (ox, oy))];
+                let colours = [encoded(inside_color), encoded(outside_color)]
+                    .map(|c| c.map(crate::grade::to_linear));
+                let ends = [
+                    radial_center(*start, (source.width(), source.height()), (ox, oy)),
+                    radial_center(*end, (source.width(), source.height()), (ox, oy)),
+                ];
                 let numbers = [*length, *time, *start_thickness, *end_thickness, *softness];
                 crate::layer_fx::beam(source, ends, numbers, colours, composite == "off")
             }),
@@ -14952,9 +18975,17 @@ pub(crate) fn apply_stack_at(
                 opacity,
                 blending_mode,
             } => crate::perf::time(crate::perf::Stage::EffectFourColorGradient, || {
-                let points = [point_1, point_2, point_3, point_4].map(|p| radial_center(*p, (source.width(), source.height()), (ox, oy)));
+                let points = [point_1, point_2, point_3, point_4]
+                    .map(|p| radial_center(*p, (source.width(), source.height()), (ox, oy)));
                 let colors = [color_1, color_2, color_3, color_4].map(|c| encoded(c));
-                crate::grade::four_color_gradient(source, points, colors, *blend, *opacity, blending_mode)
+                crate::grade::four_color_gradient(
+                    source,
+                    points,
+                    colors,
+                    *blend,
+                    *opacity,
+                    blending_mode,
+                )
             }),
             // D-209: the cells are the drawing's own, however an effect above grew it.
             Effect::CellPattern {
@@ -14989,7 +19020,13 @@ pub(crate) fn apply_stack_at(
                 center,
                 mode,
             } => crate::perf::time(crate::perf::Stage::EffectKaleidoscope, || {
-                crate::layer_fx::kaleidoscope(source, [*segments, *rotation, *size], *center, mode == "mirror", (ox, oy))
+                crate::layer_fx::kaleidoscope(
+                    source,
+                    [*segments, *rotation, *size],
+                    *center,
+                    mode == "mirror",
+                    (ox, oy),
+                )
             }),
             // D-210: the lens is the drawing's own, however an effect above grew it; the layer
             // never grows.
@@ -14999,7 +19036,14 @@ pub(crate) fn apply_stack_at(
                 orientation,
                 center,
             } => crate::perf::time(crate::perf::Stage::EffectOpticsCompensation, || {
-                crate::layer_fx::optics_compensation(source, *field_of_view, reverse == "on", orientation, *center, (ox, oy))
+                crate::layer_fx::optics_compensation(
+                    source,
+                    *field_of_view,
+                    reverse == "on",
+                    orientation,
+                    *center,
+                    (ox, oy),
+                )
             }),
             // D-198: the corners are in per cent of the drawing's own box, however an effect
             // above grew it, and the layer grows so none is cut off.
@@ -15010,7 +19054,11 @@ pub(crate) fn apply_stack_at(
                 lower_right,
             } => {
                 let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectCornerPin, || {
-                    crate::layer_fx::corner_pin(source, [*upper_left, *upper_right, *lower_left, *lower_right], (ox, oy))
+                    crate::layer_fx::corner_pin(
+                        source,
+                        [*upper_left, *upper_right, *lower_left, *lower_right],
+                        (ox, oy),
+                    )
                 });
                 ox += gx;
                 oy += gy;
@@ -15037,7 +19085,11 @@ pub(crate) fn apply_stack_at(
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectRadioWaves, || {
                 let s = crate::layer_fx::RadioWaves {
-                    producer: radial_center(*producer_point, (source.width(), source.height()), (ox, oy)),
+                    producer: radial_center(
+                        *producer_point,
+                        (source.width(), source.height()),
+                        (ox, oy),
+                    ),
                     sides: *sides,
                     interval: *interval,
                     expansion: *expansion,
@@ -15103,7 +19155,15 @@ pub(crate) fn apply_stack_at(
                     "both" => 2,
                     _ => 0,
                 };
-                crate::layer_fx::radial_wipe(source, *completion, *start_angle, *center, way, *feather, (ox, oy))
+                crate::layer_fx::radial_wipe(
+                    source,
+                    *completion,
+                    *start_angle,
+                    *center,
+                    way,
+                    *feather,
+                    (ox, oy),
+                )
             }),
             // D-157: the slats are the drawing's own, however an effect above grew it.
             Effect::VenetianBlinds {
@@ -15112,7 +19172,14 @@ pub(crate) fn apply_stack_at(
                 width,
                 feather,
             } => crate::perf::time(crate::perf::Stage::EffectVenetianBlinds, || {
-                crate::layer_fx::venetian_blinds(source, *completion, *angle, *width, *feather, (ox, oy))
+                crate::layer_fx::venetian_blinds(
+                    source,
+                    *completion,
+                    *angle,
+                    *width,
+                    *feather,
+                    (ox, oy),
+                )
             }),
             // D-158: the circle is the drawing's own, however an effect above grew it.
             Effect::IrisWipe {
@@ -15121,7 +19188,14 @@ pub(crate) fn apply_stack_at(
                 feather,
                 invert,
             } => crate::perf::time(crate::perf::Stage::EffectIrisWipe, || {
-                crate::layer_fx::iris_wipe(source, *completion, *center, *feather, invert == "on", (ox, oy))
+                crate::layer_fx::iris_wipe(
+                    source,
+                    *completion,
+                    *center,
+                    *feather,
+                    invert == "on",
+                    (ox, oy),
+                )
             }),
             // D-159: a spread grows the layer by its reach, rounded down.
             Effect::SimpleChoker { choke } => {
@@ -15146,9 +19220,24 @@ pub(crate) fn apply_stack_at(
                 frame,
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
-                let numbers = [*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold, *opacity];
+                let numbers = [
+                    *count,
+                    *thickness,
+                    *inner,
+                    *inner_jitter,
+                    *angle_jitter,
+                    *seed,
+                    *hold,
+                    *opacity,
+                ];
                 crate::perf::time(crate::perf::Stage::EffectSpeedLines, || {
-                    crate::layer_fx::speed_lines(source, c, encoded(color).map(crate::grade::to_linear), numbers, *frame)
+                    crate::layer_fx::speed_lines(
+                        source,
+                        c,
+                        encoded(color).map(crate::grade::to_linear),
+                        numbers,
+                        *frame,
+                    )
                 })
             }
             // D-161: the arms grow the layer by the length, taken down to a whole number.
@@ -15164,7 +19253,9 @@ pub(crate) fn apply_stack_at(
                 let r = crate::perf::time(crate::perf::Stage::EffectCrossGlare, || {
                     // D-546: each ray's tint.
                     let (outer, tints) = glint.tints(points.floor() as usize, color);
-                    crate::layer_fx::cross_glare(source, *threshold, *length, *points, *angle, *intensity, outer, &tints)
+                    crate::layer_fx::cross_glare(
+                        source, *threshold, *length, *points, *angle, *intensity, outer, &tints,
+                    )
                 });
                 ox += r;
                 oy += r;
@@ -15178,7 +19269,12 @@ pub(crate) fn apply_stack_at(
                 frame,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectCameraShake, || {
-                    crate::layer_fx::camera_shake(source, [*amount, *rotation, *hold, *seed], *frame, (ox, oy))
+                    crate::layer_fx::camera_shake(
+                        source,
+                        [*amount, *rotation, *hold, *seed],
+                        *frame,
+                        (ox, oy),
+                    )
                 });
                 ox += r;
                 oy += r;
@@ -15196,9 +19292,17 @@ pub(crate) fn apply_stack_at(
                 opacity,
                 frame,
             } => {
-                let numbers = [*density, *spacing, *length, *width, *direction, *speed, *seed, *opacity];
+                let numbers = [
+                    *density, *spacing, *length, *width, *direction, *speed, *seed, *opacity,
+                ];
                 crate::perf::time(crate::perf::Stage::EffectRain, || {
-                    crate::layer_fx::rain(source, encoded(color).map(crate::grade::to_linear), numbers, *frame, (ox, oy))
+                    crate::layer_fx::rain(
+                        source,
+                        encoded(color).map(crate::grade::to_linear),
+                        numbers,
+                        *frame,
+                        (ox, oy),
+                    )
                 })
             }
             // D-182: without its table, a lookup naming no file, or one missing or refused,
@@ -15212,7 +19316,12 @@ pub(crate) fn apply_stack_at(
             }
             // D-395: the colour tables as one 1D lookup by Color Lookup's rule, then, when asked
             // and the file has one, the covering through the alpha table as Curves' (D-302).
-            Effect::ArbitraryMap { phase, apply_to_alpha, table, .. } => {
+            Effect::ArbitraryMap {
+                phase,
+                apply_to_alpha,
+                table,
+                ..
+            } => {
                 if let Some(t) = table {
                     crate::perf::time(crate::perf::Stage::EffectArbitraryMap, || {
                         crate::grade::color_lookup(source, &t.0.colours(*phase));
@@ -15222,19 +19331,60 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
-            Effect::SelectiveColor { method, families } => crate::perf::time(crate::perf::Stage::EffectSelectiveColor, || {
-                crate::grade::selective_color(source, &selective_color_amounts(families), method == "relative")
-            }),
-            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, auto_amounts, stats, .. } => {
+            Effect::SelectiveColor { method, families } => {
+                crate::perf::time(crate::perf::Stage::EffectSelectiveColor, || {
+                    crate::grade::selective_color(
+                        source,
+                        &selective_color_amounts(families),
+                        method == "relative",
+                    )
+                })
+            }
+            Effect::ShadowHighlight {
+                shadow_amount,
+                highlight_amount,
+                shadow_tonal_width,
+                shadow_radius,
+                highlight_tonal_width,
+                highlight_radius,
+                color_correction,
+                midtone_contrast,
+                black_clip,
+                white_clip,
+                auto_amounts,
+                stats,
+                ..
+            } => {
                 crate::perf::time(crate::perf::Stage::EffectShadowHighlight, || {
                     // D-564: the amounts from the frames compose added up, or this picture's own.
                     let (shadow_amount, highlight_amount) = if auto_amounts == "on" {
-                        let own = if stats.is_none() { crate::frame_stats::Stats::of(source) } else { None };
-                        stats.as_deref().or(own.as_ref()).map_or((0.0, 0.0), crate::frame_stats::auto_amounts)
+                        let own = if stats.is_none() {
+                            crate::frame_stats::Stats::of(source)
+                        } else {
+                            None
+                        };
+                        stats
+                            .as_deref()
+                            .or(own.as_ref())
+                            .map_or((0.0, 0.0), crate::frame_stats::auto_amounts)
                     } else {
                         (*shadow_amount, *highlight_amount)
                     };
-                    crate::grade::shadow_highlight(source, [shadow_amount, highlight_amount, *shadow_tonal_width, *shadow_radius, *highlight_tonal_width, *highlight_radius, *color_correction, *midtone_contrast, *black_clip, *white_clip])
+                    crate::grade::shadow_highlight(
+                        source,
+                        [
+                            shadow_amount,
+                            highlight_amount,
+                            *shadow_tonal_width,
+                            *shadow_radius,
+                            *highlight_tonal_width,
+                            *highlight_radius,
+                            *color_correction,
+                            *midtone_contrast,
+                            *black_clip,
+                            *white_clip,
+                        ],
+                    )
                 })
             }
             Effect::LineBlur {
@@ -15291,10 +19441,20 @@ pub(crate) fn apply_stack_at(
                 color,
                 frame,
             } => {
-                let numbers = [*threshold, *spacing, *density, *size, *angle, *twinkle, *period, *seed, *opacity];
+                let numbers = [
+                    *threshold, *spacing, *density, *size, *angle, *twinkle, *period, *seed,
+                    *opacity,
+                ];
                 let r = crate::perf::time(crate::perf::Stage::EffectKiraKira, || {
                     let c = encoded(color).map(crate::grade::to_linear);
-                    crate::layer_fx::kira_kira(source, c, numbers, shape == "star", *frame, (ox, oy))
+                    crate::layer_fx::kira_kira(
+                        source,
+                        c,
+                        numbers,
+                        shape == "star",
+                        *frame,
+                        (ox, oy),
+                    )
                 });
                 ox += r;
                 oy += r;
@@ -15328,35 +19488,85 @@ pub(crate) fn apply_stack_at(
                 // D-329: below 0 the mirror, the clear parts blocking.
                 let edge = 1.0 - *obstacle / 100.0;
                 let blocks: Vec<bool> = match *obstacle {
-                    a if a > 0.0 => source.data().chunks_exact(4).map(|p| p[3] as f64 > edge).collect(),
-                    a if a < 0.0 => source.data().chunks_exact(4).map(|p| (p[3] as f64) < -a / 100.0).collect(),
+                    a if a > 0.0 => source
+                        .data()
+                        .chunks_exact(4)
+                        .map(|p| p[3] as f64 > edge)
+                        .collect(),
+                    a if a < 0.0 => source
+                        .data()
+                        .chunks_exact(4)
+                        .map(|p| (p[3] as f64) < -a / 100.0)
+                        .collect(),
                     _ => Vec::new(),
                 };
                 // D-300: off, the layer's own picture goes and the bolt is all there is.
                 if composite == "off" {
                     source.data_mut().fill(0.0);
                 }
-                let colours = [encoded(color), encoded(glow_color)].map(|c| c.map(crate::grade::to_linear));
+                let colours =
+                    [encoded(color), encoded(glow_color)].map(|c| c.map(crate::grade::to_linear));
                 let size = (source.width(), source.height());
-                let ends = [radial_center(*start, size, (ox, oy)), radial_center(*end, size, (ox, oy)), radial_center([start[0], 100.0], size, (ox, oy))];
-                let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
-                crate::layer_fx::lightning_bolt(source, ends, numbers, (kind, [*turbulence, *decay, *conductivity], forks.as_str()), (&blocks, *obstacle < 0.0, path == "around"), (colours, core == "soft"), *frame)
+                let ends = [
+                    radial_center(*start, size, (ox, oy)),
+                    radial_center(*end, size, (ox, oy)),
+                    radial_center([start[0], 100.0], size, (ox, oy)),
+                ];
+                let numbers = [
+                    *jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed,
+                ];
+                crate::layer_fx::lightning_bolt(
+                    source,
+                    ends,
+                    numbers,
+                    (kind, [*turbulence, *decay, *conductivity], forks.as_str()),
+                    (&blocks, *obstacle < 0.0, path == "around"),
+                    (colours, core == "soft"),
+                    *frame,
+                )
             }),
             // D-191: the map compose read for this frame; with none, nothing is blurred.
-            Effect::CompoundBlur { max_blur, invert, edges, map, .. } => {
+            Effect::CompoundBlur {
+                max_blur,
+                invert,
+                edges,
+                map,
+                ..
+            } => {
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectCompoundBlur, || {
-                        crate::layer_fx::compound_blur(source, &map.0, (ox, oy), *max_blur, invert == "on", edges == "repeat")
+                        crate::layer_fx::compound_blur(
+                            source,
+                            &map.0,
+                            (ox, oy),
+                            *max_blur,
+                            invert == "on",
+                            edges == "repeat",
+                        )
                     })
                 }
             }
             // D-193: the map compose read for this frame; with none, nothing moves. D-315: with
             // Expand Output the layer grows first.
             Effect::DisplacementMap {
-                horizontal, max_horizontal, vertical, max_vertical, wrap, expand, red_amount, green_amount, blue_amount, spectrum, map, ..
+                horizontal,
+                max_horizontal,
+                vertical,
+                max_vertical,
+                wrap,
+                expand,
+                red_amount,
+                green_amount,
+                blue_amount,
+                spectrum,
+                map,
+                ..
             } => {
                 if let Some(map) = map {
-                    let (most, amounts) = chromatic_amounts([*max_horizontal, *max_vertical], [*red_amount, *green_amount, *blue_amount]);
+                    let (most, amounts) = chromatic_amounts(
+                        [*max_horizontal, *max_vertical],
+                        [*red_amount, *green_amount, *blue_amount],
+                    );
                     let r = crate::perf::time(crate::perf::Stage::EffectDisplacementMap, || {
                         crate::layer_fx::displacement_map(
                             source,
@@ -15373,27 +19583,64 @@ pub(crate) fn apply_stack_at(
                 }
             }
             // D-194: the map compose read for this frame; with none, nothing is wiped.
-            Effect::GradientWipe { completion, softness, invert, map, .. } => {
+            Effect::GradientWipe {
+                completion,
+                softness,
+                invert,
+                map,
+                ..
+            } => {
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectGradientWipe, || {
-                        crate::layer_fx::gradient_wipe(source, Some(&*map.0), (ox, oy), *completion, *softness, ("luminance", 0.0), invert == "on")
+                        crate::layer_fx::gradient_wipe(
+                            source,
+                            Some(&*map.0),
+                            (ox, oy),
+                            *completion,
+                            *softness,
+                            ("luminance", 0.0),
+                            invert == "on",
+                        )
                     })
                 }
             }
             // D-512: Gradient Wipe's engine; "" for the layer itself; a layer named but not read
             // leaves the layer as it is, with D-189's warning. Never grows.
-            Effect::ChannelWipe { layer, completion, softness, property, blur, invert, map, .. } => {
+            Effect::ChannelWipe {
+                layer,
+                completion,
+                softness,
+                property,
+                blur,
+                invert,
+                map,
+                ..
+            } => {
                 if map.is_some() || layer.as_str() == Some("") {
                     crate::perf::time(crate::perf::Stage::EffectChannelWipe, || {
                         let map = map.as_ref().map(|m| &*m.0);
-                        crate::layer_fx::gradient_wipe(source, map, (ox, oy), *completion, *softness, (property, *blur), invert == "on")
+                        crate::layer_fx::gradient_wipe(
+                            source,
+                            map,
+                            (ox, oy),
+                            *completion,
+                            *softness,
+                            (property, *blur),
+                            invert == "on",
+                        )
                     })
                 }
             }
             // D-403: even with no layer named; through the matte compose read when one is; a
             // layer named but not read (not in the composition) leaves the layer as it is, with
             // D-189's warning.
-            Effect::AerialHaze { haze_color, amount, layer, map, .. } => {
+            Effect::AerialHaze {
+                haze_color,
+                amount,
+                layer,
+                map,
+                ..
+            } => {
                 let matte = match (layer.as_str(), map) {
                     (Some(""), _) => Some(None),
                     (_, Some(m)) => Some(Some((m.0.as_ref(), (ox, oy)))),
@@ -15401,18 +19648,32 @@ pub(crate) fn apply_stack_at(
                 };
                 if let Some(matte) = matte {
                     crate::perf::time(crate::perf::Stage::EffectAerialHaze, || {
-                        crate::layer_fx::aerial_haze(source, matte, encoded(haze_color).map(crate::grade::to_linear), amount / 100.0)
+                        crate::layer_fx::aerial_haze(
+                            source,
+                            matte,
+                            encoded(haze_color).map(crate::grade::to_linear),
+                            amount / 100.0,
+                        )
                     })
                 }
             }
             // D-408: the points are in per cent of the drawing's own box, however an effect above
             // grew it; the layer never grows. Through the shutter, each moment compose read.
-            Effect::Transform { sampling, moments, .. } => {
-                let now = transform_moment(&instance.effect).into_iter().collect::<Vec<_>>();
+            Effect::Transform {
+                sampling, moments, ..
+            } => {
+                let now = transform_moment(&instance.effect)
+                    .into_iter()
+                    .collect::<Vec<_>>();
                 let size = (source.width(), source.height());
                 let maps: Vec<_> = if moments.is_empty() { &now } else { moments }
                     .iter()
-                    .map(|m| (crate::layer_fx::transform_map(m, size, (ox, oy)), m[9] / 100.0))
+                    .map(|m| {
+                        (
+                            crate::layer_fx::transform_map(m, size, (ox, oy)),
+                            m[9] / 100.0,
+                        )
+                    })
                     .collect();
                 crate::perf::time(crate::perf::Stage::EffectTransform, || {
                     crate::layer_fx::transform(source, &maps, sampling == "bicubic")
@@ -15452,7 +19713,18 @@ pub(crate) fn apply_stack_at(
                 random_seed,
                 clock,
             } => {
-                let numbers = [*drops, *size, *scene_depth, *speed, *wind, *wind_variation, *spread, *opacity, *ground_level, *random_seed];
+                let numbers = [
+                    *drops,
+                    *size,
+                    *scene_depth,
+                    *speed,
+                    *wind,
+                    *wind_variation,
+                    *spread,
+                    *opacity,
+                    *ground_level,
+                    *random_seed,
+                ];
                 crate::perf::time(crate::perf::Stage::EffectCcRainfall, || {
                     crate::layer_fx::cc_rainfall(
                         source,
@@ -15476,7 +19748,11 @@ pub(crate) fn apply_stack_at(
             // D-650: the drawing-sized picture at the drawing's corner, smeared along the motion
             // `flow` finds to the holder's pictures one frame before and after (compose drew them
             // into `frames`), laid back as CC Wide Time's are. Angle 0, or no frames, leaves it.
-            Effect::PixelMotionBlur { vector_detail, frames, .. } => {
+            Effect::PixelMotionBlur {
+                vector_detail,
+                frames,
+                ..
+            } => {
                 if let Some((before, after, angle, samples)) = frames {
                     if *angle > 0.0 {
                         crate::perf::time(crate::perf::Stage::EffectPixelMotionBlur, || {
@@ -15485,7 +19761,8 @@ pub(crate) fn apply_stack_at(
                             let tuning = crate::flow::Tuning::added(*vector_detail);
                             let back = crate::flow::estimate(&o, &before.0, &tuning);
                             let ahead = crate::flow::estimate(&o, &after.0, &tuning);
-                            let out = crate::flow::gather(&o, &back, &ahead, angle / 360.0, *samples);
+                            let out =
+                                crate::flow::gather(&o, &back, &ahead, angle / 360.0, *samples);
                             crate::layer_fx::lay(source, &out, (ox, oy))
                         })
                     }
@@ -15495,63 +19772,135 @@ pub(crate) fn apply_stack_at(
             // Wide Time's. None (an adjustment layer) leaves the layer as it is.
             Effect::Timewarp { picture, .. } => {
                 if let Some(picture) = picture {
-                    crate::perf::time(crate::perf::Stage::EffectTimewarp, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectTimewarp, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
                 }
             }
             // D-653: the drawing-sized picture compose steadied, at the drawing's corner, as
             // Timewarp's. None (an adjustment layer) leaves the layer as it is.
             Effect::WarpStabilizer { picture, .. } => {
                 if let Some(picture) = picture {
-                    crate::perf::time(crate::perf::Stage::EffectWarpStabilizer, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectWarpStabilizer, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
                 }
             }
             // D-654: the drawing-sized picture compose repaired, at the drawing's corner, as Warp
             // Stabilizer's. None (rate 0, nothing moving, an adjustment layer) leaves the layer as it is.
             Effect::RollingShutterRepair { picture, .. } => {
                 if let Some(picture) = picture {
-                    crate::perf::time(crate::perf::Stage::EffectRollingShutterRepair, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
+                    crate::perf::time(crate::perf::Stage::EffectRollingShutterRepair, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
                 }
             }
             // D-521: the target compose read at its offset; with none (no layer of its own on an
             // adjustment layer, a layer named not in the composition, or a circle), the layer is
             // left as it is, the last two with D-189's word.
-            Effect::TimeDifference { contrast, absolute_difference, alpha_channel, map, .. } => {
+            Effect::TimeDifference {
+                contrast,
+                absolute_difference,
+                alpha_channel,
+                map,
+                ..
+            } => {
                 if let Some(map) = map {
-                    let alpha = TDIFF_ALPHAS.iter().position(|w| w == alpha_channel).unwrap_or(0);
+                    let alpha = TDIFF_ALPHAS
+                        .iter()
+                        .position(|w| w == alpha_channel)
+                        .unwrap_or(0);
                     crate::perf::time(crate::perf::Stage::EffectTimeDifference, || {
-                        crate::layer_fx::time_difference(source, &map.0, (ox, oy), *contrast, absolute_difference == "on", alpha)
+                        crate::layer_fx::time_difference(
+                            source,
+                            &map.0,
+                            (ox, oy),
+                            *contrast,
+                            absolute_difference == "on",
+                            alpha,
+                        )
                     })
                 }
             }
             // D-348: the pass compose read from the layer's file for this frame; with none, the
             // layer is left as it is (EFFECT_CHANNEL_MISSING was said when it was looked for).
-            Effect::PassExtract { black_point, white_point, invert, clamp, unmult, channels, .. } => {
+            Effect::PassExtract {
+                black_point,
+                white_point,
+                invert,
+                clamp,
+                unmult,
+                channels,
+                ..
+            } => {
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectPassExtract, || {
-                        crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), *black_point, *white_point, invert == "on", clamp == "on", unmult == "on")
+                        crate::layer_fx::pass_extract(
+                            source,
+                            &pass.0,
+                            (ox, oy),
+                            *black_point,
+                            *white_point,
+                            invert == "on",
+                            clamp == "on",
+                            unmult == "on",
+                        )
                     })
                 }
             }
-            Effect::DepthKey { depth, feather, invert, channels } => {
+            Effect::DepthKey {
+                depth,
+                feather,
+                invert,
+                channels,
+            } => {
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectDepthKey, || {
-                        crate::layer_fx::depth_key(source, &pass.0, (ox, oy), *depth, *feather, invert == "on")
+                        crate::layer_fx::depth_key(
+                            source,
+                            &pass.0,
+                            (ox, oy),
+                            *depth,
+                            *feather,
+                            invert == "on",
+                        )
                     })
                 }
             }
             // D-349: as Depth Key, with the ids compose read.
-            Effect::IdKey { id, feather, invert, channels, .. } => {
+            Effect::IdKey {
+                id,
+                feather,
+                invert,
+                channels,
+                ..
+            } => {
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectIdKey, || {
-                        crate::layer_fx::id_key(source, &pass.0, (ox, oy), *id, *feather, invert == "on")
+                        crate::layer_fx::id_key(
+                            source,
+                            &pass.0,
+                            (ox, oy),
+                            *id,
+                            *feather,
+                            invert == "on",
+                        )
                     })
                 }
             }
             // D-527: the box and the words drawn over the layer, or alone.
-            e @ Effect::Timecode { composite_on_original, .. } => crate::perf::time(crate::perf::Stage::EffectTimecode, || {
-                if let Some(words) = crate::layer_fx::timecode_picture(e, (source.width(), source.height()), (ox, oy)) {
+            e @ Effect::Timecode {
+                composite_on_original,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectTimecode, || {
+                if let Some(words) = crate::layer_fx::timecode_picture(
+                    e,
+                    (source.width(), source.height()),
+                    (ox, oy),
+                ) {
                     if composite_on_original == "on" {
-                        crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
+                        crate::composite::over(&words, source)
+                            .expect("the words are drawn at the layer's size");
                     } else {
                         *source = words;
                     }
@@ -15559,39 +19908,63 @@ pub(crate) fn apply_stack_at(
             }),
             // D-526: the words drawn over the layer, or alone; with a font this computer does not
             // have, nothing (compose said so).
-            e @ Effect::Numbers { composite_on_original, .. } => {
-                crate::perf::time(crate::perf::Stage::EffectNumbers, || {
-                    if let Some(words) = crate::layer_fx::numbers_picture(e, (source.width(), source.height()), (ox, oy)) {
-                        if composite_on_original == "on" {
-                            crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
-                        } else {
-                            *source = words;
-                        }
+            e @ Effect::Numbers {
+                composite_on_original,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectNumbers, || {
+                if let Some(words) =
+                    crate::layer_fx::numbers_picture(e, (source.width(), source.height()), (ox, oy))
+                {
+                    if composite_on_original == "on" {
+                        crate::composite::over(&words, source)
+                            .expect("the words are drawn at the layer's size");
+                    } else {
+                        *source = words;
                     }
-                })
-            }
+                }
+            }),
             // D-473: Numbers' words with the words typed, timed as Numbers'.
-            e @ Effect::BasicText { composite_on_original, .. } => {
-                crate::perf::time(crate::perf::Stage::EffectNumbers, || {
-                    if let Some(words) = crate::layer_fx::basic_text_picture(e, (source.width(), source.height()), (ox, oy)) {
-                        if composite_on_original == "on" {
-                            crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
-                        } else {
-                            *source = words;
-                        }
+            e @ Effect::BasicText {
+                composite_on_original,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectNumbers, || {
+                if let Some(words) = crate::layer_fx::basic_text_picture(
+                    e,
+                    (source.width(), source.height()),
+                    (ox, oy),
+                ) {
+                    if composite_on_original == "on" {
+                        crate::composite::over(&words, source)
+                            .expect("the words are drawn at the layer's size");
+                    } else {
+                        *source = words;
                     }
-                })
-            }
+                }
+            }),
             // D-525: the ids shown, as Pass Extract shows a pass; the alpha matte keeps the drawing
             // as ID Key does.
-            Effect::Identifier { id, output, channels, .. } => {
+            Effect::Identifier {
+                id,
+                output,
+                channels,
+                ..
+            } => {
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectIdentifier, || {
                         let shown = crate::layer_fx::identifier(&pass.0, *id, output);
                         if output == "alpha_matte" {
                             crate::layer_fx::keep_by(source, &shown, (ox, oy))
                         } else {
-                            crate::layer_fx::pass_extract(source, &shown, (ox, oy), 0.0, 1.0, false, false, false)
+                            crate::layer_fx::pass_extract(
+                                source,
+                                &shown,
+                                (ox, oy),
+                                0.0,
+                                1.0,
+                                false,
+                                false,
+                                false,
+                            )
                         }
                     })
                 }
@@ -15601,7 +19974,12 @@ pub(crate) fn apply_stack_at(
             Effect::Fog3d { fog_color, .. } => {
                 if let Some(shares) = crate::layer_fx::fog_shares(&instance.effect) {
                     crate::perf::time(crate::perf::Stage::EffectFog3d, || {
-                        crate::layer_fx::fog_3d(source, &shares, (ox, oy), encoded(fog_color).map(crate::grade::to_linear))
+                        crate::layer_fx::fog_3d(
+                            source,
+                            &shares,
+                            (ox, oy),
+                            encoded(fog_color).map(crate::grade::to_linear),
+                        )
                     })
                 }
             }
@@ -15610,13 +19988,24 @@ pub(crate) fn apply_stack_at(
             Effect::DepthOfField { .. } => {}
             // D-522: the colours or the matte compose read, as Pass Extract shows a pass; keyed,
             // the drawing times the matte.
-            Effect::Cryptomatte { output, channels, .. } => {
+            Effect::Cryptomatte {
+                output, channels, ..
+            } => {
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectCryptomatte, || {
                         if output == "keyed" {
                             crate::layer_fx::keep_by(source, &pass.0, (ox, oy))
                         } else {
-                            crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), 0.0, 1.0, false, false, false)
+                            crate::layer_fx::pass_extract(
+                                source,
+                                &pass.0,
+                                (ox, oy),
+                                0.0,
+                                1.0,
+                                false,
+                                false,
+                                false,
+                            )
                         }
                     })
                 }
@@ -15636,12 +20025,16 @@ pub(crate) fn apply_stack_at(
             // D-642: a sound effect is run by `audio::mix`; a picture is left as it is.
             Effect::NoiseGate { .. } | Effect::Compressor { .. } | Effect::Distortion { .. } => {}
             // D-351: by the whole picture's statistics, or the frames' compose added up.
-            Effect::AutoTone { .. } => crate::perf::time(crate::perf::Stage::EffectAutoTone, || {
-                crate::frame_stats::apply(source, &instance.effect)
-            }),
-            Effect::SpreadTones { .. } => crate::perf::time(crate::perf::Stage::EffectSpreadTones, || {
-                crate::frame_stats::apply(source, &instance.effect)
-            }),
+            Effect::AutoTone { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectAutoTone, || {
+                    crate::frame_stats::apply(source, &instance.effect)
+                })
+            }
+            Effect::SpreadTones { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectSpreadTones, || {
+                    crate::frame_stats::apply(source, &instance.effect)
+                })
+            }
             // D-352: on the whole layer, which never grows.
             Effect::MatteChoker {
                 geometric_softness_1,
@@ -15687,24 +20080,81 @@ pub(crate) fn apply_stack_at(
             // D-356: the paths compose found for this frame, in the drawing's own space however an
             // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
             // said when they were looked for). The layer never grows.
-            Effect::Stroke { all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, paths, .. } => {
+            Effect::Stroke {
+                all_masks,
+                stroke_sequentially,
+                color,
+                brush_size,
+                brush_hardness,
+                opacity,
+                start,
+                end,
+                spacing,
+                paint_style,
+                paths,
+                ..
+            } => {
                 if let Some(paths) = paths {
                     crate::perf::time(crate::perf::Stage::EffectStroke, || {
                         let sequential = all_masks == "on" && stroke_sequentially == "on";
-                        let runs = crate::along::stroke_runs(paths, (ox, oy), [*start, *end, *spacing, *brush_size], sequential);
-                        crate::along::path_stroke(source, &runs, [*brush_size, *brush_hardness, *opacity], encoded(color).map(crate::grade::to_linear), paint_style)
+                        let runs = crate::along::stroke_runs(
+                            paths,
+                            (ox, oy),
+                            [*start, *end, *spacing, *brush_size],
+                            sequential,
+                        );
+                        crate::along::path_stroke(
+                            source,
+                            &runs,
+                            [*brush_size, *brush_hardness, *opacity],
+                            encoded(color).map(crate::grade::to_linear),
+                            paint_style,
+                        )
                     })
                 }
             }
             // D-444: Path Stroke's paths; with none, the layer is left as it is.
             Effect::Vegas {
-                segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, paths, ..
+                segments,
+                length,
+                segment_distribution,
+                rotation,
+                random_phase,
+                random_seed,
+                blend_mode,
+                color,
+                width,
+                hardness,
+                start_opacity,
+                mid_point_opacity,
+                mid_point_position,
+                end_opacity,
+                paths,
+                ..
             } => {
                 if let Some(paths) = paths {
                     crate::perf::time(crate::perf::Stage::EffectVegas, || {
-                        let bits = crate::along::vegas_bits(paths, (ox, oy), [*segments, *length, *rotation, *random_seed], segment_distribution == "even", random_phase == "on");
-                        let fade = vegas_fade(*start_opacity, *mid_point_opacity, *mid_point_position, *end_opacity);
-                        crate::along::vegas(source, &bits, [*width, *hardness], fade, encoded(color).map(crate::grade::to_linear), blend_mode)
+                        let bits = crate::along::vegas_bits(
+                            paths,
+                            (ox, oy),
+                            [*segments, *length, *rotation, *random_seed],
+                            segment_distribution == "even",
+                            random_phase == "on",
+                        );
+                        let fade = vegas_fade(
+                            *start_opacity,
+                            *mid_point_opacity,
+                            *mid_point_position,
+                            *end_opacity,
+                        );
+                        crate::along::vegas(
+                            source,
+                            &bits,
+                            [*width, *hardness],
+                            fade,
+                            encoded(color).map(crate::grade::to_linear),
+                            blend_mode,
+                        )
                     })
                 }
             }
@@ -15715,12 +20165,18 @@ pub(crate) fn apply_stack_at(
             // by the same engine.
             e @ (Effect::SoftGlow { .. } | Effect::Halation { .. }) => {
                 let s = soft_glow_settings(e).expect("a soft glow's settings");
-                let stage = if s.halation.is_some() { crate::perf::Stage::EffectHalation } else { crate::perf::Stage::EffectSoftGlow };
+                let stage = if s.halation.is_some() {
+                    crate::perf::Stage::EffectHalation
+                } else {
+                    crate::perf::Stage::EffectSoftGlow
+                };
                 let r = crate::perf::time(stage, || crate::soft_glow::soft_glow(source, &s));
                 ox += r;
                 oy += r;
             }
-            Effect::TurbulentNoise { .. } => unreachable!("D-445: Turbulent Noise is turned into Fractal Noise above"),
+            Effect::TurbulentNoise { .. } => {
+                unreachable!("D-445: Turbulent Noise is turned into Fractal Noise above")
+            }
             Effect::SpillSuppressor { .. } | Effect::ReduceInterlaceFlicker { .. } => {
                 unreachable!("D-548, D-549: turned into Screen Key and Gaussian Blur above")
             }
@@ -15750,7 +20206,11 @@ fn encode(buffer: &mut WorkingBuffer, forward: bool, top: f32) {
         }
         for c in &mut p[..3] {
             let s = (*c / a).clamp(0.0, top);
-            *c = if forward { linear_to_srgb(s) } else { srgb_to_linear(s) } * a;
+            *c = if forward {
+                linear_to_srgb(s)
+            } else {
+                srgb_to_linear(s)
+            } * a;
         }
     });
 }
@@ -15776,18 +20236,31 @@ fn eight_bits(buffer: &mut WorkingBuffer) {
 /// D-202: `out = before + m (after - before)` at every sample of `after`, all four premultiplied
 /// channels, `before` placed `(dx, dy)` into the grown buffer and transparent outside its own
 /// rectangle.
-pub(crate) fn mix_back(after: &mut WorkingBuffer, before: &WorkingBuffer, (dx, dy): (usize, usize), m: f64) {
+pub(crate) fn mix_back(
+    after: &mut WorkingBuffer,
+    before: &WorkingBuffer,
+    (dx, dy): (usize, usize),
+    m: f64,
+) {
     let (w, bw, bh, m) = (after.width(), before.width(), before.height(), m as f32);
     let b = before.data();
-    after.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-        for (x, px) in row.chunks_exact_mut(4).enumerate() {
-            let inside = x >= dx && y >= dy && x - dx < bw && y - dy < bh;
-            for (c, v) in px.iter_mut().enumerate() {
-                let was = if inside { b[((y - dy) * bw + x - dx) * 4 + c] } else { 0.0 };
-                *v = was + m * (*v - was);
+    after
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let inside = x >= dx && y >= dy && x - dx < bw && y - dy < bh;
+                for (c, v) in px.iter_mut().enumerate() {
+                    let was = if inside {
+                        b[((y - dy) * bw + x - dx) * 4 + c]
+                    } else {
+                        0.0
+                    };
+                    *v = was + m * (*v - was);
+                }
             }
-        }
-    });
+        });
 }
 
 /// D-125: the stops an Exposure Flicker gives at `frame`, Noise's hash of the seed and the
@@ -15842,11 +20315,22 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             opacity: *source_opacity,
             unmult: unmult == "on",
             tint: crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount),
-            spectral: crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue),
+            spectral: crate::soft_glow::sizes(
+                spectral,
+                *spectral_red,
+                *spectral_green,
+                *spectral_blue,
+            ),
             halation: None,
             dirt: dirt.lit(),
         }),
-        Effect::Halation { threshold, threshold_smooth, radius, amount, color } => Some(crate::soft_glow::Settings {
+        Effect::Halation {
+            threshold,
+            threshold_smooth,
+            radius,
+            amount,
+            color,
+        } => Some(crate::soft_glow::Settings {
             luminance: true,
             threshold: *threshold,
             smooth: *threshold_smooth,
@@ -15870,7 +20354,25 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
 /// D-445: Turbulent Noise as the Fractal Noise it is a second name for: no speed, black to
 /// white, never cycling; anything else is not one.
 pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
-    let Effect::TurbulentNoise { fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend, float, more } = e else {
+    let Effect::TurbulentNoise {
+        fractal_type,
+        noise_type,
+        invert,
+        contrast,
+        brightness,
+        size,
+        scale_width,
+        scale_height,
+        offset,
+        complexity,
+        evolution,
+        seed,
+        opacity,
+        blend,
+        float,
+        more,
+    } = e
+    else {
         return None;
     };
     // D-647: Uniform Scaling draws Size both ways.
@@ -15904,18 +20406,30 @@ pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
 fn more_fault(more: &NoiseMore) -> Option<String> {
     if !OVERFLOWS.contains(&more.overflow.as_str()) {
         let quoted = OVERFLOWS.map(|m| format!("\"{m}\"")).join(", ");
-        return Some(format!("Turbulent Noise's overflow is one of {quoted}, and this is \"{}\".", more.overflow));
+        return Some(format!(
+            "Turbulent Noise's overflow is one of {quoted}, and this is \"{}\".",
+            more.overflow
+        ));
     }
-    [("uniform scaling", &more.uniform_scaling), ("perspective offset", &more.perspective_offset), ("center subscale", &more.center_subscale)]
-        .into_iter()
-        .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
-        .map(|(name, v)| format!("Turbulent Noise's {name} is \"off\" or \"on\", and this is \"{v}\"."))
+    [
+        ("uniform scaling", &more.uniform_scaling),
+        ("perspective offset", &more.perspective_offset),
+        ("center subscale", &more.center_subscale),
+    ]
+    .into_iter()
+    .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
+    .map(|(name, v)| format!("Turbulent Noise's {name} is \"off\" or \"on\", and this is \"{v}\"."))
 }
 
 /// D-647: the octaves' Transform and Sub Settings for [`crate::grade::fractal_warped`], or None
 /// when every one is as added and the clouds are read as before. `(dw, dh)`: the drawing's
 /// size, whose middle the clouds turn round.
-pub(crate) fn noise_warp(more: &NoiseMore, offset: [f64; 2], octaves: usize, (dw, dh): (usize, usize)) -> Option<crate::grade::Warp> {
+pub(crate) fn noise_warp(
+    more: &NoiseMore,
+    offset: [f64; 2],
+    octaves: usize,
+    (dw, dh): (usize, usize),
+) -> Option<crate::grade::Warp> {
     let moved = more.rotation != 0.0
         || more.perspective_offset == "on"
         || more.sub_influence != 50.0
@@ -15931,7 +20445,10 @@ pub(crate) fn noise_warp(more: &NoiseMore, offset: [f64; 2], octaves: usize, (dw
         influence: more.sub_influence,
         sub_scaling: more.sub_scaling,
         center: more.center_subscale == "on",
-        turns: (0..octaves).map(|o| (more.rotation + o as f64 * more.sub_rotation).to_radians()).map(|t| [t.cos(), t.sin()]).collect(),
+        turns: (0..octaves)
+            .map(|o| (more.rotation + o as f64 * more.sub_rotation).to_radians())
+            .map(|t| [t.cos(), t.sin()])
+            .collect(),
     })
 }
 
@@ -15941,7 +20458,10 @@ pub(crate) fn noise_warp(more: &NoiseMore, offset: [f64; 2], octaves: usize, (dw
 /// along the vertical only, its edges repeated. Anything else is not one.
 pub(crate) fn second_name(e: &Effect) -> Option<Effect> {
     match e {
-        Effect::SpillSuppressor { color_to_suppress, suppression } => Some(Effect::ScreenKey {
+        Effect::SpillSuppressor {
+            color_to_suppress,
+            suppression,
+        } => Some(Effect::ScreenKey {
             view: "final".to_string(),
             screen_color: color_to_suppress.clone(),
             screen_gain: 0.0,
@@ -15983,7 +20503,12 @@ pub(crate) fn out_of_focus(z: f64, focal: f64, thickness: f64, bias: f64) -> f64
 /// `maximum_radius`, no highlights, edges repeated, the fractions out of focus its blur map read
 /// by their alpha with focal distance 0; anything else is not one.
 pub(crate) fn depth_lens(e: &Effect) -> Option<Effect> {
-    let Effect::DepthOfField { maximum_radius, channels: Some(map), .. } = e else {
+    let Effect::DepthOfField {
+        maximum_radius,
+        channels: Some(map),
+        ..
+    } = e
+    else {
         return None;
     };
     Some(Effect::LensBlur {
@@ -16023,18 +20548,40 @@ mod depth_of_field_tests {
 /// in [`FRACTAL_TYPES`] and [`NOISE_TYPES`]; the words are already valid.
 pub(crate) fn fractal_look(fractal_type: &str, noise_type: &str, cycle: f64) -> crate::grade::Look {
     let at = |list: &[&str], w: &str| list.iter().position(|v| *v == w).unwrap_or(0);
-    crate::grade::Look { kind: at(&FRACTAL_TYPES, fractal_type), noise: at(&NOISE_TYPES, noise_type), cycle: cycle.floor() as i64 }
+    crate::grade::Look {
+        kind: at(&FRACTAL_TYPES, fractal_type),
+        noise: at(&NOISE_TYPES, noise_type),
+        cycle: cycle.floor() as i64,
+    }
 }
 
 /// D-299, D-445 and D-567: what is wrong with Fractal or Turbulent Noise's words, in `name`.
-fn fractal_look_fault(name: &str, fractal_type: &str, noise_type: &str, invert: &str) -> Option<String> {
-    let quoted = |list: &[&str]| list.iter().map(|v| format!("\"{v}\"")).collect::<Vec<_>>().join(", ");
+fn fractal_look_fault(
+    name: &str,
+    fractal_type: &str,
+    noise_type: &str,
+    invert: &str,
+) -> Option<String> {
+    let quoted = |list: &[&str]| {
+        list.iter()
+            .map(|v| format!("\"{v}\""))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     if !FRACTAL_TYPES.contains(&fractal_type) {
-        Some(format!("{name}'s fractal type is one of {}, and this is \"{fractal_type}\".", quoted(&FRACTAL_TYPES)))
+        Some(format!(
+            "{name}'s fractal type is one of {}, and this is \"{fractal_type}\".",
+            quoted(&FRACTAL_TYPES)
+        ))
     } else if !NOISE_TYPES.contains(&noise_type) {
-        Some(format!("{name}'s noise type is one of {}, and this is \"{noise_type}\".", quoted(&NOISE_TYPES)))
+        Some(format!(
+            "{name}'s noise type is one of {}, and this is \"{noise_type}\".",
+            quoted(&NOISE_TYPES)
+        ))
     } else if !["off", "on"].contains(&invert) {
-        Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
+        Some(format!(
+            "{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."
+        ))
     } else {
         None
     }
@@ -16079,7 +20626,13 @@ pub(crate) fn cc_vignette_settings(
 ) -> [f64; 5] {
     let (cx, cy) = radial_center(center, (w, h), (ox, oy));
     let half = ((w - 2 * ox) as f64).hypot((h - 2 * oy) as f64) / 2.0;
-    [cx, cy, (angle_of_view.to_radians() / 2.0).tan() / half, amount / 100.0, pin_highlights / 100.0]
+    [
+        cx,
+        cy,
+        (angle_of_view.to_radians() / 2.0).tan() / half,
+        amount / 100.0,
+        pin_highlights / 100.0,
+    ]
 }
 
 /// D-397: one of Color Grade's steps, each run as its own pass in this order.
@@ -16113,22 +20666,48 @@ pub(crate) enum GradeStep<'a> {
 /// which the mask view leaves out. D-571: the other four curves after hue versus saturation, and
 /// the HSL Secondary's three wheels and its key's denoise and blur. D-637: Sharpen after the
 /// faded film, before the vibrance, as Lumetri's Creative section.
-pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy): (usize, usize)) -> Vec<GradeStep<'_>> {
-    let Effect::ColorGrade { values, curves, hue_saturation, more_curves, key_invert, key_view, secondary_wheels, table, .. } = effect else {
+pub(crate) fn color_grade_steps(
+    effect: &Effect,
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+) -> Vec<GradeStep<'_>> {
+    let Effect::ColorGrade {
+        values,
+        curves,
+        hue_saturation,
+        more_curves,
+        key_invert,
+        key_view,
+        secondary_wheels,
+        table,
+        ..
+    } = effect
+    else {
         return Vec::new();
     };
-    let v: [f64; 55] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
+    let v: [f64; 55] = std::array::from_fn(|i| {
+        values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2)
+    });
     let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] =
         std::array::from_fn(|i| v[i]);
     let gains = |temperature: f64, tint: f64, exposure: f64| {
-        let raw = [(temperature / 200.0).exp2(), (-tint / 200.0).exp2(), (-temperature / 200.0).exp2()];
+        let raw = [
+            (temperature / 200.0).exp2(),
+            (-tint / 200.0).exp2(),
+            (-temperature / 200.0).exp2(),
+        ];
         let l = 0.2126 * raw[0] + 0.7152 * raw[1] + 0.0722 * raw[2];
         raw.map(|k| k / l * exposure.exp2())
     };
-    let wheel = |hue: f64, amount: f64, lightness: f64| crate::grade::tint_push(hue).map(|c| c * amount + lightness);
+    let wheel = |hue: f64, amount: f64, lightness: f64| {
+        crate::grade::tint_push(hue).map(|c| c * amount + lightness)
+    };
     let mut out = Vec::new();
     if v[..8].iter().any(|x| *x != 0.0) {
-        out.push(GradeStep::Tone(gains(temperature, tint, exposure), [contrast, highlights, shadows, whites, blacks, 0.0].map(|x| x / 100.0)));
+        out.push(GradeStep::Tone(
+            gains(temperature, tint, exposure),
+            [contrast, highlights, shadows, whites, blacks, 0.0].map(|x| x / 100.0),
+        ));
     }
     if saturation != 100.0 {
         out.push(GradeStep::Vibrance(0.0, saturation - 100.0));
@@ -16137,7 +20716,10 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
         out.push(GradeStep::Look(&t.0, intensity / 100.0));
     }
     if faded != 0.0 {
-        out.push(GradeStep::Tone([1.0; 3], [0.0, 0.0, 0.0, 0.0, 0.0, faded / 100.0]));
+        out.push(GradeStep::Tone(
+            [1.0; 3],
+            [0.0, 0.0, 0.0, 0.0, 0.0, faded / 100.0],
+        ));
     }
     if v[54] != 0.0 {
         out.push(GradeStep::Sharpen(v[54]));
@@ -16168,19 +20750,29 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
         let [sh, mid, hi] = std::array::from_fn(|r| wheel(w3[3 * r], w3[3 * r + 1], w3[3 * r + 2]));
         out.push(GradeStep::Wheels(sh, mid, hi));
     }
-    let [s_temperature, s_tint, s_contrast, s_saturation, s_hue, s_amount, s_lightness] = std::array::from_fn(|i| v[39 + i]);
+    let [s_temperature, s_tint, s_contrast, s_saturation, s_hue, s_amount, s_lightness] =
+        std::array::from_fn(|i| v[39 + i]);
     let mask = key_view == "mask";
     // D-571: with three wheels the shadows' and highlights' too; with one they are not used.
     let three = secondary_wheels == "three";
     let [shadow, highlight] = [46, 49].map(|i| (v[i], v[i + 1], v[i + 2]));
     let turned = three && [shadow, highlight].iter().any(|w| w.1 != 0.0 || w.2 != 0.0);
-    if mask || turned || [s_temperature, s_tint, s_contrast, s_amount, s_lightness].iter().any(|x| *x != 0.0) || s_saturation != 100.0 {
-        let push = |(hue, amount, lightness): (f64, f64, f64)| wheel(hue, amount, lightness).map(|p| p / 200.0);
+    if mask
+        || turned
+        || [s_temperature, s_tint, s_contrast, s_amount, s_lightness]
+            .iter()
+            .any(|x| *x != 0.0)
+        || s_saturation != 100.0
+    {
+        let push = |(hue, amount, lightness): (f64, f64, f64)| {
+            wheel(hue, amount, lightness).map(|p| p / 200.0)
+        };
         out.push(GradeStep::Secondary(crate::grade::Secondary {
             key: std::array::from_fn(|i| v[31 + i]),
             invert: key_invert == "on",
             mask,
-            gains: (s_temperature != 0.0 || s_tint != 0.0).then(|| gains(s_temperature, s_tint, 0.0)),
+            gains: (s_temperature != 0.0 || s_tint != 0.0)
+                .then(|| gains(s_temperature, s_tint, 0.0)),
             contrast: s_contrast / 100.0,
             saturation: s_saturation / 100.0,
             push: push((s_hue, s_amount, s_lightness)),
@@ -16190,7 +20782,14 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
     }
     if vignette != 0.0 && !mask {
         let color = if vignette < 0.0 { "#000000" } else { "#ffffff" };
-        out.push(GradeStep::Vignette(vignette_settings(vignette.abs() * 20.0, color, [50.0 + midpoint, roundness, feather], [50.0, 50.0], (w, h), (ox, oy))));
+        out.push(GradeStep::Vignette(vignette_settings(
+            vignette.abs() * 20.0,
+            color,
+            [50.0 + midpoint, roundness, feather],
+            [50.0, 50.0],
+            (w, h),
+            (ox, oy),
+        )));
     }
     out
 }
@@ -16220,7 +20819,14 @@ pub enum Bypassed {
 /// D-335: `offset` is added after the gain and `1 / gamma` taken after that, on the straight
 /// value, and `bypass` at 8 bpc or 32 bpc (After Effects) works on the display value itself.
 /// With neither offset nor gamma nor bypass it is the code before, bit for bit.
-fn exposure(source: &mut WorkingBuffer, stops: f64, offset: f64, gamma: f64, bypass: bool, bits: Bits) {
+fn exposure(
+    source: &mut WorkingBuffer,
+    stops: f64,
+    offset: f64,
+    gamma: f64,
+    bypass: bool,
+    bits: Bits,
+) {
     use crate::color::{linear_to_srgb, srgb_to_linear};
     let ae = bits == Bits::Ae32;
     let bypass = bypass && bits != Bits::Linear;
@@ -16265,7 +20871,11 @@ fn exposure(source: &mut WorkingBuffer, stops: f64, offset: f64, gamma: f64, byp
         source.data_mut().par_chunks_mut(4).for_each(|px| {
             let a = px[3];
             for c in &mut px[..3] {
-                *c = if a > 0.0 { srgb_to_linear(linear_to_srgb((*c / a).max(0.0)) * k) * a } else { *c * gain };
+                *c = if a > 0.0 {
+                    srgb_to_linear(linear_to_srgb((*c / a).max(0.0)) * k) * a
+                } else {
+                    *c * gain
+                };
             }
         });
         return;
@@ -16331,7 +20941,14 @@ pub(crate) fn still_weights(r: usize) -> Vec<f32> {
 /// D-312: the layer at `source_opacity` % laid by `blend` on a solid of `color` (encoded) at
 /// `opacity` %, as After Effects' Solid Composite lays it. D-337: on a layer already in display
 /// values the colour is used as written.
-fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64; 3], opacity: f64, blend: &str, display: bool) {
+fn solid_composite(
+    source: &mut WorkingBuffer,
+    source_opacity: f64,
+    color: [f64; 3],
+    opacity: f64,
+    blend: &str,
+    display: bool,
+) {
     use crate::model::BlendMode;
     let mode = match blend {
         "add" => BlendMode::Add,
@@ -16354,7 +20971,13 @@ fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64;
 /// the same are Blur exactly. Where the colour's own blur has no alpha it keeps the colour as
 /// the alpha's blur has it, rather than black. Returns how far the buffer grew, the alpha's reach.
 /// D-380: `long`, D-321's reach for Blurriness, the sigmas already 0.3 times the numbers.
-fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], long: bool, repeat: bool, axes: (bool, bool)) -> usize {
+fn channel_blur(
+    source: &mut WorkingBuffer,
+    sigma: [f64; 4],
+    long: bool,
+    repeat: bool,
+    axes: (bool, bool),
+) -> usize {
     let blurred = |s: f64| {
         let mut b = source.clone();
         let r = if repeat {
@@ -16375,17 +20998,20 @@ fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], long: bool, repeat:
         let (bw, bh) = (b.width() as isize, b.height() as isize);
         let shift = r as isize - g as isize;
         let from = b.data();
-        out.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-            for (x, px) in row.chunks_exact_mut(4).enumerate() {
-                let (bx, by) = (x as isize + shift, y as isize + shift);
-                if (0..bw).contains(&bx) && (0..bh).contains(&by) {
-                    let q = &from[((by * bw + bx) * 4) as usize..][..4];
-                    if q[3] > 0.0 {
-                        px[c] = q[c] / q[3] * px[3];
+        out.data_mut()
+            .par_chunks_mut(w * 4)
+            .enumerate()
+            .for_each(|(y, row)| {
+                for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                    let (bx, by) = (x as isize + shift, y as isize + shift);
+                    if (0..bw).contains(&bx) && (0..bh).contains(&by) {
+                        let q = &from[((by * bw + bx) * 4) as usize..][..4];
+                        if q[3] > 0.0 {
+                            px[c] = q[c] / q[3] * px[3];
+                        }
                     }
                 }
-            }
-        });
+            });
     }
     *source = out;
     g
@@ -16400,7 +21026,10 @@ pub(crate) fn blur_axes(source: &mut WorkingBuffer, taps: &[f32], axes: (bool, b
         return 0;
     }
     let still = still_weights(radius);
-    let (weights, down) = (if axes.0 { taps } else { &still[..] }, if axes.1 { taps } else { &still[..] });
+    let (weights, down) = (
+        if axes.0 { taps } else { &still[..] },
+        if axes.1 { taps } else { &still[..] },
+    );
     let (w, h) = (source.width(), source.height());
 
     // Horizontal, into a buffer wider by the radius on each side.
@@ -16452,7 +21081,10 @@ pub(crate) fn held_blur_axes(source: &mut WorkingBuffer, taps: &[f32], axes: (bo
         return;
     }
     let still = still_weights(r);
-    let (weights, down) = (if axes.0 { taps } else { &still[..] }, if axes.1 { taps } else { &still[..] });
+    let (weights, down) = (
+        if axes.0 { taps } else { &still[..] },
+        if axes.1 { taps } else { &still[..] },
+    );
     let (w, h) = (source.width(), source.height());
     let add = |out: &mut [f32], from: &[f32], weight: f32| {
         for (o, &v) in out.iter_mut().zip(from) {
@@ -16473,7 +21105,11 @@ pub(crate) fn held_blur_axes(source: &mut WorkingBuffer, taps: &[f32], axes: (bo
                 }
                 if hi > lo {
                     let from = (lo + k - r) * 4;
-                    add(&mut out[lo * 4..hi * 4], &row[from..from + (hi - lo) * 4], weight);
+                    add(
+                        &mut out[lo * 4..hi * 4],
+                        &row[from..from + (hi - lo) * 4],
+                        weight,
+                    );
                 }
                 for px in out[hi * 4..].chunks_exact_mut(4) {
                     add(px, &row[(w - 1) * 4..], weight);
@@ -16536,7 +21172,10 @@ fn convolve(
         .par_chunks(row)
         .map(|s| {
             let first = s.iter().position(|&v| v != 0.0).map_or(row, |i| i / 4 * 4);
-            let last = s.iter().rposition(|&v| v != 0.0).map_or(0, |i| i / 4 * 4 + 4);
+            let last = s
+                .iter()
+                .rposition(|&v| v != 0.0)
+                .map_or(0, |i| i / 4 * 4 + 4);
             (first, last.max(first))
         })
         .collect();
@@ -16567,7 +21206,15 @@ mod tests {
     use super::*;
 
     /// The pixel-at-a-time pass P-13 left, kept only to hold the row pass to it.
-    fn pixel_convolve(src: &[f32], src_w: usize, dst: &mut [f32], dst_w: usize, radius: usize, weights: &[f32], axis: Axis) {
+    fn pixel_convolve(
+        src: &[f32],
+        src_w: usize,
+        dst: &mut [f32],
+        dst_w: usize,
+        radius: usize,
+        weights: &[f32],
+        axis: Axis,
+    ) {
         let src_h = src.len() / (src_w * 4);
         for (y, out) in dst.chunks_mut(dst_w * 4).enumerate() {
             for x in 0..dst_w {
@@ -16595,7 +21242,13 @@ mod tests {
     /// huge values, and a buffer narrower than the kernel.
     #[test]
     fn the_row_blur_is_the_pixel_blur() {
-        for (w, h, sigma) in [(37, 23, 1.3), (5, 4, 4.0), (64, 9, 0.2), (1, 1, 2.0), (40, 41, 7.7)] {
+        for (w, h, sigma) in [
+            (37, 23, 1.3),
+            (5, 4, 4.0),
+            (64, 9, 0.2),
+            (1, 1, 2.0),
+            (40, 41, 7.7),
+        ] {
             let mut src = vec![0.0f32; w * h * 4];
             for (i, v) in src.iter_mut().enumerate() {
                 let (x, y) = (i / 4 % w, i / 4 / w);
@@ -16625,7 +21278,6 @@ mod tests {
         }
     }
 
-
     /// P-20: the pixel-at-a-time held blur D-109 shipped, kept only to hold the row version to it.
     fn pixel_held_blur(source: &WorkingBuffer, sigma_px: f64) -> WorkingBuffer {
         let (r, weights) = (kernel_radius(sigma_px), gaussian_weights(sigma_px));
@@ -16654,7 +21306,14 @@ mod tests {
     /// Every bit, including buffers narrower and shorter than the kernel.
     #[test]
     fn the_row_held_blur_is_the_pixel_held_blur() {
-        for (w, h, sigma) in [(37, 23, 1.3), (5, 4, 4.0), (64, 9, 0.2), (1, 1, 2.0), (40, 41, 7.7), (3, 50, 10.0)] {
+        for (w, h, sigma) in [
+            (37, 23, 1.3),
+            (5, 4, 4.0),
+            (64, 9, 0.2),
+            (1, 1, 2.0),
+            (40, 41, 7.7),
+            (3, 50, 10.0),
+        ] {
             let mut src = WorkingBuffer::transparent(w, h);
             for (i, v) in src.data_mut().iter_mut().enumerate() {
                 let (x, y) = (i / 4 % w, i / 4 / w);

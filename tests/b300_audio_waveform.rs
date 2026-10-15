@@ -15,7 +15,9 @@ mod effect_table;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use effect_table::{both, distance, keys, median, on_card, repo, set, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, keys, median, on_card, repo, set, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -84,7 +86,8 @@ fn music() -> PathBuf {
             .iter()
             .enumerate()
             .map(|(k, f)| {
-                let swell = 0.5 + 0.5 * (std::f64::consts::TAU * (0.3 + 0.17 * k as f64) * t + k as f64).sin();
+                let swell = 0.5
+                    + 0.5 * (std::f64::consts::TAU * (0.3 + 0.17 * k as f64) * t + k as f64).sin();
                 0.12 * swell * (std::f64::consts::TAU * f * t).sin()
             })
             .sum();
@@ -123,13 +126,18 @@ fn with_music(project: &mut J, frames: i64) {
 
 /// The reference shot (1920 by 1080) with the music and `stack` on its first three layers.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         j["compositions"][0]["layers"][i]["effects"] = stack(id);
     }
     with_music(&mut j, 240);
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// An effect of `type_id` with the settings `p`, the rest as a new one takes them.
@@ -150,7 +158,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, count: u32, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("fx_awave_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -176,9 +188,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -206,7 +227,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the street with the music, frame `frame` drawn, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -221,8 +245,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     with_music(&mut project, 240);
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -237,7 +273,10 @@ fn gaps(a: &[u8], b: &[u8]) -> bool {
 
 /// Changed, and nothing clear that was not clear before.
 fn kept(a: &[u8], b: &[u8]) -> bool {
-    changed(a, b) && a.chunks_exact(4).zip(b.chunks_exact(4)).all(|(p, q)| p[3] > 0 || q[3] == 0)
+    changed(a, b)
+        && a.chunks_exact(4)
+            .zip(b.chunks_exact(4))
+            .all(|(p, q)| p[3] > 0 || q[3] == 0)
 }
 
 /// The street plain and with each shot, as numbered pictures in `verification/D-421 pictures/`.
@@ -245,14 +284,32 @@ fn street(t: &mut Table, shots: &[(&str, J, i32, &str, fn(&[u8], &[u8]) -> bool)
     t.heading("Pictures: the street, in `verification/D-421 pictures/`");
     let dir = repo("verification/D-421 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, frame, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
-        let (bytes, said) = picture(&dir, json!([fx("core.audio_waveform", "fx-0-0", p)]), *frame);
+        let (bytes, said) = picture(
+            &dir,
+            json!([fx("core.audio_waveform", "fx-0-0", p)]),
+            *frame,
+        );
         write(&file, &bytes);
         t.row(
             &format!("{file}, {what}; draws cleanly"),
@@ -265,8 +322,20 @@ fn street(t: &mut Table, shots: &[(&str, J, i32, &str, fn(&[u8], &[u8]) -> bool)
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -321,24 +390,52 @@ fn b300_audio_waveform() {
         ],
     );
     let mut no_samples = defaults();
-    no_samples.as_object_mut().unwrap().remove("displayed_samples");
-    t.shape_refused("fx_awave_001.json", "an Audio Waveform with no `displayed_samples`", &no_samples.to_string());
+    no_samples
+        .as_object_mut()
+        .unwrap()
+        .remove("displayed_samples");
+    t.shape_refused(
+        "fx_awave_001.json",
+        "an Audio Waveform with no `displayed_samples`",
+        &no_samples.to_string(),
+    );
     let mut worded = defaults();
     worded["random_seed"] = J::from("seven");
-    t.shape_refused("fx_awave_001.json", "an Audio Waveform with a random seed in words", &worded.to_string());
+    t.shape_refused(
+        "fx_awave_001.json",
+        "an Audio Waveform with a random seed in words",
+        &worded.to_string(),
+    );
     let mut one = defaults();
     one["start_point"] = json!([10]);
-    t.shape_refused("fx_awave_001.json", "an Audio Waveform whose start point is one number", &one.to_string());
+    t.shape_refused(
+        "fx_awave_001.json",
+        "an Audio Waveform whose start point is one number",
+        &one.to_string(),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_awave_002.json").document;
     t.refused(
         &mut document,
         vec![
-            ("displayed samples 0", set(waveform(json!({"audio_layer": "sound", "displayed_samples": 0})))),
-            ("waveform options \"stereo\"", set(waveform(json!({"audio_layer": "sound", "waveform_options": "stereo"})))),
+            (
+                "displayed samples 0",
+                set(waveform(
+                    json!({"audio_layer": "sound", "displayed_samples": 0}),
+                )),
+            ),
+            (
+                "waveform options \"stereo\"",
+                set(waveform(
+                    json!({"audio_layer": "sound", "waveform_options": "stereo"}),
+                )),
+            ),
             ("audio layer 5", set(waveform(json!({"audio_layer": 5})))),
-            ("random seed keyed to 100001", keys("random_seed", &[(0, &[1.0]), (4, &[100001.0])])),
+            (
+                "random seed keyed to 100001",
+                keys("random_seed", &[(0, &[1.0]), (4, &[100001.0])]),
+            ),
         ],
     );
     t.taken(
@@ -352,7 +449,15 @@ fn b300_audio_waveform() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_awave_002.json", 2), ("fx_awave_004.json", 0), ("fx_awave_005.json", 0), ("fx_awave_017.json", 0), ("fx_awave_028.json", 0), ("fx_awave_029.json", 0), ("fx_awave_031.json", 0)]);
+    t.tiles(&[
+        ("fx_awave_002.json", 2),
+        ("fx_awave_004.json", 0),
+        ("fx_awave_005.json", 0),
+        ("fx_awave_017.json", 0),
+        ("fx_awave_028.json", 0),
+        ("fx_awave_029.json", 0),
+        ("fx_awave_031.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -408,22 +513,57 @@ fn b300_audio_waveform_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Audio Waveform as added, listening to the music (32 points, 90 ms)", Some(json!({"audio_layer": "sound"}))),
-        ("Noise, then Audio Waveform, Digital, 1024 samples over 200 ms, hairlines, 300 tall", Some(json!({"audio_layer": "sound", "display_options": "digital", "displayed_samples": 1024, "audio_duration": 200, "thickness": 1, "softness": 0, "maximum_height": 300}))),
-        ("Noise, then Audio Waveform, Analog Dots, 128 samples, 800 tall, thickness 8", Some(json!({"audio_layer": "sound", "display_options": "analog_dots", "displayed_samples": 128, "maximum_height": 800, "thickness": 8}))),
+        (
+            "Noise, then Audio Waveform as added, listening to the music (32 points, 90 ms)",
+            Some(json!({"audio_layer": "sound"})),
+        ),
+        (
+            "Noise, then Audio Waveform, Digital, 1024 samples over 200 ms, hairlines, 300 tall",
+            Some(
+                json!({"audio_layer": "sound", "display_options": "digital", "displayed_samples": 1024, "audio_duration": 200, "thickness": 1, "softness": 0, "maximum_height": 300}),
+            ),
+        ),
+        (
+            "Noise, then Audio Waveform, Analog Dots, 128 samples, 800 tall, thickness 8",
+            Some(
+                json!({"audio_layer": "sound", "display_options": "analog_dots", "displayed_samples": 128, "maximum_height": 800, "thickness": 8}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.audio_waveform", &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B300_OUT").map(PathBuf::from).unwrap_or_else(|_| repo("verification/B-300_timing_raw.md"));
+    let out = std::env::var("B300_OUT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-300_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

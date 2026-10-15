@@ -58,9 +58,17 @@ fn b92_wave_warp() {
         got == 3,
     );
     let got = wave([2.5, 40.0, 90.0, 0.0, 0.0], "sine", "repeat").bounds_expansion();
-    t.row("with repeat edges it grows them by nothing", &got.to_string(), got == 0);
+    t.row(
+        "with repeat edges it grows them by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let got = with(0, 0.0).bounds_expansion();
-    t.row("at height 0 it grows them by nothing", &got.to_string(), got == 0);
+    t.row(
+        "at height 0 it grows them by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = with(0, 10.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -115,9 +123,15 @@ fn b92_wave_warp() {
             ("direction 3601", set(with(2, 3601.0))),
             ("speed -361", set(with(3, -361.0))),
             ("phase 100001", set(with(4, 100001.0))),
-            ("shape \"square\"", set(wave(START, "square", "transparent"))),
+            (
+                "shape \"square\"",
+                set(wave(START, "square", "transparent")),
+            ),
             ("edges \"Repeat\"", set(wave(START, "sine", "Repeat"))),
-            ("height keyed to 1500", keys("height", &[(0, &[10.0]), (4, &[1500.0])])),
+            (
+                "height keyed to 1500",
+                keys("height", &[(0, &[10.0]), (4, &[1500.0])]),
+            ),
         ],
     );
     t.taken(
@@ -126,13 +140,24 @@ fn b92_wave_warp() {
         vec![
             (
                 "every number at its bottom,",
-                set(wave([0.0, 1.0, -3600.0, -360.0, -100000.0], "triangle", "repeat")),
+                set(wave(
+                    [0.0, 1.0, -3600.0, -360.0, -100000.0],
+                    "triangle",
+                    "repeat",
+                )),
             ),
             (
                 "every number at its top,",
-                set(wave([1000.0, 10000.0, 3600.0, 360.0, 100000.0], "sine", "transparent")),
+                set(wave(
+                    [1000.0, 10000.0, 3600.0, 360.0, 100000.0],
+                    "sine",
+                    "transparent",
+                )),
             ),
-            ("phase keyed from 0 to 360", keys("phase", &[(0, &[0.0]), (4, &[360.0])])),
+            (
+                "phase keyed from 0 to 360",
+                keys("phase", &[(0, &[0.0]), (4, &[360.0])]),
+            ),
         ],
     );
 

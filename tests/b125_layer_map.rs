@@ -36,10 +36,9 @@ fn b125_layer_map_table() {
          Compound Blur (A2), the first effect with a layer setting; `verification/B-125 \
          pictures/maps.png` shows every map the program made, enlarged.\n",
     );
-    let expected: J = serde_json::from_str(
-        &fs::read_to_string(t.root.join("expected_layer_map.json")).unwrap(),
-    )
-    .unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_layer_map.json")).unwrap())
+            .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     let loaded = t.load(expected["project"].as_str().unwrap());
     let project = loaded.document.project();
@@ -73,16 +72,28 @@ fn b125_layer_map_table() {
             .collect();
         let (built, ok) = match (&map, case.get("map").filter(|m| !m.is_null())) {
             (None, None) => ("no map".to_string(), true),
-            (Some(m), None) => (format!("a map {} by {}, where none is", m.width(), m.height()), false),
+            (Some(m), None) => (
+                format!("a map {} by {}, where none is", m.width(), m.height()),
+                false,
+            ),
             (None, Some(_)) => ("no map, where one is".to_string(), false),
             (Some(m), Some(e)) => {
                 let size = (m.width() as u64, m.height() as u64);
                 let wanted = (e["width"].as_u64().unwrap(), e["height"].as_u64().unwrap());
                 if size != wanted {
-                    (format!("{} by {}, where {} by {}", size.0, size.1, wanted.0, wanted.1), false)
+                    (
+                        format!(
+                            "{} by {}, where {} by {}",
+                            size.0, size.1, wanted.0, wanted.1
+                        ),
+                        false,
+                    )
                 } else {
                     let d = largest_difference(m, &e["pixels"]);
-                    (format!("{} by {}, largest difference {d:.1e}", size.0, size.1), d <= tolerance)
+                    (
+                        format!("{} by {}, largest difference {d:.1e}", size.0, size.1),
+                        d <= tolerance,
+                    )
                 }
             }
         };
@@ -108,7 +119,11 @@ fn b125_layer_map_table() {
         for y in 0..map.height() * ZOOM {
             for x in 0..map.width() * ZOOM {
                 let p = &rgba[((y / ZOOM) * map.width() + x / ZOOM) * 4..][..4];
-                let ground = if (x / 4 + y / 4) % 2 == 0 { 200.0 } else { 150.0 };
+                let ground = if (x / 4 + y / 4) % 2 == 0 {
+                    200.0
+                } else {
+                    150.0
+                };
                 let a = p[3] as f64 / 255.0;
                 let at = ((top + y) * w + left + x) * 4;
                 for c in 0..3 {

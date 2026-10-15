@@ -90,25 +90,61 @@ fn b58_drop_shadow() {
     t.refused(
         &mut document,
         vec![
-            ("opacity 101", set(shadow("#000000", 101.0, 135.0, 5.0, 0.0))),
+            (
+                "opacity 101",
+                set(shadow("#000000", 101.0, 135.0, 5.0, 0.0)),
+            ),
             ("opacity -1", set(shadow("#000000", -1.0, 135.0, 5.0, 0.0))),
-            ("direction 3601", set(shadow("#000000", 50.0, 3601.0, 5.0, 0.0))),
-            ("direction -3601", set(shadow("#000000", 50.0, -3601.0, 5.0, 0.0))),
-            ("distance -1", set(shadow("#000000", 50.0, 135.0, -1.0, 0.0))),
-            ("distance 1001", set(shadow("#000000", 50.0, 135.0, 1001.0, 0.0))),
-            ("softness 501", set(shadow("#000000", 50.0, 135.0, 5.0, 501.0))),
-            ("colour \"black\"", set(shadow("black", 50.0, 135.0, 5.0, 0.0))),
-            ("opacity keyed to 150", keys("opacity", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "direction 3601",
+                set(shadow("#000000", 50.0, 3601.0, 5.0, 0.0)),
+            ),
+            (
+                "direction -3601",
+                set(shadow("#000000", 50.0, -3601.0, 5.0, 0.0)),
+            ),
+            (
+                "distance -1",
+                set(shadow("#000000", 50.0, 135.0, -1.0, 0.0)),
+            ),
+            (
+                "distance 1001",
+                set(shadow("#000000", 50.0, 135.0, 1001.0, 0.0)),
+            ),
+            (
+                "softness 501",
+                set(shadow("#000000", 50.0, 135.0, 5.0, 501.0)),
+            ),
+            (
+                "colour \"black\"",
+                set(shadow("black", 50.0, 135.0, 5.0, 0.0)),
+            ),
+            (
+                "opacity keyed to 150",
+                keys("opacity", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_shadow_001.json",
         vec![
-            ("opacity 100, distance 1000 and softness 500, the tops,", set(shadow("#2040a0", 100.0, 3600.0, 1000.0, 500.0))),
-            ("direction -3600, the bottom,", set(shadow("#000000", 50.0, -3600.0, 0.0, 0.0))),
-            ("distance keyed from 0 to 4", keys("distance", &[(0, &[0.0]), (4, &[4.0])])),
-            ("direction keyed from 0 to 180", keys("direction", &[(0, &[0.0]), (4, &[180.0])])),
+            (
+                "opacity 100, distance 1000 and softness 500, the tops,",
+                set(shadow("#2040a0", 100.0, 3600.0, 1000.0, 500.0)),
+            ),
+            (
+                "direction -3600, the bottom,",
+                set(shadow("#000000", 50.0, -3600.0, 0.0, 0.0)),
+            ),
+            (
+                "distance keyed from 0 to 4",
+                keys("distance", &[(0, &[0.0]), (4, &[4.0])]),
+            ),
+            (
+                "direction keyed from 0 to 180",
+                keys("direction", &[(0, &[0.0]), (4, &[180.0])]),
+            ),
         ],
     );
 

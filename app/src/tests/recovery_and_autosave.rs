@@ -277,8 +277,7 @@ fn nothing_is_written_early_nothing_is_lost_late() {
         .display()
         .to_string();
     write_artifact(&rows, &scratch);
-    let failed: Vec<&(String, String, String)> =
-        rows.iter().filter(|(_, e, a)| e != a).collect();
+    let failed: Vec<&(String, String, String)> = rows.iter().filter(|(_, e, a)| e != a).collect();
     assert!(
         failed.is_empty(),
         "{} of {} checks failed, see verification/B-09_recovery_table.md: {:#?}",
@@ -338,6 +337,5 @@ fn write_artifact(rows: &[(String, String, String)], scratch: &str) {
          Where a row says *a temporary directory*, the real value was this machine's scratch \
          directory, which differs on every machine and every run.\n",
     );
-    std::fs::write(repo("verification/B-09_recovery_table.md"), out)
-        .expect("write the artifact");
+    std::fs::write(repo("verification/B-09_recovery_table.md"), out).expect("write the artifact");
 }

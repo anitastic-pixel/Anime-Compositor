@@ -18,8 +18,8 @@ use anime_compositor::effects::{Effect, EffectKey};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Interp, Project};
 use anime_compositor::preview::{self, PreviewQuality};
-use anime_compositor::{persist, render};
 use anime_compositor::WorkingBuffer;
+use anime_compositor::{persist, render};
 
 pub const MAIN: &str = "comp-main";
 
@@ -101,7 +101,12 @@ impl Table {
 
     /// As [`fixtures_numbered`](Self::fixtures_numbered), what each frame warns of read at
     /// `warn_frame`, for a fixture whose composition ends before frame 4 (D-458's has 4 frames).
-    pub fn fixtures_warned_at(&mut self, expected: &str, numbers: std::ops::RangeInclusive<u32>, warn_frame: i32) {
+    pub fn fixtures_warned_at(
+        &mut self,
+        expected: &str,
+        numbers: std::ops::RangeInclusive<u32>,
+        warn_frame: i32,
+    ) {
         let expected: J =
             serde_json::from_str(&fs::read_to_string(self.root.join(expected)).unwrap()).unwrap();
         let tolerance = expected["tolerance"].as_f64().unwrap();
@@ -168,7 +173,10 @@ impl Table {
     pub fn saved_parameters(&self, file: &str) -> J {
         let saved = saved(&self.load(file));
         let layers = saved["compositions"][0]["layers"].as_array().unwrap();
-        let holder = layers.iter().position(|l| l["effects"].as_array().is_some_and(|e| !e.is_empty())).unwrap_or(0);
+        let holder = layers
+            .iter()
+            .position(|l| l["effects"].as_array().is_some_and(|e| !e.is_empty()))
+            .unwrap_or(0);
         layers[holder]["effects"][0]["parameters"].clone()
     }
 
@@ -182,7 +190,11 @@ impl Table {
         let art = layers
             .iter()
             .position(|l| l["id"] == "art")
-            .or_else(|| layers.iter().position(|l| l["effects"].as_array().is_some_and(|e| !e.is_empty())))
+            .or_else(|| {
+                layers
+                    .iter()
+                    .position(|l| l["effects"].as_array().is_some_and(|e| !e.is_empty()))
+            })
             .unwrap_or(0);
         json["compositions"][0]["layers"][art]["effects"][0]["parameters"] =
             serde_json::from_str(parameters).unwrap();
@@ -218,7 +230,12 @@ impl Table {
     /// A fixture case a later decision superseded: its value is inside the range now, so the
     /// file opens with no warning, where the case expected one. The case is kept as written.
     pub fn superseded(&mut self, file: &str, case: &str, decision: &str) {
-        let warnings: Vec<String> = self.load(file).warnings.iter().map(|d| d.id.as_str().to_string()).collect();
+        let warnings: Vec<String> = self
+            .load(file)
+            .warnings
+            .iter()
+            .map(|d| d.id.as_str().to_string())
+            .collect();
         self.row(
             &format!("{case}, superseded by {decision}: {file}'s value is in range now and opens with no warning"),
             &format!("{warnings:?}"),
@@ -285,23 +302,45 @@ pub const TOWN: (usize, usize) = (480, 270);
 /// and dark windows, and a road with white markings.
 pub fn town() -> Vec<u8> {
     let (w, h) = TOWN;
-    let walls = [[180, 90, 70], [90, 140, 170], [200, 180, 120], [120, 160, 100]];
+    let walls = [
+        [180, 90, 70],
+        [90, 140, 170],
+        [200, 180, 120],
+        [120, 160, 100],
+    ];
     let mut bytes = Vec::with_capacity(w * h * 4);
     for y in 0..h {
         for x in 0..w {
             let t = y as f64 / h as f64;
-            let mut c = [(120.0 + 100.0 * t) as u8, (170.0 + 50.0 * t) as u8, (230.0 - 30.0 * t) as u8];
+            let mut c = [
+                (120.0 + 100.0 * t) as u8,
+                (170.0 + 50.0 * t) as u8,
+                (230.0 - 30.0 * t) as u8,
+            ];
             let (house, lx) = (x / 48, x % 48);
             let top = 110 + (house * 37 % 5) * 16;
             if (top..210).contains(&y) && lx < 45 {
                 c = walls[house % 4];
                 let ly = y - top;
-                if (6..40).contains(&lx) && (lx - 6) % 12 < 6 && ly >= 10 && (ly - 10) % 16 < 8 && y < 200 {
-                    c = if (x / 12 + y / 16) % 3 != 0 { [255, 240, 170] } else { [40, 50, 70] };
+                if (6..40).contains(&lx)
+                    && (lx - 6) % 12 < 6
+                    && ly >= 10
+                    && (ly - 10) % 16 < 8
+                    && y < 200
+                {
+                    c = if (x / 12 + y / 16) % 3 != 0 {
+                        [255, 240, 170]
+                    } else {
+                        [40, 50, 70]
+                    };
                 }
             }
             if y >= 210 {
-                c = if (230..234).contains(&y) && x % 40 < 22 { [250, 250, 250] } else { [60, 60, 66] };
+                c = if (230..234).contains(&y) && x % 40 < 22 {
+                    [250, 250, 250]
+                } else {
+                    [60, 60, 66]
+                };
             }
             bytes.extend([c[0], c[1], c[2], 255]);
         }
@@ -405,7 +444,12 @@ pub fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -421,40 +465,107 @@ pub fn said(log: FrameLog) -> String {
 }
 
 /// D-617: the effects `mine` picks that the card's plan leaves to the card, over every layer.
-pub fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality, mine: fn(&Effect) -> bool) -> usize {
+pub fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+    mine: fn(&Effect) -> bool,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if mine(&f.instance.effect))).count()
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
+    plan.layers
+        .iter()
+        .flat_map(|l| &l.on_card)
+        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if mine(&f.instance.effect)))
+        .count()
 }
 
 /// D-617: the processor and the card, each drawing the frame the page receives: the largest
 /// difference and the pixels differing, whether the card refused the frame, and each one's warnings.
-pub fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+pub fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        compose::DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        compose::DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 impl Table {
     /// D-617: every fixture file of `expected` on the card against the processor, at each frame
     /// its case draws, at Full and Draft. The files numbered in `none` (their effect left out)
     /// have nothing on the card; every other has its effect, the one `mine` picks, there.
-    pub fn card_fixtures(&mut self, gpu: &mut Gpu, expected: &str, none: &[u32], mine: fn(&Effect) -> bool) {
+    pub fn card_fixtures(
+        &mut self,
+        gpu: &mut Gpu,
+        expected: &str,
+        none: &[u32],
+        mine: fn(&Effect) -> bool,
+    ) {
         let comp = Id::new(MAIN);
-        let expected: J = serde_json::from_str(&fs::read_to_string(self.root.join(expected)).unwrap()).unwrap();
+        let expected: J =
+            serde_json::from_str(&fs::read_to_string(self.root.join(expected)).unwrap()).unwrap();
         for (name, case) in expected["cases"].as_object().unwrap() {
             let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
             let file = case["project"].as_str().unwrap();
-            let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-            let project = persist::load(&self.root.join(file)).unwrap().document.project().clone();
+            let frames: Vec<i32> = case["frames"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(|f| f.parse().unwrap())
+                .collect();
+            let project = persist::load(&self.root.join(file))
+                .unwrap()
+                .document
+                .project()
+                .clone();
             let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
             for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
                 for &frame in &frames {
@@ -476,14 +587,29 @@ impl Table {
     /// D-617: each of `shots`, the reference shot with the effect (`mine`) on its `want` layers,
     /// frames 0, 100 and 239 at Full and Draft, on the card against the processor; first, that its
     /// processor frame 100 differs from `plain`, so the comparisons test the effect.
-    pub fn card_reference(&mut self, gpu: &mut Gpu, plain: &Project, shots: &[(&str, Project, usize)], mine: fn(&Effect) -> bool) {
+    pub fn card_reference(
+        &mut self,
+        gpu: &mut Gpu,
+        plain: &Project,
+        shots: &[(&str, Project, usize)],
+        mine: fn(&Effect) -> bool,
+    ) {
         let comp = Id::new("comp-reference-shot");
         let root = repo("Fixtures/reference_shot");
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &comp, 100, &root, PreviewQuality::Full, compose::DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &comp,
+                100,
+                &root,
+                PreviewQuality::Full,
+                compose::DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
         let without = cpu(plain);
         for (what, project, want) in shots {
@@ -514,7 +640,15 @@ pub fn median(mut v: Vec<f64>) -> f64 {
 /// asks, whole, `passes` times through one cache, after the card forgets what it held; drawn by
 /// the processor when `cpu`, by the card otherwise. Each frame's milliseconds, the first pass's
 /// apart from the passes after it.
-pub fn time_passes(gpu: &mut Gpu, cpu: bool, passes: usize, project: &Project, comp: &Id, root: &Path, quality: PreviewQuality) -> (Vec<f64>, Vec<f64>) {
+pub fn time_passes(
+    gpu: &mut Gpu,
+    cpu: bool,
+    passes: usize,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    quality: PreviewQuality,
+) -> (Vec<f64>, Vec<f64>) {
     let mut cache = CelCache::viewer();
     gpu.forget();
     let (mut first, mut times) = (Vec::new(), Vec::new());
@@ -523,12 +657,41 @@ pub fn time_passes(gpu: &mut Gpu, cpu: bool, passes: usize, project: &Project, c
             let mut log = FrameLog::new(3);
             let t = std::time::Instant::now();
             if cpu {
-                drop(preview::preview_frame_cached(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame"));
+                drop(
+                    preview::preview_frame_cached(
+                        project,
+                        comp,
+                        frame,
+                        root,
+                        quality,
+                        compose::DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                    )
+                    .expect("CPU frame"),
+                );
             } else {
-                drop(preview::preview_frame_srgb8(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        project,
+                        comp,
+                        frame,
+                        root,
+                        quality,
+                        compose::DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        gpu,
+                    )
+                    .expect("GPU frame"),
+                );
             }
             let ms = t.elapsed().as_secs_f64() * 1000.0;
-            if pass > 0 { times.push(ms) } else { first.push(ms) }
+            if pass > 0 {
+                times.push(ms)
+            } else {
+                first.push(ms)
+            }
         }
     }
     (first, times)
@@ -536,19 +699,32 @@ pub fn time_passes(gpu: &mut Gpu, cpu: bool, passes: usize, project: &Project, c
 
 /// The reference shot, its three layers given the effects `stack` makes for each.
 pub fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The first effect on layer `art` of fixture `file`, with `f` applied.
 pub fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }

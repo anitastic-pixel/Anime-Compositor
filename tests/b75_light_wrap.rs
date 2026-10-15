@@ -24,8 +24,8 @@ fn wrap(width: f64, intensity: f64, blend: &str) -> Effect {
 
 /// The box's Light Wrap, `fx-1-0`, as the box is the second layer, above the bands.
 fn on_box(mut command: Command) -> Command {
-    if let Command::SetEffectParameters { instance_id, .. } | Command::SetEffectKeys { instance_id, .. } =
-        &mut command
+    if let Command::SetEffectParameters { instance_id, .. }
+    | Command::SetEffectKeys { instance_id, .. } = &mut command
     {
         *instance_id = Id::new("fx-1-0");
     }
@@ -102,21 +102,37 @@ fn b75_light_wrap() {
             ("width -1", set(wrap(-1.0, 100.0, "screen"))),
             ("intensity 401", set(wrap(10.0, 401.0, "screen"))),
             ("blend \"multiply\"", set(wrap(10.0, 100.0, "multiply"))),
-            ("width keyed to 600", on_box(keys("width", &[(0, &[10.0]), (4, &[600.0])]))),
+            (
+                "width keyed to 600",
+                on_box(keys("width", &[(0, &[10.0]), (4, &[600.0])])),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_wrap_001.json",
         vec![
-            ("width 500, intensity 400 and blend add, the tops,", set(wrap(500.0, 400.0, "add"))),
-            ("width 0 and intensity 0, the bottoms,", set(wrap(0.0, 0.0, "screen"))),
-            ("intensity keyed from 0 to 400", on_box(keys("intensity", &[(0, &[0.0]), (4, &[400.0])]))),
+            (
+                "width 500, intensity 400 and blend add, the tops,",
+                set(wrap(500.0, 400.0, "add")),
+            ),
+            (
+                "width 0 and intensity 0, the bottoms,",
+                set(wrap(0.0, 0.0, "screen")),
+            ),
+            (
+                "intensity keyed from 0 to 400",
+                on_box(keys("intensity", &[(0, &[0.0]), (4, &[400.0])])),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_wrap_001.json", 0), ("fx_wrap_010.json", 0), ("fx_wrap_017.json", 4)]);
+    t.tiles(&[
+        ("fx_wrap_001.json", 0),
+        ("fx_wrap_010.json", 0),
+        ("fx_wrap_017.json", 4),
+    ]);
 
     t.finish("B-75_light_wrap_table.md");
 }

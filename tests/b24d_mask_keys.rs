@@ -150,8 +150,10 @@ fn b24d_mask_keys() {
             .map(|f| f.parse().unwrap())
             .collect();
         frames.sort();
-        t.out
-            .push_str(&format!("| *{name}: {}* | | |\n", case["says"].as_str().unwrap()));
+        t.out.push_str(&format!(
+            "| *{name}: {}* | | |\n",
+            case["says"].as_str().unwrap()
+        ));
         for frame in frames {
             let (d, said) = difference(&document, frame, &case["frames"][frame.to_string()]);
             t.row(
@@ -161,7 +163,10 @@ fn b24d_mask_keys() {
                     if said.is_empty() {
                         "nothing".to_string()
                     } else {
-                        said.iter().map(|i| i.as_str()).collect::<Vec<_>>().join(", ")
+                        said.iter()
+                            .map(|i| i.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     }
                 ),
                 d <= tolerance && said.is_empty(),
@@ -218,8 +223,7 @@ fn b24d_mask_keys() {
     t.row(
         "and a path with no keys gives back its base at every frame",
         &format!("{} key(s)", still.keys.len()),
-        still.keys.is_empty()
-            && (-5..5).all(|f| still.points_at(f) == still.points),
+        still.keys.is_empty() && (-5..5).all(|f| still.points_at(f) == still.points),
     );
 
     // -----------------------------------------------------------------------------------
@@ -258,7 +262,10 @@ fn b24d_mask_keys() {
     );
     t.row(
         "and no file with keys on a path is diagnosed any more",
-        &format!("{:?}", again.warnings.iter().map(|d| d.id).collect::<Vec<_>>()),
+        &format!(
+            "{:?}",
+            again.warnings.iter().map(|d| d.id).collect::<Vec<_>>()
+        ),
         again.warnings.is_empty(),
     );
 
@@ -346,5 +353,8 @@ fn b24d_mask_keys() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-24d_mask_key_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-24d_mask_key_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-24d_mask_key_table.md"
+    );
 }

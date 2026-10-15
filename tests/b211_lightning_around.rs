@@ -22,7 +22,12 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// `base` with `path` and Alpha Obstacle `obstacle`.
 fn around(base: &Effect, path: &str, obstacle: f64) -> Effect {
     let mut e = base.clone();
-    if let Effect::LightningBolt { path: p, obstacle: o, .. } = &mut e {
+    if let Effect::LightningBolt {
+        path: p,
+        obstacle: o,
+        ..
+    } = &mut e
+    {
         (*p, *o) = (path.to_string(), obstacle);
     }
     e
@@ -39,10 +44,19 @@ fn drawings() -> [Vec<u8>; 3] {
         for x in 0..w {
             let (fx, fy) = (x as f64 + 0.5, y as f64 + 0.5);
             let t = y as f64 / h as f64;
-            sky.extend([(26.0 + 30.0 * t) as u8, (28.0 + 22.0 * t) as u8, (58.0 + 40.0 * t) as u8, 255]);
+            sky.extend([
+                (26.0 + 30.0 * t) as u8,
+                (28.0 + 22.0 * t) as u8,
+                (58.0 + 40.0 * t) as u8,
+                255,
+            ]);
             let r = (fx - 240.0).hypot(fy - 135.0);
             disc.extend(if r <= 70.0 { ROCK } else { [0; 4] });
-            ring.extend(if (80.0..=110.0).contains(&r) { ROCK } else { [0; 4] });
+            ring.extend(if (80.0..=110.0).contains(&r) {
+                ROCK
+            } else {
+                [0; 4]
+            });
         }
     }
     [sky, disc, ring]
@@ -84,9 +98,20 @@ fn picture(dir: &Path, rock: &str, parameters: Option<J>) -> (Vec<u8>, Vec<Strin
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -109,7 +134,10 @@ fn b211_lightning_around() {
     t.heading("The file");
     let files: Vec<String> = (1..=14).map(|n| format!("fx_lighta_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
-    let old = persist::load(&effect_table::repo("Fixtures/lightning_extras/fx_lightx_004.json")).unwrap();
+    let old = persist::load(&effect_table::repo(
+        "Fixtures/lightning_extras/fx_lightx_004.json",
+    ))
+    .unwrap();
     let saved = effect_table::saved(&old);
     let params = &saved["compositions"][0]["layers"][0]["effects"][0]["parameters"];
     t.row(
@@ -118,9 +146,26 @@ fn b211_lightning_around() {
         params.get("path").is_none(),
     );
     let mut document = t.load("fx_lighta_001.json").document;
-    let base = document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
+    let base = document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     let wrong = t.load("fx_lighta_013.json");
-    let why = wrong.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
+    let why = wrong
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .why_invalid();
     t.row(
         "fx_lighta_013.json's path \"sideways\" is named in a sentence",
         &why,
@@ -147,7 +192,11 @@ fn b211_lightning_around() {
         draft == halved,
     );
     let grows = around(&base, "around", -100.0).bounds_expansion();
-    t.row("going round, it never grows the drawing's bounds", &grows.to_string(), grows == 0);
+    t.row(
+        "going round, it never grows the drawing's bounds",
+        &grows.to_string(),
+        grows == 0,
+    );
 
     t.heading("Commands");
     t.refused(
@@ -155,7 +204,10 @@ fn b211_lightning_around() {
         vec![
             ("path \"sideways\"", set(around(&base, "sideways", 50.0))),
             ("Alpha Obstacle -101", set(around(&base, "split", -101.0))),
-            ("Alpha Obstacle keyed to -150", keys("obstacle", &[(0, &[0.0]), (4, &[-150.0])])),
+            (
+                "Alpha Obstacle keyed to -150",
+                keys("obstacle", &[(0, &[0.0]), (4, &[-150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -164,12 +216,19 @@ fn b211_lightning_around() {
         vec![
             ("path around,", set(around(&base, "around", 50.0))),
             ("Alpha Obstacle -100,", set(around(&base, "split", -100.0))),
-            ("Alpha Obstacle keyed from 100 to -100", keys("obstacle", &[(0, &[100.0]), (4, &[-100.0])])),
+            (
+                "Alpha Obstacle keyed from 100 to -100",
+                keys("obstacle", &[(0, &[100.0]), (4, &[-100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_lighta_004.json", 0), ("fx_lighta_005.json", 0), ("fx_lighta_010.json", 0)]);
+    t.tiles(&[
+        ("fx_lighta_004.json", 0),
+        ("fx_lighta_005.json", 0),
+        ("fx_lighta_010.json", 0),
+    ]);
 
     t.heading("Pictures: a night sky with rock over it, in `verification/D-329 pictures/`");
     let dir = effect_table::repo("verification/D-329 pictures");
@@ -177,20 +236,49 @@ fn b211_lightning_around() {
     let (w, h) = SIZE;
     let [sky, disc, ring] = drawings();
     for (name, bytes) in [("sky", &sky), ("disc", &disc), ("ring", &ring)] {
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap();
     }
     let bolt = |start: [f64; 2], end: [f64; 2], obstacle: f64, path: &str| {
-        Some(json!({"start": start, "end": end, "jagged": 40, "detail": 6, "branches": 30,
+        Some(
+            json!({"start": start, "end": end, "jagged": 40, "detail": 6, "branches": 30,
             "width": 1.5, "glow": 8, "opacity": 100, "hold": 2, "seed": 0, "color": "#ffffff",
-            "glow_color": "#6e8cff", "obstacle": obstacle, "path": path}))
+            "glow_color": "#6e8cff", "obstacle": obstacle, "path": path}),
+        )
     };
-    let lit = |b: &[u8], before: &[u8], x: usize, y: usize| b[(y * w + x) * 4..][..4] != before[(y * w + x) * 4..][..4];
+    let lit = |b: &[u8], before: &[u8], x: usize, y: usize| {
+        b[(y * w + x) * 4..][..4] != before[(y * w + x) * 4..][..4]
+    };
     let count = |b: &[u8], before: &[u8], keep: &dyn Fn(f64) -> bool| {
-        (0..w * h).filter(|&i| keep((((i % w) as f64 + 0.5) - 240.0).hypot((i / w) as f64 + 0.5 - 135.0)) && lit(b, before, i % w, i / w)).count()
+        (0..w * h)
+            .filter(|&i| {
+                keep((((i % w) as f64 + 0.5) - 240.0).hypot((i / w) as f64 + 0.5 - 135.0))
+                    && lit(b, before, i % w, i / w)
+            })
+            .count()
     };
     let (disc_before, said) = picture(&dir, "disc", None);
-    png_out::write_rgba(&dir.join("disc_before.png"), w, h, OutputDepth::Eight, &[], &disc_before).unwrap();
-    t.row("disc_before.png, the sky with the round rock, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("disc_before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &disc_before,
+    )
+    .unwrap();
+    t.row(
+        "disc_before.png, the sky with the round rock, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let mut shots = Vec::new();
     for (name, what, rock, params) in [
         ("1_disc_stop", "the bolt from the top edge to the bottom, Alpha Obstacle 50, Stop: it ends on the rock", "disc", bolt([50.0, 0.0], [50.0, 100.0], 50.0, "split")),
@@ -208,8 +296,20 @@ fn b211_lightning_around() {
         shots.push(bytes);
     }
     let (ring_before, said) = picture(&dir, "ring", None);
-    png_out::write_rgba(&dir.join("ring_before.png"), w, h, OutputDepth::Eight, &[], &ring_before).unwrap();
-    t.row("ring_before.png, the sky with the ring of rock, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("ring_before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &ring_before,
+    )
+    .unwrap();
+    t.row(
+        "ring_before.png, the sky with the ring of rock, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     // From the ring's left side to its right, both inside the rock, 95 pixels from the middle.
     let (left, right) = ([(240.0 - 95.0) / 4.8, 50.0], [(240.0 + 95.0) / 4.8, 50.0]);
     for (name, what, params) in [

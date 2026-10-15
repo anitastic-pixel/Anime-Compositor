@@ -25,16 +25,38 @@ use common::repo;
 fn b53_pictures() {
     let pictures = repo("verification/B-53 pictures");
     fs::create_dir_all(&pictures).expect("make the pictures folder");
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let plain: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let mut zoomed = plain.clone();
     zoomed["compositions"][0]["layers"][0]["effects"] = json!([{"instance_id": "b53", "type_id": "core.radial_blur", "enabled": true,
         "parameters": {"type": "zoom", "amount": 30.0, "center": [50.0, 50.0]}}]);
     for (file, j) in [("plain.png", plain), ("zoom_after.png", zoomed)] {
-        let project = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{file}: {}", d.message)).document.project().clone();
+        let project = persist::load_str(&j.to_string())
+            .unwrap_or_else(|d| panic!("{file}: {}", d.message))
+            .document
+            .project()
+            .clone();
         let mut log = FrameLog::new(3);
-        let frame = preview::preview_frame_cached(&project, &Id::new("comp-reference-shot"), 0, &repo("Fixtures/reference_shot"), PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .unwrap_or_else(|d| panic!("{file}: {}", d.message));
-        png_out::write_rgba(&pictures.join(file), frame.width(), frame.height(), OutputDepth::Eight, &[], &frame.to_srgb8_straight()).expect("write a picture");
+        let frame = preview::preview_frame_cached(
+            &project,
+            &Id::new("comp-reference-shot"),
+            0,
+            &repo("Fixtures/reference_shot"),
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .unwrap_or_else(|d| panic!("{file}: {}", d.message));
+        png_out::write_rgba(
+            &pictures.join(file),
+            frame.width(),
+            frame.height(),
+            OutputDepth::Eight,
+            &[],
+            &frame.to_srgb8_straight(),
+        )
+        .expect("write a picture");
     }
 }

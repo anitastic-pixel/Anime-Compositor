@@ -24,14 +24,21 @@ fn font(name: &str) -> Vec<u8> {
 }
 
 fn nums(v: &J) -> Vec<f64> {
-    v.as_array().unwrap().iter().map(|x| x.as_f64().unwrap()).collect()
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_f64().unwrap())
+        .collect()
 }
 
 fn far(a: &[f64], b: &[f64]) -> f64 {
     if a.len() != b.len() {
         return f64::INFINITY;
     }
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
 }
 
 /// The words over a dark grey, so white letters show on any page.
@@ -45,7 +52,15 @@ fn picture(file: &str, b: &WorkingBuffer) {
         }
         o[3] = 1.0;
     }
-    png_out::write_rgba(&dir.join(format!("{file}.png")), b.width(), b.height(), OutputDepth::Eight, &[], &over.to_srgb8_straight()).unwrap();
+    png_out::write_rgba(
+        &dir.join(format!("{file}.png")),
+        b.width(),
+        b.height(),
+        OutputDepth::Eight,
+        &[],
+        &over.to_srgb8_straight(),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -55,7 +70,10 @@ fn d371_text_shaping() {
     // fixture fonts. Nothing on the machine is changed.
     let fonts = repo("target/d371_fonts/Microsoft/Windows/Fonts");
     fs::create_dir_all(&fonts).unwrap();
-    for name in ["NotoSansArabic-Regular.ttf", "NotoSansDevanagari-Regular.ttf"] {
+    for name in [
+        "NotoSansArabic-Regular.ttf",
+        "NotoSansDevanagari-Regular.ttf",
+    ] {
         fs::write(fonts.join(name), font(name)).unwrap();
     }
     std::env::set_var("LOCALAPPDATA", repo("target/d371_fonts"));
@@ -77,7 +95,10 @@ fn d371_text_shaping() {
          do: D-372 (a), the owner's choice of 2026-10-09, built B-251. Before it, FX-SHAPE-020 \
          was in dispute, its \"y\" 0.4 pixel from the reference's.\n",
     );
-    let e: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_text_shaping.json")).unwrap()).unwrap();
+    let e: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("expected_text_shaping.json")).unwrap(),
+    )
+    .unwrap();
     let tol = e["tolerance"].as_f64().unwrap();
     let box_tol = e["box_tolerance"].as_f64().unwrap();
 
@@ -88,25 +109,49 @@ fn d371_text_shaping() {
         let chars: Vec<char> = case["text"].as_str().unwrap().chars().collect();
         let built: Vec<[i64; 5]> = text::shaped(&face, &chars, case["kerning"].as_bool().unwrap())
             .iter()
-            .map(|g| [i64::from(g.id.0), i64::from(g.advance), i64::from(g.offset.0), i64::from(g.offset.1), g.ch as i64])
+            .map(|g| {
+                [
+                    i64::from(g.id.0),
+                    i64::from(g.advance),
+                    i64::from(g.offset.0),
+                    i64::from(g.offset.1),
+                    g.ch as i64,
+                ]
+            })
             .collect();
         let want: Vec<[i64; 5]> = case["glyphs"]
             .as_array()
             .unwrap()
             .iter()
             .map(|g| {
-                let g: Vec<i64> = g.as_array().unwrap().iter().map(|v| v.as_i64().unwrap()).collect();
+                let g: Vec<i64> = g
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_i64().unwrap())
+                    .collect();
                 [g[0], g[1], g[2], g[3], g[4]]
             })
             .collect();
-        let differ = built.iter().zip(&want).filter(|(b, w)| b != w).count() + built.len().abs_diff(want.len());
-        let shown = |gs: &[[i64; 5]]| gs.iter().map(|g| g[0].to_string()).collect::<Vec<_>>().join(" ");
+        let differ = built.iter().zip(&want).filter(|(b, w)| b != w).count()
+            + built.len().abs_diff(want.len());
+        let shown = |gs: &[[i64; 5]]| {
+            gs.iter()
+                .map(|g| g[0].to_string())
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
         t.row(
             &format!("{name}: {}", case["says"].as_str().unwrap()),
             &if differ == 0 {
                 format!("{} glyphs, all the same: {}", built.len(), shown(&built))
             } else {
-                format!("{differ} of {} glyphs differ; built {:?}, expected {:?}", want.len(), built, want)
+                format!(
+                    "{differ} of {} glyphs differ; built {:?}, expected {:?}",
+                    want.len(),
+                    built,
+                    want
+                )
             },
             differ == 0,
         );
@@ -178,8 +223,17 @@ fn d371_text_shaping_timing() {
     ];
     let mut s = String::from("| Line | Characters | Laid out | Drawn |\n|---|---:|---:|---:|\n");
     for (name, words, font) in lines {
-        let t = Text { text: words.into(), font: font.into(), size: 100.0, at: [100.0, 540.0], ..Text::default() };
-        assert!(text::draw(&t, 1920, 1080).is_some(), "{font} is on this machine");
+        let t = Text {
+            text: words.into(),
+            font: font.into(),
+            size: 100.0,
+            at: [100.0, 540.0],
+            ..Text::default()
+        };
+        assert!(
+            text::draw(&t, 1920, 1080).is_some(),
+            "{font} is on this machine"
+        );
         let (mut lay, mut draw) = (Vec::new(), Vec::new());
         for _ in 0..200 {
             let a = std::time::Instant::now();
@@ -191,7 +245,16 @@ fn d371_text_shaping_timing() {
         }
         lay.sort_by(f64::total_cmp);
         draw.sort_by(f64::total_cmp);
-        s += &format!("| {name} | {} | {:.3} | {:.3} |\n", words.chars().count(), lay[100], draw[100]);
+        s += &format!(
+            "| {name} | {} | {:.3} | {:.3} |\n",
+            words.chars().count(),
+            lay[100],
+            draw[100]
+        );
     }
-    fs::write(std::env::var("D371_OUT").expect("D371_OUT names the file"), s).unwrap();
+    fs::write(
+        std::env::var("D371_OUT").expect("D371_OUT names the file"),
+        s,
+    )
+    .unwrap();
 }

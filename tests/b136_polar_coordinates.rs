@@ -24,13 +24,23 @@ use anime_compositor::model::Id;
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn polar(interpolation: f64, conversion: &str) -> Effect {
-    Effect::PolarCoordinates { interpolation, conversion: conversion.to_string(), shape: "ellipse".to_string() }
+    Effect::PolarCoordinates {
+        interpolation,
+        conversion: conversion.to_string(),
+        shape: "ellipse".to_string(),
+    }
 }
 
 const PLATE: (usize, usize) = (160, 100);
 const LINE: [u8; 3] = [30, 26, 36];
 /// The target's bands from the middle out, each a fifth of the way to the drawing's edge.
-const BANDS: [[u8; 3]; 5] = [[255, 208, 64], [200, 40, 40], [244, 236, 216], [58, 111, 216], [30, 26, 36]];
+const BANDS: [[u8; 3]; 5] = [
+    [255, 208, 64],
+    [200, 40, 40],
+    [244, 236, 216],
+    [58, 111, 216],
+    [30, 26, 36],
+];
 
 /// Upright streaks, none in the top third, each widening to its foot, clear between: the speed
 /// lines of a drawn action shot, sixteen samples a pixel so their edges are soft.
@@ -52,8 +62,13 @@ fn speed_lines() -> Vec<u8> {
         for x in 0..PLATE.0 {
             let inside = (0..16)
                 .filter(|s| {
-                    let (sx, sy) = (x as f64 + (s % 4) as f64 / 4.0 + 0.125, y as f64 + (s / 4) as f64 / 4.0 + 0.125);
-                    streaks.iter().any(|&(cx, top, half)| sy > top && (sx - cx).abs() <= half * (sy - top) / (h - top))
+                    let (sx, sy) = (
+                        x as f64 + (s % 4) as f64 / 4.0 + 0.125,
+                        y as f64 + (s / 4) as f64 / 4.0 + 0.125,
+                    );
+                    streaks.iter().any(|&(cx, top, half)| {
+                        sy > top && (sx - cx).abs() <= half * (sy - top) / (h - top)
+                    })
                 })
                 .count();
             bytes.extend([LINE[0], LINE[1], LINE[2], (inside * 255 / 16) as u8]);
@@ -82,7 +97,10 @@ fn target() -> Vec<u8> {
 /// enlarged three times over a grey check where it is clear.
 fn picture(dir: &Path, plate: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/polar_coordinates/fx_polar_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/polar_coordinates/fx_polar_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from(plate);
@@ -96,15 +114,30 @@ fn picture(dir: &Path, plate: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
-            let check = if (x / 12 + y / 12) % 2 == 0 { 96.0 } else { 128.0 };
+            let check = if (x / 12 + y / 12) % 2 == 0 {
+                96.0
+            } else {
+                128.0
+            };
             let a = bytes[i + 3] as f64 / 255.0;
             let over = |c: u8| (c as f64 * a + check * (1.0 - a)).round() as u8;
             [over(bytes[i]), over(bytes[i + 1]), over(bytes[i + 2]), 255]
@@ -146,7 +179,11 @@ fn b136_polar_coordinates() {
 
     t.heading("How far it reaches");
     let got = polar(100.0, "rect_to_polar").bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = polar(60.0, "polar_to_rect");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -168,8 +205,16 @@ fn b136_polar_coordinates() {
         "fx_polar_014.json",
         "fx_polar_015.json",
     ]);
-    t.shape_refused("fx_polar_001.json", "no `conversion` at all", r#"{"interpolation": 100}"#);
-    t.shape_refused("fx_polar_001.json", "no `interpolation` at all", r#"{"conversion": "rect_to_polar"}"#);
+    t.shape_refused(
+        "fx_polar_001.json",
+        "no `conversion` at all",
+        r#"{"interpolation": 100}"#,
+    );
+    t.shape_refused(
+        "fx_polar_001.json",
+        "no `interpolation` at all",
+        r#"{"conversion": "rect_to_polar"}"#,
+    );
     t.shape_refused(
         "fx_polar_001.json",
         "a conversion that is a number",
@@ -184,8 +229,14 @@ fn b136_polar_coordinates() {
             ("Interpolation 100.5", set(polar(100.5, "rect_to_polar"))),
             ("Interpolation -0.5", set(polar(-0.5, "rect_to_polar"))),
             ("conversion \"sideways\"", set(polar(100.0, "sideways"))),
-            ("conversion \"Rect_To_Polar\", written in capitals", set(polar(100.0, "Rect_To_Polar"))),
-            ("Interpolation keyed to 150", keys("interpolation", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "conversion \"Rect_To_Polar\", written in capitals",
+                set(polar(100.0, "Rect_To_Polar")),
+            ),
+            (
+                "Interpolation keyed to 150",
+                keys("interpolation", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -194,7 +245,10 @@ fn b136_polar_coordinates() {
         vec![
             ("Interpolation 0,", set(polar(0.0, "rect_to_polar"))),
             ("Polar to Rect at 100,", set(polar(100.0, "polar_to_rect"))),
-            ("Interpolation keyed from 0 to 100", keys("interpolation", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "Interpolation keyed from 0 to 100",
+                keys("interpolation", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -203,7 +257,15 @@ fn b136_polar_coordinates() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("speed_lines.png", &speed_lines(), 1);
     write("target.png", &target(), 1);
@@ -221,12 +283,22 @@ fn b136_polar_coordinates() {
 
     let (lines, big, said) = picture(&dir, "speed_lines.png", stack(&[]));
     write("before_lines.png", &big, 3);
-    t.row("before_lines.png, the speed lines with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before_lines.png, the speed lines with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (focus, big, said) = picture(&dir, "speed_lines.png", stack(&[(100.0, "rect_to_polar")]));
     write("focus_lines.png", &big, 3);
-    let ring: Vec<[u8; 4]> = every().filter(|&p| (0.9..0.97).contains(&r(p))).map(|p| px(&focus, p)).collect();
-    let (dark, clear) = (ring.iter().filter(|p| p[3] > 128).count(), ring.iter().filter(|p| p[3] == 0).count());
+    let ring: Vec<[u8; 4]> = every()
+        .filter(|&p| (0.9..0.97).contains(&r(p)))
+        .map(|p| px(&focus, p))
+        .collect();
+    let (dark, clear) = (
+        ring.iter().filter(|p| p[3] > 128).count(),
+        ring.iter().filter(|p| p[3] == 0).count(),
+    );
     t.row(
         "focus_lines.png, Rect to Polar at 100: the streaks turned into spokes pointing in to the \
          middle, which the lines never reach, as their top third was clear, and the corners clear, \
@@ -254,9 +326,15 @@ fn b136_polar_coordinates() {
         said.is_empty() && half != lines && half != focus,
     );
 
-    let (back, big, said) = picture(&dir, "speed_lines.png", stack(&[(100.0, "rect_to_polar"), (100.0, "polar_to_rect")]));
+    let (back, big, said) = picture(
+        &dir,
+        "speed_lines.png",
+        stack(&[(100.0, "rect_to_polar"), (100.0, "polar_to_rect")]),
+    );
     write("back_again.png", &big, 3);
-    let kept = every().filter(|&p| px(&back, p)[3].abs_diff(px(&lines, p)[3]) <= 32).count();
+    let kept = every()
+        .filter(|&p| px(&back, p)[3].abs_diff(px(&lines, p)[3]) <= 32)
+        .count();
     t.row(
         "back_again.png, Rect to Polar then a second effect, Polar to Rect: the speed lines back, \
          a little softer from being drawn twice; at least three pixels in four within 32 of 255 \
@@ -267,12 +345,19 @@ fn b136_polar_coordinates() {
 
     let (_, big, said) = picture(&dir, "target.png", stack(&[]));
     write("before_target.png", &big, 3);
-    t.row("before_target.png, the target with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before_target.png, the target with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (open, big, said) = picture(&dir, "target.png", stack(&[(100.0, "polar_to_rect")]));
     write("target_unrolled.png", &big, 3);
     let rows = [9, 29, 49, 69, 89];
-    let flat = rows.iter().zip(BANDS).all(|(&y, c)| (0..w).all(|x| near(px(&open, (x, y)), [c[0], c[1], c[2], 255])));
+    let flat = rows
+        .iter()
+        .zip(BANDS)
+        .all(|(&y, c)| (0..w).all(|x| near(px(&open, (x, y)), [c[0], c[1], c[2], 255])));
     t.row(
         "target_unrolled.png, Polar to Rect at 100: the rings unrolled into stripes, the middle at \
          the top and the outer ring at the foot; rows 9, 29, 49, 69 and 89, one in each band, \
@@ -282,7 +367,12 @@ fn b136_polar_coordinates() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_polar_001.json", 0), ("fx_polar_006.json", 2), ("fx_polar_009.json", 0), ("fx_polar_011.json", 0)]);
+    t.tiles(&[
+        ("fx_polar_001.json", 0),
+        ("fx_polar_006.json", 2),
+        ("fx_polar_009.json", 0),
+        ("fx_polar_011.json", 0),
+    ]);
 
     t.finish("B-136_polar_coordinates_table.md");
 }

@@ -17,7 +17,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -46,7 +48,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=30 {
         let file = format!("fx_wire_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..4 {
@@ -54,7 +60,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::SimpleWireRemoval { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::SimpleWireRemoval { .. })
+                });
             }
         }
         t.row(
@@ -72,9 +80,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, [usize; 3]
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -88,7 +105,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, [usize; 3]
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for (i, frame) in [0, 100, 239].into_iter().enumerate() {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::SimpleWireRemoval { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::SimpleWireRemoval { .. })
+                });
                 t.row(
                     &format!("the reference shot, CC Simple Wire Removal {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -102,7 +121,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, [usize; 3]
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -114,8 +136,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -153,7 +187,10 @@ fn on_the_wire(a: &[u8], clean: &[u8]) -> f64 {
         for x in 0..w {
             if off_wire(x, y) <= 1.0 {
                 let i = (y * w + x) * 4;
-                sum += (0..3).map(|c| a[i + c].abs_diff(clean[i + c]) as f64).sum::<f64>() / 3.0;
+                sum += (0..3)
+                    .map(|c| a[i + c].abs_diff(clean[i + c]) as f64)
+                    .sum::<f64>()
+                    / 3.0;
                 n += 1;
             }
         }
@@ -164,12 +201,21 @@ fn on_the_wire(a: &[u8], clean: &[u8]) -> f64 {
 /// The pixels more than `far` from the wire are the same in `a` and `b`.
 fn far_kept(a: &[u8], b: &[u8], far: f64) -> bool {
     let (w, h) = TOWN;
-    (0..h).all(|y| (0..w).filter(|&x| off_wire(x, y) > far).all(|x| a[(y * w + x) * 4..][..4] == b[(y * w + x) * 4..][..4]))
+    (0..h).all(|y| {
+        (0..w)
+            .filter(|&x| off_wire(x, y) > far)
+            .all(|x| a[(y * w + x) * 4..][..4] == b[(y * w + x) * 4..][..4])
+    })
 }
 
 /// Set the `holder` layer's effect.
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's effect, linearly.
@@ -179,37 +225,69 @@ fn keys(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// Each refused command on `file` is refused with a sentence and leaves it as it was; then each
 /// taken one is taken, and as many undos give back `file`'s frame 0 exactly.
-fn holder_commands(t: &mut Table, file: &str, refused: Vec<(&str, Command)>, taken: Vec<(&str, Command)>) {
+fn holder_commands(
+    t: &mut Table,
+    file: &str,
+    refused: Vec<(&str, Command)>,
+    taken: Vec<(&str, Command)>,
+) {
     let mut document = t.load(file).document;
     let held = format!("{:?}", document.project());
     for (what, command) in refused {
         let why = document.apply(command).err();
         let untouched = format!("{:?}", document.project()) == held;
-        t.row(&format!("{what} is refused with a sentence, and nothing changes"), &why.as_ref().map_or("taken".into(), |d| d.message.clone()), why.is_some() && untouched);
+        t.row(
+            &format!("{what} is refused with a sentence, and nothing changes"),
+            &why.as_ref().map_or("taken".into(), |d| d.message.clone()),
+            why.is_some() && untouched,
+        );
     }
     let n = taken.len();
     for (what, command) in taken {
         let ok = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if ok { "taken" } else { "refused" }, ok);
+        t.row(
+            &format!("{what} is taken"),
+            if ok { "taken" } else { "refused" },
+            ok,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The `holder` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
@@ -253,22 +331,65 @@ fn b338_simple_wire_removal() {
         ("fx_wire_029.json", "point a"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
     let rest = r#""point_b": [75, 50], "slope": 50, "mirror_blend": 25, "frame_offset": -1"#;
-    t.shape_refused("fx_wire_001.json", "a CC Simple Wire Removal whose thickness is a word", &format!(r#"{{"point_a": [25, 50], "removal_style": "displace", "thickness": "thin", {rest}}}"#));
-    t.shape_refused("fx_wire_001.json", "a CC Simple Wire Removal without its removal style", &format!(r#"{{"point_a": [25, 50], "thickness": 5, {rest}}}"#));
-    t.shape_refused("fx_wire_001.json", "a CC Simple Wire Removal whose point A is one number", &format!(r#"{{"point_a": [25], "removal_style": "displace", "thickness": 5, {rest}}}"#));
+    t.shape_refused(
+        "fx_wire_001.json",
+        "a CC Simple Wire Removal whose thickness is a word",
+        &format!(
+            r#"{{"point_a": [25, 50], "removal_style": "displace", "thickness": "thin", {rest}}}"#
+        ),
+    );
+    t.shape_refused(
+        "fx_wire_001.json",
+        "a CC Simple Wire Removal without its removal style",
+        &format!(r#"{{"point_a": [25, 50], "thickness": 5, {rest}}}"#),
+    );
+    t.shape_refused(
+        "fx_wire_001.json",
+        "a CC Simple Wire Removal whose point A is one number",
+        &format!(r#"{{"point_a": [25], "removal_style": "displace", "thickness": 5, {rest}}}"#),
+    );
 
     t.heading("Commands");
-    let over = changed(&t, "fx_wire_001.json", |e| if let Effect::SimpleWireRemoval { thickness, .. } = e { *thickness = 101.0 });
-    let word = changed(&t, "fx_wire_001.json", |e| if let Effect::SimpleWireRemoval { removal_style, .. } = e { *removal_style = "clone".into() });
-    let fade = changed(&t, "fx_wire_001.json", |e| if let Effect::SimpleWireRemoval { removal_style, .. } = e { *removal_style = "fade".into() });
+    let over = changed(&t, "fx_wire_001.json", |e| {
+        if let Effect::SimpleWireRemoval { thickness, .. } = e {
+            *thickness = 101.0
+        }
+    });
+    let word = changed(&t, "fx_wire_001.json", |e| {
+        if let Effect::SimpleWireRemoval { removal_style, .. } = e {
+            *removal_style = "clone".into()
+        }
+    });
+    let fade = changed(&t, "fx_wire_001.json", |e| {
+        if let Effect::SimpleWireRemoval { removal_style, .. } = e {
+            *removal_style = "fade".into()
+        }
+    });
     holder_commands(
         &mut t,
         "fx_wire_001.json",
-        vec![("thickness 101", set(over)), ("removal style \"clone\"", set(word)), ("slope keyed to 150", keys("slope", &[(0, &[50.0]), (3, &[150.0])]))],
-        vec![("Fade", set(fade)), ("thickness keyed from 0 to 10", keys("thickness", &[(0, &[0.0]), (3, &[10.0])]))],
+        vec![
+            ("thickness 101", set(over)),
+            ("removal style \"clone\"", set(word)),
+            (
+                "slope keyed to 150",
+                keys("slope", &[(0, &[50.0]), (3, &[150.0])]),
+            ),
+        ],
+        vec![
+            ("Fade", set(fade)),
+            (
+                "thickness keyed from 0 to 10",
+                keys("thickness", &[(0, &[0.0]), (3, &[10.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -294,7 +415,11 @@ fn b338_simple_wire_removal() {
         &mut gpu,
         &[
             ("Displace as added", json!({}), [3, 3, 3]),
-            ("Fade, a slanting wire, thickness 12, slope 0", json!({"removal_style": "fade", "point_a": [10, 20], "point_b": [90, 70], "thickness": 12, "slope": 0}), [3, 3, 3]),
+            (
+                "Fade, a slanting wire, thickness 12, slope 0",
+                json!({"removal_style": "fade", "point_a": [10, 20], "point_b": [90, 70], "thickness": 12, "slope": 0}),
+                [3, 3, 3],
+            ),
             (
                 "Displace Horizontal, a slanting wire, thickness 9, mirror blend 70",
                 json!({"removal_style": "displace_horizontal", "point_a": [30, 10], "point_b": [60, 95], "thickness": 9, "mirror_blend": 70}),
@@ -311,7 +436,17 @@ fn b338_simple_wire_removal() {
     t.heading("Pictures: in `verification/D-458 pictures/`");
     let dir = repo("verification/D-458 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     write("wired.png", TOWN, &wired());
     let (clean, _) = picture(&dir, "town.png", TOWN, json!([]));
@@ -343,7 +478,11 @@ fn b338_simple_wire_removal() {
 
     let (after, said) = shot(json!({"removal_style": "fade"}));
     write("3_fade.png", TOWN, &after);
-    let gone = (0..TOWN.1).all(|y| (62..418).filter(|&x| off_wire(x, y) <= 1.0).all(|x| after[(y * TOWN.0 + x) * 4 + 3] == 0));
+    let gone = (0..TOWN.1).all(|y| {
+        (62..418)
+            .filter(|&x| off_wire(x, y) <= 1.0)
+            .all(|x| after[(y * TOWN.0 + x) * 4 + 3] == 0)
+    });
     t.row(
         "3_fade.png, Fade: the wire made clear (a see-through line where it was), with a soft edge; every wire pixel between its ends clear; nothing more than 4 pixels from it touched; draws cleanly",
         &format!("{said:?}, every wire pixel clear: {gone}, far pixels untouched: {}", far_kept(&after, &before, 4.0)),
@@ -382,7 +521,15 @@ fn b338_simple_wire_removal() {
         flat[(4 * 8 + x) * 4..][..3].copy_from_slice(&[255, 255, 255]);
     }
     write("flat.png", (8, 8), &flat);
-    let (after, said) = picture(&dir, "flat.png", (8, 8), json!([fx("fx-0-0", &json!({"point_a": [0, 56.25], "point_b": [100, 56.25], "thickness": 2, "slope": 100}))]));
+    let (after, said) = picture(
+        &dir,
+        "flat.png",
+        (8, 8),
+        json!([fx(
+            "fx-0-0",
+            &json!({"point_a": [0, 56.25], "point_b": [100, 56.25], "thickness": 2, "slope": 100})
+        )]),
+    );
     let row: Vec<u8> = (0..8).map(|x| after[(4 * 8 + x) * 4]).collect();
     t.row(
         "by hand: a white row through flat grey 100, a level wire along it, thickness 2, slope 100, Displace: the row becomes 100",
@@ -418,22 +565,48 @@ fn b338_simple_wire_removal_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then CC Simple Wire Removal, Displace, thickness 20", Some(json!({"thickness": 20}))),
-        ("Noise, then CC Simple Wire Removal, Frame Offset -1, thickness 20", Some(json!({"removal_style": "frame_offset", "thickness": 20}))),
+        (
+            "Noise, then CC Simple Wire Removal, Displace, thickness 20",
+            Some(json!({"thickness": 20})),
+        ),
+        (
+            "Noise, then CC Simple Wire Removal, Frame Offset -1, thickness 20",
+            Some(json!({"removal_style": "frame_offset", "thickness": 20})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}w"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B338_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-338_timing_raw.md"));
+    let out = std::env::var("B338_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-338_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -36,7 +36,13 @@ fn set(effect: Effect) -> Command {
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
     let layer = comp.layer(&Id::new("scene")).unwrap();
-    layer.effects.iter().find(|i| i.instance_id.as_str() == "fx-1").unwrap().effect.clone()
+    layer
+        .effects
+        .iter()
+        .find(|i| i.instance_id.as_str() == "fx-1")
+        .unwrap()
+        .effect
+        .clone()
 }
 
 /// A one-layer composition `w` by `h` of the still `path`, carrying `effects`.
@@ -59,7 +65,11 @@ fn still(path: &str, (w, h): (usize, usize), frames: u32, effects: J) -> Project
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// The playtest's sample, Blender's layout (`Fixtures/depth_channel/sample/spheres_blender.exr`,
@@ -73,19 +83,30 @@ fn fx(id: &str, type_id: &str, p: J) -> J {
 }
 
 fn extract(channel: &str, black: f64, white: f64, unmult: &str) -> J {
-    fx("fx-1", "core.pass_extract", json!({"pass": "named", "black_point": black, "white_point": white,
-                                          "invert": "off", "clamp": "on", "channel": channel, "unmult": unmult}))
+    fx(
+        "fx-1",
+        "core.pass_extract",
+        json!({"pass": "named", "black_point": black, "white_point": white,
+                                          "invert": "off", "clamp": "on", "channel": channel, "unmult": unmult}),
+    )
 }
 
-const COMBINED: &str = "ViewLayer.Combined.R, ViewLayer.Combined.G, ViewLayer.Combined.B, ViewLayer.Combined.A";
-const NORMALS: &str = "ViewLayer.Normal.X, ViewLayer.Normal.Y, ViewLayer.Normal.Z, ViewLayer.Combined.A";
+const COMBINED: &str =
+    "ViewLayer.Combined.R, ViewLayer.Combined.G, ViewLayer.Combined.B, ViewLayer.Combined.A";
+const NORMALS: &str =
+    "ViewLayer.Normal.X, ViewLayer.Normal.Y, ViewLayer.Normal.Z, ViewLayer.Combined.A";
 const MIST: &str = "ViewLayer.Mist.Z, ViewLayer.Mist.Z, ViewLayer.Mist.Z, ViewLayer.Combined.A";
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -114,19 +135,41 @@ fn b432_extractor_alpha() {
     let files: Vec<String> = (1..=21).map(|n| format!("fx_exa_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     for (file, what, want) in [
-        ("fx_exa_001.json", "a project with no UnMult writes none", None),
-        ("fx_exa_006.json", "UnMult written off stays off", Some("off")),
+        (
+            "fx_exa_001.json",
+            "a project with no UnMult writes none",
+            None,
+        ),
+        (
+            "fx_exa_006.json",
+            "UnMult written off stays off",
+            Some("off"),
+        ),
         ("fx_exa_002.json", "UnMult on is saved on", Some("on")),
     ] {
         let params = t.saved_parameters(file);
-        t.row(&format!("{file}: {what}"), &params.to_string(), params.get("unmult").and_then(J::as_str) == want);
+        t.row(
+            &format!("{file}: {what}"),
+            &params.to_string(),
+            params.get("unmult").and_then(J::as_str) == want,
+        );
     }
     for (file, said) in [
-        ("fx_exa_020.json", "Pass Extract's unmult is \"off\" or \"on\", and this is \"yes\"."),
-        ("fx_exa_021.json", "Pass Extract's unmult is \"off\" or \"on\", and this is \"On\"."),
+        (
+            "fx_exa_020.json",
+            "Pass Extract's unmult is \"off\" or \"on\", and this is \"yes\".",
+        ),
+        (
+            "fx_exa_021.json",
+            "Pass Extract's unmult is \"off\" or \"on\", and this is \"On\".",
+        ),
     ] {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming it"), &why, why == said);
+        t.row(
+            &format!("{file} is refused in a sentence naming it"),
+            &why,
+            why == said,
+        );
     }
 
     t.heading("Commands");
@@ -137,26 +180,50 @@ fn b432_extractor_alpha() {
         f(&mut e);
         e
     };
-    let refused = document.apply(set(with(&|e| if let Effect::PassExtract { unmult, .. } = e { *unmult = "yes".into() }))).err();
+    let refused = document
+        .apply(set(with(&|e| {
+            if let Effect::PassExtract { unmult, .. } = e {
+                *unmult = "yes".into()
+            }
+        })))
+        .err();
     let untouched = effect_of(&document) == base;
     t.row(
         "UnMult \"yes\" is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
     t.taken(
         &mut document,
         "fx_exa_001.json",
         vec![
-            ("UnMult on,", set(with(&|e| if let Effect::PassExtract { unmult, .. } = e { *unmult = "on".into() }))),
-            ("the alpha from Mask.Y,", set(with(&|e| if let Effect::PassExtract { channel, .. } = e {
-                *channel = "Reflect.R, Reflect.G, Reflect.B, Mask.Y".into();
-            }))),
+            (
+                "UnMult on,",
+                set(with(&|e| {
+                    if let Effect::PassExtract { unmult, .. } = e {
+                        *unmult = "on".into()
+                    }
+                })),
+            ),
+            (
+                "the alpha from Mask.Y,",
+                set(with(&|e| {
+                    if let Effect::PassExtract { channel, .. } = e {
+                        *channel = "Reflect.R, Reflect.G, Reflect.B, Mask.Y".into();
+                    }
+                })),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_exa_002.json", 0), ("fx_exa_008.json", 0), ("fx_exa_015.json", 0)]);
+    t.tiles(&[
+        ("fx_exa_002.json", 0),
+        ("fx_exa_008.json", 0),
+        ("fx_exa_015.json", 0),
+    ]);
 
     let fixtures = effect_table::repo("Fixtures/extractor_alpha");
     let samples = effect_table::repo("Fixtures/depth_channel");
@@ -166,36 +233,95 @@ fn b432_extractor_alpha() {
     let mut shots: Vec<(String, Project, &Path, bool)> = Vec::new();
     for n in 1..=19 {
         let file = format!("fx_exa_{n:03}.json");
-        shots.push((file.clone(), t.load(&file).document.project().clone(), &fixtures, false));
+        shots.push((
+            file.clone(),
+            t.load(&file).document.project().clone(),
+            &fixtures,
+            false,
+        ));
     }
     let settings: [(&str, J); 5] = [
-        ("Combined with its alpha, UnMult off", json!([extract(COMBINED, 0.0, 1.0, "off")])),
-        ("Combined with its alpha, UnMult on", json!([extract(COMBINED, 0.0, 1.0, "on")])),
-        ("the normals over Combined's alpha, black -1, white 1", json!([extract(NORMALS, -1.0, 1.0, "off")])),
-        ("the mist over Combined's alpha, UnMult on", json!([extract(MIST, 0.0, 1.0, "on")])),
-        ("Combined, black 0.2, white 0.8, UnMult on, three names", json!([extract("ViewLayer.Combined.R, ViewLayer.Combined.G, ViewLayer.Combined.B", 0.2, 0.8, "on")])),
+        (
+            "Combined with its alpha, UnMult off",
+            json!([extract(COMBINED, 0.0, 1.0, "off")]),
+        ),
+        (
+            "Combined with its alpha, UnMult on",
+            json!([extract(COMBINED, 0.0, 1.0, "on")]),
+        ),
+        (
+            "the normals over Combined's alpha, black -1, white 1",
+            json!([extract(NORMALS, -1.0, 1.0, "off")]),
+        ),
+        (
+            "the mist over Combined's alpha, UnMult on",
+            json!([extract(MIST, 0.0, 1.0, "on")]),
+        ),
+        (
+            "Combined, black 0.2, white 0.8, UnMult on, three names",
+            json!([extract(
+                "ViewLayer.Combined.R, ViewLayer.Combined.G, ViewLayer.Combined.B",
+                0.2,
+                0.8,
+                "on"
+            )]),
+        ),
     ];
     for (name, effects) in settings {
-        shots.push((format!("the sample, {name}"), sample(effects), &samples, true));
+        shots.push((
+            format!("the sample, {name}"),
+            sample(effects),
+            &samples,
+            true,
+        ));
     }
     let mut worst = 0u8;
     for (name, project, root, is_sample) in &shots {
         let comp = &project.compositions[0];
-        let frames: Vec<i32> = (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
+        let frames: Vec<i32> =
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in frames.iter().filter(|&&f| f == 0 || f == 4) {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(project, &comp.id, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
+                let c = preview::preview_frame_cached(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(project, &comp.id, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
                 let said_gpu = said(log);
                 let mut log = FrameLog::new(3);
-                let plan = compose::plan_frame_for_card(project, &comp.id, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+                let plan = compose::plan_frame_for_card(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    &mut log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan the frame");
                 let on_card: usize = plan.layers.iter().map(|l| l.on_card.len()).sum();
                 let effects = comp.layer(&Id::new("scene")).map_or(0, |l| l.effects.len());
                 let d = distance(&c, &g);
@@ -209,12 +335,17 @@ fn b432_extractor_alpha() {
             }
         }
     }
-    t.row("the largest difference over every frame above", &format!("{worst} level(s)"), worst <= 1);
+    t.row(
+        "the largest difference over every frame above",
+        &format!("{worst} level(s)"),
+        worst <= 1,
+    );
 
     t.heading("Pictures: the sample render in Blender's layout, in `verification/D-552 pictures/`");
     let draw = |p: &Project| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(p, &Id::new(MAIN), 0, &samples, 64, &mut log).expect("the sample draws");
+        let b =
+            render_frame(p, &Id::new(MAIN), 0, &samples, 64, &mut log).expect("the sample draws");
         (b.to_srgb8_straight(), said(log))
     };
     let dir = effect_table::repo("verification/D-552 pictures");
@@ -229,8 +360,20 @@ fn b432_extractor_alpha() {
     ];
     for (file, what, effects) in shots {
         let (b, s) = draw(&sample(effects));
-        png_out::write_rgba(&dir.join(format!("{file}.png")), 320, 180, OutputDepth::Eight, &[], &b).unwrap();
-        t.row(&format!("{file}.png, {what}"), &format!("warnings {s:?}"), s.is_empty());
+        png_out::write_rgba(
+            &dir.join(format!("{file}.png")),
+            320,
+            180,
+            OutputDepth::Eight,
+            &[],
+            &b,
+        )
+        .unwrap();
+        t.row(
+            &format!("{file}.png, {what}"),
+            &format!("warnings {s:?}"),
+            s.is_empty(),
+        );
         if file.starts_with("combined") {
             let d = distance(&b, &before);
             t.row(
@@ -240,7 +383,11 @@ fn b432_extractor_alpha() {
             );
         }
         if file.ends_with("over_alpha") {
-            let clear = b.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(p, q)| q[3] == 0 && p[3] == 0).count();
+            let clear = b
+                .chunks_exact(4)
+                .zip(before.chunks_exact(4))
+                .filter(|(p, q)| q[3] == 0 && p[3] == 0)
+                .count();
             let sky = before.chunks_exact(4).filter(|q| q[3] == 0).count();
             t.row(
                 &format!("{file}.png is clear wherever before.png is"),
@@ -270,19 +417,30 @@ fn b432_extractor_alpha_timing() {
     let (w, h) = (1920usize, 1080usize);
     let dir = std::env::temp_dir().join("b432_timing");
     fs::create_dir_all(&dir).unwrap();
-    let plane = |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
-    let half = |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
+    let plane =
+        |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
+    let half =
+        |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
     let a = |x: usize, _: usize| (x as f32 / w as f32 * 1.5 - 0.25).clamp(0.0, 1.0);
     let channels = AnyChannels::sort(
         vec![
-            AnyChannel::new("ViewLayer.Combined.R", half(plane(&|x, y| x as f32 / w as f32 * a(x, y)))),
-            AnyChannel::new("ViewLayer.Combined.G", half(plane(&|x, y| y as f32 / h as f32 * a(x, y)))),
+            AnyChannel::new(
+                "ViewLayer.Combined.R",
+                half(plane(&|x, y| x as f32 / w as f32 * a(x, y))),
+            ),
+            AnyChannel::new(
+                "ViewLayer.Combined.G",
+                half(plane(&|x, y| y as f32 / h as f32 * a(x, y))),
+            ),
             AnyChannel::new("ViewLayer.Combined.B", half(plane(&|x, y| 0.3 * a(x, y)))),
             AnyChannel::new("ViewLayer.Combined.A", half(plane(&a))),
         ]
         .into(),
     );
-    Image::from_channels((w, h), channels).write().to_file(dir.join("soft.exr")).expect("write the timing EXR");
+    Image::from_channels((w, h), channels)
+        .write()
+        .to_file(dir.join("soft.exr"))
+        .expect("write the timing EXR");
 
     let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
@@ -295,12 +453,30 @@ fn b432_extractor_alpha_timing() {
         if cfg!(debug_assertions) { "debug" } else { "release" },
         if cpu { "the processor" } else { "the card" },
     );
-    let noise = fx("fx-2", "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}));
+    let noise = fx(
+        "fx-2",
+        "core.noise",
+        json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+    );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Pass Extract, four names, UnMult off, then Noise", Some(extract(COMBINED, 0.0, 1.0, "off"))),
-        ("Pass Extract, four names, UnMult on, then Noise", Some(extract(COMBINED, 0.0, 1.0, "on"))),
-        ("Pass Extract, three names, then Noise", Some(extract("ViewLayer.Combined.R, ViewLayer.Combined.G, ViewLayer.Combined.B", 0.0, 1.0, "off"))),
+        (
+            "Pass Extract, four names, UnMult off, then Noise",
+            Some(extract(COMBINED, 0.0, 1.0, "off")),
+        ),
+        (
+            "Pass Extract, four names, UnMult on, then Noise",
+            Some(extract(COMBINED, 0.0, 1.0, "on")),
+        ),
+        (
+            "Pass Extract, three names, then Noise",
+            Some(extract(
+                "ViewLayer.Combined.R, ViewLayer.Combined.G, ViewLayer.Combined.B",
+                0.0,
+                1.0,
+                "off",
+            )),
+        ),
     ];
     for (name, e) in shots {
         let effects: Vec<J> = e.into_iter().chain([noise.clone()]).collect();
@@ -313,17 +489,56 @@ fn b432_extractor_alpha_timing() {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
                 if cpu {
-                    drop(preview::preview_frame_cached(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame"));
+                    drop(
+                        preview::preview_frame_cached(
+                            &project,
+                            &Id::new(MAIN),
+                            frame,
+                            &dir,
+                            PreviewQuality::Full,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut cache,
+                        )
+                        .expect("CPU frame"),
+                    );
                 } else {
-                    drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                    drop(
+                        preview::preview_frame_srgb8(
+                            &project,
+                            &Id::new(MAIN),
+                            frame,
+                            &dir,
+                            PreviewQuality::Full,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut cache,
+                            &mut gpu,
+                        )
+                        .expect("GPU frame"),
+                    );
                 }
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                assert!(log.finish().is_empty(), "{name}: the frame draws without a warning");
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                assert!(
+                    log.finish().is_empty(),
+                    "{name}: the frame draws without a warning"
+                );
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B432_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-432_timing_raw.md"));
+    let out = std::env::var("B432_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-432_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -408,7 +408,11 @@ const WIRING: &[(&str, &str, &str)] = &[
 /// size put there never shows; the page's look lives in its stylesheet.
 #[test]
 fn the_page_writes_no_style_into_its_markup() {
-    assert_eq!(page().matches(" style=\"").count(), 0, "a style=\"...\" in the page is refused by the window");
+    assert_eq!(
+        page().matches(" style=\"").count(),
+        0,
+        "a style=\"...\" in the page is refused by the window"
+    );
 }
 
 #[test]
@@ -461,7 +465,10 @@ fn the_page_asks_for_nothing_the_window_cannot_answer() {
         // `frame`, `at`, `play`, `boxes`, `curve`, `sheet`, `sound`, `mix` and `ready` belong to the
         // other scheme and are served beside `fn frame`, not by the command shell, so there is
         // no arm of that name to look for.
-        if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "ready") {
+        if matches!(
+            route.as_str(),
+            "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "ready"
+        ) {
             continue;
         }
         let arm = format!("\"{route}\"");
@@ -573,9 +580,15 @@ const REACHED: &[(&str, &str)] = &[
     ("composition.open", "a command the window answers"),
     ("composition.set_settings", "a command the window answers"),
     // D-188: the composition's shutter, built by B-124b.
-    ("composition.set_motion_blur", "a command the window answers"),
+    (
+        "composition.set_motion_blur",
+        "a command the window answers",
+    ),
     // D-216, accepted on 2026-09-29 and built by B-150b.
-    ("composition.set_frame_blending", "a command the window answers"),
+    (
+        "composition.set_frame_blending",
+        "a command the window answers",
+    ),
     ("composition.duplicate", "a command the window answers"),
     ("composition.delete", "a command the window answers"),
     ("edit.undo", "a command the window answers"),
@@ -728,7 +741,11 @@ const REACHED: &[(&str, &str)] = &[
 /// Only the identifiers document 24 gives a G1 shortcut appear here. `none` in that column
 /// is not a gap and is not listed.
 const SHORTCUTS: &[(&str, &str, &str)] = &[
-    ("project.new", "Ctrl+Alt+N", "e.preventDefault(); newProject();"),
+    (
+        "project.new",
+        "Ctrl+Alt+N",
+        "e.preventDefault(); newProject();",
+    ),
     ("project.open", "Ctrl+O", "e.ctrlKey && (e.key === 'o'"),
     ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
     ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
@@ -746,9 +763,17 @@ const SHORTCUTS: &[(&str, &str, &str)] = &[
     ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
     ("media.import", "Ctrl+I", "e.key === 'i'"),
     ("layer.create", "Ctrl+Alt+L", "e.altKey && (e.key === 'l'"),
-    ("layer.add_adjustment", "Ctrl+Alt+Y", "e.altKey && !e.shiftKey && (e.key === 'y'"),
+    (
+        "layer.add_adjustment",
+        "Ctrl+Alt+Y",
+        "e.altKey && !e.shiftKey && (e.key === 'y'",
+    ),
     ("layer.add_solid", "Ctrl+Y", "$('addsolid').click();"),
-    ("layer.add_null", "Ctrl+Alt+Shift+Y", "e.shiftKey && (e.key === 'Y'"),
+    (
+        "layer.add_null",
+        "Ctrl+Alt+Shift+Y",
+        "e.shiftKey && (e.key === 'Y'",
+    ),
     (
         "layer.precompose",
         "Ctrl+Shift+C",
@@ -784,7 +809,11 @@ const SHORTCUTS: &[(&str, &str, &str)] = &[
     ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
     ("export.sequence", "Ctrl+M", "e.key === 'm'"),
     ("app.command_palette", "Ctrl+Shift+P", "e.code === 'KeyP'"),
-    ("sheet.print", "Ctrl+P", "e.ctrlKey && !e.altKey && (e.key === 'p'"),
+    (
+        "sheet.print",
+        "Ctrl+P",
+        "e.ctrlKey && !e.altKey && (e.key === 'p'",
+    ),
     ("composition.set_settings", "Ctrl+K", "e.code === 'KeyK'"),
     ("layer.copy", "Ctrl+C", "copyLayers()"),
     ("layer.paste", "Ctrl+V", "pasteLayers()"),
@@ -819,7 +848,11 @@ const PRESSES: &[(&str, &str, &str)] = &[
     ("Ctrl+N", "e.key === 'n'", "$('newcomp')"),
     ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
     ("Ctrl+Alt+Y", "e.key === 'y'", "$('addadjust')"),
-    ("Ctrl+Alt+Shift+Y", "e.shiftKey && (e.key === 'Y'", "$('addnull')"),
+    (
+        "Ctrl+Alt+Shift+Y",
+        "e.shiftKey && (e.key === 'Y'",
+        "$('addnull')",
+    ),
     ("Ctrl+]", "e.key === ']'", "$('up')"),
     ("Ctrl+[", "e.key === '['", "$('down')"),
     ("Delete", "e.key === 'Delete'", "$('dellayer')"),
@@ -1299,8 +1332,8 @@ fn typing_into_a_field_is_one_history_entry_when_it_is_committed() {
     // W-05: a layer's bar dragged along the timeline. The same transaction with a different
     // command inside it, and the flag in the query is what puts it there.
     let before = held(&viewer).document.undo_depth();
-    let (in_0, out_0) = layer(&viewer, "layer-2", |l| (l.in_frame, l.out_frame))
-        .expect("layer-2 is in the demo");
+    let (in_0, out_0) =
+        layer(&viewer, "layer-2", |l| (l.in_frame, l.out_frame)).expect("layer-2 is in the demo");
     for at in [4, 9, 12] {
         run(
             &viewer,
@@ -1419,8 +1452,8 @@ const READ_FROM: &[(&str, &str)] = &[
 /// the panels read, so the mistake this list can make is letting a check through, never
 /// inventing one.
 const NOT_OURS: &[&str] = &[
-    "concat", "every", "filter", "find", "forEach", "includes", "indexOf", "join", "length",
-    "map", "push", "slice", "some", "sort", "split", "has", "trim", "toFixed", "value",
+    "concat", "every", "filter", "find", "forEach", "includes", "indexOf", "join", "length", "map",
+    "push", "slice", "some", "sort", "split", "has", "trim", "toFixed", "value",
 ];
 
 /// Every `<var>.<field>` the page reads, for one variable name.
@@ -1496,7 +1529,12 @@ fn the_gestures_that_act_on_chosen_keys_name_their_target() {
         rest[..end].to_string()
     };
     for name in [
-        "easeKeys", "holdKeys", "pasteKeys", "copyKeys", "moveKeys", "removeKeys",
+        "easeKeys",
+        "holdKeys",
+        "pasteKeys",
+        "copyKeys",
+        "moveKeys",
+        "removeKeys",
     ] {
         assert!(
             !body(name).contains("layer="),
@@ -1575,8 +1613,10 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     // B-20c: and an audio layer with a level, the only kind that carries `gain_db`.
     import(
         &viewer,
-        &[Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../Fixtures/audio/media/pcm16_mono_48k.wav")],
+        &[
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../Fixtures/audio/media/pcm16_mono_48k.wav"),
+        ],
     );
     let sound_asset = held(&viewer)
         .document
@@ -1586,7 +1626,10 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
         .find(|a| a.kind == AssetKind::Audio)
         .map(|a| a.id.as_str().to_string())
         .unwrap_or_default();
-    run(&viewer, &format!("layer.create?asset={sound_asset}&name=Sound"));
+    run(
+        &viewer,
+        &format!("layer.create?asset={sound_asset}&name=Sound"),
+    );
     let answer: serde_json::Value =
         serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
     let sound_id = answer["project"]["compositions"][0]["layers"]
@@ -1595,7 +1638,10 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
         .and_then(|l| l["id"].as_str())
         .unwrap_or_default()
         .to_string();
-    run(&viewer, &format!("layer.set_gain?layer={sound_id}&value=-6"));
+    run(
+        &viewer,
+        &format!("layer.set_gain?layer={sound_id}&value=-6"),
+    );
     // B-23c: and a solid, the only kind that carries `solid`.
     run(&viewer, "layer.add_solid");
     // B-28c: and a cut imported from its timesheet, whose layers are the only ones that
@@ -1607,10 +1653,7 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     run(&viewer, "layer.add_text");
     // B-25c: and a shape layer with a shape, the only kind that carries `shapes`.
     run(&viewer, "layer.add_shape");
-    let shape_id = held(&viewer)
-        .document
-        .project()
-        .compositions[0]
+    let shape_id = held(&viewer).document.project().compositions[0]
         .layers_in_order()
         .find(|l| l.kind == anime_compositor::model::LayerKind::Shape)
         .map(|l| l.id.as_str().to_string())
@@ -1625,15 +1668,17 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     {
         let mut held = held(&viewer);
         let composition = held.composition.clone();
-        let _ = held.document.apply(anime_compositor::command::Command::SetMasks {
-            composition,
-            layer_id: anime_compositor::model::Id::new("layer-3"),
-            masks: vec![anime_compositor::mask::Mask::polygon(vec![
-                (0.0, 0.0),
-                (4.0, 0.0),
-                (4.0, 4.0),
-            ])],
-        });
+        let _ = held
+            .document
+            .apply(anime_compositor::command::Command::SetMasks {
+                composition,
+                layer_id: anime_compositor::model::Id::new("layer-3"),
+                masks: vec![anime_compositor::mask::Mask::polygon(vec![
+                    (0.0, 0.0),
+                    (4.0, 0.0),
+                    (4.0, 4.0),
+                ])],
+            });
     }
     let answer: serde_json::Value =
         serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
@@ -1800,9 +1845,7 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     report.check(
         "`layer.masks[0].path.base.points` is in a saved project that has a mask",
         "present",
-        match written["compositions"][0]["layers"][0]["masks"][0]["path"]["base"]
-            .get("points")
-        {
+        match written["compositions"][0]["layers"][0]["masks"][0]["path"]["base"].get("points") {
             Some(_) => "present",
             None => "missing - the inspector would say `undefined points`",
         },
@@ -5234,7 +5277,21 @@ fn the_windows_own_routes_are_not_swallowed_on_the_way_past() {
     };
     let shell: Vec<String> = ROUTES
         .iter()
-        .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "place" | "ready"))
+        .filter(|route| {
+            !matches!(
+                **route,
+                "frame"
+                    | "at"
+                    | "play"
+                    | "boxes"
+                    | "curve"
+                    | "sheet"
+                    | "sound"
+                    | "mix"
+                    | "place"
+                    | "ready"
+            )
+        })
         .map(|route| route.to_string())
         .collect();
     report.check(
@@ -5490,7 +5547,10 @@ fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
             "  li.tabIndex = 0;",
         ),
         ("the number a drag changes", "  handle.tabIndex = 0;"),
-        ("the Sheet, whose cells take typing (D-84b)", "<div id=\"xsheet\" tabindex=\"0\">"),
+        (
+            "the Sheet, whose cells take typing (D-84b)",
+            "<div id=\"xsheet\" tabindex=\"0\">",
+        ),
     ] {
         report.check(
             &format!("{what} is put into the Tab order by hand"),

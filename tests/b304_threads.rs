@@ -14,7 +14,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -31,7 +33,9 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.threads" => json!({"width": 50, "height": 50, "overlaps": 1, "direction": 0, "center": [50, 50], "coverage": 90, "shadowing": 50, "texture": 0}),
+        "core.threads" => {
+            json!({"width": 50, "height": 50, "overlaps": 1, "direction": 0, "center": [50, 50], "coverage": 90, "shadowing": 50, "texture": 0})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -42,11 +46,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -67,14 +82,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -131,7 +162,12 @@ fn threads(change: impl FnOnce(&mut Effect)) -> Effect {
 
 /// Set the `holder` layer's Threads; its fixtures' drawing is `holder`, not `art`.
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's Threads, linearly.
@@ -141,19 +177,38 @@ fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// Each command is refused with a sentence and leaves the `holder` layer's effect as it was.
 fn refused_holder(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
-    let held = |d: &Document| format!("{:?}", d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0]);
+    let held = |d: &Document| {
+        format!(
+            "{:?}",
+            d.project()
+                .composition(&Id::new(MAIN))
+                .unwrap()
+                .layer(&Id::new("holder"))
+                .unwrap()
+                .effects[0]
+        )
+    };
     let before = held(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && held(document) == before,
         );
     }
@@ -162,14 +217,29 @@ fn refused_holder(t: &mut Table, document: &mut Document, commands: Vec<(&str, C
 fn why_holder(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
 /// `effects` on the street at frame 0, drawn, straight 8-bit, with what it warned of.
 fn street(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -181,8 +251,20 @@ fn street(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -206,7 +288,11 @@ fn b304_threads() {
 
     t.heading("How far it reaches");
     let got = threads(|_| {}).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing: the cloth is woven on the layer as it is", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing: the cloth is woven on the layer as it is",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = threads(|e| {
         if let Effect::Threads { width, height, .. } = e {
             *width = 8.0;
@@ -247,27 +333,75 @@ fn b304_threads() {
     t.row(
         "fx_threads_015.json is saved with the direction's two keys",
         &keyed["direction"].to_string(),
-        keyed["direction"]["keyframes"].as_array().is_some_and(|k| k.len() == 2),
+        keyed["direction"]["keyframes"]
+            .as_array()
+            .is_some_and(|k| k.len() == 2),
     );
     why_holder(
         &mut t,
         &[
-            ("fx_threads_020.json", "Threads's width runs from 1 to 1000, and this is 0.5."),
-            ("fx_threads_021.json", "Threads's height runs from 1 to 1000, and this is 1001."),
-            ("fx_threads_022.json", "Threads's overlaps runs from 1 to 10, and this is 0."),
-            ("fx_threads_023.json", "Threads's overlaps runs from 1 to 10, and this is 11."),
-            ("fx_threads_024.json", "Threads's direction runs from -3600 to 3600, and this is 3601."),
-            ("fx_threads_025.json", "Threads's center runs from -1000 to 1000, and this is -1001."),
-            ("fx_threads_026.json", "Threads's coverage runs from 0 to 100, and this is 101."),
-            ("fx_threads_027.json", "Threads's shadowing runs from 0 to 100, and this is -1."),
-            ("fx_threads_028.json", "Threads's texture runs from 0 to 100, and this is 101."),
+            (
+                "fx_threads_020.json",
+                "Threads's width runs from 1 to 1000, and this is 0.5.",
+            ),
+            (
+                "fx_threads_021.json",
+                "Threads's height runs from 1 to 1000, and this is 1001.",
+            ),
+            (
+                "fx_threads_022.json",
+                "Threads's overlaps runs from 1 to 10, and this is 0.",
+            ),
+            (
+                "fx_threads_023.json",
+                "Threads's overlaps runs from 1 to 10, and this is 11.",
+            ),
+            (
+                "fx_threads_024.json",
+                "Threads's direction runs from -3600 to 3600, and this is 3601.",
+            ),
+            (
+                "fx_threads_025.json",
+                "Threads's center runs from -1000 to 1000, and this is -1001.",
+            ),
+            (
+                "fx_threads_026.json",
+                "Threads's coverage runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_threads_027.json",
+                "Threads's shadowing runs from 0 to 100, and this is -1.",
+            ),
+            (
+                "fx_threads_028.json",
+                "Threads's texture runs from 0 to 100, and this is 101.",
+            ),
         ],
     );
     let rest = r#""height": 50, "overlaps": 1, "direction": 0, "center": [50, 50], "coverage": 90, "shadowing": 50, "texture": 0"#;
-    t.shape_refused("fx_threads_001.json", "a Threads with no `width`", &format!("{{{rest}}}"));
-    t.shape_refused("fx_threads_001.json", "a Threads whose width is a word", &format!("{{\"width\": \"50\", {rest}}}"));
-    t.shape_refused("fx_threads_001.json", "a Threads whose center is one number", &format!("{{\"width\": 50, {}}}", rest.replace("[50, 50]", "50")));
-    t.shape_refused("fx_threads_001.json", "a Threads with no `texture`", &format!("{{\"width\": 50, {}}}", rest.replace(", \"texture\": 0", "")));
+    t.shape_refused(
+        "fx_threads_001.json",
+        "a Threads with no `width`",
+        &format!("{{{rest}}}"),
+    );
+    t.shape_refused(
+        "fx_threads_001.json",
+        "a Threads whose width is a word",
+        &format!("{{\"width\": \"50\", {rest}}}"),
+    );
+    t.shape_refused(
+        "fx_threads_001.json",
+        "a Threads whose center is one number",
+        &format!("{{\"width\": 50, {}}}", rest.replace("[50, 50]", "50")),
+    );
+    t.shape_refused(
+        "fx_threads_001.json",
+        "a Threads with no `texture`",
+        &format!(
+            "{{\"width\": 50, {}}}",
+            rest.replace(", \"texture\": 0", "")
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_threads_001.json").document;
@@ -275,13 +409,54 @@ fn b304_threads() {
         &mut t,
         &mut document,
         vec![
-            ("width 0.5", set_holder(threads(|e| if let Effect::Threads { width, .. } = e { *width = 0.5 }))),
-            ("height 1000.5", set_holder(threads(|e| if let Effect::Threads { height, .. } = e { *height = 1000.5 }))),
-            ("overlaps 10.5", set_holder(threads(|e| if let Effect::Threads { overlaps, .. } = e { *overlaps = 10.5 }))),
-            ("coverage -0.5", set_holder(threads(|e| if let Effect::Threads { coverage, .. } = e { *coverage = -0.5 }))),
-            ("center 1001, 50", set_holder(threads(|e| if let Effect::Threads { center, .. } = e { *center = [1001.0, 50.0] }))),
-            ("direction keyed to 3601", keys_holder("direction", &[(0, &[0.0]), (4, &[3601.0])])),
-            ("texture keyed to 150", keys_holder("texture", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "width 0.5",
+                set_holder(threads(|e| {
+                    if let Effect::Threads { width, .. } = e {
+                        *width = 0.5
+                    }
+                })),
+            ),
+            (
+                "height 1000.5",
+                set_holder(threads(|e| {
+                    if let Effect::Threads { height, .. } = e {
+                        *height = 1000.5
+                    }
+                })),
+            ),
+            (
+                "overlaps 10.5",
+                set_holder(threads(|e| {
+                    if let Effect::Threads { overlaps, .. } = e {
+                        *overlaps = 10.5
+                    }
+                })),
+            ),
+            (
+                "coverage -0.5",
+                set_holder(threads(|e| {
+                    if let Effect::Threads { coverage, .. } = e {
+                        *coverage = -0.5
+                    }
+                })),
+            ),
+            (
+                "center 1001, 50",
+                set_holder(threads(|e| {
+                    if let Effect::Threads { center, .. } = e {
+                        *center = [1001.0, 50.0]
+                    }
+                })),
+            ),
+            (
+                "direction keyed to 3601",
+                keys_holder("direction", &[(0, &[0.0]), (4, &[3601.0])]),
+            ),
+            (
+                "texture keyed to 150",
+                keys_holder("texture", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -335,7 +510,14 @@ fn b304_threads() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_threads", 28, &[20, 21, 22, 23, 24, 25, 26, 27, 28], is_threads);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_threads",
+        28,
+        &[20, 21, 22, 23, 24, 25, 26, 27, 28],
+        is_threads,
+    );
     let turning = json!({"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 90, "interp": "linear"}]});
     card_reference(
         &mut t,
@@ -343,9 +525,18 @@ fn b304_threads() {
         "Threads",
         "core.threads",
         &[
-            ("as it starts (50 apart, coverage 90, shadowing 50)", json!({})),
-            ("12 by 8, overlaps 3, turned 30 degrees, shadowing 100, texture 60", json!({"width": 12, "height": 8, "overlaps": 3, "direction": 30, "shadowing": 100, "texture": 60})),
-            ("the direction keyed 0 to 90, width 20, coverage 60, centre 30, 70", json!({"direction": turning, "width": 20, "height": 20, "coverage": 60, "center": [30, 70]})),
+            (
+                "as it starts (50 apart, coverage 90, shadowing 50)",
+                json!({}),
+            ),
+            (
+                "12 by 8, overlaps 3, turned 30 degrees, shadowing 100, texture 60",
+                json!({"width": 12, "height": 8, "overlaps": 3, "direction": 30, "shadowing": 100, "texture": 60}),
+            ),
+            (
+                "the direction keyed 0 to 90, width 20, coverage 60, centre 30, 70",
+                json!({"direction": turning, "width": 20, "height": 20, "coverage": 60, "center": [30, 70]}),
+            ),
         ],
         is_threads,
     );
@@ -353,11 +544,25 @@ fn b304_threads() {
     t.heading("Pictures: the street at frame 0, in `verification/D-425 pictures/`");
     let dir = repo("verification/D-425 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = street(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let shots: [(&str, J, &str); 5] = [
         ("as_added", json!({}), "as it starts: threads 50 pixels apart crossing over the street, thin clear gaps between them"),
         ("fine_weave", json!({"width": 8, "height": 8, "shadowing": 80}), "8 pixels apart, shadowing 80: a fine plain weave, the threads beneath darker"),
@@ -404,22 +609,59 @@ fn b304_threads_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Threads as added (50 apart, coverage 90, shadowing 50)", Some(("core.threads", json!({})))),
-        ("Noise, then Threads, 12 by 8, overlaps 3, turned 30, shadowing 100, texture 60", Some(("core.threads", json!({"width": 12, "height": 8, "overlaps": 3, "direction": 30, "shadowing": 100, "texture": 60})))),
-        ("Noise, then Threads, 4 by 4, coverage 50, texture 100", Some(("core.threads", json!({"width": 4, "height": 4, "coverage": 50, "texture": 100})))),
+        (
+            "Noise, then Threads as added (50 apart, coverage 90, shadowing 50)",
+            Some(("core.threads", json!({}))),
+        ),
+        (
+            "Noise, then Threads, 12 by 8, overlaps 3, turned 30, shadowing 100, texture 60",
+            Some((
+                "core.threads",
+                json!({"width": 12, "height": 8, "overlaps": 3, "direction": 30, "shadowing": 100, "texture": 60}),
+            )),
+        ),
+        (
+            "Noise, then Threads, 4 by 4, coverage 50, texture 100",
+            Some((
+                "core.threads",
+                json!({"width": 4, "height": 4, "coverage": 50, "texture": 100}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B304_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-304_timing_raw.md"));
+    let out = std::env::var("B304_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-304_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -1496,10 +1496,10 @@ impl Scope<'_, '_> {
             Some(s) => Cow::Borrowed(s.property),
             None => property(self.run.comp, &self.target, self.prop)?,
         }
-            .keyframes()
-            .iter()
-            .map(|k| k.frame as i64)
-            .collect();
+        .keyframes()
+        .iter()
+        .map(|k| k.frame as i64)
+        .collect();
         let f = self.frame as i64;
         let Some(&last) = keys.last() else {
             return self.pre(self.frame);

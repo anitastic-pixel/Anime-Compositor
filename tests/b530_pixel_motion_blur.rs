@@ -42,7 +42,12 @@ fn main_comp() -> Id {
 
 /// Set the holder's Pixel Motion Blur.
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: main_comp(), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: main_comp(),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the holder's Pixel Motion Blur, linearly.
@@ -52,13 +57,23 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
@@ -68,7 +83,9 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
@@ -79,7 +96,10 @@ const FRAMES: usize = 24;
 
 /// Where drawing `m` (from 0) has the ball: moving 16 pixels right a frame, bouncing.
 fn ball_at(m: usize) -> (f64, f64) {
-    (50.0 + 16.0 * m as f64, 225.0 - 170.0 * (PI * (m as f64 + 3.0) / 12.0).cos().abs())
+    (
+        50.0 + 16.0 * m as f64,
+        225.0 - 170.0 * (PI * (m as f64 + 3.0) / 12.0).cos().abs(),
+    )
 }
 
 /// Drawing `m`: an orange ball, radius 24, with an ink ring its outer 5 pixels, on nothing.
@@ -93,7 +113,12 @@ fn ball(m: usize) -> Vec<u8> {
             let cover = (24.0 - d).clamp(0.0, 1.0);
             let ink = (d - 19.0).clamp(0.0, 1.0);
             let mix = |a: f64, b: f64| (a * (1.0 - ink) + b * ink).round() as u8;
-            bytes.extend([mix(245.0, 70.0), mix(150.0, 30.0), mix(50.0, 20.0), (255.0 * cover).round() as u8]);
+            bytes.extend([
+                mix(245.0, 70.0),
+                mix(150.0, 30.0),
+                mix(50.0, 20.0),
+                (255.0 * cover).round() as u8,
+            ]);
         }
     }
     bytes
@@ -101,11 +126,18 @@ fn ball(m: usize) -> Vec<u8> {
 
 /// The ball bouncing on ones over a night-blue solid, with `effects` on the ball.
 fn picture(effects: J) -> Document {
-    let mut project: J =
-        serde_json::from_str(&fs::read_to_string(effect_table::repo("Fixtures/pixel_motion_blur/fx_pmb_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/pixel_motion_blur/fx_pmb_001.json",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["pattern"] = J::from("ball_##.png");
-    project["assets"][0]["frames"] =
-        (1..=FRAMES).map(|m| (m.to_string(), J::from(format!("ball_{m:02}.png")))).collect::<serde_json::Map<_, _>>().into();
+    project["assets"][0]["frames"] = (1..=FRAMES)
+        .map(|m| (m.to_string(), J::from(format!("ball_{m:02}.png"))))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(PICTURE.0);
     comp["height"] = J::from(PICTURE.1);
@@ -129,15 +161,38 @@ fn picture(effects: J) -> Document {
     night["effects"] = J::Array(vec![]);
     night["solid"] = serde_json::json!({"color": [0.0070, 0.0116, 0.0452], "width": PICTURE.0, "height": PICTURE.1});
     layers.insert(0, night);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("night"));
-    persist::load_str(&project.to_string()).expect("the picture's project reads").document
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("night"));
+    persist::load_str(&project.to_string())
+        .expect("the picture's project reads")
+        .document
 }
 
 /// `document`'s frame at `quality`, as bytes, with what it said.
-fn draw(document: &Document, dir: &Path, frame: i32, quality: PreviewQuality) -> (usize, Vec<u8>, Vec<String>) {
+fn draw(
+    document: &Document,
+    dir: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (usize, Vec<u8>, Vec<String>) {
     let mut log = FrameLog::new(3);
-    let drawn = preview::preview_frame(document.project(), &main_comp(), frame, dir, quality, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = preview::preview_frame(
+        document.project(),
+        &main_comp(),
+        frame,
+        dir,
+        quality,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.width(), drawn.to_srgb8_straight(), said)
 }
 
@@ -172,7 +227,11 @@ fn b530_pixel_motion_blur() {
 
     t.heading("How far it reaches");
     let got = pmb("manual", 720.0, 64.0, 100.0).bounds_expansion();
-    t.row("Pixel Motion Blur never grows the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "Pixel Motion Blur never grows the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = pmb("manual", 360.0, 8.0, 50.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -185,12 +244,28 @@ fn b530_pixel_motion_blur() {
     let files: Vec<String> = (1..=19).map(|n| format!("fx_pmb_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_pmb_001.json");
-    t.row("the frames either side it reads are never saved", &format!("{:?}", params.get("frames")), params.get("frames").is_none());
+    t.row(
+        "the frames either side it reads are never saved",
+        &format!("{:?}", params.get("frames")),
+        params.get("frames").is_none(),
+    );
     for (what, parameters) in [
-        ("no `shutter_control` at all", r#"{"shutter_angle": 180, "shutter_samples": 16, "vector_detail": 20}"#),
-        ("no `vector_detail` at all", r#"{"shutter_control": "automatic", "shutter_angle": 180, "shutter_samples": 16}"#),
-        ("an angle that is a word", r#"{"shutter_control": "manual", "shutter_angle": "half", "shutter_samples": 16, "vector_detail": 20}"#),
-        ("a Shutter Control that is a number", r#"{"shutter_control": 1, "shutter_angle": 180, "shutter_samples": 16, "vector_detail": 20}"#),
+        (
+            "no `shutter_control` at all",
+            r#"{"shutter_angle": 180, "shutter_samples": 16, "vector_detail": 20}"#,
+        ),
+        (
+            "no `vector_detail` at all",
+            r#"{"shutter_control": "automatic", "shutter_angle": 180, "shutter_samples": 16}"#,
+        ),
+        (
+            "an angle that is a word",
+            r#"{"shutter_control": "manual", "shutter_angle": "half", "shutter_samples": 16, "vector_detail": 20}"#,
+        ),
+        (
+            "a Shutter Control that is a number",
+            r#"{"shutter_control": 1, "shutter_angle": 180, "shutter_samples": 16, "vector_detail": 20}"#,
+        ),
     ] {
         t.shape_refused("fx_pmb_001.json", what, parameters);
     }
@@ -204,16 +279,28 @@ fn b530_pixel_motion_blur() {
             ("Shutter Angle 721", set(pmb("manual", 721.0, 16.0, 20.0))),
             ("Shutter Samples 1", set(pmb("manual", 180.0, 1.0, 20.0))),
             ("Vector Detail -1", set(pmb("automatic", 180.0, 16.0, -1.0))),
-            ("Shutter Control \"maybe\"", set(pmb("maybe", 180.0, 16.0, 20.0))),
-            ("Shutter Samples keyed to 100 at frame 4", keys("shutter_samples", &[(0, 16.0), (4, 100.0)])),
+            (
+                "Shutter Control \"maybe\"",
+                set(pmb("maybe", 180.0, 16.0, 20.0)),
+            ),
+            (
+                "Shutter Samples keyed to 100 at frame 4",
+                keys("shutter_samples", &[(0, 16.0), (4, 100.0)]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_pmb_001.json",
         vec![
-            ("Manual, 360 degrees in 8 samples, Vector Detail 100", set(pmb("manual", 360.0, 8.0, 100.0))),
-            ("Shutter Angle keyed from 0 at frame 0 to 720 at frame 4", keys("shutter_angle", &[(0, 0.0), (4, 720.0)])),
+            (
+                "Manual, 360 degrees in 8 samples, Vector Detail 100",
+                set(pmb("manual", 360.0, 8.0, 100.0)),
+            ),
+            (
+                "Shutter Angle keyed from 0 at frame 0 to 720 at frame 4",
+                keys("shutter_angle", &[(0, 0.0), (4, 720.0)]),
+            ),
         ],
     );
 
@@ -225,20 +312,60 @@ fn b530_pixel_motion_blur() {
     fs::create_dir_all(&balls).unwrap();
     let (w, h) = PICTURE;
     for m in 0..FRAMES {
-        png_out::write_rgba(&balls.join(format!("ball_{:02}.png", m + 1)), w, h, OutputDepth::Eight, &[], &ball(m)).unwrap();
+        png_out::write_rgba(
+            &balls.join(format!("ball_{:02}.png", m + 1)),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &ball(m),
+        )
+        .unwrap();
     }
     let full = PreviewQuality::Full;
     let (_, before, said) = draw(&picture(J::Array(vec![])), &balls, 16, full);
-    png_out::write_rgba(&dir.join("1_before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
+    png_out::write_rgba(
+        &dir.join("1_before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
     let mut last = touched(&before);
-    t.row("1_before.png, frame 16 with no effect, draws cleanly", &format!("{said:?}, {last} pixels show the ball"), said.is_empty());
+    t.row(
+        "1_before.png, frame 16 with no effect, draws cleanly",
+        &format!("{said:?}, {last} pixels show the ball"),
+        said.is_empty(),
+    );
     for (name, effects, what) in [
-        ("2_as_added", effect("automatic", 180.0, 16.0, 20.0), "as added: half a frame's travel"),
-        ("3_one_frame", effect("manual", 360.0, 16.0, 20.0), "Manual 360 degrees: a whole frame's travel"),
-        ("4_two_frames", effect("manual", 720.0, 32.0, 20.0), "Manual 720 degrees in 32 samples: two frames' travel"),
+        (
+            "2_as_added",
+            effect("automatic", 180.0, 16.0, 20.0),
+            "as added: half a frame's travel",
+        ),
+        (
+            "3_one_frame",
+            effect("manual", 360.0, 16.0, 20.0),
+            "Manual 360 degrees: a whole frame's travel",
+        ),
+        (
+            "4_two_frames",
+            effect("manual", 720.0, 32.0, 20.0),
+            "Manual 720 degrees in 32 samples: two frames' travel",
+        ),
     ] {
         let (_, bytes, said) = draw(&picture(effects), &balls, 16, full);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let now = touched(&bytes);
         t.row(
             &format!("{name}.png, {what}, draws cleanly, the smear covering more pixels than the picture before"),
@@ -247,8 +374,21 @@ fn b530_pixel_motion_blur() {
         );
         last = now;
     }
-    let (dw, bytes, said) = draw(&picture(effect("automatic", 180.0, 16.0, 20.0)), &balls, 16, PreviewQuality::Draft);
-    png_out::write_rgba(&dir.join("5_as_added_draft.png"), dw, bytes.len() / 4 / dw, OutputDepth::Eight, &[], &bytes).unwrap();
+    let (dw, bytes, said) = draw(
+        &picture(effect("automatic", 180.0, 16.0, 20.0)),
+        &balls,
+        16,
+        PreviewQuality::Draft,
+    );
+    png_out::write_rgba(
+        &dir.join("5_as_added_draft.png"),
+        dw,
+        bytes.len() / 4 / dw,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
     t.row(
         "5_as_added_draft.png, as added at Draft, draws cleanly, a quarter the size",
         &format!("{said:?}, {dw} wide"),
@@ -260,13 +400,34 @@ fn b530_pixel_motion_blur() {
     let mut cache = anime_compositor::cache::CelCache::viewer();
     let warm = |cache: &mut anime_compositor::cache::CelCache, frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(played.project(), &main_comp(), frame, &balls, full, 64, &mut log, cache).expect("the picture draws")
+        preview::preview_frame_cached(
+            played.project(),
+            &main_comp(),
+            frame,
+            &balls,
+            full,
+            64,
+            &mut log,
+            cache,
+        )
+        .expect("the picture draws")
     };
     let alone = |frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame(played.project(), &main_comp(), frame, &balls, full, 64, &mut log).expect("the picture draws")
+        preview::preview_frame(
+            played.project(),
+            &main_comp(),
+            frame,
+            &balls,
+            full,
+            64,
+            &mut log,
+        )
+        .expect("the picture draws")
     };
-    let same = (0..FRAMES as i32).filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data()).count();
+    let same = (0..FRAMES as i32)
+        .filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data())
+        .count();
     t.row(
         "as added, frames 0 to 23 asked for in order through one viewer's cache, as playing asks: \
          each is byte-identical to the same frame drawn alone with no cache, as an export draws it",
@@ -274,7 +435,15 @@ fn b530_pixel_motion_blur() {
         same == FRAMES,
     );
     let before = warm(&mut cache, 15).data().to_vec();
-    png_out::write_rgba(&balls.join("ball_17.png"), w, h, OutputDepth::Eight, &[], &ball(0)).unwrap();
+    png_out::write_rgba(
+        &balls.join("ball_17.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &ball(0),
+    )
+    .unwrap();
     let changed = warm(&mut cache, 15);
     t.row(
         "drawing 17 (frame 16, the frame after 15) rewritten as drawing 1 after it was played: frame \
@@ -286,7 +455,15 @@ fn b530_pixel_motion_blur() {
         ),
         changed.data() == alone(15).data() && changed.data() != before.as_slice(),
     );
-    png_out::write_rgba(&balls.join("ball_17.png"), w, h, OutputDepth::Eight, &[], &ball(16)).unwrap();
+    png_out::write_rgba(
+        &balls.join("ball_17.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &ball(16),
+    )
+    .unwrap();
     // On twos frames 2 and 3 show one drawing with different frames either side, so the frame
     // kept for one must never be handed back for the other.
     let twos = t.load("fx_pmb_018.json").document;
@@ -295,9 +472,30 @@ fn b530_pixel_motion_blur() {
     let same = (0..6)
         .filter(|&frame| {
             let mut log = FrameLog::new(3);
-            let warm = preview::preview_frame_cached(twos.project(), &main_comp(), frame, &fixtures, full, 64, &mut log, &mut cache).unwrap();
+            let warm = preview::preview_frame_cached(
+                twos.project(),
+                &main_comp(),
+                frame,
+                &fixtures,
+                full,
+                64,
+                &mut log,
+                &mut cache,
+            )
+            .unwrap();
             let mut log = FrameLog::new(3);
-            warm.data() == preview::preview_frame(twos.project(), &main_comp(), frame, &fixtures, full, 64, &mut log).unwrap().data()
+            warm.data()
+                == preview::preview_frame(
+                    twos.project(),
+                    &main_comp(),
+                    frame,
+                    &fixtures,
+                    full,
+                    64,
+                    &mut log,
+                )
+                .unwrap()
+                .data()
         })
         .count();
     t.row(
@@ -308,7 +506,12 @@ fn b530_pixel_motion_blur() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_pmb_001.json", 2), ("fx_pmb_010.json", 2), ("fx_pmb_013.json", 2), ("fx_pmb_015.json", 2)]);
+    t.tiles(&[
+        ("fx_pmb_001.json", 2),
+        ("fx_pmb_010.json", 2),
+        ("fx_pmb_013.json", 2),
+        ("fx_pmb_015.json", 2),
+    ]);
 
     t.finish("D-650_pixel_motion_blur_table.md");
 }
@@ -350,7 +553,8 @@ fn b530_pixel_motion_blur_timing() {
         ("Noise alone", None, PreviewQuality::Half),
         ("Pixel Motion Blur as added, then Noise", Some(added), PreviewQuality::Half),
     ];
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     for (name, settings, quality) in shots {
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
@@ -359,12 +563,21 @@ fn b530_pixel_motion_blur_timing() {
                 v.push(json!({"instance_id": format!("{id}p"), "type_id": "core.pixel_motion_blur", "enabled": true,
                     "parameters": {"shutter_control": c, "shutter_angle": a, "shutter_samples": n, "vector_detail": d}}));
             }
-            v.push(json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}));
+            v.push(
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            );
             j["compositions"][0]["layers"][i]["effects"] = J::Array(v);
         }
-        let project = persist::load_str(&j.to_string()).expect("the reference shot reads").document.project().clone();
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
+        let project = persist::load_str(&j.to_string())
+            .expect("the reference shot reads")
+            .document
+            .project()
+            .clone();
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
         let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, quality);
         // Afresh: every frame with an empty cache, so each Pixel Motion Blur is worked, not reused.
         let (mut fresh, mut stage) = (Vec::new(), Vec::new());
@@ -376,14 +589,37 @@ fn b530_pixel_motion_blur_timing() {
             let mut log = FrameLog::new(3);
             let t = std::time::Instant::now();
             drop(
-                preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .expect("GPU frame"),
+                preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    frame,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .expect("GPU frame"),
             );
             fresh.push(t.elapsed().as_secs_f64() * 1000.0);
-            stage.push(anime_compositor::perf::read(anime_compositor::perf::Stage::EffectPixelMotionBlur).0 as f64 / 1e6);
+            stage.push(
+                anime_compositor::perf::read(anime_compositor::perf::Stage::EffectPixelMotionBlur).0
+                    as f64
+                    / 1e6,
+            );
         }
-        let _ = writeln!(s, "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |", median(first), median(times), median(fresh), median(stage));
+        let _ = writeln!(
+            s,
+            "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |",
+            median(first),
+            median(times),
+            median(fresh),
+            median(stage)
+        );
     }
-    let out = std::env::var("B530_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-530_timing_raw.md"));
+    let out = std::env::var("B530_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-530_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

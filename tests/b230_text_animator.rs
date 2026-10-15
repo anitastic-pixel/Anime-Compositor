@@ -29,7 +29,10 @@ const W: usize = 1280;
 const H: usize = 360;
 
 fn expected() -> J {
-    serde_json::from_str(&fs::read_to_string(repo("Fixtures/text_animator/expected_text_animator.json")).unwrap()).unwrap()
+    serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/text_animator/expected_text_animator.json")).unwrap(),
+    )
+    .unwrap()
 }
 
 /// A 1280 by 360 composition of one text layer `words`, carrying `animators` as written in the
@@ -58,13 +61,24 @@ fn sized(words: &J, animators: &[J], frames: u32, (w, h): (usize, usize)) -> Pro
             "frame_rate": {"numerator": 24, "denominator": 1}, "start_frame": 0, "duration_frames": frames,
             "work_area": {"start_frame": 0, "end_frame_exclusive": frames}, "layer_order": ["art"], "layers": [layer]}]
     });
-    persist::load_str(&p.to_string()).unwrap_or_else(|d| panic!("the project reads: {}", d.message)).document.project().clone()
+    persist::load_str(&p.to_string())
+        .unwrap_or_else(|d| panic!("the project reads: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The text and the animators of the `art` layer, read from the file as the build reads them.
 fn parts(project: &Project) -> (Text, Vec<Effect>) {
-    let layer = project.composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap();
-    (layer.text.clone().unwrap(), layer.effects.iter().map(|i| i.effect.clone()).collect())
+    let layer = project
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap();
+    (
+        layer.text.clone().unwrap(),
+        layer.effects.iter().map(|i| i.effect.clone()).collect(),
+    )
 }
 
 /// The animators of `document`'s `art` layer as they are at `frame`, keys and expressions read.
@@ -74,20 +88,40 @@ fn at_frame(project: &Project, frame: i32) -> Vec<Effect> {
     layer
         .effects
         .iter()
-        .map(|i| anime_compositor::expr::effect_at(comp, &layer.id, i, frame, frame as f64).0.effect)
+        .map(|i| {
+            anime_compositor::expr::effect_at(comp, &layer.id, i, frame, frame as f64)
+                .0
+                .effect
+        })
         .collect()
 }
 
 fn render(project: &Project, frame: i32) -> WorkingBuffer {
     let mut log = FrameLog::new(8);
-    render_frame(project, &Id::new(MAIN), frame, &repo("Fixtures/text_animator"), 64, &mut log)
-        .unwrap_or_else(|d| panic!("frame {frame} renders: {}", d.message))
+    render_frame(
+        project,
+        &Id::new(MAIN),
+        frame,
+        &repo("Fixtures/text_animator"),
+        64,
+        &mut log,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} renders: {}", d.message))
 }
 
 fn warned(project: &Project, frame: i32) -> Vec<String> {
     let mut log = FrameLog::new(8);
-    let _ = plan_frame(project, &Id::new(MAIN), frame, &repo("Fixtures/text_animator"), &mut log);
-    log.finish().iter().map(|d| d.id.as_str().to_string()).collect()
+    let _ = plan_frame(
+        project,
+        &Id::new(MAIN),
+        frame,
+        &repo("Fixtures/text_animator"),
+        &mut log,
+    );
+    log.finish()
+        .iter()
+        .map(|d| d.id.as_str().to_string())
+        .collect()
 }
 
 fn nums(v: &J) -> Vec<f64> {
@@ -101,7 +135,10 @@ fn far(a: &[f64], b: &[f64]) -> f64 {
     if a.len() != b.len() {
         return f64::INFINITY;
     }
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
 }
 
 /// The largest alpha inside `[x0, y0, x1, y1]`.
@@ -124,7 +161,15 @@ fn picture(dir: &std::path::Path, file: &str, b: &WorkingBuffer) {
         }
         o[3] = 1.0;
     }
-    png_out::write_rgba(&dir.join(format!("{file}.png")), b.width(), b.height(), OutputDepth::Eight, &[], &over.to_srgb8_straight()).unwrap();
+    png_out::write_rgba(
+        &dir.join(format!("{file}.png")),
+        b.width(),
+        b.height(),
+        OutputDepth::Eight,
+        &[],
+        &over.to_srgb8_straight(),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -155,7 +200,8 @@ fn b230_text_animator() {
         let want = case["chars"].as_array().unwrap();
         let (mut worst, mut worst_box, mut same_chars) = (0f64, 0f64, placed.len() == want.len());
         for (b, w) in placed.iter().zip(want) {
-            same_chars &= b.index as u64 == w["index"].as_u64().unwrap() && b.ch.to_string() == w["char"].as_str().unwrap();
+            same_chars &= b.index as u64 == w["index"].as_u64().unwrap()
+                && b.ch.to_string() == w["char"].as_str().unwrap();
             for d in [
                 far(&b.anchor, &nums(&w["anchor"])),
                 far(&b.moved, &nums(&w["move"])),
@@ -175,7 +221,10 @@ fn b230_text_animator() {
         }
         t.row(
             &format!("{name}: {}", case["says"].as_str().unwrap()),
-            &format!("{} characters; numbers within {worst:.1e}, boxes within {worst_box:.3} px", placed.len()),
+            &format!(
+                "{} characters; numbers within {worst:.1e}, boxes within {worst_box:.3} px",
+                placed.len()
+            ),
             same_chars && worst <= tol && worst_box <= box_tol,
         );
         drawn.insert(name.clone(), (words, fx, placed, p));
@@ -213,7 +262,10 @@ fn b230_text_animator() {
         let r = c.bounds.unwrap();
         let (got, full) = (most_alpha(&a, r), most_alpha(&p, r));
         t.row(
-            &format!("FX-TXA-002: the seventh letter, at opacity {:.4}, has that share of its ink", c.opacity),
+            &format!(
+                "FX-TXA-002: the seventh letter, at opacity {:.4}, has that share of its ink",
+                c.opacity
+            ),
             &format!("strongest alpha {got:.4} of {full:.4}"),
             (got as f64 - c.opacity * full as f64).abs() <= 1e-5,
         );
@@ -237,7 +289,10 @@ fn b230_text_animator() {
             }
         }
         t.row(
-            &format!("FX-TXA-008: the last letter's solid pixels are its Fill Color {:?}", c.color),
+            &format!(
+                "FX-TXA-008: the last letter's solid pixels are its Fill Color {:?}",
+                c.color
+            ),
             &format!("{solid} solid pixels, largest difference {worst:.1e}"),
             solid > 50 && worst <= 1e-6,
         );
@@ -247,12 +302,19 @@ fn b230_text_animator() {
         let (words, fx, placed, _) = &drawn["FX-TXA-006"];
         let (a, p) = (text::animated(words, fx, W, H).unwrap(), plain(words));
         let top = |b: &WorkingBuffer, r: [f64; 4]| {
-            (0..H).find(|&y| (r[0] as usize..r[2] as usize).any(|x| b.pixel(x, y)[3] > 0.5)).unwrap_or(H) as f64
+            (0..H)
+                .find(|&y| (r[0] as usize..r[2] as usize).any(|x| b.pixel(x, y)[3] > 0.5))
+                .unwrap_or(H) as f64
         };
         let mut worst = 0f64;
         for c in placed.iter().filter(|c| c.bounds.is_some()) {
             let r = c.bounds.unwrap();
-            let still = [r[0] - c.moved[0], r[1] - c.moved[1], r[2] - c.moved[0], r[3] - c.moved[1]];
+            let still = [
+                r[0] - c.moved[0],
+                r[1] - c.moved[1],
+                r[2] - c.moved[0],
+                r[3] - c.moved[1],
+            ];
             worst = worst.max((top(&a, r) - top(&p, still) - c.moved[1]).abs());
         }
         t.row(
@@ -263,7 +325,12 @@ fn b230_text_animator() {
     }
 
     t.heading("FX-TXA-020 to 023: the files");
-    let files = ["fx_txa_020.json", "fx_txa_021.json", "fx_txa_022.json", "fx_txa_023.json"];
+    let files = [
+        "fx_txa_020.json",
+        "fx_txa_021.json",
+        "fx_txa_022.json",
+        "fx_txa_023.json",
+    ];
     for (name, case) in e["projects"].as_object().unwrap() {
         let loaded = t.load(case["project"].as_str().unwrap());
         let doc = loaded.document.project().clone();
@@ -271,19 +338,45 @@ fn b230_text_animator() {
             let frame: i32 = frame.parse().unwrap();
             let (words, _) = parts(&doc);
             let fx = at_frame(&doc, frame);
-            let shown: Vec<u64> = text::placed(&words, &fx).unwrap().iter().filter(|c| c.opacity > 0.0).map(|c| c.index as u64).collect();
-            let want: Vec<u64> = want.as_array().unwrap().iter().map(|v| v.as_u64().unwrap()).collect();
-            let same = render(&doc, frame).data() == text::animated(&words, &fx, W, H).unwrap().data();
+            let shown: Vec<u64> = text::placed(&words, &fx)
+                .unwrap()
+                .iter()
+                .filter(|c| c.opacity > 0.0)
+                .map(|c| c.index as u64)
+                .collect();
+            let want: Vec<u64> = want
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap())
+                .collect();
+            let same =
+                render(&doc, frame).data() == text::animated(&words, &fx, W, H).unwrap().data();
             t.row(
                 &format!("{name} frame {frame}: {}", case["says"].as_str().unwrap()),
-                &format!("characters shown {shown:?}; the frame {} the animated line", if same { "is" } else { "is not" }),
+                &format!(
+                    "characters shown {shown:?}; the frame {} the animated line",
+                    if same { "is" } else { "is not" }
+                ),
                 shown == want && same,
             );
         }
-        let on_open: Vec<String> = loaded.warnings.iter().map(|d| d.id.as_str().to_string()).collect();
+        let on_open: Vec<String> = loaded
+            .warnings
+            .iter()
+            .map(|d| d.id.as_str().to_string())
+            .collect();
         let at = warned(&doc, 4);
-        let want_open: Vec<String> = case["warning"].as_str().into_iter().map(String::from).collect();
-        let want_at: Vec<String> = case["frame_warning"].as_str().into_iter().map(String::from).collect();
+        let want_open: Vec<String> = case["warning"]
+            .as_str()
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let want_at: Vec<String> = case["frame_warning"]
+            .as_str()
+            .into_iter()
+            .map(String::from)
+            .collect();
         t.row(
             &format!("{name}: what opening it warns of, and what frame 4 warns of"),
             &format!("{on_open:?} and {at:?}"),
@@ -294,17 +387,35 @@ fn b230_text_animator() {
         let doc = t.load("fx_txa_022.json").document.project().clone();
         let (words, _) = parts(&doc);
         let same = render(&doc, 4).data() == text::draw(&words, W, H).unwrap().data();
-        t.row("fx_txa_022.json: with a shape it does not know, the line is drawn as with no animator", if same { "the same" } else { "differs" }, same);
+        t.row(
+            "fx_txa_022.json: with a shape it does not know, the line is drawn as with no animator",
+            if same { "the same" } else { "differs" },
+            same,
+        );
         let doc = t.load("fx_txa_023.json").document.project().clone();
-        let mut json: J = serde_json::from_str(&fs::read_to_string(t.root.join("fx_txa_023.json")).unwrap()).unwrap();
+        let mut json: J =
+            serde_json::from_str(&fs::read_to_string(t.root.join("fx_txa_023.json")).unwrap())
+                .unwrap();
         json["compositions"][0]["layers"][0]["effects"] = json!([]);
-        let bare = persist::load_str(&json.to_string()).unwrap().document.project().clone();
+        let bare = persist::load_str(&json.to_string())
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let same = render(&doc, 4).data() == render(&bare, 4).data();
-        t.row("fx_txa_023.json: the solid is drawn as with no animator", if same { "the same" } else { "differs" }, same);
+        t.row(
+            "fx_txa_023.json: the solid is drawn as with no animator",
+            if same { "the same" } else { "differs" },
+            same,
+        );
     }
     t.round_trips(&files);
     let kept = t.saved_parameters("fx_txa_021.json");
-    t.row("fx_txa_021.json: the unknown \"selector_mode\" is saved as written", &kept["selector_mode"].to_string(), kept["selector_mode"] == "add");
+    t.row(
+        "fx_txa_021.json: the unknown \"selector_mode\" is saved as written",
+        &kept["selector_mode"].to_string(),
+        kept["selector_mode"] == "add",
+    );
     t.shape_refused("fx_txa_021.json", "a Start written as a word", r#"{"position":[0,0],"scale":[100,100],"rotation":0,"opacity":0,"fill":"off","color":[1,0,0],"tracking":0,"start":"forty","end":100,"offset":0,"amount":100,"based_on":"characters","shape":"square","smoothness":0,"ease_high":0,"ease_low":0}"#);
     t.shape_refused("fx_txa_021.json", "a Position of one number", r#"{"position":5,"scale":[100,100],"rotation":0,"opacity":0,"fill":"off","color":[1,0,0],"tracking":0,"start":40,"end":100,"offset":0,"amount":100,"based_on":"characters","shape":"square","smoothness":0,"ease_high":0,"ease_low":0}"#);
     t.shape_refused("fx_txa_021.json", "no End", r#"{"position":[0,0],"scale":[100,100],"rotation":0,"opacity":0,"fill":"off","color":[1,0,0],"tracking":0,"start":40,"offset":0,"amount":100,"based_on":"characters","shape":"square","smoothness":0,"ease_high":0,"ease_low":0}"#);
@@ -312,8 +423,18 @@ fn b230_text_animator() {
     t.heading("Commands: keys, an expression, a refusal, undo");
     let mut document: Document = t.load("fx_txa_021.json").document;
     let (comp, layer, fx) = (Id::new(MAIN), Id::new("art"), Id::new("fx-0"));
-    let first = text::animated(&parts(document.project()).0, &at_frame(document.project(), 0), W, H).unwrap();
-    let key = |frame, value: &[f64]| EffectKey { frame, value: value.to_vec(), interp: Interp::Linear };
+    let first = text::animated(
+        &parts(document.project()).0,
+        &at_frame(document.project(), 0),
+        W,
+        H,
+    )
+    .unwrap();
+    let key = |frame, value: &[f64]| EffectKey {
+        frame,
+        value: value.to_vec(),
+        interp: Interp::Linear,
+    };
     let keys = |setting: &str, k: Vec<EffectKey>| Command::SetEffectKeys {
         composition: comp.clone(),
         layer_id: layer.clone(),
@@ -326,19 +447,28 @@ fn b230_text_animator() {
             "Position keyed 0, 0 at frame 0 to 0, -80 at frame 8: at frame 4 it is 0, -40",
             keys("position", vec![key(0, &[0.0, 0.0]), key(8, &[0.0, -80.0])]),
             4,
-            Box::new(|e| matches!(e, Effect::TextAnimator { position, .. } if far(position, &[0.0, -40.0]) < 1e-9)),
+            Box::new(
+                |e| matches!(e, Effect::TextAnimator { position, .. } if far(position, &[0.0, -40.0]) < 1e-9),
+            ),
         ),
         (
             "Fill colour keyed red at 0 to blue at 8: at frame 4 it is half of each",
-            keys("color", vec![key(0, &[1.0, 0.0, 0.0]), key(8, &[0.0, 0.0, 1.0])]),
+            keys(
+                "color",
+                vec![key(0, &[1.0, 0.0, 0.0]), key(8, &[0.0, 0.0, 1.0])],
+            ),
             4,
-            Box::new(|e| matches!(e, Effect::TextAnimator { color, .. } if far(color, &[0.5, 0.0, 0.5]) < 1e-9)),
+            Box::new(
+                |e| matches!(e, Effect::TextAnimator { color, .. } if far(color, &[0.5, 0.0, 0.5]) < 1e-9),
+            ),
         ),
         (
             "Offset keyed -100 at 0 to 100 at 8: at frame 2 it is -50",
             keys("offset", vec![key(0, &[-100.0]), key(8, &[100.0])]),
             2,
-            Box::new(|e| matches!(e, Effect::TextAnimator { offset, .. } if (offset + 50.0).abs() < 1e-9)),
+            Box::new(
+                |e| matches!(e, Effect::TextAnimator { offset, .. } if (offset + 50.0).abs() < 1e-9),
+            ),
         ),
         (
             "Start given the expression \"time*24*10\": at frame 3 it is 30",
@@ -347,10 +477,15 @@ fn b230_text_animator() {
                 layer_id: layer.clone(),
                 instance_id: fx.clone(),
                 setting: "start".to_string(),
-                expression: Some(Expression { text: "time*24*10".to_string(), enabled: true }),
+                expression: Some(Expression {
+                    text: "time*24*10".to_string(),
+                    enabled: true,
+                }),
             },
             3,
-            Box::new(|e| matches!(e, Effect::TextAnimator { start, .. } if (start - 30.0).abs() < 1e-9)),
+            Box::new(
+                |e| matches!(e, Effect::TextAnimator { start, .. } if (start - 30.0).abs() < 1e-9),
+            ),
         ),
     ];
     let n = steps.len();
@@ -358,12 +493,20 @@ fn b230_text_animator() {
         let taken = document.apply(command).is_ok();
         let now = at_frame(document.project(), frame);
         let ok = taken && check(&now[0]);
-        t.row(what, &format!("{} ; {:?}", if taken { "taken" } else { "refused" }, now[0]), ok);
+        t.row(
+            what,
+            &format!("{} ; {:?}", if taken { "taken" } else { "refused" }, now[0]),
+            ok,
+        );
     }
-    let past = document.apply(keys("opacity", vec![key(0, &[150.0])])).err();
+    let past = document
+        .apply(keys("opacity", vec![key(0, &[150.0])]))
+        .err();
     t.row(
         "Opacity keyed 150 (past its 0 to 100) is refused with a sentence",
-        &past.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &past
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         past.is_some(),
     );
     let mut wrong = parts(document.project()).1[0].clone();
@@ -371,18 +514,39 @@ fn b230_text_animator() {
         *shape = "wiggly".to_string();
     }
     let refused = document
-        .apply(Command::SetEffectParameters { composition: comp.clone(), layer_id: layer.clone(), instance_id: fx.clone(), effect: wrong })
+        .apply(Command::SetEffectParameters {
+            composition: comp.clone(),
+            layer_id: layer.clone(),
+            instance_id: fx.clone(),
+            effect: wrong,
+        })
         .err();
     t.row(
         "the shape \"wiggly\" is refused with a sentence",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some(),
     );
     for _ in 0..n {
         document.undo();
     }
-    let back = text::animated(&parts(document.project()).0, &at_frame(document.project(), 0), W, H).unwrap();
-    t.row(&format!("undo {n} times: frame 0 is what it was"), if back.data() == first.data() { "byte-identical" } else { "differs" }, back.data() == first.data());
+    let back = text::animated(
+        &parts(document.project()).0,
+        &at_frame(document.project(), 0),
+        W,
+        H,
+    )
+    .unwrap();
+    t.row(
+        &format!("undo {n} times: frame 0 is what it was"),
+        if back.data() == first.data() {
+            "byte-identical"
+        } else {
+            "differs"
+        },
+        back.data() == first.data(),
+    );
 
     t.heading("The card: the letters drawn on the processor, the frame shown through the card");
     let root = repo("Fixtures/text_animator");
@@ -392,17 +556,49 @@ fn b230_text_animator() {
         for frame in [0, 6, 15] {
             let mut cache = CelCache::viewer();
             let mut log = FrameLog::new(3);
-            let c = preview::preview_frame_cached(&doc, &Id::new(MAIN), frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                .unwrap()
-                .to_srgb8_straight();
+            let c = preview::preview_frame_cached(
+                &doc,
+                &Id::new(MAIN),
+                frame,
+                &root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+            )
+            .unwrap()
+            .to_srgb8_straight();
             let mut log = FrameLog::new(3);
-            let (g, ..) = preview::preview_frame_srgb8(&doc, &Id::new(MAIN), frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).unwrap();
-            let said: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
-            let worst = c.iter().zip(&g).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+            let (g, ..) = preview::preview_frame_srgb8(
+                &doc,
+                &Id::new(MAIN),
+                frame,
+                &root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+                &mut gpu,
+            )
+            .unwrap();
+            let said: Vec<String> = log
+                .finish()
+                .iter()
+                .map(|d| d.id.as_str().to_string())
+                .collect();
+            let worst = c
+                .iter()
+                .zip(&g)
+                .map(|(a, b)| a.abs_diff(*b))
+                .max()
+                .unwrap_or(0);
             t.row(
                 &format!("{file} frame {frame}: the card's frame against the processor's"),
                 &format!("largest {worst} level(s); warnings {said:?}"),
-                worst <= 1 && !said.iter().any(|s| s == DiagnosticId::GpuPreviewOnCpu.as_str()),
+                worst <= 1
+                    && !said
+                        .iter()
+                        .any(|s| s == DiagnosticId::GpuPreviewOnCpu.as_str()),
             );
         }
     }
@@ -414,17 +610,56 @@ fn b230_text_animator() {
     for frame in [0, 3, 6, 10, 15] {
         let file = format!("typewriter_frame_{frame:02}");
         picture(&dir, &file, &render(&doc, frame));
-        t.row(&format!("{file}.png: the typewriter at frame {frame} of 15, Start {}", frame * 100 / 15), "written", true);
+        t.row(
+            &format!(
+                "{file}.png: the typewriter at frame {frame} of 15, Start {}",
+                frame * 100 / 15
+            ),
+            "written",
+            true,
+        );
     }
     for (case, file, what) in [
-        ("FX-TXA-002", "typewriter_soft", "Smoothness 100: the seventh letter half faded"),
-        ("FX-TXA-003", "fade_in_by_character", "Ramp Up, eased: bright on the left, fading to nothing on the right"),
-        ("FX-TXA-004", "fade_out_by_character", "Ramp Down: the other way round"),
-        ("FX-TXA-005", "word_by_word", "Based On Words: whole words lowered and faded together"),
-        ("FX-TXA-006", "wave", "Triangle: the letters in the range raised, most in its middle"),
-        ("FX-TXA-007", "humps", "Smooth and Round: a smooth hump and a swelling in the middle"),
-        ("FX-TXA-008", "turn_scale_colour", "turned, squashed, spaced and the second half green"),
-        ("FX-TXA-011", "thirty_characters", "the timing line: a wave and a fade together"),
+        (
+            "FX-TXA-002",
+            "typewriter_soft",
+            "Smoothness 100: the seventh letter half faded",
+        ),
+        (
+            "FX-TXA-003",
+            "fade_in_by_character",
+            "Ramp Up, eased: bright on the left, fading to nothing on the right",
+        ),
+        (
+            "FX-TXA-004",
+            "fade_out_by_character",
+            "Ramp Down: the other way round",
+        ),
+        (
+            "FX-TXA-005",
+            "word_by_word",
+            "Based On Words: whole words lowered and faded together",
+        ),
+        (
+            "FX-TXA-006",
+            "wave",
+            "Triangle: the letters in the range raised, most in its middle",
+        ),
+        (
+            "FX-TXA-007",
+            "humps",
+            "Smooth and Round: a smooth hump and a swelling in the middle",
+        ),
+        (
+            "FX-TXA-008",
+            "turn_scale_colour",
+            "turned, squashed, spaced and the second half green",
+        ),
+        (
+            "FX-TXA-011",
+            "thirty_characters",
+            "the timing line: a wave and a fade together",
+        ),
     ] {
         let (words, fx, ..) = &drawn[case];
         picture(&dir, file, &text::animated(words, fx, W, H).unwrap());
@@ -455,7 +690,11 @@ fn b230_text_animator_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let animators: Vec<J> = case["animators"]
         .as_array()
@@ -471,7 +710,10 @@ fn b230_text_animator_timing() {
     let project = sized(&case["text"], &animators, 48, (1920, 1080));
     let (words, _) = parts(&project);
     let frames: Vec<Vec<Effect>> = (0..48).map(|f| at_frame(&project, f)).collect();
-    for (name, with) in [("drawing the line, no animator", false), ("drawing the line, two animators", true)] {
+    for (name, with) in [
+        ("drawing the line, no animator", false),
+        ("drawing the line, two animators", true),
+    ] {
         let (mut first, mut times) = (Vec::new(), Vec::new());
         for pass in 0..5 {
             for fx in &frames {
@@ -479,10 +721,19 @@ fn b230_text_animator_timing() {
                 let t = Instant::now();
                 drop(text::animated(&words, fx, 1920, 1080).unwrap());
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
     let root = repo("Fixtures/text_animator");
     let mut cache = CelCache::viewer();
@@ -492,13 +743,37 @@ fn b230_text_animator_timing() {
         for frame in 0..48 {
             let mut log = FrameLog::new(3);
             let t = Instant::now();
-            drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+            drop(
+                preview::preview_frame_srgb8(
+                    &project,
+                    &Id::new(MAIN),
+                    frame,
+                    &root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .expect("GPU frame"),
+            );
             let ms = t.elapsed().as_secs_f64() * 1000.0;
             assert!(log.finish().is_empty(), "the frame draws without a warning");
-            if pass > 0 { times.push(ms) } else { first.push(ms) }
+            if pass > 0 {
+                times.push(ms)
+            } else {
+                first.push(ms)
+            }
         }
     }
-    let _ = writeln!(s, "| the viewer's whole frame, two animators, Full, Draw on: GPU | {:.1} | {:.1} |", median(first), median(times));
-    let out = std::env::var("B230_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-230_timing_raw.md"));
+    let _ = writeln!(
+        s,
+        "| the viewer's whole frame, two animators, Full, Draw on: GPU | {:.1} | {:.1} |",
+        median(first),
+        median(times)
+    );
+    let out = std::env::var("B230_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-230_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

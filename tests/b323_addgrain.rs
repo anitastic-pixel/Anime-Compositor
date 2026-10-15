@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -32,7 +33,8 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// shadows, midtones, highlights, midpoint, animation speed, random seed], [monochromatic,
 /// blending mode, animate smoothly].
 fn grain(n: [f64; 14], w: [&str; 3]) -> Effect {
-    let [intensity, size, softness, aspect_ratio, red_intensity, green_intensity, blue_intensity, saturation, shadows, midtones, highlights, midpoint, animation_speed, random_seed] = n;
+    let [intensity, size, softness, aspect_ratio, red_intensity, green_intensity, blue_intensity, saturation, shadows, midtones, highlights, midpoint, animation_speed, random_seed] =
+        n;
     let [monochromatic, blending_mode, animate_smoothly] = w.map(str::to_string);
     Effect::AddGrain {
         intensity,
@@ -56,7 +58,9 @@ fn grain(n: [f64; 14], w: [&str; 3]) -> Effect {
     }
 }
 
-const ADDED: [f64; 14] = [1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 0.0];
+const ADDED: [f64; 14] = [
+    1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 0.0,
+];
 const WORDS: [&str; 3] = ["off", "film", "on"];
 
 fn numbers(change: &[(usize, f64)]) -> [f64; 14] {
@@ -79,9 +83,11 @@ fn words<'a>(change: &[(usize, &'a str)]) -> [&'a str; 3] {
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.add_grain" => json!({"intensity": 1, "size": 1, "softness": 0, "aspect_ratio": 1, "red_intensity": 1, "green_intensity": 1,
+        "core.add_grain" => {
+            json!({"intensity": 1, "size": 1, "softness": 0, "aspect_ratio": 1, "red_intensity": 1, "green_intensity": 1,
             "blue_intensity": 1, "monochromatic": "off", "saturation": 1, "blending_mode": "film", "shadows": 1, "midtones": 1, "highlights": 1,
-            "midpoint": 0.5, "animation_speed": 1, "animate_smoothly": "on", "random_seed": 0}),
+            "midpoint": 0.5, "animation_speed": 1, "animate_smoothly": "on", "random_seed": 0})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -92,17 +98,31 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -123,14 +143,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -158,7 +194,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 /// `effects` on the street at `frame` of a two-second shot, drawn, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -173,8 +212,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -184,21 +235,42 @@ type Shot<'a> = (&'a str, J, i32, &'a str, fn(&[u8], &[u8]) -> bool);
 /// pictures into `verification/{d} pictures/`; a row each that it draws cleanly and changes what
 /// it says it changes.
 fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, frame, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]), *frame);
         write(&file, &bytes);
         t.row(
             &format!("{file}, frame {frame}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}, the largest by {} of 255", distance(&bytes, &before).1, TOWN.0 * TOWN.1, distance(&bytes, &before).0),
+            &format!(
+                "{said:?}, {} pixels changed of {}, the largest by {} of 255",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1,
+                distance(&bytes, &before).0
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -207,8 +279,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -234,7 +318,8 @@ fn grey(a: &[u8], b: &[u8]) -> bool {
         let d: Vec<i32> = (0..3).map(|c| p[c] as i32 - q[c] as i32).collect();
         // Through the sRGB curve the same push is not the same number of levels, so the three
         // channels only move the same way.
-        d.iter().all(|x| x.signum() == d[0].signum() || *x == 0 || d[0] == 0)
+        d.iter()
+            .all(|x| x.signum() == d[0].signum() || *x == 0 || d[0] == 0)
     });
     grainy(a, b) && same
 }
@@ -264,32 +349,91 @@ fn b323_addgrain() {
     t.row(
         "fx_addgrain_028.json is saved with its words and numbers as written, and no frame",
         &saved.to_string(),
-        saved["monochromatic"] == "on" && saved["blending_mode"] == "film" && saved["size"] == 3 && saved["softness"] == 0.3
-            && saved["aspect_ratio"] == 0.5 && saved["random_seed"] == 11 && saved.get("frame").is_none(),
+        saved["monochromatic"] == "on"
+            && saved["blending_mode"] == "film"
+            && saved["size"] == 3
+            && saved["softness"] == 0.3
+            && saved["aspect_ratio"] == 0.5
+            && saved["random_seed"] == 11
+            && saved.get("frame").is_none(),
     );
     let saved = t.saved_parameters("fx_addgrain_022.json");
-    t.row("fx_addgrain_022.json is saved with Intensity's keys kept", &saved["intensity"].to_string(), saved["intensity"]["keyframes"][1]["value"] == json!(4));
+    t.row(
+        "fx_addgrain_022.json is saved with Intensity's keys kept",
+        &saved["intensity"].to_string(),
+        saved["intensity"]["keyframes"][1]["value"] == json!(4),
+    );
     why(
         &mut t,
         &[
-            ("fx_addgrain_029.json", "Add Grain's intensity runs from 0 to 10, and this is 11."),
-            ("fx_addgrain_030.json", "Add Grain's size runs from 0.1 to 100, and this is 0.05."),
-            ("fx_addgrain_031.json", "Add Grain's softness runs from 0 to 1, and this is 1.5."),
-            ("fx_addgrain_032.json", "Add Grain's aspect ratio runs from 0.25 to 4, and this is 5."),
-            ("fx_addgrain_033.json", "Add Grain's green intensity runs from 0 to 10, and this is -1."),
-            ("fx_addgrain_034.json", "Add Grain's saturation runs from 0 to 1, and this is 2."),
-            ("fx_addgrain_035.json", "Add Grain's midpoint runs from 0.01 to 0.99, and this is 1."),
-            ("fx_addgrain_036.json", "Add Grain's animation speed runs from 0 to 10, and this is 11."),
-            ("fx_addgrain_037.json", "Add Grain's random seed runs from 0 to 100000, and this is 100001."),
-            ("fx_addgrain_038.json", "Add Grain's blending mode is one of film, add, overlay, and this is \"screen\"."),
-            ("fx_addgrain_039.json", "Add Grain's monochromatic is \"off\" or \"on\", and this is \"yes\"."),
-            ("fx_addgrain_040.json", "Add Grain's animate smoothly is \"on\" or \"off\", and this is \"On\"."),
+            (
+                "fx_addgrain_029.json",
+                "Add Grain's intensity runs from 0 to 10, and this is 11.",
+            ),
+            (
+                "fx_addgrain_030.json",
+                "Add Grain's size runs from 0.1 to 100, and this is 0.05.",
+            ),
+            (
+                "fx_addgrain_031.json",
+                "Add Grain's softness runs from 0 to 1, and this is 1.5.",
+            ),
+            (
+                "fx_addgrain_032.json",
+                "Add Grain's aspect ratio runs from 0.25 to 4, and this is 5.",
+            ),
+            (
+                "fx_addgrain_033.json",
+                "Add Grain's green intensity runs from 0 to 10, and this is -1.",
+            ),
+            (
+                "fx_addgrain_034.json",
+                "Add Grain's saturation runs from 0 to 1, and this is 2.",
+            ),
+            (
+                "fx_addgrain_035.json",
+                "Add Grain's midpoint runs from 0.01 to 0.99, and this is 1.",
+            ),
+            (
+                "fx_addgrain_036.json",
+                "Add Grain's animation speed runs from 0 to 10, and this is 11.",
+            ),
+            (
+                "fx_addgrain_037.json",
+                "Add Grain's random seed runs from 0 to 100000, and this is 100001.",
+            ),
+            (
+                "fx_addgrain_038.json",
+                "Add Grain's blending mode is one of film, add, overlay, and this is \"screen\".",
+            ),
+            (
+                "fx_addgrain_039.json",
+                "Add Grain's monochromatic is \"off\" or \"on\", and this is \"yes\".",
+            ),
+            (
+                "fx_addgrain_040.json",
+                "Add Grain's animate smoothly is \"on\" or \"off\", and this is \"On\".",
+            ),
         ],
     );
     let p = r#""intensity": 1, "size": 1, "softness": 0, "aspect_ratio": 1, "red_intensity": 1, "green_intensity": 1, "blue_intensity": 1, "saturation": 1, "shadows": 1, "midtones": 1, "highlights": 1, "midpoint": 0.5, "animation_speed": 1, "random_seed": 0, "monochromatic": "off""#;
-    t.shape_refused("fx_addgrain_001.json", "an Add Grain with no `blending_mode`", &format!("{{{p}, \"animate_smoothly\": \"on\"}}"));
-    t.shape_refused("fx_addgrain_001.json", "an Add Grain whose animate smoothly is true", &format!("{{{p}, \"blending_mode\": \"film\", \"animate_smoothly\": true}}"));
-    t.shape_refused("fx_addgrain_001.json", "an Add Grain whose size is a word", &format!("{{{p}, \"blending_mode\": \"film\", \"animate_smoothly\": \"on\", \"size\": \"big\"}}"));
+    t.shape_refused(
+        "fx_addgrain_001.json",
+        "an Add Grain with no `blending_mode`",
+        &format!("{{{p}, \"animate_smoothly\": \"on\"}}"),
+    );
+    t.shape_refused(
+        "fx_addgrain_001.json",
+        "an Add Grain whose animate smoothly is true",
+        &format!("{{{p}, \"blending_mode\": \"film\", \"animate_smoothly\": true}}"),
+    );
+    t.shape_refused(
+        "fx_addgrain_001.json",
+        "an Add Grain whose size is a word",
+        &format!(
+            "{{{p}, \"blending_mode\": \"film\", \"animate_smoothly\": \"on\", \"size\": \"big\"}}"
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_addgrain_001.json").document;
@@ -299,10 +443,22 @@ fn b323_addgrain() {
             ("intensity 11", set(grain(numbers(&[(0, 11.0)]), WORDS))),
             ("size 0.05", set(grain(numbers(&[(1, 0.05)]), WORDS))),
             ("midpoint 1", set(grain(numbers(&[(11, 1.0)]), WORDS))),
-            ("monochromatic \"yes\"", set(grain(ADDED, words(&[(0, "yes")])))),
-            ("blending mode \"screen\"", set(grain(ADDED, words(&[(1, "screen")])))),
-            ("animate smoothly \"On\"", set(grain(ADDED, words(&[(2, "On")])))),
-            ("shadows keyed to 20", keys("shadows", &[(0, &[1.0]), (4, &[20.0])])),
+            (
+                "monochromatic \"yes\"",
+                set(grain(ADDED, words(&[(0, "yes")]))),
+            ),
+            (
+                "blending mode \"screen\"",
+                set(grain(ADDED, words(&[(1, "screen")]))),
+            ),
+            (
+                "animate smoothly \"On\"",
+                set(grain(ADDED, words(&[(2, "On")]))),
+            ),
+            (
+                "shadows keyed to 20",
+                keys("shadows", &[(0, &[1.0]), (4, &[20.0])]),
+            ),
         ],
     );
     t.taken(
@@ -406,22 +562,53 @@ fn b323_addgrain_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Add Grain as added (size 1, blocky, in colour)", Some(json!({}))),
-        ("Noise, then Add Grain size 4, softness 1 (smooth)", Some(json!({"size": 4, "softness": 1}))),
-        ("Noise, then Add Grain size 3, softness 0.5 (both), Overlay", Some(json!({"size": 3, "softness": 0.5, "blending_mode": "overlay"}))),
+        (
+            "Noise, then Add Grain as added (size 1, blocky, in colour)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Add Grain size 4, softness 1 (smooth)",
+            Some(json!({"size": 4, "softness": 1})),
+        ),
+        (
+            "Noise, then Add Grain size 3, softness 0.5 (both), Overlay",
+            Some(json!({"size": 3, "softness": 0.5, "blending_mode": "overlay"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.add_grain", &format!("{id}g"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B323_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-323_timing_raw.md"));
+    let out = std::env::var("B323_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-323_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

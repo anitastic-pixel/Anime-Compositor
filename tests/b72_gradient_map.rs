@@ -41,7 +41,11 @@ fn b72_gradient_map() {
 
     t.heading("How far it reaches");
     let got = map(GREY, 50.0, 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = map(GREY, 40.0, 80.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -85,10 +89,22 @@ fn b72_gradient_map() {
             ("midpoint 100", set(map(GREY, 100.0, 100.0))),
             ("amount 101", set(map(GREY, 50.0, 101.0))),
             ("amount -1", set(map(GREY, 50.0, -1.0))),
-            ("shadow colour \"#12345\"", set(map(["#12345", "#808080", "#ffffff"], 50.0, 100.0))),
-            ("midtone colour \"grey\"", set(map(["#000000", "grey", "#ffffff"], 50.0, 100.0))),
-            ("highlight colour \"white\"", set(map(["#000000", "#808080", "white"], 50.0, 100.0))),
-            ("midpoint keyed to 150", keys("midpoint", &[(0, &[50.0]), (4, &[150.0])])),
+            (
+                "shadow colour \"#12345\"",
+                set(map(["#12345", "#808080", "#ffffff"], 50.0, 100.0)),
+            ),
+            (
+                "midtone colour \"grey\"",
+                set(map(["#000000", "grey", "#ffffff"], 50.0, 100.0)),
+            ),
+            (
+                "highlight colour \"white\"",
+                set(map(["#000000", "#808080", "white"], 50.0, 100.0)),
+            ),
+            (
+                "midpoint keyed to 150",
+                keys("midpoint", &[(0, &[50.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -99,8 +115,14 @@ fn b72_gradient_map() {
                 "midpoint 99 and amount 100, the tops,",
                 set(map(["#2a1650", "#c85a50", "#ffe6b4"], 99.0, 100.0)),
             ),
-            ("midpoint 1 and amount 0, the bottoms,", set(map(GREY, 1.0, 0.0))),
-            ("amount keyed from 0 to 100", keys("amount", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "midpoint 1 and amount 0, the bottoms,",
+                set(map(GREY, 1.0, 0.0)),
+            ),
+            (
+                "amount keyed from 0 to 100",
+                keys("amount", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

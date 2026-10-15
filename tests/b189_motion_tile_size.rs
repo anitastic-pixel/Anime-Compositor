@@ -67,8 +67,15 @@ fn shot(angle: f64, tile: J) -> String {
 fn line(angle: f64, tile: J, from: usize, n: usize) -> Vec<f64> {
     let loaded = persist::load_str(&shot(angle, tile)).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let f = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 256, &mut log)
-        .expect("the frame draws");
+    let f = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        256,
+        &mut log,
+    )
+    .expect("the frame draws");
     (from..from + n)
         .map(|i| if angle == 90.0 { f.pixel(i as _, 8) } else { f.pixel(8, i as _) }[3] as f64)
         .collect()
@@ -77,22 +84,62 @@ fn line(angle: f64, tile: J, from: usize, n: usize) -> Vec<f64> {
 fn near(got: &[f64], want: &[f64], what: &str) {
     assert_eq!(got.len(), want.len());
     for (i, (g, w)) in got.iter().zip(want).enumerate() {
-        assert!((g - w).abs() < 1e-6, "{what}, pixel {i}: {got:?} against {want:?}");
+        assert!(
+            (g - w).abs() < 1e-6,
+            "{what}, pixel {i}: {got:?} against {want:?}"
+        );
     }
 }
 
 #[test]
 fn a_sized_tile_repeats_the_drawing_shrunk_or_grown_round_its_centre() {
     // The drawing sits at frame columns 4 to 11.
-    near(&line(90.0, json!({}), 4, 8), &[0., 0., 0., 0., 1., 1., 1., 1.], "the drawing, as before");
-    near(&line(90.0, json!({"tile_width": 50}), 4, 8), &[1., 1., 0., 0., 1., 1., 0., 0.], "width 50");
-    near(&line(90.0, json!({"tile_width": 50, "mirror": "on"}), 4, 8), &[0., 0., 0., 0., 1., 1., 1., 1.], "width 50, mirror");
-    near(&line(90.0, json!({"tile_width": 50, "tile_center": [25, 50]}), 4, 8), &[0., 0., 1., 1., 0., 0., 1., 1.], "centre 25");
-    near(&line(90.0, json!({"tile_width": 50, "output_width": 200}), 0, 16), &[1., 1., 0., 0.].repeat(4), "output 200");
-    near(&line(90.0, json!({"tile_width": 200}), 4, 8), &[0., 0., 0., 0.25, 0.75, 1., 1., 1.], "width 200");
-    near(&line(180.0, json!({"tile_height": 50}), 4, 8), &[1., 1., 0., 0., 1., 1., 0., 0.], "height 50, down");
+    near(
+        &line(90.0, json!({}), 4, 8),
+        &[0., 0., 0., 0., 1., 1., 1., 1.],
+        "the drawing, as before",
+    );
+    near(
+        &line(90.0, json!({"tile_width": 50}), 4, 8),
+        &[1., 1., 0., 0., 1., 1., 0., 0.],
+        "width 50",
+    );
+    near(
+        &line(90.0, json!({"tile_width": 50, "mirror": "on"}), 4, 8),
+        &[0., 0., 0., 0., 1., 1., 1., 1.],
+        "width 50, mirror",
+    );
+    near(
+        &line(
+            90.0,
+            json!({"tile_width": 50, "tile_center": [25, 50]}),
+            4,
+            8,
+        ),
+        &[0., 0., 1., 1., 0., 0., 1., 1.],
+        "centre 25",
+    );
+    near(
+        &line(90.0, json!({"tile_width": 50, "output_width": 200}), 0, 16),
+        &[1., 1., 0., 0.].repeat(4),
+        "output 200",
+    );
+    near(
+        &line(90.0, json!({"tile_width": 200}), 4, 8),
+        &[0., 0., 0., 0.25, 0.75, 1., 1., 1.],
+        "width 200",
+    );
+    near(
+        &line(180.0, json!({"tile_height": 50}), 4, 8),
+        &[1., 1., 0., 0., 1., 1., 0., 0.],
+        "height 50, down",
+    );
     // Width alone leaves the column untouched.
-    near(&line(180.0, json!({"tile_width": 50}), 4, 8), &[0., 0., 0., 0., 1., 1., 1., 1.], "width 50, down");
+    near(
+        &line(180.0, json!({"tile_width": 50}), 4, 8),
+        &[0., 0., 0., 0., 1., 1., 1., 1.],
+        "width 50, down",
+    );
 }
 
 #[test]
@@ -104,8 +151,18 @@ fn the_card_hands_a_sized_tile_to_the_cpu_and_draws_the_same() {
     let loaded = persist::load_str(&shot(90.0, json!({"tile_width": 50}))).expect("the shot reads");
     let mut log = FrameLog::new(8);
     let mut cache = CelCache::viewer();
-    let (px, w, _) = preview::preview_frame_srgb8(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), PreviewQuality::Full, 256, &mut log, &mut cache, &mut gpu)
-        .expect("the frame draws");
+    let (px, w, _) = preview::preview_frame_srgb8(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        PreviewQuality::Full,
+        256,
+        &mut log,
+        &mut cache,
+        &mut gpu,
+    )
+    .expect("the frame draws");
     let row: Vec<u8> = (4..12).map(|x| px[(8 * w + x) * 4 + 3]).collect();
     assert_eq!(row, [255, 255, 0, 0, 255, 255, 0, 0], "row 8");
 }
@@ -114,15 +171,33 @@ fn the_card_hands_a_sized_tile_to_the_cpu_and_draws_the_same() {
 fn the_file_keeps_them_only_when_set() {
     let saved = |tile: J| {
         let loaded = persist::load_str(&shot(90.0, tile)).expect("the shot reads");
-        let saved: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
+        let saved: J = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
         saved["compositions"][0]["layers"][0]["effects"][1]["parameters"].clone()
     };
     let p = saved(json!({}));
     for k in ["tile_center", "tile_width", "tile_height"] {
-        assert!(p.get(k).is_none(), "{k} at its start is not written, so the file saves as before");
+        assert!(
+            p.get(k).is_none(),
+            "{k} at its start is not written, so the file saves as before"
+        );
     }
     let p = saved(json!({"tile_center": [25, 40], "tile_width": 28}));
-    assert_eq!((&p["tile_center"], &p["tile_width"]), (&json!([25, 40]), &json!(28)), "set ones are kept");
-    assert!(p.get("tile_height").is_none(), "one never set stays unwritten");
-    assert_eq!(saved(json!({"tile_width": 100}))["tile_width"], 100, "a file that wrote it keeps it");
+    assert_eq!(
+        (&p["tile_center"], &p["tile_width"]),
+        (&json!([25, 40]), &json!(28)),
+        "set ones are kept"
+    );
+    assert!(
+        p.get("tile_height").is_none(),
+        "one never set stays unwritten"
+    );
+    assert_eq!(
+        saved(json!({"tile_width": 100}))["tile_width"],
+        100,
+        "a file that wrote it keeps it"
+    );
 }

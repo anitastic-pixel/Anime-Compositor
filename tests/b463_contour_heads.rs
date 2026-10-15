@@ -13,7 +13,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -40,14 +42,27 @@ fn fx(id: &str, p: &J) -> J {
 /// The `holder` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
 
 /// `command` aimed at the `holder` layer's effect `fx-1`; the fixtures' drawing is `holder`, not `art`.
 fn holder(mut command: Command) -> Command {
-    if let Command::SetEffectParameters { layer_id, instance_id, .. } = &mut command {
+    if let Command::SetEffectParameters {
+        layer_id,
+        instance_id,
+        ..
+    } = &mut command
+    {
         *layer_id = Id::new("holder");
         *instance_id = Id::new("fx-1");
     }
@@ -57,7 +72,10 @@ fn holder(mut command: Command) -> Command {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at frame 0,
 /// straight 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -69,14 +87,28 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The cyan-leaning pixels of a straight 8-bit picture: where the lines and heads are drawn.
 fn cyan(p: &[u8]) -> usize {
-    p.chunks_exact(4).filter(|q| q[3] > 0 && (q[0] as i32) + 8 < q[1] as i32 && q[1] == q[2]).count()
+    p.chunks_exact(4)
+        .filter(|q| q[3] > 0 && (q[0] as i32) + 8 < q[1] as i32 && q[1] == q[2])
+        .count()
 }
 
 #[test]
@@ -99,7 +131,15 @@ fn b463_contour_heads() {
     t.fixtures_numbered("expected_contour_paint.json", 18..=18);
 
     t.heading("The file");
-    t.round_trips(&["fx_contour_042.json", "fx_contour_043.json", "fx_contour_044.json", "fx_contour_045.json", "fx_contour_046.json", "fx_contour_047.json", "fx_contour_014.json"]);
+    t.round_trips(&[
+        "fx_contour_042.json",
+        "fx_contour_043.json",
+        "fx_contour_044.json",
+        "fx_contour_045.json",
+        "fx_contour_046.json",
+        "fx_contour_047.json",
+        "fx_contour_014.json",
+    ]);
     let saved = t.saved_parameters("fx_contour_042.json");
     t.row(
         "fx_contour_042.json is saved with its fourteen settings, Arrowheads on among them",
@@ -113,7 +153,13 @@ fn b463_contour_heads() {
         off["arrowheads"] == "off",
     );
     let old = t.saved_parameters("fx_contour_014.json");
-    let heads = |e: &Effect| if let Effect::ContourPaint { arrowheads, .. } = e { arrowheads.clone() } else { String::new() };
+    let heads = |e: &Effect| {
+        if let Effect::ContourPaint { arrowheads, .. } = e {
+            arrowheads.clone()
+        } else {
+            String::new()
+        }
+    };
     let opened = heads(&changed(&t, "fx_contour_014.json", |_| {}));
     t.row(
         "fx_contour_014.json, from before the heads, opens with Arrowheads off and saves without them",
@@ -121,34 +167,74 @@ fn b463_contour_heads() {
         opened == "off" && old.get("arrowheads").is_none(),
     );
     let why = changed(&t, "fx_contour_047.json", |_| {}).why_invalid();
-    t.row("fx_contour_047.json is refused in a sentence naming \"yes\"", &why, why.contains("\"yes\"") && why.contains("arrowheads"));
+    t.row(
+        "fx_contour_047.json is refused in a sentence naming \"yes\"",
+        &why,
+        why.contains("\"yes\"") && why.contains("arrowheads"),
+    );
     let full = r##"{"view": "edge_map", "stylization": 50, "cleanliness": 50, "smear_iterations": 3, "apply_to_alpha": "off", "draw_color_fills": "none", "reduction_method": "k_means", "posterization_level": 8, "low_strength": 0, "high_strength": 100, "offset_flow_angles": 0, "quantize_flow_angles": 0, "edge_map_layer": "", "arrowheads": 1}"##;
-    t.shape_refused("fx_contour_042.json", "a Contour Paint whose arrowheads is a number, not a word", full);
+    t.shape_refused(
+        "fx_contour_042.json",
+        "a Contour Paint whose arrowheads is a number, not a word",
+        full,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_contour_014.json").document;
-    let bad = changed(&t, "fx_contour_014.json", |e| if let Effect::ContourPaint { arrowheads, .. } = e { *arrowheads = "yes".into() });
-    let effect_of = |d: &anime_compositor::command::Document| format!("{:?}", d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0]);
+    let bad = changed(&t, "fx_contour_014.json", |e| {
+        if let Effect::ContourPaint { arrowheads, .. } = e {
+            *arrowheads = "yes".into()
+        }
+    });
+    let effect_of = |d: &anime_compositor::command::Document| {
+        format!(
+            "{:?}",
+            d.project()
+                .composition(&Id::new(MAIN))
+                .unwrap()
+                .layer(&Id::new("holder"))
+                .unwrap()
+                .effects[0]
+        )
+    };
     let held = effect_of(&document);
     let refused = document.apply(holder(set(bad))).err();
     let untouched = effect_of(&document) == held;
     t.row(
         "Arrowheads \"yes\" is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
-    let on = changed(&t, "fx_contour_014.json", |e| if let Effect::ContourPaint { arrowheads, .. } = e { *arrowheads = "on".into() });
-    t.taken(&mut document, "fx_contour_014.json", vec![("Arrowheads on", holder(set(on)))]);
+    let on = changed(&t, "fx_contour_014.json", |e| {
+        if let Effect::ContourPaint { arrowheads, .. } = e {
+            *arrowheads = "on".into()
+        }
+    });
+    t.taken(
+        &mut document,
+        "fx_contour_014.json",
+        vec![("Arrowheads on", holder(set(on)))],
+    );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_contour_042.json", 0), ("fx_contour_044.json", 0), ("fx_contour_045.json", 0)]);
+    t.tiles(&[
+        ("fx_contour_042.json", 0),
+        ("fx_contour_044.json", 0),
+        ("fx_contour_045.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     let comp = Id::new(MAIN);
     for n in [14u32, 18, 42, 43, 44, 45, 46, 47] {
         let file = format!("fx_contour_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -156,7 +242,9 @@ fn b463_contour_heads() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ContourPaint { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ContourPaint { .. })
+                });
             }
         }
         // The refused one (047) leaves nothing for the card.
@@ -170,14 +258,31 @@ fn b463_contour_heads() {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
-    let lines = cpu(&reference(|id| json!([fx(&format!("b463-{id}"), &json!({"view": "edge_map"}))])));
+    let lines = cpu(&reference(|id| {
+        json!([fx(&format!("b463-{id}"), &json!({"view": "edge_map"}))])
+    }));
     for (what, p) in [
-        ("Edge Map with Arrowheads on", json!({"view": "edge_map", "arrowheads": "on"})),
-        ("Edge Map with Arrowheads on, Offset Flow Angles 90, Stylization 80", json!({"view": "edge_map", "arrowheads": "on", "offset_flow_angles": 90, "stylization": 80})),
+        (
+            "Edge Map with Arrowheads on",
+            json!({"view": "edge_map", "arrowheads": "on"}),
+        ),
+        (
+            "Edge Map with Arrowheads on, Offset Flow Angles 90, Stylization 80",
+            json!({"view": "edge_map", "arrowheads": "on", "offset_flow_angles": 90, "stylization": 80}),
+        ),
     ] {
         let project = reference(|id| json!([fx(&format!("b463-{id}"), &p)]));
         let changed = distance(&cpu(&project), &lines).1;
@@ -189,7 +294,9 @@ fn b463_contour_heads() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(&mut gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ContourPaint { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ContourPaint { .. })
+                });
                 t.row(
                     &format!("the reference shot, Contour Paint {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -202,7 +309,17 @@ fn b463_contour_heads() {
     t.heading("Pictures: in `verification/D-585 pictures/`");
     let dir = repo("verification/D-585 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
 
@@ -220,7 +337,8 @@ fn b463_contour_heads() {
         &format!("{said:?}, {} cyan pixels", cyan(&headed)),
         said.is_empty() && cyan(&headed) > cyan(&plain),
     );
-    let (turned, said) = street(json!({"view": "edge_map", "arrowheads": "on", "offset_flow_angles": 180}));
+    let (turned, said) =
+        street(json!({"view": "edge_map", "arrowheads": "on", "offset_flow_angles": 180}));
     write("3_arrowheads_offset_180.png", &turned);
     t.row(
         "3_arrowheads_offset_180.png, Arrowheads on and Offset Flow Angles 180: the same lines, every head at the other end; draws cleanly",
@@ -264,22 +382,48 @@ fn b463_contour_heads_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Contour Paint, View Edge Map, Arrowheads off", Some(json!({"view": "edge_map"}))),
-        ("the same with Arrowheads on", Some(json!({"view": "edge_map", "arrowheads": "on"}))),
+        (
+            "Noise, then Contour Paint, View Edge Map, Arrowheads off",
+            Some(json!({"view": "edge_map"})),
+        ),
+        (
+            "the same with Arrowheads on",
+            Some(json!({"view": "edge_map", "arrowheads": "on"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B463_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-463_timing_raw.md"));
+    let out = std::env::var("B463_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-463_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

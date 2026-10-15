@@ -160,7 +160,12 @@ fn b110_shape_styles() {
 
     t.heading("The file (document 19)");
     // Joins, caps and a limit; a keyed width; a keyed colour and opacity; a held colour.
-    for file in ["fx_shp_104.json", "fx_shp_115.json", "fx_shp_116.json", "fx_shp_117.json"] {
+    for file in [
+        "fx_shp_104.json",
+        "fx_shp_115.json",
+        "fx_shp_116.json",
+        "fx_shp_117.json",
+    ] {
         let opened = load(file);
         let written = persist::to_json(opened.project(), &persist::Preserved::default());
         let again = persist::load_str(&written)
@@ -179,7 +184,11 @@ fn b110_shape_styles() {
     // stroke nobody changed is written as D-78 wrote it.
     let mut opened = load("fx_shp_104.json");
     let base = fs::read_to_string(root().join("fx_shp_104.json")).unwrap();
-    let layer = opened.project().compositions[0].layers_in_order().next().unwrap().clone();
+    let layer = opened.project().compositions[0]
+        .layers_in_order()
+        .next()
+        .unwrap()
+        .clone();
     let mut shapes = layer.shapes.clone();
     let stroke = shapes[0].stroke.as_mut().unwrap();
     stroke.join = anime_compositor::shape::Join::Round;
@@ -193,8 +202,7 @@ fn b110_shape_styles() {
         })
         .unwrap();
     let preserved = persist::load_str(&base).unwrap().preserved;
-    let written: J =
-        serde_json::from_str(&persist::to_json(opened.project(), &preserved)).unwrap();
+    let written: J = serde_json::from_str(&persist::to_json(opened.project(), &preserved)).unwrap();
     let stroke = &written["compositions"][0]["layers"][0]["shapes"][0]["stroke"];
     let words: Vec<&str> = ["join", "miter_limit", "cap"]
         .into_iter()
@@ -211,5 +219,8 @@ fn b110_shape_styles() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-110_shape_style_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-110_shape_style_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-110_shape_style_table.md"
+    );
 }

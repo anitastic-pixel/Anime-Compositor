@@ -60,13 +60,31 @@ fn cover(mode: &str, quality: PreviewQuality) -> (f32, f32) {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Fixtures");
     let mut log = FrameLog::new(8);
     let frame = match quality {
-        PreviewQuality::Full => render_frame(loaded.document.project(), &Id::new(MAIN), 0, &root, 64, &mut log),
-        _ => preview_frame(loaded.document.project(), &Id::new(MAIN), 0, &root, quality, 64, &mut log),
+        PreviewQuality::Full => render_frame(
+            loaded.document.project(),
+            &Id::new(MAIN),
+            0,
+            &root,
+            64,
+            &mut log,
+        ),
+        _ => preview_frame(
+            loaded.document.project(),
+            &Id::new(MAIN),
+            0,
+            &root,
+            quality,
+            64,
+            &mut log,
+        ),
     }
     .expect("the frame draws");
     assert!(log.finish().is_empty(), "the shot draws without a word");
     let (w, h) = (frame.width(), frame.height());
-    (frame.pixel(w / 4, h / 2)[3], frame.pixel(3 * w / 4, h / 2)[3])
+    (
+        frame.pixel(w / 4, h / 2)[3],
+        frame.pixel(3 * w / 4, h / 2)[3],
+    )
 }
 
 #[test]
@@ -79,7 +97,10 @@ fn each_mode_covers_by_its_own_rule() {
     ] {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             let (l, r) = cover(mode, quality);
-            assert!((l - left).abs() < 1e-4 && (r - right).abs() < 1e-4, "{mode} {quality:?}: ({l}, {r})");
+            assert!(
+                (l - left).abs() < 1e-4 && (r - right).abs() < 1e-4,
+                "{mode} {quality:?}: ({l}, {r})"
+            );
         }
     }
 }
@@ -89,7 +110,18 @@ fn the_file_keeps_the_mode_and_refuses_one_it_does_not_know() {
     let loaded = persist::load_str(&shot("luma_inverted").to_string()).unwrap();
     let saved = persist::to_json(loaded.document.project(), &loaded.preserved);
     let again: J = serde_json::from_str(&saved).unwrap();
-    assert_eq!(again["compositions"][0]["layers"][0]["matte"]["mode"], "luma_inverted");
-    let refused = persist::load_str(&shot("lumen").to_string()).err().expect("an unknown mode is refused");
-    assert!(refused.detail.contains("alpha, alpha_inverted, luma, luma_inverted"), "{}", refused.detail);
+    assert_eq!(
+        again["compositions"][0]["layers"][0]["matte"]["mode"],
+        "luma_inverted"
+    );
+    let refused = persist::load_str(&shot("lumen").to_string())
+        .err()
+        .expect("an unknown mode is refused");
+    assert!(
+        refused
+            .detail
+            .contains("alpha, alpha_inverted, luma, luma_inverted"),
+        "{}",
+        refused.detail
+    );
 }

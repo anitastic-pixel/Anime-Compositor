@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, reference, repo, same_json, saved, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, reference, repo, same_json, saved, set, time_passes,
+    town, Table, MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -33,11 +34,31 @@ fn is_turb(c: &render::OnCard) -> bool {
 }
 
 /// The Turbulent Displaces the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_turb(c.unmixed())).count()
-        + plan.layers
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
+    plan.layers
+        .iter()
+        .flat_map(|l| &l.on_card)
+        .filter(|c| is_turb(c.unmixed()))
+        .count()
+        + plan
+            .layers
             .iter()
             .filter_map(|l| l.adjust.as_ref())
             .filter_map(|stack| compose::adjust_run(stack, (plan.width, plan.height)))
@@ -61,7 +82,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=16 {
         let file = format!("fx_shimmer_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -87,17 +112,28 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project, frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, frame, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            frame,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     for (what, p) in settings {
         let project = reference(|id| json!([fx(&format!("b290-{id}"), p)]));
-        let one = reference(|id| json!([fx(&format!("b290-{id}"), &{
-            let mut q = p.clone();
-            q["drift_speed"] = J::from(0);
-            q
-        })]));
+        let one = reference(|id| {
+            json!([fx(&format!("b290-{id}"), &{
+                let mut q = p.clone();
+                q["drift_speed"] = J::from(0);
+                q
+            })])
+        });
         let drifted = distance(&cpu(&project, 102), &cpu(&one, 102)).1;
         t.row(
             &format!("the reference shot, Turbulent Displace {what}: the processor's frame 102 differs from the same warp without the drift, so the comparisons below test the drift"),
@@ -121,7 +157,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the street at `frame`, drawn on the processor, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -133,8 +172,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let out = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let out = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (out.to_srgb8_straight(), said)
 }
 
@@ -142,7 +193,17 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
 fn draw(json: &J, root: &Path, frame: i32) -> Vec<f32> {
     let loaded = persist::load_str(&json.to_string()).expect("the file reads");
     let mut log = FrameLog::new(3);
-    render_frame(loaded.document.project(), &Id::new(MAIN), frame, root, 64, &mut log).expect("the frame draws").data().to_vec()
+    render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        root,
+        64,
+        &mut log,
+    )
+    .expect("the frame draws")
+    .data()
+    .to_vec()
 }
 
 #[test]
@@ -163,12 +224,18 @@ fn b290_heat_shimmer() {
     t.fixtures_numbered("expected_heat_shimmer.json", 1..=16);
 
     t.heading("Older projects: no drift, as before");
-    for (folder, prefix, count) in [("turbulent_displace", "fx_turb", 26), ("turbulent_ae", "fx_turb_ae", 12), ("line_boil", "fx_boil", 13)] {
+    for (folder, prefix, count) in [
+        ("turbulent_displace", "fx_turb", 26),
+        ("turbulent_ae", "fx_turb_ae", 12),
+        ("line_boil", "fx_boil", 13),
+    ] {
         let root = repo(&format!("Fixtures/{folder}"));
         for n in 1..=count {
             let file = format!("{prefix}_{n:03}.json");
             let text = fs::read_to_string(root.join(&file)).unwrap();
-            let Ok(loaded) = persist::load_str(&text) else { continue };
+            let Ok(loaded) = persist::load_str(&text) else {
+                continue;
+            };
             let old: J = serde_json::from_str(&text).unwrap();
             let kept = same_json(&saved(&loaded), &old);
             // Its twin with Drift Direction 90 and Drift Speed 0 written draws the same frames.
@@ -179,7 +246,10 @@ fn b290_heat_shimmer() {
                 effects[0]["parameters"]["drift_direction"] = J::from(90);
                 effects[0]["parameters"]["drift_speed"] = J::from(0);
             }
-            let same = is_turb && [0, 4].iter().all(|&f| draw(&old, &root, f) == draw(&twin, &root, f));
+            let same = is_turb
+                && [0, 4]
+                    .iter()
+                    .all(|&f| draw(&old, &root, f) == draw(&twin, &root, f));
             t.row(
                 &format!("{folder}/{file} (no drift) is saved as it was written, and draws frames 0 and 4 bit for bit as its twin with Drift Direction 90 and Drift Speed 0"),
                 &format!("saved {}; {}", if kept { "the same" } else { "differently" }, if same { "bit-identical" } else { "differ" }),
@@ -189,7 +259,9 @@ fn b290_heat_shimmer() {
     }
 
     t.heading("The file");
-    let files: Vec<String> = (1..=16).map(|n| format!("fx_shimmer_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=16)
+        .map(|n| format!("fx_shimmer_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved_p = t.saved_parameters("fx_shimmer_003.json");
     t.row(
@@ -200,11 +272,19 @@ fn b290_heat_shimmer() {
     for (file, what, want) in [
         ("fx_shimmer_013.json", "Drift Speed -1", "drift speed"),
         ("fx_shimmer_014.json", "Drift Speed 1001", "drift speed"),
-        ("fx_shimmer_015.json", "Drift Direction 3601", "drift direction"),
+        (
+            "fx_shimmer_015.json",
+            "Drift Direction 3601",
+            "drift direction",
+        ),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace(' ', "_"));
-        t.row(&format!("{file} ({what}) is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} ({what}) is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
     t.shape_refused(
         "fx_shimmer_001.json",
@@ -220,24 +300,47 @@ fn b290_heat_shimmer() {
     let base = changed(&t, "fx_shimmer_003.json", |_| {});
     t.row(
         "the drift leaves the drawing's bounds as they were",
-        &format!("{} against {} without the drift", base.bounds_expansion(), changed(&t, "fx_shimmer_002.json", |_| {}).bounds_expansion()),
+        &format!(
+            "{} against {} without the drift",
+            base.bounds_expansion(),
+            changed(&t, "fx_shimmer_002.json", |_| {}).bounds_expansion()
+        ),
         base.bounds_expansion() == changed(&t, "fx_shimmer_002.json", |_| {}).bounds_expansion(),
     );
 
     t.heading("Commands");
     let mut document = t.load("fx_shimmer_001.json").document;
-    let fast = changed(&t, "fx_shimmer_001.json", |e| if let Effect::TurbulentDisplace { drift_speed, .. } = e { *drift_speed = 1001.0 });
-    let turned = changed(&t, "fx_shimmer_001.json", |e| if let Effect::TurbulentDisplace { drift_direction, .. } = e { *drift_direction = 3601.0 });
+    let fast = changed(&t, "fx_shimmer_001.json", |e| {
+        if let Effect::TurbulentDisplace { drift_speed, .. } = e {
+            *drift_speed = 1001.0
+        }
+    });
+    let turned = changed(&t, "fx_shimmer_001.json", |e| {
+        if let Effect::TurbulentDisplace {
+            drift_direction, ..
+        } = e
+        {
+            *drift_direction = 3601.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("drift speed 1001", set(fast)),
             ("drift direction 3601", set(turned)),
-            ("drift speed keyed to 2000", keys("drift_speed", &[(0, &[1.0]), (4, &[2000.0])])),
+            (
+                "drift speed keyed to 2000",
+                keys("drift_speed", &[(0, &[1.0]), (4, &[2000.0])]),
+            ),
         ],
     );
     let right = changed(&t, "fx_shimmer_001.json", |e| {
-        if let Effect::TurbulentDisplace { drift_direction, drift_speed, .. } = e {
+        if let Effect::TurbulentDisplace {
+            drift_direction,
+            drift_speed,
+            ..
+        } = e
+        {
             *drift_direction = 90.0;
             *drift_speed = 2.0;
         }
@@ -247,7 +350,10 @@ fn b290_heat_shimmer() {
         "fx_shimmer_001.json",
         vec![
             ("drift right at 2 pixels a frame", set(right)),
-            ("drift speed keyed from 0 to 4", keys("drift_speed", &[(0, &[0.0]), (4, &[4.0])])),
+            (
+                "drift speed keyed from 0 to 4",
+                keys("drift_speed", &[(0, &[0.0]), (4, &[4.0])]),
+            ),
         ],
     );
 
@@ -277,26 +383,54 @@ fn b290_heat_shimmer() {
     t.heading("Pictures: in `verification/D-411 pictures/`");
     let dir = repo("verification/D-411 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // A heat shimmer: amount 8, size 20, the ripple rising 6 pixels a frame (the street runs frames 0 to 4), held still otherwise.
-    let rise = |speed: f64| json!([fx("fx-0-0", &json!({"amount": 8, "size": 20, "drift_speed": speed}))]);
-    let frames: Vec<(Vec<u8>, Vec<String>)> = [0, 2, 4].iter().map(|&f| picture(&dir, rise(6.0), f)).collect();
+    let rise = |speed: f64| {
+        json!([fx(
+            "fx-0-0",
+            &json!({"amount": 8, "size": 20, "drift_speed": speed})
+        )])
+    };
+    let frames: Vec<(Vec<u8>, Vec<String>)> = [0, 2, 4]
+        .iter()
+        .map(|&f| picture(&dir, rise(6.0), f))
+        .collect();
     for ((p, _), (n, f)) in frames.iter().zip([(2, 0), (3, 2), (4, 4)]) {
         write(&format!("{n}_rising_frame_{f}.png"), p);
     }
-    let still: Vec<Vec<u8>> = [0, 4].iter().map(|&f| picture(&dir, rise(0.0), f).0).collect();
+    let still: Vec<Vec<u8>> = [0, 4]
+        .iter()
+        .map(|&f| picture(&dir, rise(0.0), f).0)
+        .collect();
     let clean = frames.iter().all(|(_, s)| s.is_empty());
     t.row(
         "2_rising_frame_0.png, 3_rising_frame_2.png and 4_rising_frame_4.png, amount 8, size 20, drifting up at 6 pixels a frame: frame 0 the warp without drift, frames 2 and 4 the ripple moved up 12 and 24 pixels, each different; without the drift frame 4 is frame 0; all draw cleanly",
         &format!("pixels differing: frame 0 from no drift {}, 0 to 2 {}, 2 to 4 {}; without drift 0 to 4 {}", distance(&frames[0].0, &still[0]).1, distance(&frames[0].0, &frames[1].0).1, distance(&frames[1].0, &frames[2].0).1, distance(&still[0], &still[1]).1),
         clean && distance(&frames[0].0, &still[0]).1 == 0 && distance(&frames[0].0, &frames[1].0).1 > 0 && distance(&frames[1].0, &frames[2].0).1 > 0 && distance(&still[0], &still[1]).1 == 0,
     );
-    let shimmer = json!([fx("fx-0-0", &json!({"amount": 8, "size": 20, "speed": 20, "drift_speed": 6}))]);
+    let shimmer = json!([fx(
+        "fx-0-0",
+        &json!({"amount": 8, "size": 20, "speed": 20, "drift_speed": 6})
+    )]);
     let (p, said) = picture(&dir, shimmer, 4);
     write("5_shimmer_speed_20_frame_4.png", &p);
     t.row(
@@ -331,22 +465,48 @@ fn b290_heat_shimmer_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Turbulent Displace amount 30, size 40, no drift", Some(json!({"drift_speed": 0}))),
-        ("Noise, then Turbulent Displace amount 30, size 40, drifting up at 4 pixels a frame", Some(json!({}))),
+        (
+            "Noise, then Turbulent Displace amount 30, size 40, no drift",
+            Some(json!({"drift_speed": 0})),
+        ),
+        (
+            "Noise, then Turbulent Displace amount 30, size 40, drifting up at 4 pixels a frame",
+            Some(json!({})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}t"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B290_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-290_timing_raw.md"));
+    let out = std::env::var("B290_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-290_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

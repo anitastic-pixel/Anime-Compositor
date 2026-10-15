@@ -41,7 +41,11 @@ fn b95_bulge() {
 
     t.heading("How far it reaches");
     let got = bulge(MIDDLE, 10000.0, -4.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = bulge(MIDDLE, 50.0, 1.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -85,16 +89,28 @@ fn b95_bulge() {
             ("height 4.5", set(bulge(MIDDLE, 50.0, 4.5))),
             ("height -4.5", set(bulge(MIDDLE, 50.0, -4.5))),
             ("centre 50, 1001", set(bulge([50.0, 1001.0], 50.0, 1.0))),
-            ("height keyed to 5", keys("height", &[(0, &[1.0]), (4, &[5.0])])),
+            (
+                "height keyed to 5",
+                keys("height", &[(0, &[1.0]), (4, &[5.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_bulge_001.json",
         vec![
-            ("every number at its bottom,", set(bulge([-1000.0, -1000.0], 0.0, -4.0))),
-            ("every number at its top,", set(bulge([1000.0, 1000.0], 10000.0, 4.0))),
-            ("height keyed from 0 to 2", keys("height", &[(0, &[0.0]), (4, &[2.0])])),
+            (
+                "every number at its bottom,",
+                set(bulge([-1000.0, -1000.0], 0.0, -4.0)),
+            ),
+            (
+                "every number at its top,",
+                set(bulge([1000.0, 1000.0], 10000.0, 4.0)),
+            ),
+            (
+                "height keyed from 0 to 2",
+                keys("height", &[(0, &[0.0]), (4, &[2.0])]),
+            ),
         ],
     );
 

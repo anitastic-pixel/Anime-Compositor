@@ -71,7 +71,10 @@ fn add(layer: &str, instance: &str, effect: Effect) -> Command {
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command, Option<&str>)>) {
@@ -81,8 +84,13 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command,
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
-            refused.as_ref().is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id)) && untouched,
+            &refused.as_ref().map_or("taken".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
+            refused
+                .as_ref()
+                .is_some_and(|d| id.is_none_or(|id| d.id.as_str() == id))
+                && untouched,
         );
     }
 }
@@ -114,10 +122,16 @@ fn clouds() -> Vec<u8> {
     let (w, h) = TOWN;
     let g = |x: f64, y: f64| {
         let (x, y) = (x / w as f64, y / w as f64);
-        (9.0 * x + 3.0 * (7.0 * y).sin()).sin() + (13.0 * y + 2.0 * (11.0 * x).sin() + 1.0).sin() + 0.5 * (23.0 * x + 19.0 * y).sin()
+        (9.0 * x + 3.0 * (7.0 * y).sin()).sin()
+            + (13.0 * y + 2.0 * (11.0 * x).sin() + 1.0).sin()
+            + 0.5 * (23.0 * x + 19.0 * y).sin()
     };
-    let all: Vec<f64> = (0..w * h).map(|i| g((i % w) as f64 + 0.5, (i / w) as f64 + 0.5)).collect();
-    let (lo, hi) = all.iter().fold((f64::MAX, f64::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
+    let all: Vec<f64> = (0..w * h)
+        .map(|i| g((i % w) as f64 + 0.5, (i / w) as f64 + 0.5))
+        .collect();
+    let (lo, hi) = all
+        .iter()
+        .fold((f64::MAX, f64::MIN), |(lo, hi), &v| (lo.min(v), hi.max(v)));
     grey_map(|x, y| (g(x, y) - lo) / (hi - lo))
 }
 
@@ -125,7 +139,10 @@ fn clouds() -> Vec<u8> {
 /// `effects` on the street, drawn at frame 0.
 fn picture(dir: &Path, map: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/gradient_wipe/fx_gwipe_003.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/gradient_wipe/fx_gwipe_003.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
@@ -144,13 +161,29 @@ fn picture(dir: &Path, map: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     plum["id"] = J::from("plum");
     plum["name"] = J::from("plum");
     plum["enabled"] = J::from(true);
-    plum["solid"] = serde_json::json!({"color": [0.0612, 0.0212, 0.1022], "width": TOWN.0, "height": TOWN.1});
+    plum["solid"] =
+        serde_json::json!({"color": [0.0612, 0.0212, 0.1022], "width": TOWN.0, "height": TOWN.1});
     layers.insert(0, plum);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("plum"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("plum"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &main_comp(), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &main_comp(),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -171,23 +204,35 @@ fn b129_gradient_wipe() {
 
     t.heading("Files whose layers read each other (document 25)");
     let expected: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/gradient_wipe/expected_gradient_wipe.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/gradient_wipe/expected_gradient_wipe.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
-        let got = persist::load(&effect_table::repo(&format!("Fixtures/gradient_wipe/{file}"))).err();
+        let got = persist::load(&effect_table::repo(&format!(
+            "Fixtures/gradient_wipe/{file}"
+        )))
+        .err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
 
     t.heading("How far it reaches");
     let got = ramp(50.0, 100.0).bounds_expansion();
-    t.row("a wipe never grows the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "a wipe never grows the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = ramp(40.0, 30.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -212,9 +257,18 @@ fn b129_gradient_wipe() {
         params.get("map").is_none(),
     );
     for (what, parameters) in [
-        ("no `fit` at all", r#"{"layer": "ramp", "completion": 50, "softness": 0, "invert": "off"}"#),
-        ("no `layer` at all", r#"{"fit": "stretch", "completion": 50, "softness": 0, "invert": "off"}"#),
-        ("no `invert` at all", r#"{"layer": "ramp", "fit": "stretch", "completion": 50, "softness": 0}"#),
+        (
+            "no `fit` at all",
+            r#"{"layer": "ramp", "completion": 50, "softness": 0, "invert": "off"}"#,
+        ),
+        (
+            "no `layer` at all",
+            r#"{"fit": "stretch", "completion": 50, "softness": 0, "invert": "off"}"#,
+        ),
+        (
+            "no `invert` at all",
+            r#"{"layer": "ramp", "fit": "stretch", "completion": 50, "softness": 0}"#,
+        ),
         (
             "a completion that is a word",
             r#"{"layer": "ramp", "fit": "stretch", "completion": "half", "softness": 0, "invert": "off"}"#,
@@ -229,8 +283,16 @@ fn b129_gradient_wipe() {
         &mut t,
         &mut document,
         vec![
-            ("Transition Completion 101", set("holder", "fx-1", ramp(101.0, 0.0)), None),
-            ("Transition Softness -1", set("holder", "fx-1", ramp(50.0, -1.0)), None),
+            (
+                "Transition Completion 101",
+                set("holder", "fx-1", ramp(101.0, 0.0)),
+                None,
+            ),
+            (
+                "Transition Softness -1",
+                set("holder", "fx-1", ramp(50.0, -1.0)),
+                None,
+            ),
             (
                 "Transition Completion keyed to 200 at frame 4",
                 Command::SetEffectKeys {
@@ -239,14 +301,42 @@ fn b129_gradient_wipe() {
                     instance_id: Id::new("fx-1"),
                     setting: "completion".to_string(),
                     keys: [(0, 30.0), (4, 200.0)]
-                        .map(|(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear })
+                        .map(|(frame, v)| EffectKey {
+                            frame,
+                            value: vec![v],
+                            interp: Interp::Linear,
+                        })
                         .to_vec(),
                 },
                 None,
             ),
-            ("fit \"fill\"", set("holder", "fx-1", gwipe(J::from("ramp"), "fill", 50.0, 0.0, "off")), None),
-            ("invert \"yes\"", set("holder", "fx-1", gwipe(J::from("ramp"), "stretch", 50.0, 0.0, "yes")), None),
-            ("a layer that is the number 3", set("holder", "fx-1", gwipe(J::from(3), "stretch", 50.0, 0.0, "off")), None),
+            (
+                "fit \"fill\"",
+                set(
+                    "holder",
+                    "fx-1",
+                    gwipe(J::from("ramp"), "fill", 50.0, 0.0, "off"),
+                ),
+                None,
+            ),
+            (
+                "invert \"yes\"",
+                set(
+                    "holder",
+                    "fx-1",
+                    gwipe(J::from("ramp"), "stretch", 50.0, 0.0, "yes"),
+                ),
+                None,
+            ),
+            (
+                "a layer that is the number 3",
+                set(
+                    "holder",
+                    "fx-1",
+                    gwipe(J::from(3), "stretch", 50.0, 0.0, "off"),
+                ),
+                None,
+            ),
             (
                 "a Gradient Wipe on `ramp` naming `holder`, which names `ramp`",
                 add("ramp", "fx-2", naming("holder")),
@@ -278,18 +368,35 @@ fn b129_gradient_wipe() {
         ],
     );
     let taken = [
-        ("naming the holder itself, which is no circle,", set("holder", "fx-1", naming("holder"))),
+        (
+            "naming the holder itself, which is no circle,",
+            set("holder", "fx-1", naming("holder")),
+        ),
         (
             "Invert Gradient on, the checker tiled, softness 100",
-            set("holder", "fx-1", gwipe(J::from("card"), "tile", 50.0, 100.0, "on")),
+            set(
+                "holder",
+                "fx-1",
+                gwipe(J::from("card"), "tile", 50.0, 100.0, "on"),
+            ),
         ),
-        ("a Gradient Wipe on `ramp` naming `white`", add("ramp", "fx-2", naming("white"))),
-        ("a Gradient Wipe on `white` naming no layer", add("white", "fx-3", naming(""))),
+        (
+            "a Gradient Wipe on `ramp` naming `white`",
+            add("ramp", "fx-2", naming("white")),
+        ),
+        (
+            "a Gradient Wipe on `white` naming no layer",
+            add("white", "fx-3", naming("")),
+        ),
     ];
     let n = taken.len();
     for (what, command) in taken {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     refused(
         &mut t,
@@ -305,22 +412,66 @@ fn b129_gradient_wipe() {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 
     t.heading("Pictures: B-127's street over a plum solid, in `verification/B-129 pictures/`");
     let dir = effect_table::repo("verification/B-129 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &town()).unwrap();
-    png_out::write_rgba(&dir.join("map_spot.png"), w, h, OutputDepth::Eight, &[], &spot()).unwrap();
-    png_out::write_rgba(&dir.join("map_clouds.png"), w, h, OutputDepth::Eight, &[], &clouds()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &town(),
+    )
+    .unwrap();
+    png_out::write_rgba(
+        &dir.join("map_spot.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &spot(),
+    )
+    .unwrap();
+    png_out::write_rgba(
+        &dir.join("map_clouds.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &clouds(),
+    )
+    .unwrap();
     let (before, said) = picture(&dir, "map_spot.png", J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the street with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
-    let (plum, _) = picture(&dir, "map_spot.png", serde_json::json!([{
-        "instance_id": "fx-1", "type_id": "core.gradient_wipe", "enabled": true,
-        "parameters": {"layer": "ramp", "fit": "stretch", "completion": 100, "softness": 0, "invert": "off"},
-    }]));
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the street with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
+    let (plum, _) = picture(
+        &dir,
+        "map_spot.png",
+        serde_json::json!([{
+            "instance_id": "fx-1", "type_id": "core.gradient_wipe", "enabled": true,
+            "parameters": {"layer": "ramp", "fit": "stretch", "completion": 100, "softness": 0, "invert": "off"},
+        }]),
+    );
     let px = |bytes: &[u8], i: usize| bytes[i * 4..i * 4 + 4].to_vec();
     let is_street = |bytes: &[u8], i: usize| px(bytes, i) == px(&before, i);
     let is_plum = |bytes: &[u8], i: usize| px(bytes, i) == px(&plum, i);

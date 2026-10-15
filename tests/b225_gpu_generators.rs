@@ -57,57 +57,185 @@ const SIX: [(&str, &str); 6] = [
 
 /// The settings each effect is given in the reference shot, each way of working at least once.
 fn settings() -> Vec<(&'static str, Value)> {
-    let beam = |s: [f64; 4], t: [f64; 3], inside: &str, outside: &str, composite: &str| {
-        json!({"start": [s[0], s[1]], "end": [s[2], s[3]], "length": t[0], "time": t[1], "start_thickness": 6, "end_thickness": 30, "softness": t[2], "inside_color": inside, "outside_color": outside, "composite": composite})
-    };
-    let grad = |blend: f64, opacity: f64, mode: &str| {
-        json!({"point_1": [10, 10], "point_2": [90, 20], "point_3": [15, 85], "point_4": [70, 70], "blend": blend, "opacity": opacity, "color_1": "#ffff00", "color_2": "#00ff80", "color_3": "#ff00ff", "color_4": "#2040ff", "blending_mode": mode})
-    };
-    let sweep = |direction: f64, shape: &str, width: f64, si: f64, ei: f64, et: f64, color: &str, reception: &str| {
+    let beam = |s: [f64; 4], t: [f64; 3], inside: &str, outside: &str, composite: &str| json!({"start": [s[0], s[1]], "end": [s[2], s[3]], "length": t[0], "time": t[1], "start_thickness": 6, "end_thickness": 30, "softness": t[2], "inside_color": inside, "outside_color": outside, "composite": composite});
+    let grad = |blend: f64, opacity: f64, mode: &str| json!({"point_1": [10, 10], "point_2": [90, 20], "point_3": [15, 85], "point_4": [70, 70], "blend": blend, "opacity": opacity, "color_1": "#ffff00", "color_2": "#00ff80", "color_3": "#ff00ff", "color_4": "#2040ff", "blending_mode": mode});
+    let sweep = |direction: f64,
+                 shape: &str,
+                 width: f64,
+                 si: f64,
+                 ei: f64,
+                 et: f64,
+                 color: &str,
+                 reception: &str| {
         json!({"center": [40, 50], "direction": direction, "width": width, "sweep_intensity": si, "edge_intensity": ei, "edge_thickness": et, "shape": shape, "light_color": color, "light_reception": reception})
     };
-    let bolt = |kind: &str, v: [f64; 6], extra: [&str; 4], obstacle: f64| {
-        json!({"start": [20, 10], "end": [80, 90], "jagged": 40, "detail": 6, "branches": v[0], "width": v[1], "glow": v[2], "opacity": 100, "hold": v[3], "seed": v[4], "color": "#ffffff", "glow_color": "#6e8cff", "kind": kind, "turbulence": v[5], "decay": 20, "conductivity": 30, "obstacle": obstacle, "path": extra[0], "core": extra[1], "forks": extra[2], "composite": extra[3]})
-    };
+    let bolt = |kind: &str, v: [f64; 6], extra: [&str; 4], obstacle: f64| json!({"start": [20, 10], "end": [80, 90], "jagged": 40, "detail": 6, "branches": v[0], "width": v[1], "glow": v[2], "opacity": 100, "hold": v[3], "seed": v[4], "color": "#ffffff", "glow_color": "#6e8cff", "kind": kind, "turbulence": v[5], "decay": 20, "conductivity": 30, "obstacle": obstacle, "path": extra[0], "core": extra[1], "forks": extra[2], "composite": extra[3]});
     let bevel = |t: f64, angle: f64, color: &str, i: f64| json!({"edge_thickness": t, "light_angle": angle, "light_color": color, "light_intensity": i});
     // interval, expansion, velocity, spin, lifespan
-    let waves = |p: [f64; 2], sides: f64, v: [f64; 5], widths: [f64; 2], profile: &str, color: &str| {
+    let waves = |p: [f64; 2],
+                 sides: f64,
+                 v: [f64; 5],
+                 widths: [f64; 2],
+                 profile: &str,
+                 color: &str| {
         json!({"producer_point": p, "sides": sides, "interval": v[0], "expansion": v[1], "orientation": 0, "direction": 30, "velocity": v[2], "spin": v[3], "lifespan": v[4], "opacity": 100, "fade_in_time": 6, "fade_out_time": 48, "start_width": widths[0], "end_width": widths[1], "profile": profile, "color": color})
     };
     vec![
-        ("Beam", beam([20.0, 30.0, 80.0, 70.0], [40.0, 50.0, 0.0], "#ffffff", "#3c8cff", "on")),
-        ("Beam", beam([90.0, 10.0, 10.0, 90.0], [100.0, 0.0, 60.0], "#ffd080", "#ff3020", "off")),
-        ("Beam", beam([50.0, 50.0, 50.0, 50.0], [30.0, 80.0, 100.0], "#ffffff", "#00ff00", "on")),
+        (
+            "Beam",
+            beam(
+                [20.0, 30.0, 80.0, 70.0],
+                [40.0, 50.0, 0.0],
+                "#ffffff",
+                "#3c8cff",
+                "on",
+            ),
+        ),
+        (
+            "Beam",
+            beam(
+                [90.0, 10.0, 10.0, 90.0],
+                [100.0, 0.0, 60.0],
+                "#ffd080",
+                "#ff3020",
+                "off",
+            ),
+        ),
+        (
+            "Beam",
+            beam(
+                [50.0, 50.0, 50.0, 50.0],
+                [30.0, 80.0, 100.0],
+                "#ffffff",
+                "#00ff00",
+                "on",
+            ),
+        ),
         ("4-Color Gradient", grad(100.0, 100.0, "normal")),
         ("4-Color Gradient", grad(250.0, 60.0, "multiply")),
         ("4-Color Gradient", grad(40.0, 80.0, "screen")),
         ("4-Color Gradient", grad(1000.0, 50.0, "add")),
-        ("CC Light Sweep", sweep(-30.0, "smooth", 50.0, 50.0, 100.0, 1.0, "#ffffff", "add")),
-        ("CC Light Sweep", sweep(45.0, "linear", 120.0, 80.0, 60.0, 6.0, "#ffd080", "composite")),
-        ("CC Light Sweep", sweep(100.0, "sharp", 30.0, 100.0, 0.0, 1.0, "#80c0ff", "cutout")),
-        ("CC Light Sweep", sweep(0.0, "smooth", 200.0, 30.0, 100.0, 20.0, "#ffffff", "add")),
-        ("Advanced Lightning", bolt("direction", [0.0, 2.0, 0.0, 1.0, 0.0, 0.0], ["split", "hard", "short", "on"], 0.0)),
-        ("Advanced Lightning", bolt("strike", [40.0, 3.0, 20.0, 4.0, 7.0, 30.0], ["split", "soft", "long", "on"], 0.0)),
-        ("Advanced Lightning", bolt("breaking", [60.0, 1.5, 40.0, 2.0, 3.0, 0.0], ["split", "hard", "full", "off"], 0.0)),
-        ("Advanced Lightning", bolt("omni", [20.0, 2.0, 10.0, 1.0, 11.0, 10.0], ["split", "hard", "short", "on"], 0.0)),
-        ("Advanced Lightning", bolt("two_way", [30.0, 2.0, 15.0, 3.0, 5.0, 0.0], ["around", "hard", "short", "on"], 50.0)),
+        (
+            "CC Light Sweep",
+            sweep(-30.0, "smooth", 50.0, 50.0, 100.0, 1.0, "#ffffff", "add"),
+        ),
+        (
+            "CC Light Sweep",
+            sweep(
+                45.0,
+                "linear",
+                120.0,
+                80.0,
+                60.0,
+                6.0,
+                "#ffd080",
+                "composite",
+            ),
+        ),
+        (
+            "CC Light Sweep",
+            sweep(100.0, "sharp", 30.0, 100.0, 0.0, 1.0, "#80c0ff", "cutout"),
+        ),
+        (
+            "CC Light Sweep",
+            sweep(0.0, "smooth", 200.0, 30.0, 100.0, 20.0, "#ffffff", "add"),
+        ),
+        (
+            "Advanced Lightning",
+            bolt(
+                "direction",
+                [0.0, 2.0, 0.0, 1.0, 0.0, 0.0],
+                ["split", "hard", "short", "on"],
+                0.0,
+            ),
+        ),
+        (
+            "Advanced Lightning",
+            bolt(
+                "strike",
+                [40.0, 3.0, 20.0, 4.0, 7.0, 30.0],
+                ["split", "soft", "long", "on"],
+                0.0,
+            ),
+        ),
+        (
+            "Advanced Lightning",
+            bolt(
+                "breaking",
+                [60.0, 1.5, 40.0, 2.0, 3.0, 0.0],
+                ["split", "hard", "full", "off"],
+                0.0,
+            ),
+        ),
+        (
+            "Advanced Lightning",
+            bolt(
+                "omni",
+                [20.0, 2.0, 10.0, 1.0, 11.0, 10.0],
+                ["split", "hard", "short", "on"],
+                0.0,
+            ),
+        ),
+        (
+            "Advanced Lightning",
+            bolt(
+                "two_way",
+                [30.0, 2.0, 15.0, 3.0, 5.0, 0.0],
+                ["around", "hard", "short", "on"],
+                50.0,
+            ),
+        ),
         ("Bevel Edges", bevel(0.1, -60.0, "#ffffff", 0.4)),
         ("Bevel Edges", bevel(0.25, 135.0, "#ffd080", 1.0)),
         ("Bevel Edges", bevel(0.02, 10.0, "#80c0ff", 0.7)),
-        ("Radio Waves", waves([50.0, 50.0], 64.0, [24.0, 5.0, 0.0, 0.0, 96.0], [5.0, 5.0], "square", "#ffffff")),
-        ("Radio Waves", waves([30.0, 60.0], 6.0, [12.0, 8.0, 3.0, 1.5, 120.0], [4.0, 30.0], "triangle", "#80c0ff")),
-        ("Radio Waves", waves([70.0, 40.0], 3.0, [20.0, 6.0, 0.0, -2.0, 200.0], [12.0, 2.0], "sine", "#ffd080")),
+        (
+            "Radio Waves",
+            waves(
+                [50.0, 50.0],
+                64.0,
+                [24.0, 5.0, 0.0, 0.0, 96.0],
+                [5.0, 5.0],
+                "square",
+                "#ffffff",
+            ),
+        ),
+        (
+            "Radio Waves",
+            waves(
+                [30.0, 60.0],
+                6.0,
+                [12.0, 8.0, 3.0, 1.5, 120.0],
+                [4.0, 30.0],
+                "triangle",
+                "#80c0ff",
+            ),
+        ),
+        (
+            "Radio Waves",
+            waves(
+                [70.0, 40.0],
+                3.0,
+                [20.0, 6.0, 0.0, -2.0, 200.0],
+                [12.0, 2.0],
+                "sine",
+                "#ffd080",
+            ),
+        ),
     ]
 }
 
 fn type_of(effect: &str) -> &'static str {
-    SIX.iter().find(|t| t.0 == effect).expect("one of the six").1
+    SIX.iter()
+        .find(|t| t.0 == effect)
+        .expect("one of the six")
+        .1
 }
 
 /// The reference shot with `parameters` on its first three layers, the second after a Drop
 /// Shadow, as B-151 and B-224 have it.
 fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let type_id = type_of(effect);
     let fx = |id: &str| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": parameters});
@@ -116,7 +244,8 @@ fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
     layers[0]["effects"] = json!([fx("b225-a")]);
     layers[1]["effects"] = json!([shadow, fx("b225-b")]);
     layers[2]["effects"] = json!([fx("b225-c")]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
+    let loaded = persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
     Shot {
         effect,
         name: format!("the reference shot with {effect} ({})", case + 1),
@@ -132,10 +261,24 @@ fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
 /// effect's it names; one that must not open (a malformed setting) has no frame to compare.
 fn fixtures() -> Vec<Shot> {
     let mut files: Vec<PathBuf> = Vec::new();
-    for folder in fs::read_dir(repo("Fixtures")).expect("read Fixtures").map(|e| e.expect("a folder").path()).filter(|p| p.is_dir()) {
-        for f in fs::read_dir(&folder).expect("read a fixture folder").map(|e| e.expect("a file").path()) {
-            let name = f.file_name().unwrap_or_default().to_string_lossy().into_owned();
-            if name.ends_with(".json") && !name.starts_with("expected") && name != "exposure_bypass_word.json" {
+    for folder in fs::read_dir(repo("Fixtures"))
+        .expect("read Fixtures")
+        .map(|e| e.expect("a folder").path())
+        .filter(|p| p.is_dir())
+    {
+        for f in fs::read_dir(&folder)
+            .expect("read a fixture folder")
+            .map(|e| e.expect("a file").path())
+        {
+            let name = f
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            if name.ends_with(".json")
+                && !name.starts_with("expected")
+                && name != "exposure_bypass_word.json"
+            {
                 files.push(f);
             }
         }
@@ -143,17 +286,33 @@ fn fixtures() -> Vec<Shot> {
     files.sort();
     let mut shots = Vec::new();
     for file in files {
-        let Ok(text) = fs::read_to_string(&file) else { continue };
-        let Some(&(effect, _)) = SIX.iter().find(|t| text.contains(&format!("\"{}\"", t.1))) else { continue };
-        let Ok(loaded) = persist::load(&file) else { continue };
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let Some(&(effect, _)) = SIX.iter().find(|t| text.contains(&format!("\"{}\"", t.1))) else {
+            continue;
+        };
+        let Ok(loaded) = persist::load(&file) else {
+            continue;
+        };
         let root = file.parent().expect("a folder").to_path_buf();
-        let folder = root.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let folder = root
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
         let project = loaded.document.project().clone();
         let comp = &project.compositions[0];
-        let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
+        let (id, frames) = (
+            comp.id.clone(),
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+        );
         shots.push(Shot {
             effect,
-            name: format!("{folder}/{}", file.file_stem().unwrap_or_default().to_string_lossy()),
+            name: format!(
+                "{folder}/{}",
+                file.file_stem().unwrap_or_default().to_string_lossy()
+            ),
             project,
             root,
             comp: id,
@@ -175,7 +334,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -185,8 +349,25 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// How many effects the card's plan leaves to the card on each layer.
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> Vec<usize> {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers.iter().map(|l| l.on_card.iter().filter(|c| matches!(c, render::OnCard::Fx(_))).count()).collect()
+    let plan = compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
+    plan.layers
+        .iter()
+        .map(|l| {
+            l.on_card
+                .iter()
+                .filter(|c| matches!(c, render::OnCard::Fx(_)))
+                .count()
+        })
+        .collect()
 }
 
 fn said(log: FrameLog) -> String {
@@ -215,14 +396,37 @@ fn b225_gpu_generators() {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let n = left(shot, frame, quality);
@@ -231,16 +435,24 @@ fn b225_gpu_generators() {
                 // A frame the card refuses (an 8 bpc or Float composition, an adjustment layer
                 // with an effect it does not draw there) must be the CPU's exactly, saying so.
                 let expected_cpu = {
-                    let mut ids: Vec<&str> = said_cpu.split(", ").filter(|s| !s.is_empty()).chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
+                    let mut ids: Vec<&str> = said_cpu
+                        .split(", ")
+                        .filter(|s| !s.is_empty())
+                        .chain([DiagnosticId::GpuPreviewOnCpu.as_str()])
+                        .collect();
                     ids.sort();
                     ids.join(", ")
                 };
                 // At Full the first layer's effect is the card's; at Draft one shrunk to nothing is not left.
-                let first = quality == PreviewQuality::Draft || !shot.reference || n.first() == Some(&1);
+                let first =
+                    quality == PreviewQuality::Draft || !shot.reference || n.first() == Some(&1);
                 let pass = if on_cpu {
                     !shot.reference && d.0 == 0 && said_gpu == expected_cpu
                 } else {
-                    said_cpu == said_gpu && d.0 <= LIMIT && (!shot.reference || on_card > 0) && first
+                    said_cpu == said_gpu
+                        && d.0 <= LIMIT
+                        && (!shot.reference || on_card > 0)
+                        && first
                 };
                 checks += 1;
                 passed += pass as usize;
@@ -251,7 +463,12 @@ fn b225_gpu_generators() {
                 e.3 += on_cpu as usize;
                 e.4 = e.4.max(d.0);
                 let case = format!("{} frame {frame}, {}", shot.name, quality.label());
-                let counts = n.iter().take(3).map(|k| k.to_string()).collect::<Vec<_>>().join(" / ");
+                let counts = n
+                    .iter()
+                    .take(3)
+                    .map(|k| k.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" / ");
                 let _ = writeln!(
                     rows,
                     "| {case} | {counts} | {} | {} | {} | {} |",
@@ -290,8 +507,21 @@ fn b225_gpu_generators() {
                 PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
             };
             let plan = |card: bool, log: &mut FrameLog| {
-                let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-                let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
+                let make = if card {
+                    compose::plan_frame_for_card
+                } else {
+                    compose::plan_frame_at
+                };
+                let p = make(
+                    &reference.project,
+                    &reference.comp,
+                    100,
+                    &reference.root,
+                    quality,
+                    log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan");
                 preview::scale_plan(p, quality)
             };
             let a = render::render(&plan(false, &mut log), tile);
@@ -311,7 +541,9 @@ fn b225_gpu_generators() {
     fs::create_dir_all(&pictures).expect("make the pictures folder");
     let ((largest, count), worst_case, c, g, w, h) = worst.expect("something was compared");
     let mut diff = vec![0u8; c.len()];
-    for p in (0..w * h).filter(|&p| c[p * 4..p * 4 + 4] != g[p * 4..p * 4 + 4] && (c[p * 4 + 3], g[p * 4 + 3]) != (0, 0)) {
+    for p in (0..w * h).filter(|&p| {
+        c[p * 4..p * 4 + 4] != g[p * 4..p * 4 + 4] && (c[p * 4 + 3], g[p * 4 + 3]) != (0, 0)
+    }) {
         let (x, y) = ((p % w) as isize, (p / w) as isize);
         for yy in (y - 3).max(0)..(y + 4).min(h as isize) {
             for xx in (x - 3).max(0)..(x + 4).min(w as isize) {
@@ -324,13 +556,17 @@ fn b225_gpu_generators() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let mut summary = String::new();
     for (effect, _) in SIX {
         let (n, p, on_card, cpu, most) = by_effect[effect];
-        let _ = writeln!(summary, "| {effect} | {n} | {on_card} | {cpu} | {most} | {p} of {n} |");
+        let _ = writeln!(
+            summary,
+            "| {effect} | {n} | {on_card} | {cpu} | {most} | {p} of {n} |"
+        );
     }
     let s = format!(
         "# B-225: six generators on the GPU against the CPU (Radio Waves since D-345)\n\n\
@@ -394,41 +630,79 @@ fn b225_gpu_generators_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let fx = |id: &str, type_id: &str, p: Value| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": p});
     let shots: [(&str, bool, &str, Value); 6] = [
-        ("Noise, then Beam", true, "core.beam",
-            json!({"start": [20, 30], "end": [80, 70], "length": 40, "time": 50, "start_thickness": 6, "end_thickness": 30, "softness": 40, "inside_color": "#ffffff", "outside_color": "#3c8cff", "composite": "on"})),
-        ("Noise, then 4-Color Gradient", true, "core.four_color_gradient",
-            json!({"point_1": [10, 10], "point_2": [90, 20], "point_3": [15, 85], "point_4": [70, 70], "blend": 100, "opacity": 60, "color_1": "#ffff00", "color_2": "#00ff80", "color_3": "#ff00ff", "color_4": "#2040ff", "blending_mode": "screen"})),
-        ("Noise, then CC Light Sweep", true, "core.light_sweep",
-            json!({"center": [40, 50], "direction": -30, "width": 80, "sweep_intensity": 50, "edge_intensity": 100, "edge_thickness": 6, "shape": "smooth", "light_color": "#ffffff", "light_reception": "add"})),
-        ("Noise, then Advanced Lightning", true, "core.lightning_bolt",
-            json!({"start": [20, 10], "end": [80, 90], "jagged": 40, "detail": 6, "branches": 40, "width": 3, "glow": 20, "opacity": 100, "hold": 1, "seed": 7, "color": "#ffffff", "glow_color": "#6e8cff", "kind": "strike"})),
-        ("Noise, then Bevel Edges", true, "core.bevel_edges",
-            json!({"edge_thickness": 0.1, "light_angle": -60, "light_color": "#ffffff", "light_intensity": 0.4})),
+        (
+            "Noise, then Beam",
+            true,
+            "core.beam",
+            json!({"start": [20, 30], "end": [80, 70], "length": 40, "time": 50, "start_thickness": 6, "end_thickness": 30, "softness": 40, "inside_color": "#ffffff", "outside_color": "#3c8cff", "composite": "on"}),
+        ),
+        (
+            "Noise, then 4-Color Gradient",
+            true,
+            "core.four_color_gradient",
+            json!({"point_1": [10, 10], "point_2": [90, 20], "point_3": [15, 85], "point_4": [70, 70], "blend": 100, "opacity": 60, "color_1": "#ffff00", "color_2": "#00ff80", "color_3": "#ff00ff", "color_4": "#2040ff", "blending_mode": "screen"}),
+        ),
+        (
+            "Noise, then CC Light Sweep",
+            true,
+            "core.light_sweep",
+            json!({"center": [40, 50], "direction": -30, "width": 80, "sweep_intensity": 50, "edge_intensity": 100, "edge_thickness": 6, "shape": "smooth", "light_color": "#ffffff", "light_reception": "add"}),
+        ),
+        (
+            "Noise, then Advanced Lightning",
+            true,
+            "core.lightning_bolt",
+            json!({"start": [20, 10], "end": [80, 90], "jagged": 40, "detail": 6, "branches": 40, "width": 3, "glow": 20, "opacity": 100, "hold": 1, "seed": 7, "color": "#ffffff", "glow_color": "#6e8cff", "kind": "strike"}),
+        ),
+        (
+            "Noise, then Bevel Edges",
+            true,
+            "core.bevel_edges",
+            json!({"edge_thickness": 0.1, "light_angle": -60, "light_color": "#ffffff", "light_intensity": 0.4}),
+        ),
         // D-345: Radio Waves, timed when the owner put it on the card.
-        ("Noise, then Radio Waves", true, "core.radio_waves",
-            json!({"producer_point": [50, 50], "sides": 6, "interval": 12, "expansion": 8, "orientation": 0, "direction": 90, "velocity": 0, "spin": 1, "lifespan": 96, "opacity": 100, "fade_in_time": 0, "fade_out_time": 48, "start_width": 10, "end_width": 20, "profile": "sine", "color": "#ffffff"})),
+        (
+            "Noise, then Radio Waves",
+            true,
+            "core.radio_waves",
+            json!({"producer_point": [50, 50], "sides": 6, "interval": 12, "expansion": 8, "orientation": 0, "direction": 90, "velocity": 0, "spin": 1, "lifespan": 96, "opacity": 100, "fade_in_time": 0, "fade_out_time": 48, "start_width": 10, "end_width": 20, "profile": "sine", "color": "#ffffff"}),
+        ),
     ];
     for (name, noise, type_id, p) in shots {
         let stack = |id: &str| {
             let mut v = Vec::new();
             if noise {
-                v.push(fx(&format!("{id}n"), "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"})));
+                v.push(fx(
+                    &format!("{id}n"),
+                    "core.noise",
+                    json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+                ));
             }
             v.push(fx(&format!("{id}b"), type_id, p.clone()));
             v
         };
-        let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-        let shadow = fx("d2", "core.drop_shadow", json!({"color": "#000000", "opacity": 60, "direction": 200, "distance": 6, "softness": 4}));
+        let shadow = fx(
+            "d2",
+            "core.drop_shadow",
+            json!({"color": "#000000", "opacity": 60, "direction": 200, "distance": 6, "softness": 4}),
+        );
         let layers = &mut j["compositions"][0]["layers"];
         layers[0]["effects"] = Value::Array(stack("a"));
         layers[1]["effects"] = Value::Array([vec![shadow], stack("b")].concat());
         layers[2]["effects"] = Value::Array(stack("c"));
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
         let shot = Shot {
             effect: "Beam",
             name: name.to_string(),
@@ -439,10 +713,32 @@ fn b225_gpu_generators_timing() {
             reference: true,
         };
         let quality = PreviewQuality::Full;
-        let (first, times) = time_passes(&mut gpu, false, 8, &shot.project, &shot.comp, &shot.root, quality);
-        let n = left(&shot, 100, quality).iter().take(3).map(|k| k.to_string()).collect::<Vec<_>>().join(" / ");
-        let _ = writeln!(s, "| {} | {} | {n} | {:.1} | {:.1} |", shot.name, quality.label(), median(first), median(times));
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &shot.project,
+            &shot.comp,
+            &shot.root,
+            quality,
+        );
+        let n = left(&shot, 100, quality)
+            .iter()
+            .take(3)
+            .map(|k| k.to_string())
+            .collect::<Vec<_>>()
+            .join(" / ");
+        let _ = writeln!(
+            s,
+            "| {} | {} | {n} | {:.1} | {:.1} |",
+            shot.name,
+            quality.label(),
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B225_OUT").map(PathBuf::from).unwrap_or_else(|_| repo("verification/B-225_timing_raw.md"));
+    let out = std::env::var("B225_OUT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-225_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

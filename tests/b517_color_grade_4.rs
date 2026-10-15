@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -49,7 +50,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=16 {
         let file = format!("fx_grade4_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -57,10 +62,16 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ColorGrade { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ColorGrade { .. })
+                });
             }
         }
-        let want = if n == 6 { card <= 2 } else { (card == 0) == none.contains(&n) };
+        let want = if n == 6 {
+            card <= 2
+        } else {
+            (card == 0) == none.contains(&n)
+        };
         t.row(
             &format!("{file}, frames 0 to 4 at Full and Draft"),
             &format!("largest difference {largest} of 255; on the card in {card} of 10 frames; refused by the card: {refused}; the same warnings: {agree}"),
@@ -76,9 +87,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -92,7 +112,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ColorGrade { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ColorGrade { .. })
+                });
                 t.row(
                     &format!("the reference shot, Color Grade {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -105,7 +127,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -117,8 +142,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -132,7 +169,10 @@ fn luma(p: &[u8], x: usize, y: usize) -> f64 {
 /// share of each one's luma before.
 fn corner_vs_edge(before: &[u8], after: &[u8]) -> (f64, f64) {
     let (y_mid, y_top) = (TOWN.1 / 2, 8);
-    (1.0 - luma(after, 8, y_top) / luma(before, 8, y_top), 1.0 - luma(after, 8, y_mid) / luma(before, 8, y_mid))
+    (
+        1.0 - luma(after, 8, y_top) / luma(before, 8, y_top),
+        1.0 - luma(after, 8, y_mid) / luma(before, 8, y_mid),
+    )
 }
 
 /// The sum over every pixel of how far it is from its right-hand neighbour in linear light (the
@@ -140,10 +180,20 @@ fn corner_vs_edge(before: &[u8], after: &[u8]) -> (f64, f64) {
 fn edges(p: &[u8]) -> u64 {
     let lin = |v: u8| {
         let c = v as f64 / 255.0;
-        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
     };
     let px: Vec<&[u8]> = p.chunks_exact(4).collect();
-    px.windows(2).map(|w| (0..3).map(|c| ((lin(w[0][c]) - lin(w[1][c])).abs() * 1e6) as u64).sum::<u64>()).sum()
+    px.windows(2)
+        .map(|w| {
+            (0..3)
+                .map(|c| ((lin(w[0][c]) - lin(w[1][c])).abs() * 1e6) as u64)
+                .sum::<u64>()
+        })
+        .sum()
 }
 
 #[test]
@@ -178,16 +228,29 @@ fn b517_color_grade_4() {
     );
     for file in ["fx_grade4_015.json", "fx_grade4_016.json"] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming sharpen"), &why, why.contains("sharpen"));
+        t.row(
+            &format!("{file} is refused in a sentence naming sharpen"),
+            &why,
+            why.contains("sharpen"),
+        );
     }
-    let at = |name: &str| COLOR_GRADE_SETTINGS.iter().position(|s| s.0 == name).unwrap();
+    let at = |name: &str| {
+        COLOR_GRADE_SETTINGS
+            .iter()
+            .position(|s| s.0 == name)
+            .unwrap()
+    };
     let below = changed(&t, "fx_grade4_001.json", |e| {
         if let Effect::ColorGrade { values, .. } = e {
             values[at("vignette_roundness")] = -101.0;
         }
     })
     .why_invalid();
-    t.row("a roundness of -101 is refused in a sentence naming vignette roundness", &below, below.contains("vignette roundness"));
+    t.row(
+        "a roundness of -101 is refused in a sentence naming vignette roundness",
+        &below,
+        below.contains("vignette roundness"),
+    );
 
     t.heading("How far it reaches");
     let mut draft = changed(&t, "fx_grade4_013.json", |_| {});
@@ -198,7 +261,11 @@ fn b517_color_grade_4() {
         &format!("{kept}"),
         kept,
     );
-    t.row("it grows the drawing's bounds by nothing", &draft.bounds_expansion().to_string(), draft.bounds_expansion() == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &draft.bounds_expansion().to_string(),
+        draft.bounds_expansion() == 0,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_grade4_001.json").document;
@@ -211,7 +278,10 @@ fn b517_color_grade_4() {
         &mut document,
         vec![
             ("vignette roundness -101", set(square)),
-            ("sharpen keyed to 101", keys("sharpen", &[(0, &[0.0]), (4, &[101.0])])),
+            (
+                "sharpen keyed to 101",
+                keys("sharpen", &[(0, &[0.0]), (4, &[101.0])]),
+            ),
         ],
     );
     let soft = changed(&t, "fx_grade4_001.json", |e| {
@@ -226,7 +296,10 @@ fn b517_color_grade_4() {
         "fx_grade4_001.json",
         vec![
             ("sharpen -50 with a vignette at roundness -80", set(soft)),
-            ("roundness keyed from -100 to 100", keys("vignette_roundness", &[(0, &[-100.0]), (4, &[100.0])])),
+            (
+                "roundness keyed from -100 to 100",
+                keys("vignette_roundness", &[(0, &[-100.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -251,21 +324,47 @@ fn b517_color_grade_4() {
         &mut t,
         &mut gpu,
         &[
-            ("a dark vignette at roundness -100, a rectangle", json!({"vignette_amount": -3, "vignette_roundness": -100, "vignette_feather": 30}), 3),
-            ("a light vignette at roundness -40", json!({"vignette_amount": 2, "vignette_midpoint": 30, "vignette_roundness": -40}), 3),
-            ("sharpen 60 (drawn by the processor)", json!({"sharpen": 60}), 0),
+            (
+                "a dark vignette at roundness -100, a rectangle",
+                json!({"vignette_amount": -3, "vignette_roundness": -100, "vignette_feather": 30}),
+                3,
+            ),
+            (
+                "a light vignette at roundness -40",
+                json!({"vignette_amount": 2, "vignette_midpoint": 30, "vignette_roundness": -40}),
+                3,
+            ),
+            (
+                "sharpen 60 (drawn by the processor)",
+                json!({"sharpen": 60}),
+                0,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-637 pictures/`");
     let dir = repo("verification/D-637 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let one = |p: J| json!([fx("fx-0-0", &p)]);
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = picture(&dir, one(json!({})));
     t.row(
         "Color Grade as added, sharpen written at 0, changes nothing: the street byte for byte; draws cleanly",
@@ -287,11 +386,28 @@ fn b517_color_grade_4() {
         said.is_empty() && edges(&softer) < edges(&before),
     );
     for (file, m, what) in [
-        ("4_vignette_round_0.png", 0, "roundness 0, the frame's own oval: the corner darkened more than the edge's middle"),
-        ("5_vignette_round_minus_50.png", -50, "roundness -50, squarer: the corner still darker than the edge's middle, by less"),
-        ("6_vignette_round_minus_100.png", -100, "roundness -100, a rectangle: the corner and the edge's middle darkened alike"),
+        (
+            "4_vignette_round_0.png",
+            0,
+            "roundness 0, the frame's own oval: the corner darkened more than the edge's middle",
+        ),
+        (
+            "5_vignette_round_minus_50.png",
+            -50,
+            "roundness -50, squarer: the corner still darker than the edge's middle, by less",
+        ),
+        (
+            "6_vignette_round_minus_100.png",
+            -100,
+            "roundness -100, a rectangle: the corner and the edge's middle darkened alike",
+        ),
     ] {
-        let (after, said) = picture(&dir, one(json!({"vignette_amount": -4, "vignette_midpoint": 40, "vignette_feather": 60, "vignette_roundness": m})));
+        let (after, said) = picture(
+            &dir,
+            one(
+                json!({"vignette_amount": -4, "vignette_midpoint": 40, "vignette_feather": 60, "vignette_roundness": m}),
+            ),
+        );
         write(file, &after);
         let (corner, edge) = corner_vs_edge(&before, &after);
         let ok = match m {
@@ -299,7 +415,15 @@ fn b517_color_grade_4() {
             -50 => corner > edge,
             _ => (corner - edge).abs() < 0.05,
         };
-        t.row(&format!("{file}, {what}; draws cleanly"), &format!("{said:?}, corner {:.0}% darker, edge middle {:.0}% darker", corner * 100.0, edge * 100.0), said.is_empty() && ok);
+        t.row(
+            &format!("{file}, {what}; draws cleanly"),
+            &format!(
+                "{said:?}, corner {:.0}% darker, edge middle {:.0}% darker",
+                corner * 100.0,
+                edge * 100.0
+            ),
+            said.is_empty() && ok,
+        );
     }
 
     t.finish("D-637_color_grade_4_table.md");
@@ -328,22 +452,48 @@ fn b517_color_grade_4_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Color Grade, a dark vignette at roundness -60", Some(json!({"vignette_amount": -3, "vignette_roundness": -60}))),
-        ("Noise, then Color Grade, sharpen 50 (drawn by the processor)", Some(json!({"sharpen": 50}))),
+        (
+            "Noise, then Color Grade, a dark vignette at roundness -60",
+            Some(json!({"vignette_amount": -3, "vignette_roundness": -60})),
+        ),
+        (
+            "Noise, then Color Grade, sharpen 50 (drawn by the processor)",
+            Some(json!({"sharpen": 50})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B517_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-517_timing_raw.md"));
+    let out = std::env::var("B517_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-517_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

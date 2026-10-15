@@ -20,7 +20,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -34,10 +35,20 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn bcast(locale: &str, method: &str, max_amplitude: f64) -> Effect {
-    Effect::BroadcastSafe { locale: locale.into(), method: method.into(), max_amplitude }
+    Effect::BroadcastSafe {
+        locale: locale.into(),
+        method: method.into(),
+        max_amplitude,
+    }
 }
 
-fn neutral(unbalance: [&str; 3], numbers: [[f64; 3]; 3], pinning: f64, black_point: f64, white_point: f64) -> Effect {
+fn neutral(
+    unbalance: [&str; 3],
+    numbers: [[f64; 3]; 3],
+    pinning: f64,
+    black_point: f64,
+    white_point: f64,
+) -> Effect {
     Effect::ColorNeutralizer {
         shadows_unbalance: unbalance[0].into(),
         midtones_unbalance: unbalance[1].into(),
@@ -52,7 +63,12 @@ fn neutral(unbalance: [&str; 3], numbers: [[f64; 3]; 3], pinning: f64, black_poi
 }
 
 fn offset(red_phase: f64, green_phase: f64, blue_phase: f64, overflow: &str) -> Effect {
-    Effect::ColorOffset { red_phase, green_phase, blue_phase, overflow: overflow.into() }
+    Effect::ColorOffset {
+        red_phase,
+        green_phase,
+        blue_phase,
+        overflow: overflow.into(),
+    }
 }
 
 const GREY: [&str; 3] = ["#000000", "#808080", "#ffffff"];
@@ -62,12 +78,16 @@ const NONE: [[f64; 3]; 3] = [[0.0; 3]; 3];
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.broadcast_safe" => json!({"locale": "ntsc", "method": "reduce_luminance", "max_amplitude": 110}),
+        "core.broadcast_safe" => {
+            json!({"locale": "ntsc", "method": "reduce_luminance", "max_amplitude": 110})
+        }
         "core.color_neutralizer" => json!({
             "shadows_unbalance": "#000000", "midtones_unbalance": "#808080", "highlights_unbalance": "#ffffff",
             "shadows": [0, 0, 0], "midtones": [0, 0, 0], "highlights": [0, 0, 0],
             "pinning": 0, "black_point": 0, "white_point": 255}),
-        "core.color_offset" => json!({"red_phase": 0, "green_phase": 0, "blue_phase": 0, "overflow": "wrap"}),
+        "core.color_offset" => {
+            json!({"red_phase": 0, "green_phase": 0, "blue_phase": 0, "overflow": "wrap"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -78,11 +98,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -103,14 +134,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -136,7 +183,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 }
 
 fn ours(e: &Effect) -> bool {
-    matches!(e, Effect::BroadcastSafe { .. } | Effect::ColorNeutralizer { .. } | Effect::ColorOffset { .. })
+    matches!(
+        e,
+        Effect::BroadcastSafe { .. } | Effect::ColorNeutralizer { .. } | Effect::ColorOffset { .. }
+    )
 }
 
 /// All three in one run with Levels between, on the reference shot: the card fuses the colour
@@ -146,10 +196,26 @@ fn card_fused(t: &mut Table, gpu: &mut Gpu) {
     let ref_root = repo("Fixtures/reference_shot");
     let project = reference(|id| {
         json!([
-            fx("core.color_neutralizer", &format!("{id}n"), &json!({"shadows_unbalance": "#3c2d1e", "midtones_unbalance": "#968064", "highlights_unbalance": "#f0e6c8", "pinning": 30})),
-            fx("core.levels", &format!("{id}l"), &json!({"input_black": 20, "input_white": 230, "gamma": 1.2, "output_black": 10, "output_white": 245})),
-            fx("core.color_offset", &format!("{id}o"), &json!({"red_phase": 40, "blue_phase": -60, "overflow": "polarize"})),
-            fx("core.broadcast_safe", &format!("{id}b"), &json!({"max_amplitude": 100})),
+            fx(
+                "core.color_neutralizer",
+                &format!("{id}n"),
+                &json!({"shadows_unbalance": "#3c2d1e", "midtones_unbalance": "#968064", "highlights_unbalance": "#f0e6c8", "pinning": 30})
+            ),
+            fx(
+                "core.levels",
+                &format!("{id}l"),
+                &json!({"input_black": 20, "input_white": 230, "gamma": 1.2, "output_black": 10, "output_white": 245})
+            ),
+            fx(
+                "core.color_offset",
+                &format!("{id}o"),
+                &json!({"red_phase": 40, "blue_phase": -60, "overflow": "polarize"})
+            ),
+            fx(
+                "core.broadcast_safe",
+                &format!("{id}b"),
+                &json!({"max_amplitude": 100})
+            ),
         ])
     });
     for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
@@ -170,7 +236,10 @@ fn card_fused(t: &mut Table, gpu: &mut Gpu) {
 
 /// `effects` on the picture `asset` in `dir`, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/broadcast_safe/fx_bcast_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/broadcast_safe/fx_bcast_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -182,25 +251,52 @@ fn picture(dir: &Path, asset: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The pictures' folder, with the street written into it, and a writer for more.
 fn pictures(t: &mut Table, d: &str) -> (std::path::PathBuf, impl Fn(&str, &[u8])) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
     let out = dir.clone();
-    let write = move |name: &str, bytes: &[u8]| png_out::write_rgba(&out.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = move |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &out.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     (dir, write)
 }
 
 /// Where the street first has the colour `c`.
 fn first(bytes: &[u8], c: [u8; 3]) -> usize {
-    bytes.chunks_exact(4).position(|p| p[..3] == c).expect("the street has that colour")
+    bytes
+        .chunks_exact(4)
+        .position(|p| p[..3] == c)
+        .expect("the street has that colour")
 }
 
 // --- Broadcast Safe --------------------------------------------------------------------------
@@ -231,10 +327,19 @@ fn b244_broadcast_safe() {
     t.row(
         "fx_bcast_008.json is saved with its locale, method and limit",
         &saved.to_string(),
-        saved["locale"] == "pal" && saved["method"] == "reduce_saturation" && saved["max_amplitude"] == 95,
+        saved["locale"] == "pal"
+            && saved["method"] == "reduce_saturation"
+            && saved["max_amplitude"] == 95,
     );
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
     for (file, want) in [
         ("fx_bcast_013.json", "Broadcast Safe's locale is \"ntsc\" or \"pal\", and this is \"secam\"."),
@@ -243,8 +348,16 @@ fn b244_broadcast_safe() {
         let why = effect_of(&t.load(file).document).why_invalid();
         t.row(&format!("{file} is refused in a sentence"), &why, why == want);
     }
-    t.shape_refused("fx_bcast_001.json", "a Broadcast Safe with no `method`", r#"{"locale": "ntsc", "max_amplitude": 110}"#);
-    t.shape_refused("fx_bcast_001.json", "a Broadcast Safe whose locale is a number", r#"{"locale": 1, "method": "reduce_luminance", "max_amplitude": 110}"#);
+    t.shape_refused(
+        "fx_bcast_001.json",
+        "a Broadcast Safe with no `method`",
+        r#"{"locale": "ntsc", "max_amplitude": 110}"#,
+    );
+    t.shape_refused(
+        "fx_bcast_001.json",
+        "a Broadcast Safe whose locale is a number",
+        r#"{"locale": 1, "method": "reduce_luminance", "max_amplitude": 110}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_bcast_001.json").document;
@@ -253,36 +366,73 @@ fn b244_broadcast_safe() {
         vec![
             ("limit 120.5", set(bcast("ntsc", "reduce_luminance", 120.5))),
             ("limit 89.5", set(bcast("ntsc", "reduce_luminance", 89.5))),
-            ("locale \"Pal\", written with a capital", set(bcast("Pal", "reduce_luminance", 110.0))),
+            (
+                "locale \"Pal\", written with a capital",
+                set(bcast("Pal", "reduce_luminance", 110.0)),
+            ),
             ("method \"darken\"", set(bcast("ntsc", "darken", 110.0))),
-            ("limit keyed to 130", keys("max_amplitude", &[(0, &[100.0]), (4, &[130.0])])),
+            (
+                "limit keyed to 130",
+                keys("max_amplitude", &[(0, &[100.0]), (4, &[130.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_bcast_001.json",
         vec![
-            ("PAL, key out safe, 100 IRE,", set(bcast("pal", "key_out_safe", 100.0))),
-            ("limit keyed from 90 to 120", keys("max_amplitude", &[(0, &[90.0]), (4, &[120.0])])),
+            (
+                "PAL, key out safe, 100 IRE,",
+                set(bcast("pal", "key_out_safe", 100.0)),
+            ),
+            (
+                "limit keyed from 90 to 120",
+                keys("max_amplitude", &[(0, &[90.0]), (4, &[120.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_bcast_001.json", 0), ("fx_bcast_002.json", 0), ("fx_bcast_004.json", 0), ("fx_bcast_009.json", 2), ("fx_bcast_010.json", 0)]);
+    t.tiles(&[
+        ("fx_bcast_001.json", 0),
+        ("fx_bcast_002.json", 0),
+        ("fx_bcast_004.json", 0),
+        ("fx_bcast_009.json", 2),
+        ("fx_bcast_010.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_bcast", 15, &[11, 12, 13, 14, 15], is_bcast);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_bcast",
+        15,
+        &[11, 12, 13, 14, 15],
+        is_bcast,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Broadcast Safe",
         "core.broadcast_safe",
         &[
-            ("NTSC, reduce luminance, 90 IRE", json!({"locale": "ntsc", "method": "reduce_luminance", "max_amplitude": 90})),
-            ("PAL, reduce saturation, 95 IRE", json!({"locale": "pal", "method": "reduce_saturation", "max_amplitude": 95})),
-            ("NTSC, key out unsafe, 90 IRE", json!({"locale": "ntsc", "method": "key_out_unsafe", "max_amplitude": 90})),
-            ("NTSC, key out safe, 100 IRE", json!({"locale": "ntsc", "method": "key_out_safe", "max_amplitude": 100})),
+            (
+                "NTSC, reduce luminance, 90 IRE",
+                json!({"locale": "ntsc", "method": "reduce_luminance", "max_amplitude": 90}),
+            ),
+            (
+                "PAL, reduce saturation, 95 IRE",
+                json!({"locale": "pal", "method": "reduce_saturation", "max_amplitude": 95}),
+            ),
+            (
+                "NTSC, key out unsafe, 90 IRE",
+                json!({"locale": "ntsc", "method": "key_out_unsafe", "max_amplitude": 90}),
+            ),
+            (
+                "NTSC, key out safe, 100 IRE",
+                json!({"locale": "ntsc", "method": "key_out_safe", "max_amplitude": 100}),
+            ),
         ],
         is_bcast,
     );
@@ -294,7 +444,11 @@ fn b244_broadcast_safe() {
     let marking = first(&street, [250, 250, 250]);
     let (before, said) = picture(&dir, "town.png", json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let one = |p: J| json!([fx("core.broadcast_safe", "fx-0-0", &p)]);
     let (as_added, said) = picture(&dir, "town.png", one(json!({})));
     write("2_as_added.png", &as_added);
@@ -311,15 +465,25 @@ fn b244_broadcast_safe() {
         &format!("{said:?}, a window {} from {}, a marking {} from {}", px(&dark, window), px(&before, window), px(&dark, marking), px(&before, marking)),
         said.is_empty() && dark[window * 4 + 1] < before[window * 4 + 1] && dark[marking * 4..marking * 4 + 4] == before[marking * 4..marking * 4 + 4],
     );
-    let (grey, said) = picture(&dir, "town.png", one(json!({"max_amplitude": 100, "method": "reduce_saturation"})));
+    let (grey, said) = picture(
+        &dir,
+        "town.png",
+        one(json!({"max_amplitude": 100, "method": "reduce_saturation"})),
+    );
     write("4_reduce_saturation_100.png", &grey);
-    let spread = |b: &[u8], i: usize| b[i * 4..i * 4 + 3].iter().max().unwrap() - b[i * 4..i * 4 + 3].iter().min().unwrap();
+    let spread = |b: &[u8], i: usize| {
+        b[i * 4..i * 4 + 3].iter().max().unwrap() - b[i * 4..i * 4 + 3].iter().min().unwrap()
+    };
     t.row(
         "4_reduce_saturation_100.png, the same made greyer instead: the windows lose colour; draws cleanly",
         &format!("{said:?}, a window {} from {}", px(&grey, window), px(&before, window)),
         said.is_empty() && spread(&grey, window) < spread(&before, window),
     );
-    let (keyed, said) = picture(&dir, "town.png", one(json!({"max_amplitude": 100, "method": "key_out_safe"})));
+    let (keyed, said) = picture(
+        &dir,
+        "town.png",
+        one(json!({"max_amplitude": 100, "method": "key_out_safe"})),
+    );
     write("5_key_out_safe_100.png", &keyed);
     let left = keyed.chunks_exact(4).filter(|p| p[3] > 0).count();
     t.row(
@@ -365,7 +529,9 @@ fn b245_color_neutralizer() {
     t.fixtures("expected_color_neutralizer.json");
 
     t.heading("The file");
-    let files: Vec<String> = (1..=18).map(|n| format!("fx_neutral_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=18)
+        .map(|n| format!("fx_neutral_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_neutral_006.json");
     t.row(
@@ -374,25 +540,71 @@ fn b245_color_neutralizer() {
         saved["shadows"] == json!([20, 0, -20]) && saved["highlights_unbalance"] == "#ffffff" && saved["white_point"] == 255,
     );
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
-    for (file, want) in [("fx_neutral_013.json", "shadows unbalance"), ("fx_neutral_014.json", "midtones are three numbers")] {
+    for (file, want) in [
+        ("fx_neutral_013.json", "shadows unbalance"),
+        ("fx_neutral_014.json", "midtones are three numbers"),
+    ] {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming the {want}"), &why, why.starts_with("Color Neutralizer's") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming the {want}"),
+            &why,
+            why.starts_with("Color Neutralizer's") && why.contains(want),
+        );
     }
-    t.shape_refused("fx_neutral_001.json", "a Color Neutralizer whose shadows are a word", r#"{"shadows": "20, 0, 0"}"#);
-    t.shape_refused("fx_neutral_001.json", "a Color Neutralizer whose midtones unbalance is a number", r#"{"midtones_unbalance": 128}"#);
+    t.shape_refused(
+        "fx_neutral_001.json",
+        "a Color Neutralizer whose shadows are a word",
+        r#"{"shadows": "20, 0, 0"}"#,
+    );
+    t.shape_refused(
+        "fx_neutral_001.json",
+        "a Color Neutralizer whose midtones unbalance is a number",
+        r#"{"midtones_unbalance": 128}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_neutral_001.json").document;
     t.refused(
         &mut document,
         vec![
-            ("shadows red 255.5", set(neutral(GREY, [[255.5, 0.0, 0.0], [0.0; 3], [0.0; 3]], 0.0, 0.0, 255.0))),
+            (
+                "shadows red 255.5",
+                set(neutral(
+                    GREY,
+                    [[255.5, 0.0, 0.0], [0.0; 3], [0.0; 3]],
+                    0.0,
+                    0.0,
+                    255.0,
+                )),
+            ),
             ("pinning -0.5", set(neutral(GREY, NONE, -0.5, 0.0, 255.0))),
-            ("white point 255.5", set(neutral(GREY, NONE, 0.0, 0.0, 255.5))),
-            ("highlights unbalance \"white\"", set(neutral(["#000000", "#808080", "white"], NONE, 0.0, 0.0, 255.0))),
-            ("black point keyed to 300", keys("black_point", &[(0, &[0.0]), (4, &[300.0])])),
+            (
+                "white point 255.5",
+                set(neutral(GREY, NONE, 0.0, 0.0, 255.5)),
+            ),
+            (
+                "highlights unbalance \"white\"",
+                set(neutral(
+                    ["#000000", "#808080", "white"],
+                    NONE,
+                    0.0,
+                    0.0,
+                    255.0,
+                )),
+            ),
+            (
+                "black point keyed to 300",
+                keys("black_point", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
         ],
     );
     t.taken(
@@ -401,30 +613,61 @@ fn b245_color_neutralizer() {
         vec![
             (
                 "the three warm colours, pinning 50,",
-                set(neutral(["#3c2d1e", "#968064", "#f0e6c8"], NONE, 50.0, 0.0, 255.0)),
+                set(neutral(
+                    ["#3c2d1e", "#968064", "#f0e6c8"],
+                    NONE,
+                    50.0,
+                    0.0,
+                    255.0,
+                )),
             ),
-            ("midtones keyed from 0, 0, 0 to 10, 20, 30", keys("midtones", &[(0, &[0.0, 0.0, 0.0]), (4, &[10.0, 20.0, 30.0])])),
+            (
+                "midtones keyed from 0, 0, 0 to 10, 20, 30",
+                keys(
+                    "midtones",
+                    &[(0, &[0.0, 0.0, 0.0]), (4, &[10.0, 20.0, 30.0])],
+                ),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_neutral_005.json", 0), ("fx_neutral_006.json", 0), ("fx_neutral_009.json", 0), ("fx_neutral_011.json", 2), ("fx_neutral_012.json", 0)]);
+    t.tiles(&[
+        ("fx_neutral_005.json", 0),
+        ("fx_neutral_006.json", 0),
+        ("fx_neutral_009.json", 0),
+        ("fx_neutral_011.json", 2),
+        ("fx_neutral_012.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_neutral", 18, &[1, 13, 14, 15, 16, 17, 18], is_neutral);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_neutral",
+        18,
+        &[1, 13, 14, 15, 16, 17, 18],
+        is_neutral,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Color Neutralizer",
         "core.color_neutralizer",
         &[
-            ("with the three warm colours", json!({"shadows_unbalance": "#3c2d1e", "midtones_unbalance": "#968064", "highlights_unbalance": "#f0e6c8"})),
+            (
+                "with the three warm colours",
+                json!({"shadows_unbalance": "#3c2d1e", "midtones_unbalance": "#968064", "highlights_unbalance": "#f0e6c8"}),
+            ),
             (
                 "with levels only, pinning 40, points 30 and 220",
                 json!({"shadows": [20, 0, -20], "midtones": [0, 10, 0], "highlights": [-30, 0, 30], "pinning": 40, "black_point": 30, "white_point": 220}),
             ),
-            ("with the numbers and white point 100 below black point 120", json!({"shadows": [40, 0, -40], "highlights": [-40, 0, 40], "black_point": 120, "white_point": 100})),
+            (
+                "with the numbers and white point 100 below black point 120",
+                json!({"shadows": [40, 0, -40], "highlights": [-40, 0, 40], "black_point": 120, "white_point": 100}),
+            ),
         ],
         is_neutral,
     );
@@ -436,11 +679,17 @@ fn b245_color_neutralizer() {
     let (before, said) = picture(&dir, "warm.png", json!([]));
     write("1_before_warm.png", &before);
     t.row("1_before_warm.png, the street with a warm cast laid on it (red up 24, green up 8, blue down 24), no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
-    let spread = |b: &[u8], i: usize| b[i * 4..i * 4 + 3].iter().max().unwrap() - b[i * 4..i * 4 + 3].iter().min().unwrap();
+    let spread = |b: &[u8], i: usize| {
+        b[i * 4..i * 4 + 3].iter().max().unwrap() - b[i * 4..i * 4 + 3].iter().min().unwrap()
+    };
     let (fixed, said) = picture(
         &dir,
         "warm.png",
-        json!([fx("core.color_neutralizer", "fx-0-0", &json!({"shadows_unbalance": "#54442a", "midtones_unbalance": "#54442a", "highlights_unbalance": "#ffffe2"}))]),
+        json!([fx(
+            "core.color_neutralizer",
+            "fx-0-0",
+            &json!({"shadows_unbalance": "#54442a", "midtones_unbalance": "#54442a", "highlights_unbalance": "#ffffe2"})
+        )]),
     );
     write("2_neutralized.png", &fixed);
     t.row(
@@ -454,7 +703,15 @@ fn b245_color_neutralizer() {
         ),
         said.is_empty() && spread(&fixed, road) <= 2 && spread(&before, road) > 40,
     );
-    let (pushed, said) = picture(&dir, "town.png", json!([fx("core.color_neutralizer", "fx-0-0", &json!({"shadows": [0, 0, 60], "highlights": [40, 20, 0]}))]));
+    let (pushed, said) = picture(
+        &dir,
+        "town.png",
+        json!([fx(
+            "core.color_neutralizer",
+            "fx-0-0",
+            &json!({"shadows": [0, 0, 60], "highlights": [40, 20, 0]})
+        )]),
+    );
     write("3_numbers_cool_shadows_warm_highlights.png", &pushed);
     t.row(
         "3_numbers_cool_shadows_warm_highlights.png, the plain street with blue 60 added to the shadows and red 40, green 20 to the highlights: the road turns blue; draws cleanly",
@@ -487,16 +744,28 @@ fn b246_color_offset() {
     t.fixtures("expected_color_offset.json");
 
     t.heading("The file");
-    let files: Vec<String> = (1..=16).map(|n| format!("fx_coffset_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=16)
+        .map(|n| format!("fx_coffset_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_coffset_010.json");
     t.row(
         "fx_coffset_010.json is saved with its three phases and overflow",
         &saved.to_string(),
-        saved["red_phase"] == 45 && saved["green_phase"] == -135 && saved["blue_phase"] == 600 && saved["overflow"] == "polarize",
+        saved["red_phase"] == 45
+            && saved["green_phase"] == -135
+            && saved["blue_phase"] == 600
+            && saved["overflow"] == "polarize",
     );
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
     let why = effect_of(&t.load("fx_coffset_015.json").document).why_invalid();
     t.row(
@@ -504,8 +773,16 @@ fn b246_color_offset() {
         &why,
         why == "Color Offset's overflow is \"wrap\", \"solarize\" or \"polarize\", and this is \"mirror\".",
     );
-    t.shape_refused("fx_coffset_001.json", "a Color Offset with no `blue_phase`", r#"{"red_phase": 0, "green_phase": 0, "overflow": "wrap"}"#);
-    t.shape_refused("fx_coffset_001.json", "a Color Offset whose overflow is a number", r#"{"red_phase": 0, "green_phase": 0, "blue_phase": 0, "overflow": 2}"#);
+    t.shape_refused(
+        "fx_coffset_001.json",
+        "a Color Offset with no `blue_phase`",
+        r#"{"red_phase": 0, "green_phase": 0, "overflow": "wrap"}"#,
+    );
+    t.shape_refused(
+        "fx_coffset_001.json",
+        "a Color Offset whose overflow is a number",
+        r#"{"red_phase": 0, "green_phase": 0, "blue_phase": 0, "overflow": 2}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_coffset_001.json").document;
@@ -513,35 +790,72 @@ fn b246_color_offset() {
         &mut document,
         vec![
             ("red phase 3600.5", set(offset(3600.5, 0.0, 0.0, "wrap"))),
-            ("green phase -3600.5", set(offset(0.0, -3600.5, 0.0, "wrap"))),
-            ("overflow \"Polarize\", written with a capital", set(offset(0.0, 0.0, 0.0, "Polarize"))),
-            ("blue phase keyed to 4000", keys("blue_phase", &[(0, &[0.0]), (4, &[4000.0])])),
+            (
+                "green phase -3600.5",
+                set(offset(0.0, -3600.5, 0.0, "wrap")),
+            ),
+            (
+                "overflow \"Polarize\", written with a capital",
+                set(offset(0.0, 0.0, 0.0, "Polarize")),
+            ),
+            (
+                "blue phase keyed to 4000",
+                keys("blue_phase", &[(0, &[0.0]), (4, &[4000.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_coffset_001.json",
         vec![
-            ("red 90, green 180, blue 270, solarize,", set(offset(90.0, 180.0, 270.0, "solarize"))),
-            ("green phase keyed from 0 to 720", keys("green_phase", &[(0, &[0.0]), (4, &[720.0])])),
+            (
+                "red 90, green 180, blue 270, solarize,",
+                set(offset(90.0, 180.0, 270.0, "solarize")),
+            ),
+            (
+                "green phase keyed from 0 to 720",
+                keys("green_phase", &[(0, &[0.0]), (4, &[720.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_coffset_003.json", 0), ("fx_coffset_005.json", 0), ("fx_coffset_010.json", 0), ("fx_coffset_011.json", 2), ("fx_coffset_012.json", 0)]);
+    t.tiles(&[
+        ("fx_coffset_003.json", 0),
+        ("fx_coffset_005.json", 0),
+        ("fx_coffset_010.json", 0),
+        ("fx_coffset_011.json", 2),
+        ("fx_coffset_012.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_coffset", 16, &[1, 13, 14, 15, 16], is_offset);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_coffset",
+        16,
+        &[1, 13, 14, 15, 16],
+        is_offset,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Color Offset",
         "core.color_offset",
         &[
-            ("red 90, green 180, blue 270, wrap", json!({"red_phase": 90, "green_phase": 180, "blue_phase": 270})),
-            ("all three 180, solarize", json!({"red_phase": 180, "green_phase": 180, "blue_phase": 180, "overflow": "solarize"})),
-            ("red 45, green -135, blue 600, polarize", json!({"red_phase": 45, "green_phase": -135, "blue_phase": 600, "overflow": "polarize"})),
+            (
+                "red 90, green 180, blue 270, wrap",
+                json!({"red_phase": 90, "green_phase": 180, "blue_phase": 270}),
+            ),
+            (
+                "all three 180, solarize",
+                json!({"red_phase": 180, "green_phase": 180, "blue_phase": 180, "overflow": "solarize"}),
+            ),
+            (
+                "red 45, green -135, blue 600, polarize",
+                json!({"red_phase": 45, "green_phase": -135, "blue_phase": 600, "overflow": "polarize"}),
+            ),
         ],
         is_offset,
     );
@@ -549,21 +863,48 @@ fn b246_color_offset() {
     let (dir, write) = pictures(&mut t, "D-367");
     let (before, said) = picture(&dir, "town.png", json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let one = |p: J| json!([fx("core.color_offset", "fx-0-0", &p)]);
     let mut drawn = Vec::new();
     for (name, p, what) in [
-        ("2_wrap_red_120.png", json!({"red_phase": 120}), "red phase 120, wrap: reds past two thirds come round to dark"),
-        ("3_solarize_all_180.png", json!({"red_phase": 180, "green_phase": 180, "blue_phase": 180, "overflow": "solarize"}), "all three 180, solarize: the darks lifted, the lights folded down"),
-        ("4_polarize_all_360.png", json!({"red_phase": 360, "green_phase": 360, "blue_phase": 360, "overflow": "polarize"}), "all three 360, polarize: the street's negative"),
-        ("5_polarize_mixed.png", json!({"red_phase": 60, "green_phase": -150, "blue_phase": 240, "overflow": "polarize"}), "red 60, green -150, blue 240, polarize: shifted psychedelic colours"),
+        (
+            "2_wrap_red_120.png",
+            json!({"red_phase": 120}),
+            "red phase 120, wrap: reds past two thirds come round to dark",
+        ),
+        (
+            "3_solarize_all_180.png",
+            json!({"red_phase": 180, "green_phase": 180, "blue_phase": 180, "overflow": "solarize"}),
+            "all three 180, solarize: the darks lifted, the lights folded down",
+        ),
+        (
+            "4_polarize_all_360.png",
+            json!({"red_phase": 360, "green_phase": 360, "blue_phase": 360, "overflow": "polarize"}),
+            "all three 360, polarize: the street's negative",
+        ),
+        (
+            "5_polarize_mixed.png",
+            json!({"red_phase": 60, "green_phase": -150, "blue_phase": 240, "overflow": "polarize"}),
+            "red 60, green -150, blue 240, polarize: shifted psychedelic colours",
+        ),
     ] {
         let (bytes, said) = picture(&dir, "town.png", one(p));
         write(name, &bytes);
-        t.row(&format!("{name}, {what}; draws cleanly"), &format!("{said:?}"), said.is_empty());
+        t.row(
+            &format!("{name}, {what}; draws cleanly"),
+            &format!("{said:?}"),
+            said.is_empty(),
+        );
         drawn.push(bytes);
     }
-    let negative: Vec<u8> = before.chunks_exact(4).flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2], p[3]]).collect();
+    let negative: Vec<u8> = before
+        .chunks_exact(4)
+        .flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2], p[3]])
+        .collect();
     let d = distance(&drawn[2], &negative);
     t.row(
         "4_polarize_all_360.png is the street's negative, each channel 255 less its value, within 1 level",
@@ -599,25 +940,59 @@ fn b244_colour_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Broadcast Safe, NTSC, reduce luminance, 90 IRE", Some(("core.broadcast_safe", json!({"max_amplitude": 90})))),
+        (
+            "Noise, then Broadcast Safe, NTSC, reduce luminance, 90 IRE",
+            Some(("core.broadcast_safe", json!({"max_amplitude": 90}))),
+        ),
         (
             "Noise, then Color Neutralizer with the three warm colours, pinning 30",
-            Some(("core.color_neutralizer", json!({"shadows_unbalance": "#3c2d1e", "midtones_unbalance": "#968064", "highlights_unbalance": "#f0e6c8", "pinning": 30}))),
+            Some((
+                "core.color_neutralizer",
+                json!({"shadows_unbalance": "#3c2d1e", "midtones_unbalance": "#968064", "highlights_unbalance": "#f0e6c8", "pinning": 30}),
+            )),
         ),
-        ("Noise, then Color Offset, red 45, green -135, blue 600, polarize", Some(("core.color_offset", json!({"red_phase": 45, "green_phase": -135, "blue_phase": 600, "overflow": "polarize"})))),
+        (
+            "Noise, then Color Offset, red 45, green -135, blue 600, polarize",
+            Some((
+                "core.color_offset",
+                json!({"red_phase": 45, "green_phase": -135, "blue_phase": 600, "overflow": "polarize"}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B244_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-244_timing_raw.md"));
+    let out = std::env::var("B244_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-244_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

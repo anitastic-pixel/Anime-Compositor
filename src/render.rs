@@ -237,7 +237,12 @@ pub struct LayerDraw {
 /// D-188: a motion-blurred layer's moments drawn one by one onto a clear `width` by `height`
 /// picture, summed in order and divided by their number once, in linear premultiplied light. A
 /// moment that is `None`, behind the camera, counts and adds nothing.
-pub fn average(source: &WorkingBuffer, moments: &[Option<Affine>], width: usize, height: usize) -> WorkingBuffer {
+pub fn average(
+    source: &WorkingBuffer,
+    moments: &[Option<Affine>],
+    width: usize,
+    height: usize,
+) -> WorkingBuffer {
     // P-23: each moment is summed straight from the drawing, pixel by pixel as `render_tile`
     // draws one layer onto a clear frame, without drawing a whole frame for it. The pixels
     // skipped are those whose bilinear footprint lies wholly outside the part of the drawing
@@ -247,22 +252,53 @@ pub fn average(source: &WorkingBuffer, moments: &[Option<Affine>], width: usize,
     // `verification/P-23_fourth_batch_audit.md` compares the frames.
     let (sw, sh) = (source.width(), source.height());
     let held = |p: &[f32]| p.iter().any(|v| v.to_bits() != 0);
-    let rows: Vec<usize> = (0..sh).into_par_iter().filter(|&y| held(&source.data()[y * sw * 4..(y + 1) * sw * 4])).collect();
+    let rows: Vec<usize> = (0..sh)
+        .into_par_iter()
+        .filter(|&y| held(&source.data()[y * sw * 4..(y + 1) * sw * 4]))
+        .collect();
     let cols: Vec<usize> = (0..sw)
         .into_par_iter()
-        .filter(|&x| rows.iter().any(|&y| held(&source.data()[(y * sw + x) * 4..][..4])))
+        .filter(|&x| {
+            rows.iter()
+                .any(|&y| held(&source.data()[(y * sw + x) * 4..][..4]))
+        })
         .collect();
     let mut sum = WorkingBuffer::transparent(width, height);
-    if let (Some(&t), Some(&b), Some(&l), Some(&r)) = (rows.first(), rows.last(), cols.first(), cols.last()) {
-        let (l, t, r, b) = (l as f64 - 1.0, t as f64 - 1.0, r as f64 + 2.0, b as f64 + 2.0);
+    if let (Some(&t), Some(&b), Some(&l), Some(&r)) =
+        (rows.first(), rows.last(), cols.first(), cols.last())
+    {
+        let (l, t, r, b) = (
+            l as f64 - 1.0,
+            t as f64 - 1.0,
+            r as f64 + 2.0,
+            b as f64 + 2.0,
+        );
         for transform in moments.iter().flatten() {
-            let Some(inverse) = transform.invert() else { continue };
-            let corners = [transform.apply(l, t), transform.apply(r, t), transform.apply(l, b), transform.apply(r, b)];
-            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| (m.0.min(c.0), m.1.min(c.1)));
-            let high = corners.iter().fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| (m.0.max(c.0), m.1.max(c.1)));
+            let Some(inverse) = transform.invert() else {
+                continue;
+            };
+            let corners = [
+                transform.apply(l, t),
+                transform.apply(r, t),
+                transform.apply(l, b),
+                transform.apply(r, b),
+            ];
+            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| {
+                (m.0.min(c.0), m.1.min(c.1))
+            });
+            let high = corners
+                .iter()
+                .fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| {
+                    (m.0.max(c.0), m.1.max(c.1))
+                });
             let clip = |v: f64, n: usize| (v.max(0.0) as usize).min(n);
             let (x0, y0, x1, y1) = if [low.0, low.1, high.0, high.1].iter().all(|v| v.is_finite()) {
-                (clip(low.0.floor(), width), clip(low.1.floor(), height), clip(high.0.ceil(), width), clip(high.1.ceil(), height))
+                (
+                    clip(low.0.floor(), width),
+                    clip(low.1.floor(), height),
+                    clip(high.0.ceil(), width),
+                    clip(high.1.ceil(), height),
+                )
             } else {
                 (0, 0, width, height)
             };
@@ -276,7 +312,11 @@ pub fn average(source: &WorkingBuffer, moments: &[Option<Affine>], width: usize,
                     for x in x0..x1 {
                         let (dx, dy) = (x as f64 + 0.5, (y0 + row) as f64 + 0.5);
                         let (sx, sy) = inverse.apply(dx, dy);
-                        let one = crate::composite::blend_pixel(crate::model::BlendMode::Normal, sample_bilinear(source, sx, sy), [0.0; 4]);
+                        let one = crate::composite::blend_pixel(
+                            crate::model::BlendMode::Normal,
+                            sample_bilinear(source, sx, sy),
+                            [0.0; 4],
+                        );
                         for c in 0..4 {
                             out[x * 4 + c] += one[c];
                         }
@@ -360,7 +400,11 @@ pub struct Gaussian {
 impl Gaussian {
     /// How far the drawing grows on each side.
     pub fn grow(&self) -> usize {
-        if self.repeat { 0 } else { crate::effects::reach_radius(self.sigma, self.long) }
+        if self.repeat {
+            0
+        } else {
+            crate::effects::reach_radius(self.sigma, self.long)
+        }
     }
 }
 
@@ -377,7 +421,11 @@ pub struct Directional {
 impl Directional {
     /// How far the drawing grows on each side.
     pub fn grow(&self) -> usize {
-        if self.repeat { 0 } else { (self.length / 2.0).ceil() as usize }
+        if self.repeat {
+            0
+        } else {
+            (self.length / 2.0).ceil() as usize
+        }
     }
 }
 
@@ -472,7 +520,10 @@ pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
         };
         (x + gx, y + gy)
     });
-    let (w, h) = ((layer.source.width() + gx) as f64, (layer.source.height() + gy) as f64);
+    let (w, h) = (
+        (layer.source.width() + gx) as f64,
+        (layer.source.height() + gy) as f64,
+    );
     let corners = [
         layer.transform.apply(-1.0, -1.0),
         layer.transform.apply(w + 1.0, -1.0),
@@ -488,7 +539,10 @@ pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
 }
 
 fn stencil(layer: &LayerDraw) -> bool {
-    matches!(layer.blend, crate::model::BlendMode::StencilAlpha | crate::model::BlendMode::StencilLuma)
+    matches!(
+        layer.blend,
+        crate::model::BlendMode::StencilAlpha | crate::model::BlendMode::StencilLuma
+    )
 }
 
 /// Whether a layer's box meets a tile. Public so that `tests/p05_culling.rs` can count how many
@@ -564,7 +618,12 @@ pub fn render_without_culling(plan: &FramePlan, tile_size: usize) -> WorkingBuff
     render_maybe_culled(plan, tile_size, false, None)
 }
 
-fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool, part: Option<Tile>) -> WorkingBuffer {
+fn render_maybe_culled(
+    plan: &FramePlan,
+    tile_size: usize,
+    cull: bool,
+    part: Option<Tile>,
+) -> WorkingBuffer {
     let (mut frame, at, cut) = canvas(plan, part);
     draw(plan, 0, &mut frame, at, None, tile_size, cull);
     cut_out(frame, cut)
@@ -574,10 +633,21 @@ fn render_maybe_culled(plan: &FramePlan, tile_size: usize, cull: bool, part: Opt
 /// in the whole frame, and the part to cut from it once drawn. A frame with an adjustment layer
 /// or a Light Wrap, which read the whole frame drawn so far, is drawn whole and cut.
 fn canvas(plan: &FramePlan, part: Option<Tile>) -> (WorkingBuffer, (usize, usize), Option<Tile>) {
-    let whole_frame_read = plan.layers.iter().any(|l| l.adjust.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid()));
+    let whole_frame_read = plan
+        .layers
+        .iter()
+        .any(|l| l.adjust.is_some() || l.wrap.iter().any(|i| i.enabled && i.is_valid()));
     match part {
-        Some(p) if !whole_frame_read => (WorkingBuffer::transparent(p.width, p.height), (p.x, p.y), None),
-        _ => (WorkingBuffer::transparent(plan.width, plan.height), (0, 0), part),
+        Some(p) if !whole_frame_read => (
+            WorkingBuffer::transparent(p.width, p.height),
+            (p.x, p.y),
+            None,
+        ),
+        _ => (
+            WorkingBuffer::transparent(plan.width, plan.height),
+            (0, 0),
+            part,
+        ),
     }
 }
 
@@ -615,11 +685,15 @@ fn draw(
     // B-46, B-47, B-49, B-50, B-51, B-65: an effect left for the card that the CPU is drawing after all is run first,
     // exactly as `apply_stack` would have run it.
     // B-156b: as are the moments of a motion-blurred layer.
-    if layers.iter().any(|l| !l.on_card.is_empty() || !l.moments.is_empty()) {
+    if layers
+        .iter()
+        .any(|l| !l.on_card.is_empty() || !l.moments.is_empty())
+    {
         for layer in layers.to_mut().iter_mut() {
             if !layer.moments.is_empty() {
                 let moments = std::mem::take(&mut layer.moments);
-                layer.source = std::sync::Arc::new(average(&layer.source, &moments, plan.width, plan.height));
+                layer.source =
+                    std::sync::Arc::new(average(&layer.source, &moments, plan.width, plan.height));
             }
             // B-155: in stack order, each on what the one before it drew.
             for card in std::mem::take(&mut layer.on_card) {
@@ -631,16 +705,37 @@ fn draw(
     let mut start = 0;
     for (index, layer) in layers.iter().enumerate() {
         if keep == Some(from + index) {
-            render_layers(&layers[start..index], frame, tile_size, cull, at, plan.float);
+            render_layers(
+                &layers[start..index],
+                frame,
+                tile_size,
+                cull,
+                at,
+                plan.float,
+            );
             kept = Some(frame.clone());
             start = index;
         }
         if let Some(stack) = &layer.adjust {
-            render_layers(&layers[start..index], frame, tile_size, cull, at, plan.float);
+            render_layers(
+                &layers[start..index],
+                frame,
+                tile_size,
+                cull,
+                at,
+                plan.float,
+            );
             adjust_frame(layer, stack, frame, plan.float);
             start = index + 1;
         } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
-            render_layers(&layers[start..index], frame, tile_size, cull, at, plan.float);
+            render_layers(
+                &layers[start..index],
+                frame,
+                tile_size,
+                cull,
+                at,
+                plan.float,
+            );
             wrap_layer(layer, frame, tile_size, cull, plan.float);
             start = index + 1;
         }
@@ -654,17 +749,37 @@ fn draw(
 fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
     match card {
         OnCard::Radial(r) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
-            crate::blurs::radial_blur(std::sync::Arc::make_mut(source), r.spin, r.amount, r.center, r.repeat, r.sweep)
+            crate::blurs::radial_blur(
+                std::sync::Arc::make_mut(source),
+                r.spin,
+                r.amount,
+                r.center,
+                r.repeat,
+                r.sweep,
+            )
         }),
         OnCard::Bloom(b) => {
             crate::perf::time(crate::perf::Stage::EffectBloom, || {
                 let source = std::sync::Arc::make_mut(source);
-                crate::bloom::bloom(source, b.threshold, b.radius, b.intensity, b.lines, b.length, b.angle)
+                crate::bloom::bloom(
+                    source,
+                    b.threshold,
+                    b.radius,
+                    b.intensity,
+                    b.lines,
+                    b.length,
+                    b.angle,
+                )
             });
         }
         OnCard::Directional(d) => {
             crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
-                crate::blurs::directional_blur(std::sync::Arc::make_mut(source), d.direction, d.length, d.repeat)
+                crate::blurs::directional_blur(
+                    std::sync::Arc::make_mut(source),
+                    d.direction,
+                    d.length,
+                    d.repeat,
+                )
             });
         }
         OnCard::Gaussian(g) => {
@@ -685,13 +800,22 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
         }
         OnCard::Fx(f) => {
             let source = std::sync::Arc::make_mut(source);
-            crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, crate::effects::Bits::Linear, |_, _, _| {});
+            crate::effects::apply_stack_at(
+                source,
+                std::slice::from_ref(&f.instance),
+                f.origin,
+                crate::effects::Bits::Linear,
+                |_, _, _| {},
+            );
         }
         // B-221 (D-340): what the effect was given, laid back by its Mix where it was.
         OnCard::Mix(inner, mix) => {
             let given = std::sync::Arc::clone(source);
             draw_card(source, *inner);
-            let at = ((source.width() - given.width()) / 2, (source.height() - given.height()) / 2);
+            let at = (
+                (source.width() - given.width()) / 2,
+                (source.height() - given.height()) / 2,
+            );
             crate::effects::mix_back(std::sync::Arc::make_mut(source), &given, at, mix / 100.0);
         }
     }
@@ -736,11 +860,20 @@ impl Below {
 // ponytail: a layer whose drawing is made afresh for every plan (an adjustment layer's white, a
 // motion-blur average made on the processor) never compares the same, so an edit above one starts
 // no higher than it; keep those drawings in the cel cache if that matters.
-pub fn render_below(plan: &FramePlan, tile_size: usize, part: Option<Tile>, below: &mut Below) -> WorkingBuffer {
+pub fn render_below(
+    plan: &FramePlan,
+    tile_size: usize,
+    part: Option<Tile>,
+    below: &mut Below,
+) -> WorkingBuffer {
     let shape = (plan.width, plan.height, tile_size, part, plan.float);
     let (same, above) = match &below.last {
         Some((last, was)) if *was == shape => {
-            let same = last.iter().zip(&plan.layers).take_while(|(a, b)| same_draw(a, b)).count();
+            let same = last
+                .iter()
+                .zip(&plan.layers)
+                .take_while(|(a, b)| same_draw(a, b))
+                .count();
             let above = (last.len() == plan.layers.len())
                 .then(|| (same.max(1)..last.len()).find(|&i| !same_draw(&last[i], &plan.layers[i])))
                 .flatten();
@@ -749,10 +882,9 @@ pub fn render_below(plan: &FramePlan, tile_size: usize, part: Option<Tile>, belo
         _ => (0, None),
     };
     let (mut frame, at, cut) = canvas(plan, part);
-    let kept = below
-        .kept
-        .take()
-        .filter(|(n, k)| (1..=same).contains(n) && k.width() == frame.width() && k.height() == frame.height());
+    let kept = below.kept.take().filter(|(n, k)| {
+        (1..=same).contains(n) && k.width() == frame.width() && k.height() == frame.height()
+    });
     let from = match &kept {
         Some((n, k)) => {
             frame.data_mut().copy_from_slice(k.data());
@@ -766,7 +898,10 @@ pub fn render_below(plan: &FramePlan, tile_size: usize, part: Option<Tile>, belo
         0 => above,
         _ => None,
     };
-    below.kept = match (keep, draw(plan, from, &mut frame, at, keep, tile_size, true)) {
+    below.kept = match (
+        keep,
+        draw(plan, from, &mut frame, at, keep, tile_size, true),
+    ) {
         (Some(n), Some(picture)) => Some((n, picture)),
         _ => kept,
     };
@@ -779,7 +914,9 @@ fn same_draw(a: &LayerDraw, b: &LayerDraw) -> bool {
     let bits = |t: &Affine| [t.a, t.b, t.c, t.d, t.tx, t.ty].map(f64::to_bits);
     let matte = match (&a.matte, &b.matte) {
         (None, None) => true,
-        (Some(x), Some(y)) => std::sync::Arc::ptr_eq(&x.source, &y.source) && bits(&x.transform) == bits(&y.transform),
+        (Some(x), Some(y)) => {
+            std::sync::Arc::ptr_eq(&x.source, &y.source) && bits(&x.transform) == bits(&y.transform)
+        }
         _ => false,
     };
     std::sync::Arc::ptr_eq(&a.source, &b.source)
@@ -791,7 +928,10 @@ fn same_draw(a: &LayerDraw, b: &LayerDraw) -> bool {
         && a.wrap == b.wrap
         && a.on_card == b.on_card
         && a.moments.len() == b.moments.len()
-        && a.moments.iter().zip(&b.moments).all(|(x, y)| x.map(|t| bits(&t)) == y.map(|t| bits(&t)))
+        && a.moments
+            .iter()
+            .zip(&b.moments)
+            .all(|(x, y)| x.map(|t| bits(&t)) == y.map(|t| bits(&t)))
 }
 
 /// D-66: `frame = B + c*(E(B) - B)`, with `B` the frame as drawn so far, `E(B)` its pixels
@@ -843,7 +983,12 @@ fn adjust_frame(
                 let i = x * 4;
                 let e = match layer.blend {
                     crate::model::BlendMode::Normal => effected.pixel(x + ox, y + oy),
-                    mode => crate::composite::blend_pixel_at(mode, effected.pixel(x + ox, y + oy), [row[i], row[i + 1], row[i + 2], row[i + 3]], float),
+                    mode => crate::composite::blend_pixel_at(
+                        mode,
+                        effected.pixel(x + ox, y + oy),
+                        [row[i], row[i + 1], row[i + 2], row[i + 3]],
+                        float,
+                    ),
                 };
                 // D-90: at full cover the answer is `E(B)` exactly. `b + (e - b)` rounds at
                 // `b`'s size, which is most of a value as small as 20 stops down leaves.
@@ -866,7 +1011,13 @@ fn adjust_frame(
 ///
 /// The bypasses were already reported when the plan was made, by the layer's own stack, where a
 /// Light Wrap does nothing.
-fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cull: bool, float: bool) {
+fn wrap_layer(
+    layer: &LayerDraw,
+    frame: &mut WorkingBuffer,
+    tile_size: usize,
+    cull: bool,
+    float: bool,
+) {
     let mut placed = WorkingBuffer::transparent(frame.width(), frame.height());
     let alone = LayerDraw {
         opacity: 1.0,
@@ -874,7 +1025,14 @@ fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cu
         wrap: Vec::new(),
         ..layer.clone()
     };
-    render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull, (0, 0), float);
+    render_layers(
+        std::slice::from_ref(&alone),
+        &mut placed,
+        tile_size,
+        cull,
+        (0, 0),
+        float,
+    );
     for instance in layer.wrap.iter().filter(|i| i.enabled && i.is_valid()) {
         if let crate::effects::Effect::LightWrap {
             width,
@@ -904,7 +1062,12 @@ fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cu
                 }
             }
             let under = [dst[0], dst[1], dst[2], dst[3]];
-            dst.copy_from_slice(&crate::composite::blend_pixel_at(layer.blend, src, under, float));
+            dst.copy_from_slice(&crate::composite::blend_pixel_at(
+                layer.blend,
+                src,
+                under,
+                float,
+            ));
         });
 }
 
@@ -955,14 +1118,32 @@ fn light_wrap(l: &mut WorkingBuffer, b: &WorkingBuffer, width: f64, intensity: f
 
 /// One segment of the stack, bottom to top, onto `frame` as it stands. `at` is where `frame`'s
 /// first pixel is in the whole frame: `(0, 0)` but for B-158's part.
-fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool, at: (usize, usize), float: bool) {
+fn render_layers(
+    layers: &[LayerDraw],
+    frame: &mut WorkingBuffer,
+    tile_size: usize,
+    cull: bool,
+    at: (usize, usize),
+    float: bool,
+) {
     let (width, height) = (frame.width(), frame.height());
     let tiles = tiles(width, height, tile_size);
     // D-301: a stencil clears what is under it where it is empty, so it reaches every tile.
     let boxes: Option<Vec<(f64, f64, f64, f64)>> = cull.then(|| {
         layers
             .iter()
-            .map(|l| if stencil(l) { (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::INFINITY) } else { bounds(l) })
+            .map(|l| {
+                if stencil(l) {
+                    (
+                        f64::NEG_INFINITY,
+                        f64::NEG_INFINITY,
+                        f64::INFINITY,
+                        f64::INFINITY,
+                    )
+                } else {
+                    bounds(l)
+                }
+            })
             .collect()
     });
 
@@ -996,7 +1177,11 @@ fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usi
             .par_drain(..)
             .zip(tiles.par_iter())
             .for_each(|(rows, &tile)| {
-                let tile = Tile { x: tile.x + at.0, y: tile.y + at.1, ..tile };
+                let tile = Tile {
+                    x: tile.x + at.0,
+                    y: tile.y + at.1,
+                    ..tile
+                };
                 render_tile(layers, tile, rows, boxes.as_deref(), float)
             });
     });

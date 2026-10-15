@@ -68,7 +68,9 @@ fn plate() -> Vec<u8> {
                 SHADE
             } else if head < 18.0 {
                 SKIN
-            } else if head < 20.0 || (body && (fx - l < 2.0 || r - fx < 2.0 || t * 42.0 < 2.0 || t * 42.0 > 40.0)) {
+            } else if head < 20.0
+                || (body && (fx - l < 2.0 || r - fx < 2.0 || t * 42.0 < 2.0 || t * 42.0 > 40.0))
+            {
                 LINE
             } else if body && ribbon < 5.0 {
                 PINK
@@ -91,7 +93,10 @@ fn plate() -> Vec<u8> {
 /// times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/change_to_color/fx_ctc_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/change_to_color/fx_ctc_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("plate.png");
@@ -105,9 +110,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -136,7 +152,11 @@ fn b132_change_to_color() {
 
     t.heading("How far it reaches");
     let got = change(WORDS, ADDED, "off").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = change(WORDS, ADDED, "on");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -186,16 +206,47 @@ fn b132_change_to_color() {
     t.refused(
         &mut document,
         vec![
-            ("hue tolerance 101", set(change(WORDS, [101.0, 50.0, 50.0, 50.0], "off"))),
-            ("lightness tolerance -1", set(change(WORDS, [5.0, -1.0, 50.0, 50.0], "off"))),
-            ("saturation tolerance 100.5", set(change(WORDS, [5.0, 50.0, 100.5, 50.0], "off"))),
-            ("softness 101", set(change(WORDS, [5.0, 50.0, 50.0, 101.0], "off"))),
-            ("from \"#ff00\"", set(change(["#ff00", "#0080ff", "hue", "setting"], ADDED, "off"))),
-            ("to \"blue\"", set(change(["#ff0000", "blue", "hue", "setting"], ADDED, "off"))),
-            ("change \"saturation\"", set(change(["#ff0000", "#0080ff", "saturation", "setting"], ADDED, "off"))),
-            ("change by \"shift\"", set(change(["#ff0000", "#0080ff", "hue", "shift"], ADDED, "off"))),
+            (
+                "hue tolerance 101",
+                set(change(WORDS, [101.0, 50.0, 50.0, 50.0], "off")),
+            ),
+            (
+                "lightness tolerance -1",
+                set(change(WORDS, [5.0, -1.0, 50.0, 50.0], "off")),
+            ),
+            (
+                "saturation tolerance 100.5",
+                set(change(WORDS, [5.0, 50.0, 100.5, 50.0], "off")),
+            ),
+            (
+                "softness 101",
+                set(change(WORDS, [5.0, 50.0, 50.0, 101.0], "off")),
+            ),
+            (
+                "from \"#ff00\"",
+                set(change(["#ff00", "#0080ff", "hue", "setting"], ADDED, "off")),
+            ),
+            (
+                "to \"blue\"",
+                set(change(["#ff0000", "blue", "hue", "setting"], ADDED, "off")),
+            ),
+            (
+                "change \"saturation\"",
+                set(change(
+                    ["#ff0000", "#0080ff", "saturation", "setting"],
+                    ADDED,
+                    "off",
+                )),
+            ),
+            (
+                "change by \"shift\"",
+                set(change(["#ff0000", "#0080ff", "hue", "shift"], ADDED, "off")),
+            ),
             ("view matte \"yes\"", set(change(WORDS, ADDED, "yes"))),
-            ("softness keyed to 150", keys("softness", &[(0, &[50.0]), (4, &[150.0])])),
+            (
+                "softness keyed to 150",
+                keys("softness", &[(0, &[50.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -204,13 +255,29 @@ fn b132_change_to_color() {
         vec![
             (
                 "every setting at the top of its range, the last words,",
-                set(change(["#ffffff", "#000000", "hue_lightness_saturation", "transforming"], [100.0; 4], "on")),
+                set(change(
+                    [
+                        "#ffffff",
+                        "#000000",
+                        "hue_lightness_saturation",
+                        "transforming",
+                    ],
+                    [100.0; 4],
+                    "on",
+                )),
             ),
             (
                 "every setting at the bottom, the other words,",
-                set(change(["#000000", "#ffffff", "hue_lightness", "setting"], [0.0; 4], "off")),
+                set(change(
+                    ["#000000", "#ffffff", "hue_lightness", "setting"],
+                    [0.0; 4],
+                    "off",
+                )),
             ),
-            ("hue tolerance keyed from 0 to 100", keys("hue_tolerance", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "hue tolerance keyed from 0 to 100",
+                keys("hue_tolerance", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -219,10 +286,30 @@ fn b132_change_to_color() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let drawn = plate();
-    png_out::write_rgba(&dir.join("plate.png"), w, h, OutputDepth::Eight, &[], &drawn).unwrap();
+    png_out::write_rgba(
+        &dir.join("plate.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &drawn,
+    )
+    .unwrap();
     let (_, big, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the plate with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the plate with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let jacket = [(80, 75), (98, 75), (60, 75)];
     let rest = [(80, 56), (75, 30), (94, 30), (10, 10), (80, 12)];
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -231,10 +318,30 @@ fn b132_change_to_color() {
     };
     let near = |a: [u8; 3], b: [u8; 3]| a.iter().zip(b).all(|(&u, v)| u.abs_diff(v) <= 1);
     for (name, what, how, matte) in [
-        ("hue", "Hue: the jacket, its shadow and highlight turn blue, each as light or dark as it was", ["hue", "setting"], "off"),
-        ("transforming", "Transforming To Color: each turned as far round as #0080ff is from the red", ["hue", "transforming"], "off"),
-        ("flat", "Hue, Lightness & Saturation: the jacket one flat #0080ff", ["hue_lightness_saturation", "setting"], "off"),
-        ("matte", "View Correction Matte: white where the colour changes, black elsewhere", ["hue", "setting"], "on"),
+        (
+            "hue",
+            "Hue: the jacket, its shadow and highlight turn blue, each as light or dark as it was",
+            ["hue", "setting"],
+            "off",
+        ),
+        (
+            "transforming",
+            "Transforming To Color: each turned as far round as #0080ff is from the red",
+            ["hue", "transforming"],
+            "off",
+        ),
+        (
+            "flat",
+            "Hue, Lightness & Saturation: the jacket one flat #0080ff",
+            ["hue_lightness_saturation", "setting"],
+            "off",
+        ),
+        (
+            "matte",
+            "View Correction Matte: white where the colour changes, black elsewhere",
+            ["hue", "setting"],
+            "on",
+        ),
     ] {
         let effects = serde_json::json!([{
             "instance_id": "fx-0-0", "type_id": "core.change_to_color", "enabled": true,
@@ -245,8 +352,15 @@ fn b132_change_to_color() {
             },
         }]);
         let (bytes, big, said) = picture(&dir, effects);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w * 3, h * 3, OutputDepth::Eight, &[], &big)
-            .unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w * 3,
+            h * 3,
+            OutputDepth::Eight,
+            &[],
+            &big,
+        )
+        .unwrap();
         let changed: Vec<[u8; 3]> = jacket.iter().map(|&p| px(&bytes, p)).collect();
         let kept: Vec<[u8; 3]> = rest.iter().map(|&p| px(&bytes, p)).collect();
         let ok = match name {
@@ -268,7 +382,11 @@ fn b132_change_to_color() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_ctc_002.json", 0), ("fx_ctc_011.json", 0), ("fx_ctc_018.json", 3)]);
+    t.tiles(&[
+        ("fx_ctc_002.json", 0),
+        ("fx_ctc_011.json", 0),
+        ("fx_ctc_018.json", 3),
+    ]);
 
     t.finish("B-132_change_to_color_table.md");
 }

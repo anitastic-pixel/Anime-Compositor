@@ -17,7 +17,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, reference, repo, same_json, saved, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, reference, repo, same_json, saved, set, time_passes,
+    town, Table, MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -35,9 +36,24 @@ fn is_lens(c: &render::OnCard) -> bool {
 }
 
 /// The new-form aberrations the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_lens(c.unmixed())).count()
         // An adjustment layer's run is made from its stack when the card draws it.
         + plan.layers
@@ -69,7 +85,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=26 {
         let file = format!("fx_lensca_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -95,9 +115,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -125,7 +154,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the street, frame 0, drawn on the processor, straight 8-bit, with what it warned
 /// of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -137,8 +169,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -146,7 +190,17 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
 fn draw(json: &J, root: &Path, frame: i32) -> Vec<f32> {
     let loaded = persist::load_str(&json.to_string()).expect("the file reads");
     let mut log = FrameLog::new(3);
-    render_frame(loaded.document.project(), &Id::new(MAIN), frame, root, 64, &mut log).expect("the frame draws").data().to_vec()
+    render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        root,
+        64,
+        &mut log,
+    )
+    .expect("the frame draws")
+    .data()
+    .to_vec()
 }
 
 #[test]
@@ -173,7 +227,15 @@ fn b288_lens_chromatic_aberration() {
         let text = fs::read_to_string(old_root.join(&file)).unwrap();
         let old: J = serde_json::from_str(&text).unwrap();
         let loaded = persist::load_str(&text).unwrap();
-        let effect = &loaded.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect;
+        let effect = &loaded
+            .document
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect;
         let kept = same_json(&saved(&loaded), &old);
         t.row(
             &format!("{file} (no mode) opens as D-120's form and is saved as it was written, with no new settings"),
@@ -187,8 +249,16 @@ fn b288_lens_chromatic_aberration() {
         all["amount"] = p["amount"].clone();
         all["center"] = p["center"].clone();
         *p = all;
-        let frames: Vec<i32> = if [5, 6].contains(&n) { vec![0, 2, 4] } else if n == 7 { vec![0, 3] } else { vec![0] };
-        let same = frames.iter().all(|&f| draw(&old, &old_root, f) == draw(&twin, &old_root, f));
+        let frames: Vec<i32> = if [5, 6].contains(&n) {
+            vec![0, 2, 4]
+        } else if n == 7 {
+            vec![0, 3]
+        } else {
+            vec![0]
+        };
+        let same = frames
+            .iter()
+            .all(|&f| draw(&old, &old_root, f) == draw(&twin, &old_root, f));
         t.row(
             &format!("{file} and its twin in the new form at the starting values (radial, falloff 0, scales 100, 0, -100, no blur) draw the same frames, bit for bit"),
             if same { "bit-identical" } else { "differ" },
@@ -203,7 +273,9 @@ fn b288_lens_chromatic_aberration() {
     t.row(
         "fx_lensca_011.json is saved with its nine settings, in offset mode",
         &saved_p.to_string(),
-        saved_p.as_object().unwrap().len() == 9 && saved_p["mode"] == "offset" && saved_p["fringe_blur"] == 100.0,
+        saved_p.as_object().unwrap().len() == 9
+            && saved_p["mode"] == "offset"
+            && saved_p["fringe_blur"] == 100.0,
     );
     for (file, want) in [
         ("fx_lensca_019.json", "mode"),
@@ -216,11 +288,23 @@ fn b288_lens_chromatic_aberration() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
     let all = r##""mode": "radial", "amount": 3, "center": [50, 50], "angle": 90, "red_scale": 100, "green_scale": 0, "blue_scale": -100, "fringe_blur": 0"##;
-    t.shape_refused("fx_lensca_001.json", "a new-form Chromatic Aberration without its falloff", &format!("{{{all}}}"));
-    t.shape_refused("fx_lensca_001.json", "a new-form Chromatic Aberration whose falloff is a word", &format!("{{{all}, \"falloff\": \"soft\"}}"));
+    t.shape_refused(
+        "fx_lensca_001.json",
+        "a new-form Chromatic Aberration without its falloff",
+        &format!("{{{all}}}"),
+    );
+    t.shape_refused(
+        "fx_lensca_001.json",
+        "a new-form Chromatic Aberration whose falloff is a word",
+        &format!("{{{all}, \"falloff\": \"soft\"}}"),
+    );
     t.shape_refused("fx_lensca_001.json", "a new-form Chromatic Aberration whose mode is a number", r##"{"mode": 1, "amount": 3, "center": [50, 50], "angle": 90, "falloff": 0, "red_scale": 100, "green_scale": 0, "blue_scale": -100, "fringe_blur": 0}"##);
 
     t.heading("How far it reaches");
@@ -232,24 +316,46 @@ fn b288_lens_chromatic_aberration() {
         &format!("{draft:?}"),
         halved,
     );
-    t.row("it grows the drawing's bounds by nothing", &draft.bounds_expansion().to_string(), draft.bounds_expansion() == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &draft.bounds_expansion().to_string(),
+        draft.bounds_expansion() == 0,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_lensca_001.json").document;
-    let spiral = changed(&t, "fx_lensca_001.json", |e| if let Effect::LensChromaticAberration { mode, .. } = e { *mode = "spiral".into() });
-    let falloff = changed(&t, "fx_lensca_001.json", |e| if let Effect::LensChromaticAberration { falloff, .. } = e { *falloff = 101.0 });
-    let red = changed(&t, "fx_lensca_001.json", |e| if let Effect::LensChromaticAberration { red_scale, .. } = e { *red_scale = 201.0 });
+    let spiral = changed(&t, "fx_lensca_001.json", |e| {
+        if let Effect::LensChromaticAberration { mode, .. } = e {
+            *mode = "spiral".into()
+        }
+    });
+    let falloff = changed(&t, "fx_lensca_001.json", |e| {
+        if let Effect::LensChromaticAberration { falloff, .. } = e {
+            *falloff = 101.0
+        }
+    });
+    let red = changed(&t, "fx_lensca_001.json", |e| {
+        if let Effect::LensChromaticAberration { red_scale, .. } = e {
+            *red_scale = 201.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("mode spiral", set(spiral)),
             ("falloff 101", set(falloff)),
             ("red scale 201", set(red)),
-            ("fringe blur keyed to 150", keys("fringe_blur", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "fringe blur keyed to 150",
+                keys("fringe_blur", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let offset = changed(&t, "fx_lensca_001.json", |e| {
-        if let Effect::LensChromaticAberration { mode, fringe_blur, .. } = e {
+        if let Effect::LensChromaticAberration {
+            mode, fringe_blur, ..
+        } = e
+        {
             *mode = "offset".into();
             *fringe_blur = 60.0;
         }
@@ -259,7 +365,10 @@ fn b288_lens_chromatic_aberration() {
         "fx_lensca_001.json",
         vec![
             ("offset mode with fringe blur 60", set(offset)),
-            ("falloff keyed from 0 to 100", keys("falloff", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "falloff keyed from 0 to 100",
+                keys("falloff", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -284,21 +393,44 @@ fn b288_lens_chromatic_aberration() {
         &mut t,
         &mut gpu,
         &[
-            ("radial, amount 20, falloff 100", json!({"amount": 20, "falloff": 100})),
-            ("radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50", json!({"amount": 20, "center": [30, 60], "falloff": 60, "red_scale": 150, "green_scale": 40, "fringe_blur": 50})),
-            ("offset at 30 degrees, amount 8, fringe blur 100", json!({"mode": "offset", "amount": 8, "angle": 30, "fringe_blur": 100})),
+            (
+                "radial, amount 20, falloff 100",
+                json!({"amount": 20, "falloff": 100}),
+            ),
+            (
+                "radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50",
+                json!({"amount": 20, "center": [30, 60], "falloff": 60, "red_scale": 150, "green_scale": 40, "fringe_blur": 50}),
+            ),
+            (
+                "offset at 30 degrees, amount 8, fringe blur 100",
+                json!({"mode": "offset", "amount": 8, "angle": 30, "fringe_blur": 100}),
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-409 pictures/`");
     let dir = repo("verification/D-409 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let street = |p: J| picture(&dir, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // How much red and blue moved inside a box of the street, against the picture before.
     let moved = |p: &[u8], x0: usize, x1: usize, y0: usize, y1: usize| -> u64 {
@@ -312,7 +444,10 @@ fn b288_lens_chromatic_aberration() {
         s
     };
     let (w, h) = TOWN;
-    let (mid, edge) = ((w * 3 / 8, w * 5 / 8, h * 3 / 8, h * 5 / 8), (0, w / 8, 0, h / 4));
+    let (mid, edge) = (
+        (w * 3 / 8, w * 5 / 8, h * 3 / 8, h * 5 / 8),
+        (0, w / 8, 0, h / 4),
+    );
     let (flat, said_flat) = street(json!({"amount": 12}));
     write("2_no_falloff.png", &flat);
     let (lens, said) = street(json!({"amount": 12, "falloff": 100}));
@@ -347,17 +482,32 @@ fn b288_lens_chromatic_aberration() {
 
     let (soft, said) = street(json!({"amount": 12, "falloff": 100, "fringe_blur": 100}));
     write("5_fringe_blur_100.png", &soft);
-    let edges = |p: &[u8]| p.chunks_exact(4).collect::<Vec<_>>().windows(2).map(|w| w[0][0].abs_diff(w[1][0]) as u64 + w[0][2].abs_diff(w[1][2]) as u64).sum::<u64>();
+    let edges = |p: &[u8]| {
+        p.chunks_exact(4)
+            .collect::<Vec<_>>()
+            .windows(2)
+            .map(|w| w[0][0].abs_diff(w[1][0]) as u64 + w[0][2].abs_diff(w[1][2]) as u64)
+            .sum::<u64>()
+    };
     t.row(
         "5_fringe_blur_100.png, 3_lens_falloff_100.png with fringe blur 100: the coloured fringes smeared outward, softer; draws cleanly",
         &format!("{said:?}, red and blue sideways contrast {} against {}", edges(&soft), edges(&lens)),
         said.is_empty() && edges(&soft) < edges(&lens),
     );
 
-    let (green, said) = street(json!({"amount": 8, "red_scale": 0, "green_scale": 100, "blue_scale": 0}));
+    let (green, said) =
+        street(json!({"amount": 8, "red_scale": 0, "green_scale": 100, "blue_scale": 0}));
     write("6_green_only.png", &green);
-    let rb_kept = green.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(p, q)| q[3] == 255 && (p[0] != q[0] || p[2] != q[2])).count();
-    let g_moved = green.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(p, q)| p[1] != q[1]).count();
+    let rb_kept = green
+        .chunks_exact(4)
+        .zip(before.chunks_exact(4))
+        .filter(|(p, q)| q[3] == 255 && (p[0] != q[0] || p[2] != q[2]))
+        .count();
+    let g_moved = green
+        .chunks_exact(4)
+        .zip(before.chunks_exact(4))
+        .filter(|(p, q)| p[1] != q[1])
+        .count();
     t.row(
         "6_green_only.png, scales red 0, green 100, blue 0: only green moves, outward; red and blue stay where the street covers; draws cleanly",
         &format!("{said:?}; {rb_kept} covered pixels changed red or blue, {g_moved} changed green"),
@@ -392,23 +542,52 @@ fn b288_lens_chromatic_aberration_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then radial amount 10, falloff 100", Some(json!({"amount": 10, "falloff": 100}))),
-        ("Noise, then radial amount 10, falloff 100, fringe blur 100 (11 samples a channel)", Some(json!({"amount": 10, "falloff": 100, "fringe_blur": 100}))),
-        ("Noise, then offset amount 6 at 90 degrees", Some(json!({"mode": "offset", "amount": 6}))),
+        (
+            "Noise, then radial amount 10, falloff 100",
+            Some(json!({"amount": 10, "falloff": 100})),
+        ),
+        (
+            "Noise, then radial amount 10, falloff 100, fringe blur 100 (11 samples a channel)",
+            Some(json!({"amount": 10, "falloff": 100, "fringe_blur": 100})),
+        ),
+        (
+            "Noise, then offset amount 6 at 90 degrees",
+            Some(json!({"mode": "offset", "amount": 6})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B288_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-288_timing_raw.md"));
+    let out = std::env::var("B288_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-288_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

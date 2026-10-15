@@ -55,16 +55,30 @@ fn shot(extra: J) -> String {
 fn frame(extra: J) -> Vec<f32> {
     let loaded = persist::load_str(&shot(extra)).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let f = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 256, &mut log)
-        .expect("the frame draws");
-    (0..16).flat_map(|y| (0..16).map(move |x| (x, y))).map(|(x, y)| f.pixel(x, y)[3]).collect()
+    let f = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        256,
+        &mut log,
+    )
+    .expect("the frame draws");
+    (0..16)
+        .flat_map(|y| (0..16).map(move |x| (x, y)))
+        .map(|(x, y)| f.pixel(x, y)[3])
+        .collect()
 }
 
 /// The tap `d` pixels from the dot, or 0 past the radius.
 fn tap(d: i32) -> f64 {
     let w = gaussian_weights(1.0);
     assert_eq!(w.len(), 7, "sigma 1 reaches 3 pixels");
-    if d.abs() > 3 { 0.0 } else { w[(3 + d) as usize] as f64 }
+    if d.abs() > 3 {
+        0.0
+    } else {
+        w[(3 + d) as usize] as f64
+    }
 }
 
 #[test]
@@ -78,16 +92,29 @@ fn each_dimension_spreads_the_dot_along_its_own_axes() {
         let got = frame(json!({"dimensions": dims}));
         for (i, a) in got.iter().enumerate() {
             let (dx, dy) = ((i % 16) as i32 - 8, (i / 16) as i32 - 8);
-            assert!((*a as f64 - want(dx, dy)).abs() < 1e-6, "{dims}, pixel ({}, {}): {a} against {}", dx + 8, dy + 8, want(dx, dy));
+            assert!(
+                (*a as f64 - want(dx, dy)).abs() < 1e-6,
+                "{dims}, pixel ({}, {}): {a} against {}",
+                dx + 8,
+                dy + 8,
+                want(dx, dy)
+            );
         }
     }
-    assert_eq!(frame(json!({})), frame(json!({"dimensions": "both"})), "a file without it blurs both ways, as before");
+    assert_eq!(
+        frame(json!({})),
+        frame(json!({"dimensions": "both"})),
+        "a file without it blurs both ways, as before"
+    );
     // Repeating the edge of a one-pixel layer one way only still draws the dot alone, the taps
     // summing to 1 as 32-bit numbers do.
     let held = frame(json!({"dimensions": "horizontal", "edges": "repeat"}));
     for (i, a) in held.iter().enumerate() {
         let want = if i == 8 * 16 + 8 { 1.0 } else { 0.0 };
-        assert!((*a - want).abs() < 1e-6, "repeat, pixel {i}: {a} against {want}");
+        assert!(
+            (*a - want).abs() < 1e-6,
+            "repeat, pixel {i}: {a} against {want}"
+        );
     }
 }
 
@@ -97,14 +124,29 @@ fn the_card_hands_a_one_way_blur_to_the_cpu_and_draws_the_same() {
         eprintln!("no usable card; nothing to check");
         return;
     };
-    let loaded = persist::load_str(&shot(json!({"dimensions": "horizontal"}))).expect("the shot reads");
+    let loaded =
+        persist::load_str(&shot(json!({"dimensions": "horizontal"}))).expect("the shot reads");
     let mut log = FrameLog::new(8);
     let mut cache = CelCache::viewer();
-    let (px, w, _) = preview::preview_frame_srgb8(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), PreviewQuality::Full, 256, &mut log, &mut cache, &mut gpu)
-        .expect("the frame draws");
+    let (px, w, _) = preview::preview_frame_srgb8(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        PreviewQuality::Full,
+        256,
+        &mut log,
+        &mut cache,
+        &mut gpu,
+    )
+    .expect("the frame draws");
     for y in 0..16 {
         let lit = (0..16).filter(|x| px[(y * w + x) * 4 + 3] > 0).count();
-        assert_eq!(lit, if y == 8 { 7 } else { 0 }, "row {y}: only the dot's row is lit, across the radius");
+        assert_eq!(
+            lit,
+            if y == 8 { 7 } else { 0 },
+            "row {y}: only the dot's row is lit, across the radius"
+        );
     }
 }
 
@@ -112,13 +154,33 @@ fn the_card_hands_a_one_way_blur_to_the_cpu_and_draws_the_same() {
 fn the_file_keeps_it_and_reports_a_wrong_one() {
     let saved = |extra: J| {
         let loaded = persist::load_str(&shot(extra)).expect("the shot reads");
-        let saved: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
+        let saved: J = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
         saved["compositions"][0]["layers"][0]["effects"][0]["parameters"].clone()
     };
-    assert!(saved(json!({})).get("dimensions").is_none(), "both is not written, so the file saves as before");
-    assert_eq!(saved(json!({"dimensions": "both"}))["dimensions"], "both", "a file that wrote it keeps it");
-    assert_eq!(saved(json!({"dimensions": "vertical"}))["dimensions"], "vertical", "vertical is kept");
-    let loaded = persist::load_str(&shot(json!({"dimensions": "diagonal"}))).expect("the shot reads");
-    let e = &loaded.document.project().compositions[0].layer(&Id::new("dot")).unwrap().effects[0].effect;
+    assert!(
+        saved(json!({})).get("dimensions").is_none(),
+        "both is not written, so the file saves as before"
+    );
+    assert_eq!(
+        saved(json!({"dimensions": "both"}))["dimensions"],
+        "both",
+        "a file that wrote it keeps it"
+    );
+    assert_eq!(
+        saved(json!({"dimensions": "vertical"}))["dimensions"],
+        "vertical",
+        "vertical is kept"
+    );
+    let loaded =
+        persist::load_str(&shot(json!({"dimensions": "diagonal"}))).expect("the shot reads");
+    let e = &loaded.document.project().compositions[0]
+        .layer(&Id::new("dot"))
+        .unwrap()
+        .effects[0]
+        .effect;
     assert_eq!(e.why_invalid(), "Gaussian Blur's dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"diagonal\".");
 }

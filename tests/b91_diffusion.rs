@@ -39,7 +39,11 @@ fn b91_diffusion() {
 
     t.heading("How far it reaches");
     let got = diffusion(500.0, 100.0, "screen").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = diffusion(10.0, 50.0, "screen");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -83,16 +87,28 @@ fn b91_diffusion() {
             ("amount 101", set(diffusion(10.0, 101.0, "screen"))),
             ("amount -1", set(diffusion(10.0, -1.0, "screen"))),
             ("blend \"add\"", set(diffusion(10.0, 50.0, "add"))),
-            ("radius keyed to 600", keys("radius", &[(0, &[10.0]), (4, &[600.0])])),
+            (
+                "radius keyed to 600",
+                keys("radius", &[(0, &[10.0]), (4, &[600.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_diffuse_001.json",
         vec![
-            ("radius 0 and amount 0, the bottoms,", set(diffusion(0.0, 0.0, "normal"))),
-            ("radius 500 and amount 100, the tops,", set(diffusion(500.0, 100.0, "lighten"))),
-            ("radius keyed from 0 to 20", keys("radius", &[(0, &[0.0]), (4, &[20.0])])),
+            (
+                "radius 0 and amount 0, the bottoms,",
+                set(diffusion(0.0, 0.0, "normal")),
+            ),
+            (
+                "radius 500 and amount 100, the tops,",
+                set(diffusion(500.0, 100.0, "lighten")),
+            ),
+            (
+                "radius keyed from 0 to 20",
+                keys("radius", &[(0, &[0.0]), (4, &[20.0])]),
+            ),
         ],
     );
 

@@ -53,7 +53,11 @@ fn b106_rain() {
 
     t.heading("How far it reaches");
     let got = with(3, 20.0).bounds_expansion();
-    t.row("width 20 grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "width 20 grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = rain([30.0, 24.0, 20.0, 2.0, 170.0, 30.0, 5.0, 60.0], "#c8d8ff");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -111,7 +115,10 @@ fn b106_rain() {
             ("opacity 101", set(with(7, 101.0))),
             ("colour \"#c8d8f\"", set(rain(START, "#c8d8f"))),
             ("colour \"blue\"", set(rain(START, "blue"))),
-            ("speed keyed to 1001", keys("speed", &[(0, &[30.0]), (4, &[1001.0])])),
+            (
+                "speed keyed to 1001",
+                keys("speed", &[(0, &[30.0]), (4, &[1001.0])]),
+            ),
         ],
     );
     t.taken(
@@ -120,13 +127,22 @@ fn b106_rain() {
         vec![
             (
                 "every number at its bottom,",
-                set(rain([0.0, 2.0, 0.0, 0.0, -3600.0, 0.0, 0.0, 0.0], "#000000")),
+                set(rain(
+                    [0.0, 2.0, 0.0, 0.0, -3600.0, 0.0, 0.0, 0.0],
+                    "#000000",
+                )),
             ),
             (
                 "every number at its top,",
-                set(rain([100.0, 1000.0, 1000.0, 20.0, 3600.0, 1000.0, 100000.0, 100.0], "#ffffff")),
+                set(rain(
+                    [100.0, 1000.0, 1000.0, 20.0, 3600.0, 1000.0, 100000.0, 100.0],
+                    "#ffffff",
+                )),
             ),
-            ("opacity keyed from 0 to 100", keys("opacity", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "opacity keyed from 0 to 100",
+                keys("opacity", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

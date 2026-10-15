@@ -28,7 +28,8 @@ fn line(dir: &Path) {
     let mut px = vec![0u8; w * h * 4];
     for y in 0..h {
         for x in 0..w {
-            let d = (x as f64 * h as f64 - y as f64 * w as f64).abs() / ((w * w + h * h) as f64).sqrt();
+            let d =
+                (x as f64 * h as f64 - y as f64 * w as f64).abs() / ((w * w + h * h) as f64).sqrt();
             if d <= 1.5 {
                 px[(y * w + x) * 4..][..4].copy_from_slice(&[0xba, 0x9a, 0x3c, 255]);
             }
@@ -81,8 +82,20 @@ fn glow_layer(dir: &Path, depth: &str) -> (Vec<u8>, Vec<String>) {
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -100,24 +113,42 @@ fn b216_glow_display() {
 
     t.heading("FX-GLDISP-001 to 008 (document 25)");
     t.fixtures("expected_glow_display.json");
-    t.round_trips(&["fx_gldisp_002.json", "fx_gldisp_006.json", "fx_gldisp_008.json"]);
+    t.round_trips(&[
+        "fx_gldisp_002.json",
+        "fx_gldisp_006.json",
+        "fx_gldisp_008.json",
+    ]);
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[("fx_gldisp_002.json", 0), ("fx_gldisp_006.json", 0)]);
 
-    t.heading("Pictures: tutorial 2's glow layer, a quarter size, in `verification/D-337 pictures/`");
+    t.heading(
+        "Pictures: tutorial 2's glow layer, a quarter size, in `verification/D-337 pictures/`",
+    );
     let dir = effect_table::repo("verification/D-337 pictures");
     fs::create_dir_all(&dir).unwrap();
     line(&dir);
     let (w, h) = SIZE;
     let mut shots = Vec::new();
     for (name, depth, what) in [
-        ("1_float.png", "float", "Float, linear light: a thin line with a faint halo"),
-        ("2_ae_32bpc.png", "ae32", "32 bpc (After Effects), D-337: the halo laid on in display values"),
+        (
+            "1_float.png",
+            "float",
+            "Float, linear light: a thin line with a faint halo",
+        ),
+        (
+            "2_ae_32bpc.png",
+            "ae32",
+            "32 bpc (After Effects), D-337: the halo laid on in display values",
+        ),
     ] {
         let (bytes, said) = glow_layer(&dir, depth);
         png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
-        t.row(&format!("{name}, {what}; draws cleanly"), &format!("{said:?}"), said.is_empty());
+        t.row(
+            &format!("{name}, {what}; draws cleanly"),
+            &format!("{said:?}"),
+            said.is_empty(),
+        );
         shots.push(bytes);
     }
     // 30 pixels straight below the line's middle, inside the halo.

@@ -27,7 +27,9 @@ use anime_compositor::{persist, png_out, render, OutputDepth};
 
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("art")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 /// Whether the town's pixel (x, y) is a house or the road, not sky, as `town` draws it.
@@ -41,7 +43,8 @@ fn solid(x: usize, y: usize) -> bool {
 fn near_edge(x: usize, y: usize, r: usize) -> bool {
     let (w, h) = TOWN;
     let me = solid(x, y);
-    (y.saturating_sub(r)..(y + r + 1).min(h)).any(|yy| (x.saturating_sub(r)..(x + r + 1).min(w)).any(|xx| solid(xx, yy) != me))
+    (y.saturating_sub(r)..(y + r + 1).min(h))
+        .any(|yy| (x.saturating_sub(r)..(x + r + 1).min(w)).any(|xx| solid(xx, yy) != me))
 }
 
 /// The town keyed off its sky the way a rough key leaves it: the houses and road kept, a band
@@ -60,17 +63,44 @@ fn keyed_town(dir: &Path) {
         for x in 0..w {
             let p = &base[(y * w + x) * 4..][..4];
             let (c, a) = if !solid(x, y) {
-                (sky(y), if (x * 7 + y * 13) % 397 == 0 && !near_edge(x, y, 4) { 0.3 } else { 0.0 })
+                (
+                    sky(y),
+                    if (x * 7 + y * 13) % 397 == 0 && !near_edge(x, y, 4) {
+                        0.3
+                    } else {
+                        0.0
+                    },
+                )
             } else if near_edge(x, y, 2) {
                 let s = sky(y);
                 ([0, 1, 2].map(|i| 0.6 * p[i] as f64 + 0.4 * s[i]), 0.6)
             } else {
-                ([p[0] as f64, p[1] as f64, p[2] as f64], if (x * 11 + y * 5) % 389 == 0 && !near_edge(x, y, 4) { 0.0 } else { 1.0 })
+                (
+                    [p[0] as f64, p[1] as f64, p[2] as f64],
+                    if (x * 11 + y * 5) % 389 == 0 && !near_edge(x, y, 4) {
+                        0.0
+                    } else {
+                        1.0
+                    },
+                )
             };
-            bytes.extend([c[0].round() as u8, c[1].round() as u8, c[2].round() as u8, (a * 255.0f64).round() as u8]);
+            bytes.extend([
+                c[0].round() as u8,
+                c[1].round() as u8,
+                c[2].round() as u8,
+                (a * 255.0f64).round() as u8,
+            ]);
         }
     }
-    png_out::write_rgba(&dir.join("keyed.png"), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+    png_out::write_rgba(
+        &dir.join("keyed.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
 }
 
 /// One layer of `keyed.png` filling the town-sized composition, carrying `effects`.
@@ -94,7 +124,11 @@ fn keyed(effects: J) -> Project {
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).unwrap_or_else(|d| panic!("the keyed town opens: {}", d.message)).document.project().clone()
+    persist::load_str(&project.to_string())
+        .unwrap_or_else(|d| panic!("the keyed town opens: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 fn fx(type_id: &str, p: J) -> J {
@@ -102,25 +136,39 @@ fn fx(type_id: &str, p: J) -> J {
 }
 
 fn choker() -> J {
-    fx("core.matte_choker", json!({"geometric_softness_1": 4, "choke_1": 75, "gray_level_softness_1": 10,
-        "geometric_softness_2": 0, "choke_2": 0, "gray_level_softness_2": 100, "iterations": 1}))
+    fx(
+        "core.matte_choker",
+        json!({"geometric_softness_1": 4, "choke_1": 75, "gray_level_softness_1": 10,
+        "geometric_softness_2": 0, "choke_2": 0, "gray_level_softness_2": 100, "iterations": 1}),
+    )
 }
 
 fn hard(decontaminate: &str, view_map: &str) -> J {
-    fx("core.refine_hard_matte", json!({"feather": 2, "contrast": 50, "shift_edge": 0, "decontaminate": decontaminate,
-        "decontamination_amount": 100, "decontamination_radius": 0, "view_decontamination_map": view_map}))
+    fx(
+        "core.refine_hard_matte",
+        json!({"feather": 2, "contrast": 50, "shift_edge": 0, "decontaminate": decontaminate,
+        "decontamination_amount": 100, "decontamination_radius": 0, "view_decontamination_map": view_map}),
+    )
 }
 
 fn soft(edge_radius: f64, view_edge: &str) -> J {
-    fx("core.refine_soft_matte", json!({"edge_radius": edge_radius, "view_edge_region": view_edge, "feather": 0, "contrast": 0, "shift_edge": 0,
-        "decontaminate": "on", "decontamination_amount": 100, "decontamination_radius": 0, "view_decontamination_map": "off"}))
+    fx(
+        "core.refine_soft_matte",
+        json!({"edge_radius": edge_radius, "view_edge_region": view_edge, "feather": 0, "contrast": 0, "shift_edge": 0,
+        "decontaminate": "on", "decontamination_amount": 100, "decontamination_radius": 0, "view_decontamination_map": "off"}),
+    )
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -130,19 +178,39 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// The reference shot (1920 by 1080) with a Matte Choker of `parameters` on its first three
 /// layers, as B-223 has it.
 fn reference(parameters: &J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = json!([{"instance_id": format!("b232-{id}"), "type_id": "core.matte_choker", "enabled": true, "parameters": parameters}]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The Matte Choker effects the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -152,18 +220,49 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 #[test]
@@ -204,21 +303,61 @@ fn b232_matte_refine() {
     t.shape_refused("fx_mref_013.json", "Refine Hard Matte's decontaminate written as a number", r#"{"feather": 2, "contrast": 50, "shift_edge": 0, "decontaminate": 1, "decontamination_amount": 100, "decontamination_radius": 0, "view_decontamination_map": "off"}"#);
     t.shape_refused("fx_mref_023.json", "Refine Soft Matte with no edge radius", r#"{"view_edge_region": "off", "feather": 0, "contrast": 0, "shift_edge": 0, "decontaminate": "on", "decontamination_amount": 100, "decontamination_radius": 0, "view_decontamination_map": "off"}"#);
     for (file, said) in [
-        ("fx_mref_009.json", "Matte Choker's choke 1 runs from -127 to 127, and this is 128."),
-        ("fx_mref_010.json", "Matte Choker's gray level softness 2 runs from 0 to 100, and this is 101."),
-        ("fx_mref_011.json", "Matte Choker's iterations runs from 1 to 10, and this is 0."),
-        ("fx_mref_012.json", "Matte Choker's geometric softness 1 runs from 0 to 100, and this is -1."),
-        ("fx_mref_028.json", "Refine Hard Matte's feather runs from 0 to 100, and this is 101."),
-        ("fx_mref_029.json", "Refine Hard Matte's contrast runs from 0 to 100, and this is -1."),
-        ("fx_mref_030.json", "Refine Hard Matte's decontaminate is \"off\" or \"on\", and this is \"yes\"."),
-        ("fx_mref_031.json", "Refine Hard Matte's shift edge runs from -100 to 100, and this is 101."),
-        ("fx_mref_032.json", "Refine Hard Matte's decontamination radius runs from 0 to 100, and this is -1."),
-        ("fx_mref_033.json", "Refine Soft Matte's edge radius runs from 0 to 100, and this is 101."),
-        ("fx_mref_034.json", "Refine Soft Matte's view edge region is \"off\" or \"on\", and this is \"maybe\"."),
-        ("fx_mref_035.json", "Refine Soft Matte's decontamination amount runs from 0 to 100, and this is 101."),
+        (
+            "fx_mref_009.json",
+            "Matte Choker's choke 1 runs from -127 to 127, and this is 128.",
+        ),
+        (
+            "fx_mref_010.json",
+            "Matte Choker's gray level softness 2 runs from 0 to 100, and this is 101.",
+        ),
+        (
+            "fx_mref_011.json",
+            "Matte Choker's iterations runs from 1 to 10, and this is 0.",
+        ),
+        (
+            "fx_mref_012.json",
+            "Matte Choker's geometric softness 1 runs from 0 to 100, and this is -1.",
+        ),
+        (
+            "fx_mref_028.json",
+            "Refine Hard Matte's feather runs from 0 to 100, and this is 101.",
+        ),
+        (
+            "fx_mref_029.json",
+            "Refine Hard Matte's contrast runs from 0 to 100, and this is -1.",
+        ),
+        (
+            "fx_mref_030.json",
+            "Refine Hard Matte's decontaminate is \"off\" or \"on\", and this is \"yes\".",
+        ),
+        (
+            "fx_mref_031.json",
+            "Refine Hard Matte's shift edge runs from -100 to 100, and this is 101.",
+        ),
+        (
+            "fx_mref_032.json",
+            "Refine Hard Matte's decontamination radius runs from 0 to 100, and this is -1.",
+        ),
+        (
+            "fx_mref_033.json",
+            "Refine Soft Matte's edge radius runs from 0 to 100, and this is 101.",
+        ),
+        (
+            "fx_mref_034.json",
+            "Refine Soft Matte's view edge region is \"off\" or \"on\", and this is \"maybe\".",
+        ),
+        (
+            "fx_mref_035.json",
+            "Refine Soft Matte's decontamination amount runs from 0 to 100, and this is 101.",
+        ),
     ] {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming it"), &why, why == said);
+        t.row(
+            &format!("{file} is refused in a sentence naming it"),
+            &why,
+            why == said,
+        );
     }
 
     t.heading("Commands");
@@ -232,19 +371,46 @@ fn b232_matte_refine() {
     t.refused(
         &mut document,
         vec![
-            ("choke 1 at 128", set(with(&|e| if let Effect::MatteChoker { choke_1, .. } = e { *choke_1 = 128.0 }))),
-            ("iterations 11", set(with(&|e| if let Effect::MatteChoker { iterations, .. } = e { *iterations = 11.0 }))),
+            (
+                "choke 1 at 128",
+                set(with(&|e| {
+                    if let Effect::MatteChoker { choke_1, .. } = e {
+                        *choke_1 = 128.0
+                    }
+                })),
+            ),
+            (
+                "iterations 11",
+                set(with(&|e| {
+                    if let Effect::MatteChoker { iterations, .. } = e {
+                        *iterations = 11.0
+                    }
+                })),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_mref_001.json",
         vec![
-            ("choke 1 at -40 and two iterations", set(with(&|e| if let Effect::MatteChoker { choke_1, iterations, .. } = e {
-                *choke_1 = -40.0;
-                *iterations = 2.0;
-            }))),
-            ("geometric softness 1 keyed 0 to 6 over frames 0 to 4", keys("geometric_softness_1", &[(0, &[0.0]), (4, &[6.0])])),
+            (
+                "choke 1 at -40 and two iterations",
+                set(with(&|e| {
+                    if let Effect::MatteChoker {
+                        choke_1,
+                        iterations,
+                        ..
+                    } = e
+                    {
+                        *choke_1 = -40.0;
+                        *iterations = 2.0;
+                    }
+                })),
+            ),
+            (
+                "geometric softness 1 keyed 0 to 6 over frames 0 to 4",
+                keys("geometric_softness_1", &[(0, &[0.0]), (4, &[6.0])]),
+            ),
         ],
     );
     let mut document = t.load("fx_mref_013.json").document;
@@ -256,15 +422,32 @@ fn b232_matte_refine() {
     };
     t.refused(
         &mut document,
-        vec![("Refine Hard Matte's decontaminate \"yes\"", set(with(&|e| if let Effect::RefineMatte { decontaminate, .. } = e { *decontaminate = "yes".into() })))],
+        vec![(
+            "Refine Hard Matte's decontaminate \"yes\"",
+            set(with(&|e| {
+                if let Effect::RefineMatte { decontaminate, .. } = e {
+                    *decontaminate = "yes".into()
+                }
+            })),
+        )],
     );
     t.taken(
         &mut document,
         "fx_mref_013.json",
-        vec![("Refine Hard Matte with decontaminate on, amount 60", set(with(&|e| if let Effect::RefineMatte { decontaminate, decontamination_amount, .. } = e {
-            *decontaminate = "on".into();
-            *decontamination_amount = 60.0;
-        })))],
+        vec![(
+            "Refine Hard Matte with decontaminate on, amount 60",
+            set(with(&|e| {
+                if let Effect::RefineMatte {
+                    decontaminate,
+                    decontamination_amount,
+                    ..
+                } = e
+                {
+                    *decontaminate = "on".into();
+                    *decontamination_amount = 60.0;
+                }
+            })),
+        )],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -283,7 +466,11 @@ fn b232_matte_refine() {
     let fixture_root = effect_table::repo("Fixtures/matte_refine");
     for n in 1..=12 {
         let file = format!("fx_mref_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -303,18 +490,40 @@ fn b232_matte_refine() {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = effect_table::repo("Fixtures/reference_shot");
     for (what, p) in [
-        ("as added", json!({"geometric_softness_1": 4, "choke_1": 75, "gray_level_softness_1": 10, "geometric_softness_2": 0, "choke_2": 0, "gray_level_softness_2": 100, "iterations": 1})),
-        ("spread then choke, two iterations", json!({"geometric_softness_1": 3, "choke_1": -60, "gray_level_softness_1": 20, "geometric_softness_2": 3, "choke_2": 60, "gray_level_softness_2": 20, "iterations": 2})),
-        ("a wide soft disc", json!({"geometric_softness_1": 12.5, "choke_1": 0, "gray_level_softness_1": 100, "geometric_softness_2": 1, "choke_2": 20, "gray_level_softness_2": 40, "iterations": 1})),
+        (
+            "as added",
+            json!({"geometric_softness_1": 4, "choke_1": 75, "gray_level_softness_1": 10, "geometric_softness_2": 0, "choke_2": 0, "gray_level_softness_2": 100, "iterations": 1}),
+        ),
+        (
+            "spread then choke, two iterations",
+            json!({"geometric_softness_1": 3, "choke_1": -60, "gray_level_softness_1": 20, "geometric_softness_2": 3, "choke_2": 60, "gray_level_softness_2": 20, "iterations": 2}),
+        ),
+        (
+            "a wide soft disc",
+            json!({"geometric_softness_1": 12.5, "choke_1": 0, "gray_level_softness_1": 100, "geometric_softness_2": 1, "choke_2": 20, "gray_level_softness_2": 40, "iterations": 1}),
+        ),
     ] {
         let project = reference(&p);
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &ref_comp,
+                100,
+                &ref_root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
-        let plain = persist::load(&effect_table::repo("verification/B-08a_project.json")).expect("the reference shot").document.project().clone();
+        let plain = persist::load(&effect_table::repo("verification/B-08a_project.json"))
+            .expect("the reference shot")
+            .document
+            .project()
+            .clone();
         let changed = distance(&cpu(&project), &cpu(&plain)).1;
         t.row(
             &format!("the reference shot, Matte Choker {what}: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect"),
@@ -333,7 +542,9 @@ fn b232_matte_refine() {
             }
         }
     }
-    let threshold = reference(&json!({"geometric_softness_1": 2, "choke_1": 10, "gray_level_softness_1": 0, "geometric_softness_2": 0, "choke_2": 0, "gray_level_softness_2": 100, "iterations": 1}));
+    let threshold = reference(
+        &json!({"geometric_softness_1": 2, "choke_1": 10, "gray_level_softness_1": 0, "geometric_softness_2": 0, "choke_2": 0, "gray_level_softness_2": 100, "iterations": 1}),
+    );
     let card = on_card(&threshold, &ref_comp, &ref_root, 100, PreviewQuality::Full);
     t.row(
         "a Matte Choker stage with gray level softness 0 is a hard step, so it is left to the processor (D-122's reason)",
@@ -348,8 +559,15 @@ fn b232_matte_refine() {
     let (w, h) = TOWN;
     let draw = |effects: J| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(&keyed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log).expect("the keyed town draws");
-        (b.to_srgb8_straight(), log.finish().iter().map(|d| d.id.as_str().to_string()).collect::<Vec<_>>())
+        let b = render_frame(&keyed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log)
+            .expect("the keyed town draws");
+        (
+            b.to_srgb8_straight(),
+            log.finish()
+                .iter()
+                .map(|d| d.id.as_str().to_string())
+                .collect::<Vec<_>>(),
+        )
     };
     let base = town();
     // Over the 2-pixel band inside every edge, how far the colour is from the house's own, and
@@ -361,11 +579,19 @@ fn b232_matte_refine() {
             for x in 0..w {
                 let (p, q) = (&b[(y * w + x) * 4..][..4], &base[(y * w + x) * 4..][..4]);
                 if solid(x, y) && near_edge(x, y, 2) && p[3] > 0 {
-                    spill += (0..3).map(|i| (p[i] as f64 - q[i] as f64).abs()).sum::<f64>() / 3.0;
+                    spill += (0..3)
+                        .map(|i| (p[i] as f64 - q[i] as f64).abs())
+                        .sum::<f64>()
+                        / 3.0;
                     band += 1;
                 } else if !solid(x, y) && !near_edge(x, y, 4) && p[3] > 0 {
                     specks += 1;
-                } else if solid(x, y) && !near_edge(x, y, 4) && (8..w - 8).contains(&x) && y < h - 8 && p[3] < 255 {
+                } else if solid(x, y)
+                    && !near_edge(x, y, 4)
+                    && (8..w - 8).contains(&x)
+                    && y < h - 8
+                    && p[3] < 255
+                {
                     holes += 1;
                 }
             }
@@ -373,7 +599,15 @@ fn b232_matte_refine() {
         (spill / band.max(1) as f64, specks, holes)
     };
     let (before, said) = draw(json!([]));
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
     let (spill0, specks0, holes0) = measure(&before);
     t.row(
         "before.png, the rough key: a soft, sky-tinted band round every house, specks in the sky, holes in the walls",
@@ -381,7 +615,15 @@ fn b232_matte_refine() {
         said.is_empty() && specks0 > 0 && holes0 > 0,
     );
     let (bytes, said) = draw(json!([choker()]));
-    png_out::write_rgba(&dir.join("matte_choker.png"), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+    png_out::write_rgba(
+        &dir.join("matte_choker.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
     let (_, specks, holes) = measure(&bytes);
     t.row(
         "matte_choker.png, Matte Choker as added: the specks gone, the holes filled, the edge taken in and its corners rounded",
@@ -442,36 +684,82 @@ fn b232_matte_refine_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let fx = |id: &str, type_id: &str, p: J| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": p});
-    let p = |e: J| (e["type_id"].as_str().unwrap().to_string(), e["parameters"].clone());
+    let p = |e: J| {
+        (
+            e["type_id"].as_str().unwrap().to_string(),
+            e["parameters"].clone(),
+        )
+    };
     let shots: [(&str, Option<(String, J)>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Matte Choker as added (card)", Some(p(choker()))),
-        ("Noise, then Refine Hard Matte as added (processor)", Some(p(hard("off", "off")))),
-        ("Noise, then Refine Hard Matte, decontaminate on (processor)", Some(p(hard("on", "off")))),
-        ("Noise, then Refine Soft Matte as added (processor)", Some(p(soft(10.0, "off")))),
+        (
+            "Noise, then Matte Choker as added (card)",
+            Some(p(choker())),
+        ),
+        (
+            "Noise, then Refine Hard Matte as added (processor)",
+            Some(p(hard("off", "off"))),
+        ),
+        (
+            "Noise, then Refine Hard Matte, decontaminate on (processor)",
+            Some(p(hard("on", "off"))),
+        ),
+        (
+            "Noise, then Refine Soft Matte as added (processor)",
+            Some(p(soft(10.0, "off"))),
+        ),
     ];
     for (name, e) in shots {
         let stack = |id: &str| {
-            let mut v = vec![fx(&format!("{id}n"), "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                &format!("{id}n"),
+                "core.noise",
+                json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(&format!("{id}m"), type_id, p.clone()));
             }
             v
         };
-        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         let layers = &mut j["compositions"][0]["layers"];
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
             layers[i]["effects"] = J::Array(stack(id));
         }
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
-        let (project, comp, root) = (loaded.document.project().clone(), Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let (project, comp, root) = (
+            loaded.document.project().clone(),
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B232_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-232_timing_raw.md"));
+    let out = std::env::var("B232_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-232_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -25,7 +25,9 @@ use serde_json::{json, Value as J};
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::effects::{Effect, PARTICLE_SPACE_COLORS, PARTICLE_SPACE_SETTINGS, PARTICLE_SPACE_WORDS};
+use anime_compositor::effects::{
+    Effect, PARTICLE_SPACE_COLORS, PARTICLE_SPACE_SETTINGS, PARTICLE_SPACE_WORDS,
+};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
@@ -35,12 +37,24 @@ use anime_compositor::{particles, persist, png_out, OutputDepth};
 /// and Draft. The files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_particle_space.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("expected_particle_space.json")).unwrap(),
+    )
+    .unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = case["project"].as_str().unwrap();
-        let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-        let project = persist::load(&t.root.join(file)).unwrap().document.project().clone();
+        let frames: Vec<i32> = case["frames"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|f| f.parse().unwrap())
+            .collect();
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &frames {
@@ -48,7 +62,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ParticleSpace { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ParticleSpace { .. })
+                });
             }
         }
         t.row(
@@ -66,9 +82,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -82,7 +107,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ParticleSpace { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ParticleSpace { .. })
+                });
                 t.row(
                     &format!("the reference shot, Particle Space {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -97,7 +124,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// with what it warned of; `camera` the composition camera, if any.
 fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -115,15 +145,34 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The `art` layer's effect in `file`.
 fn effect_of(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 /// A Particle Space's settings, every one `p` leaves out as it is added.
@@ -195,17 +244,35 @@ fn b490_particle_space() {
     t.fixtures("expected_particle_space.json");
 
     t.heading("The particles themselves: where each is and how fast it goes");
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("particles_particle_space.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("particles_particle_space.json")).unwrap(),
+    )
+    .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = format!("fx_pspace_{n:03}.json");
         let frame = case["frame"].as_i64().unwrap() as i32;
-        let mut want: Vec<Vec<f64>> = case["particles"].as_array().unwrap().iter().map(|p| p.as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect()).collect();
+        let mut want: Vec<Vec<f64>> = case["particles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| {
+                p.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect()
+            })
+            .collect();
         let mut got = alive(&t, &file, frame);
         want.sort_by(|a, b| a[0].total_cmp(&b[0]));
         got.sort_by(|a, b| a[0].total_cmp(&b[0]));
-        let largest = got.iter().zip(&want).flat_map(|(g, w)| g.iter().zip(w).map(|(a, b)| (a - b).abs())).fold(0.0, f64::max);
+        let largest = got
+            .iter()
+            .zip(&want)
+            .flat_map(|(g, w)| g.iter().zip(w).map(|(a, b)| (a - b).abs()))
+            .fold(0.0, f64::max);
         t.row(
             &format!("{name} frame {frame}: the {} particles alive, each its number, birth, place and speed", want.len()),
             &format!("{} alive, largest difference {largest:.1e}", got.len()),
@@ -238,18 +305,39 @@ fn b490_particle_space() {
     ] {
         let file = format!("fx_pspace_{n:03}.json");
         let why = effect_of(&t, &file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_pspace_001.json", "a Particle Space whose birth rate is a word", &parameters(&json!({"birth_rate": "many"})).to_string());
-    t.shape_refused("fx_pspace_001.json", "a Particle Space whose animation is a number", &parameters(&json!({"animation": 3})).to_string());
-    t.shape_refused("fx_pspace_001.json", "a Particle Space without its depth cue colour", &{
-        let mut p = parameters(&json!({}));
-        p.as_object_mut().unwrap().remove("depth_cue_color");
-        p.to_string()
-    });
+    t.shape_refused(
+        "fx_pspace_001.json",
+        "a Particle Space whose birth rate is a word",
+        &parameters(&json!({"birth_rate": "many"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_pspace_001.json",
+        "a Particle Space whose animation is a number",
+        &parameters(&json!({"animation": 3})).to_string(),
+    );
+    t.shape_refused(
+        "fx_pspace_001.json",
+        "a Particle Space without its depth cue colour",
+        &{
+            let mut p = parameters(&json!({}));
+            p.as_object_mut().unwrap().remove("depth_cue_color");
+            p.to_string()
+        },
+    );
 
     t.heading("Tiles");
-    t.tiles(&[("fx_pspace_024.json", 24), ("fx_pspace_023.json", 20), ("fx_pspace_046.json", 20), ("fx_pspace_058.json", 12)]);
+    t.tiles(&[
+        ("fx_pspace_024.json", 24),
+        ("fx_pspace_023.json", 20),
+        ("fx_pspace_046.json", 20),
+        ("fx_pspace_058.json", 12),
+    ]);
 
     t.heading("On the card (D-610)");
     let mut gpu = Gpu::new().expect("a graphics card");
@@ -287,45 +375,66 @@ fn b490_particle_space() {
         ("1_as_added_frame_24", json!({}), 24, None),
         (
             "2_fountain",
-            over(json!({"animation": "direction_axis", "extra_angle": 20, "velocity": 1.4, "gravity": 1.2, "birth_rate": 8, "longevity": 2, "producer_y": 0.2,
-                "particle_type": "faded_sphere", "birth_size": 1.5, "death_size": 0.8, "birth_color": "#a0d8ff", "death_color": "#2050ff", "transfer_mode": "add"})),
+            over(
+                json!({"animation": "direction_axis", "extra_angle": 20, "velocity": 1.4, "gravity": 1.2, "birth_rate": 8, "longevity": 2, "producer_y": 0.2,
+                "particle_type": "faded_sphere", "birth_size": 1.5, "death_size": 0.8, "birth_color": "#a0d8ff", "death_color": "#2050ff", "transfer_mode": "add"}),
+            ),
             48,
             None,
         ),
         (
             "3_fire",
-            over(json!({"animation": "fire", "birth_rate": 10, "longevity": 1.2, "producer_y": 0.2, "radius_x": 0.08, "velocity": 0.3, "gravity": 0.3,
-                "particle_type": "faded_sphere", "birth_size": 6, "death_size": 1, "transfer_mode": "add"})),
+            over(
+                json!({"animation": "fire", "birth_rate": 10, "longevity": 1.2, "producer_y": 0.2, "radius_x": 0.08, "velocity": 0.3, "gravity": 0.3,
+                "particle_type": "faded_sphere", "birth_size": 6, "death_size": 1, "transfer_mode": "add"}),
+            ),
             48,
             None,
         ),
         (
             "4_vortex",
-            over(json!({"animation": "vortex", "birth_rate": 6, "longevity": 3, "radius_x": 0.3, "radius_z": 0.3, "velocity": 0.3, "gravity": -0.1,
-                "particle_type": "shaded_sphere", "birth_size": 2, "death_size": 2, "depth_cue": "fade", "camera_rotation_x": -25})),
+            over(
+                json!({"animation": "vortex", "birth_rate": 6, "longevity": 3, "radius_x": 0.3, "radius_z": 0.3, "velocity": 0.3, "gravity": -0.1,
+                "particle_type": "shaded_sphere", "birth_size": 2, "death_size": 2, "depth_cue": "fade", "camera_rotation_x": -25}),
+            ),
             72,
             None,
         ),
         (
             "5_glue_floor",
-            over(json!({"birth_rate": 4, "longevity": 4, "velocity": 0.6, "gravity": 1.0, "floor_action": "glue", "floor_position": 0.3,
-                "particle_type": "disc", "birth_size": 1.5, "death_size": 1.5, "camera_rotation_x": -30})),
+            over(
+                json!({"birth_rate": 4, "longevity": 4, "velocity": 0.6, "gravity": 1.0, "floor_action": "glue", "floor_position": 0.3,
+                "particle_type": "disc", "birth_size": 1.5, "death_size": 1.5, "camera_rotation_x": -30}),
+            ),
             72,
             None,
         ),
         (
             "6_composition_camera_dollied_in",
-            over(json!({"birth_rate": 3, "longevity": 3, "velocity": 0.2, "gravity": 0, "radius_x": 0.4, "radius_y": 0.25, "radius_z": 0.6,
-                "particle_type": "shaded_sphere", "birth_size": 2.5, "death_size": 2.5})),
+            over(
+                json!({"birth_rate": 3, "longevity": 3, "velocity": 0.2, "gravity": 0, "radius_x": 0.4, "radius_y": 0.25, "radius_z": 0.6,
+                "particle_type": "shaded_sphere", "birth_size": 2.5, "death_size": 2.5}),
+            ),
             48,
             Some(dolly.clone()),
         ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), frame, camera);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png, frame {frame}: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
@@ -358,22 +467,52 @@ fn b490_particle_space_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Particle Space as added", Some(json!({}))),
-        ("Noise, then Particle Space, 1000 a second, shaded spheres, over the drawing", Some(json!({"birth_rate": 10, "particle_type": "shaded_sphere", "birth_size": 0.5, "composite_on_original": "on"}))),
-        ("Noise, then Particle Space, 2000 a second living 3 s, vortex, faded spheres, added", Some(json!({"birth_rate": 20, "longevity": 3, "animation": "vortex", "particle_type": "faded_sphere", "birth_size": 0.4, "transfer_mode": "add", "composite_on_original": "on"}))),
+        (
+            "Noise, then Particle Space, 1000 a second, shaded spheres, over the drawing",
+            Some(
+                json!({"birth_rate": 10, "particle_type": "shaded_sphere", "birth_size": 0.5, "composite_on_original": "on"}),
+            ),
+        ),
+        (
+            "Noise, then Particle Space, 2000 a second living 3 s, vortex, faded spheres, added",
+            Some(
+                json!({"birth_rate": 20, "longevity": 3, "animation": "vortex", "particle_type": "faded_sphere", "birth_size": 0.4, "transfer_mode": "add", "composite_on_original": "on"}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B490_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-490_timing_raw.md"));
+    let out = std::env::var("B490_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-490_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

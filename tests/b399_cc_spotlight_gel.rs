@@ -33,9 +33,24 @@ fn is_ours(c: &render::OnCard) -> bool {
 }
 
 /// The CC Spotlights the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_ours(c.unmixed())).count()
         // An adjustment layer's run is made from its stack when the card draws it.
         + plan.layers
@@ -63,7 +78,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=21 {
         let file = format!("fx_spotgel_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -89,9 +108,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -120,7 +148,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// showing `2_gel.png` beneath it, drawn on the processor, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_street.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-gel");
@@ -142,17 +173,37 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     gel["enabled"] = J::from(false);
     gel["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().insert(0, gel);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("gel"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("gel"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Set the `holder` layer's first effect (the fixtures' own names).
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's first effect, linearly.
@@ -162,7 +213,14 @@ fn keys_holder(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -188,39 +246,77 @@ fn b399_cc_spotlight_gel() {
     t.fixtures_numbered("expected_cc_spotlight_gel.json", 1..=21);
 
     t.heading("Files whose layers read each other (document 25)");
-    let expected: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/cc_spotlight_gel/expected_cc_spotlight_gel.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(repo(
+            "Fixtures/cc_spotlight_gel/expected_cc_spotlight_gel.json",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let want = case["refused"].as_str();
         let got = persist::load(&t.root.join(file)).err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.map(|d| d.id.as_str().to_string()).as_deref() == want,
         );
     }
 
     t.heading("The file");
-    let files: Vec<String> = (1..=21).map(|n| format!("fx_spotgel_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=21)
+        .map(|n| format!("fx_spotgel_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_spotgel_011.json");
     t.row(
         "fx_spotgel_011.json is saved with its nine settings, render gel add, the slide as the gel",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 9 && saved["render"] == "gel_add" && saved["gel_layer"] == "slide" && saved["color"] == "#ff8000",
+        saved.as_object().unwrap().len() == 9
+            && saved["render"] == "gel_add"
+            && saved["gel_layer"] == "slide"
+            && saved["color"] == "#ff8000",
     );
-    let old = persist::load(&repo("Fixtures/cc_spotlight/fx_spot_009.json")).expect("D-507's file opens");
-    let old_effect = old.document.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().flat_map(|l| &l.effects).next().unwrap().effect.clone();
+    let old =
+        persist::load(&repo("Fixtures/cc_spotlight/fx_spot_009.json")).expect("D-507's file opens");
+    let old_effect = old
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .flat_map(|l| &l.effects)
+        .next()
+        .unwrap()
+        .effect
+        .clone();
     let old_saved = effect_table::saved(&old);
-    let old_params = old_saved["compositions"][0]["layers"].as_array().unwrap().iter().find_map(|l| l["effects"].as_array().and_then(|e| e.first())).unwrap()["parameters"].clone();
+    let old_params = old_saved["compositions"][0]["layers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|l| l["effects"].as_array().and_then(|e| e.first()))
+        .unwrap()["parameters"]
+        .clone();
     t.row(
         "D-507's fx_spot_009.json, written before the Gel Layer: opens with no gel layer and is saved with its eight settings, as it was",
         &format!("{old_effect:?}; saved {old_params}"),
         matches!(&old_effect, Effect::CcSpotlight { gel_layer, .. } if *gel_layer == "") && old_params.as_object().unwrap().len() == 8 && old.warnings.is_empty(),
     );
-    for (file, want) in [("fx_spotgel_019.json", "gel layer"), ("fx_spotgel_020.json", "render"), ("fx_spotgel_021.json", "render")] {
+    for (file, want) in [
+        ("fx_spotgel_019.json", "gel layer"),
+        ("fx_spotgel_020.json", "render"),
+        ("fx_spotgel_021.json", "render"),
+    ] {
         let why = holder_effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
 
     t.heading("Commands");
@@ -230,11 +326,24 @@ fn b399_cc_spotlight_gel() {
         f(&mut e);
         e
     };
-    let glow = with(&|e| if let Effect::CcSpotlight { render, .. } = e { *render = "gel_glow".to_string() });
-    let number = with(&|e| if let Effect::CcSpotlight { gel_layer, .. } = e { *gel_layer = J::from(3) });
-    let small = with(&|e| if let Effect::CcSpotlight { render, gel_layer, .. } = e {
-        *render = "gel_only".to_string();
-        *gel_layer = J::from("small");
+    let glow = with(&|e| {
+        if let Effect::CcSpotlight { render, .. } = e {
+            *render = "gel_glow".to_string()
+        }
+    });
+    let number = with(&|e| {
+        if let Effect::CcSpotlight { gel_layer, .. } = e {
+            *gel_layer = J::from(3)
+        }
+    });
+    let small = with(&|e| {
+        if let Effect::CcSpotlight {
+            render, gel_layer, ..
+        } = e
+        {
+            *render = "gel_only".to_string();
+            *gel_layer = J::from("small");
+        }
     });
     // Nothing is a distance: a draft changes nothing.
     let mut draft = with(&|_| {});
@@ -253,11 +362,21 @@ fn b399_cc_spotlight_gel() {
         &mut document,
         "fx_spotgel_002.json",
         vec![
-            ("render gel only, the small paint as the gel", set_holder(small)),
-            ("intensity keyed from 0 to 250", keys_holder("intensity", &[(0, 0.0), (4, 250.0)])),
+            (
+                "render gel only, the small paint as the gel",
+                set_holder(small),
+            ),
+            (
+                "intensity keyed from 0 to 250",
+                keys_holder("intensity", &[(0, 0.0), (4, 250.0)]),
+            ),
         ],
     );
-    t.row("a half-size draft preview changes no setting (none is a distance)", &format!("{draft:?}"), same);
+    t.row(
+        "a half-size draft preview changes no setting (none is a distance)",
+        &format!("{draft:?}"),
+        same,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[
@@ -281,10 +400,22 @@ fn b399_cc_spotlight_gel() {
         &mut t,
         &mut gpu,
         &[
-            ("gel add, layer 4 as the gel, opening 90", json!({"render": "gel_add", "gel_layer": "layer-4", "cone_angle": 90})),
-            ("gel only, layer 4 as the gel, low and wide", json!({"render": "gel_only", "gel_layer": "layer-4", "height": 10, "cone_angle": 90})),
-            ("gel shadow, layer 4 as the gel, From [50, 50], orange", json!({"render": "gel_shadow", "gel_layer": "layer-4", "from": [50, 50], "color": "#ff8000"})),
-            ("gel add plus, no gel layer", json!({"render": "gel_add_plus"})),
+            (
+                "gel add, layer 4 as the gel, opening 90",
+                json!({"render": "gel_add", "gel_layer": "layer-4", "cone_angle": 90}),
+            ),
+            (
+                "gel only, layer 4 as the gel, low and wide",
+                json!({"render": "gel_only", "gel_layer": "layer-4", "height": 10, "cone_angle": 90}),
+            ),
+            (
+                "gel shadow, layer 4 as the gel, From [50, 50], orange",
+                json!({"render": "gel_shadow", "gel_layer": "layer-4", "from": [50, 50], "color": "#ff8000"}),
+            ),
+            (
+                "gel add plus, no gel layer",
+                json!({"render": "gel_add_plus"}),
+            ),
         ],
     );
 
@@ -292,7 +423,9 @@ fn b399_cc_spotlight_gel() {
     let dir = repo("verification/D-519 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     // The street, and as the gel, a slide of four coloured panes on clear.
     let street = town();
     let mut slide = vec![0u8; w * h * 4];
@@ -312,10 +445,17 @@ fn b399_cc_spotlight_gel() {
     // Gel Only leaves the drawing clear outside the light: its pictures are laid on black, so
     // the pool of light shows in any viewer.
     let on_black = |b: &[u8]| -> Vec<u8> {
-        b.chunks(4).flat_map(|p| {
-            let a = p[3] as f64 / 255.0;
-            [(p[0] as f64 * a).round() as u8, (p[1] as f64 * a).round() as u8, (p[2] as f64 * a).round() as u8, 255]
-        }).collect()
+        b.chunks(4)
+            .flat_map(|p| {
+                let a = p[3] as f64 / 255.0;
+                [
+                    (p[0] as f64 * a).round() as u8,
+                    (p[1] as f64 * a).round() as u8,
+                    (p[2] as f64 * a).round() as u8,
+                    255,
+                ]
+            })
+            .collect()
     };
     let down = json!({"from": [50, 50], "to": [50, 50], "cone_angle": 90});
     let with_p = |extra: J| {
@@ -326,8 +466,17 @@ fn b399_cc_spotlight_gel() {
         p
     };
 
-    let (light_only, _) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "light_only"})))]));
-    let (gel_only, said) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "gel_only", "gel_layer": "gel"})))]));
+    let (light_only, _) = picture(
+        &dir,
+        json!([fx("fx-0-0", &with_p(json!({"render": "light_only"})))]),
+    );
+    let (gel_only, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &with_p(json!({"render": "gel_only", "gel_layer": "gel"}))
+        )]),
+    );
     write("3_gel_only.png", &on_black(&gel_only));
     t.row(
         "3_gel_only.png, gel only, the four panes as the gel, the light straight down on the middle: the street gone, the panes projected in a round pool of light on black (the clear outside laid on black in the picture), red top left, green top right, blue bottom left, yellow bottom right, white light round them; draws cleanly",
@@ -335,7 +484,13 @@ fn b399_cc_spotlight_gel() {
         said.is_empty() && distance(&gel_only, &light_only).1 > 0,
     );
 
-    let (gel_add, said) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "gel_add", "gel_layer": "gel"})))]));
+    let (gel_add, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &with_p(json!({"render": "gel_add", "gel_layer": "gel"}))
+        )]),
+    );
     write("4_gel_add.png", &gel_add);
     t.row(
         "4_gel_add.png, gel add: the street with the coloured panes' light added in the pool; draws cleanly",
@@ -343,7 +498,13 @@ fn b399_cc_spotlight_gel() {
         said.is_empty() && distance(&gel_add, &street).1 > 0,
     );
 
-    let (shadow, said) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "gel_shadow", "gel_layer": "gel"})))]));
+    let (shadow, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &with_p(json!({"render": "gel_shadow", "gel_layer": "gel"}))
+        )]),
+    );
     write("5_gel_shadow.png", &shadow);
     t.row(
         "5_gel_shadow.png, gel shadow: black outside the pool, the street inside tinted by each pane; draws cleanly",
@@ -351,7 +512,13 @@ fn b399_cc_spotlight_gel() {
         said.is_empty() && distance(&shadow, &street).1 > 0,
     );
 
-    let (low, said) = picture(&dir, json!([fx("fx-0-0", &json!({"render": "gel_only", "gel_layer": "gel", "from": [10, 10], "height": 20, "cone_angle": 60}))]));
+    let (low, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &json!({"render": "gel_only", "gel_layer": "gel", "from": [10, 10], "height": 20, "cone_angle": 60})
+        )]),
+    );
     write("6_low_light.png", &on_black(&low));
     t.row(
         "6_low_light.png, gel only, the light low at the top left: the panes and the pool drawn out into a long slanted shape, on black; draws cleanly",
@@ -359,15 +526,30 @@ fn b399_cc_spotlight_gel() {
         said.is_empty() && distance(&low, &gel_only).1 > 0,
     );
 
-    let (light_add, _) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "light_add", "gel_layer": "gel"})))]));
-    let (clear, said) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "gel_add"})))]));
+    let (light_add, _) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &with_p(json!({"render": "light_add", "gel_layer": "gel"}))
+        )]),
+    );
+    let (clear, said) = picture(
+        &dir,
+        json!([fx("fx-0-0", &with_p(json!({"render": "gel_add"})))]),
+    );
     t.row(
         "gel add with no gel layer is byte for byte light add with the gel named (a Light render ignores it)",
         &format!("{said:?}, {} pixels differ", distance(&clear, &light_add).1),
         said.is_empty() && clear == light_add,
     );
 
-    let (gone, said) = picture(&dir, json!([fx("fx-0-0", &with_p(json!({"render": "gel_add", "gel_layer": "gone"})))]));
+    let (gone, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &with_p(json!({"render": "gel_add", "gel_layer": "gone"}))
+        )]),
+    );
     t.row(
         "a gel layer not in the composition: the street exactly as it was, with the warning",
         &format!("{said:?}, {} pixels changed", distance(&gone, &street).1),
@@ -380,40 +562,73 @@ fn b399_cc_spotlight_gel() {
 /// The effect in `file` (on `holder`, or the adjustment layer in 016).
 fn holder_effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    let layer = d.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().find(|l| l.effects.iter().any(|e| matches!(e.effect, Effect::CcSpotlight { .. })));
-    layer.expect("a layer with a CC Spotlight").effects[0].effect.clone()
+    let layer = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| {
+            l.effects
+                .iter()
+                .any(|e| matches!(e.effect, Effect::CcSpotlight { .. }))
+        });
+    layer.expect("a layer with a CC Spotlight").effects[0]
+        .effect
+        .clone()
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    )
 }
 
-fn refused(t: &mut Table, document: &mut anime_compositor::command::Document, commands: Vec<(&str, Command)>) {
+fn refused(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    commands: Vec<(&str, Command)>,
+) {
     let held = everything(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
-fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file: &str, commands: Vec<(&str, Command)>) {
+fn taken(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    file: &str,
+    commands: Vec<(&str, Command)>,
+) {
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
@@ -441,23 +656,54 @@ fn b399_cc_spotlight_gel_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then CC Spotlight, gel add, layer 4 as the gel, opening 90", Some(json!({"render": "gel_add", "gel_layer": "layer-4", "cone_angle": 90}))),
-        ("Noise, then CC Spotlight, gel shadow, layer 4 as the gel", Some(json!({"render": "gel_shadow", "gel_layer": "layer-4"}))),
-        ("Noise, then CC Spotlight, gel only, layer 4 as the gel, low and wide", Some(json!({"render": "gel_only", "gel_layer": "layer-4", "height": 10, "cone_angle": 90}))),
+        (
+            "Noise, then CC Spotlight, gel add, layer 4 as the gel, opening 90",
+            Some(json!({"render": "gel_add", "gel_layer": "layer-4", "cone_angle": 90})),
+        ),
+        (
+            "Noise, then CC Spotlight, gel shadow, layer 4 as the gel",
+            Some(json!({"render": "gel_shadow", "gel_layer": "layer-4"})),
+        ),
+        (
+            "Noise, then CC Spotlight, gel only, layer 4 as the gel, low and wide",
+            Some(
+                json!({"render": "gel_only", "gel_layer": "layer-4", "height": 10, "cone_angle": 90}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B399_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-399_timing_raw.md"));
+    let out = std::env::var("B399_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-399_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

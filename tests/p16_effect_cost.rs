@@ -42,7 +42,12 @@ fn character() -> WorkingBuffer {
                 };
                 paint(d, i, rgb, 1.0);
             } else if r < 390.0 {
-                paint(d, i, [0x0f, 0x0c, 0x14], if dx > 0.0 { (390.0 - r) / 10.0 } else { 1.0 });
+                paint(
+                    d,
+                    i,
+                    [0x0f, 0x0c, 0x14],
+                    if dx > 0.0 { (390.0 - r) / 10.0 } else { 1.0 },
+                );
             }
         }
     }
@@ -59,7 +64,11 @@ fn background() -> WorkingBuffer {
             let rgb = if y > 700 {
                 [0x3c, 0xb4, 0x28]
             } else {
-                [(40 + y / 5) as u8, (120 + y / 8) as u8, 0xe6 - (x / 40) as u8]
+                [
+                    (40 + y / 5) as u8,
+                    (120 + y / 8) as u8,
+                    0xe6 - (x / 40) as u8,
+                ]
             };
             paint(d, i, rgb, 1.0);
         }
@@ -84,11 +93,47 @@ fn glow(radius: f64, based_on: &str) -> Effect {
 fn cases() -> Vec<(&'static str, Effect)> {
     vec![
         ("Exposure +1", Effect::exposure(1.0)),
-        ("Tint 50%", Effect::Tint { color: [1.0, 0.5, 0.25], amount: 0.5 }),
-        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
-        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
-        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
-        ("Line Smooth", Effect::LineSmooth { softness: 50.0, threshold: 16.0 }),
+        (
+            "Tint 50%",
+            Effect::Tint {
+                color: [1.0, 0.5, 0.25],
+                amount: 0.5,
+            },
+        ),
+        (
+            "Gaussian Blur 4",
+            Effect::GaussianBlur {
+                sigma_px: 4.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
+        (
+            "Gaussian Blur 10",
+            Effect::GaussianBlur {
+                sigma_px: 10.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
+        (
+            "Gaussian Blur 40",
+            Effect::GaussianBlur {
+                sigma_px: 40.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
+        (
+            "Line Smooth",
+            Effect::LineSmooth {
+                softness: 50.0,
+                threshold: 16.0,
+            },
+        ),
         (
             "Selective Colour Blur 12",
             Effect::SelectiveColorBlur {
@@ -118,8 +163,22 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 new_color: "#ff0000".into(),
             },
         ),
-        ("Directional Blur 10", Effect::DirectionalBlur { direction: 30.0, length: 10.0, edges: "transparent".into() }),
-        ("Directional Blur 100", Effect::DirectionalBlur { direction: 30.0, length: 100.0, edges: "transparent".into() }),
+        (
+            "Directional Blur 10",
+            Effect::DirectionalBlur {
+                direction: 30.0,
+                length: 10.0,
+                edges: "transparent".into(),
+            },
+        ),
+        (
+            "Directional Blur 100",
+            Effect::DirectionalBlur {
+                direction: 30.0,
+                length: 100.0,
+                edges: "transparent".into(),
+            },
+        ),
         (
             "Select Colour",
             Effect::SelectColor {
@@ -139,18 +198,43 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ("Colour Key rgb", color_key("rgb")),
         ("Colour Key hue", color_key("hue")),
         // P-20: Repeat Edge Pixels (D-109), which walks every pixel a transparent edge could skip.
-        ("Gaussian Blur 10, edges repeat", Effect::GaussianBlur { sigma_px: 10.0, edges: "repeat".into(), dimensions: "both".into(), units: "sigma".into() }),
-        ("Directional Blur 100, edges repeat", Effect::DirectionalBlur { direction: 30.0, length: 100.0, edges: "repeat".into() }),
+        (
+            "Gaussian Blur 10, edges repeat",
+            Effect::GaussianBlur {
+                sigma_px: 10.0,
+                edges: "repeat".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
+        (
+            "Directional Blur 100, edges repeat",
+            Effect::DirectionalBlur {
+                direction: 30.0,
+                length: 100.0,
+                edges: "repeat".into(),
+            },
+        ),
         (
             "Radial Blur zoom 20, edges repeat",
-            Effect::RadialBlur { kind: "zoom".into(), amount: 20.0, center: [50.0, 50.0], edges: "repeat".into() },
+            Effect::RadialBlur {
+                kind: "zoom".into(),
+                amount: 20.0,
+                center: [50.0, 50.0],
+                edges: "repeat".into(),
+            },
         ),
         // The batch of ten, D-111 to D-120.
         (
             "Curves, all four",
             Effect::Curves {
                 master: vec![vec![0.0, 0.0], vec![128.0, 180.0], vec![255.0, 255.0]],
-                red: vec![vec![0.0, 0.0], vec![64.0, 40.0], vec![192.0, 215.0], vec![255.0, 255.0]],
+                red: vec![
+                    vec![0.0, 0.0],
+                    vec![64.0, 40.0],
+                    vec![192.0, 215.0],
+                    vec![255.0, 255.0],
+                ],
                 green: vec![vec![0.0, 0.0], vec![255.0, 128.0]],
                 blue: vec![vec![0.0, 255.0], vec![255.0, 0.0]],
                 alpha: vec![vec![0.0, 0.0], vec![255.0, 255.0]],
@@ -399,7 +483,9 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ),
         (
             "Offset, a part-pixel slide",
-            Effect::Offset { shift: [40.5, -12.25] },
+            Effect::Offset {
+                shift: [40.5, -12.25],
+            },
         ),
         (
             "Invert, a negative",
@@ -426,10 +512,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 magentas: 120.0,
             },
         ),
-        (
-            "Posterize, six levels",
-            Effect::Posterize { levels: 6.0 },
-        ),
+        ("Posterize, six levels", Effect::Posterize { levels: 6.0 }),
         (
             "Threshold, at the middle",
             Effect::Threshold { level: 128.0 },
@@ -473,10 +556,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 amount: 100.0,
             },
         ),
-        (
-            "Mosaic, as it starts",
-            Effect::Mosaic { size: 10.0 },
-        ),
+        ("Mosaic, as it starts", Effect::Mosaic { size: 10.0 }),
         (
             "Emboss, as it starts",
             Effect::Emboss {
@@ -668,8 +748,21 @@ fn cases() -> Vec<(&'static str, Effect)> {
         // P-23: the fourth batch, B-115 to B-149, each as the window adds it unless that shows
         // nothing, when a setting is moved as named. The effects that read another layer or other
         // frames are in `p23_layer_cost` below.
-        ("Color Lookup, cool_3.cube", Effect::ColorLookup { lut: "p23".into(), table: Some(cool_lut()) }),
-        ("Line Blur, as it starts", Effect::LineBlur { length: 4.0, strength: 100.0, lines_only: "off".into() }),
+        (
+            "Color Lookup, cool_3.cube",
+            Effect::ColorLookup {
+                lut: "p23".into(),
+                table: Some(cool_lut()),
+            },
+        ),
+        (
+            "Line Blur, as it starts",
+            Effect::LineBlur {
+                length: 4.0,
+                strength: 100.0,
+                lines_only: "off".into(),
+            },
+        ),
         (
             "HSV Key, as it starts",
             Effect::HsvKey {
@@ -797,12 +890,40 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ),
         (
             "Polar Coordinates, as it starts",
-            Effect::PolarCoordinates { interpolation: 100.0, conversion: "rect_to_polar".into(), shape: "ellipse".into() },
+            Effect::PolarCoordinates {
+                interpolation: 100.0,
+                conversion: "rect_to_polar".into(),
+                shape: "ellipse".into(),
+            },
         ),
-        ("Median, radius 2, as it starts", Effect::Median { radius: 2.0, operate_on_alpha: "off".into() }),
-        ("Median, radius 10", Effect::Median { radius: 10.0, operate_on_alpha: "off".into() }),
-        ("Smart Blur, radius 3, as it starts", Effect::SmartBlur { radius: 3.0, threshold: 64.0 }),
-        ("Smart Blur, radius 10", Effect::SmartBlur { radius: 10.0, threshold: 64.0 }),
+        (
+            "Median, radius 2, as it starts",
+            Effect::Median {
+                radius: 2.0,
+                operate_on_alpha: "off".into(),
+            },
+        ),
+        (
+            "Median, radius 10",
+            Effect::Median {
+                radius: 10.0,
+                operate_on_alpha: "off".into(),
+            },
+        ),
+        (
+            "Smart Blur, radius 3, as it starts",
+            Effect::SmartBlur {
+                radius: 3.0,
+                threshold: 64.0,
+            },
+        ),
+        (
+            "Smart Blur, radius 10",
+            Effect::SmartBlur {
+                radius: 10.0,
+                threshold: 64.0,
+            },
+        ),
         (
             "Snowfall, as it starts",
             Effect::Snowfall {
@@ -915,23 +1036,47 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ),
         (
             "Bevel Alpha, as it starts",
-            Effect::BevelAlpha { edge_thickness: 2.0, light_angle: -60.0, light_color: "#ffffff".into(), light_intensity: 0.4 },
+            Effect::BevelAlpha {
+                edge_thickness: 2.0,
+                light_angle: -60.0,
+                light_color: "#ffffff".into(),
+                light_intensity: 0.4,
+            },
         ),
         (
             "Bevel Edges, as it starts",
-            Effect::BevelEdges { edge_thickness: 0.1, light_angle: -60.0, light_color: "#ffffff".into(), light_intensity: 0.4 },
+            Effect::BevelEdges {
+                edge_thickness: 0.1,
+                light_angle: -60.0,
+                light_color: "#ffffff".into(),
+                light_intensity: 0.4,
+            },
         ),
         (
             "Block Dissolve, half way, 8-pixel blocks",
-            Effect::BlockDissolve { completion: 50.0, block_width: 8.0, block_height: 8.0, feather: 4.0 },
+            Effect::BlockDissolve {
+                completion: 50.0,
+                block_width: 8.0,
+                block_height: 8.0,
+                feather: 4.0,
+            },
         ),
         // D-202: Mix, the given picture laid back under the result.
-        ("Gaussian Blur 10 at Mix 50%", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
+        (
+            "Gaussian Blur 10 at Mix 50%",
+            Effect::GaussianBlur {
+                sigma_px: 10.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
     ]
 }
 
 fn cool_lut() -> anime_compositor::lut::Table {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Fixtures/cube_lut/luts/cool_3.cube");
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Fixtures/cube_lut/luts/cool_3.cube");
     let cube = anime_compositor::lut::parse(&std::fs::read(path).unwrap()).unwrap();
     anime_compositor::lut::Table(std::sync::Arc::new(cube))
 }
@@ -959,7 +1104,12 @@ fn line_width(width: f64, based_on: &str) -> Effect {
 }
 
 fn radial(kind: &str, amount: f64) -> Effect {
-    Effect::RadialBlur { kind: kind.into(), amount, center: [50.0, 50.0], edges: "transparent".into() }
+    Effect::RadialBlur {
+        kind: kind.into(),
+        amount,
+        center: [50.0, 50.0],
+        edges: "transparent".into(),
+    }
 }
 
 fn bloom(streaks: &str) -> Effect {
@@ -983,7 +1133,11 @@ fn color_key(match_by: &str) -> Effect {
 }
 
 fn fingerprint(b: &WorkingBuffer) -> String {
-    let bytes: Vec<u8> = b.data().iter().flat_map(|v| v.to_bits().to_le_bytes()).collect();
+    let bytes: Vec<u8> = b
+        .data()
+        .iter()
+        .flat_map(|v| v.to_bits().to_le_bytes())
+        .collect();
     anime_compositor::sha256::hex(&bytes)[..16].to_string()
 }
 
@@ -995,7 +1149,10 @@ fn p16_effect_cost() {
     // `P16_ONLY=Median` runs only the cases whose name holds that text.
     let only = std::env::var("P16_ONLY").unwrap_or_default();
     for (cel_name, cel) in [("character", character()), ("background", background())] {
-        for (name, effect) in cases().into_iter().filter(|(n, _)| n.contains(only.as_str())) {
+        for (name, effect) in cases()
+            .into_iter()
+            .filter(|(n, _)| n.contains(only.as_str()))
+        {
             let mut instance = EffectInstance::new(Id::new("p16"), effect);
             if name.ends_with("at Mix 50%") {
                 instance.mix = 50.0;
@@ -1007,7 +1164,9 @@ fn p16_effect_cost() {
             while times.len() < 7 && (times.len() < 2 || started.elapsed().as_secs() < 20) {
                 let mut b = cel.clone();
                 let t = Instant::now();
-                apply_stack(&mut b, &stack, |_, _, why| panic!("{name} bypassed: {why:?}"));
+                apply_stack(&mut b, &stack, |_, _, why| {
+                    panic!("{name} bypassed: {why:?}")
+                });
                 times.push(t.elapsed().as_secs_f64() * 1000.0);
                 print = fingerprint(&b);
             }
@@ -1037,8 +1196,10 @@ fn p23_layer_cost() {
     use serde_json::{json, Value as J};
 
     let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let base: J =
-        serde_json::from_str(&std::fs::read_to_string(repo.join("verification/B-08a_project.json")).unwrap()).unwrap();
+    let base: J = serde_json::from_str(
+        &std::fs::read_to_string(repo.join("verification/B-08a_project.json")).unwrap(),
+    )
+    .unwrap();
     let root = repo.join("Fixtures/reference_shot");
     let on = |p: &mut J, layer: usize, type_id: &str, parameters: J| {
         p["compositions"][0]["layers"][layer]["effects"] = json!([{
@@ -1070,32 +1231,71 @@ fn p23_layer_cost() {
         ("the reference shot, nothing added", Box::new(|_| {})),
         (
             "Compound Blur 20 on layer 1, reading layer 2",
-            Box::new(move |p| on(p, 0, "core.compound_blur", json!({"layer": "layer-2", "fit": "stretch", "max_blur": 20, "invert": "off", "edges": "transparent"}))),
+            Box::new(move |p| {
+                on(
+                    p,
+                    0,
+                    "core.compound_blur",
+                    json!({"layer": "layer-2", "fit": "stretch", "max_blur": 20, "invert": "off", "edges": "transparent"}),
+                )
+            }),
         ),
         (
             "Displacement Map as it starts on layer 1, reading layer 2",
-            Box::new(move |p| on(p, 0, "core.displacement_map", json!({"layer": "layer-2", "fit": "stretch", "horizontal": "red", "max_horizontal": 5, "vertical": "green", "max_vertical": 5, "wrap": "off"}))),
+            Box::new(move |p| {
+                on(
+                    p,
+                    0,
+                    "core.displacement_map",
+                    json!({"layer": "layer-2", "fit": "stretch", "horizontal": "red", "max_horizontal": 5, "vertical": "green", "max_vertical": 5, "wrap": "off"}),
+                )
+            }),
         ),
         (
             "Gradient Wipe half way, softness 10, on layer 1, reading layer 2",
-            Box::new(move |p| on(p, 0, "core.gradient_wipe", json!({"layer": "layer-2", "fit": "stretch", "completion": 50, "softness": 10, "invert": "off"}))),
+            Box::new(move |p| {
+                on(
+                    p,
+                    0,
+                    "core.gradient_wipe",
+                    json!({"layer": "layer-2", "fit": "stretch", "completion": 50, "softness": 10, "invert": "off"}),
+                )
+            }),
         ),
         (
             "Echo on layer 3, 4 echoes 2 frames apart",
-            Box::new(move |p| on(p, 2, "core.echo", json!({"echo_time": -2, "echoes": 4, "intensity": 1, "decay": 0.7, "operator": "add"}))),
+            Box::new(move |p| {
+                on(
+                    p,
+                    2,
+                    "core.echo",
+                    json!({"echo_time": -2, "echoes": 4, "intensity": 1, "decay": 0.7, "operator": "add"}),
+                )
+            }),
         ),
-        ("Posterize Time 12 on layer 2", Box::new(move |p| on(p, 1, "core.posterize_time", json!({"frame_rate": 12})))),
-        ("layers 3 and 4 sliding, no motion blur", Box::new(move |p| slide(p))),
+        (
+            "Posterize Time 12 on layer 2",
+            Box::new(move |p| on(p, 1, "core.posterize_time", json!({"frame_rate": 12}))),
+        ),
+        (
+            "layers 3 and 4 sliding, no motion blur",
+            Box::new(move |p| slide(p)),
+        ),
         (
             "layers 3 and 4 sliding, motion blur 180 degrees, 16 samples",
             Box::new(move |p| {
                 slide(p);
-                p["compositions"][0]["motion_blur"] =
-                    json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 16});
+                p["compositions"][0]["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 16});
             }),
         ),
-        ("layer 2 at time stretch 150%, no blending", Box::new(move |p| stretch(p, false))),
-        ("layer 2 at time stretch 150%, Frame Mix", Box::new(move |p| stretch(p, true))),
+        (
+            "layer 2 at time stretch 150%, no blending",
+            Box::new(move |p| stretch(p, false)),
+        ),
+        (
+            "layer 2 at time stretch 150%, Frame Mix",
+            Box::new(move |p| stretch(p, true)),
+        ),
         (
             "drawing dissolve of 2 on layers 3 and 4",
             Box::new(|p| {
@@ -1117,14 +1317,26 @@ fn p23_layer_cost() {
         while times.len() < 7 {
             let mut log = FrameLog::new(3);
             let t = Instant::now();
-            let frame = render_frame(loaded.document.project(), &Id::new("comp-reference-shot"), 101, &root, DEFAULT_TILE_SIZE, &mut log)
-                .unwrap();
+            let frame = render_frame(
+                loaded.document.project(),
+                &Id::new("comp-reference-shot"),
+                101,
+                &root,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+            )
+            .unwrap();
             times.push(t.elapsed().as_secs_f64() * 1000.0);
             let said = log.finish();
             assert!(said.is_empty(), "{name}: {said:?}");
             print = fingerprint(&frame);
         }
         times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        println!("| {name} | {:.1} | {:.1} | {} | `{print}` |", times[3], times[0], times.len());
+        println!(
+            "| {name} | {:.1} | {:.1} | {} | `{print}` |",
+            times[3],
+            times[0],
+            times.len()
+        );
     }
 }

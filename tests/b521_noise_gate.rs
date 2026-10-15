@@ -30,11 +30,14 @@ fn picture(name: &str, mix: &[Vec<f64>; 2]) {
     let (w, h) = (900usize, 200usize);
     let n = mix[0].len().max(1);
     let mut px = vec![255u8; w * h * 3];
-    let mut put = |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
+    let mut put =
+        |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
     for (c, half) in [(0usize, 0usize), (1, h / 2)] {
         for x in 0..w {
             let (a, b) = (x * n / w, ((x + 1) * n / w).max(x * n / w + 1).min(n));
-            let (lo, hi) = (a..b).map(|i| mix[c].get(i).copied().unwrap_or(0.0)).fold((0f64, 0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
+            let (lo, hi) = (a..b)
+                .map(|i| mix[c].get(i).copied().unwrap_or(0.0))
+                .fold((0f64, 0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
             let row = |v: f64| half + (((1.0 - v) / 2.0) * (h / 2 - 1) as f64).round() as usize;
             for y in row(hi)..=row(lo) {
                 put(x, y, [30, 60, 160]);
@@ -56,7 +59,11 @@ fn without(project: &Project, off: &[Id]) -> Project {
     let mut doc = Document::new(project.clone());
     let comp = project.compositions[0].clone();
     for layer in comp.layers_in_order() {
-        for fx in layer.effects.iter().filter(|e| off.contains(&e.instance_id)) {
+        for fx in layer
+            .effects
+            .iter()
+            .filter(|e| off.contains(&e.instance_id))
+        {
             doc.apply(Command::SetEffectEnabled {
                 composition: comp.id.clone(),
                 layer_id: layer.id.clone(),
@@ -92,13 +99,23 @@ fn timing(project: &Project, root: &std::path::Path, upto: u32) -> Option<J> {
     let inn = audio::mix(&before, root, &before.compositions[0], 0, upto).0;
     let gains: Vec<f64> = (0..out[0].len())
         .map(|i| {
-            let c = if inn[0][i].abs() >= inn[1][i].abs() { 0 } else { 1 };
+            let c = if inn[0][i].abs() >= inn[1][i].abs() {
+                0
+            } else {
+                1
+            };
             // Where nothing reaches the gate (an earlier gate shut, or before the layer) it is
             // read as shut.
-            if inn[c][i] != 0.0 { out[c][i] / inn[c][i] } else { 0.0 }
+            if inn[c][i] != 0.0 {
+                out[c][i] / inn[c][i]
+            } else {
+                0.0
+            }
         })
         .collect();
-    let find = |from: Option<usize>, cond: &dyn Fn(f64) -> bool| from.and_then(|f| (f..gains.len()).find(|&i| cond(gains[i])));
+    let find = |from: Option<usize>, cond: &dyn Fn(f64) -> bool| {
+        from.and_then(|f| (f..gains.len()).find(|&i| cond(gains[i])))
+    };
     let rise = find(Some(0), &|v| v > 0.0);
     let full = find(rise, &|v| v == 1.0);
     let closing = find(full, &|v| v < 1.0);
@@ -106,15 +123,21 @@ fn timing(project: &Project, root: &std::path::Path, upto: u32) -> Option<J> {
     // The rule: the hold counts down from the last sample at or above the threshold.
     let last_open = closing.map(|c| c as i64 - (hold * 48.0 + 0.5).floor() as i64 - 1);
     let j = |v: Option<usize>| v.map_or(J::Null, |v| J::from(v as i64));
-    Some(serde_json::json!({"rise": j(rise), "full": j(full), "last_open": last_open, "closing": j(closing), "shut": j(shut)}))
+    Some(
+        serde_json::json!({"rise": j(rise), "full": j(full), "last_open": last_open, "closing": j(closing), "shut": j(shut)}),
+    )
 }
 
 /// The same JSON, a whole number and the same number with a point taken as equal.
 fn same(a: &J, b: &J) -> bool {
     match (a, b) {
         (J::Number(x), J::Number(y)) => x.as_f64() == y.as_f64(),
-        (J::Array(x), J::Array(y)) => x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y)),
-        (J::Object(x), J::Object(y)) => x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w))),
+        (J::Array(x), J::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y))
+        }
+        (J::Object(x), J::Object(y)) => {
+            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
+        }
         _ => a == b,
     }
 }
@@ -138,7 +161,10 @@ fn b521_noise_gate() {
          pictures/` (left channel above, right below, full level at the edges), `_before` with the \
          gates switched off.\n",
     );
-    let expected: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("expected_noise_gate.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &std::fs::read_to_string(t.root.join("expected_noise_gate.json")).unwrap(),
+    )
+    .unwrap();
     let tol = expected["tolerance"].as_f64().unwrap();
     let mut level = Vec::new();
     for case in expected["cases"].as_array().unwrap() {
@@ -148,43 +174,107 @@ fn b521_noise_gate() {
         let loaded = t.load(file);
         let project = loaded.document.project();
         let comp = &project.compositions[0];
-        let (from, frames) = (case["from"].as_i64().unwrap() as i32, case["frames"].as_u64().unwrap() as u32);
+        let (from, frames) = (
+            case["from"].as_i64().unwrap() as i32,
+            case["frames"].as_u64().unwrap() as u32,
+        );
         let (mix, said) = audio::mix(project, &t.root, comp, from, frames);
         let n = case["samples"].as_u64().unwrap() as usize;
-        t.row(&format!("frames {from} to {}: {n} samples", from + frames as i32), &format!("{} and {}", mix[0].len(), mix[1].len()), mix[0].len() == n && mix[1].len() == n);
-        let want_w: Vec<String> = case["warnings"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        t.row(
+            &format!("frames {from} to {}: {n} samples", from + frames as i32),
+            &format!("{} and {}", mix[0].len(), mix[1].len()),
+            mix[0].len() == n && mix[1].len() == n,
+        );
+        let want_w: Vec<String> = case["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
         let opened = ids(&loaded.warnings.iter().collect::<Vec<_>>());
         let mixed = ids(&said.iter().map(|(_, d)| d).collect::<Vec<_>>());
-        let words = |v: &[String]| if v.is_empty() { "none".to_string() } else { v.join(", ") };
-        t.row(&format!("opening warns of: {}", words(&want_w)), &words(&opened), opened == want_w);
-        t.row(&format!("mixing warns of: {}", words(&want_w)), &words(&mixed), mixed == want_w);
+        let words = |v: &[String]| {
+            if v.is_empty() {
+                "none".to_string()
+            } else {
+                v.join(", ")
+            }
+        };
+        t.row(
+            &format!("opening warns of: {}", words(&want_w)),
+            &words(&opened),
+            opened == want_w,
+        );
+        t.row(
+            &format!("mixing warns of: {}", words(&want_w)),
+            &words(&mixed),
+            mixed == want_w,
+        );
         let mut worst = 0f64;
         let places = case["places"].as_array().unwrap();
         for (i, v) in places.iter().zip(case["values"].as_array().unwrap()) {
             let i = i.as_u64().unwrap() as usize;
             for (c, v) in v.as_array().unwrap().iter().enumerate() {
-                worst = worst.max(mix[c].get(i).map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()));
+                worst = worst.max(
+                    mix[c]
+                        .get(i)
+                        .map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()),
+                );
             }
         }
-        t.row(&format!("{} named places within {tol}", places.len()), &format!("largest difference {worst:.2e}"), worst <= tol);
-        let want: Vec<Option<f64>> = case["peak_db"].as_array().unwrap().iter().map(|v| v.as_f64()).collect();
-        let got: Vec<Option<f64>> = mix.iter().map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs())))).collect();
+        t.row(
+            &format!("{} named places within {tol}", places.len()),
+            &format!("largest difference {worst:.2e}"),
+            worst <= tol,
+        );
+        let want: Vec<Option<f64>> = case["peak_db"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_f64())
+            .collect();
+        let got: Vec<Option<f64>> = mix
+            .iter()
+            .map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs()))))
+            .collect();
         let ok = want.iter().zip(&got).all(|(w, g)| match (w, g) {
             (Some(w), Some(g)) => (w - g).abs() <= 0.01,
             (None, None) => true,
             _ => false,
         });
-        level.push((format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])), format!("{}, {}", shown(got[0]), shown(got[1])), ok));
+        level.push((
+            format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])),
+            format!("{}, {}", shown(got[0]), shown(got[1])),
+            ok,
+        ));
         let got_t = timing(project, &t.root, (from + frames as i32) as u32).unwrap_or(J::Null);
         let want_t = &case["timing"];
-        let tshow = |v: &J| if v.is_null() { "no gate runs".to_string() } else {
-            ["rise", "full", "last_open", "closing", "shut"].iter().map(|k| format!("{k} {}", v[k])).collect::<Vec<_>>().join(", ")
+        let tshow = |v: &J| {
+            if v.is_null() {
+                "no gate runs".to_string()
+            } else {
+                ["rise", "full", "last_open", "closing", "shut"]
+                    .iter()
+                    .map(|k| format!("{k} {}", v[k]))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
         };
-        t.row(&format!("timing: {}", tshow(want_t)), &tshow(&got_t), got_t == *want_t);
+        t.row(
+            &format!("timing: {}", tshow(want_t)),
+            &tshow(&got_t),
+            got_t == *want_t,
+        );
         if ["fx_gate_001", "fx_gate_004", "fx_gate_007", "fx_gate_013"].contains(&name) {
-            let all: Vec<Id> = comp.layers_in_order().flat_map(|l| l.effects.iter().map(|e| e.instance_id.clone())).collect();
+            let all: Vec<Id> = comp
+                .layers_in_order()
+                .flat_map(|l| l.effects.iter().map(|e| e.instance_id.clone()))
+                .collect();
             let off = without(project, &all);
-            picture(&format!("{name}_before"), &audio::mix(&off, &t.root, &off.compositions[0], from, frames).0);
+            picture(
+                &format!("{name}_before"),
+                &audio::mix(&off, &t.root, &off.compositions[0], from, frames).0,
+            );
             picture(&format!("{name}_after"), &mix);
         }
     }
@@ -201,7 +291,11 @@ fn b521_noise_gate() {
             Ok(_) => "opened".to_string(),
             Err(d) => d.id.as_str().to_string(),
         };
-        t.row(&format!("{file}: {}", r["what"].as_str().unwrap()), &got, got == r["diagnostic"].as_str().unwrap());
+        t.row(
+            &format!("{file}: {}", r["what"].as_str().unwrap()),
+            &got,
+            got == r["diagnostic"].as_str().unwrap(),
+        );
     }
 
     let u = &expected["unknown"];
@@ -209,56 +303,159 @@ fn b521_noise_gate() {
     t.heading(&format!("{file}: {}", u["what"].as_str().unwrap()));
     let loaded = t.load(file);
     let project = loaded.document.project();
-    let (mix, said) = audio::mix(project, &t.root, &project.compositions[0], 0, u["frames"].as_u64().unwrap() as u32);
-    let want_w: Vec<String> = u["warnings"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+    let (mix, said) = audio::mix(
+        project,
+        &t.root,
+        &project.compositions[0],
+        0,
+        u["frames"].as_u64().unwrap() as u32,
+    );
+    let want_w: Vec<String> = u["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
     let opened = ids(&loaded.warnings.iter().collect::<Vec<_>>());
     let mixed = ids(&said.iter().map(|(_, d)| d).collect::<Vec<_>>());
-    t.row("opening warns of EFFECT_UNSUPPORTED", &opened.join(", "), opened == want_w);
-    t.row("mixing warns of EFFECT_UNSUPPORTED", &mixed.join(", "), mixed == want_w);
+    t.row(
+        "opening warns of EFFECT_UNSUPPORTED",
+        &opened.join(", "),
+        opened == want_w,
+    );
+    t.row(
+        "mixing warns of EFFECT_UNSUPPORTED",
+        &mixed.join(", "),
+        mixed == want_w,
+    );
     let mut worst = 0f64;
-    for (i, v) in u["places"].as_array().unwrap().iter().zip(u["values"].as_array().unwrap()) {
+    for (i, v) in u["places"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(u["values"].as_array().unwrap())
+    {
         for (c, v) in v.as_array().unwrap().iter().enumerate() {
             worst = worst.max((mix[c][i.as_u64().unwrap() as usize] - v.as_f64().unwrap()).abs());
         }
     }
-    t.row(&format!("the sound unchanged at the named places, within {tol}"), &format!("largest difference {worst:.2e}"), worst <= tol);
-    let layer_fx = |j: &J| j["compositions"][0]["layers"].as_array().unwrap().iter().find(|l| l["kind"] == "audio").unwrap()["effects"].clone();
+    t.row(
+        &format!("the sound unchanged at the named places, within {tol}"),
+        &format!("largest difference {worst:.2e}"),
+        worst <= tol,
+    );
+    let layer_fx = |j: &J| {
+        j["compositions"][0]["layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["kind"] == "audio")
+            .unwrap()["effects"]
+            .clone()
+    };
     let written: J = serde_json::from_str(&persist::to_json(project, &loaded.preserved)).unwrap();
-    let original: J = serde_json::from_str(&std::fs::read_to_string(t.root.join(file)).unwrap()).unwrap();
+    let original: J =
+        serde_json::from_str(&std::fs::read_to_string(t.root.join(file)).unwrap()).unwrap();
     let kept = same(&layer_fx(&written), &layer_fx(&original));
-    t.row("saved again, the layer's effects are as written", &if kept { "as written".to_string() } else { layer_fx(&written).to_string() }, kept);
+    t.row(
+        "saved again, the layer's effects are as written",
+        &if kept {
+            "as written".to_string()
+        } else {
+            layer_fx(&written).to_string()
+        },
+        kept,
+    );
     let gate_file = t.load("fx_gate_012.json");
-    let written: J = serde_json::from_str(&persist::to_json(gate_file.document.project(), &gate_file.preserved)).unwrap();
-    let original: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_gate_012.json")).unwrap()).unwrap();
+    let written: J = serde_json::from_str(&persist::to_json(
+        gate_file.document.project(),
+        &gate_file.preserved,
+    ))
+    .unwrap();
+    let original: J =
+        serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_gate_012.json")).unwrap())
+            .unwrap();
     let kept = same(&layer_fx(&written), &layer_fx(&original));
-    t.row("fx_gate_012 saved again: its keyed gate as written", &if kept { "as written".to_string() } else { layer_fx(&written).to_string() }, kept);
+    t.row(
+        "fx_gate_012 saved again: its keyed gate as written",
+        &if kept {
+            "as written".to_string()
+        } else {
+            layer_fx(&written).to_string()
+        },
+        kept,
+    );
 
     t.heading("Decision 3: sound effects on sound layers only, through the commands");
     let mut doc = Document::new(t.load("fx_gate_011.json").document.project().clone());
     let comp = doc.project().compositions[0].clone();
-    let sound = comp.layers_in_order().find(|l| l.kind == LayerKind::Audio).unwrap().id.clone();
+    let sound = comp
+        .layers_in_order()
+        .find(|l| l.kind == LayerKind::Audio)
+        .unwrap()
+        .id
+        .clone();
     let add = |effect: Effect, at: &str| Command::AddEffect {
         composition: comp.id.clone(),
         layer_id: Id::new(at),
         effect: EffectInstance::new(Id::new("fx-new"), effect),
         index: None,
     };
-    let gate = Effect::NoiseGate { threshold: -60.0, attack: 10.0, hold: 40.0, release: 220.0 };
-    let r = doc.apply(add(Effect::Exposure { stops: 1.0, offset: 0.0, gamma: 1.0, bypass: "off".into() }, sound.as_str()));
-    t.row("Exposure added to a sound layer", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_err());
+    let gate = Effect::NoiseGate {
+        threshold: -60.0,
+        attack: 10.0,
+        hold: 40.0,
+        release: 220.0,
+    };
+    let r = doc.apply(add(
+        Effect::Exposure {
+            stops: 1.0,
+            offset: 0.0,
+            gamma: 1.0,
+            bypass: "off".into(),
+        },
+        sound.as_str(),
+    ));
+    t.row(
+        "Exposure added to a sound layer",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_err(),
+    );
     let r = doc.apply(add(gate.clone(), sound.as_str())).map(|_| ());
-    t.row("Noise Gate added to a sound layer", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_ok());
+    t.row(
+        "Noise Gate added to a sound layer",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_ok(),
+    );
     // fx_gate_102's solid with its gate taken off, so it opens.
-    let mut j: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_gate_102.json")).unwrap()).unwrap();
-    j["compositions"][0]["layers"][0].as_object_mut().unwrap().remove("effects");
-    let mut solid = Document::new(persist::load_str(&j.to_string()).expect("the solid opens").document.project().clone());
+    let mut j: J =
+        serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_gate_102.json")).unwrap())
+            .unwrap();
+    j["compositions"][0]["layers"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("effects");
+    let mut solid = Document::new(
+        persist::load_str(&j.to_string())
+            .expect("the solid opens")
+            .document
+            .project()
+            .clone(),
+    );
     let r = solid.apply(Command::AddEffect {
         composition: comp.id.clone(),
         layer_id: Id::new("solid0"),
         effect: EffectInstance::new(Id::new("fx-new"), gate),
         index: None,
     });
-    t.row("Noise Gate added to a solid", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_err());
+    t.row(
+        "Noise Gate added to a solid",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_err(),
+    );
 
     t.heading("Speed (release build, this machine)");
     let p = t.load("fx_gate_001.json");
@@ -272,6 +469,10 @@ fn b521_noise_gate() {
         start.elapsed().as_secs_f64() * 1000.0 / 5.0
     };
     let (a, b) = (time(&off), time(project));
-    t.row("fx_gate_001, two seconds mixed: without the gate, with it (milliseconds, recorded only)", &format!("{a:.1} ms, {b:.1} ms"), true);
+    t.row(
+        "fx_gate_001, two seconds mixed: without the gate, with it (milliseconds, recorded only)",
+        &format!("{a:.1} ms, {b:.1} ms"),
+        true,
+    );
     t.finish("D-642_noise_gate_table.md");
 }

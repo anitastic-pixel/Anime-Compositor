@@ -25,7 +25,8 @@ use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::{
-    Effect, PARTICLE_PLAYGROUND_COLORS, PARTICLE_PLAYGROUND_LAYERS, PARTICLE_PLAYGROUND_SETTINGS, PARTICLE_PLAYGROUND_WORDS,
+    Effect, PARTICLE_PLAYGROUND_COLORS, PARTICLE_PLAYGROUND_LAYERS, PARTICLE_PLAYGROUND_SETTINGS,
+    PARTICLE_PLAYGROUND_WORDS,
 };
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
@@ -34,13 +35,23 @@ use anime_compositor::{persist, playground, png_out, OutputDepth};
 
 /// The pixels that differ between two straight 8-bit pictures.
 fn differing(a: &[u8], b: &[u8]) -> usize {
-    a.chunks_exact(4).zip(b.chunks_exact(4)).filter(|(p, q)| p != q).count()
+    a.chunks_exact(4)
+        .zip(b.chunks_exact(4))
+        .filter(|(p, q)| p != q)
+        .count()
 }
 
 /// Why the `holder` layer's effect in `file` is left out, its keys too.
 fn fault_of(t: &Table, file: &str) -> String {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// Every particle in `file` at `frame`, each [code, a, b, born, x, y, vx, vy], given what compose
@@ -56,10 +67,23 @@ fn listed(t: &Table, file: &str, frame: i32) -> Vec<[f64; 8]> {
     let instance = &layer.effects[0];
     let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
     let mut e = instance.at(frame).effect;
-    let Effect::ParticlePlayground { values, layers, clock, history, .. } = &mut e else { unreachable!() };
+    let Effect::ParticlePlayground {
+        values,
+        layers,
+        clock,
+        history,
+        ..
+    } = &mut e
+    else {
+        unreachable!()
+    };
     *clock = [(frame - layer.in_frame) as f64, fps];
     if !instance.tracks.is_empty() {
-        *history = Some(Arc::new((layer.in_frame..=frame + 1).map(|f| playground::numbers(&instance.at(f).effect)).collect()));
+        *history = Some(Arc::new(
+            (layer.in_frame..=frame + 1)
+                .map(|f| playground::numbers(&instance.at(f).effect))
+                .collect(),
+        ));
     }
     let mut log = FrameLog::new(3);
     let maps: Vec<_> = layers
@@ -67,7 +91,17 @@ fn listed(t: &Table, file: &str, frame: i32) -> Vec<[f64; 8]> {
         .enumerate()
         .map(|(k, named)| {
             let at = if k == 0 { layer.in_frame } else { frame };
-            compose::layer_map(project, &comp_id, &holder, named.as_str().unwrap(), "center", at, &t.root, PreviewQuality::Full, &mut log)
+            compose::layer_map(
+                project,
+                &comp_id,
+                &holder,
+                named.as_str().unwrap(),
+                "center",
+                at,
+                &t.root,
+                PreviewQuality::Full,
+                &mut log,
+            )
         })
         .collect();
     let n = values[playground::WALL_MASK].floor();
@@ -85,7 +119,10 @@ fn listed(t: &Table, file: &str, frame: i32) -> Vec<[f64; 8]> {
 /// 8-bit, with what it warned of. The layer is `art`.
 fn picture(effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -103,11 +140,26 @@ fn picture(effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     under["name"] = J::from("under");
     under["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().push(under);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("under"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("under"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -162,18 +214,43 @@ fn b494_particle_mapper() {
     t.fixtures("expected_particle_mapper.json");
 
     t.heading("The particles themselves: where each is and how fast it goes");
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("particles_particle_mapper.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("particles_particle_mapper.json")).unwrap(),
+    )
+    .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
-    let key = |a: &[f64], b: &[f64]| a[..4].iter().zip(&b[..4]).map(|(x, y)| x.total_cmp(y)).find(|o| o.is_ne()).unwrap_or(std::cmp::Ordering::Equal);
+    let key = |a: &[f64], b: &[f64]| {
+        a[..4]
+            .iter()
+            .zip(&b[..4])
+            .map(|(x, y)| x.total_cmp(y))
+            .find(|o| o.is_ne())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    };
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = format!("fx_pmap_{n:03}.json");
         let frame = case["frame"].as_i64().unwrap() as i32;
-        let mut want: Vec<Vec<f64>> = case["particles"].as_array().unwrap().iter().map(|p| p.as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect()).collect();
+        let mut want: Vec<Vec<f64>> = case["particles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| {
+                p.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect()
+            })
+            .collect();
         let mut got = listed(&t, &file, frame);
         want.sort_by(|a, b| key(a, b));
         got.sort_by(|a, b| key(a, b));
-        let largest = got.iter().zip(&want).flat_map(|(g, w)| g.iter().zip(w).map(|(a, b)| (a - b).abs())).fold(0.0, f64::max);
+        let largest = got
+            .iter()
+            .zip(&want)
+            .flat_map(|(g, w)| g.iter().zip(w).map(|(a, b)| (a - b).abs()))
+            .fold(0.0, f64::max);
         t.row(
             &format!("{name} frame {frame}: the {} particles, each its emitter, numbers, birth, place and speed", want.len()),
             &format!("{} listed, largest difference {largest:.1e}", got.len()),
@@ -203,13 +280,30 @@ fn b494_particle_mapper() {
     ] {
         let file = format!("fx_pmap_{n:03}.json");
         let why = fault_of(&t, &file);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_pmap_001.json", "a Particle Playground whose persistent max red is a word", &parameters(&json!({"persistent_max_red": "full"})).to_string());
-    t.shape_refused("fx_pmap_001.json", "a Particle Playground whose ephemeral operator is a number", &parameters(&json!({"ephemeral_operator": 2})).to_string());
+    t.shape_refused(
+        "fx_pmap_001.json",
+        "a Particle Playground whose persistent max red is a word",
+        &parameters(&json!({"persistent_max_red": "full"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_pmap_001.json",
+        "a Particle Playground whose ephemeral operator is a number",
+        &parameters(&json!({"ephemeral_operator": 2})).to_string(),
+    );
 
     t.heading("Tiles");
-    t.tiles(&[("fx_pmap_004.json", 24), ("fx_pmap_011.json", 6), ("fx_pmap_028.json", 6), ("fx_pmap_032.json", 36)]);
+    t.tiles(&[
+        ("fx_pmap_004.json", 24),
+        ("fx_pmap_011.json", 6),
+        ("fx_pmap_028.json", 6),
+        ("fx_pmap_032.json", 36),
+    ]);
 
     t.heading("Pictures (verification/D-614 pictures)");
     let out = repo("verification/D-614 pictures");
@@ -228,12 +322,16 @@ fn b494_particle_mapper() {
         ("1_grid_unmapped", plain.clone(), 0),
         (
             "2_grid_coloured_by_the_street",
-            with(json!({"persistent_map_layer": "under", "persistent_map_red_to": "red", "persistent_map_green_to": "green", "persistent_map_blue_to": "blue"})),
+            with(
+                json!({"persistent_map_layer": "under", "persistent_map_red_to": "red", "persistent_map_green_to": "green", "persistent_map_blue_to": "blue"}),
+            ),
             0,
         ),
         (
             "3_halftone_scale_by_red",
-            with(json!({"ephemeral_map_layer": "under", "ephemeral_map_red_to": "scale", "ephemeral_min_red": 0, "ephemeral_max_red": 1.6})),
+            with(
+                json!({"ephemeral_map_layer": "under", "ephemeral_map_red_to": "scale", "ephemeral_min_red": 0, "ephemeral_max_red": 1.6}),
+            ),
             0,
         ),
         (
@@ -245,32 +343,55 @@ fn b494_particle_mapper() {
         ),
         (
             "5_ephemeral_push_sideways",
-            with(json!({"ephemeral_map_layer": "under", "ephemeral_map_green_to": "x", "ephemeral_min_green": -12, "ephemeral_max_green": 12,
-                "ephemeral_operator": "add"})),
+            with(
+                json!({"ephemeral_map_layer": "under", "ephemeral_map_green_to": "x", "ephemeral_min_green": -12, "ephemeral_max_green": 12,
+                "ephemeral_operator": "add"}),
+            ),
             0,
         ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), frame);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png, frame {frame}: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", differing(&bytes, &street)),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                differing(&bytes, &street)
+            ),
             said.is_empty() && differing(&bytes, &street) > 0,
         );
     }
     t.heading("On the card (D-619)");
     let mut gpu = Gpu::new().expect("a graphics card");
     let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticlePlayground { .. });
-    t.card_fixtures(&mut gpu, "expected_particle_mapper.json", &(36..=43).collect::<Vec<_>>(), mine);
+    t.card_fixtures(
+        &mut gpu,
+        "expected_particle_mapper.json",
+        &(36..=43).collect::<Vec<_>>(),
+        mine,
+    );
     t.finish("D-614_particle_mapper_table.md");
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first layer.
 fn reference(stack: J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     j["compositions"][0]["layers"][0]["effects"] = stack;
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The frame times, B-510's way, as B-493's: the reference shot (1920 by 1080, 24 a second)
@@ -289,7 +410,10 @@ fn b494_particle_mapper_timing() {
         std::env::consts::OS,
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
-    let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
+    let (comp, root) = (
+        Id::new("comp-reference-shot"),
+        repo("Fixtures/reference_shot"),
+    );
     let shots: [(&str, Option<J>); 3] = [
         ("no effect", None),
         ("Particle Playground as added (no mapper)", Some(json!({}))),
@@ -308,8 +432,17 @@ fn b494_particle_mapper_timing() {
                     let mut log = FrameLog::new(3);
                     let t = std::time::Instant::now();
                     drop(
-                        preview::preview_frame_cached(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                            .expect("CPU frame"),
+                        preview::preview_frame_cached(
+                            &project,
+                            &comp,
+                            frame,
+                            &root,
+                            PreviewQuality::Full,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut CelCache::viewer(),
+                        )
+                        .expect("CPU frame"),
                     );
                     t.elapsed().as_secs_f64() * 1000.0
                 })
@@ -318,6 +451,8 @@ fn b494_particle_mapper_timing() {
         }
         s.push('\n');
     }
-    let out = std::env::var("B494_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-494_timing_raw.md"));
+    let out = std::env::var("B494_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-494_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

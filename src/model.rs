@@ -775,7 +775,12 @@ pub enum MatteMode {
 }
 
 impl MatteMode {
-    pub const ALL: [MatteMode; 4] = [MatteMode::Alpha, MatteMode::AlphaInverted, MatteMode::Luma, MatteMode::LumaInverted];
+    pub const ALL: [MatteMode; 4] = [
+        MatteMode::Alpha,
+        MatteMode::AlphaInverted,
+        MatteMode::Luma,
+        MatteMode::LumaInverted,
+    ];
 
     /// The word the file and the window use.
     pub fn as_str(self) -> &'static str {
@@ -1220,7 +1225,10 @@ impl Layer {
         if self.time_stretch == 100.0 {
             return Some(local as f64);
         }
-        Some(((n - self.in_frame) as f64 * 100.0) / self.time_stretch + self.source_offset_frames as f64)
+        Some(
+            ((n - self.in_frame) as f64 * 100.0) / self.time_stretch
+                + self.source_offset_frames as f64,
+        )
     }
 
     /// D-216: the key time `u = in + (t - in) * 100 / stretch` its keys are read at, at
@@ -1372,7 +1380,12 @@ pub struct MotionBlur {
 impl Default for MotionBlur {
     /// After Effects' own: half a frame of shutter, centred on the frame, in 16 samples.
     fn default() -> Self {
-        MotionBlur { enabled: false, shutter_angle: 180.0, shutter_phase: -90.0, samples: 16 }
+        MotionBlur {
+            enabled: false,
+            shutter_angle: 180.0,
+            shutter_phase: -90.0,
+            samples: 16,
+        }
     }
 }
 
@@ -1385,7 +1398,11 @@ impl MotionBlur {
         }
         let n = self.samples as f64;
         (0..self.samples)
-            .map(|k| frame as f64 + self.shutter_phase / 360.0 + (self.shutter_angle / 360.0) * (k as f64 + 0.5) / n)
+            .map(|k| {
+                frame as f64
+                    + self.shutter_phase / 360.0
+                    + (self.shutter_angle / 360.0) * (k as f64 + 0.5) / n
+            })
             .collect()
     }
 }
@@ -1550,7 +1567,10 @@ impl Composition {
             }
             path.push(at.clone());
             let named = comp.layers.get(at).into_iter().flat_map(|l| &l.effects);
-            for next in named.flat_map(|i| i.effect.layer_settings()).map(|(n, _)| Id::new(n)) {
+            for next in named
+                .flat_map(|i| i.effect.layer_settings())
+                .map(|(n, _)| Id::new(n))
+            {
                 if next == *at || !comp.layers.get(&next).is_some_and(|l| !l.is_adjustment()) {
                     continue;
                 }

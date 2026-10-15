@@ -51,25 +51,92 @@ struct Shot {
 
 /// Each effect's name, its fixture folder and file prefix, its type and the settings it is
 /// given in the reference shot.
-fn effects() -> Vec<(&'static str, &'static str, &'static str, &'static str, serde_json::Value)> {
+fn effects() -> Vec<(
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    serde_json::Value,
+)> {
     vec![
-        ("Distance Gradation", "distance_gradation", "fx_distgrad", "core.distance_gradation", json!({"color": "#3040a0", "width": 20, "opacity": 70, "invert": "off", "blend": "multiply"})),
-        ("Light Rays", "light_rays", "fx_rays", "core.light_rays", json!({"center": [50, 40], "length": 40, "threshold": 60, "intensity": 1.5, "color": "#ffe0b0"})),
-        ("Exposure Flicker", "exposure_flicker", "fx_flicker", "core.exposure_flicker", json!({"amount": 0.5, "hold": 3, "seed": 4})),
-        ("Vignette", "vignette", "fx_vignette", "core.vignette", json!({"amount": 60, "color": "#201030", "size": 90, "roundness": 50, "softness": 60, "center": [45, 55]})),
-        ("Turbulent Displace", "turbulent_displace", "fx_turb", "core.turbulent_displace", json!({"amount": 12, "size": 50, "complexity": 3, "evolution": 30, "speed": 10, "seed": 5, "edges": "transparent"})),
-        ("Fractal Noise", "fractal_noise", "fx_fractal", "core.fractal_noise", json!({"size": 80, "complexity": 5, "contrast": 130, "brightness": 5, "evolution": 0, "speed": 15, "seed": 3, "dark_color": "#102030", "light_color": "#ffe8c0", "opacity": 60, "blend": "screen"})),
-        ("Gradient Map", "gradient_map", "fx_gradmap", "core.gradient_map", json!({"shadow_color": "#1a0a40", "midtone_color": "#c05060", "highlight_color": "#fff0c0", "midpoint": 40, "amount": 80})),
-        ("Color Balance", "color_balance", "fx_balance", "core.color_balance", json!({"shadows": [-20, 10, 30], "midtones": [15, -5, -10], "highlights": [10, 5, -25]})),
-        ("Offset", "offset", "fx_offset", "core.offset", json!({"shift": [37.5, -21.25]})),
-        ("Light Wrap", "light_wrap", "fx_wrap", "core.light_wrap", json!({"width": 15, "intensity": 150, "blend": "screen"})),
+        (
+            "Distance Gradation",
+            "distance_gradation",
+            "fx_distgrad",
+            "core.distance_gradation",
+            json!({"color": "#3040a0", "width": 20, "opacity": 70, "invert": "off", "blend": "multiply"}),
+        ),
+        (
+            "Light Rays",
+            "light_rays",
+            "fx_rays",
+            "core.light_rays",
+            json!({"center": [50, 40], "length": 40, "threshold": 60, "intensity": 1.5, "color": "#ffe0b0"}),
+        ),
+        (
+            "Exposure Flicker",
+            "exposure_flicker",
+            "fx_flicker",
+            "core.exposure_flicker",
+            json!({"amount": 0.5, "hold": 3, "seed": 4}),
+        ),
+        (
+            "Vignette",
+            "vignette",
+            "fx_vignette",
+            "core.vignette",
+            json!({"amount": 60, "color": "#201030", "size": 90, "roundness": 50, "softness": 60, "center": [45, 55]}),
+        ),
+        (
+            "Turbulent Displace",
+            "turbulent_displace",
+            "fx_turb",
+            "core.turbulent_displace",
+            json!({"amount": 12, "size": 50, "complexity": 3, "evolution": 30, "speed": 10, "seed": 5, "edges": "transparent"}),
+        ),
+        (
+            "Fractal Noise",
+            "fractal_noise",
+            "fx_fractal",
+            "core.fractal_noise",
+            json!({"size": 80, "complexity": 5, "contrast": 130, "brightness": 5, "evolution": 0, "speed": 15, "seed": 3, "dark_color": "#102030", "light_color": "#ffe8c0", "opacity": 60, "blend": "screen"}),
+        ),
+        (
+            "Gradient Map",
+            "gradient_map",
+            "fx_gradmap",
+            "core.gradient_map",
+            json!({"shadow_color": "#1a0a40", "midtone_color": "#c05060", "highlight_color": "#fff0c0", "midpoint": 40, "amount": 80}),
+        ),
+        (
+            "Color Balance",
+            "color_balance",
+            "fx_balance",
+            "core.color_balance",
+            json!({"shadows": [-20, 10, 30], "midtones": [15, -5, -10], "highlights": [10, 5, -25]}),
+        ),
+        (
+            "Offset",
+            "offset",
+            "fx_offset",
+            "core.offset",
+            json!({"shift": [37.5, -21.25]}),
+        ),
+        (
+            "Light Wrap",
+            "light_wrap",
+            "fx_wrap",
+            "core.light_wrap",
+            json!({"width": 15, "intensity": 150, "blend": "screen"}),
+        ),
     ]
 }
 
 /// The reference shot with `type_id` on its first three layers, the second after a Drop Shadow
 /// that grows it first, so the effect runs from a corner that is not the buffer's.
 fn reference(effect: &'static str, type_id: &str, parameters: &serde_json::Value) -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let fx = |id: &str| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": parameters});
     let shadow = json!({"instance_id": "b76-s", "type_id": "core.drop_shadow", "enabled": true, "parameters": {"color": "#000000", "opacity": 60, "direction": 200, "distance": 6, "softness": 4}});
@@ -77,7 +144,8 @@ fn reference(effect: &'static str, type_id: &str, parameters: &serde_json::Value
     layers[0]["effects"] = json!([fx("b76-a")]);
     layers[1]["effects"] = json!([shadow, fx("b76-b")]);
     layers[2]["effects"] = json!([fx("b76-c")]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
+    let loaded = persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
     Shot {
         effect,
         name: format!("the reference shot with {effect}"),
@@ -95,17 +163,33 @@ fn fixtures() -> Vec<Shot> {
     for (effect, folder, prefix, ..) in effects() {
         let mut files: Vec<String> = fs::read_dir(repo(&format!("Fixtures/{folder}")))
             .expect("read a fixture folder")
-            .map(|e| e.expect("a fixture file").file_name().to_string_lossy().into_owned())
+            .map(|e| {
+                e.expect("a fixture file")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .filter(|n| n.starts_with(prefix) && n.ends_with(".json"))
             .collect();
         files.sort();
         for file in files {
-            let loaded = persist::load(&repo(&format!("Fixtures/{folder}/{file}"))).unwrap_or_else(|d| panic!("{file}: {}", d.message));
+            let loaded = persist::load(&repo(&format!("Fixtures/{folder}/{file}")))
+                .unwrap_or_else(|d| panic!("{file}: {}", d.message));
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
-            let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
+            let (id, frames) = (
+                comp.id.clone(),
+                (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+            );
             let name = file.trim_end_matches(".json").to_string();
-            shots.push(Shot { effect, name, project, root: repo(&format!("Fixtures/{folder}")), comp: id, frames });
+            shots.push(Shot {
+                effect,
+                name,
+                project,
+                root: repo(&format!("Fixtures/{folder}")),
+                comp: id,
+                frames,
+            });
         }
     }
     shots
@@ -116,7 +200,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -128,14 +217,32 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// does not draw, which has the CPU draw the whole frame (B-44, B-156).
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> (usize, bool) {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     let n = plan
         .layers
         .iter()
-        .filter(|l| l.on_card.iter().any(|c| matches!(c, render::OnCard::Fx(_))) || l.wrap.iter().any(|i| i.enabled && i.effect.is_valid()))
+        .filter(|l| {
+            l.on_card.iter().any(|c| matches!(c, render::OnCard::Fx(_)))
+                || l.wrap.iter().any(|i| i.enabled && i.effect.is_valid())
+        })
         .count();
     let frame = (plan.width, plan.height);
-    (n, plan.layers.iter().filter_map(|l| l.adjust.as_ref()).any(|s| compose::adjust_run(s, frame).is_none()))
+    (
+        n,
+        plan.layers
+            .iter()
+            .filter_map(|l| l.adjust.as_ref())
+            .any(|s| compose::adjust_run(s, frame).is_none()),
+    )
 }
 
 #[test]
@@ -154,15 +261,29 @@ fn b76_gpu_fx() {
     let mut by_effect: BTreeMap<&str, (usize, usize, usize, u8)> = BTreeMap::new();
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     let mut shots = fixtures();
-    let references: Vec<Shot> = effects().iter().map(|(effect, _, _, type_id, p)| reference(effect, type_id, p)).collect();
+    let references: Vec<Shot> = effects()
+        .iter()
+        .map(|(effect, _, _, type_id, p)| reference(effect, type_id, p))
+        .collect();
     shots.extend(references);
     for shot in &shots {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -173,8 +294,20 @@ fn b76_gpu_fx() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let (n, adjusted) = left(shot, frame, quality);
@@ -185,7 +318,10 @@ fn b76_gpu_fx() {
                     let expected = if said_cpu.is_empty() {
                         DiagnosticId::GpuPreviewOnCpu.as_str().to_string()
                     } else {
-                        let mut ids: Vec<&str> = said_cpu.split(", ").chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
+                        let mut ids: Vec<&str> = said_cpu
+                            .split(", ")
+                            .chain([DiagnosticId::GpuPreviewOnCpu.as_str()])
+                            .collect();
                         ids.sort();
                         ids.join(", ")
                     };
@@ -228,7 +364,10 @@ fn b76_gpu_fx() {
 
     // The CPU drawing a plan made for the card, as it does when the card refuses a frame, draws
     // the same frame as a plan made for the CPU, byte for byte.
-    for reference in shots.iter().filter(|s| s.name.starts_with("the reference shot")) {
+    for reference in shots
+        .iter()
+        .filter(|s| s.name.starts_with("the reference shot"))
+    {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             let mut log = FrameLog::new(3);
             let tile = match quality {
@@ -236,8 +375,21 @@ fn b76_gpu_fx() {
                 PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
             };
             let plan = |card: bool, log: &mut FrameLog| {
-                let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-                let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
+                let make = if card {
+                    compose::plan_frame_for_card
+                } else {
+                    compose::plan_frame_at
+                };
+                let p = make(
+                    &reference.project,
+                    &reference.comp,
+                    100,
+                    &reference.root,
+                    quality,
+                    log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan");
                 preview::scale_plan(p, quality)
             };
             let a = render::render(&plan(false, &mut log), tile);
@@ -273,13 +425,17 @@ fn b76_gpu_fx() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let mut summary = String::new();
     for (effect, ..) in effects() {
         let (n, p, on_card, most) = by_effect[effect];
-        let _ = writeln!(summary, "| {effect} | {n} | {on_card} | {most} | {p} of {n} |");
+        let _ = writeln!(
+            summary,
+            "| {effect} | {n} | {on_card} | {most} | {p} of {n} |"
+        );
     }
     let s = format!(
         "# B-76: the second batch of ten on the GPU against the CPU\n\n\
@@ -350,9 +506,35 @@ fn b76_gpu_fx_timing() {
                         let mut log = FrameLog::new(3);
                         let t = Instant::now();
                         if on_card {
-                            drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, tile, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                            drop(
+                                preview::preview_frame_srgb8(
+                                    &shot.project,
+                                    &shot.comp,
+                                    frame,
+                                    &shot.root,
+                                    quality,
+                                    tile,
+                                    &mut log,
+                                    &mut cache,
+                                    &mut gpu,
+                                )
+                                .expect("GPU frame"),
+                            );
                         } else {
-                            drop(preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, tile, &mut log, &mut cache).expect("CPU frame").to_srgb8_straight());
+                            drop(
+                                preview::preview_frame_cached(
+                                    &shot.project,
+                                    &shot.comp,
+                                    frame,
+                                    &shot.root,
+                                    quality,
+                                    tile,
+                                    &mut log,
+                                    &mut cache,
+                                )
+                                .expect("CPU frame")
+                                .to_srgb8_straight(),
+                            );
                         }
                         times.push(t.elapsed().as_secs_f64() * 1000.0);
                     }

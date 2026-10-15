@@ -55,9 +55,9 @@
 //! file is right.
 
 use crate::model::{Interp, Property, Value};
-use std::collections::BTreeMap;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
+use std::collections::BTreeMap;
 
 /// The side of the sample grid inside each pixel. Sixteen samples per pixel.
 ///
@@ -283,14 +283,23 @@ impl Mask {
     /// D-77's ranges as a sentence, asked of the plain numbers and, since D-298, of the mask on
     /// every key's frame. `None` for a mask that may exist.
     pub fn out_of_range(&self) -> Option<String> {
-        let frames = self.tracks.values().flat_map(|t| t.keyframes().iter().map(|k| k.frame));
+        let frames = self
+            .tracks
+            .values()
+            .flat_map(|t| t.keyframes().iter().map(|k| k.frame));
         std::iter::once(self.clone())
             .chain(frames.map(|f| self.at(f)))
             .find_map(|m| {
                 if !(0.0..=1.0).contains(&m.opacity) {
-                    Some(format!("an opacity of {}, which is not from 0 to 1", m.opacity))
+                    Some(format!(
+                        "an opacity of {}, which is not from 0 to 1",
+                        m.opacity
+                    ))
                 } else if !(m.feather_px >= 0.0) {
-                    Some(format!("a feather of {} pixels, which is below 0", m.feather_px))
+                    Some(format!(
+                        "a feather of {} pixels, which is below 0",
+                        m.feather_px
+                    ))
                 } else if !(m.expansion_px.abs() <= MAX_EXPANSION) {
                     Some(format!(
                         "an expansion of {} pixels, which is past 8192 either way",
@@ -639,7 +648,12 @@ pub fn distance_to_path(path: &[(f64, f64)], closed: bool, x: f64, y: f64) -> f6
 /// Lifted out of [`distance_to_path`] so that the expanded mask's band, which asks the same
 /// question of a few edges rather than of all of them, asks it in exactly the same arithmetic.
 /// Two callers, one expression.
-pub(crate) fn distance_to_segment((x0, y0): (f64, f64), (x1, y1): (f64, f64), x: f64, y: f64) -> f64 {
+pub(crate) fn distance_to_segment(
+    (x0, y0): (f64, f64),
+    (x1, y1): (f64, f64),
+    x: f64,
+    y: f64,
+) -> f64 {
     let (dx, dy) = (x1 - x0, y1 - y0);
     let run = dx * dx + dy * dy;
     let t = if run == 0.0 {
@@ -698,7 +712,12 @@ pub fn pixel_coverage(vertices: &[(f64, f64)], x: usize, y: usize) -> f32 {
 ///
 /// **Rows are worked out in parallel.** Every row reads the outline and writes only its own
 /// pixels, so the threads share nothing and the answer does not depend on how the work was split.
-pub(crate) fn scanline_field(outline: &[(f64, f64)], w: usize, h: usize, radius: usize) -> Vec<f32> {
+pub(crate) fn scanline_field(
+    outline: &[(f64, f64)],
+    w: usize,
+    h: usize,
+    radius: usize,
+) -> Vec<f32> {
     let n = SAMPLES_PER_SIDE;
     let mut field = vec![0.0f32; w * h];
     if outline.len() < 2 {
@@ -920,60 +939,60 @@ fn mask_field(mask: &Mask, width: usize, height: usize) -> Vec<f32> {
         }
     };
     let mut across = vec![0.0f32; w * h];
-    across
-        .par_chunks_mut(w)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let line = &field[y * w..(y + 1) * w];
-            let mut run = vec![0u32; w];
-            for i in (0..w).rev() {
-                run[i] = if i + 1 < w && line[i + 1].to_bits() == line[i].to_bits() { run[i + 1] } else { i as u32 };
+    across.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
+        let line = &field[y * w..(y + 1) * w];
+        let mut run = vec![0u32; w];
+        for i in (0..w).rev() {
+            run[i] = if i + 1 < w && line[i + 1].to_bits() == line[i].to_bits() {
+                run[i + 1]
+            } else {
+                i as u32
+            };
+        }
+        let mut memo = None;
+        for (x, out) in row.iter_mut().enumerate() {
+            // The window reads every sample from `lo` to `hi`, the ends repeated at the edge.
+            let (lo, hi) = (x.saturating_sub(radius).min(w - 1), (x + radius).min(w - 1));
+            if same(&run, lo, hi) {
+                *out = constant(&mut memo, line[lo]);
+                continue;
             }
-            let mut memo = None;
-            for (x, out) in row.iter_mut().enumerate() {
-                // The window reads every sample from `lo` to `hi`, the ends repeated at the edge.
-                let (lo, hi) = (x.saturating_sub(radius).min(w - 1), (x + radius).min(w - 1));
-                if same(&run, lo, hi) {
-                    *out = constant(&mut memo, line[lo]);
-                    continue;
-                }
-                let mut acc = 0.0;
-                for (k, weight) in weights.iter().enumerate() {
-                    let sx = (x + k).saturating_sub(radius).min(w - 1);
-                    acc += line[sx] * weight;
-                }
-                *out = acc;
+            let mut acc = 0.0;
+            for (k, weight) in weights.iter().enumerate() {
+                let sx = (x + k).saturating_sub(radius).min(w - 1);
+                acc += line[sx] * weight;
             }
-        });
+            *out = acc;
+        }
+    });
     // The same down each column, held a column at a time so each is worked on its own thread.
     let mut down = vec![0u32; w * h];
     down.par_chunks_mut(h).enumerate().for_each(|(x, column)| {
         for y in (0..h).rev() {
-            column[y] = if y + 1 < h && across[(y + 1) * w + x].to_bits() == across[y * w + x].to_bits() {
-                column[y + 1]
-            } else {
-                y as u32
-            };
+            column[y] =
+                if y + 1 < h && across[(y + 1) * w + x].to_bits() == across[y * w + x].to_bits() {
+                    column[y + 1]
+                } else {
+                    y as u32
+                };
         }
     });
     let mut done = vec![0.0f32; width * height];
-    done.par_chunks_mut(width)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let mut memo = None;
-            for (x, out) in row.iter_mut().enumerate() {
-                let column = &down[(x + radius) * h..(x + radius + 1) * h];
-                if same(column, y, y + 2 * radius) {
-                    *out = constant(&mut memo, across[y * w + x + radius]);
-                    continue;
-                }
-                let mut acc = 0.0;
-                for (k, weight) in weights.iter().enumerate() {
-                    acc += across[(y + k) * w + (x + radius)] * weight;
-                }
-                *out = acc;
+    done.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
+        let mut memo = None;
+        for (x, out) in row.iter_mut().enumerate() {
+            let column = &down[(x + radius) * h..(x + radius + 1) * h];
+            if same(column, y, y + 2 * radius) {
+                *out = constant(&mut memo, across[y * w + x + radius]);
+                continue;
             }
-        });
+            let mut acc = 0.0;
+            for (k, weight) in weights.iter().enumerate() {
+                acc += across[(y + k) * w + (x + radius)] * weight;
+            }
+            *out = acc;
+        }
+    });
     finish(done, mask)
 }
 

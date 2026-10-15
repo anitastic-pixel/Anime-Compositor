@@ -24,12 +24,17 @@ const PARTS: [(&str, &str); 5] = [
 
 /// The pixels `(x, y, w, h)` of an eight-bit picture `width` across.
 fn cut(pixels: &[u8], width: usize, (x, y, w, h): (usize, usize, usize, usize)) -> Vec<u8> {
-    (y..y + h).flat_map(|row| pixels[(row * width + x) * 4..(row * width + x + w) * 4].to_vec()).collect()
+    (y..y + h)
+        .flat_map(|row| pixels[(row * width + x) * 4..(row * width + x + w) * 4].to_vec())
+        .collect()
 }
 
 /// The `x-part` header, `x,y,w,h` in the frame's pixels.
 fn part_of(r: &Response<Vec<u8>>) -> Option<(usize, usize, usize, usize)> {
-    let n: Vec<usize> = header(r, "x-part").split(',').filter_map(|v| v.parse().ok()).collect();
+    let n: Vec<usize> = header(r, "x-part")
+        .split(',')
+        .filter_map(|v| v.parse().ok())
+        .collect();
     (n.len() == 4).then(|| (n[0], n[1], n[2], n[3]))
 }
 
@@ -49,22 +54,43 @@ fn wrong(whole: &Response<Vec<u8>>, part: &Response<Vec<u8>>, seen: &str) -> Opt
     if whole.status() != 200 || part.status() != 200 {
         return Some(format!("status {} and {}", whole.status(), part.status()));
     }
-    let (w, h): (usize, usize) = (header(whole, "x-width").parse().unwrap_or(0), header(whole, "x-height").parse().unwrap_or(0));
+    let (w, h): (usize, usize) = (
+        header(whole, "x-width").parse().unwrap_or(0),
+        header(whole, "x-height").parse().unwrap_or(0),
+    );
     let want = expected(seen, w, h);
     if part_of(part) != want {
-        return Some(format!("part {:?} sent, {want:?} expected, of {w} by {h}", part_of(part)));
+        return Some(format!(
+            "part {:?} sent, {want:?} expected, of {w} by {h}",
+            part_of(part)
+        ));
     }
     let checks = [
-        (header(part, "x-width") == header(whole, "x-width") && header(part, "x-height") == header(whole, "x-height"), "the page is told the whole frame's size"),
-        (header(part, "x-drawn-on") == header(whole, "x-drawn-on"), "the same processor drew it"),
+        (
+            header(part, "x-width") == header(whole, "x-width")
+                && header(part, "x-height") == header(whole, "x-height"),
+            "the page is told the whole frame's size",
+        ),
+        (
+            header(part, "x-drawn-on") == header(whole, "x-drawn-on"),
+            "the same processor drew it",
+        ),
     ];
     if let Some((_, what)) = checks.iter().find(|(ok, _)| !ok) {
         return Some(format!("{what}: no"));
     }
     let should = want.map_or_else(|| whole.body().clone(), |p| cut(whole.body(), w, p));
     if should != *part.body() {
-        let differ = should.iter().zip(part.body()).filter(|(a, b)| a != b).count();
-        return Some(format!("{} bytes sent, {} expected, {differ} differ", part.body().len(), should.len()));
+        let differ = should
+            .iter()
+            .zip(part.body())
+            .filter(|(a, b)| a != b)
+            .count();
+        return Some(format!(
+            "{} bytes sent, {} expected, {differ} differ",
+            part.body().len(),
+            should.len()
+        ));
     }
     None
 }
@@ -78,13 +104,20 @@ struct Shot {
 
 fn viewer_of(shot: &Shot) -> Mutex<Viewer> {
     match &shot.path {
-        Some(path) => Mutex::new(open(path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message))),
+        Some(path) => Mutex::new(
+            open(path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)),
+        ),
         None => Mutex::new(demo()),
     }
 }
 
 fn shots() -> Vec<Shot> {
-    let mut shots = vec![Shot { group: "reference shot", name: "the reference shot".into(), path: None, frames: vec![0, 100, 239] }];
+    let mut shots = vec![Shot {
+        group: "reference shot",
+        name: "the reference shot".into(),
+        path: None,
+        frames: vec![0, 100, 239],
+    }];
     // Adjustment layers and Light Wraps draw over the whole frame so far; motion blur, frame
     // blending and the card's own blurs are made before the picture is laid.
     for (group, folder) in [
@@ -99,7 +132,14 @@ fn shots() -> Vec<Shot> {
         let mut files: Vec<PathBuf> = std::fs::read_dir(repo(&format!("Fixtures/{folder}")))
             .expect("read a fixture folder")
             .map(|e| e.expect("a folder entry").path())
-            .filter(|p| p.extension().is_some_and(|x| x == "json") && !p.file_name().unwrap().to_string_lossy().starts_with("expected"))
+            .filter(|p| {
+                p.extension().is_some_and(|x| x == "json")
+                    && !p
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with("expected")
+            })
             .collect();
         files.sort();
         for path in files {
@@ -107,7 +147,12 @@ fn shots() -> Vec<Shot> {
                 continue;
             }
             let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-            shots.push(Shot { group, name, path: Some(path), frames: vec![0, 2] });
+            shots.push(Shot {
+                group,
+                name,
+                path: Some(path),
+                frames: vec![0, 2],
+            });
         }
     }
     shots
@@ -125,8 +170,11 @@ fn b158_part_on_screen_is_the_same_pixels_as_the_whole_frame() {
     // Per group and processor: parts checked, parts passed, and the first failure.
     let mut groups: Vec<(String, &str, usize, usize, String, usize)> = Vec::new();
     let mut rows = String::new();
-    let processors: Vec<(&str, Option<&Mutex<Card>>)> =
-        if on_card { vec![("CPU", None), ("card", Some(&card))] } else { vec![("CPU", None)] };
+    let processors: Vec<(&str, Option<&Mutex<Card>>)> = if on_card {
+        vec![("CPU", None), ("card", Some(&card))]
+    } else {
+        vec![("CPU", None)]
+    };
     for (processor, card) in &processors {
         for shot in &shots {
             let key = format!("{} ({processor})", shot.group);
@@ -136,10 +184,26 @@ fn b158_part_on_screen_is_the_same_pixels_as_the_whole_frame() {
             for quality in [Full, Draft] {
                 for &n in &shot.frames {
                     // The whole frame, made by a viewer that has remembered nothing.
-                    let whole = serve_seen(&viewer_of(shot), &export, None, *card, Ask::Frame(n), Some(quality), None);
+                    let whole = serve_seen(
+                        &viewer_of(shot),
+                        &export,
+                        None,
+                        *card,
+                        Ask::Frame(n),
+                        Some(quality),
+                        None,
+                    );
                     let viewer = viewer_of(shot);
                     for (seen, words) in PARTS {
-                        let part = serve_seen(&viewer, &export, None, *card, Ask::Frame(n), Some(quality), Some(seen));
+                        let part = serve_seen(
+                            &viewer,
+                            &export,
+                            None,
+                            *card,
+                            Ask::Frame(n),
+                            Some(quality),
+                            Some(seen),
+                        );
                         let result = wrong(&whole, &part, seen);
                         let g = groups.iter_mut().find(|g| g.0 == key).unwrap();
                         // A part that grows to the whole frame is sent whole; counted apart.
@@ -151,7 +215,13 @@ fn b158_part_on_screen_is_the_same_pixels_as_the_whole_frame() {
                         g.2 += 1;
                         match &result {
                             None => g.3 += 1,
-                            Some(why) if g.4.is_empty() => g.4 = format!("{} frame {n}, {}, {words}: {why}", shot.name, quality.label()),
+                            Some(why) if g.4.is_empty() => {
+                                g.4 = format!(
+                                    "{} frame {n}, {}, {words}: {why}",
+                                    shot.name,
+                                    quality.label()
+                                )
+                            }
                             Some(_) => {}
                         }
                         if shot.path.is_none() {
@@ -159,7 +229,10 @@ fn b158_part_on_screen_is_the_same_pixels_as_the_whole_frame() {
                                 "| {processor} | frame {n}, {} | {words} | {} | {} |\n",
                                 quality.label(),
                                 header(&part, "x-part"),
-                                match &result { None => "PASS".to_string(), Some(why) => format!("FAIL: {why}") },
+                                match &result {
+                                    None => "PASS".to_string(),
+                                    Some(why) => format!("FAIL: {why}"),
+                                },
                             ));
                         }
                     }
@@ -172,23 +245,120 @@ fn b158_part_on_screen_is_the_same_pixels_as_the_whole_frame() {
     let mut memory: Vec<(&str, String, String)> = Vec::new();
     let viewer = Mutex::new(demo());
     let seen = Some(PARTS[4].0);
-    let first_part = serve_seen(&viewer, &export, None, None, Ask::Frame(100), Some(Full), seen);
-    let whole = serve_seen(&viewer, &export, None, None, Ask::Frame(100), Some(Full), None);
-    memory.push(("after only a part of frame 100 was made, the whole frame is made, not sent from memory", "0".into(), header(&whole, "x-cached")));
-    let again = serve_seen(&viewer, &export, None, None, Ask::Frame(100), Some(Full), seen);
-    memory.push(("with the whole frame remembered, a part of it is cut from memory", "1".into(), header(&again, "x-cached")));
-    memory.push(("and is the same pixels as the part made", "identical".into(), if again.body() == first_part.body() && part_of(&again).is_some() { "identical".into() } else { "different".into() }));
-    let everything = serve_seen(&viewer, &export, None, None, Ask::Frame(100), Some(Full), Some("0,0,1,1"));
-    memory.push(("all of the picture on screen is the whole frame, with no part header", "none".into(), if header(&everything, "x-part").is_empty() { "none".into() } else { header(&everything, "x-part") }));
-    memory.push(("and is byte for byte the whole frame", "identical".into(), if everything.body() == whole.body() { "identical".into() } else { "different".into() }));
+    let first_part = serve_seen(
+        &viewer,
+        &export,
+        None,
+        None,
+        Ask::Frame(100),
+        Some(Full),
+        seen,
+    );
+    let whole = serve_seen(
+        &viewer,
+        &export,
+        None,
+        None,
+        Ask::Frame(100),
+        Some(Full),
+        None,
+    );
+    memory.push((
+        "after only a part of frame 100 was made, the whole frame is made, not sent from memory",
+        "0".into(),
+        header(&whole, "x-cached"),
+    ));
+    let again = serve_seen(
+        &viewer,
+        &export,
+        None,
+        None,
+        Ask::Frame(100),
+        Some(Full),
+        seen,
+    );
+    memory.push((
+        "with the whole frame remembered, a part of it is cut from memory",
+        "1".into(),
+        header(&again, "x-cached"),
+    ));
+    memory.push((
+        "and is the same pixels as the part made",
+        "identical".into(),
+        if again.body() == first_part.body() && part_of(&again).is_some() {
+            "identical".into()
+        } else {
+            "different".into()
+        },
+    ));
+    let everything = serve_seen(
+        &viewer,
+        &export,
+        None,
+        None,
+        Ask::Frame(100),
+        Some(Full),
+        Some("0,0,1,1"),
+    );
+    memory.push((
+        "all of the picture on screen is the whole frame, with no part header",
+        "none".into(),
+        if header(&everything, "x-part").is_empty() {
+            "none".into()
+        } else {
+            header(&everything, "x-part")
+        },
+    ));
+    memory.push((
+        "and is byte for byte the whole frame",
+        "identical".into(),
+        if everything.body() == whole.body() {
+            "identical".into()
+        } else {
+            "different".into()
+        },
+    ));
     let playing = serve_seen(&viewer, &export, None, None, Ask::Play(0), Some(Full), seen);
-    memory.push(("playback is sent whole, whatever is on screen", "none".into(), if header(&playing, "x-part").is_empty() { "none".into() } else { header(&playing, "x-part") }));
-    let unreadable = serve_seen(&viewer, &export, None, None, Ask::Frame(100), Some(Full), Some("left,top"));
-    memory.push(("an unreadable part is the whole frame, never a guess", "none".into(), if header(&unreadable, "x-part").is_empty() { "none".into() } else { header(&unreadable, "x-part") }));
-    memory.push(("exports never read a part: the export code does not name it", "does not".into(), if include_str!("../../../src/export.rs").contains("render_part") { "does".into() } else { "does not".into() }));
+    memory.push((
+        "playback is sent whole, whatever is on screen",
+        "none".into(),
+        if header(&playing, "x-part").is_empty() {
+            "none".into()
+        } else {
+            header(&playing, "x-part")
+        },
+    ));
+    let unreadable = serve_seen(
+        &viewer,
+        &export,
+        None,
+        None,
+        Ask::Frame(100),
+        Some(Full),
+        Some("left,top"),
+    );
+    memory.push((
+        "an unreadable part is the whole frame, never a guess",
+        "none".into(),
+        if header(&unreadable, "x-part").is_empty() {
+            "none".into()
+        } else {
+            header(&unreadable, "x-part")
+        },
+    ));
+    memory.push((
+        "exports never read a part: the export code does not name it",
+        "does not".into(),
+        if include_str!("../../../src/export.rs").contains("render_part") {
+            "does".into()
+        } else {
+            "does not".into()
+        },
+    ));
 
     let checks = groups.iter().map(|g| g.2).sum::<usize>() + memory.len();
-    let passed = groups.iter().map(|g| g.3).sum::<usize>() + memory.iter().filter(|(_, e, a)| e == a).count();
+    let passed = groups.iter().map(|g| g.3).sum::<usize>()
+        + memory.iter().filter(|(_, e, a)| e == a).count();
     let mut text = format!(
         "# B-158: only the part of the picture on screen\n\nWritten by `cargo test -p anime_compositor_app part_on_screen`. \
          Zoomed in, the page asks for the part of the picture it can show, as fractions of the picture across and down, \
@@ -200,11 +370,17 @@ fn b158_part_on_screen_is_the_same_pixels_as_the_whole_frame() {
         if on_card { card.lock().unwrap().about() } else { format!("none, card rows NOT RUN: {said_card}") },
     );
     for (group, _, checked, ok, first, whole) in &groups {
-        text.push_str(&format!("| {group} | {checked} | {whole} | {ok} of {checked} | {} |\n", if first.is_empty() { "none" } else { first }));
+        text.push_str(&format!(
+            "| {group} | {checked} | {whole} | {ok} of {checked} | {} |\n",
+            if first.is_empty() { "none" } else { first }
+        ));
     }
     text.push_str("\n## Memory, playback and export\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n");
     for (what, expected, actual) in &memory {
-        text.push_str(&format!("| {what} | {expected} | {actual} | {} |\n", if expected == actual { "PASS" } else { "FAIL" }));
+        text.push_str(&format!(
+            "| {what} | {expected} | {actual} | {} |\n",
+            if expected == actual { "PASS" } else { "FAIL" }
+        ));
     }
     text.push_str("\n## The reference shot, every part\n\n| Drawn on | Frame | Part | Pixels sent (x, y, across, down) | Result |\n|---|---|---|---|---|\n");
     text.push_str(&rows);
@@ -230,8 +406,10 @@ fn b158_part_timing() {
         Mutex::new(open(&path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)))
     };
     let reference = || Mutex::new(demo());
-    let shots: [(&str, &dyn Fn() -> Mutex<Viewer>); 2] =
-        [("reference shot", &reference), ("declared ten-layer fixture", &declared)];
+    let shots: [(&str, &dyn Fn() -> Mutex<Viewer>); 2] = [
+        ("reference shot", &reference),
+        ("declared ten-layer fixture", &declared),
+    ];
     let mut rows = String::new();
     for (processor, card) in [("CPU", None), ("card", Some(&card))] {
         if card.is_some() && !on_card {
@@ -244,11 +422,27 @@ fn b158_part_timing() {
                 for seen in [None, Some(PARTS[4].0)] {
                     let viewer = make();
                     // Warm: the cels read once, so the files are not what is timed.
-                    serve_seen(&viewer, &export, None, card, Ask::Frame(0), Some(quality), seen);
+                    serve_seen(
+                        &viewer,
+                        &export,
+                        None,
+                        card,
+                        Ask::Frame(0),
+                        Some(quality),
+                        seen,
+                    );
                     let mut ms: Vec<f64> = (1..49)
                         .map(|n| {
                             let at = Instant::now();
-                            let reply = serve_seen(&viewer, &export, None, card, Ask::Frame(n), Some(quality), seen);
+                            let reply = serve_seen(
+                                &viewer,
+                                &export,
+                                None,
+                                card,
+                                Ask::Frame(n),
+                                Some(quality),
+                                seen,
+                            );
                             assert_eq!(reply.status(), 200);
                             at.elapsed().as_secs_f64() * 1000.0
                         })
@@ -256,7 +450,12 @@ fn b158_part_timing() {
                     ms.sort_by(f64::total_cmp);
                     median.push(ms[ms.len() / 2]);
                 }
-                rows.push_str(&format!("| {shot} | {processor} | {} | {:.1} | {:.1} |\n", quality.label(), median[0], median[1]));
+                rows.push_str(&format!(
+                    "| {shot} | {processor} | {} | {:.1} | {:.1} |\n",
+                    quality.label(),
+                    median[0],
+                    median[1]
+                ));
             }
         }
     }

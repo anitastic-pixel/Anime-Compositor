@@ -192,7 +192,9 @@ impl Join {
         Join::NAMES[self as usize]
     }
     pub fn named(name: &str) -> Option<Join> {
-        [Join::Miter, Join::Round, Join::Bevel].into_iter().find(|j| j.as_str() == name)
+        [Join::Miter, Join::Round, Join::Bevel]
+            .into_iter()
+            .find(|j| j.as_str() == name)
     }
 }
 
@@ -202,7 +204,9 @@ impl Cap {
         Cap::NAMES[self as usize]
     }
     pub fn named(name: &str) -> Option<Cap> {
-        [Cap::Butt, Cap::Round, Cap::Square].into_iter().find(|c| c.as_str() == name)
+        [Cap::Butt, Cap::Round, Cap::Square]
+            .into_iter()
+            .find(|c| c.as_str() == name)
     }
 }
 
@@ -221,12 +225,20 @@ impl Trim {
     /// The whole path, no offset: what the window puts on a shape when trimming is turned on.
     pub fn whole() -> Trim {
         let n = |v| Property::constant(Value::Scalar(v));
-        Trim { start: n(0.0), end: n(100.0), offset: n(0.0) }
+        Trim {
+            start: n(0.0),
+            end: n(100.0),
+            offset: n(0.0),
+        }
     }
 
     fn at(&self, frame: i32) -> Trim {
         let now = |p: &Property| Property::constant(p.value_at(frame));
-        Trim { start: now(&self.start), end: now(&self.end), offset: now(&self.offset) }
+        Trim {
+            start: now(&self.start),
+            end: now(&self.end),
+            offset: now(&self.offset),
+        }
     }
 
     /// What is outside D-169's ranges, as a sentence, for [`Shape::problem`].
@@ -246,7 +258,11 @@ impl Trim {
             if p.expression().is_some() {
                 return Some(format!("no expression on a trim {name}"));
             }
-            if let Some(v) = values.into_iter().flatten().find(|v| ranged && !(0.0..=100.0).contains(v)) {
+            if let Some(v) = values
+                .into_iter()
+                .flatten()
+                .find(|v| ranged && !(0.0..=100.0).contains(v))
+            {
                 return Some(format!("a trim {name} from 0 to 100, not {v}"));
             }
         }
@@ -262,7 +278,10 @@ impl Trim {
         let (s, e) = (n(&self.start) / 100.0, n(&self.end) / 100.0);
         let (s, e) = (s.min(e), s.max(e));
         let pieces = path_segments(path, closed);
-        let runs: Vec<f64> = pieces.iter().map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1)).collect();
+        let runs: Vec<f64> = pieces
+            .iter()
+            .map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1))
+            .collect();
         let mut along = vec![0.0];
         for r in &runs {
             along.push(along[along.len() - 1] + r);
@@ -277,7 +296,11 @@ impl Trim {
         let place = |d: f64| {
             let i = (0..runs.len())
                 .find(|&i| runs[i] > 0.0 && along[i + 1] >= d)
-                .unwrap_or_else(|| runs.iter().rposition(|&r| r > 0.0).expect("the path has length"));
+                .unwrap_or_else(|| {
+                    runs.iter()
+                        .rposition(|&r| r > 0.0)
+                        .expect("the path has length")
+                });
             let f = (d - along[i]) / runs[i];
             let (p, q) = pieces[i];
             (p.0 + (q.0 - p.0) * f, p.1 + (q.1 - p.1) * f)
@@ -285,12 +308,20 @@ impl Trim {
         let mut a = s + n(&self.offset) / 360.0;
         a -= a.floor();
         let b = a + (e - s);
-        let spans = if b <= 1.0 { vec![(a, b)] } else { vec![(a, 1.0), (0.0, b - 1.0)] };
+        let spans = if b <= 1.0 {
+            vec![(a, b)]
+        } else {
+            vec![(a, 1.0), (0.0, b - 1.0)]
+        };
         let mut out = Vec::new();
         for (u0, u1) in spans {
             let (d0, d1) = (u0 * total, u1 * total);
             let mut line = vec![place(d0)];
-            line.extend((1..pieces.len()).filter(|&j| d0 < along[j] && along[j] < d1).map(|j| pieces[j].0));
+            line.extend(
+                (1..pieces.len())
+                    .filter(|&j| d0 < along[j] && along[j] < d1)
+                    .map(|j| pieces[j].0),
+            );
             line.push(place(d1));
             out.push(line);
         }
@@ -454,7 +485,10 @@ impl Shape {
         let mut shape = self.clone();
         if let Some(values) = shape.style_mut(name) {
             return Some(self.tracks.get(name).cloned().unwrap_or_else(|| {
-                values.iter().map(|v| Property::constant(Value::Scalar(*v))).collect()
+                values
+                    .iter()
+                    .map(|v| Property::constant(Value::Scalar(*v)))
+                    .collect()
             }));
         }
         shape.property_mut(name).map(|p| vec![p.clone()])
@@ -564,7 +598,10 @@ impl Shape {
         }
         if let Some(s) = &self.stroke {
             if !(1.0..=100.0).contains(&s.miter_limit) {
-                return Some(format!("a mitre limit from 1 to 100, not {}", s.miter_limit));
+                return Some(format!(
+                    "a mitre limit from 1 to 100, not {}",
+                    s.miter_limit
+                ));
             }
         }
         // D-77's rule, which D-78 adopts unchanged: a key holds the whole outline, so it holds as
@@ -602,9 +639,8 @@ impl Shape {
             }
         }
         let width = self.stroke.as_ref()?.width_px;
-        (!(width > 0.0 && width <= MAX_STROKE_WIDTH)).then(|| {
-            format!("a stroke width above 0 and at most {MAX_STROKE_WIDTH}, not {width}")
-        })
+        (!(width > 0.0 && width <= MAX_STROKE_WIDTH))
+            .then(|| format!("a stroke width above 0 and at most {MAX_STROKE_WIDTH}, not {width}"))
     }
 }
 
@@ -768,16 +804,21 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
             );
         }
         if let Some(stroke) = &shape.stroke {
-            let lines: Vec<(Vec<(f64, f64)>, bool)> =
-                match shape.trim.as_ref().and_then(|t| t.lines(&outline, shape.closed)) {
-                    Some(stretch) => stretch.into_iter().map(|l| (l, false)).collect(),
-                    None => vec![(outline.clone(), shape.closed)],
-                };
+            let lines: Vec<(Vec<(f64, f64)>, bool)> = match shape
+                .trim
+                .as_ref()
+                .and_then(|t| t.lines(&outline, shape.closed))
+            {
+                Some(stretch) => stretch.into_iter().map(|l| (l, false)).collect(),
+                None => vec![(outline.clone(), shape.closed)],
+            };
             let r = stroke.width_px / 2.0;
             let f = if stroke.join == Join::Round && stroke.cap == Cap::Round {
                 // D-78's coverage, unchanged.
-                let segments: Vec<Segment> =
-                    lines.iter().flat_map(|(l, closed)| path_segments(l, *closed)).collect();
+                let segments: Vec<Segment> = lines
+                    .iter()
+                    .flat_map(|(l, closed)| path_segments(l, *closed))
+                    .collect();
                 stroke_field(&segments, width, height, r)
             } else {
                 styled_field(&stroke_parts(&lines, r, stroke), width, height)
@@ -887,10 +928,23 @@ struct Part {
 }
 
 enum Region {
-    Disc { c: (f64, f64), r: f64 },
-    Square { c: (f64, f64), r: f64 },
+    Disc {
+        c: (f64, f64),
+        r: f64,
+    },
+    Square {
+        c: (f64, f64),
+        r: f64,
+    },
     /// A piece's band: from `a` along (dx, dy), `low <= p.d <= high` and `|p x d| <= reach`.
-    Body { a: (f64, f64), dx: f64, dy: f64, low: f64, high: f64, reach: f64 },
+    Body {
+        a: (f64, f64),
+        dx: f64,
+        dy: f64,
+        low: f64,
+        high: f64,
+        reach: f64,
+    },
     /// A convex polygon, either way round.
     Corner(Vec<(f64, f64)>),
 }
@@ -900,10 +954,21 @@ impl Part {
     fn new(region: Region, points: &[(f64, f64)], pad: f64) -> Part {
         let pad = pad + 1e-6;
         let (left, top, right, bottom) = points.iter().fold(
-            (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
+            (
+                f64::INFINITY,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+            ),
             |(l, t, r, b), p| (l.min(p.0), t.min(p.1), r.max(p.0), b.max(p.1)),
         );
-        Part { left: left - pad, top: top - pad, right: right + pad, bottom: bottom + pad, region }
+        Part {
+            left: left - pad,
+            top: top - pad,
+            right: right + pad,
+            bottom: bottom + pad,
+            region,
+        }
     }
 
     fn round(c: (f64, f64), r: f64) -> Part {
@@ -920,7 +985,14 @@ impl Part {
         match &self.region {
             Region::Disc { c, r } => (x - c.0) * (x - c.0) + (y - c.1) * (y - c.1) <= r * r,
             Region::Square { c, r } => (x - c.0).abs() <= *r && (y - c.1).abs() <= *r,
-            Region::Body { a, dx, dy, low, high, reach } => {
+            Region::Body {
+                a,
+                dx,
+                dy,
+                low,
+                high,
+                reach,
+            } => {
                 let (px, py) = (x - a.0, y - a.1);
                 let dot = px * dx + py * dy;
                 let cross = px * dy - py * dx;
@@ -945,7 +1017,14 @@ fn body(a: (f64, f64), b: (f64, f64), r: f64, before: f64, after: f64) -> Part {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let run2 = dx * dx + dy * dy;
     let run = run2.sqrt();
-    let region = Region::Body { a, dx, dy, low: -before * run, high: run2 + after * run, reach: r * run };
+    let region = Region::Body {
+        a,
+        dx,
+        dy,
+        low: -before * run,
+        high: run2 + after * run,
+        reach: r * run,
+    };
     Part::new(region, &[a, b], r + before + after)
 }
 
@@ -985,8 +1064,11 @@ fn stroke_parts(lines: &[(Vec<(f64, f64)>, bool)], r: f64, stroke: &Stroke) -> V
         if *closed {
             points.push(first);
         }
-        let segs: Vec<Segment> =
-            points.windows(2).map(|w| (w[0], w[1])).filter(|(p, q)| p != q).collect();
+        let segs: Vec<Segment> = points
+            .windows(2)
+            .map(|w| (w[0], w[1]))
+            .filter(|(p, q)| p != q)
+            .collect();
         if segs.is_empty() {
             match stroke.cap {
                 Cap::Round => parts.push(Part::round(first, r)),
@@ -1038,7 +1120,10 @@ fn styled_field(parts: &[Part], w: usize, h: usize) -> Vec<f32> {
                 for (xi, hit) in hits.iter_mut().enumerate() {
                     for i in 0..n {
                         let sx = xi as f64 + (i as f64 + 0.5) / n as f64;
-                        if band.iter().any(|p| p.left <= sx && sx <= p.right && p.covers(sx, sy)) {
+                        if band
+                            .iter()
+                            .any(|p| p.left <= sx && sx <= p.right && p.covers(sx, sy))
+                        {
                             *hit += 1;
                         }
                     }

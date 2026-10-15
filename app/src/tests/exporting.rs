@@ -266,8 +266,7 @@ fn what_the_window_exports_is_the_shot_it_had() {
     );
 
     write_artifact(&rows, &into.display().to_string());
-    let failed: Vec<&(String, String, String)> =
-        rows.iter().filter(|(_, e, a)| e != a).collect();
+    let failed: Vec<&(String, String, String)> = rows.iter().filter(|(_, e, a)| e != a).collect();
     assert!(
         failed.is_empty(),
         "{} of {} checks failed, see verification/B-10_export_table.md: {:#?}",

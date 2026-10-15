@@ -48,11 +48,10 @@ struct Shot {
 /// Blur and then a Gaussian Blur on the second, so the blur starts from a buffer that already
 /// grew; and a slight one on the third.
 fn blurred_reference() -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let blur = |id: &str, sigma: f64| {
-        json!({"instance_id": id, "type_id": "core.gaussian_blur", "enabled": true, "parameters": {"sigma_px": sigma}})
-    };
+    let blur = |id: &str, sigma: f64| json!({"instance_id": id, "type_id": "core.gaussian_blur", "enabled": true, "parameters": {"sigma_px": sigma}});
     let layers = &mut j["compositions"][0]["layers"];
     layers[0]["effects"] = json!([blur("b50-a", 10.0)]);
     layers[1]["effects"] = json!([
@@ -60,7 +59,8 @@ fn blurred_reference() -> Shot {
         blur("b50-c", 4.0)
     ]);
     layers[2]["effects"] = json!([blur("b50-d", 1.5)]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the blurred reference shot: {}", d.message));
+    let loaded = persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the blurred reference shot: {}", d.message));
     Shot {
         name: "the reference shot with three Gaussian Blurs".into(),
         project: loaded.document.project().clone(),
@@ -79,11 +79,21 @@ fn fixtures() -> Vec<Shot> {
         .into_iter()
         .map(|path| {
             let (folder, name) = path.split_once('/').expect("folder/name");
-            let loaded = persist::load(&repo(&format!("Fixtures/{path}.json"))).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+            let loaded = persist::load(&repo(&format!("Fixtures/{path}.json")))
+                .unwrap_or_else(|d| panic!("{name}: {}", d.message));
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
-            let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
-            Shot { name: name.into(), project, root: repo(&format!("Fixtures/{folder}")), comp: id, frames }
+            let (id, frames) = (
+                comp.id.clone(),
+                (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+            );
+            Shot {
+                name: name.into(),
+                project,
+                root: repo(&format!("Fixtures/{folder}")),
+                comp: id,
+                frames,
+            }
         })
         .collect()
 }
@@ -93,7 +103,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -103,12 +118,24 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// How many layers of the card's plan have a Gaussian Blur left for the card.
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> usize {
     let mut log = FrameLog::new(3);
-    compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer())
-        .expect("plan the frame")
-        .layers
-        .iter()
-        .filter(|l| l.on_card.iter().any(|c| matches!(c, anime_compositor::render::OnCard::Gaussian(_))))
-        .count()
+    compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame")
+    .layers
+    .iter()
+    .filter(|l| {
+        l.on_card
+            .iter()
+            .any(|c| matches!(c, anime_compositor::render::OnCard::Gaussian(_)))
+    })
+    .count()
 }
 
 #[test]
@@ -131,8 +158,19 @@ fn b50_gpu_gaussian() {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -143,8 +181,20 @@ fn b50_gpu_gaussian() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let n = left(shot, frame, quality);
@@ -186,8 +236,21 @@ fn b50_gpu_gaussian() {
             PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
         };
         let plan = |card: bool, log: &mut FrameLog| {
-            let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-            let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
+            let make = if card {
+                compose::plan_frame_for_card
+            } else {
+                compose::plan_frame_at
+            };
+            let p = make(
+                &reference.project,
+                &reference.comp,
+                100,
+                &reference.root,
+                quality,
+                log,
+                &mut CelCache::viewer(),
+            )
+            .expect("plan");
             preview::scale_plan(p, quality)
         };
         let a = render::render(&plan(false, &mut log), tile);
@@ -222,7 +285,8 @@ fn b50_gpu_gaussian() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let s = format!(
@@ -286,9 +350,35 @@ fn b50_gpu_gaussian_timing() {
                     let mut log = FrameLog::new(3);
                     let t = Instant::now();
                     if on_card {
-                        drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, tile, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                        drop(
+                            preview::preview_frame_srgb8(
+                                &shot.project,
+                                &shot.comp,
+                                frame,
+                                &shot.root,
+                                quality,
+                                tile,
+                                &mut log,
+                                &mut cache,
+                                &mut gpu,
+                            )
+                            .expect("GPU frame"),
+                        );
                     } else {
-                        drop(preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, tile, &mut log, &mut cache).expect("CPU frame").to_srgb8_straight());
+                        drop(
+                            preview::preview_frame_cached(
+                                &shot.project,
+                                &shot.comp,
+                                frame,
+                                &shot.root,
+                                quality,
+                                tile,
+                                &mut log,
+                                &mut cache,
+                            )
+                            .expect("CPU frame")
+                            .to_srgb8_straight(),
+                        );
                     }
                     times.push(t.elapsed().as_secs_f64() * 1000.0);
                 }
@@ -297,5 +387,6 @@ fn b50_gpu_gaussian_timing() {
         }
         let _ = writeln!(s, "{row}");
     }
-    fs::write(repo("verification/B-50_gpu_gaussian_timing_table.md"), s).expect("write the timing table");
+    fs::write(repo("verification/B-50_gpu_gaussian_timing_table.md"), s)
+        .expect("write the timing table");
 }

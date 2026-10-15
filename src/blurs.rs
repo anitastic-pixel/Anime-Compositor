@@ -52,7 +52,12 @@ pub(crate) struct Weights {
 impl Weights {
     /// The furthest column from the line's own that weighs anything.
     pub fn reach(&self) -> usize {
-        self.ends.iter().map(|e| e.0.unsigned_abs()).max().unwrap_or(0).max(self.inner)
+        self.ends
+            .iter()
+            .map(|e| e.0.unsigned_abs())
+            .max()
+            .unwrap_or(0)
+            .max(self.inner)
     }
 }
 
@@ -70,7 +75,11 @@ pub(crate) struct LineFrame {
 
 pub(crate) fn line_frame(u: (f64, f64), width: usize, height: usize, grow: usize) -> LineFrame {
     let down = u.0.abs() < u.1.abs();
-    let (u, w, h) = if down { ((u.1, u.0), height, width) } else { (u, width, height) };
+    let (u, w, h) = if down {
+        ((u.1, u.0), height, width)
+    } else {
+        (u, width, height)
+    };
     let s = u.1 / u.0;
     let g = grow as isize;
     let (ow, oh) = (w + 2 * grow, h + 2 * grow);
@@ -85,7 +94,14 @@ pub(crate) fn line_frame(u: (f64, f64), width: usize, height: usize, grow: usize
     ];
     let k0 = corners.iter().map(|&(x, y)| line_of(x, y)).min().unwrap();
     let k1 = corners.iter().map(|&(x, y)| line_of(x, y)).max().unwrap() + 1;
-    LineFrame { down, s, ow, oh, k0, k1 }
+    LineFrame {
+        down,
+        s,
+        ow,
+        oh,
+        k0,
+        k1,
+    }
 }
 
 /// D-98: `source` read along lines of step `u`, one pixel apart, each point of a line the
@@ -102,7 +118,14 @@ pub(crate) fn by_lines(
     repeat: bool,
 ) -> WorkingBuffer {
     // Below, x and y are across and down in the exchanged picture when `down`.
-    let LineFrame { down, s, ow, oh, k0, k1 } = line_frame(u, source.width(), source.height(), grow);
+    let LineFrame {
+        down,
+        s,
+        ow,
+        oh,
+        k0,
+        k1,
+    } = line_frame(u, source.width(), source.height(), grow);
     let g = grow as isize;
     let reach = wt.reach();
     let span = ow + 2 * reach;
@@ -153,7 +176,11 @@ pub(crate) fn by_lines(
                 let x = t as isize - reach as isize - g;
                 let y = k as f64 + 0.5 + x as f64 * s;
                 v[t] = if repeat {
-                    let (px, py) = if down { (y, x as f64 + 0.5) } else { (x as f64 + 0.5, y) };
+                    let (px, py) = if down {
+                        (y, x as f64 + 0.5)
+                    } else {
+                        (x as f64 + 0.5, y)
+                    };
                     sample_bilinear(source, px.max(0.5).min(sw - 0.5), py.max(0.5).min(sh - 0.5))
                 } else if !shows(x, y) {
                     [0.0; 4]
@@ -240,11 +267,20 @@ fn tent_integral(a: f64, b: f64) -> f64 {
 /// changes nothing. D-98: each line, drawn straight between its column samples, is averaged
 /// over `2H = |u_x| * (length + length / ceil(length))` columns, mostly across. D-109: with
 /// `repeat`, the edge pixels carry on past the edge and nothing grows.
-pub(crate) fn directional_blur(source: &mut WorkingBuffer, direction: f64, length: f64, repeat: bool) -> usize {
+pub(crate) fn directional_blur(
+    source: &mut WorkingBuffer,
+    direction: f64,
+    length: f64,
+    repeat: bool,
+) -> usize {
     if length == 0.0 {
         return 0;
     }
-    let grow = if repeat { 0 } else { (length / 2.0).ceil() as usize };
+    let grow = if repeat {
+        0
+    } else {
+        (length / 2.0).ceil() as usize
+    };
     let u = along(direction);
     *source = by_lines(source, u, &directional_weights(u, length), grow, repeat);
     grow
@@ -404,7 +440,8 @@ pub(crate) fn radial_blur(
                 // ends are and a spin's arc when its whole circle is, each with a pixel to spare for
                 // the rounding of the samples between.
                 let (fw, fh) = (w as f64, h as f64);
-                let inside = |x: f64, y: f64| x >= 1.5 && x <= fw - 1.5 && y >= 1.5 && y <= fh - 1.5;
+                let inside =
+                    |x: f64, y: f64| x >= 1.5 && x <= fw - 1.5 && y >= 1.5 && y <= fh - 1.5;
                 let (s0, s1) = (turns[n][0].0, turns[n][n - 1].0);
                 let held = repeat
                     && if spin {
@@ -455,9 +492,15 @@ pub(crate) fn radial_blur(
                         match weigh {
                             Weigh::Even => sum[i] += v,
                             Weigh::Fading => sum[i] += f * v,
-                            Weigh::Brightest | Weigh::Darkest if k == 0 => (first[i], sum[i]) = (v, v),
-                            Weigh::Brightest => sum[i] = sum[i].max(first[i] + f / n as f64 * (v - first[i])),
-                            Weigh::Darkest => sum[i] = sum[i].min(first[i] + f / n as f64 * (v - first[i])),
+                            Weigh::Brightest | Weigh::Darkest if k == 0 => {
+                                (first[i], sum[i]) = (v, v)
+                            }
+                            Weigh::Brightest => {
+                                sum[i] = sum[i].max(first[i] + f / n as f64 * (v - first[i]))
+                            }
+                            Weigh::Darkest => {
+                                sum[i] = sum[i].min(first[i] + f / n as f64 * (v - first[i]))
+                            }
                         }
                     }
                     weight += f;
@@ -480,7 +523,10 @@ pub(crate) fn radial_blur(
 /// ponytail: the padded zeros are still taps; a blur per axis at its own length is the upgrade
 /// if a very uneven cross is slow.
 pub(crate) fn cross_taps(rx: f64, ry: f64) -> [Vec<f32>; 2] {
-    let (a, b) = (crate::effects::box_weights(rx, 1.0), crate::effects::box_weights(ry, 1.0));
+    let (a, b) = (
+        crate::effects::box_weights(rx, 1.0),
+        crate::effects::box_weights(ry, 1.0),
+    );
     let n = a.len().max(b.len());
     let pad = |t: Vec<f32>| {
         let mut v = vec![0.0; (n - t.len()) / 2];
@@ -498,7 +544,10 @@ pub(crate) fn cross_mix(mode: usize, s: [f32; 4], d: [f32; 4]) -> [f32; 4] {
     if mode == 0 {
         return [0, 1, 2, 3].map(|i| (s[i] + d[i]) / 2.0);
     }
-    let (cs, cd) = (crate::composite::unpremultiply(s), crate::composite::unpremultiply(d));
+    let (cs, cd) = (
+        crate::composite::unpremultiply(s),
+        crate::composite::unpremultiply(d),
+    );
     let (a_s, a_d) = (s[3], d[3]);
     let mut out = [0.0f32; 4];
     for c in 0..3 {
@@ -519,7 +568,13 @@ pub(crate) fn cross_mix(mode: usize, s: [f32; 4], d: [f32; 4]) -> [f32; 4] {
 /// together by `mode` (its place in [`crate::effects::CROSS_MODES`]). With `repeat` the edge
 /// pixels are held and the layer keeps its size; otherwise it grows, by the returned pixels
 /// each side.
-pub(crate) fn cross_blur(source: &mut WorkingBuffer, rx: f64, ry: f64, mode: usize, repeat: bool) -> usize {
+pub(crate) fn cross_blur(
+    source: &mut WorkingBuffer,
+    rx: f64,
+    ry: f64,
+    mode: usize,
+    repeat: bool,
+) -> usize {
     let [across, down_taps] = cross_taps(rx, ry);
     let mut down = source.clone();
     let grow = if repeat {
@@ -534,6 +589,12 @@ pub(crate) fn cross_blur(source: &mut WorkingBuffer, rx: f64, ry: f64, mode: usi
         .data_mut()
         .par_chunks_exact_mut(4)
         .zip(down.data().par_chunks_exact(4))
-        .for_each(|(s, d)| s.copy_from_slice(&cross_mix(mode, [s[0], s[1], s[2], s[3]], [d[0], d[1], d[2], d[3]])));
+        .for_each(|(s, d)| {
+            s.copy_from_slice(&cross_mix(
+                mode,
+                [s[0], s[1], s[2], s[3]],
+                [d[0], d[1], d[2], d[3]],
+            ))
+        });
     grow
 }

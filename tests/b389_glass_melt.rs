@@ -34,9 +34,24 @@ fn is_ours(c: &render::OnCard) -> bool {
 }
 
 /// The Glass Melts the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_ours(c.unmixed())).count()
         // An adjustment layer's run is made from its stack when the card draws it.
         + plan.layers
@@ -63,7 +78,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=33 {
         let file = format!("fx_gmelt_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -89,9 +108,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -120,7 +148,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// showing `2_reveal.png` beneath it, drawn on the processor, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_street.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-reveal");
@@ -142,17 +173,37 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     reveal["enabled"] = J::from(false);
     reveal["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().insert(0, reveal);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("reveal"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("reveal"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Set the `holder` layer's first effect (the fixtures' own names).
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's first effect, linearly.
@@ -162,7 +213,14 @@ fn keys_holder(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
@@ -189,14 +247,19 @@ fn b389_glass_melt() {
     t.fixtures_numbered("expected_glass_melt.json", 1..=33);
 
     t.heading("Files whose layers read each other (document 25)");
-    let expected: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/glass_melt/expected_glass_melt.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/glass_melt/expected_glass_melt.json")).unwrap(),
+    )
+    .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let says = case["says"].as_str().unwrap();
         let id = case["refused"].as_str().unwrap();
         let got = persist::load(&t.root.join(file)).err();
         t.row(
             &format!("{file}: {says}"),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
@@ -208,7 +271,11 @@ fn b389_glass_melt() {
     t.row(
         "fx_gmelt_008.json is saved with its five settings, the layers as written",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 5 && saved["layer_to_reveal"] == "paint" && saved["gradient_layer"] == "dome" && saved["completion"] == 50.0 && saved["displacement_amount"] == 6.0,
+        saved.as_object().unwrap().len() == 5
+            && saved["layer_to_reveal"] == "paint"
+            && saved["gradient_layer"] == "dome"
+            && saved["completion"] == 50.0
+            && saved["displacement_amount"] == 6.0,
     );
     for (file, want) in [
         ("fx_gmelt_025.json", "completion"),
@@ -221,11 +288,24 @@ fn b389_glass_melt() {
         ("fx_gmelt_032.json", "gradient layer"),
     ] {
         let why = holder_effect(&t, file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
-    let whole = r#""layer_to_reveal": "", "gradient_layer": "", "softness": 10, "displacement_amount": 50"#;
-    t.shape_refused("fx_gmelt_001.json", "a Glass Melt whose completion is a word", &format!(r#"{{{whole}, "completion": "half"}}"#));
-    t.shape_refused("fx_gmelt_001.json", "a Glass Melt without its completion", &format!(r#"{{{whole}}}"#));
+    let whole =
+        r#""layer_to_reveal": "", "gradient_layer": "", "softness": 10, "displacement_amount": 50"#;
+    t.shape_refused(
+        "fx_gmelt_001.json",
+        "a Glass Melt whose completion is a word",
+        &format!(r#"{{{whole}, "completion": "half"}}"#),
+    );
+    t.shape_refused(
+        "fx_gmelt_001.json",
+        "a Glass Melt without its completion",
+        &format!(r#"{{{whole}}}"#),
+    );
     t.shape_refused(
         "fx_gmelt_001.json",
         "a Glass Melt without its gradient layer",
@@ -239,28 +319,61 @@ fn b389_glass_melt() {
         f(&mut e);
         e
     };
-    let over = with(&|e| if let Effect::GlassMelt { completion, .. } = e { *completion = 101.0 });
-    let soft = with(&|e| if let Effect::GlassMelt { softness, .. } = e { *softness = 120.0 });
-    let melted = with(&|e| if let Effect::GlassMelt { completion, layer_to_reveal, .. } = e {
-        *completion = 70.0;
-        *layer_to_reveal = J::from("");
+    let over = with(&|e| {
+        if let Effect::GlassMelt { completion, .. } = e {
+            *completion = 101.0
+        }
+    });
+    let soft = with(&|e| {
+        if let Effect::GlassMelt { softness, .. } = e {
+            *softness = 120.0
+        }
+    });
+    let melted = with(&|e| {
+        if let Effect::GlassMelt {
+            completion,
+            layer_to_reveal,
+            ..
+        } = e
+        {
+            *completion = 70.0;
+            *layer_to_reveal = J::from("");
+        }
     });
     // Draft halves the softness and the displacement, as every other distance; the completion
     // is not a distance.
-    let mut draft = with(&|e| if let Effect::GlassMelt { softness, displacement_amount, .. } = e {
-        (*softness, *displacement_amount) = (8.0, -40.0);
+    let mut draft = with(&|e| {
+        if let Effect::GlassMelt {
+            softness,
+            displacement_amount,
+            ..
+        } = e
+        {
+            (*softness, *displacement_amount) = (8.0, -40.0);
+        }
     });
     draft.scale_distances(|d| d * 0.5);
-    let halved = draft == with(&|e| if let Effect::GlassMelt { softness, displacement_amount, .. } = e {
-        (*softness, *displacement_amount) = (4.0, -20.0);
-    });
+    let halved = draft
+        == with(&|e| {
+            if let Effect::GlassMelt {
+                softness,
+                displacement_amount,
+                ..
+            } = e
+            {
+                (*softness, *displacement_amount) = (4.0, -20.0);
+            }
+        });
     refused(
         &mut t,
         &mut document,
         vec![
             ("completion 101", set_holder(over)),
             ("softness 120", set_holder(soft)),
-            ("displacement keyed to 600", keys_holder("displacement_amount", &[(0, 0.0), (4, 600.0)])),
+            (
+                "displacement keyed to 600",
+                keys_holder("displacement_amount", &[(0, 0.0), (4, 600.0)]),
+            ),
         ],
     );
     taken(
@@ -269,7 +382,10 @@ fn b389_glass_melt() {
         "fx_gmelt_008.json",
         vec![
             ("completion 70 revealing nothing", set_holder(melted)),
-            ("completion keyed from 0 to 100", keys_holder("completion", &[(0, 0.0), (4, 100.0)])),
+            (
+                "completion keyed from 0 to 100",
+                keys_holder("completion", &[(0, 0.0), (4, 100.0)]),
+            ),
         ],
     );
     t.row(
@@ -315,25 +431,46 @@ fn b389_glass_melt() {
     let dir = repo("verification/D-509 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     // The street, and to reveal, the street in its opposite colours.
     let street = town();
-    let opposite: Vec<u8> = street.chunks_exact(4).flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2], p[3]]).collect();
+    let opposite: Vec<u8> = street
+        .chunks_exact(4)
+        .flat_map(|p| [255 - p[0], 255 - p[1], 255 - p[2], p[3]])
+        .collect();
     write("1_street.png", &street);
     write("2_reveal.png", &opposite);
 
-    let (half, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "layer_to_reveal": "reveal"}))]));
+    let (half, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &json!({"completion": 50, "layer_to_reveal": "reveal"})
+        )]),
+    );
     write("3_half_melted.png", &half);
     let px = |v: &[u8], i: usize| v[i * 4..i * 4 + 4].to_vec();
-    let kept = (0..w * h).filter(|&i| px(&half, i) == px(&street, i)).count();
-    let shown = (0..w * h).filter(|&i| px(&half, i) == px(&opposite, i) && px(&street, i) != px(&opposite, i)).count();
+    let kept = (0..w * h)
+        .filter(|&i| px(&half, i) == px(&street, i))
+        .count();
+    let shown = (0..w * h)
+        .filter(|&i| px(&half, i) == px(&opposite, i) && px(&street, i) != px(&opposite, i))
+        .count();
     t.row(
         "3_half_melted.png, completion 50 revealing the street in its opposite colours: the dark half of the street gone to the opposite colours, the light half kept as it was, bent glassy edges between; draws cleanly",
         &format!("{said:?}, {kept} pixels kept, {shown} revealed, of {}", w * h),
         said.is_empty() && kept > w * h / 10 && shown > w * h / 10,
     );
 
-    let (bent, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "layer_to_reveal": "reveal", "softness": 30, "displacement_amount": 200}))]));
+    let (bent, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &json!({"completion": 50, "layer_to_reveal": "reveal", "softness": 30, "displacement_amount": 200})
+        )]),
+    );
     write("4_strong_bend.png", &bent);
     t.row(
         "4_strong_bend.png, the same with softness 30 and displacement 200: wider, smoother melting edges that bend the street like thick glass; draws cleanly",
@@ -341,7 +478,13 @@ fn b389_glass_melt() {
         said.is_empty() && distance(&bent, &half).1 > 0,
     );
 
-    let (done, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 100, "layer_to_reveal": "reveal"}))]));
+    let (done, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &json!({"completion": 100, "layer_to_reveal": "reveal"})
+        )]),
+    );
     write("5_done.png", &done);
     t.row(
         "5_done.png, completion 100: the street gone entirely, the opposite colours exactly; draws cleanly",
@@ -349,7 +492,13 @@ fn b389_glass_melt() {
         said.is_empty() && done == opposite,
     );
 
-    let (gone, said) = picture(&dir, json!([fx("fx-0-0", &json!({"completion": 50, "layer_to_reveal": "gone"}))]));
+    let (gone, said) = picture(
+        &dir,
+        json!([fx(
+            "fx-0-0",
+            &json!({"completion": 50, "layer_to_reveal": "gone"})
+        )]),
+    );
     t.row(
         "a layer to reveal not in the composition: the street exactly as it was, with the warning",
         &format!("{said:?}, {} pixels changed", distance(&gone, &street).1),
@@ -362,40 +511,73 @@ fn b389_glass_melt() {
 /// The effect in `file` (on `holder`, or the adjustment layer in 022).
 fn holder_effect(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    let layer = d.project().composition(&Id::new(MAIN)).unwrap().layers_in_order().find(|l| l.effects.iter().any(|e| matches!(e.effect, Effect::GlassMelt { .. })));
-    layer.expect("a layer with a Glass Melt").effects[0].effect.clone()
+    let layer = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layers_in_order()
+        .find(|l| {
+            l.effects
+                .iter()
+                .any(|e| matches!(e.effect, Effect::GlassMelt { .. }))
+        });
+    layer.expect("a layer with a Glass Melt").effects[0]
+        .effect
+        .clone()
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&Id::new(MAIN)).unwrap()
+    )
 }
 
-fn refused(t: &mut Table, document: &mut anime_compositor::command::Document, commands: Vec<(&str, Command)>) {
+fn refused(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    commands: Vec<(&str, Command)>,
+) {
     let held = everything(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
 }
 
-fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file: &str, commands: Vec<(&str, Command)>) {
+fn taken(
+    t: &mut Table,
+    document: &mut anime_compositor::command::Document,
+    file: &str,
+    commands: Vec<(&str, Command)>,
+) {
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
@@ -423,22 +605,48 @@ fn b389_glass_melt_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Glass Melt, completion 50, revealing layer 4 (as added otherwise)", Some(json!({"completion": 50, "layer_to_reveal": "layer-4"}))),
-        ("Noise, then Glass Melt, completion 50, layer 4 as the gradient, softness 30", Some(json!({"completion": 50, "gradient_layer": "layer-4", "softness": 30}))),
+        (
+            "Noise, then Glass Melt, completion 50, revealing layer 4 (as added otherwise)",
+            Some(json!({"completion": 50, "layer_to_reveal": "layer-4"})),
+        ),
+        (
+            "Noise, then Glass Melt, completion 50, layer 4 as the gradient, softness 30",
+            Some(json!({"completion": 50, "gradient_layer": "layer-4", "softness": 30})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B389_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-389_timing_raw.md"));
+    let out = std::env::var("B389_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-389_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

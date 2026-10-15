@@ -33,8 +33,10 @@ use std::time::Instant;
 
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
+use anime_compositor::export::{
+    export_sequence, ExportChoices, ExportRequest, MissingSource, OutputFormat,
+};
 use anime_compositor::exr_io::ExrSamples;
-use anime_compositor::export::{export_sequence, ExportChoices, ExportRequest, MissingSource, OutputFormat};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist;
@@ -104,7 +106,12 @@ fn shot_asset(layer: u32) -> Asset {
     let frames: BTreeMap<u32, String> = imported
         .frames()
         .iter()
-        .map(|(n, p)| (*n, format!("layer{layer}/{}", p.file_name().unwrap().to_str().unwrap())))
+        .map(|(n, p)| {
+            (
+                *n,
+                format!("layer{layer}/{}", p.file_name().unwrap().to_str().unwrap()),
+            )
+        })
         .collect();
     Asset {
         id: Id::new(&format!("asset-layer{layer}")),
@@ -121,27 +128,57 @@ fn shot_asset(layer: u32) -> Asset {
 
 fn shot() -> Project {
     let sheet: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(shot_root().join("exposure_sheet.json")).unwrap()).unwrap();
+        serde_json::from_str(&fs::read_to_string(shot_root().join("exposure_sheet.json")).unwrap())
+            .unwrap();
     let array = |key: &str| -> Vec<u32> {
-        sheet[key].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u32).collect()
+        sheet[key]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_u64().unwrap() as u32)
+            .collect()
     };
     let mut project = Project::new(Id::new("proj-b160-shot"));
     let rate = FrameRate::new(24, 1).unwrap();
-    project.compositions.push(Composition::new(Id::new(SHOT), "reference shot", 1920, 1080, rate, 0, 240));
+    project.compositions.push(Composition::new(
+        Id::new(SHOT),
+        "reference shot",
+        1920,
+        1080,
+        rate,
+        0,
+        240,
+    ));
     let mut doc = Document::new(project);
     for n in 1..=4u32 {
         let exposures: Vec<(u32, u32)> = match n {
             1 => vec![(0, 240)],
             2 => (0..240).map(|f| (f % 24, 1)).collect(),
             3 => (0..120).map(|k| (k % 12, 2)).collect(),
-            _ => array("layer4_exposure_drawing_ids").into_iter().zip(array("layer4_exposure_lengths")).collect(),
+            _ => array("layer4_exposure_drawing_ids")
+                .into_iter()
+                .zip(array("layer4_exposure_lengths"))
+                .collect(),
         };
         let asset = shot_asset(n);
-        let mut layer = Layer::new(Id::new(&format!("layer-{n}")), format!("layer{n}"), asset.id.clone(), 0, 240);
-        layer.exposure_spans = ExposureMap::from_lengths(&exposures).unwrap().spans().to_vec();
+        let mut layer = Layer::new(
+            Id::new(&format!("layer-{n}")),
+            format!("layer{n}"),
+            asset.id.clone(),
+            0,
+            240,
+        );
+        layer.exposure_spans = ExposureMap::from_lengths(&exposures)
+            .unwrap()
+            .spans()
+            .to_vec();
         doc.apply_all(vec![
             Command::AddAsset { asset },
-            Command::AddLayer { composition: Id::new(SHOT), layer: Box::new(layer), index: (n - 1) as usize },
+            Command::AddLayer {
+                composition: Id::new(SHOT),
+                layer: Box::new(layer),
+                index: (n - 1) as usize,
+            },
         ])
         .unwrap();
     }
@@ -190,8 +227,16 @@ fn request(job: &Job, dir: &Path, choices: ExportChoices) -> ExportRequest {
 /// compared use the same `folder` under `target/b160`, so the paths a report names are the same.
 fn hashes(job: &Job, choices: ExportChoices, folder: &str) -> Vec<(String, String)> {
     let dir = out_dir(folder);
-    let report = export_sequence(job.project, &job.root, &request(job, &dir, choices), &AtomicBool::new(false));
-    let mut names: Vec<PathBuf> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().path()).collect();
+    let report = export_sequence(
+        job.project,
+        &job.root,
+        &request(job, &dir, choices),
+        &AtomicBool::new(false),
+    );
+    let mut names: Vec<PathBuf> = fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .collect();
     names.sort();
     let mut out: Vec<(String, String)> = Vec::new();
     for p in &names {
@@ -199,12 +244,19 @@ fn hashes(job: &Job, choices: ExportChoices, folder: &str) -> Vec<(String, Strin
         let bytes = fs::read(p).unwrap();
         out.push((what.clone(), sha256::hex(&bytes)));
         if p.extension().is_some_and(|e| e == "mp4") {
-            out.push((format!("{what} (dates set aside)"), sha256::hex(&mp4_dates_aside(bytes))));
+            out.push((
+                format!("{what} (dates set aside)"),
+                sha256::hex(&mp4_dates_aside(bytes)),
+            ));
         }
     }
     let said = format!(
         "{:?} {} {:?} {} {:?}",
-        report.status, report.files_expected, report.written, report.fidelity_incomplete, report.diagnostics
+        report.status,
+        report.files_expected,
+        report.written,
+        report.fidelity_incomplete,
+        report.diagnostics
     );
     out.push((format!("{} report", job.name), sha256::hex(said.as_bytes())));
     out
@@ -226,12 +278,47 @@ fn shot_jobs(project: &Project) -> Vec<Job<'_>> {
     use OutputAlpha::*;
     use OutputDepth::*;
     vec![
-        job("PNG 8-bit", 239, OutputFormat::Png, Eight, Straight, "shot_%04d.png"),
-        job("PNG 16-bit premultiplied", 47, OutputFormat::Png, Sixteen, Premultiplied, "shot_%04d.png"),
-        job("EXR half", 47, OutputFormat::Exr(ExrSamples::Half), Eight, Straight, "shot_%04d.exr"),
-        job("EXR float", 47, OutputFormat::Exr(ExrSamples::Float), Eight, Straight, "shot_%04d.exr"),
+        job(
+            "PNG 8-bit",
+            239,
+            OutputFormat::Png,
+            Eight,
+            Straight,
+            "shot_%04d.png",
+        ),
+        job(
+            "PNG 16-bit premultiplied",
+            47,
+            OutputFormat::Png,
+            Sixteen,
+            Premultiplied,
+            "shot_%04d.png",
+        ),
+        job(
+            "EXR half",
+            47,
+            OutputFormat::Exr(ExrSamples::Half),
+            Eight,
+            Straight,
+            "shot_%04d.exr",
+        ),
+        job(
+            "EXR float",
+            47,
+            OutputFormat::Exr(ExrSamples::Float),
+            Eight,
+            Straight,
+            "shot_%04d.exr",
+        ),
         job("GIF", 47, OutputFormat::Gif, Eight, Straight, "shot.gif"),
-        job("animated PNG", 47, OutputFormat::Apng, Eight, Straight, "shot.png"),
+        job(
+            "animated PNG",
+            47,
+            OutputFormat::Apng,
+            Eight,
+            Straight,
+            "shot.png",
+        ),
         job("MP4", 239, OutputFormat::Mp4, Eight, Straight, "shot.mp4"),
     ]
 }
@@ -247,7 +334,10 @@ fn fixtures() -> Vec<(String, Project, PathBuf)> {
         for f in fs::read_dir(&dir).unwrap() {
             let f = f.unwrap().path();
             let name = f.file_name().unwrap().to_string_lossy().to_string();
-            if name.ends_with(".json") && !name.starts_with("expected") && !name.contains("manifest") {
+            if name.ends_with(".json")
+                && !name.starts_with("expected")
+                && !name.contains("manifest")
+            {
                 files.push(f);
             }
         }
@@ -257,8 +347,16 @@ fn fixtures() -> Vec<(String, Project, PathBuf)> {
         .into_iter()
         .filter_map(|f| {
             let loaded = persist::load(&f).ok()?;
-            let rel = f.strip_prefix(repo("Fixtures")).unwrap().to_string_lossy().replace('\\', "/");
-            Some((rel, loaded.document.project().clone(), f.parent().unwrap().to_path_buf()))
+            let rel = f
+                .strip_prefix(repo("Fixtures"))
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            Some((
+                rel,
+                loaded.document.project().clone(),
+                f.parent().unwrap().to_path_buf(),
+            ))
         })
         .collect()
 }
@@ -270,7 +368,11 @@ fn fixture_jobs<'a>(fixtures: &'a [(String, Project, PathBuf)]) -> Vec<Job<'a>> 
             let last = c.start_frame + c.duration_frames.max(1) as i32 - 1;
             for (kind, format, naming) in [
                 ("PNG", OutputFormat::Png, "f_%04d.png"),
-                ("EXR half", OutputFormat::Exr(ExrSamples::Half), "f_%04d.exr"),
+                (
+                    "EXR half",
+                    OutputFormat::Exr(ExrSamples::Half),
+                    "f_%04d.exr",
+                ),
             ] {
                 jobs.push(Job {
                     name: format!("{rel} {} {kind}", c.id.as_str()),
@@ -301,14 +403,22 @@ fn b160_every_export_hashed() {
     let fixtures = fixtures();
     let mut lines: Vec<String> = Vec::new();
     let started = Instant::now();
-    for job in shot_jobs(&project).iter().chain(fixture_jobs(&fixtures).iter()) {
+    for job in shot_jobs(&project)
+        .iter()
+        .chain(fixture_jobs(&fixtures).iter())
+    {
         for (what, sha) in hashes(job, ExportChoices::default(), "work") {
             lines.push(format!("{what}\t{sha}"));
         }
     }
     let file = repo("target/b160").join(format!("hashes_{}.txt", label()));
     fs::write(&file, lines.join("\n") + "\n").unwrap();
-    eprintln!("{} lines in {:.0} s, {} fixture projects", lines.len(), started.elapsed().as_secs_f64(), fixtures.len());
+    eprintln!(
+        "{} lines in {:.0} s, {} fixture projects",
+        lines.len(),
+        started.elapsed().as_secs_f64(),
+        fixtures.len()
+    );
 }
 
 /// Seven exports of the whole reference shot as PNG and as MP4, and their median.
@@ -323,15 +433,29 @@ fn b160_timing() {
         let mut ms: Vec<f64> = (0..7)
             .map(|_| {
                 let t = Instant::now();
-                let r = export_sequence(job.project, &job.root, &request(job, &dir, ExportChoices::default()), &AtomicBool::new(false));
+                let r = export_sequence(
+                    job.project,
+                    &job.root,
+                    &request(job, &dir, ExportChoices::default()),
+                    &AtomicBool::new(false),
+                );
                 assert!(r.succeeded(), "{:?}", r.diagnostics);
                 t.elapsed().as_secs_f64() * 1000.0
             })
             .collect();
         ms.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        out.push_str(&format!("{}\t{:.0}\t{:?}\n", job.name, ms[3], ms.iter().map(|m| m.round()).collect::<Vec<_>>()));
+        out.push_str(&format!(
+            "{}\t{:.0}\t{:?}\n",
+            job.name,
+            ms[3],
+            ms.iter().map(|m| m.round()).collect::<Vec<_>>()
+        ));
     }
-    fs::write(repo("target/b160").join(format!("timing_{}.txt", label())), &out).unwrap();
+    fs::write(
+        repo("target/b160").join(format!("timing_{}.txt", label())),
+        &out,
+    )
+    .unwrap();
     eprintln!("{out}");
 }
 
@@ -339,7 +463,10 @@ fn b160_timing() {
 // ---- this file the old build is compiled with is cut at this line.
 
 fn choices(frames_at_once: usize) -> ExportChoices {
-    ExportChoices { frames_at_once, ..ExportChoices::default() }
+    ExportChoices {
+        frames_at_once,
+        ..ExportChoices::default()
+    }
 }
 
 /// How many lines of two hash lists differ. An MP4's whole-file line is left out: Windows stamps
@@ -348,7 +475,10 @@ fn differing(a: &[(String, String)], b: &[(String, String)]) -> usize {
     if a.len() != b.len() {
         return a.len().max(b.len());
     }
-    a.iter().zip(b).filter(|(x, y)| !x.0.ends_with(".mp4") && x != y).count()
+    a.iter()
+        .zip(b)
+        .filter(|(x, y)| !x.0.ends_with(".mp4") && x != y)
+        .count()
 }
 
 struct Row {
@@ -358,7 +488,11 @@ struct Row {
 }
 
 fn row(check: impl Into<String>, expected: impl Into<String>, actual: impl Into<String>) -> Row {
-    Row { check: check.into(), expected: expected.into(), actual: actual.into() }
+    Row {
+        check: check.into(),
+        expected: expected.into(),
+        actual: actual.into(),
+    }
 }
 
 /// The reference shot's seven jobs, cut to frames 0 to 23, drawn one at a time, 5 at once and as
@@ -373,9 +507,16 @@ fn frames_at_once_rows(project: &Project) -> Vec<Row> {
             let other = hashes(&job, choices(n), "at_once");
             let d = differing(&one, &other);
             rows.push(row(
-                format!("{}, frames 0 to 23: drawn {said}, against one at a time", job.name),
+                format!(
+                    "{}, frames 0 to 23: drawn {said}, against one at a time",
+                    job.name
+                ),
                 "the same bytes and report",
-                if d == 0 { "the same bytes and report".to_string() } else { format!("{d} lines differ") },
+                if d == 0 {
+                    "the same bytes and report".to_string()
+                } else {
+                    format!("{d} lines differ")
+                },
             ));
         }
     }
@@ -418,9 +559,19 @@ fn b160_one_at_a_time_timing() {
     let job = shot_jobs(&project).into_iter().next().unwrap();
     let dir = out_dir("timing");
     let (one, ms) = median_ms(7, || {
-        assert!(export_sequence(&project, &job.root, &request(&job, &dir, choices(1)), &AtomicBool::new(false)).succeeded());
+        assert!(export_sequence(
+            &project,
+            &job.root,
+            &request(&job, &dir, choices(1)),
+            &AtomicBool::new(false)
+        )
+        .succeeded());
     });
-    let out = format!("{}\t{one:.0}\t{:?}\n", job.name, ms.iter().map(|m| m.round()).collect::<Vec<_>>());
+    let out = format!(
+        "{}\t{one:.0}\t{:?}\n",
+        job.name,
+        ms.iter().map(|m| m.round()).collect::<Vec<_>>()
+    );
     fs::write(repo("target/b160").join("timing_one.txt"), &out).unwrap();
     eprintln!("{out}");
 }
@@ -446,11 +597,19 @@ fn b160_table() {
     // 1. Every export, old build against new.
     let before = read_lines("hashes_before.txt");
     let after = read_lines("hashes_after.txt");
-    checks.push(row("lines hashed: every file and every report, old build and new", format!("{}", before.len()), format!("{}", after.len())));
+    checks.push(row(
+        "lines hashed: every file and every report, old build and new",
+        format!("{}", before.len()),
+        format!("{}", after.len()),
+    ));
     checks.push(row(
         "the same files, named the same, in the same order",
         "the same",
-        if before.iter().map(|l| &l.0).eq(after.iter().map(|l| &l.0)) { "the same" } else { "not the same" },
+        if before.iter().map(|l| &l.0).eq(after.iter().map(|l| &l.0)) {
+            "the same"
+        } else {
+            "not the same"
+        },
     ));
     let d = differing(&before, &after);
     let compared = before.iter().filter(|l| !l.0.ends_with(".mp4")).count();
@@ -459,24 +618,45 @@ fn b160_table() {
         format!("0 of {compared}"),
         format!("{d} of {compared}"),
     ));
-    let projects: std::collections::BTreeSet<&str> =
-        before.iter().filter(|l| !l.0.starts_with("reference shot")).map(|l| l.0.split(' ').next().unwrap()).collect();
-    measured.push(("fixture projects exported, every composition, as PNG and EXR half".into(), format!("{}", projects.len())));
+    let projects: std::collections::BTreeSet<&str> = before
+        .iter()
+        .filter(|l| !l.0.starts_with("reference shot"))
+        .map(|l| l.0.split(' ').next().unwrap())
+        .collect();
+    measured.push((
+        "fixture projects exported, every composition, as PNG and EXR half".into(),
+        format!("{}", projects.len()),
+    ));
 
     // 2. The MP4's whole-file hash, the same build twice.
     let job = mp4_job(&project, 47);
     let first = hashes(&job, choices(0), "twice");
     std::thread::sleep(std::time::Duration::from_millis(1100));
     let second = hashes(&job, choices(0), "twice");
-    let whole = |h: &[(String, String)]| h.iter().find(|l| l.0.ends_with(".mp4")).unwrap().1.clone();
-    let aside = |h: &[(String, String)]| h.iter().find(|l| l.0.ends_with("(dates set aside)")).unwrap().1.clone();
+    let whole =
+        |h: &[(String, String)]| h.iter().find(|l| l.0.ends_with(".mp4")).unwrap().1.clone();
+    let aside = |h: &[(String, String)]| {
+        h.iter()
+            .find(|l| l.0.ends_with("(dates set aside)"))
+            .unwrap()
+            .1
+            .clone()
+    };
     checks.push(row(
         "the same build, the same MP4 twice, a second apart: whole files, then dates set aside",
         "different, then the same",
         format!(
             "{}, then {}",
-            if whole(&first) == whole(&second) { "the same" } else { "different" },
-            if aside(&first) == aside(&second) { "the same" } else { "different" }
+            if whole(&first) == whole(&second) {
+                "the same"
+            } else {
+                "different"
+            },
+            if aside(&first) == aside(&second) {
+                "the same"
+            } else {
+                "different"
+            }
         ),
     ));
 
@@ -485,9 +665,16 @@ fn b160_table() {
 
     // 4. Speed, from `b160_timing` for both builds and `b160_one_at_a_time_timing`.
     let mut timing: Vec<(String, String)> = Vec::new();
-    for (file, said) in [("before", "old build, one frame at a time"), ("after", "new build, several frames at once"), ("one", "new build told to draw one frame at a time")] {
+    for (file, said) in [
+        ("before", "old build, one frame at a time"),
+        ("after", "new build, several frames at once"),
+        ("one", "new build told to draw one frame at a time"),
+    ] {
         for (what, median) in read_lines(&format!("timing_{file}.txt")) {
-            timing.push((format!("{what}, {said}"), median.split('\t').next().unwrap().to_string() + " ms"));
+            timing.push((
+                format!("{what}, {said}"),
+                median.split('\t').next().unwrap().to_string() + " ms",
+            ));
         }
     }
 
@@ -499,7 +686,17 @@ fn b160_table() {
     md.push_str("**D-231 (bit-exact):** an export now draws several frames at once and writes them in order. Every file it writes must be the file the old build wrote, byte for byte, and every report the same report. **D-230 (REJECTED by the owner on 2026-09-29):** the graphics card's video encoder was no faster on this machine and wrote bigger files, so B-160b removed it; every MP4 comes from the software encoder, as before B-160.\n\n");
     md.push_str(&format!("## Checks: {passed} of {} pass\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n", checks.len()));
     for r in &checks {
-        md.push_str(&format!("| {} | {} | {} | {} |\n", r.check, r.expected, r.actual, if r.expected == r.actual { "pass" } else { "FAIL" }));
+        md.push_str(&format!(
+            "| {} | {} | {} | {} |\n",
+            r.check,
+            r.expected,
+            r.actual,
+            if r.expected == r.actual {
+                "pass"
+            } else {
+                "FAIL"
+            }
+        ));
     }
     md.push_str("\n## Measurements (not pass or fail)\n\n| What | Measured |\n|---|---|\n");
     for (what, value) in &measured {
@@ -515,5 +712,12 @@ fn b160_table() {
     }
     fs::write(repo("verification/B-160_faster_export_table.md"), md).unwrap();
     let failed: Vec<&Row> = checks.iter().filter(|r| r.expected != r.actual).collect();
-    assert!(failed.is_empty(), "{:#?}", failed.iter().map(|r| (&r.check, &r.expected, &r.actual)).collect::<Vec<_>>());
+    assert!(
+        failed.is_empty(),
+        "{:#?}",
+        failed
+            .iter()
+            .map(|r| (&r.check, &r.expected, &r.actual))
+            .collect::<Vec<_>>()
+    );
 }

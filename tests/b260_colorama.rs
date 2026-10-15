@@ -17,7 +17,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -53,7 +54,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=47 {
         let file = format!("fx_colorama_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -79,9 +84,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -108,7 +122,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -120,8 +137,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -159,13 +188,18 @@ fn b260_colorama() {
     );
 
     t.heading("The file");
-    let files: Vec<String> = (1..=47).map(|n| format!("fx_colorama_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=47)
+        .map(|n| format!("fx_colorama_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_colorama_002.json");
     t.row(
         "fx_colorama_002.json, from before D-381, is saved without any D-381 setting, as it was",
         &saved.to_string(),
-        saved.get("modify").is_none() && saved.get("mask_layer").is_none() && saved.get("opacity_1").is_none() && saved.get("add_phase_from").is_none(),
+        saved.get("modify").is_none()
+            && saved.get("mask_layer").is_none()
+            && saved.get("opacity_1").is_none()
+            && saved.get("add_phase_from").is_none(),
     );
     let saved = t.saved_parameters("fx_colorama_033.json");
     t.row(
@@ -189,7 +223,11 @@ fn b260_colorama() {
         ("fx_colorama_047.json", "\"no\""),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_colorama_001.json",
@@ -208,20 +246,41 @@ fn b260_colorama() {
 
     t.heading("Commands");
     let mut document = t.load("fx_colorama_001.json").document;
-    let opacity = changed(&t, "fx_colorama_001.json", |e| if let Effect::Colorama { opacity_2, .. } = e { *opacity_2 = 100.5 });
-    let modify = changed(&t, "fx_colorama_001.json", |e| if let Effect::Colorama { modify, .. } = e { *modify = "Hue".into() });
-    let mask = changed(&t, "fx_colorama_001.json", |e| if let Effect::Colorama { mask_layer, .. } = e { *mask_layer = json!(2) });
+    let opacity = changed(&t, "fx_colorama_001.json", |e| {
+        if let Effect::Colorama { opacity_2, .. } = e {
+            *opacity_2 = 100.5
+        }
+    });
+    let modify = changed(&t, "fx_colorama_001.json", |e| {
+        if let Effect::Colorama { modify, .. } = e {
+            *modify = "Hue".into()
+        }
+    });
+    let mask = changed(&t, "fx_colorama_001.json", |e| {
+        if let Effect::Colorama { mask_layer, .. } = e {
+            *mask_layer = json!(2)
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("opacity 2 at 100.5", set(opacity)),
             ("modify \"Hue\" written with a capital", set(modify)),
             ("mask layer 2, a number", set(mask)),
-            ("matching softness keyed to 120", keys("matching_softness", &[(0, &[0.0]), (4, &[120.0])])),
+            (
+                "matching softness keyed to 120",
+                keys("matching_softness", &[(0, &[0.0]), (4, &[120.0])]),
+            ),
         ],
     );
     let hue = changed(&t, "fx_colorama_001.json", |e| {
-        if let Effect::Colorama { modify, matching_mode, interpolate, .. } = e {
+        if let Effect::Colorama {
+            modify,
+            matching_mode,
+            interpolate,
+            ..
+        } = e
+        {
             *modify = "hue".into();
             *matching_mode = "rgb".into();
             *interpolate = "off".into();
@@ -230,11 +289,23 @@ fn b260_colorama() {
     t.taken(
         &mut document,
         "fx_colorama_001.json",
-        vec![("modify hue, matching by RGB, interpolate off", set(hue)), ("opacity 4 keyed from 100 to 0", keys("opacity_4", &[(0, &[100.0]), (4, &[0.0])]))],
+        vec![
+            ("modify hue, matching by RGB, interpolate off", set(hue)),
+            (
+                "opacity 4 keyed from 100 to 0",
+                keys("opacity_4", &[(0, &[100.0]), (4, &[0.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_colorama_009.json", 0), ("fx_colorama_014.json", 0), ("fx_colorama_024.json", 0), ("fx_colorama_033.json", 0), ("fx_colorama_023.json", 3)]);
+    t.tiles(&[
+        ("fx_colorama_009.json", 0),
+        ("fx_colorama_014.json", 0),
+        ("fx_colorama_024.json", 0),
+        ("fx_colorama_033.json", 0),
+        ("fx_colorama_023.json", 3),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     t.row(
@@ -250,23 +321,57 @@ fn b260_colorama() {
         &mut gpu,
         &[
             ("as a file from before D-381 has it", json!({}), 3),
-            ("hue phase, modify hue, interpolate off", json!({"get_phase": "hue", "modify": "hue", "interpolate": "off"}), 3),
-            ("matching chroma, tolerance 10, softness 20, composite off", json!({"matching_mode": "chroma", "matching_color": "#c08060", "matching_tolerance": 10, "matching_softness": 20, "composite_over": "off"}), 3),
-            ("modify lightness, modify alpha with opacities 100, 40, 100, 0, 70, blend 25", json!({"modify": "lightness", "modify_alpha": "on", "opacity_2": 40, "opacity_4": 0, "opacity_5": 70, "blend_with_original": 25}), 3),
-            ("value phase, modify saturation, change empty pixels", json!({"get_phase": "value", "modify": "saturation", "modify_alpha": "on", "change_empty": "on"}), 3),
-            ("masked by layer4's luminance (stays on the processor)", json!({"mask_layer": "layer-4"}), 0),
+            (
+                "hue phase, modify hue, interpolate off",
+                json!({"get_phase": "hue", "modify": "hue", "interpolate": "off"}),
+                3,
+            ),
+            (
+                "matching chroma, tolerance 10, softness 20, composite off",
+                json!({"matching_mode": "chroma", "matching_color": "#c08060", "matching_tolerance": 10, "matching_softness": 20, "composite_over": "off"}),
+                3,
+            ),
+            (
+                "modify lightness, modify alpha with opacities 100, 40, 100, 0, 70, blend 25",
+                json!({"modify": "lightness", "modify_alpha": "on", "opacity_2": 40, "opacity_4": 0, "opacity_5": 70, "blend_with_original": 25}),
+                3,
+            ),
+            (
+                "value phase, modify saturation, change empty pixels",
+                json!({"get_phase": "value", "modify": "saturation", "modify_alpha": "on", "change_empty": "on"}),
+                3,
+            ),
+            (
+                "masked by layer4's luminance (stays on the processor)",
+                json!({"mask_layer": "layer-4"}),
+                0,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-381 pictures/`");
     let dir = repo("verification/D-381 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let one = |p: J| json!([fx("fx-0-0", &p)]);
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (ring, said) = picture(&dir, one(json!({})));
     write("2_as_added.png", &ring);
     t.row(
@@ -276,7 +381,11 @@ fn b260_colorama() {
     );
     let (hue, said) = picture(&dir, one(json!({"modify": "hue"})));
     write("3_modify_hue.png", &hue);
-    let greys_kept = before.chunks_exact(4).zip(hue.chunks_exact(4)).filter(|(b, _)| b[0] == b[1] && b[1] == b[2]).all(|(b, h)| b == h);
+    let greys_kept = before
+        .chunks_exact(4)
+        .zip(hue.chunks_exact(4))
+        .filter(|(b, _)| b[0] == b[1] && b[1] == b[2])
+        .all(|(b, h)| b == h);
     t.row(
         "3_modify_hue.png, Modify hue: the street keeps its light and shade and takes the ring's hues; the white road markings and grey road stay as they were; draws cleanly",
         &format!("{said:?}, every grey pixel unchanged: {greys_kept}"),
@@ -284,16 +393,32 @@ fn b260_colorama() {
     );
     let (steps, said) = picture(&dir, one(json!({"interpolate": "off"})));
     write("4_interpolate_off.png", &steps);
-    let ring_colours = [[255, 0, 0], [204, 255, 0], [0, 255, 102], [0, 102, 255], [204, 0, 255]];
-    let only_five = steps.chunks_exact(4).all(|p| ring_colours.iter().any(|c| p[..3] == c[..]));
+    let ring_colours = [
+        [255, 0, 0],
+        [204, 255, 0],
+        [0, 255, 102],
+        [0, 102, 255],
+        [204, 0, 255],
+    ];
+    let only_five = steps
+        .chunks_exact(4)
+        .all(|p| ring_colours.iter().any(|c| p[..3] == c[..]));
     t.row(
         "4_interpolate_off.png, Interpolate Palette off: hard bands, each pixel exactly one of the five colours; draws cleanly",
         &format!("{said:?}, every pixel one of the five: {only_five}"),
         said.is_empty() && only_five,
     );
-    let (sky, said) = picture(&dir, one(json!({"matching_mode": "hue", "matching_color": "#5a8caa", "matching_tolerance": 8, "matching_softness": 10})));
+    let (sky, said) = picture(
+        &dir,
+        one(
+            json!({"matching_mode": "hue", "matching_color": "#5a8caa", "matching_tolerance": 8, "matching_softness": 10}),
+        ),
+    );
     write("5_matching_blue_hue.png", &sky);
-    let (walls_kept, total) = before.chunks_exact(4).zip(sky.chunks_exact(4)).fold((0, 0), |(k, n), (b, s)| (k + (b == s) as usize, n + 1));
+    let (walls_kept, total) = before
+        .chunks_exact(4)
+        .zip(sky.chunks_exact(4))
+        .fold((0, 0), |(k, n), (b, s)| (k + (b == s) as usize, n + 1));
     t.row(
         "5_matching_blue_hue.png, matching the blue wall's hue, tolerance 8, softness 10: only the blues change, the red, yellow and green walls and the greys stay; draws cleanly",
         &format!("{said:?}, {walls_kept} of {total} pixels unchanged"),
@@ -328,24 +453,56 @@ fn b260_colorama_timing() {
     );
     let shots: [(&str, Option<J>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Colorama as a file from before D-381 has it", Some(json!({}))),
-        ("Noise, then Colorama, modify hue, matching by chroma", Some(json!({"modify": "hue", "matching_mode": "chroma", "matching_softness": 20}))),
-        ("Noise, then Colorama, modify alpha, opacities, composite off", Some(json!({"modify_alpha": "on", "opacity_3": 0, "composite_over": "off"}))),
-        ("Noise, then Colorama masked by layer4 (on the processor)", Some(json!({"mask_layer": "layer-4"}))),
+        (
+            "Noise, then Colorama as a file from before D-381 has it",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Colorama, modify hue, matching by chroma",
+            Some(json!({"modify": "hue", "matching_mode": "chroma", "matching_softness": 20})),
+        ),
+        (
+            "Noise, then Colorama, modify alpha, opacities, composite off",
+            Some(json!({"modify_alpha": "on", "opacity_3": 0, "composite_over": "off"})),
+        ),
+        (
+            "Noise, then Colorama masked by layer4 (on the processor)",
+            Some(json!({"mask_layer": "layer-4"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B260_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-260_timing_raw.md"));
+    let out = std::env::var("B260_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-260_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

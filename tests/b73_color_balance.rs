@@ -40,7 +40,11 @@ fn b73_color_balance() {
 
     t.heading("How far it reaches");
     let got = balance(&[100.0, 0.0, 0.0], ZERO, ZERO).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = balance(&[0.0, 0.0, 40.0], &[-10.0, 5.0, 0.0], &[30.0, 10.0, -20.0]);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -78,14 +82,32 @@ fn b73_color_balance() {
     t.refused(
         &mut document,
         vec![
-            ("shadows 101, 0, 0", set(balance(&[101.0, 0.0, 0.0], ZERO, ZERO))),
-            ("midtones 0, -101, 0", set(balance(ZERO, &[0.0, -101.0, 0.0], ZERO))),
-            ("highlights 0, 0, 150", set(balance(ZERO, ZERO, &[0.0, 0.0, 150.0]))),
-            ("shadows of two numbers, 100, 0", set(balance(&[100.0, 0.0], ZERO, ZERO))),
-            ("highlights of four numbers", set(balance(ZERO, ZERO, &[0.0, 0.0, 0.0, 0.0]))),
+            (
+                "shadows 101, 0, 0",
+                set(balance(&[101.0, 0.0, 0.0], ZERO, ZERO)),
+            ),
+            (
+                "midtones 0, -101, 0",
+                set(balance(ZERO, &[0.0, -101.0, 0.0], ZERO)),
+            ),
+            (
+                "highlights 0, 0, 150",
+                set(balance(ZERO, ZERO, &[0.0, 0.0, 150.0])),
+            ),
+            (
+                "shadows of two numbers, 100, 0",
+                set(balance(&[100.0, 0.0], ZERO, ZERO)),
+            ),
+            (
+                "highlights of four numbers",
+                set(balance(ZERO, ZERO, &[0.0, 0.0, 0.0, 0.0])),
+            ),
             (
                 "highlights keyed to 0, 0, 150",
-                keys("highlights", &[(0, &[0.0, 0.0, 0.0]), (4, &[0.0, 0.0, 150.0])]),
+                keys(
+                    "highlights",
+                    &[(0, &[0.0, 0.0, 0.0]), (4, &[0.0, 0.0, 150.0])],
+                ),
             ),
         ],
     );

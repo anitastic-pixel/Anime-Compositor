@@ -14,7 +14,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, keys, median, on_card, repo, set, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, keys, median, on_card, repo, set, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -31,8 +33,10 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// second, random seed], [scribble, fill type, colour, fill paths sequentially, wiggle type,
 /// composite].
 fn scribble(n: [f64; 15], w: [&str; 6]) -> Effect {
-    let [mask, edge_width, opacity, angle, stroke_width, curviness, curviness_variation, spacing, spacing_variation, path_overlap, path_overlap_variation, start, end, wiggles_per_second, random_seed] = n;
-    let [scribble, fill_type, color, fill_paths_sequentially, wiggle_type, composite] = w.map(str::to_string);
+    let [mask, edge_width, opacity, angle, stroke_width, curviness, curviness_variation, spacing, spacing_variation, path_overlap, path_overlap_variation, start, end, wiggles_per_second, random_seed] =
+        n;
+    let [scribble, fill_type, color, fill_paths_sequentially, wiggle_type, composite] =
+        w.map(str::to_string);
     Effect::Scribble {
         scribble,
         mask,
@@ -60,8 +64,17 @@ fn scribble(n: [f64; 15], w: [&str; 6]) -> Effect {
     }
 }
 
-const ADDED: [f64; 15] = [1.0, 10.0, 100.0, 45.0, 5.0, 5.0, 1.0, 5.0, 0.5, 0.0, 2.0, 0.0, 100.0, 5.0, 1.0];
-const WORDS: [&str; 6] = ["single_mask", "inside", "#ffffff", "on", "smooth", "on_original"];
+const ADDED: [f64; 15] = [
+    1.0, 10.0, 100.0, 45.0, 5.0, 5.0, 1.0, 5.0, 0.5, 0.0, 2.0, 0.0, 100.0, 5.0, 1.0,
+];
+const WORDS: [&str; 6] = [
+    "single_mask",
+    "inside",
+    "#ffffff",
+    "on",
+    "smooth",
+    "on_original",
+];
 
 fn numbers(change: &[(usize, f64)]) -> [f64; 15] {
     let mut n = ADDED;
@@ -81,7 +94,10 @@ fn words<'a>(change: &[(usize, &'a str)]) -> [&'a str; 6] {
 
 /// A closed mask of mode None through `points`, straight sides.
 fn mask(points: &[[f64; 2]]) -> J {
-    let points: Vec<J> = points.iter().map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]})).collect();
+    let points: Vec<J> = points
+        .iter()
+        .map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]}))
+        .collect();
     json!({"name": "Mask 1", "enabled": true, "inverted": false, "mode": "none", "opacity": 1.0, "feather_px": 0.0, "expansion_px": 0.0,
         "path": {"base": {"points": points}, "keyframes": []}})
 }
@@ -89,24 +105,38 @@ fn mask(points: &[[f64; 2]]) -> J {
 /// The reference shot (1920 by 1080) with `stack` on its first three layers, each with a
 /// six-sided mask of mode None for the scribble to fill.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = stack(id);
-        layers[i]["masks"] = json!([mask(&[[400.0, 150.0], [1500.0, 220.0], [1700.0, 560.0], [1450.0, 950.0], [500.0, 880.0], [250.0, 520.0]])]);
+        layers[i]["masks"] = json!([mask(&[
+            [400.0, 150.0],
+            [1500.0, 220.0],
+            [1700.0, 560.0],
+            [1450.0, 950.0],
+            [500.0, 880.0],
+            [250.0, 520.0]
+        ])]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.scribble" => json!({"scribble": "single_mask", "mask": 1, "fill_type": "inside", "edge_width": 10, "color": "#ffffff", "opacity": 100,
+        "core.scribble" => {
+            json!({"scribble": "single_mask", "mask": 1, "fill_type": "inside", "edge_width": 10, "color": "#ffffff", "opacity": 100,
             "angle": 45, "stroke_width": 5, "curviness": 5, "curviness_variation": 1, "spacing": 5, "spacing_variation": 0.5, "path_overlap": 0,
             "path_overlap_variation": 2, "start": 0, "end": 100, "fill_paths_sequentially": "on", "wiggle_type": "smooth", "wiggles_per_second": 5,
-            "random_seed": 1, "composite": "on_original"}),
+            "random_seed": 1, "composite": "on_original"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -117,17 +147,31 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -148,14 +192,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -183,7 +243,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 /// `effects` on the street at `frame` of a two-second shot, the layer holding a star-like mask of
 /// mode None, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -195,12 +258,35 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     let middle = json!([TOWN.0 as f64 / 2.0, TOWN.1 as f64 / 2.0]);
     layer["transform"]["anchor"]["base"] = middle.clone();
     layer["transform"]["position"]["base"] = middle;
-    layer["masks"] = json!([mask(&[[240.0, 20.0], [290.0, 100.0], [400.0, 110.0], [320.0, 170.0], [350.0, 250.0], [240.0, 200.0], [130.0, 250.0], [160.0, 170.0], [80.0, 110.0], [190.0, 100.0]])]);
+    layer["masks"] = json!([mask(&[
+        [240.0, 20.0],
+        [290.0, 100.0],
+        [400.0, 110.0],
+        [320.0, 170.0],
+        [350.0, 250.0],
+        [240.0, 200.0],
+        [130.0, 250.0],
+        [160.0, 170.0],
+        [80.0, 110.0],
+        [190.0, 100.0]
+    ])]);
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -210,10 +296,22 @@ type Shot<'a> = (&'a str, J, i32, &'a str, fn(&[u8], &[u8]) -> bool);
 /// pictures into `verification/{d} pictures/`; a row each that it draws cleanly and changes what
 /// it says it changes.
 fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
@@ -224,7 +322,11 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
         write(&file, &bytes);
         t.row(
             &format!("{file}, frame {frame}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}", distance(&bytes, &before).1, TOWN.0 * TOWN.1),
+            &format!(
+                "{said:?}, {} pixels changed of {}",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -233,8 +335,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -283,10 +397,17 @@ fn b322_scribble() {
 
     t.heading("The file");
     // FX-SCRIBBLE-048's colour is written in capitals and saved in small letters, as every colour is.
-    let all: Vec<String> = files("fx_scribble", 71).into_iter().filter(|f| f != "fx_scribble_048.json").collect();
+    let all: Vec<String> = files("fx_scribble", 71)
+        .into_iter()
+        .filter(|f| f != "fx_scribble_048.json")
+        .collect();
     t.round_trips(&all.iter().map(String::as_str).collect::<Vec<_>>());
     let caps = t.saved_parameters("fx_scribble_048.json");
-    t.row("fx_scribble_048.json is saved with its colour in small letters", &caps["color"].to_string(), caps["color"] == "#ff3020");
+    t.row(
+        "fx_scribble_048.json is saved with its colour in small letters",
+        &caps["color"].to_string(),
+        caps["color"] == "#ff3020",
+    );
     let saved = t.saved_parameters("fx_scribble_017.json");
     t.row(
         "fx_scribble_017.json is saved with its words and numbers as written, End's keys kept, and no masks or time",
@@ -318,9 +439,21 @@ fn b322_scribble() {
         ],
     );
     let p = r##""scribble": "single_mask", "mask": 1, "fill_type": "inside", "edge_width": 10, "color": "#ffffff", "opacity": 100, "angle": 45, "stroke_width": 5, "curviness": 5, "curviness_variation": 1, "spacing": 5, "spacing_variation": 0.5, "path_overlap": 0, "path_overlap_variation": 2, "start": 0, "end": 100, "wiggle_type": "smooth", "wiggles_per_second": 5, "random_seed": 1"##;
-    t.shape_refused("fx_scribble_001.json", "a Scribble with no `composite`", &format!("{{{p}, \"fill_paths_sequentially\": \"on\"}}"));
-    t.shape_refused("fx_scribble_001.json", "a Scribble whose composite is true", &format!("{{{p}, \"fill_paths_sequentially\": \"on\", \"composite\": true}}"));
-    t.shape_refused("fx_scribble_001.json", "a Scribble whose fill paths sequentially is true", &format!("{{{p}, \"fill_paths_sequentially\": true, \"composite\": \"on_original\"}}"));
+    t.shape_refused(
+        "fx_scribble_001.json",
+        "a Scribble with no `composite`",
+        &format!("{{{p}, \"fill_paths_sequentially\": \"on\"}}"),
+    );
+    t.shape_refused(
+        "fx_scribble_001.json",
+        "a Scribble whose composite is true",
+        &format!("{{{p}, \"fill_paths_sequentially\": \"on\", \"composite\": true}}"),
+    );
+    t.shape_refused(
+        "fx_scribble_001.json",
+        "a Scribble whose fill paths sequentially is true",
+        &format!("{{{p}, \"fill_paths_sequentially\": true, \"composite\": \"on_original\"}}"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_scribble_001.json").document;
@@ -330,11 +463,23 @@ fn b322_scribble() {
             ("mask 0", set(scribble(numbers(&[(0, 0.0)]), WORDS))),
             ("spacing 0.5", set(scribble(numbers(&[(7, 0.5)]), WORDS))),
             ("end 101", set(scribble(numbers(&[(12, 101.0)]), WORDS))),
-            ("scribble \"some_masks\"", set(scribble(ADDED, words(&[(0, "some_masks")])))),
-            ("fill type \"outline\"", set(scribble(ADDED, words(&[(1, "outline")])))),
+            (
+                "scribble \"some_masks\"",
+                set(scribble(ADDED, words(&[(0, "some_masks")]))),
+            ),
+            (
+                "fill type \"outline\"",
+                set(scribble(ADDED, words(&[(1, "outline")]))),
+            ),
             ("colour \"red\"", set(scribble(ADDED, words(&[(2, "red")])))),
-            ("wiggle type \"wobbly\"", set(scribble(ADDED, words(&[(4, "wobbly")])))),
-            ("stroke width keyed to 2000", keys("stroke_width", &[(0, &[5.0]), (4, &[2000.0])])),
+            (
+                "wiggle type \"wobbly\"",
+                set(scribble(ADDED, words(&[(4, "wobbly")]))),
+            ),
+            (
+                "stroke width keyed to 2000",
+                keys("stroke_width", &[(0, &[5.0]), (4, &[2000.0])]),
+            ),
         ],
     );
     t.taken(
@@ -451,22 +596,57 @@ fn b322_scribble_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Scribble as added (spacing 5, about 200 lines)", Some(json!({}))),
-        ("Noise, then Scribble stroke 12, spacing 30, curviness 60, Jumpy", Some(json!({"stroke_width": 12, "spacing": 30, "curviness": 60, "wiggle_type": "jumpy"}))),
-        ("Noise, then Scribble Centered Edge 80, spacing 2, stroke 2", Some(json!({"fill_type": "centered_edge", "edge_width": 80, "spacing": 2, "stroke_width": 2}))),
+        (
+            "Noise, then Scribble as added (spacing 5, about 200 lines)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Scribble stroke 12, spacing 30, curviness 60, Jumpy",
+            Some(
+                json!({"stroke_width": 12, "spacing": 30, "curviness": 60, "wiggle_type": "jumpy"}),
+            ),
+        ),
+        (
+            "Noise, then Scribble Centered Edge 80, spacing 2, stroke 2",
+            Some(
+                json!({"fill_type": "centered_edge", "edge_width": 80, "spacing": 2, "stroke_width": 2}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.scribble", &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B322_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-322_timing_raw.md"));
+    let out = std::env::var("B322_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-322_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

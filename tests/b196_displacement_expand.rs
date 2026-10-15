@@ -11,7 +11,14 @@ use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::model::Id;
 use anime_compositor::persist;
 
-fn solid(id: &str, enabled: bool, color: [f64; 3], (w, h): (usize, usize), at: [f64; 2], effects: J) -> J {
+fn solid(
+    id: &str,
+    enabled: bool,
+    color: [f64; 3],
+    (w, h): (usize, usize),
+    at: [f64; 2],
+    effects: J,
+) -> J {
     json!({
         "id": id, "kind": "solid", "name": id, "enabled": enabled, "locked": false,
         "in_frame": 0, "out_frame": 1,
@@ -61,9 +68,23 @@ fn row(params: J) -> Vec<u8> {
     let loaded = persist::load_str(&project(params).to_string()).expect("the project reads");
     let mut log = FrameLog::new(3);
     let dir = std::env::temp_dir();
-    let drawn = render_frame(loaded.document.project(), &Id::new("comp-main"), 0, &dir, 64, &mut log).expect("it draws");
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new("comp-main"),
+        0,
+        &dir,
+        64,
+        &mut log,
+    )
+    .expect("it draws");
     assert!(log.finish().is_empty(), "nothing to report");
-    drawn.to_srgb8_straight().chunks(4).skip(4 * 16).take(16).map(|p| p[3]).collect()
+    drawn
+        .to_srgb8_straight()
+        .chunks(4)
+        .skip(4 * 16)
+        .take(16)
+        .map(|p| p[3])
+        .collect()
 }
 
 #[test]
@@ -74,7 +95,10 @@ fn expand_output_carries_the_push_past_the_edge() {
     assert_eq!(row(params(None, "off")), kept);
     assert_eq!(row(params(Some("off"), "off")), kept);
     // On: the card's last 4 pixels land on 12 to 15.
-    assert_eq!(row(params(Some("on"), "off")), [o, o, o, o, o, o, o, o, x, x, x, x, x, x, x, x]);
+    assert_eq!(
+        row(params(Some("on"), "off")),
+        [o, o, o, o, o, o, o, o, x, x, x, x, x, x, x, x]
+    );
     // Wrapping, the push comes round inside the card, and expand changes nothing.
     let wrapped = row(params(None, "on"));
     assert_eq!(wrapped, [o, o, o, o, x, x, x, x, x, x, x, x, o, o, o, o]);
@@ -89,16 +113,40 @@ fn expand_output_is_saved_only_when_on_and_a_wrong_word_is_reported() {
         let back: J = serde_json::from_str(&text).unwrap();
         back["compositions"][0]["layers"][1]["effects"][0]["parameters"].clone()
     };
-    assert_eq!(saved(params(None, "off")).get("expand"), None, "a file without it stays without it");
+    assert_eq!(
+        saved(params(None, "off")).get("expand"),
+        None,
+        "a file without it stays without it"
+    );
     assert_eq!(saved(params(Some("on"), "off"))["expand"], "on");
-    assert_eq!(saved(params(Some("off"), "off"))["expand"], "off", "one that had it keeps it");
+    assert_eq!(
+        saved(params(Some("off"), "off"))["expand"],
+        "off",
+        "one that had it keeps it"
+    );
 
-    let loaded = persist::load_str(&project(params(Some("sideways"), "off")).to_string()).expect("the project reads");
+    let loaded = persist::load_str(&project(params(Some("sideways"), "off")).to_string())
+        .expect("the project reads");
     let mut log = FrameLog::new(3);
     let dir = std::env::temp_dir();
-    render_frame(loaded.document.project(), &Id::new("comp-main"), 0, &dir, 64, &mut log).expect("it draws");
+    render_frame(
+        loaded.document.project(),
+        &Id::new("comp-main"),
+        0,
+        &dir,
+        64,
+        &mut log,
+    )
+    .expect("it draws");
     let said: Vec<String> = log.finish().iter().map(|d| d.message.clone()).collect();
     assert!(said.iter().any(|m| m.contains("not drawn")), "{said:?}");
-    let e = &loaded.document.project().compositions[0].layer(&Id::new("card")).unwrap().effects[0].effect;
-    assert_eq!(e.why_invalid(), "Displacement Map's expand output is \"off\" or \"on\", and this is \"sideways\".");
+    let e = &loaded.document.project().compositions[0]
+        .layer(&Id::new("card"))
+        .unwrap()
+        .effects[0]
+        .effect;
+    assert_eq!(
+        e.why_invalid(),
+        "Displacement Map's expand output is \"off\" or \"on\", and this is \"sideways\"."
+    );
 }

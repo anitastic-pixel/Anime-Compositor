@@ -61,7 +61,10 @@ fn drawing() -> Vec<u8> {
 /// same enlarged three times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/optics_compensation/fx_optics_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/optics_compensation/fx_optics_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("drawing.png");
@@ -75,9 +78,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -123,7 +137,11 @@ fn b145_optics_compensation() {
 
     t.heading("How far it reaches");
     let got = optics(90.0, "off", "horizontal", [50.0, 50.0]).bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = optics(120.0, "on", "diagonal", [25.0, 75.0]);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -133,7 +151,14 @@ fn b145_optics_compensation() {
     );
 
     t.heading("The file");
-    t.round_trips(&(1..=20).map(|n| format!("fx_optics_{n:03}.json")).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>());
+    t.round_trips(
+        &(1..=20)
+            .map(|n| format!("fx_optics_{n:03}.json"))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    );
     t.shape_refused(
         "fx_optics_001.json",
         "no `orientation` at all",
@@ -155,24 +180,60 @@ fn b145_optics_compensation() {
     t.refused(
         &mut document,
         vec![
-            ("field of view -1", set(optics(-1.0, "off", "horizontal", [50.0, 50.0]))),
-            ("field of view 181", set(optics(181.0, "off", "horizontal", [50.0, 50.0]))),
-            ("centre down -1001", set(optics(90.0, "off", "horizontal", [50.0, -1001.0]))),
-            ("reverse \"yes\"", set(optics(90.0, "yes", "horizontal", [50.0, 50.0]))),
-            ("orientation \"sideways\"", set(optics(90.0, "off", "sideways", [50.0, 50.0]))),
-            ("orientation \"Horizontal\", written with a capital", set(optics(90.0, "off", "Horizontal", [50.0, 50.0]))),
-            ("field of view keyed to 200", keys("field_of_view", &[(0, &[90.0]), (4, &[200.0])])),
-            ("centre keyed to 2000 across", keys("center", &[(0, &[50.0, 50.0]), (4, &[2000.0, 50.0])])),
+            (
+                "field of view -1",
+                set(optics(-1.0, "off", "horizontal", [50.0, 50.0])),
+            ),
+            (
+                "field of view 181",
+                set(optics(181.0, "off", "horizontal", [50.0, 50.0])),
+            ),
+            (
+                "centre down -1001",
+                set(optics(90.0, "off", "horizontal", [50.0, -1001.0])),
+            ),
+            (
+                "reverse \"yes\"",
+                set(optics(90.0, "yes", "horizontal", [50.0, 50.0])),
+            ),
+            (
+                "orientation \"sideways\"",
+                set(optics(90.0, "off", "sideways", [50.0, 50.0])),
+            ),
+            (
+                "orientation \"Horizontal\", written with a capital",
+                set(optics(90.0, "off", "Horizontal", [50.0, 50.0])),
+            ),
+            (
+                "field of view keyed to 200",
+                keys("field_of_view", &[(0, &[90.0]), (4, &[200.0])]),
+            ),
+            (
+                "centre keyed to 2000 across",
+                keys("center", &[(0, &[50.0, 50.0]), (4, &[2000.0, 50.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_optics_001.json",
         vec![
-            ("every number at its bottom,", set(optics(0.0, "on", "vertical", [-1000.0, -1000.0]))),
-            ("every number at its top,", set(optics(180.0, "off", "diagonal", [1000.0, 1000.0]))),
-            ("field of view keyed from 0 to 120", keys("field_of_view", &[(0, &[0.0]), (4, &[120.0])])),
-            ("centre keyed across the drawing", keys("center", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])])),
+            (
+                "every number at its bottom,",
+                set(optics(0.0, "on", "vertical", [-1000.0, -1000.0])),
+            ),
+            (
+                "every number at its top,",
+                set(optics(180.0, "off", "diagonal", [1000.0, 1000.0])),
+            ),
+            (
+                "field of view keyed from 0 to 120",
+                keys("field_of_view", &[(0, &[0.0]), (4, &[120.0])]),
+            ),
+            (
+                "centre keyed across the drawing",
+                keys("center", &[(0, &[0.0, 50.0]), (4, &[100.0, 50.0])]),
+            ),
         ],
     );
 
@@ -184,12 +245,22 @@ fn b145_optics_compensation() {
         ("fx_optics_014.json", 0),
     ]);
 
-    t.heading("Pictures: a made-up drawing, in `verification/B-145 pictures/`, three times enlarged");
+    t.heading(
+        "Pictures: a made-up drawing, in `verification/B-145 pictures/`, three times enlarged",
+    );
     let dir = effect_table::repo("verification/B-145 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -198,27 +269,46 @@ fn b145_optics_compensation() {
     };
     let near = |a: [u8; 4], b: [u8; 4]| a.iter().zip(b).all(|(&u, v)| u.abs_diff(v) <= 1);
     let every = || (0..h).flat_map(move |y| (0..w).map(move |x| (x, y)));
-    let dist = |(x, y): (usize, usize), (cx, cy): (f64, f64)| (x as f64 + 0.5 - cx).hypot(y as f64 + 0.5 - cy);
+    let dist = |(x, y): (usize, usize), (cx, cy): (f64, f64)| {
+        (x as f64 + 0.5 - cx).hypot(y as f64 + 0.5 - cy)
+    };
     let clear = |bytes: &[u8]| every().filter(|&p| px(bytes, p)[3] == 0).count();
     // The four pixels round a point, which a lens there keeps.
     let round = |bytes: &[u8], other: &[u8], (cx, cy): (usize, usize)| {
-        [(cx - 1, cy - 1), (cx, cy - 1), (cx - 1, cy), (cx, cy)].iter().all(|&p| near(px(bytes, p), px(other, p)))
+        [(cx - 1, cy - 1), (cx, cy - 1), (cx - 1, cy), (cx, cy)]
+            .iter()
+            .all(|&p| near(px(bytes, p), px(other, p)))
     };
     // How far, on average over the pixels that show in both, one picture is from another.
     let apart = |a: &[u8], b: &[u8]| {
-        let shown: Vec<_> = every().filter(|&p| px(a, p)[3] > 0 && px(b, p)[3] > 0).collect();
-        let sum: u32 = shown.iter().map(|&p| (0..3).map(|c| px(a, p)[c].abs_diff(px(b, p)[c]) as u32).sum::<u32>()).sum();
+        let shown: Vec<_> = every()
+            .filter(|&p| px(a, p)[3] > 0 && px(b, p)[3] > 0)
+            .collect();
+        let sum: u32 = shown
+            .iter()
+            .map(|&p| {
+                (0..3)
+                    .map(|c| px(a, p)[c].abs_diff(px(b, p)[c]) as u32)
+                    .sum::<u32>()
+            })
+            .sum();
         sum as f64 / (3 * shown.len()) as f64
     };
     let middle = (w as f64 / 2.0, h as f64 / 2.0);
 
     let (before, big, said) = picture(&dir, stack(&[]));
     write("before.png", &big, 3);
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (fish, big, said) = picture(&dir, stack(&[(90.0, "off", "horizontal", [50.0, 50.0])]));
     write("fov_90.png", &big, 3);
-    let edges = (0..h).filter(|&y| px(&fish, (0, y))[3] == 0 && px(&fish, (w - 1, y))[3] == 0).count();
+    let edges = (0..h)
+        .filter(|&y| px(&fish, (0, y))[3] == 0 && px(&fish, (w - 1, y))[3] == 0)
+        .count();
     t.row(
         "fov_90.png, field of view 90: a fisheye, the middle four pixels kept, the lines bowed, the \
          left and right edges emptied from top to bottom, as they read from past the drawing; draws \
@@ -230,7 +320,9 @@ fn b145_optics_compensation() {
     let (wide, big, said) = picture(&dir, stack(&[(180.0, "off", "horizontal", [50.0, 50.0])]));
     write("fov_180.png", &big, 3);
     let out = every().filter(|&p| dist(p, middle) >= 80.0).count();
-    let gone = every().filter(|&p| dist(p, middle) >= 80.0 && px(&wide, p)[3] == 0).count();
+    let gone = every()
+        .filter(|&p| dist(p, middle) >= 80.0 && px(&wide, p)[3] == 0)
+        .count();
     t.row(
         "fov_180.png, field of view 180, the most: only the round part within 80 pixels of the middle \
          shows, every pixel farther out empty; draws cleanly",
@@ -243,8 +335,16 @@ fn b145_optics_compensation() {
     t.row(
         "reverse.png, reverse on: the edges stretched out, so the blue frame is pushed off the \
          sides; the middle kept, nothing clear; draws cleanly",
-        &format!("{said:?}, middle kept {}, {} clear, left edge {:?}", round(&back, &before, (80, 50)), clear(&back), px(&back, (0, 50))),
-        said.is_empty() && round(&back, &before, (80, 50)) && clear(&back) == 0 && px(&back, (0, 50)) != px(&before, (0, 50)),
+        &format!(
+            "{said:?}, middle kept {}, {} clear, left edge {:?}",
+            round(&back, &before, (80, 50)),
+            clear(&back),
+            px(&back, (0, 50))
+        ),
+        said.is_empty()
+            && round(&back, &before, (80, 50))
+            && clear(&back) == 0
+            && px(&back, (0, 50)) != px(&before, (0, 50)),
     );
 
     let (tall, big, said) = picture(&dir, stack(&[(90.0, "off", "vertical", [50.0, 50.0])]));
@@ -255,8 +355,16 @@ fn b145_optics_compensation() {
         "vertical.png and diagonal.png: the 90 degrees across the height bends harder than across \
          the width, and across the diagonal more gently, so more of vertical.png is empty than of \
          fov_90.png, and less of diagonal.png; both draw cleanly",
-        &format!("{said:?} {said2:?}, empty pixels: vertical {}, horizontal {}, diagonal {}", clear(&tall), clear(&fish), clear(&diag)),
-        said.is_empty() && said2.is_empty() && clear(&tall) > clear(&fish) && clear(&fish) > clear(&diag),
+        &format!(
+            "{said:?} {said2:?}, empty pixels: vertical {}, horizontal {}, diagonal {}",
+            clear(&tall),
+            clear(&fish),
+            clear(&diag)
+        ),
+        said.is_empty()
+            && said2.is_empty()
+            && clear(&tall) > clear(&fish)
+            && clear(&fish) > clear(&diag),
     );
 
     let (aside, big, said) = picture(&dir, stack(&[(90.0, "off", "horizontal", [25.0, 50.0])]));
@@ -270,15 +378,22 @@ fn b145_optics_compensation() {
 
     let (lens, big, said) = picture(&dir, stack(&[(60.0, "off", "horizontal", [50.0, 50.0])]));
     write("fov_60.png", &big, 3);
-    let (undone, big2, said2) =
-        picture(&dir, stack(&[(60.0, "off", "horizontal", [50.0, 50.0]), (60.0, "on", "horizontal", [50.0, 50.0])]));
+    let (undone, big2, said2) = picture(
+        &dir,
+        stack(&[
+            (60.0, "off", "horizontal", [50.0, 50.0]),
+            (60.0, "on", "horizontal", [50.0, 50.0]),
+        ]),
+    );
     write("in_then_out.png", &big2, 3);
     let (a, b) = (apart(&lens, &before), apart(&undone, &before));
     t.row(
         "fov_60.png, then in_then_out.png, the same lens put in and taken out again: back to the \
          drawing, softer, as each thin ruled line is sampled twice, but on average closer to \
          before.png than the fisheye alone; both draw cleanly",
-        &format!("{said:?} {said2:?}, average difference: fisheye {a:.2}, put in and taken out {b:.2}"),
+        &format!(
+            "{said:?} {said2:?}, average difference: fisheye {a:.2}, put in and taken out {b:.2}"
+        ),
         said.is_empty() && said2.is_empty() && b < a,
     );
 

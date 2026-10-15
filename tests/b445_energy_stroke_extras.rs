@@ -17,7 +17,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{changed, distance, median, on_card, repo, said, time_passes, Table, MAIN, TOWN};
+use effect_table::{
+    changed, distance, median, on_card, repo, said, time_passes, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -31,19 +33,54 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    let said_gpu = said_gpu.split(", ").filter(|id| *id != DiagnosticId::GpuPreviewOnCpu.as_str()).collect::<Vec<_>>().join(", ");
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    let said_gpu = said_gpu
+        .split(", ")
+        .filter(|id| *id != DiagnosticId::GpuPreviewOnCpu.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers.
@@ -54,7 +91,8 @@ fn reference(stack: impl Fn(&str) -> J) -> Project {
 
 /// As [`reference`], each of the three layers also given `masks` when there are some.
 fn reference_masked(stack: impl Fn(&str) -> J, masks: Option<J>) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
@@ -63,9 +101,12 @@ fn reference_masked(stack: impl Fn(&str) -> J, masks: Option<J>) -> Project {
             layers[i]["masks"] = m.clone();
         }
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
-
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out with a warning.
@@ -73,7 +114,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=33 {
         let file = format!("fx_energyx_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -81,7 +126,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::EnergyStroke { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::EnergyStroke { .. })
+                });
             }
         }
         t.row(
@@ -99,14 +146,27 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, Option<J>,
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, masks, want) in settings {
         let project = reference_masked(|id| json!([fx(&format!("b445-{id}"), p)]), masks.clone());
-        let plain = if masks.is_some() { cpu(&reference_masked(|_| json!([]), masks.clone())) } else { plain.clone() };
+        let plain = if masks.is_some() {
+            cpu(&reference_masked(|_| json!([]), masks.clone()))
+        } else {
+            plain.clone()
+        };
         let changed = distance(&cpu(&project), &plain).1;
         t.row(
             &format!("the reference shot, Energy Stroke {what}: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect"),
@@ -116,7 +176,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, Option<J>,
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::EnergyStroke { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::EnergyStroke { .. })
+                });
                 t.row(
                     &format!("the reference shot, Energy Stroke {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -129,8 +191,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, Option<J>,
 
 /// `effects` (and `masks`) on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), masks: J, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    masks: J,
+    effects: J,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -143,18 +214,28 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), masks: J, effects: J) 
     layer["masks"] = masks;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
-
 
 /// The pixel at (x, y) of a picture at the street's size.
 fn at(bytes: &[u8], p: (usize, usize)) -> [u8; 4] {
     let i = (p.1 * TOWN.0 + p.0) * 4;
     [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
 }
-
 
 /// An Energy Stroke with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
@@ -171,7 +252,10 @@ fn fx(id: &str, p: &J) -> J {
 
 /// A closed mask of mode None through `points`, as the fixtures write one.
 fn mask(points: &[[f64; 2]]) -> J {
-    let points: Vec<J> = points.iter().map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]})).collect();
+    let points: Vec<J> = points
+        .iter()
+        .map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]}))
+        .collect();
     json!([{"name": "Mask 1", "enabled": true, "inverted": false, "mode": "none", "opacity": 1.0,
         "feather_px": 0.0, "expansion_px": 0.0, "path": {"base": {"points": points}, "keyframes": []}}])
 }
@@ -197,7 +281,9 @@ fn b445_energy_stroke_extras() {
     t.fixtures_numbered("expected_energy_stroke_extras.json", 1..=33);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=33).map(|n| format!("fx_energyx_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=33)
+        .map(|n| format!("fx_energyx_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_energyx_020.json");
     t.row(
@@ -207,8 +293,13 @@ fn b445_energy_stroke_extras() {
     );
     // D-304: a file from before is saved as it was, without the five new settings.
     let old_root = repo("Fixtures/energy_stroke");
-    for file in ["fx_energy_001.json", "fx_energy_009.json", "fx_energy_032.json"] {
-        let original: J = serde_json::from_str(&fs::read_to_string(old_root.join(file)).unwrap()).unwrap();
+    for file in [
+        "fx_energy_001.json",
+        "fx_energy_009.json",
+        "fx_energy_032.json",
+    ] {
+        let original: J =
+            serde_json::from_str(&fs::read_to_string(old_root.join(file)).unwrap()).unwrap();
         let loaded = persist::load(&old_root.join(file)).unwrap();
         let same = effect_table::same_json(&effect_table::saved(&loaded), &original);
         t.row(
@@ -218,11 +309,20 @@ fn b445_energy_stroke_extras() {
         );
     }
     let mut e = changed(&t, "fx_energyx_001.json", |_| {});
-    if let Effect::EnergyStroke { start_roundness, alpha_mode, .. } = &mut e {
+    if let Effect::EnergyStroke {
+        start_roundness,
+        alpha_mode,
+        ..
+    } = &mut e
+    {
         *start_roundness = 30.0;
         *alpha_mode = "glow".into();
     }
-    t.row("a Start Roundness of 30 and Alpha Mode glow are valid", &e.why_invalid(), e.why_invalid().is_empty());
+    t.row(
+        "a Start Roundness of 30 and Alpha Mode glow are valid",
+        &e.why_invalid(),
+        e.why_invalid().is_empty(),
+    );
     for (file, want) in [
         ("fx_energyx_029.json", "start_roundness"),
         ("fx_energyx_030.json", "end_roundness"),
@@ -231,8 +331,16 @@ fn b445_energy_stroke_extras() {
         ("fx_energyx_033.json", "invert masks"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        let named = why.to_lowercase().contains(want) || why.to_lowercase().contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming {}", want.replace('_', " ")), &why, named);
+        let named = why.to_lowercase().contains(want)
+            || why.to_lowercase().contains(&want.replace('_', " "));
+        t.row(
+            &format!(
+                "{file} is refused in a sentence naming {}",
+                want.replace('_', " ")
+            ),
+            &why,
+            named,
+        );
     }
     t.shape_refused(
         "fx_energyx_001.json",
@@ -247,15 +355,45 @@ fn b445_energy_stroke_extras() {
     // refused.
     let none: Vec<u32> = [11].into_iter().chain(17..=20).chain(22..=33).collect();
     card_fixtures(&mut t, &mut gpu, &none);
-    let window = mask(&[[300.0, 200.0], [1500.0, 200.0], [1500.0, 800.0], [300.0, 800.0]]);
+    let window = mask(&[
+        [300.0, 200.0],
+        [1500.0, 200.0],
+        [1500.0, 800.0],
+        [300.0, 800.0],
+    ]);
     card_reference(
         &mut t,
         &mut gpu,
         &[
-            ("core 30, Start Roundness 0, End Roundness 40", json!({"core_size": 30, "start_roundness": 0, "end_roundness": 40}), None, 3),
-            ("Noise Along Path off, distortion 20 at scale 80, speed 40", json!({"noise_along_path": "off", "distortion_amount": 20, "distortion_scale": 80, "distortion_speed": 40}), None, 3),
-            ("Alpha Mode core, a mask of mode None on each layer", json!({"alpha_mode": "core", "core_size": 20}), Some(window), 0),
-            ("Alpha Mode masks, Invert Masks on, a small mask in the corner", json!({"alpha_mode": "masks", "invert_masks": "on"}), Some(mask(&[[0.0, 0.0], [300.0, 0.0], [300.0, 300.0], [0.0, 300.0]])), 0),
+            (
+                "core 30, Start Roundness 0, End Roundness 40",
+                json!({"core_size": 30, "start_roundness": 0, "end_roundness": 40}),
+                None,
+                3,
+            ),
+            (
+                "Noise Along Path off, distortion 20 at scale 80, speed 40",
+                json!({"noise_along_path": "off", "distortion_amount": 20, "distortion_scale": 80, "distortion_speed": 40}),
+                None,
+                3,
+            ),
+            (
+                "Alpha Mode core, a mask of mode None on each layer",
+                json!({"alpha_mode": "core", "core_size": 20}),
+                Some(window),
+                0,
+            ),
+            (
+                "Alpha Mode masks, Invert Masks on, a small mask in the corner",
+                json!({"alpha_mode": "masks", "invert_masks": "on"}),
+                Some(mask(&[
+                    [0.0, 0.0],
+                    [300.0, 0.0],
+                    [300.0, 300.0],
+                    [0.0, 300.0],
+                ])),
+                0,
+            ),
         ],
     );
 
@@ -276,16 +414,67 @@ fn b445_energy_stroke_extras() {
     // Each picture also differs from the one before it, so each setting is seen to do something.
     let mut before = street.clone();
     for (name, masks, p, on) in [
-        ("1_round_ends_as_added", json!([]), with(json!({})), (72, 135)),
-        ("2_flat_ends", json!([]), with(json!({"start_roundness": 0, "end_roundness": 0})), (72, 135)),
-        ("3_flat_start_pointed_end", json!([]), with(json!({"start_roundness": 0, "end_roundness": 30, "end_size": 30})), (240, 135)),
-        ("4_noise_along_path", json!([]), with(json!({"distortion_amount": 10, "distortion_scale": 40})), (240, 135)),
-        ("5_noise_on_the_layer", json!([]), with(json!({"noise_along_path": "off", "distortion_amount": 10, "distortion_scale": 40})), (240, 135)),
-        ("6_masks_cut_the_core", middle.clone(), with(json!({"alpha_mode": "core"})), (240, 135)),
-        ("7_masks_cut_both_inverted", middle, with(json!({"alpha_mode": "masks", "invert_masks": "on"})), (100, 135)),
+        (
+            "1_round_ends_as_added",
+            json!([]),
+            with(json!({})),
+            (72, 135),
+        ),
+        (
+            "2_flat_ends",
+            json!([]),
+            with(json!({"start_roundness": 0, "end_roundness": 0})),
+            (72, 135),
+        ),
+        (
+            "3_flat_start_pointed_end",
+            json!([]),
+            with(json!({"start_roundness": 0, "end_roundness": 30, "end_size": 30})),
+            (240, 135),
+        ),
+        (
+            "4_noise_along_path",
+            json!([]),
+            with(json!({"distortion_amount": 10, "distortion_scale": 40})),
+            (240, 135),
+        ),
+        (
+            "5_noise_on_the_layer",
+            json!([]),
+            with(
+                json!({"noise_along_path": "off", "distortion_amount": 10, "distortion_scale": 40}),
+            ),
+            (240, 135),
+        ),
+        (
+            "6_masks_cut_the_core",
+            middle.clone(),
+            with(json!({"alpha_mode": "core"})),
+            (240, 135),
+        ),
+        (
+            "7_masks_cut_both_inverted",
+            middle,
+            with(json!({"alpha_mode": "masks", "invert_masks": "on"})),
+            (100, 135),
+        ),
     ] {
-        let (bytes, said) = picture(&dir, "1_left.png", (480, 270), masks, json!([fx("pic", &p)]));
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        let (bytes, said) = picture(
+            &dir,
+            "1_left.png",
+            (480, 270),
+            masks,
+            json!([fx("pic", &p)]),
+        );
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let lit = at(&bytes, on);
         let moved = distance(&bytes, &before).1;
         t.row(
@@ -321,19 +510,40 @@ fn b445_energy_stroke_extras_timing() {
         if cfg!(debug_assertions) { "debug" } else { "release" },
         if cpu { "the processor" } else { "the card" },
     );
-    let window = mask(&[[300.0, 200.0], [1500.0, 200.0], [1500.0, 800.0], [300.0, 800.0]]);
+    let window = mask(&[
+        [300.0, 200.0],
+        [1500.0, 200.0],
+        [1500.0, 800.0],
+        [300.0, 800.0],
+    ]);
     let shots: [(&str, Option<J>, Option<J>); 5] = [
         ("Noise alone", None, None),
         ("Noise, then Energy Stroke as added", Some(json!({})), None),
-        ("Noise, then Energy Stroke, core 30, both ends flat", Some(json!({"core_size": 30, "start_roundness": 0, "end_roundness": 0})), None),
-        ("Noise, then Energy Stroke, noise on the layer, distortion 20", Some(json!({"noise_along_path": "off", "distortion_amount": 20, "distortion_scale": 80})), None),
-        ("Noise, then Energy Stroke, Alpha Mode masks, one mask", Some(json!({"alpha_mode": "masks"})), Some(window)),
+        (
+            "Noise, then Energy Stroke, core 30, both ends flat",
+            Some(json!({"core_size": 30, "start_roundness": 0, "end_roundness": 0})),
+            None,
+        ),
+        (
+            "Noise, then Energy Stroke, noise on the layer, distortion 20",
+            Some(
+                json!({"noise_along_path": "off", "distortion_amount": 20, "distortion_scale": 80}),
+            ),
+            None,
+        ),
+        (
+            "Noise, then Energy Stroke, Alpha Mode masks, one mask",
+            Some(json!({"alpha_mode": "masks"})),
+            Some(window),
+        ),
     ];
     for (name, e, masks) in shots {
         let project = reference_masked(
             |id| {
-                let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                    "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+                let mut v = vec![
+                    json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                    "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+                ];
                 if let Some(p) = &e {
                     v.push(fx(&format!("{id}u"), p));
                 }
@@ -341,10 +551,28 @@ fn b445_energy_stroke_extras_timing() {
             },
             masks,
         );
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B445_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-445_timing_raw.md"));
+    let out = std::env::var("B445_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-445_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

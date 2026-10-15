@@ -21,14 +21,23 @@ use common::repo;
 
 fn viewer(disk: &std::path::Path) -> CelCache {
     let mut cache = CelCache::viewer();
-    cache.set_disk(Some(DiskCache { folder: disk.to_path_buf(), cap: 20_000_000_000 }));
+    cache.set_disk(Some(DiskCache {
+        folder: disk.to_path_buf(),
+        cap: 20_000_000_000,
+    }));
     cache
 }
 
 fn frames(disk: &std::path::Path) -> Vec<std::path::PathBuf> {
-    fs::read_dir(disk).map_or_else(|_| Vec::new(), |l| {
-        l.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "frame")).collect()
-    })
+    fs::read_dir(disk).map_or_else(
+        |_| Vec::new(),
+        |l| {
+            l.flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|e| e == "frame"))
+                .collect()
+        },
+    )
 }
 
 #[test]
@@ -42,14 +51,22 @@ fn b171b_written_by_a_worker() {
     let picture = Arc::new(picture);
     let key = "b171b frame".to_string();
     let mut first = viewer(&disk);
-    first.store_inner(key.clone(), Vec::new(), Arc::clone(&picture), Duration::from_secs(1));
+    first.store_inner(
+        key.clone(),
+        Vec::new(),
+        Arc::clone(&picture),
+        Duration::from_secs(1),
+    );
     let on_disk_at_return = !frames(&disk).is_empty();
     let back = viewer(&disk).inner_frame(&key);
     let same = back.as_deref().is_some_and(|b| b.data() == picture.data());
     let written = frames(&disk);
     // The copy B-171 wrote, byte for byte: magic, width, height, text length, the two checksums,
     // the key and an empty file list, then the floats.
-    let bytes = written.first().map(|f| fs::read(f).expect("read the copy")).unwrap_or_default();
+    let bytes = written
+        .first()
+        .map(|f| fs::read(f).expect("read the copy"))
+        .unwrap_or_default();
     let text = format!("{key}\0");
     let floats: &[u8] = bytemuck::cast_slice(picture.data());
     let whole = bytes.len() == 48 + text.len() + floats.len()
@@ -60,9 +77,18 @@ fn b171b_written_by_a_worker() {
         && bytes[48..48 + text.len()] == *text.as_bytes()
         && bytes[48 + text.len()..] == *floats;
     let rows = [
-        ("Keeping a frame returns before its copy is on disk", !on_disk_at_return),
-        ("A new viewer asking at once gets the frame back bit for bit", same),
-        ("One copy on disk, laid out byte for byte as B-171 wrote it", written.len() == 1 && whole),
+        (
+            "Keeping a frame returns before its copy is on disk",
+            !on_disk_at_return,
+        ),
+        (
+            "A new viewer asking at once gets the frame back bit for bit",
+            same,
+        ),
+        (
+            "One copy on disk, laid out byte for byte as B-171 wrote it",
+            written.len() == 1 && whole,
+        ),
     ];
     let mut table = String::from(
         "# B-171b: composition frames written to disk by a worker\n\n\

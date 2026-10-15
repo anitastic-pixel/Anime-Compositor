@@ -36,7 +36,11 @@ fn b89_find_edges() {
 
     t.heading("How far it reaches");
     let got = find_edges("on", 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = find_edges("off", 100.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -57,7 +61,11 @@ fn b89_find_edges() {
         "fx_findedges_018.json",
         "fx_findedges_019.json",
     ]);
-    t.shape_refused("fx_findedges_001.json", "no `invert` at all", r#"{"amount": 100}"#);
+    t.shape_refused(
+        "fx_findedges_001.json",
+        "no `invert` at all",
+        r#"{"amount": 100}"#,
+    );
     t.shape_refused(
         "fx_findedges_001.json",
         "an amount that is a word",
@@ -73,7 +81,10 @@ fn b89_find_edges() {
             ("amount -1", set(find_edges("off", -1.0))),
             ("invert \"yes\"", set(find_edges("yes", 100.0))),
             ("invert \"ON\"", set(find_edges("ON", 100.0))),
-            ("amount keyed to 150", keys("amount", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "amount keyed to 150",
+                keys("amount", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -82,7 +93,10 @@ fn b89_find_edges() {
         vec![
             ("amount 0, the bottom,", set(find_edges("on", 0.0))),
             ("amount 100, the top,", set(find_edges("off", 100.0))),
-            ("amount keyed from 0 to 100", keys("amount", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "amount keyed from 0 to 100",
+                keys("amount", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

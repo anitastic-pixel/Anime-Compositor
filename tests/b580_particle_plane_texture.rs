@@ -22,7 +22,9 @@ use serde_json::{json, Value as J};
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::effects::{Effect, PARTICLE_PLANE_COLORS, PARTICLE_PLANE_SETTINGS, PARTICLE_PLANE_WORDS};
+use anime_compositor::effects::{
+    Effect, PARTICLE_PLANE_COLORS, PARTICLE_PLANE_SETTINGS, PARTICLE_PLANE_WORDS,
+};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
@@ -32,12 +34,24 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// and Draft. The files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_particle_plane_texture.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("expected_particle_plane_texture.json")).unwrap(),
+    )
+    .unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = case["project"].as_str().unwrap();
-        let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-        let project = persist::load(&t.root.join(file)).unwrap().document.project().clone();
+        let frames: Vec<i32> = case["frames"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|f| f.parse().unwrap())
+            .collect();
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &frames {
@@ -45,7 +59,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ParticlePlane { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ParticlePlane { .. })
+                });
             }
         }
         t.row(
@@ -63,9 +79,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -79,7 +104,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ParticlePlane { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ParticlePlane { .. })
+                });
                 t.row(
                     &format!("the reference shot, Particle Plane {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -94,7 +121,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// with what it warned of. A switched-off layer `street` holds the same still, for a texture.
 fn picture(effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -112,18 +142,40 @@ fn picture(effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     street["name"] = J::from("street");
     street["enabled"] = J::from(false);
     comp["layers"].as_array_mut().unwrap().push(street);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("street"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("street"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The `art` layer's effect in `file`.
 fn effect_of(t: &Table, file: &str) -> Effect {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 /// A Particle Plane's settings, every one `p` leaves out as it is added.
@@ -180,13 +232,27 @@ fn b580_particle_plane_texture() {
     let older = t.load("fx_pptex_005.json");
     let mut older_json = effect_table::saved(&older);
     let params = &mut older_json["compositions"][0]["layers"][0]["effects"][0]["parameters"];
-    for name in ["rotation_speed", "initial_rotation", "texture_layer", "composite_on_original"] {
+    for name in [
+        "rotation_speed",
+        "initial_rotation",
+        "texture_layer",
+        "composite_on_original",
+    ] {
         params.as_object_mut().unwrap().remove(name);
     }
     let reread = persist::load_str(&older_json.to_string()).expect("a D-612 file reads");
     let back = effect_table::saved(&reread);
     let p = &back["compositions"][0]["layers"][0]["effects"][0]["parameters"];
-    let e = reread.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
+    let e = reread
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     let as_added = matches!(&e, Effect::ParticlePlane { values, words, texture_layer, .. }
         if values[23] == 0.0 && values[24] == 0.0 && words[5] == "off" && texture_layer == "");
     t.row(
@@ -204,12 +270,24 @@ fn b580_particle_plane_texture() {
     ] {
         let file = format!("fx_pptex_{n:03}.json");
         let why = effect_of(&t, &file).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_pptex_008.json", "a Particle Plane whose rotation speed is a word", &parameters(&json!({"rotation_speed": "fast"})).to_string());
+    t.shape_refused(
+        "fx_pptex_008.json",
+        "a Particle Plane whose rotation speed is a word",
+        &parameters(&json!({"rotation_speed": "fast"})).to_string(),
+    );
 
     t.heading("Tiles");
-    t.tiles(&[("fx_pptex_008.json", 20), ("fx_pptex_012.json", 20), ("fx_pptex_019.json", 20)]);
+    t.tiles(&[
+        ("fx_pptex_008.json", 20),
+        ("fx_pptex_012.json", 20),
+        ("fx_pptex_019.json", 20),
+    ]);
 
     t.heading("On the card (D-710)");
     let mut gpu = Gpu::new().expect("a graphics card");
@@ -218,7 +296,11 @@ fn b580_particle_plane_texture() {
         &mut t,
         &mut gpu,
         &[
-            ("textured discs, no texture layer, over the drawing", json!({"particle_type": "textured_disc", "birth_size": 0.8, "death_size": 0.8, "composite_on_original": "on"}), 3),
+            (
+                "textured discs, no texture layer, over the drawing",
+                json!({"particle_type": "textured_disc", "birth_size": 0.8, "death_size": 0.8, "composite_on_original": "on"}),
+                3,
+            ),
             (
                 "textured discs showing the background layer-4, turning, over the drawing",
                 json!({"particle_type": "textured_disc", "texture_layer": "layer-4", "birth_size": 1.5, "death_size": 0.5, "rotation_speed": 90, "initial_rotation": 360,
@@ -247,14 +329,18 @@ fn b580_particle_plane_texture() {
         ("1_as_added_over_the_street", over(json!({})), 24),
         (
             "2_street_discs_fountain",
-            over(json!({"particle_type": "textured_disc", "texture_layer": "street", "animation": "direction", "extra_angle": 25, "velocity": 1.2, "gravity": 1.0,
-                "birth_rate": 3, "longevity": 2, "producer_y": 0.2, "birth_size": 5, "death_size": 2, "rotation_speed": 180, "initial_rotation": 360})),
+            over(
+                json!({"particle_type": "textured_disc", "texture_layer": "street", "animation": "direction", "extra_angle": 25, "velocity": 1.2, "gravity": 1.0,
+                "birth_rate": 3, "longevity": 2, "producer_y": 0.2, "birth_size": 5, "death_size": 2, "rotation_speed": 180, "initial_rotation": 360}),
+            ),
             48,
         ),
         (
             "3_street_faded_discs_vortex",
-            over(json!({"particle_type": "textured_faded_disc", "texture_layer": "street", "animation": "vortex", "birth_rate": 2, "longevity": 3, "radius_x": 0.3,
-                "radius_y": 0.2, "velocity": 0.3, "gravity": 0, "birth_size": 6, "death_size": 6, "rotation_speed": 45})),
+            over(
+                json!({"particle_type": "textured_faded_disc", "texture_layer": "street", "animation": "vortex", "birth_rate": 2, "longevity": 3, "radius_x": 0.3,
+                "radius_y": 0.2, "velocity": 0.3, "gravity": 0, "birth_size": 6, "death_size": 6, "rotation_speed": 45}),
+            ),
             72,
         ),
         (
@@ -265,14 +351,31 @@ fn b580_particle_plane_texture() {
         ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), frame);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png, frame {frame}: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
-    let (bytes, said) = picture(json!([fx("pic", &over(json!({"particle_type": "textured_disc", "texture_layer": "gone"})))]), 24);
+    let (bytes, said) = picture(
+        json!([fx(
+            "pic",
+            &over(json!({"particle_type": "textured_disc", "texture_layer": "gone"}))
+        )]),
+        24,
+    );
     t.row(
         "the street with Particle Plane's texture layer `gone`, not in the composition: the effect left out, the street unchanged, the warning said",
         &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
@@ -319,17 +422,37 @@ fn b580_particle_plane_texture_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B580_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-580_timing_raw.md"));
+    let out = std::env::var("B580_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-580_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

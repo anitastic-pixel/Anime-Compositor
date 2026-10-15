@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -44,7 +45,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=18 {
         let file = format!("fx_crange_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -52,7 +57,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ColorRange { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ColorRange { .. })
+                });
             }
         }
         t.row(
@@ -70,9 +77,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -86,7 +102,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ColorRange { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ColorRange { .. })
+                });
                 t.row(
                     &format!("the reference shot, Color Range {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -100,7 +118,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -112,8 +133,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -136,7 +169,9 @@ fn portrait() -> Vec<u8> {
             } else if r < 1.0 {
                 // The spill, from none 14 pixels in to 60% of the screen at the edge.
                 let spill = (1.0 - (1.0 - r) * 70.0 / 14.0).clamp(0.0, 1.0) * 0.6;
-                std::array::from_fn(|c| (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8)
+                std::array::from_fn(|c| {
+                    (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8
+                })
             } else {
                 SCREEN
             };
@@ -188,7 +223,11 @@ fn b380_color_range() {
         ("fx_crange_018.json", "colour space"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let numbers = r##""min_1": 0, "max_1": 0, "min_2": 0, "max_2": 0, "min_3": 0"##;
     t.shape_refused(
@@ -196,23 +235,45 @@ fn b380_color_range() {
         "a Color Range whose fuzziness is a word",
         &format!(r##"{{"color_space": "lab", "fuzziness": "soft", {numbers}, "max_3": 0}}"##),
     );
-    t.shape_refused("fx_crange_001.json", "a Color Range without its colour space", &format!(r##"{{"fuzziness": 0, {numbers}, "max_3": 0}}"##));
-    t.shape_refused("fx_crange_001.json", "a Color Range without its max 3", &format!(r##"{{"color_space": "lab", "fuzziness": 0, {numbers}}}"##));
+    t.shape_refused(
+        "fx_crange_001.json",
+        "a Color Range without its colour space",
+        &format!(r##"{{"fuzziness": 0, {numbers}, "max_3": 0}}"##),
+    );
+    t.shape_refused(
+        "fx_crange_001.json",
+        "a Color Range without its max 3",
+        &format!(r##"{{"color_space": "lab", "fuzziness": 0, {numbers}}}"##),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_crange_001.json").document;
-    let over = changed(&t, "fx_crange_001.json", |e| if let Effect::ColorRange { fuzziness, .. } = e { *fuzziness = 256.0 });
-    let word = changed(&t, "fx_crange_001.json", |e| if let Effect::ColorRange { color_space, .. } = e { *color_space = "hsl".into() });
+    let over = changed(&t, "fx_crange_001.json", |e| {
+        if let Effect::ColorRange { fuzziness, .. } = e {
+            *fuzziness = 256.0
+        }
+    });
+    let word = changed(&t, "fx_crange_001.json", |e| {
+        if let Effect::ColorRange { color_space, .. } = e {
+            *color_space = "hsl".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("fuzziness 256", set(over)),
             ("colour space \"hsl\"", set(word)),
-            ("max 3 keyed to 300", keys("max_3", &[(0, &[0.0]), (4, &[300.0])])),
+            (
+                "max 3 keyed to 300",
+                keys("max_3", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
         ],
     );
     let yuv = changed(&t, "fx_crange_001.json", |e| {
-        if let Effect::ColorRange { color_space, range, .. } = e {
+        if let Effect::ColorRange {
+            color_space, range, ..
+        } = e
+        {
             *color_space = "yuv".into();
             *range = [20.0, 120.0, 170.0, 230.0, 80.0, 125.0];
         }
@@ -220,7 +281,16 @@ fn b380_color_range() {
     t.taken(
         &mut document,
         "fx_crange_001.json",
-        vec![("colour space yuv with a box about the blue screen", set(yuv)), ("fuzziness keyed from 0 to 80", keys("fuzziness", &[(0, &[0.0]), (4, &[80.0])]))],
+        vec![
+            (
+                "colour space yuv with a box about the blue screen",
+                set(yuv),
+            ),
+            (
+                "fuzziness keyed from 0 to 80",
+                keys("fuzziness", &[(0, &[0.0]), (4, &[80.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -242,16 +312,38 @@ fn b380_color_range() {
         &mut t,
         &mut gpu,
         &[
-            ("RGB, the whole cube but the darkest reds, fuzziness 60", json!({"color_space": "rgb", "fuzziness": 60, "min_1": 40, "max_1": 255, "max_2": 255, "max_3": 255}), 3),
-            ("Lab, the lighter half, a* and b* within 40 of grey, fuzziness 30", json!({"fuzziness": 30, "min_1": 128, "max_1": 255, "min_2": 88, "max_2": 168, "min_3": 88, "max_3": 168}), 3),
-            ("YUV, the darker half, fuzziness 0", json!({"color_space": "yuv", "max_1": 128, "max_2": 255, "max_3": 255}), 3),
+            (
+                "RGB, the whole cube but the darkest reds, fuzziness 60",
+                json!({"color_space": "rgb", "fuzziness": 60, "min_1": 40, "max_1": 255, "max_2": 255, "max_3": 255}),
+                3,
+            ),
+            (
+                "Lab, the lighter half, a* and b* within 40 of grey, fuzziness 30",
+                json!({"fuzziness": 30, "min_1": 128, "max_1": 255, "min_2": 88, "max_2": 168, "min_3": 88, "max_3": 168}),
+                3,
+            ),
+            (
+                "YUV, the darker half, fuzziness 0",
+                json!({"color_space": "yuv", "max_1": 128, "max_2": 255, "max_3": 255}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-500 pictures/`");
     let dir = repo("verification/D-500 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("portrait.png", TOWN, &portrait());
     let shot = |p: J| picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "portrait.png", TOWN, json!([]));
@@ -268,14 +360,26 @@ fn b380_color_range() {
     // face's top edge, (156, 175, 113), the shirt.
     let (screen, face, edge, shirt) = ((20, 20), (240, 110), (240, 28), (240, 250));
     let cover = |b: &[u8], p: (usize, usize)| at(b, p.0, p.1)[3];
-    let colour_kept = |after: &[u8]| after.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(a, _)| a[3] >= 16).all(|(a, b)| (0..3).all(|c| a[c].abs_diff(b[c]) <= 1));
+    let colour_kept = |after: &[u8]| {
+        after
+            .chunks_exact(4)
+            .zip(before.chunks_exact(4))
+            .filter(|(a, _)| a[3] >= 16)
+            .all(|(a, b)| (0..3).all(|c| a[c].abs_diff(b[c]) <= 1))
+    };
 
     // A Lab box about the screen's green (it is L 164, a 68, b 177 here; the spilled pixel is
     // L 175, a 111, b 158, skin a 139): L 120 to 210, a 40 to 95, b 150 to 210.
-    let lab = json!({"min_1": 120, "max_1": 210, "min_2": 40, "max_2": 95, "min_3": 150, "max_3": 210});
+    let lab =
+        json!({"min_1": 120, "max_1": 210, "min_2": 40, "max_2": 95, "min_3": 150, "max_3": 210});
     let (after, said) = shot(lab.clone());
     write("2_lab_hard.png", TOWN, &after);
-    let (s, f, e, sh) = (cover(&after, screen), cover(&after, face), cover(&after, edge), cover(&after, shirt));
+    let (s, f, e, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, edge),
+        cover(&after, shirt),
+    );
     t.row(
         "2_lab_hard.png, a Lab box about the screen's green, fuzziness 0: the screen see-through, the face, the spilled pixel (a 111, outside the box) and the shirt fully covered; colour kept wherever anything is left; draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, spilled {e}, shirt {sh}, colour kept {}", colour_kept(&after)),
@@ -288,7 +392,12 @@ fn b380_color_range() {
     soft["fuzziness"] = J::from(40);
     let (after, said) = shot(soft);
     write("3_lab_soft.png", TOWN, &after);
-    let (s, f, e, sh) = (cover(&after, screen), cover(&after, face), cover(&after, edge), cover(&after, shirt));
+    let (s, f, e, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, edge),
+        cover(&after, shirt),
+    );
     t.row(
         "3_lab_soft.png, the same box with fuzziness 40: the screen still see-through, the face and the shirt still whole, the spilled green edge now fading (covering 101 by hand at the spilled pixel); draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, spilled {e}, shirt {sh}"),
@@ -296,9 +405,16 @@ fn b380_color_range() {
     );
 
     // A YUV box about the shirt (Y 65, U 181, V 110 here): the shirt keyed, nothing else.
-    let (after, said) = shot(json!({"color_space": "yuv", "fuzziness": 20, "min_1": 40, "max_1": 110, "min_2": 160, "max_2": 220, "min_3": 90, "max_3": 140}));
+    let (after, said) = shot(
+        json!({"color_space": "yuv", "fuzziness": 20, "min_1": 40, "max_1": 110, "min_2": 160, "max_2": 220, "min_3": 90, "max_3": 140}),
+    );
     write("4_yuv_shirt.png", TOWN, &after);
-    let (s, f, e, sh) = (cover(&after, screen), cover(&after, face), cover(&after, edge), cover(&after, shirt));
+    let (s, f, e, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, edge),
+        cover(&after, shirt),
+    );
     t.row(
         "4_yuv_shirt.png, a YUV box about the blue shirt, fuzziness 20: the shirt see-through, the screen, the face and its edge fully covered; draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, spilled {e}, shirt {sh}"),
@@ -311,7 +427,12 @@ fn b380_color_range() {
     let rgb = json!({"color_space": "rgb", "fuzziness": 30, "min_1": 0, "max_1": 90, "min_2": 150, "max_2": 255, "min_3": 0, "max_3": 110});
     for (file, name, c, want) in [
         ("green.png", "pure green", [0u8, 255, 0], 0u8),
-        ("sea_green.png", "the sea green (0, 200, 120)", [0, 200, 120], 85),
+        (
+            "sea_green.png",
+            "the sea green (0, 200, 120)",
+            [0, 200, 120],
+            85,
+        ),
         ("blue.png", "pure blue", [0, 0, 255], 255),
     ] {
         write(file, (4, 4), &[c[0], c[1], c[2], 255].repeat(16));
@@ -351,22 +472,52 @@ fn b380_color_range_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Color Range, RGB, fuzziness 60", Some(json!({"color_space": "rgb", "fuzziness": 60, "min_1": 40, "max_1": 255, "max_2": 255, "max_3": 255}))),
-        ("Noise, then Color Range, Lab, fuzziness 30", Some(json!({"fuzziness": 30, "min_1": 128, "max_1": 255, "min_2": 88, "max_2": 168, "min_3": 88, "max_3": 168}))),
+        (
+            "Noise, then Color Range, RGB, fuzziness 60",
+            Some(
+                json!({"color_space": "rgb", "fuzziness": 60, "min_1": 40, "max_1": 255, "max_2": 255, "max_3": 255}),
+            ),
+        ),
+        (
+            "Noise, then Color Range, Lab, fuzziness 30",
+            Some(
+                json!({"fuzziness": 30, "min_1": 128, "max_1": 255, "min_2": 88, "max_2": 168, "min_3": 88, "max_3": 168}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B380_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-380_timing_raw.md"));
+    let out = std::env::var("B380_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-380_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

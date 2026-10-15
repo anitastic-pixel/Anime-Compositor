@@ -19,7 +19,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -34,10 +35,21 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn hls(hue: f64, lightness: f64, saturation: f64) -> Effect {
-    Effect::ColorBalanceHls { hue, lightness, saturation }
+    Effect::ColorBalanceHls {
+        hue,
+        lightness,
+        saturation,
+    }
 }
 
-fn link(layer: &str, sample: &str, clip: f64, stencil: &str, opacity: f64, blending_mode: &str) -> Effect {
+fn link(
+    layer: &str,
+    sample: &str,
+    clip: f64,
+    stencil: &str,
+    opacity: f64,
+    blending_mode: &str,
+) -> Effect {
     Effect::ColorLink {
         layer: J::from(layer),
         sample: sample.into(),
@@ -49,7 +61,12 @@ fn link(layer: &str, sample: &str, clip: f64, stencil: &str, opacity: f64, blend
     }
 }
 
-fn stabilizer(stabilize: &str, reference_frame: f64, points: [[f64; 2]; 3], sample_size: f64) -> Effect {
+fn stabilizer(
+    stabilize: &str,
+    reference_frame: f64,
+    points: [[f64; 2]; 3],
+    sample_size: f64,
+) -> Effect {
     Effect::ColorStabilizer {
         stabilize: stabilize.into(),
         reference_frame,
@@ -65,7 +82,12 @@ const POINTS: [[f64; 2]; 3] = [[25.0, 50.0], [50.0, 50.0], [75.0, 50.0]];
 
 /// Set the `holder` layer's effect `instance` (the Color Link and Color Stabilizer files).
 fn set_holder(instance: &str, effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new(instance), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new(instance),
+        effect,
+    }
 }
 
 fn keys_holder(instance: &str, setting: &str, values: &[(i32, &[f64])]) -> Command {
@@ -74,35 +96,66 @@ fn keys_holder(instance: &str, setting: &str, values: &[(i32, &[f64])]) -> Comma
         layer_id: Id::new("holder"),
         instance_id: Id::new(instance),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 fn holder_effect(d: &Document) -> Effect {
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 /// Each command on the `holder` file is refused with a sentence and leaves it as it was; then
 /// each taken one is taken, and as many undos give back `file`'s frame 0 exactly.
-fn holder_commands(t: &mut Table, file: &str, refused: Vec<(&str, Command)>, taken: Vec<(&str, Command)>) {
+fn holder_commands(
+    t: &mut Table,
+    file: &str,
+    refused: Vec<(&str, Command)>,
+    taken: Vec<(&str, Command)>,
+) {
     let mut document = t.load(file).document;
     let held = format!("{:?}", document.project());
     for (what, command) in refused {
         let why = document.apply(command).err();
         let untouched = format!("{:?}", document.project()) == held;
-        t.row(&format!("{what} is refused with a sentence, and nothing changes"), &why.as_ref().map_or("taken".into(), |d| d.message.clone()), why.is_some() && untouched);
+        t.row(
+            &format!("{what} is refused with a sentence, and nothing changes"),
+            &why.as_ref().map_or("taken".into(), |d| d.message.clone()),
+            why.is_some() && untouched,
+        );
     }
     let n = taken.len();
     for (what, command) in taken {
         let ok = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if ok { "taken" } else { "refused" }, ok);
+        t.row(
+            &format!("{what} is taken"),
+            if ok { "taken" } else { "refused" },
+            ok,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// An effect of `type_id` with the settings `p`; for the three here, every setting `p` leaves
@@ -110,7 +163,9 @@ fn holder_commands(t: &mut Table, file: &str, refused: Vec<(&str, Command)>, tak
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
         "core.color_balance_hls" => json!({"hue": 0, "lightness": 0, "saturation": 0}),
-        "core.color_link" => json!({"layer": "", "sample": "average", "clip": 5, "stencil": "off", "opacity": 100, "blending_mode": "normal"}),
+        "core.color_link" => {
+            json!({"layer": "", "sample": "average", "clip": 5, "stencil": "off", "opacity": 100, "blending_mode": "normal"})
+        }
         "core.color_stabilizer" => json!({
             "stabilize": "brightness", "reference_frame": 0, "black_point": [25, 50], "mid_point": [50, 50],
             "white_point": [75, 50], "sample_size": 5}),
@@ -125,11 +180,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing, are left out with a warning, or stay on the
 /// processor, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -150,14 +216,31 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor; `card` of 3 on the card each frame.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool, want: usize) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+    want: usize,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -193,9 +276,21 @@ fn card_fused(t: &mut Table, gpu: &mut Gpu) {
     let ref_root = repo("Fixtures/reference_shot");
     let project = reference(|id| {
         json!([
-            fx("core.color_balance_hls", &format!("{id}h"), &json!({"hue": 150, "lightness": -10, "saturation": 25})),
-            fx("core.levels", &format!("{id}l"), &json!({"input_black": 20, "input_white": 230, "gamma": 1.2, "output_black": 10, "output_white": 245})),
-            fx("core.color_link", &format!("{id}c"), &json!({"layer": "layer-4", "sample": "median", "opacity": 40, "blending_mode": "overlay", "stencil": "on"})),
+            fx(
+                "core.color_balance_hls",
+                &format!("{id}h"),
+                &json!({"hue": 150, "lightness": -10, "saturation": 25})
+            ),
+            fx(
+                "core.levels",
+                &format!("{id}l"),
+                &json!({"input_black": 20, "input_white": 230, "gamma": 1.2, "output_black": 10, "output_white": 245})
+            ),
+            fx(
+                "core.color_link",
+                &format!("{id}c"),
+                &json!({"layer": "layer-4", "sample": "median", "opacity": 40, "blending_mode": "overlay", "stencil": "on"})
+            ),
         ])
     });
     for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
@@ -213,7 +308,10 @@ fn card_fused(t: &mut Table, gpu: &mut Gpu) {
 
 /// `effects` on the picture `asset` in `dir`, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -225,8 +323,20 @@ fn picture(dir: &Path, asset: &str, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -236,7 +346,17 @@ fn pictures(t: &mut Table, d: &str) -> (std::path::PathBuf, impl Fn(&str, &[u8])
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
     let out = dir.clone();
-    let write = move |name: &str, bytes: &[u8]| png_out::write_rgba(&out.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = move |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &out.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     (dir, write)
 }
@@ -247,7 +367,10 @@ fn px(b: &[u8], i: usize) -> [u8; 3] {
 
 /// Where the street first has the colour `c`.
 fn first(bytes: &[u8], c: [u8; 3]) -> usize {
-    bytes.chunks_exact(4).position(|p| p[..3] == c).expect("the street has that colour")
+    bytes
+        .chunks_exact(4)
+        .position(|p| p[..3] == c)
+        .expect("the street has that colour")
 }
 
 // --- Color Balance (HLS) ----------------------------------------------------------------------
@@ -286,11 +409,31 @@ fn b253_color_balance_hls() {
         ("fx_hlsbal_014.json", "saturation"),
     ] {
         let d = t.load(file).document;
-        let why = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming its {want}"), &why, why.contains(want));
+        let why = d
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence naming its {want}"),
+            &why,
+            why.contains(want),
+        );
     }
-    t.shape_refused("fx_hlsbal_001.json", "a Color Balance (HLS) with no `hue`", r#"{"lightness": 0, "saturation": 0}"#);
-    t.shape_refused("fx_hlsbal_001.json", "a Color Balance (HLS) whose saturation is a word", r#"{"hue": 0, "lightness": 0, "saturation": "0"}"#);
+    t.shape_refused(
+        "fx_hlsbal_001.json",
+        "a Color Balance (HLS) with no `hue`",
+        r#"{"lightness": 0, "saturation": 0}"#,
+    );
+    t.shape_refused(
+        "fx_hlsbal_001.json",
+        "a Color Balance (HLS) whose saturation is a word",
+        r#"{"hue": 0, "lightness": 0, "saturation": "0"}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_hlsbal_001.json").document;
@@ -299,17 +442,34 @@ fn b253_color_balance_hls() {
         vec![
             ("hue 3600.5", set(hls(3600.5, 0.0, 0.0))),
             ("lightness -100.5", set(hls(0.0, -100.5, 0.0))),
-            ("saturation keyed to 120", keys("saturation", &[(0, &[0.0]), (4, &[120.0])])),
+            (
+                "saturation keyed to 120",
+                keys("saturation", &[(0, &[0.0]), (4, &[120.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_hlsbal_001.json",
-        vec![("hue 60, lightness -20, saturation 20", set(hls(60.0, -20.0, 20.0))), ("hue keyed from 0 to 240", keys("hue", &[(0, &[0.0]), (4, &[240.0])]))],
+        vec![
+            (
+                "hue 60, lightness -20, saturation 20",
+                set(hls(60.0, -20.0, 20.0)),
+            ),
+            (
+                "hue keyed from 0 to 240",
+                keys("hue", &[(0, &[0.0]), (4, &[240.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_hlsbal_002.json", 0), ("fx_hlsbal_005.json", 0), ("fx_hlsbal_009.json", 0), ("fx_hlsbal_011.json", 3)]);
+    t.tiles(&[
+        ("fx_hlsbal_002.json", 0),
+        ("fx_hlsbal_005.json", 0),
+        ("fx_hlsbal_009.json", 0),
+        ("fx_hlsbal_011.json", 3),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -321,7 +481,10 @@ fn b253_color_balance_hls() {
         "core.color_balance_hls",
         &[
             ("hue 120", json!({"hue": 120})),
-            ("hue -60, lightness 20, saturation 40", json!({"hue": -60, "lightness": 20, "saturation": 40})),
+            (
+                "hue -60, lightness 20, saturation 40",
+                json!({"hue": -60, "lightness": 20, "saturation": 40}),
+            ),
             ("saturation -100", json!({"saturation": -100})),
         ],
         is_hls,
@@ -334,13 +497,20 @@ fn b253_color_balance_hls() {
     let red = first(&street, [180, 90, 70]);
     let (before, said) = picture(&dir, "town.png", json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let one = |p: J| json!([fx("core.color_balance_hls", "fx-0-0", &p)]);
     let (as_added, said) = picture(&dir, "town.png", one(json!({})));
     write("2_as_added.png", &as_added);
     t.row(
         "2_as_added.png, as it starts (all three 0): nothing changes; draws cleanly",
-        &format!("{said:?}, {} pixels changed", distance(&as_added, &before).1),
+        &format!(
+            "{said:?}, {} pixels changed",
+            distance(&as_added, &before).1
+        ),
         said.is_empty() && distance(&as_added, &before).0 == 0,
     );
     let (turned, said) = picture(&dir, "town.png", one(json!({"hue": 120})));
@@ -352,12 +522,25 @@ fn b253_color_balance_hls() {
     );
     let (grey, said) = picture(&dir, "town.png", one(json!({"saturation": -100})));
     write("4_saturation_-100.png", &grey);
-    let greyed = grey.chunks_exact(4).all(|p| p[0].abs_diff(p[1]) <= 1 && p[1].abs_diff(p[2]) <= 1);
-    t.row("4_saturation_-100.png, saturation -100: the street in greys; draws cleanly", &format!("{said:?}, every pixel grey: {greyed}"), said.is_empty() && greyed);
+    let greyed = grey
+        .chunks_exact(4)
+        .all(|p| p[0].abs_diff(p[1]) <= 1 && p[1].abs_diff(p[2]) <= 1);
+    t.row(
+        "4_saturation_-100.png, saturation -100: the street in greys; draws cleanly",
+        &format!("{said:?}, every pixel grey: {greyed}"),
+        said.is_empty() && greyed,
+    );
     let (dark, said) = picture(&dir, "town.png", one(json!({"lightness": -30})));
     write("5_lightness_-30.png", &dark);
-    let darker = dark.chunks_exact(4).zip(before.chunks_exact(4)).all(|(d, b)| d[..3].iter().zip(&b[..3]).all(|(x, y)| x <= y));
-    t.row("5_lightness_-30.png, lightness -30: every pixel darker or as dark; draws cleanly", &format!("{said:?}, every pixel darker or the same: {darker}"), said.is_empty() && darker);
+    let darker = dark
+        .chunks_exact(4)
+        .zip(before.chunks_exact(4))
+        .all(|(d, b)| d[..3].iter().zip(&b[..3]).all(|(x, y)| x <= y));
+    t.row(
+        "5_lightness_-30.png, lightness -30: every pixel darker or as dark; draws cleanly",
+        &format!("{said:?}, every pixel darker or the same: {darker}"),
+        said.is_empty() && darker,
+    );
 
     t.finish("D-374_color_balance_hls_table.md");
 }
@@ -400,7 +583,11 @@ fn b254_color_link() {
         ("fx_clink_025.json", "\"Normal\""),
     ] {
         let why = holder_effect(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused("fx_clink_002.json", "a Color Link with no `sample`", r#"{"layer": "swatch", "clip": 5, "stencil": "off", "opacity": 100, "blending_mode": "normal"}"#);
     t.shape_refused("fx_clink_002.json", "a Color Link whose opacity is a word", r#"{"layer": "swatch", "sample": "average", "clip": 5, "stencil": "off", "opacity": "100", "blending_mode": "normal"}"#);
@@ -410,19 +597,58 @@ fn b254_color_link() {
         &mut t,
         "fx_clink_002.json",
         vec![
-            ("clip 49.5", set_holder("fx-0-0", link("swatch", "average", 49.5, "off", 100.0, "normal"))),
-            ("opacity 100.5", set_holder("fx-0-0", link("swatch", "average", 5.0, "off", 100.5, "normal"))),
-            ("sample \"Median\" written with a capital", set_holder("fx-0-0", link("swatch", "Median", 5.0, "off", 100.0, "normal"))),
-            ("blending mode \"difference\"", set_holder("fx-0-0", link("swatch", "average", 5.0, "off", 100.0, "difference"))),
+            (
+                "clip 49.5",
+                set_holder(
+                    "fx-0-0",
+                    link("swatch", "average", 49.5, "off", 100.0, "normal"),
+                ),
+            ),
+            (
+                "opacity 100.5",
+                set_holder(
+                    "fx-0-0",
+                    link("swatch", "average", 5.0, "off", 100.5, "normal"),
+                ),
+            ),
+            (
+                "sample \"Median\" written with a capital",
+                set_holder(
+                    "fx-0-0",
+                    link("swatch", "Median", 5.0, "off", 100.0, "normal"),
+                ),
+            ),
+            (
+                "blending mode \"difference\"",
+                set_holder(
+                    "fx-0-0",
+                    link("swatch", "average", 5.0, "off", 100.0, "difference"),
+                ),
+            ),
         ],
         vec![
-            ("the median, stencil on, overlay at 60", set_holder("fx-0-0", link("swatch", "median", 5.0, "on", 60.0, "overlay"))),
-            ("opacity keyed from 0 to 100", keys_holder("fx-0-0", "opacity", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "the median, stencil on, overlay at 60",
+                set_holder(
+                    "fx-0-0",
+                    link("swatch", "median", 5.0, "on", 60.0, "overlay"),
+                ),
+            ),
+            (
+                "opacity keyed from 0 to 100",
+                keys_holder("fx-0-0", "opacity", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_clink_001.json", 0), ("fx_clink_002.json", 3), ("fx_clink_009.json", 0), ("fx_clink_016.json", 0), ("fx_clink_018.json", 0)]);
+    t.tiles(&[
+        ("fx_clink_001.json", 0),
+        ("fx_clink_002.json", 3),
+        ("fx_clink_009.json", 0),
+        ("fx_clink_016.json", 0),
+        ("fx_clink_018.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     t.row(
@@ -431,16 +657,32 @@ fn b254_color_link() {
         true,
     );
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_clink", 25, &[1, 19, 20, 21, 22, 23, 24, 25], is_link);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_clink",
+        25,
+        &[1, 19, 20, 21, 22, 23, 24, 25],
+        is_link,
+    );
     card_reference(
         &mut t,
         &mut gpu,
         "Color Link",
         "core.color_link",
         &[
-            ("layer4's average, normal at 50", json!({"layer": "layer-4", "opacity": 50})),
-            ("layer4's brightest, multiply, stencil on", json!({"layer": "layer-4", "sample": "brightest", "blending_mode": "multiply", "stencil": "on"})),
-            ("layer4's median, soft light at 80", json!({"layer": "layer-4", "sample": "median", "blending_mode": "soft_light", "opacity": 80})),
+            (
+                "layer4's average, normal at 50",
+                json!({"layer": "layer-4", "opacity": 50}),
+            ),
+            (
+                "layer4's brightest, multiply, stencil on",
+                json!({"layer": "layer-4", "sample": "brightest", "blending_mode": "multiply", "stencil": "on"}),
+            ),
+            (
+                "layer4's median, soft light at 80",
+                json!({"layer": "layer-4", "sample": "median", "blending_mode": "soft_light", "opacity": 80}),
+            ),
         ],
         is_link,
         3,
@@ -449,7 +691,11 @@ fn b254_color_link() {
     let (dir, write) = pictures(&mut t, "D-375");
     let (before, said) = picture(&dir, "town.png", json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let one = |p: J| json!([fx("core.color_link", "fx-0-0", &p)]);
     let (flat, said) = picture(&dir, "town.png", one(json!({})));
     write("2_as_added.png", &flat);
@@ -460,16 +706,27 @@ fn b254_color_link() {
         &format!("{said:?}, every pixel {colour:?}: {one_colour}"),
         said.is_empty() && one_colour,
     );
-    let (wash, said) = picture(&dir, "town.png", one(json!({"opacity": 50, "blending_mode": "overlay", "stencil": "on"})));
+    let (wash, said) = picture(
+        &dir,
+        "town.png",
+        one(json!({"opacity": 50, "blending_mode": "overlay", "stencil": "on"})),
+    );
     write("3_overlay_50.png", &wash);
     t.row(
         "3_overlay_50.png, its own average laid over it by overlay at 50: the street keeps its light and dark under a wash of its own average colour; draws cleanly",
         &format!("{said:?}, {} pixels changed", distance(&wash, &before).1),
         said.is_empty() && distance(&wash, &before).1 > 0,
     );
-    let (bright, said) = picture(&dir, "town.png", one(json!({"sample": "brightest", "opacity": 40, "blending_mode": "multiply"})));
+    let (bright, said) = picture(
+        &dir,
+        "town.png",
+        one(json!({"sample": "brightest", "opacity": 40, "blending_mode": "multiply"})),
+    );
     write("4_brightest_multiply_40.png", &bright);
-    let darker = bright.chunks_exact(4).zip(before.chunks_exact(4)).all(|(d, b)| d[..3].iter().zip(&b[..3]).all(|(x, y)| x <= y));
+    let darker = bright
+        .chunks_exact(4)
+        .zip(before.chunks_exact(4))
+        .all(|(d, b)| d[..3].iter().zip(&b[..3]).all(|(x, y)| x <= y));
     t.row(
         "4_brightest_multiply_40.png, its brightest colour by multiply at 40: a little darker everywhere, tinted by the lit windows; draws cleanly",
         &format!("{said:?}, every pixel darker or the same: {darker}"),
@@ -531,9 +788,16 @@ fn b255_color_stabilizer() {
         &saved.to_string(),
         saved["stabilize"] == "levels" && saved["black_point"] == json!([10, 20]) && saved["white_point"] == json!([90, 80]) && saved.get("reference").is_none(),
     );
-    for (file, want) in [("fx_cstab_013.json", "\"colour\""), ("fx_cstab_014.json", "\"Levels\"")] {
+    for (file, want) in [
+        ("fx_cstab_013.json", "\"colour\""),
+        ("fx_cstab_014.json", "\"Levels\""),
+    ] {
         let why = holder_effect(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_cstab_001.json",
@@ -551,19 +815,49 @@ fn b255_color_stabilizer() {
         &mut t,
         "fx_cstab_001.json",
         vec![
-            ("sample size 100.5", set_holder("fx-1", stabilizer("brightness", 0.0, POINTS, 100.5))),
-            ("reference frame -0.5", set_holder("fx-1", stabilizer("brightness", -0.5, POINTS, 5.0))),
-            ("stabilize \"color\"", set_holder("fx-1", stabilizer("color", 0.0, POINTS, 5.0))),
-            ("the white point at x 1000.5", set_holder("fx-1", stabilizer("levels", 0.0, [POINTS[0], POINTS[1], [1000.5, 50.0]], 5.0))),
+            (
+                "sample size 100.5",
+                set_holder("fx-1", stabilizer("brightness", 0.0, POINTS, 100.5)),
+            ),
+            (
+                "reference frame -0.5",
+                set_holder("fx-1", stabilizer("brightness", -0.5, POINTS, 5.0)),
+            ),
+            (
+                "stabilize \"color\"",
+                set_holder("fx-1", stabilizer("color", 0.0, POINTS, 5.0)),
+            ),
+            (
+                "the white point at x 1000.5",
+                set_holder(
+                    "fx-1",
+                    stabilizer("levels", 0.0, [POINTS[0], POINTS[1], [1000.5, 50.0]], 5.0),
+                ),
+            ),
         ],
         vec![
-            ("curves at reference frame 2", set_holder("fx-1", stabilizer("curves", 2.0, POINTS, 3.0))),
-            ("the black point keyed from (25, 50) to (5, 50)", keys_holder("fx-1", "black_point", &[(0, &[25.0, 50.0]), (4, &[5.0, 50.0])])),
+            (
+                "curves at reference frame 2",
+                set_holder("fx-1", stabilizer("curves", 2.0, POINTS, 3.0)),
+            ),
+            (
+                "the black point keyed from (25, 50) to (5, 50)",
+                keys_holder(
+                    "fx-1",
+                    "black_point",
+                    &[(0, &[25.0, 50.0]), (4, &[5.0, 50.0])],
+                ),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_cstab_001.json", 1), ("fx_cstab_002.json", 2), ("fx_cstab_003.json", 3), ("fx_cstab_008.json", 2)]);
+    t.tiles(&[
+        ("fx_cstab_001.json", 1),
+        ("fx_cstab_002.json", 2),
+        ("fx_cstab_003.json", 3),
+        ("fx_cstab_008.json", 2),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     t.row(
@@ -578,16 +872,42 @@ fn b255_color_stabilizer() {
     // mend there; an Exposure Flicker before it gives it a flicker to take out.
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
-    let flicker = |id: &str| fx("core.exposure_flicker", &format!("b253-{id}f"), &json!({"amount": 0.25, "hold": 1, "seed": 3}));
+    let flicker = |id: &str| {
+        fx(
+            "core.exposure_flicker",
+            &format!("b253-{id}f"),
+            &json!({"amount": 0.25, "hold": 1, "seed": 3}),
+        )
+    };
     let cpu100 = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let flickering = cpu100(&reference(|id| json!([flicker(id)])));
-    for (what, p) in [("brightness, reference frame 0", json!({})), ("curves, reference frame 120", json!({"stabilize": "curves", "reference_frame": 120}))] {
-        let project = reference(|id| json!([flicker(id), fx("core.color_stabilizer", &format!("b253-{id}s"), &p)]));
+    for (what, p) in [
+        ("brightness, reference frame 0", json!({})),
+        (
+            "curves, reference frame 120",
+            json!({"stabilize": "curves", "reference_frame": 120}),
+        ),
+    ] {
+        let project = reference(|id| {
+            json!([
+                flicker(id),
+                fx("core.color_stabilizer", &format!("b253-{id}s"), &p)
+            ])
+        });
         let changed = distance(&cpu100(&project), &flickering).1;
         t.row(
             &format!("the reference shot, an Exposure Flicker then Color Stabilizer {what}: the processor's frame 100 differs from the flicker alone, so the comparisons below test the effect"),
@@ -609,7 +929,17 @@ fn b255_color_stabilizer() {
     t.heading("Pictures: in `verification/D-376 pictures/`, each pixel grown 24 times");
     let dir = repo("verification/D-376 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), 16 * 24, 10 * 24, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            16 * 24,
+            10 * 24,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     let reference = grown(&t, "fx_cstab_002.json", 0, false);
     let cast = grown(&t, "fx_cstab_002.json", 2, false);
     let mended = grown(&t, "fx_cstab_002.json", 2, true);
@@ -661,23 +991,66 @@ fn b253_colour_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 5] = [
         ("Noise alone", None),
-        ("Noise, then Color Balance (HLS), hue 120, saturation 30", Some(("core.color_balance_hls", json!({"hue": 120, "saturation": 30})))),
-        ("Noise, then Color Link, layer4's average, overlay at 50", Some(("core.color_link", json!({"layer": "layer-4", "opacity": 50, "blending_mode": "overlay"})))),
-        ("Noise, then Color Link, its own average, overlay at 50", Some(("core.color_link", json!({"opacity": 50, "blending_mode": "overlay"})))),
-        ("Noise, then Color Stabilizer, levels to frame 0", Some(("core.color_stabilizer", json!({"stabilize": "levels"})))),
+        (
+            "Noise, then Color Balance (HLS), hue 120, saturation 30",
+            Some((
+                "core.color_balance_hls",
+                json!({"hue": 120, "saturation": 30}),
+            )),
+        ),
+        (
+            "Noise, then Color Link, layer4's average, overlay at 50",
+            Some((
+                "core.color_link",
+                json!({"layer": "layer-4", "opacity": 50, "blending_mode": "overlay"}),
+            )),
+        ),
+        (
+            "Noise, then Color Link, its own average, overlay at 50",
+            Some((
+                "core.color_link",
+                json!({"opacity": 50, "blending_mode": "overlay"}),
+            )),
+        ),
+        (
+            "Noise, then Color Stabilizer, levels to frame 0",
+            Some(("core.color_stabilizer", json!({"stabilize": "levels"}))),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B253_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-253_timing_raw.md"));
+    let out = std::env::var("B253_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-253_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

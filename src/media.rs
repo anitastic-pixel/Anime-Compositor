@@ -423,10 +423,16 @@ pub fn decode_8bit(path: &Path) -> Option<Result<(usize, usize, Vec<u8>), Diagno
     if crate::exr_io::is_exr(&path.to_string_lossy()) {
         None
     } else if is_other_format(path) {
-        Some(crate::perf::time(crate::perf::Stage::FileRead, || open_other(path)).map(|picture| {
-            let rgba = picture.to_rgba8();
-            (rgba.width() as usize, rgba.height() as usize, rgba.into_raw())
-        }))
+        Some(
+            crate::perf::time(crate::perf::Stage::FileRead, || open_other(path)).map(|picture| {
+                let rgba = picture.to_rgba8();
+                (
+                    rgba.width() as usize,
+                    rgba.height() as usize,
+                    rgba.into_raw(),
+                )
+            }),
+        )
     } else {
         Some(png_8bit(path))
     }
@@ -453,14 +459,20 @@ pub fn is_other_format(path: &Path) -> bool {
 fn open_other(path: &Path) -> Result<image::DynamicImage, Diagnostic> {
     use image::DynamicImage::{ImageLuma8, ImageLumaA8, ImageRgb8, ImageRgba8};
     let picture = image::open(path).map_err(|e| decode_failed(path, &e.to_string()))?;
-    if matches!(picture, ImageLuma8(_) | ImageLumaA8(_) | ImageRgb8(_) | ImageRgba8(_)) {
+    if matches!(
+        picture,
+        ImageLuma8(_) | ImageLumaA8(_) | ImageRgb8(_) | ImageRgba8(_)
+    ) {
         return Ok(picture);
     }
     Err(Diagnostic::new(
         DiagnosticId::MediaUnsupportedFormat,
         Severity::Error,
         format!("{} uses a format this build cannot read.", display(path)),
-        format!("Found {:?}. Supported: 8 bits per channel.", picture.color()),
+        format!(
+            "Found {:?}. Supported: 8 bits per channel.",
+            picture.color()
+        ),
     )
     .with_remediation(
         "Re-export at 8 bits per channel. The file is left untouched and the asset record is kept.",
@@ -530,13 +542,20 @@ fn png_8bit(path: &Path) -> Result<(usize, usize, Vec<u8>), Diagnostic> {
     let mut reader = open_png(path)?;
     let (color, depth, w, h) = {
         let info = reader.info();
-        (info.color_type, info.bit_depth, info.width as u64, info.height as u64)
+        (
+            info.color_type,
+            info.bit_depth,
+            info.width as u64,
+            info.height as u64,
+        )
     };
     check_format(path, color, depth)?;
     if w * h > LARGEST_DRAWING_PIXELS {
         return Err(decode_failed(
             path,
-            &format!("it says it is {w}x{h}, past the {LARGEST_DRAWING_PIXELS} pixels this build reads"),
+            &format!(
+                "it says it is {w}x{h}, past the {LARGEST_DRAWING_PIXELS} pixels this build reads"
+            ),
         ));
     }
 
@@ -636,9 +655,16 @@ mod tests {
             encoder.set_color(png::ColorType::Rgba);
             encoder.set_depth(png::BitDepth::Eight);
             let mut writer = encoder.write_header().unwrap();
-            writer.write_chunk(png::chunk::IDAT, &[0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]).unwrap();
+            writer
+                .write_chunk(
+                    png::chunk::IDAT,
+                    &[0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01],
+                )
+                .unwrap();
         }
-        let said = png_8bit(&path).err().expect("a 20000 x 20000 drawing is refused");
+        let said = png_8bit(&path)
+            .err()
+            .expect("a 20000 x 20000 drawing is refused");
         std::fs::remove_file(&path).unwrap();
         assert!(said.detail.contains("20000x20000"), "{}", said.detail);
     }

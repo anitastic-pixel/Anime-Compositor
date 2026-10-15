@@ -50,21 +50,42 @@ struct Shot {
 /// Every fixture in the two folders, each at every frame it has.
 fn fixtures() -> Vec<Shot> {
     let mut shots = Vec::new();
-    for (group, folder) in [("Motion blur", "motion_blur"), ("Frame blending", "frame_blending")] {
+    for (group, folder) in [
+        ("Motion blur", "motion_blur"),
+        ("Frame blending", "frame_blending"),
+    ] {
         let mut files: Vec<String> = fs::read_dir(repo(&format!("Fixtures/{folder}")))
             .expect("read a fixture folder")
-            .map(|e| e.expect("a fixture file").file_name().to_string_lossy().into_owned())
+            .map(|e| {
+                e.expect("a fixture file")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .filter(|n| n.starts_with("fx_") && n.ends_with(".json"))
             .collect();
         files.sort();
         for file in files {
             // A fixture that must not open has no frame to compare.
-            let Ok(loaded) = persist::load(&repo(&format!("Fixtures/{folder}/{file}"))) else { continue };
+            let Ok(loaded) = persist::load(&repo(&format!("Fixtures/{folder}/{file}"))) else {
+                continue;
+            };
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
-            let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
+            let (id, frames) = (
+                comp.id.clone(),
+                (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+            );
             let name = file.trim_end_matches(".json").to_string();
-            shots.push(Shot { group, name, project, root: repo(&format!("Fixtures/{folder}")), comp: id, frames, reference: false });
+            shots.push(Shot {
+                group,
+                name,
+                project,
+                root: repo(&format!("Fixtures/{folder}")),
+                comp: id,
+                frames,
+                reference: false,
+            });
         }
     }
     shots
@@ -73,19 +94,21 @@ fn fixtures() -> Vec<Shot> {
 /// The reference shot with motion blur on every layer, three of them moved by keys, or with frame
 /// blending on, frame mix on a stretched second layer and a dissolve on the fourth.
 fn reference(blur: bool) -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     if blur {
-        j["compositions"][0]["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
+        j["compositions"][0]["motion_blur"] =
+            json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
     }
-    let layers = j["compositions"][0]["layers"].as_array_mut().expect("layers");
+    let layers = j["compositions"][0]["layers"]
+        .as_array_mut()
+        .expect("layers");
     if blur {
         for l in layers.iter_mut() {
             l["motion_blur"] = true.into();
         }
-        let keys = |a: serde_json::Value, b: serde_json::Value| {
-            json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]})
-        };
+        let keys = |a: serde_json::Value, b: serde_json::Value| json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]});
         layers[1]["transform"]["scale"] = keys(json!([100, 100]), json!([130, 130]));
         layers[2]["transform"]["position"] = keys(json!([0, 0]), json!([600, 120]));
         layers[3]["transform"]["rotation"] = keys(json!(0), json!(40));
@@ -98,9 +121,18 @@ fn reference(blur: bool) -> Shot {
     if !blur {
         j["compositions"][0]["frame_blending"] = true.into();
     }
-    let group = if blur { "Motion blur" } else { "Frame blending" };
-    let name = if blur { "the reference shot with motion blur" } else { "the reference shot with frame mix and dissolve" };
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+    let group = if blur {
+        "Motion blur"
+    } else {
+        "Frame blending"
+    };
+    let name = if blur {
+        "the reference shot with motion blur"
+    } else {
+        "the reference shot with frame mix and dissolve"
+    };
+    let loaded =
+        persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
     Shot {
         group,
         name: name.into(),
@@ -117,7 +149,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -128,11 +165,17 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// the first layer, whose own motion blur switch is off: before B-152 the CPU drew that effect too.
 fn rough() -> Shot {
     let mut rough = reference(true);
-    let mut j: serde_json::Value = serde_json::from_str(&persist::to_json(&rough.project, &Default::default())).expect("the shot as JSON");
+    let mut j: serde_json::Value =
+        serde_json::from_str(&persist::to_json(&rough.project, &Default::default()))
+            .expect("the shot as JSON");
     j["compositions"][0]["layers"][0]["effects"] = json!([{"instance_id": "b152-r", "type_id": "core.roughen_edges", "enabled": true,
         "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
     j["compositions"][0]["layers"][0]["motion_blur"] = false.into();
-    rough.project = persist::load_str(&j.to_string()).expect("the shot with Roughen Edges").document.project().clone();
+    rough.project = persist::load_str(&j.to_string())
+        .expect("the shot with Roughen Edges")
+        .document
+        .project()
+        .clone();
     rough.name = "the reference shot with motion blur and Roughen Edges".into();
     rough
 }
@@ -142,12 +185,25 @@ fn rough() -> Shot {
 /// whole frame (B-44); and an effect the card draws, a Light Wrap included.
 fn marked(shot: &Shot, frame: i32, quality: PreviewQuality) -> (bool, bool, bool, bool) {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     (
-        plan.layers.iter().any(|l| l.motion_blur || l.mixed || !l.moments.is_empty()),
+        plan.layers
+            .iter()
+            .any(|l| l.motion_blur || l.mixed || !l.moments.is_empty()),
         plan.layers.iter().any(|l| l.motion_blur || l.mixed),
         plan.layers.iter().any(|l| l.adjust.is_some()),
-        plan.layers.iter().any(|l| !l.on_card.is_empty() || l.wrap.iter().any(|i| i.enabled && i.is_valid())),
+        plan.layers
+            .iter()
+            .any(|l| !l.on_card.is_empty() || l.wrap.iter().any(|i| i.enabled && i.is_valid())),
     )
 }
 
@@ -164,7 +220,8 @@ fn b152_card_whole_frame() {
     };
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     // Each group's checks, passes, marked frames and largest difference.
-    let mut groups: Vec<(&str, usize, usize, usize, u8)> = vec![("Motion blur", 0, 0, 0, 0), ("Frame blending", 0, 0, 0, 0)];
+    let mut groups: Vec<(&str, usize, usize, usize, u8)> =
+        vec![("Motion blur", 0, 0, 0, 0), ("Frame blending", 0, 0, 0, 0)];
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     let mut shots = fixtures();
     shots.extend([reference(true), reference(false), rough()]);
@@ -174,8 +231,19 @@ fn b152_card_whole_frame() {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -186,8 +254,20 @@ fn b152_card_whole_frame() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let (mark, built, adjusted, card) = marked(shot, frame, quality);
@@ -198,7 +278,11 @@ fn b152_card_whole_frame() {
                 // CPU's picture exactly, with the CPU's warnings and the card's one message.
                 let whole = adjusted || (built && !card);
                 let pass = if whole {
-                    let mut ids: Vec<&str> = said_cpu.split(", ").filter(|s| !s.is_empty()).chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
+                    let mut ids: Vec<&str> = said_cpu
+                        .split(", ")
+                        .filter(|s| !s.is_empty())
+                        .chain([DiagnosticId::GpuPreviewOnCpu.as_str()])
+                        .collect();
                     ids.sort();
                     on_cpu && d.0 == 0 && said_gpu == ids.join(", ")
                 } else {
@@ -206,7 +290,10 @@ fn b152_card_whole_frame() {
                 };
                 checks += 1;
                 passed += pass as usize;
-                let g_row = groups.iter_mut().find(|g| g.0 == shot.group).expect("a group");
+                let g_row = groups
+                    .iter_mut()
+                    .find(|g| g.0 == shot.group)
+                    .expect("a group");
                 g_row.1 += 1;
                 g_row.2 += pass as usize;
                 g_row.3 += mark as usize;
@@ -224,8 +311,10 @@ fn b152_card_whole_frame() {
                         (_, false) => format!("CPU: {said_cpu}; GPU: {said_gpu}"),
                     },
                     match (whole, on_cpu, pass) {
-                        (true, _, true) if adjusted => "PASS: an adjustment layer, so the CPU drew it (B-44)",
-                        (true, _, true) => "PASS: nothing for the card to draw, so the CPU drew it (B-153b)",
+                        (true, _, true) if adjusted =>
+                            "PASS: an adjustment layer, so the CPU drew it (B-44)",
+                        (true, _, true) =>
+                            "PASS: nothing for the card to draw, so the CPU drew it (B-153b)",
                         (true, _, false) => "FAIL",
                         (false, true, _) => "FAIL: the CPU drew it",
                         (false, false, true) => "PASS",
@@ -245,7 +334,11 @@ fn b152_card_whole_frame() {
                 rows,
                 "| {}: frames with a blurred or mixed layer | {marks} | — | — | — | {} |",
                 shot.name,
-                if marks > 0 { "PASS" } else { "FAIL: nothing was blurred or mixed" }
+                if marks > 0 {
+                    "PASS"
+                } else {
+                    "FAIL: nothing was blurred or mixed"
+                }
             );
         }
     }
@@ -267,7 +360,8 @@ fn b152_card_whole_frame() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let mut summary = String::new();
@@ -323,8 +417,13 @@ fn b152_card_whole_frame_timing() {
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
     let mut plain = reference(true);
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-    plain.project = persist::load_str(&text).expect("the reference shot").document.project().clone();
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
+    plain.project = persist::load_str(&text)
+        .expect("the reference shot")
+        .document
+        .project()
+        .clone();
     plain.name = "the reference shot".into();
     for shot in [plain, reference(true), reference(false), rough()] {
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
@@ -335,13 +434,32 @@ fn b152_card_whole_frame_timing() {
                 for frame in (0..240).step_by(8) {
                     let mut log = FrameLog::new(3);
                     let t = std::time::Instant::now();
-                    drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                    drop(
+                        preview::preview_frame_srgb8(
+                            &shot.project,
+                            &shot.comp,
+                            frame,
+                            &shot.root,
+                            quality,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut cache,
+                            &mut gpu,
+                        )
+                        .expect("GPU frame"),
+                    );
                     if pass > 0 {
                         times.push(t.elapsed().as_secs_f64() * 1000.0);
                     }
                 }
             }
-            let _ = writeln!(s, "| {} | {} | {:.1} |", shot.name, quality.label(), median(times));
+            let _ = writeln!(
+                s,
+                "| {} | {} | {:.1} |",
+                shot.name,
+                quality.label(),
+                median(times)
+            );
         }
     }
     fs::write(repo("verification/B-152_timing_raw.md"), s).expect("write the timing table");

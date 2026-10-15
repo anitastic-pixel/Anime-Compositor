@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -46,7 +47,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=17 {
         let file = format!("fx_bezier_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -54,7 +59,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::BezierWarp { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::BezierWarp { .. })
+                });
             }
         }
         t.row(
@@ -72,9 +79,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -88,7 +104,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::BezierWarp { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::BezierWarp { .. })
+                });
                 t.row(
                     &format!("the reference shot, Bezier Warp {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -101,8 +119,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -114,8 +141,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -146,7 +185,10 @@ fn b481_bezier_warp() {
     t.row(
         "fx_bezier_006.json is saved with its thirteen settings, each point two numbers",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 13 && saved["top_right_tangent"][0] == 200.0 / 3.0 && saved["top_right_tangent"][1] == -50.0 && saved["quality"] == 8.0,
+        saved.as_object().unwrap().len() == 13
+            && saved["top_right_tangent"][0] == 200.0 / 3.0
+            && saved["top_right_tangent"][1] == -50.0
+            && saved["quality"] == 8.0,
     );
     for (file, want) in [
         ("fx_bezier_014.json", "quality"),
@@ -154,23 +196,56 @@ fn b481_bezier_warp() {
         ("fx_bezier_016.json", "top left vertex"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Bezier Warp and its {want}"), &why, why.contains("Bezier Warp") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Bezier Warp and its {want}"),
+            &why,
+            why.contains("Bezier Warp") && why.contains(want),
+        );
     }
     let full = fx("x", &json!({}))["parameters"].to_string();
-    t.shape_refused("fx_bezier_001.json", "a Bezier Warp whose quality is a word", &full.replace("\"quality\":8", "\"quality\":\"high\""));
-    t.shape_refused("fx_bezier_001.json", "a Bezier Warp without its top left vertex", &full.replace("\"top_left_vertex\":[0.0,0.0],", ""));
-    t.shape_refused("fx_bezier_001.json", "a Bezier Warp whose right top vertex is one number", &full.replace("\"right_top_vertex\":[100.0,0.0]", "\"right_top_vertex\":100"));
+    t.shape_refused(
+        "fx_bezier_001.json",
+        "a Bezier Warp whose quality is a word",
+        &full.replace("\"quality\":8", "\"quality\":\"high\""),
+    );
+    t.shape_refused(
+        "fx_bezier_001.json",
+        "a Bezier Warp without its top left vertex",
+        &full.replace("\"top_left_vertex\":[0.0,0.0],", ""),
+    );
+    t.shape_refused(
+        "fx_bezier_001.json",
+        "a Bezier Warp whose right top vertex is one number",
+        &full.replace(
+            "\"right_top_vertex\":[100.0,0.0]",
+            "\"right_top_vertex\":100",
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_bezier_001.json").document;
-    let rough = changed(&t, "fx_bezier_001.json", |e| if let Effect::BezierWarp { quality, .. } = e { *quality = 0.5 });
-    let far = changed(&t, "fx_bezier_001.json", |e| if let Effect::BezierWarp { points, .. } = e { points[6] = [100.0, 501.0] });
+    let rough = changed(&t, "fx_bezier_001.json", |e| {
+        if let Effect::BezierWarp { quality, .. } = e {
+            *quality = 0.5
+        }
+    });
+    let far = changed(&t, "fx_bezier_001.json", |e| {
+        if let Effect::BezierWarp { points, .. } = e {
+            points[6] = [100.0, 501.0]
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("quality 0.5", set(rough)),
             ("bottom right vertex at (100, 501)", set(far)),
-            ("top left tangent keyed to (-500, 0)", keys("top_left_tangent", &[(0, &[100.0 / 3.0, 0.0]), (4, &[-500.0, 0.0])])),
+            (
+                "top left tangent keyed to (-500, 0)",
+                keys(
+                    "top_left_tangent",
+                    &[(0, &[100.0 / 3.0, 0.0]), (4, &[-500.0, 0.0])],
+                ),
+            ),
         ],
     );
     let sag = changed(&t, "fx_bezier_001.json", |e| {
@@ -185,7 +260,13 @@ fn b481_bezier_warp() {
         "fx_bezier_001.json",
         vec![
             ("top tangents at 60 per cent down, quality 3", set(sag)),
-            ("left bottom vertex keyed from (0, 100) to (20, 80)", keys("left_bottom_vertex", &[(0, &[0.0, 100.0]), (4, &[20.0, 80.0])])),
+            (
+                "left bottom vertex keyed from (0, 100) to (20, 80)",
+                keys(
+                    "left_bottom_vertex",
+                    &[(0, &[0.0, 100.0]), (4, &[20.0, 80.0])],
+                ),
+            ),
         ],
     );
 
@@ -208,23 +289,49 @@ fn b481_bezier_warp() {
         &mut t,
         &mut gpu,
         &[
-            ("the top edge sagging (top tangents at 60 per cent)", json!({"top_left_tangent": [100.0 / 3.0, 60], "top_right_tangent": [200.0 / 3.0, 60]}), 3),
-            ("an S at quality 2", json!({"top_left_tangent": [100.0 / 3.0, 50], "top_right_tangent": [200.0 / 3.0, -50], "bottom_left_tangent": [100.0 / 3.0, 150], "bottom_right_tangent": [200.0 / 3.0, 50], "quality": 2}), 3),
-            ("folded (bottom right vertex at (-20, -20))", json!({"bottom_right_vertex": [-20, -20]}), 3),
+            (
+                "the top edge sagging (top tangents at 60 per cent)",
+                json!({"top_left_tangent": [100.0 / 3.0, 60], "top_right_tangent": [200.0 / 3.0, 60]}),
+                3,
+            ),
+            (
+                "an S at quality 2",
+                json!({"top_left_tangent": [100.0 / 3.0, 50], "top_right_tangent": [200.0 / 3.0, -50], "bottom_left_tangent": [100.0 / 3.0, 150], "bottom_right_tangent": [200.0 / 3.0, 50], "quality": 2}),
+                3,
+            ),
+            (
+                "folded (bottom right vertex at (-20, -20))",
+                json!({"bottom_right_vertex": [-20, -20]}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-602 pictures/`");
     let dir = repo("verification/D-602 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let (w, h) = TOWN;
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
     let open = (0..w * h).filter(|&i| before[i * 4 + 3] == 0).count();
-    t.row("1_before.png, the street with no effect, every pixel covered; draws cleanly", &format!("{said:?}, {open} clear pixels"), said.is_empty() && open == 0);
+    t.row(
+        "1_before.png, the street with no effect, every pixel covered; draws cleanly",
+        &format!("{said:?}, {open} clear pixels"),
+        said.is_empty() && open == 0,
+    );
 
     let (added, said) = street(json!({}));
     t.row(
@@ -233,7 +340,9 @@ fn b481_bezier_warp() {
         said.is_empty() && added == before,
     );
 
-    let (sag, said) = street(json!({"top_left_tangent": [100.0 / 3.0, 60], "top_right_tangent": [200.0 / 3.0, 60]}));
+    let (sag, said) = street(
+        json!({"top_left_tangent": [100.0 / 3.0, 60], "top_right_tangent": [200.0 / 3.0, 60]}),
+    );
     write("2_sag.png", TOWN, &sag);
     let depth = |x: usize| (0..h).take_while(|&y| clear(&sag, w, x, y)).count();
     t.row(
@@ -242,9 +351,11 @@ fn b481_bezier_warp() {
         said.is_empty() && depth(0) == 0 && depth(w / 4) > 0 && depth(w / 2) > depth(w / 4),
     );
 
-    let (squeeze, said) = street(json!({"top_left_vertex": [25, 25], "top_left_tangent": [125.0 / 3.0, 25], "top_right_tangent": [175.0 / 3.0, 25], "right_top_vertex": [75, 25],
+    let (squeeze, said) = street(
+        json!({"top_left_vertex": [25, 25], "top_left_tangent": [125.0 / 3.0, 25], "top_right_tangent": [175.0 / 3.0, 25], "right_top_vertex": [75, 25],
         "right_top_tangent": [75, 125.0 / 3.0], "right_bottom_tangent": [75, 175.0 / 3.0], "bottom_right_vertex": [75, 75], "bottom_right_tangent": [175.0 / 3.0, 75],
-        "bottom_left_tangent": [125.0 / 3.0, 75], "left_bottom_vertex": [25, 75], "left_bottom_tangent": [25, 175.0 / 3.0], "left_top_tangent": [25, 125.0 / 3.0]}));
+        "bottom_left_tangent": [125.0 / 3.0, 75], "left_bottom_vertex": [25, 75], "left_bottom_tangent": [25, 175.0 / 3.0], "left_top_tangent": [25, 125.0 / 3.0]}),
+    );
     write("3_half_size.png", TOWN, &squeeze);
     let covered = (0..w * h).filter(|&i| squeeze[i * 4 + 3] != 0).count();
     t.row(
@@ -253,7 +364,9 @@ fn b481_bezier_warp() {
         said.is_empty() && covered.abs_diff(w * h / 4) <= w + h && clear(&squeeze, w, 0, 0) && !clear(&squeeze, w, w / 2, h / 2),
     );
 
-    let (s_curve, said) = street(json!({"top_left_tangent": [100.0 / 3.0, 50], "top_right_tangent": [200.0 / 3.0, -50], "bottom_left_tangent": [100.0 / 3.0, 150], "bottom_right_tangent": [200.0 / 3.0, 50]}));
+    let (s_curve, said) = street(
+        json!({"top_left_tangent": [100.0 / 3.0, 50], "top_right_tangent": [200.0 / 3.0, -50], "bottom_left_tangent": [100.0 / 3.0, 150], "bottom_right_tangent": [200.0 / 3.0, 50]}),
+    );
     write("4_s_curve.png", TOWN, &s_curve);
     let top = |x: usize| (0..h).take_while(|&y| clear(&s_curve, w, x, y)).count();
     t.row(
@@ -300,22 +413,50 @@ fn b481_bezier_warp_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Bezier Warp with the top edge sagging", Some(json!({"top_left_tangent": [100.0 / 3.0, 60], "top_right_tangent": [200.0 / 3.0, 60]}))),
-        ("Noise, then Bezier Warp folded (bottom right vertex at (-20, -20))", Some(json!({"bottom_right_vertex": [-20, -20]}))),
+        (
+            "Noise, then Bezier Warp with the top edge sagging",
+            Some(
+                json!({"top_left_tangent": [100.0 / 3.0, 60], "top_right_tangent": [200.0 / 3.0, 60]}),
+            ),
+        ),
+        (
+            "Noise, then Bezier Warp folded (bottom right vertex at (-20, -20))",
+            Some(json!({"bottom_right_vertex": [-20, -20]})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B481_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-481_timing_raw.md"));
+    let out = std::env::var("B481_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-481_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

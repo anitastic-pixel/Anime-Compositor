@@ -100,7 +100,11 @@ fn simulate() -> serde_json::Value {
         .arg(repo("app/ui/index.html"))
         .output()
         .expect("these checks run the page's own lines under Node, which must be installed");
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     serde_json::from_slice(&out.stdout).expect("the simulation prints JSON")
 }
 
@@ -113,7 +117,11 @@ fn urls(list: &serde_json::Value) -> Vec<String> {
 }
 
 fn times(list: &serde_json::Value) -> Vec<f64> {
-    list.as_array().expect("a list").iter().map(|r| r["t"].as_f64().expect("a time")).collect()
+    list.as_array()
+        .expect("a list")
+        .iter()
+        .map(|r| r["t"].as_f64().expect("a time"))
+        .collect()
 }
 
 /// The longest the picture stood still while the hand was moving, in pretend milliseconds.
@@ -160,7 +168,10 @@ fn write_table(
             if expected == actual { "pass" } else { "FAIL" }
         ));
     }
-    out.push_str(&format!("\n**{passed} of {} checks pass.**\n\n{notes}\n", rows.len()));
+    out.push_str(&format!(
+        "\n**{passed} of {} checks pass.**\n\n{notes}\n",
+        rows.len()
+    ));
     std::fs::write(repo(file), out).expect("write the table");
 }
 
@@ -203,7 +214,11 @@ fn b162_only_the_newest_frame_is_made_and_a_stale_one_is_not_drawn() {
         check(
             &format!("{name}: the last picture drawn is frame 30"),
             "/frame/30".into(),
-            drawn.last().and_then(|u| u.split('?').next()).unwrap_or("").to_string(),
+            drawn
+                .last()
+                .and_then(|u| u.split('?').next())
+                .unwrap_or("")
+                .to_string(),
         );
     }
     let today = &said["scrubFullNoRefine"];
@@ -241,9 +256,18 @@ fn b162_only_the_newest_frame_is_made_and_a_stale_one_is_not_drawn() {
     );
 
     for (what, marker) in [
-        ("the page asks for a frame at the quality `askedAs` gives", "  url = askedAs(url, restless());"),
-        ("and draws an answer only when `drawnWhenBack` says so", "    if (!drawnWhenBack(url, pending, restless())) return;"),
-        ("one request out and the newest waiting (P-04, unchanged)", "    if (keep) pending = url;"),
+        (
+            "the page asks for a frame at the quality `askedAs` gives",
+            "  url = askedAs(url, restless());",
+        ),
+        (
+            "and draws an answer only when `drawnWhenBack` says so",
+            "    if (!drawnWhenBack(url, pending, restless())) return;",
+        ),
+        (
+            "one request out and the newest waiting (P-04, unchanged)",
+            "    if (keep) pending = url;",
+        ),
     ] {
         check(what, "true".into(), page.contains(marker).to_string());
     }
@@ -320,27 +344,53 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     check(
         "at Draft nothing changes: every frame is asked for at Draft",
         "true".into(),
-        urls(&said["scrubDraft"]["sent"]).iter().all(|u| u.ends_with("?q=draft")).to_string(),
+        urls(&said["scrubDraft"]["sent"])
+            .iter()
+            .all(|u| u.ends_with("?q=draft"))
+            .to_string(),
     );
     check(
         "without Refine when idle nothing changes: every frame is asked for at Full",
         "true".into(),
-        urls(&said["scrubFullNoRefine"]["sent"]).iter().all(|u| u.ends_with("?q=full")).to_string(),
+        urls(&said["scrubFullNoRefine"]["sent"])
+            .iter()
+            .all(|u| u.ends_with("?q=full"))
+            .to_string(),
     );
 
     // The requests the scrub sent, asked of the window, then the Full picture on its own.
     let made = replay(&sent);
     let sharp_alone = replay(&["/frame/30?q=full".to_string()]).remove(0);
     let rough_alone = replay(&["/frame/30?q=draft".to_string()]).remove(0);
-    let at = sent.iter().rposition(|u| u == "/frame/30?q=draft").expect("a stand-in of frame 30");
+    let at = sent
+        .iter()
+        .rposition(|u| u == "/frame/30?q=draft")
+        .expect("a stand-in of frame 30");
     let rough = &made[at];
     let sharp = made.last().expect("an answer");
-    check("a stand-in is Draft and says so", "Draft true".into(),
-        format!("{} {}", header(rough, "x-quality"), header(rough, "x-differs")));
-    check("the picture that replaces it is Full, the same as export", "Full false".into(),
-        format!("{} {}", header(sharp, "x-quality"), header(sharp, "x-differs")));
-    check("at 1920 by 1080", "1920 1080".into(),
-        format!("{} {}", header(sharp, "x-width"), header(sharp, "x-height")));
+    check(
+        "a stand-in is Draft and says so",
+        "Draft true".into(),
+        format!(
+            "{} {}",
+            header(rough, "x-quality"),
+            header(rough, "x-differs")
+        ),
+    );
+    check(
+        "the picture that replaces it is Full, the same as export",
+        "Full false".into(),
+        format!(
+            "{} {}",
+            header(sharp, "x-quality"),
+            header(sharp, "x-differs")
+        ),
+    );
+    check(
+        "at 1920 by 1080",
+        "1920 1080".into(),
+        format!("{} {}", header(sharp, "x-width"), header(sharp, "x-height")),
+    );
     check(
         "and its pixels are byte for byte frame 30 at Full asked for alone, which is today's Full",
         "true".into(),

@@ -14,7 +14,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -47,11 +49,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -72,14 +85,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -151,7 +180,12 @@ fn glue(change: impl FnOnce(&mut Effect)) -> Effect {
 
 /// Set the `holder` layer's Glue Gun; its fixtures' drawing is `holder`, not `art`.
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the `holder` layer's Glue Gun, linearly.
@@ -161,19 +195,38 @@ fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// Each command is refused with a sentence and leaves the `holder` layer's effect as it was.
 fn refused_holder(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
-    let held = |d: &Document| format!("{:?}", d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0]);
+    let held = |d: &Document| {
+        format!(
+            "{:?}",
+            d.project()
+                .composition(&Id::new(MAIN))
+                .unwrap()
+                .layer(&Id::new("holder"))
+                .unwrap()
+                .effects[0]
+        )
+    };
     let before = held(document);
     for (what, command) in commands {
         let refused = document.apply(command).err();
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && held(document) == before,
         );
     }
@@ -182,8 +235,20 @@ fn refused_holder(t: &mut Table, document: &mut Document, commands: Vec<(&str, C
 fn why_holder(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -195,7 +260,10 @@ fn sweep(from: [f64; 2], to: [f64; 2]) -> J {
 /// `effects` on the street at frame 4, drawn, straight 8-bit, with what it warned of: the
 /// stroke the brush laid over frames 0 to 4.
 fn stroke_picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -207,8 +275,20 @@ fn stroke_picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 4, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        4,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -232,16 +312,33 @@ fn b303_glue_gun() {
 
     t.heading("How far it reaches");
     let got = glue(|_| {}).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing: paint past the layer's edge is cut", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing: paint past the layer's edge is cut",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = glue(|e| {
-        if let Effect::GlueGun { light_type, light_height, .. } = e {
+        if let Effect::GlueGun {
+            light_type,
+            light_height,
+            ..
+        } = e
+        {
             *light_type = "point".into();
             *light_height = 40.0;
         }
     });
     draft.scale_distances(|d| d * 0.5);
     let want = glue(|e| {
-        if let Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } = e {
+        if let Effect::GlueGun {
+            stroke_width,
+            wobble_width,
+            wobble_height,
+            light_type,
+            light_height,
+            ..
+        } = e
+        {
             *stroke_width = 10.0;
             *wobble_width = 5.0;
             *wobble_height = 5.0;
@@ -262,7 +359,9 @@ fn b303_glue_gun() {
     t.row(
         "fx_glue_010.json is saved with all 21 settings, the brush's keys with them",
         &saved.to_string(),
-        saved["brush_position"]["keyframes"].as_array().is_some_and(|k| k.len() == 2)
+        saved["brush_position"]["keyframes"]
+            .as_array()
+            .is_some_and(|k| k.len() == 2)
             && saved["stroke_width"] == 6
             && saved["density"] == 2
             && saved["time_span"] == 0
@@ -280,21 +379,67 @@ fn b303_glue_gun() {
     why_holder(
         &mut t,
         &[
-            ("fx_glue_019.json", "Glue Gun's stroke width runs from 0 to 500, and this is 501."),
-            ("fx_glue_020.json", "Glue Gun's density runs from 0 to 100, and this is -1."),
-            ("fx_glue_021.json", "Glue Gun's time span runs from 0 to 100, and this is 101."),
-            ("fx_glue_022.json", "Glue Gun's paint style is \"plain\" or \"wobbly\", and this is \"drippy\"."),
-            ("fx_glue_023.json", "Glue Gun's light type is distant or point, and this is \"spot\"."),
-            ("fx_glue_024.json", "Glue Gun's roughness runs from 0.001 to 1, and this is 0."),
-            ("fx_glue_025.json", "Glue Gun's brush position runs from -1000 to 1000, and this is 1001."),
-            ("fx_glue_026.json", "Glue Gun's light colour is written #rrggbb, and this is \"orange\"."),
+            (
+                "fx_glue_019.json",
+                "Glue Gun's stroke width runs from 0 to 500, and this is 501.",
+            ),
+            (
+                "fx_glue_020.json",
+                "Glue Gun's density runs from 0 to 100, and this is -1.",
+            ),
+            (
+                "fx_glue_021.json",
+                "Glue Gun's time span runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_glue_022.json",
+                "Glue Gun's paint style is \"plain\" or \"wobbly\", and this is \"drippy\".",
+            ),
+            (
+                "fx_glue_023.json",
+                "Glue Gun's light type is distant or point, and this is \"spot\".",
+            ),
+            (
+                "fx_glue_024.json",
+                "Glue Gun's roughness runs from 0.001 to 1, and this is 0.",
+            ),
+            (
+                "fx_glue_025.json",
+                "Glue Gun's brush position runs from -1000 to 1000, and this is 1001.",
+            ),
+            (
+                "fx_glue_026.json",
+                "Glue Gun's light colour is written #rrggbb, and this is \"orange\".",
+            ),
         ],
     );
     let rest = r##""stroke_width": 20, "density": 5, "time_span": 1, "reflection": 50, "strength": 50, "paint_style": "plain", "wobble_width": 10, "wobble_height": 10, "wobble_speed": 1, "light_intensity": 100, "light_color": "#ffffff", "light_type": "distant", "light_height": 100, "light_position": [30, 30], "light_direction": -45, "ambient": 25, "diffuse": 75, "specular": 50, "roughness": 0.05, "metal": 100"##;
-    t.shape_refused("fx_glue_001.json", "a Glue Gun with no `brush_position`", &format!("{{{rest}}}"));
-    t.shape_refused("fx_glue_001.json", "a Glue Gun whose brush position is one number", &format!("{{\"brush_position\": 50, {rest}}}"));
-    t.shape_refused("fx_glue_001.json", "a Glue Gun whose stroke width is a word", &format!("{{\"brush_position\": [50, 50], {}}}", rest.replace("\"stroke_width\": 20", "\"stroke_width\": \"20\"")));
-    t.shape_refused("fx_glue_001.json", "a Glue Gun with no `metal`", &format!("{{\"brush_position\": [50, 50], {}}}", rest.replace(", \"metal\": 100", "")));
+    t.shape_refused(
+        "fx_glue_001.json",
+        "a Glue Gun with no `brush_position`",
+        &format!("{{{rest}}}"),
+    );
+    t.shape_refused(
+        "fx_glue_001.json",
+        "a Glue Gun whose brush position is one number",
+        &format!("{{\"brush_position\": 50, {rest}}}"),
+    );
+    t.shape_refused(
+        "fx_glue_001.json",
+        "a Glue Gun whose stroke width is a word",
+        &format!(
+            "{{\"brush_position\": [50, 50], {}}}",
+            rest.replace("\"stroke_width\": 20", "\"stroke_width\": \"20\"")
+        ),
+    );
+    t.shape_refused(
+        "fx_glue_001.json",
+        "a Glue Gun with no `metal`",
+        &format!(
+            "{{\"brush_position\": [50, 50], {}}}",
+            rest.replace(", \"metal\": 100", "")
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_glue_001.json").document;
@@ -302,15 +447,73 @@ fn b303_glue_gun() {
         &mut t,
         &mut document,
         vec![
-            ("stroke width 500.5", set_holder(glue(|e| if let Effect::GlueGun { stroke_width, .. } = e { *stroke_width = 500.5 }))),
-            ("density -0.5", set_holder(glue(|e| if let Effect::GlueGun { density, .. } = e { *density = -0.5 }))),
-            ("time span 100.5", set_holder(glue(|e| if let Effect::GlueGun { time_span, .. } = e { *time_span = 100.5 }))),
-            ("roughness 0", set_holder(glue(|e| if let Effect::GlueGun { roughness, .. } = e { *roughness = 0.0 }))),
-            ("paint style \"drippy\"", set_holder(glue(|e| if let Effect::GlueGun { paint_style, .. } = e { *paint_style = "drippy".into() }))),
-            ("light type \"spot\"", set_holder(glue(|e| if let Effect::GlueGun { light_type, .. } = e { *light_type = "spot".into() }))),
-            ("light colour \"#fff\"", set_holder(glue(|e| if let Effect::GlueGun { light_color, .. } = e { *light_color = "#fff".into() }))),
-            ("brush position keyed to 50, 1001", keys_holder("brush_position", &[(0, &[50.0, 50.0]), (4, &[50.0, 1001.0])])),
-            ("wobble speed keyed to 150", keys_holder("wobble_speed", &[(0, &[1.0]), (4, &[150.0])])),
+            (
+                "stroke width 500.5",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { stroke_width, .. } = e {
+                        *stroke_width = 500.5
+                    }
+                })),
+            ),
+            (
+                "density -0.5",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { density, .. } = e {
+                        *density = -0.5
+                    }
+                })),
+            ),
+            (
+                "time span 100.5",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { time_span, .. } = e {
+                        *time_span = 100.5
+                    }
+                })),
+            ),
+            (
+                "roughness 0",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { roughness, .. } = e {
+                        *roughness = 0.0
+                    }
+                })),
+            ),
+            (
+                "paint style \"drippy\"",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { paint_style, .. } = e {
+                        *paint_style = "drippy".into()
+                    }
+                })),
+            ),
+            (
+                "light type \"spot\"",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { light_type, .. } = e {
+                        *light_type = "spot".into()
+                    }
+                })),
+            ),
+            (
+                "light colour \"#fff\"",
+                set_holder(glue(|e| {
+                    if let Effect::GlueGun { light_color, .. } = e {
+                        *light_color = "#fff".into()
+                    }
+                })),
+            ),
+            (
+                "brush position keyed to 50, 1001",
+                keys_holder(
+                    "brush_position",
+                    &[(0, &[50.0, 50.0]), (4, &[50.0, 1001.0])],
+                ),
+            ),
+            (
+                "wobble speed keyed to 150",
+                keys_holder("wobble_speed", &[(0, &[1.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -363,7 +566,14 @@ fn b303_glue_gun() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_glue", 27, &[12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27], is_glue);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_glue",
+        27,
+        &[12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27],
+        is_glue,
+    );
     let across = json!({"base": [10, 50], "keyframes": [{"frame": 0, "value": [10, 50], "interp": "linear"}, {"frame": 239, "value": [90, 50], "interp": "linear"}]});
     card_reference(
         &mut t,
@@ -371,8 +581,14 @@ fn b303_glue_gun() {
         "Glue Gun",
         "core.glue_gun",
         &[
-            ("as it starts (width 20, density 5, time span 1, the brush at the middle)", json!({})),
-            ("the brush keyed across, width 60, density 10, time span 2", json!({"brush_position": across.clone(), "stroke_width": 60, "density": 10, "time_span": 2})),
+            (
+                "as it starts (width 20, density 5, time span 1, the brush at the middle)",
+                json!({}),
+            ),
+            (
+                "the brush keyed across, width 60, density 10, time span 2",
+                json!({"brush_position": across.clone(), "stroke_width": 60, "density": 10, "time_span": 2}),
+            ),
             (
                 "the brush keyed across, wobbly 30 by 20, a warm point light, reflection 100",
                 json!({"brush_position": across.clone(), "stroke_width": 40, "paint_style": "wobbly", "wobble_width": 30, "wobble_height": 20, "wobble_speed": 2, "light_type": "point", "light_position": [40, 30], "light_height": 80, "light_color": "#ffd8a0", "reflection": 100}),
@@ -388,11 +604,25 @@ fn b303_glue_gun() {
     t.heading("Pictures: the street at frame 4, in `verification/D-424 pictures/`");
     let dir = repo("verification/D-424 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = stroke_picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let shots: [(&str, J, &str); 5] = [
         ("as_added", json!({}), "as it starts, the brush never keyed: one round glossy blob in the middle"),
         ("sweep", json!({"brush_position": sweep([15.0, 70.0], [85.0, 30.0]), "time_span": 0, "density": 20}), "the brush keyed from bottom left to top right over frames 0 to 4, kept for ever, density 20: a shiny tube of paint across the street"),
@@ -464,16 +694,38 @@ fn b303_glue_gun_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B303_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-303_timing_raw.md"));
+    let out = std::env::var("B303_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-303_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

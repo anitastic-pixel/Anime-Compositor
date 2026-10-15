@@ -46,7 +46,8 @@ fn keyed(a: f64, b: f64) -> J {
 /// The reference shot with a Levels (gamma `gamma`) then a Curl Noise (as added, changed by `curl`)
 /// on its first three layers.
 fn shot(gamma: J, curl: J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let mut all = json!({"source": "internal", "speed": 10, "direction": 0, "size": 100, "offset": [0, 0], "evolution": 0,
         "turbulence_speed": 20, "swirl": 45, "density": 0, "smoothness": 50, "vertical_bias": 50, "sample_count": 12, "sample_radius": 30,
@@ -62,14 +63,23 @@ fn shot(gamma: J, curl: J) -> Project {
             {"instance_id": format!("p9-c{id}"), "type_id": "core.curl_noise", "enabled": true, "parameters": all},
         ]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -77,12 +87,32 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 }
 
 /// The card's picture of `frame`, the passes it ran for it, and whether it refused the frame.
-fn card(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> (Vec<u8>, u64, bool) {
+fn card(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (Vec<u8>, u64, bool) {
     let mut log = FrameLog::new(3);
     let before = gpu.dispatched();
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer(), gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
-    let refused = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut CelCache::viewer(),
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let refused = log
+        .finish()
+        .iter()
+        .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
     (g, gpu.dispatched() - before, refused)
 }
 
@@ -148,15 +178,28 @@ fn p9_curl_field() {
             gpu.forget();
             let (fresh, fresh_passes, r2) = card(&mut gpu, p1, &comp, &root, *f1, quality);
             let mut log = FrameLog::new(3);
-            let c = preview::preview_frame_cached(p1, &comp, *f1, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .unwrap_or_else(|d| panic!("{case} on the CPU: {}", d.message))
-                .to_srgb8_straight();
+            let c = preview::preview_frame_cached(
+                p1,
+                &comp,
+                *f1,
+                &root,
+                quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .unwrap_or_else(|d| panic!("{case} on the CPU: {}", d.message))
+            .to_srgb8_straight();
             let same = distance(&g, &fresh);
             let cpu = distance(&g, &c);
             let saved = fresh_passes.saturating_sub(passes);
             let expected = if *kept { FIELDS } else { 0 };
             let refused = r0 || r1 || r2;
-            let pass = !refused && passes + saved == fresh_passes && saved == expected && same == (0, 0) && (cpu.0 <= 1 || (cpu.0 <= BEFORE.0 && cpu.1 <= BEFORE.1));
+            let pass = !refused
+                && passes + saved == fresh_passes
+                && saved == expected
+                && same == (0, 0)
+                && (cpu.0 <= 1 || (cpu.0 <= BEFORE.0 && cpu.1 <= BEFORE.1));
             checks += 1;
             passed += pass as usize;
             let _ = writeln!(
@@ -205,5 +248,8 @@ fn p9_curl_field() {
         gpu.about(),
     );
     fs::write(&out, s).expect("write the P9 table");
-    assert_eq!(passed, checks, "Audit P9: {passed} of {checks} checks pass; see verification/P9_curl_field_table.md");
+    assert_eq!(
+        passed, checks,
+        "Audit P9: {passed} of {checks} checks pass; see verification/P9_curl_field_table.md"
+    );
 }

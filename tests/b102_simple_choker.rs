@@ -33,9 +33,17 @@ fn b102_simple_choker() {
 
     t.heading("How far it reaches");
     let got = choker(-2.5).bounds_expansion();
-    t.row("a spread of 2.5 grows the drawing's bounds by 2 pixels", &got.to_string(), got == 2);
+    t.row(
+        "a spread of 2.5 grows the drawing's bounds by 2 pixels",
+        &got.to_string(),
+        got == 2,
+    );
     let got = choker(-100.0).bounds_expansion();
-    t.row("a spread of 100 grows them by 100", &got.to_string(), got == 100);
+    t.row(
+        "a spread of 100 grows them by 100",
+        &got.to_string(),
+        got == 100,
+    );
     let got = choker(100.0).bounds_expansion();
     t.row("a shrink grows them by nothing", &got.to_string(), got == 0);
     let got = choker(0.0).bounds_expansion();
@@ -61,7 +69,11 @@ fn b102_simple_choker() {
         "fx_choke_017.json",
     ]);
     t.shape_refused("fx_choke_001.json", "no `choke` at all", r#"{}"#);
-    t.shape_refused("fx_choke_001.json", "a choke that is a list", r#"{"choke": [1]}"#);
+    t.shape_refused(
+        "fx_choke_001.json",
+        "a choke that is a list",
+        r#"{"choke": [1]}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_choke_001.json").document;
@@ -70,8 +82,14 @@ fn b102_simple_choker() {
         vec![
             ("choke 101", set(choker(101.0))),
             ("choke -101", set(choker(-101.0))),
-            ("choke keyed to 150", keys("choke", &[(0, &[1.0]), (4, &[150.0])])),
-            ("choke keyed from -120", keys("choke", &[(0, &[-120.0]), (4, &[-1.0])])),
+            (
+                "choke keyed to 150",
+                keys("choke", &[(0, &[1.0]), (4, &[150.0])]),
+            ),
+            (
+                "choke keyed from -120",
+                keys("choke", &[(0, &[-120.0]), (4, &[-1.0])]),
+            ),
         ],
     );
     t.taken(
@@ -80,7 +98,10 @@ fn b102_simple_choker() {
         vec![
             ("choke at its bottom, -100,", set(choker(-100.0))),
             ("choke at its top, 100,", set(choker(100.0))),
-            ("choke keyed from 0 to -100", keys("choke", &[(0, &[0.0]), (4, &[-100.0])])),
+            (
+                "choke keyed from 0 to -100",
+                keys("choke", &[(0, &[0.0]), (4, &[-100.0])]),
+            ),
         ],
     );
 

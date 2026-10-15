@@ -166,11 +166,26 @@ fn key_notices_its_inputs() -> Vec<Check> {
     let stack = |sigma: f64| {
         vec![EffectInstance::new(
             Id::new("fx"),
-            Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() },
+            Effect::GaussianBlur {
+                sigma_px: sigma,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
         )]
     };
-    let square = [Mask::polygon(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])];
-    let moved = [Mask::polygon(vec![(0.0, 0.0), (20.0, 0.0), (20.0, 10.0), (0.0, 10.0)])];
+    let square = [Mask::polygon(vec![
+        (0.0, 0.0),
+        (10.0, 0.0),
+        (10.0, 10.0),
+        (0.0, 10.0),
+    ])];
+    let moved = [Mask::polygon(vec![
+        (0.0, 0.0),
+        (20.0, 0.0),
+        (20.0, 10.0),
+        (0.0, 10.0),
+    ])];
     let stored = EffectResult {
         buffer: Arc::new(WorkingBuffer::transparent(4, 4)),
         offset: (0, 0),

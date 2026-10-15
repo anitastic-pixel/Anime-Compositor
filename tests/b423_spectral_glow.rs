@@ -26,7 +26,9 @@ use anime_compositor::{persist, png_out, render, OutputDepth};
 
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("art")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
@@ -37,7 +39,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -57,18 +64,38 @@ fn physical(changes: J) -> J {
 
 /// The reference shot with a Soft Physical Glow of `parameters` on its first three layers.
 fn reference(parameters: &J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = json!([{"instance_id": format!("b423-{id}"), "type_id": "core.glow", "enabled": true, "parameters": parameters}]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -76,18 +103,49 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
         .count()
 }
 
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// B-233's framed town: the town (480 by 270) in a composition 160 pixels wider and taller.
@@ -111,7 +169,11 @@ fn framed(effects: J) -> Project {
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).unwrap_or_else(|d| panic!("the framed town opens: {}", d.message)).document.project().clone()
+    persist::load_str(&project.to_string())
+        .unwrap_or_else(|d| panic!("the framed town opens: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -130,7 +192,12 @@ fn b423_spectral_glow() {
          the card too: the card's picture against the processor's, within 1 level of 255 (ADR-006, \
          D-100).\n",
     );
-    let spectral_keys = ["spectral", "spectral_red", "spectral_green", "spectral_blue"];
+    let spectral_keys = [
+        "spectral",
+        "spectral_red",
+        "spectral_green",
+        "spectral_blue",
+    ];
 
     t.heading("D-353's FX-SGLOW-001 to 045, unchanged: Spectral off draws as before");
     t.fixtures("expected_soft_glow.json");
@@ -154,15 +221,36 @@ fn b423_spectral_glow() {
     t.heading("The file");
     let files: Vec<String> = (1..=20).map(|n| format!("fx_spglow_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
-    t.shape_refused("fx_spglow_001.json", "a spectral red written as a word", &physical(json!({"spectral": "on", "spectral_red": "wide"})).to_string());
-    t.shape_refused("fx_spglow_001.json", "a spectral written as a number", &physical(json!({"spectral": 1})).to_string());
+    t.shape_refused(
+        "fx_spglow_001.json",
+        "a spectral red written as a word",
+        &physical(json!({"spectral": "on", "spectral_red": "wide"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_spglow_001.json",
+        "a spectral written as a number",
+        &physical(json!({"spectral": 1})).to_string(),
+    );
     for (file, said) in [
-        ("fx_spglow_017.json", "Soft Physical Glow's spectral is \"off\" or \"on\", and this is \"yes\"."),
-        ("fx_spglow_018.json", "Soft Physical Glow's spectral red runs from 0 to 200, and this is 201."),
-        ("fx_spglow_019.json", "Soft Physical Glow's spectral blue runs from 0 to 200, and this is -1."),
+        (
+            "fx_spglow_017.json",
+            "Soft Physical Glow's spectral is \"off\" or \"on\", and this is \"yes\".",
+        ),
+        (
+            "fx_spglow_018.json",
+            "Soft Physical Glow's spectral red runs from 0 to 200, and this is 201.",
+        ),
+        (
+            "fx_spglow_019.json",
+            "Soft Physical Glow's spectral blue runs from 0 to 200, and this is -1.",
+        ),
     ] {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming it"), &why, why == said);
+        t.row(
+            &format!("{file} is refused in a sentence naming it"),
+            &why,
+            why == said,
+        );
     }
 
     t.heading("Commands");
@@ -176,25 +264,64 @@ fn b423_spectral_glow() {
     t.refused(
         &mut document,
         vec![
-            ("spectral \"yes\"", set(with(&|e| if let Effect::SoftGlow { spectral, .. } = e { *spectral = "yes".into() }))),
-            ("spectral red 201", set(with(&|e| if let Effect::SoftGlow { spectral_red, .. } = e { *spectral_red = 201.0 }))),
-            ("spectral blue -1", set(with(&|e| if let Effect::SoftGlow { spectral_blue, .. } = e { *spectral_blue = -1.0 }))),
+            (
+                "spectral \"yes\"",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { spectral, .. } = e {
+                        *spectral = "yes".into()
+                    }
+                })),
+            ),
+            (
+                "spectral red 201",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { spectral_red, .. } = e {
+                        *spectral_red = 201.0
+                    }
+                })),
+            ),
+            (
+                "spectral blue -1",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { spectral_blue, .. } = e {
+                        *spectral_blue = -1.0
+                    }
+                })),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_spglow_002.json",
         vec![
-            ("red 50, blue 200", set(with(&|e| if let Effect::SoftGlow { spectral_red, spectral_blue, .. } = e {
-                *spectral_red = 50.0;
-                *spectral_blue = 200.0;
-            }))),
-            ("spectral blue keyed 100 to 200 over frames 0 to 4", keys("spectral_blue", &[(0, &[100.0]), (4, &[200.0])])),
+            (
+                "red 50, blue 200",
+                set(with(&|e| {
+                    if let Effect::SoftGlow {
+                        spectral_red,
+                        spectral_blue,
+                        ..
+                    } = e
+                    {
+                        *spectral_red = 50.0;
+                        *spectral_blue = 200.0;
+                    }
+                })),
+            ),
+            (
+                "spectral blue keyed 100 to 200 over frames 0 to 4",
+                keys("spectral_blue", &[(0, &[100.0]), (4, &[200.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_spglow_001.json", 0), ("fx_spglow_004.json", 0), ("fx_spglow_008.json", 0), ("fx_spglow_013.json", 0)]);
+    t.tiles(&[
+        ("fx_spglow_001.json", 0),
+        ("fx_spglow_004.json", 0),
+        ("fx_spglow_008.json", 0),
+        ("fx_spglow_013.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -202,7 +329,11 @@ fn b423_spectral_glow() {
     let fixture_root = effect_table::repo("Fixtures/spectral_glow");
     for n in 1..=16 {
         let file = format!("fx_spglow_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -259,12 +390,27 @@ fn b423_spectral_glow() {
     let dir = effect_table::repo("verification/D-543 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &town(),
+    )
+    .unwrap();
     let (fw, fh) = (w + 160, h + 160);
     let draw = |effects: J| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(&framed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log).expect("the town draws");
-        (b.to_srgb8_straight(), log.finish().iter().map(|d| d.id.as_str().to_string()).collect::<Vec<_>>())
+        let b = render_frame(&framed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log)
+            .expect("the town draws");
+        (
+            b.to_srgb8_straight(),
+            log.finish()
+                .iter()
+                .map(|d| d.id.as_str().to_string())
+                .collect::<Vec<_>>(),
+        )
     };
     let fx = |p: J| json!([{"instance_id": "fx-0-0", "type_id": "core.glow", "enabled": true, "parameters": p}]);
     // The glow 10 pixels out from the town's left edge, in the frame's middle row: its blue
@@ -324,34 +470,74 @@ fn b423_spectral_glow_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let fx = |id: &str, p: J| json!({"instance_id": id, "type_id": "core.glow", "enabled": true, "parameters": p});
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Soft Physical Glow, radius 60, threshold 40 smooth 50, Spectral off", Some(physical(json!({"radius": 60, "threshold": 40, "threshold_smooth": 50})))),
-        ("Noise, then the same, Spectral on (80, 100, 120)", Some(physical(json!({"radius": 60, "threshold": 40, "threshold_smooth": 50, "spectral": "on"})))),
-        ("Noise, then Soft Physical Glow as added, radius 500, Spectral on (80, 100, 120)", Some(physical(json!({"spectral": "on"})))),
+        (
+            "Noise, then Soft Physical Glow, radius 60, threshold 40 smooth 50, Spectral off",
+            Some(physical(
+                json!({"radius": 60, "threshold": 40, "threshold_smooth": 50}),
+            )),
+        ),
+        (
+            "Noise, then the same, Spectral on (80, 100, 120)",
+            Some(physical(
+                json!({"radius": 60, "threshold": 40, "threshold_smooth": 50, "spectral": "on"}),
+            )),
+        ),
+        (
+            "Noise, then Soft Physical Glow as added, radius 500, Spectral on (80, 100, 120)",
+            Some(physical(json!({"spectral": "on"}))),
+        ),
     ];
     for (name, e) in shots {
         let stack = |id: &str| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p.clone()));
             }
             v
         };
-        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         let layers = &mut j["compositions"][0]["layers"];
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
             layers[i]["effects"] = J::Array(stack(id));
         }
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
-        let (project, comp, root) = (loaded.document.project().clone(), Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let (project, comp, root) = (
+            loaded.document.project().clone(),
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B423_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-423_spectral_glow_timing_table.md"));
+    let out = std::env::var("B423_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-423_spectral_glow_timing_table.md"));
     fs::write(out, s).expect("write the timing table");
 }

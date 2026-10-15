@@ -17,7 +17,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -50,7 +51,12 @@ fn fx(id: &str, p: &J) -> J {
 /// never cycling.
 fn fractal(id: &str, p: &J) -> J {
     let mut all = settings(p);
-    for (k, v) in [("speed", json!(0)), ("dark_color", json!("#000000")), ("light_color", json!("#ffffff")), ("cycle", json!(0))] {
+    for (k, v) in [
+        ("speed", json!(0)),
+        ("dark_color", json!("#000000")),
+        ("light_color", json!("#ffffff")),
+        ("cycle", json!(0)),
+    ] {
         all[k] = v;
     }
     json!({"instance_id": id, "type_id": "core.fractal_noise", "enabled": true, "parameters": all})
@@ -62,7 +68,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=32 {
         let file = format!("fx_turbnoise_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -70,7 +80,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::TurbulentNoise { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::TurbulentNoise { .. })
+                });
             }
         }
         t.row(
@@ -88,9 +100,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -104,7 +125,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::TurbulentNoise { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::TurbulentNoise { .. })
+                });
                 t.row(
                     &format!("the reference shot, Turbulent Noise {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -117,8 +140,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -130,8 +162,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -141,7 +185,8 @@ fn edges(p: &[u8], (w, h): (usize, usize), step: u8) -> usize {
     let mut n = 0;
     for y in 0..h - 1 {
         for x in 0..w - 1 {
-            n += (r(x, y).abs_diff(r(x + 1, y)) > step) as usize + (r(x, y).abs_diff(r(x, y + 1)) > step) as usize;
+            n += (r(x, y).abs_diff(r(x + 1, y)) > step) as usize
+                + (r(x, y).abs_diff(r(x, y + 1)) > step) as usize;
         }
     }
     n
@@ -175,13 +220,19 @@ fn b325_turbulent_noise() {
     t.root = root;
 
     t.heading("The file");
-    let files: Vec<String> = (1..=32).map(|n| format!("fx_turbnoise_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=32)
+        .map(|n| format!("fx_turbnoise_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_turbnoise_017.json");
     t.row(
         "fx_turbnoise_017.json is saved with its fourteen settings and no speed, colours or cycle",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 14 && saved["offset"][0] == 2.5 && saved["offset"][1] == -3.0 && saved["size"] == 4.0 && saved.get("speed").is_none(),
+        saved.as_object().unwrap().len() == 14
+            && saved["offset"][0] == 2.5
+            && saved["offset"][1] == -3.0
+            && saved["size"] == 4.0
+            && saved.get("speed").is_none(),
     );
     for (file, want) in [
         ("fx_turbnoise_023.json", "size"),
@@ -194,27 +245,57 @@ fn b325_turbulent_noise() {
         ("fx_turbnoise_031.json", "invert"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Turbulent Noise and its {want}"), &why, why.contains("Turbulent Noise") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Turbulent Noise and its {want}"),
+            &why,
+            why.contains("Turbulent Noise") && why.contains(want),
+        );
     }
     let full = r#"{"fractal_type": "basic", "noise_type": "smooth", "invert": "off", "contrast": 100, "brightness": 0, "size": 100, "scale_width": 100, "scale_height": 100, "offset": [0, 0], "complexity": 6, "evolution": 0, "seed": 0, "opacity": 100, "blend": "normal"}"#;
-    t.shape_refused("fx_turbnoise_001.json", "a Turbulent Noise whose contrast is a word", &full.replace("\"contrast\": 100", "\"contrast\": \"high\""));
-    t.shape_refused("fx_turbnoise_001.json", "a Turbulent Noise without its evolution", &full.replace("\"evolution\": 0, ", ""));
-    t.shape_refused("fx_turbnoise_001.json", "a Turbulent Noise whose offset is one number", &full.replace("[0, 0]", "0"));
+    t.shape_refused(
+        "fx_turbnoise_001.json",
+        "a Turbulent Noise whose contrast is a word",
+        &full.replace("\"contrast\": 100", "\"contrast\": \"high\""),
+    );
+    t.shape_refused(
+        "fx_turbnoise_001.json",
+        "a Turbulent Noise without its evolution",
+        &full.replace("\"evolution\": 0, ", ""),
+    );
+    t.shape_refused(
+        "fx_turbnoise_001.json",
+        "a Turbulent Noise whose offset is one number",
+        &full.replace("[0, 0]", "0"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_turbnoise_001.json").document;
-    let over = changed(&t, "fx_turbnoise_001.json", |e| if let Effect::TurbulentNoise { complexity, .. } = e { *complexity = 21.0 });
-    let bad = changed(&t, "fx_turbnoise_001.json", |e| if let Effect::TurbulentNoise { noise_type, .. } = e { *noise_type = "cubic".into() });
+    let over = changed(&t, "fx_turbnoise_001.json", |e| {
+        if let Effect::TurbulentNoise { complexity, .. } = e {
+            *complexity = 21.0
+        }
+    });
+    let bad = changed(&t, "fx_turbnoise_001.json", |e| {
+        if let Effect::TurbulentNoise { noise_type, .. } = e {
+            *noise_type = "cubic".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("complexity 21", set(over)),
             ("noise type cubic", set(bad)),
-            ("opacity keyed to 150", keys("opacity", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "opacity keyed to 150",
+                keys("opacity", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let veins = changed(&t, "fx_turbnoise_001.json", |e| {
-        if let Effect::TurbulentNoise { fractal_type, size, .. } = e {
+        if let Effect::TurbulentNoise {
+            fractal_type, size, ..
+        } = e
+        {
             *fractal_type = "turbulent".into();
             *size = 4.0;
         }
@@ -224,7 +305,10 @@ fn b325_turbulent_noise() {
         "fx_turbnoise_001.json",
         vec![
             ("turbulent at size 4", set(veins)),
-            ("evolution keyed from 0 to 720", keys("evolution", &[(0, &[0.0]), (4, &[720.0])])),
+            (
+                "evolution keyed from 0 to 720",
+                keys("evolution", &[(0, &[0.0]), (4, &[720.0])]),
+            ),
         ],
     );
 
@@ -247,20 +331,42 @@ fn b325_turbulent_noise() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("turbulent, size 40, complexity 20", json!({"fractal_type": "turbulent", "size": 40, "complexity": 20}), 3),
-            ("block, inverted, multiply at opacity 60", json!({"noise_type": "block", "invert": "on", "size": 30, "blend": "multiply", "opacity": 60}), 3),
+            (
+                "turbulent, size 40, complexity 20",
+                json!({"fractal_type": "turbulent", "size": 40, "complexity": 20}),
+                3,
+            ),
+            (
+                "block, inverted, multiply at opacity 60",
+                json!({"noise_type": "block", "invert": "on", "size": 30, "blend": "multiply", "opacity": 60}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-445 pictures/`");
     let dir = repo("verification/D-445 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let grey = |p: &[u8]| p.chunks_exact(4).all(|q| q[0] == q[1] && q[1] == q[2]);
     let (added, said) = street(json!({}));
@@ -293,7 +399,11 @@ fn b325_turbulent_noise() {
 
     let (inverted, said) = street(json!({"size": 30, "invert": "on"}));
     write("6_inverted.png", TOWN, &inverted);
-    let turned = fine.chunks_exact(4).zip(inverted.chunks_exact(4)).filter(|(a, _)| a[3] == 255).all(|(a, b)| (a[0] as i32 + b[0] as i32 - 255).abs() <= 1);
+    let turned = fine
+        .chunks_exact(4)
+        .zip(inverted.chunks_exact(4))
+        .filter(|(a, _)| a[3] == 255)
+        .all(|(a, b)| (a[0] as i32 + b[0] as i32 - 255).abs() <= 1);
     t.row(
         "6_inverted.png, invert on at size 30: 3_size_30.png's clouds turned over, light where they were dark; draws cleanly",
         &format!("{said:?}, turned over: {turned}"),
@@ -302,7 +412,10 @@ fn b325_turbulent_noise() {
 
     let (over, said) = street(json!({"size": 60, "blend": "multiply", "opacity": 70}));
     write("7_multiply_over_the_street.png", TOWN, &over);
-    let darker = before.chunks_exact(4).zip(over.chunks_exact(4)).all(|(b, a)| (0..3).all(|c| a[c] <= b[c]));
+    let darker = before
+        .chunks_exact(4)
+        .zip(over.chunks_exact(4))
+        .all(|(b, a)| (0..3).all(|c| a[c] <= b[c]));
     t.row(
         "7_multiply_over_the_street.png, multiply at opacity 70, size 60: the street darkened by the clouds, no pixel lighter; draws cleanly",
         &format!("{said:?}, none lighter: {darker}"),
@@ -313,9 +426,18 @@ fn b325_turbulent_noise() {
     // cycling, draws the same street byte for byte.
     for (what, p) in [
         ("as added", json!({})),
-        ("turbulent at size 30", json!({"size": 30, "fractal_type": "turbulent"})),
-        ("block, inverted, seed 9, offset 20 by -7", json!({"size": 30, "noise_type": "block", "invert": "on", "seed": 9, "offset": [20, -7]})),
-        ("scale 250 by 40, evolution 200, screen at 50", json!({"size": 25, "scale_width": 250, "scale_height": 40, "evolution": 200, "blend": "screen", "opacity": 50})),
+        (
+            "turbulent at size 30",
+            json!({"size": 30, "fractal_type": "turbulent"}),
+        ),
+        (
+            "block, inverted, seed 9, offset 20 by -7",
+            json!({"size": 30, "noise_type": "block", "invert": "on", "seed": 9, "offset": [20, -7]}),
+        ),
+        (
+            "scale 250 by 40, evolution 200, screen at 50",
+            json!({"size": 25, "scale_width": 250, "scale_height": 40, "evolution": 200, "blend": "screen", "opacity": 50}),
+        ),
     ] {
         let (a, said0) = street(p.clone());
         let (b, said1) = picture(&dir, "town.png", TOWN, json!([fractal("fx-0-0", &p)]), 0);
@@ -354,22 +476,48 @@ fn b325_turbulent_noise_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Turbulent Noise as added (complexity 6)", Some(json!({}))),
-        ("Noise, then Turbulent Noise turbulent, size 40, complexity 20 (the most)", Some(json!({"fractal_type": "turbulent", "size": 40, "complexity": 20}))),
+        (
+            "Noise, then Turbulent Noise as added (complexity 6)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Turbulent Noise turbulent, size 40, complexity 20 (the most)",
+            Some(json!({"fractal_type": "turbulent", "size": 40, "complexity": 20})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B325_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-325_timing_raw.md"));
+    let out = std::env::var("B325_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-325_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

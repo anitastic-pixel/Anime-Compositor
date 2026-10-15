@@ -84,12 +84,30 @@ fn b67_light_rays() {
     t.refused(
         &mut document,
         vec![
-            ("length 101", set(rays([50.0, 50.0], 101.0, 70.0, 1.0, "#ffffff"))),
-            ("threshold -1", set(rays([50.0, 50.0], 50.0, -1.0, 1.0, "#ffffff"))),
-            ("intensity 11", set(rays([50.0, 50.0], 50.0, 70.0, 11.0, "#ffffff"))),
-            ("centre 1001, 50", set(rays([1001.0, 50.0], 50.0, 70.0, 1.0, "#ffffff"))),
-            ("colour \"orange\"", set(rays([50.0, 50.0], 50.0, 70.0, 1.0, "orange"))),
-            ("intensity keyed to 20", keys("intensity", &[(0, &[1.0]), (4, &[20.0])])),
+            (
+                "length 101",
+                set(rays([50.0, 50.0], 101.0, 70.0, 1.0, "#ffffff")),
+            ),
+            (
+                "threshold -1",
+                set(rays([50.0, 50.0], 50.0, -1.0, 1.0, "#ffffff")),
+            ),
+            (
+                "intensity 11",
+                set(rays([50.0, 50.0], 50.0, 70.0, 11.0, "#ffffff")),
+            ),
+            (
+                "centre 1001, 50",
+                set(rays([1001.0, 50.0], 50.0, 70.0, 1.0, "#ffffff")),
+            ),
+            (
+                "colour \"orange\"",
+                set(rays([50.0, 50.0], 50.0, 70.0, 1.0, "orange")),
+            ),
+            (
+                "intensity keyed to 20",
+                keys("intensity", &[(0, &[1.0]), (4, &[20.0])]),
+            ),
         ],
     );
     t.taken(
@@ -104,7 +122,10 @@ fn b67_light_rays() {
                 "length 0, threshold 0, intensity 0 and centre -1000, -1000, the bottoms,",
                 set(rays([-1000.0, -1000.0], 0.0, 0.0, 0.0, "#000000")),
             ),
-            ("centre keyed from 50, 50 to 0, 0", keys("center", &[(0, &[50.0, 50.0]), (4, &[0.0, 0.0])])),
+            (
+                "centre keyed from 50, 50 to 0, 0",
+                keys("center", &[(0, &[50.0, 50.0]), (4, &[0.0, 0.0])]),
+            ),
         ],
     );
 

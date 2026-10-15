@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -47,11 +48,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -72,14 +84,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -106,7 +134,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -118,23 +149,56 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The street drawn plain and with each of `shots` of `type_id`, written as numbered pictures
 /// into `verification/{d} pictures/`; a row each that it draws cleanly and changes what it says
 /// it changes.
-fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+fn street(
+    t: &mut Table,
+    d: &str,
+    type_id: &str,
+    shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)],
+) {
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]));
@@ -154,8 +218,20 @@ fn changed(a: &[u8], b: &[u8]) -> bool {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -196,15 +272,39 @@ fn b285_spherize() {
     why(
         &mut t,
         &[
-            ("fx_spherize_012.json", "Spherize's radius runs from 0 to 2500, and this is -1."),
-            ("fx_spherize_013.json", "Spherize's radius runs from 0 to 2500, and this is 2501."),
-            ("fx_spherize_014.json", "Spherize's center runs from -1000 to 1000, and this is 1001."),
-            ("fx_spherize_015.json", "Spherize's center runs from -1000 to 1000, and this is -1001."),
+            (
+                "fx_spherize_012.json",
+                "Spherize's radius runs from 0 to 2500, and this is -1.",
+            ),
+            (
+                "fx_spherize_013.json",
+                "Spherize's radius runs from 0 to 2500, and this is 2501.",
+            ),
+            (
+                "fx_spherize_014.json",
+                "Spherize's center runs from -1000 to 1000, and this is 1001.",
+            ),
+            (
+                "fx_spherize_015.json",
+                "Spherize's center runs from -1000 to 1000, and this is -1001.",
+            ),
         ],
     );
-    t.shape_refused("fx_spherize_001.json", "a Spherize with no `center`", r#"{"radius": 100}"#);
-    t.shape_refused("fx_spherize_001.json", "a Spherize with a radius in words", r#"{"radius": "big", "center": [50, 50]}"#);
-    t.shape_refused("fx_spherize_001.json", "a Spherize with one number for its centre", r#"{"radius": 100, "center": [50]}"#);
+    t.shape_refused(
+        "fx_spherize_001.json",
+        "a Spherize with no `center`",
+        r#"{"radius": 100}"#,
+    );
+    t.shape_refused(
+        "fx_spherize_001.json",
+        "a Spherize with a radius in words",
+        r#"{"radius": "big", "center": [50, 50]}"#,
+    );
+    t.shape_refused(
+        "fx_spherize_001.json",
+        "a Spherize with one number for its centre",
+        r#"{"radius": 100, "center": [50]}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_spherize_001.json").document;
@@ -213,7 +313,10 @@ fn b285_spherize() {
         vec![
             ("radius -1", set(spherize(-1.0, [50.0, 50.0]))),
             ("centre 50, 1001", set(spherize(5.0, [50.0, 1001.0]))),
-            ("radius keyed to 2501", keys("radius", &[(0, &[4.0]), (4, &[2501.0])])),
+            (
+                "radius keyed to 2501",
+                keys("radius", &[(0, &[4.0]), (4, &[2501.0])]),
+            ),
         ],
     );
     t.taken(
@@ -221,17 +324,37 @@ fn b285_spherize() {
         "fx_spherize_001.json",
         vec![
             ("radius 6 round 30, 40", set(spherize(6.0, [30.0, 40.0]))),
-            ("radius keyed from 0 to 8", keys("radius", &[(0, &[0.0]), (4, &[8.0])])),
-            ("centre keyed from 25, 50 to 75, 50", keys("center", &[(0, &[25.0, 50.0]), (4, &[75.0, 50.0])])),
+            (
+                "radius keyed from 0 to 8",
+                keys("radius", &[(0, &[0.0]), (4, &[8.0])]),
+            ),
+            (
+                "centre keyed from 25, 50 to 75, 50",
+                keys("center", &[(0, &[25.0, 50.0]), (4, &[75.0, 50.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_spherize_001.json", 0), ("fx_spherize_004.json", 0), ("fx_spherize_005.json", 0), ("fx_spherize_006.json", 0), ("fx_spherize_009.json", 2), ("fx_spherize_010.json", 0)]);
+    t.tiles(&[
+        ("fx_spherize_001.json", 0),
+        ("fx_spherize_004.json", 0),
+        ("fx_spherize_005.json", 0),
+        ("fx_spherize_006.json", 0),
+        ("fx_spherize_009.json", 2),
+        ("fx_spherize_010.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    card_fixtures(&mut t, &mut gpu, "fx_spherize", 15, &[2, 12, 13, 14, 15], is_spherize);
+    card_fixtures(
+        &mut t,
+        &mut gpu,
+        "fx_spherize",
+        15,
+        &[2, 12, 13, 14, 15],
+        is_spherize,
+    );
     card_reference(
         &mut t,
         &mut gpu,
@@ -239,9 +362,18 @@ fn b285_spherize() {
         "core.spherize",
         &[
             ("as it starts (radius 100 in the middle)", json!({})),
-            ("radius 500 round 30, 40", json!({"radius": 500, "center": [30, 40]})),
-            ("radius 2500, the whole layer inside", json!({"radius": 2500})),
-            ("radius 400 round -10, 50, half off the edge", json!({"radius": 400, "center": [-10, 50]})),
+            (
+                "radius 500 round 30, 40",
+                json!({"radius": 500, "center": [30, 40]}),
+            ),
+            (
+                "radius 2500, the whole layer inside",
+                json!({"radius": 2500}),
+            ),
+            (
+                "radius 400 round -10, 50, half off the edge",
+                json!({"radius": 400, "center": [-10, 50]}),
+            ),
         ],
         is_spherize,
     );
@@ -287,21 +419,49 @@ fn b285_spherize_timing() {
     );
     let shots: [(&str, Option<(&str, J)>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Spherize as added (radius 100)", Some(("core.spherize", json!({})))),
-        ("Noise, then Spherize, radius 2500", Some(("core.spherize", json!({"radius": 2500})))),
+        (
+            "Noise, then Spherize as added (radius 100)",
+            Some(("core.spherize", json!({}))),
+        ),
+        (
+            "Noise, then Spherize, radius 2500",
+            Some(("core.spherize", json!({"radius": 2500}))),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some((type_id, p)) = &e {
                 v.push(fx(type_id, &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B285_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-285_timing_raw.md"));
+    let out = std::env::var("B285_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-285_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

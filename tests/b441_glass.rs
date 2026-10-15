@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -46,7 +47,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=27 {
         let file = format!("fx_glass_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -54,7 +59,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Glass { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Glass { .. })
+                });
             }
         }
         t.row(
@@ -72,9 +79,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -88,7 +104,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Glass { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Glass { .. })
+                });
                 t.row(
                     &format!("the reference shot, CC Glass {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -101,8 +119,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -114,15 +141,35 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The `art` layer's effect in `file`, changed by `f`.
 fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
     let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone();
+    let mut e = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     f(&mut e);
     e
 }
@@ -134,7 +181,17 @@ fn at(p: &[u8], w: usize, x: usize, y: usize) -> &[u8] {
 
 /// `command` aimed at the `holder` layer's effect `fx-1`; the fixtures' drawing is `holder`, not `art`.
 fn holder(mut command: Command) -> Command {
-    if let Command::SetEffectParameters { layer_id, instance_id, .. } | Command::SetEffectKeys { layer_id, instance_id, .. } = &mut command {
+    if let Command::SetEffectParameters {
+        layer_id,
+        instance_id,
+        ..
+    }
+    | Command::SetEffectKeys {
+        layer_id,
+        instance_id,
+        ..
+    } = &mut command
+    {
         *layer_id = Id::new("holder");
         *instance_id = Id::new("fx-1");
     }
@@ -196,37 +253,94 @@ fn b441_glass() {
         ("fx_glass_026.json", "light position"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming CC Glass and its {want}"), &why, why.contains("CC Glass") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming CC Glass and its {want}"),
+            &why,
+            why.contains("CC Glass") && why.contains(want),
+        );
     }
     let full = r##"{"layer": "", "fit": "stretch", "property": "alpha", "softness": 10, "height": 50, "displacement": 100, "light_angle": -45, "light_color": "#ffffff", "light_intensity": 100, "light_type": "distant", "light_height": 25, "light_position": [50, 50], "ambient": 75, "diffuse": 90, "specular": 25, "roughness": 0.1, "metal": 100}"##;
-    t.shape_refused("fx_glass_001.json", "a CC Glass whose ambient is a word", &full.replace("\"ambient\": 75", "\"ambient\": \"some\""));
-    t.shape_refused("fx_glass_001.json", "a CC Glass with a light type but without its metal", &full.replace(", \"metal\": 100", ""));
-    t.shape_refused("fx_glass_001.json", "a CC Glass whose light position is one number", &full.replace("[50, 50]", "50"));
-    t.shape_refused("fx_glass_001.json", "a CC Glass whose light type is a number", &full.replace("\"light_type\": \"distant\"", "\"light_type\": 2"));
+    t.shape_refused(
+        "fx_glass_001.json",
+        "a CC Glass whose ambient is a word",
+        &full.replace("\"ambient\": 75", "\"ambient\": \"some\""),
+    );
+    t.shape_refused(
+        "fx_glass_001.json",
+        "a CC Glass with a light type but without its metal",
+        &full.replace(", \"metal\": 100", ""),
+    );
+    t.shape_refused(
+        "fx_glass_001.json",
+        "a CC Glass whose light position is one number",
+        &full.replace("[50, 50]", "50"),
+    );
+    t.shape_refused(
+        "fx_glass_001.json",
+        "a CC Glass whose light type is a number",
+        &full.replace("\"light_type\": \"distant\"", "\"light_type\": 2"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_glass_001.json").document;
-    let over = changed(&t, "fx_glass_001.json", |e| if let Effect::Glass { ambient, .. } = e { *ambient = 101.0 });
-    let far = changed(&t, "fx_glass_001.json", |e| if let Effect::Glass { light_position, .. } = e { *light_position = [50.0, -1001.0] });
-    let word = changed(&t, "fx_glass_001.json", |e| if let Effect::Glass { light_type, .. } = e { *light_type = "spot".into() });
-    let effect_of = |d: &Document| d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].clone();
+    let over = changed(&t, "fx_glass_001.json", |e| {
+        if let Effect::Glass { ambient, .. } = e {
+            *ambient = 101.0
+        }
+    });
+    let far = changed(&t, "fx_glass_001.json", |e| {
+        if let Effect::Glass { light_position, .. } = e {
+            *light_position = [50.0, -1001.0]
+        }
+    });
+    let word = changed(&t, "fx_glass_001.json", |e| {
+        if let Effect::Glass { light_type, .. } = e {
+            *light_type = "spot".into()
+        }
+    });
+    let effect_of = |d: &Document| {
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+            .clone()
+    };
     let held = format!("{:?}", effect_of(&document));
     for (what, command) in [
         ("ambient 101", set(over)),
         ("light position 50, -1001", set(far)),
         ("light type spot", set(word)),
-        ("metal keyed to 150", keys("metal", &[(0, &[0.0]), (4, &[150.0])])),
+        (
+            "metal keyed to 150",
+            keys("metal", &[(0, &[0.0]), (4, &[150.0])]),
+        ),
     ] {
         let refused = document.apply(holder(command)).err();
         let untouched = format!("{:?}", effect_of(&document)) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
     let moved = changed(&t, "fx_glass_001.json", |e| {
-        if let Effect::Glass { layer, property, softness, light_type, light_height, light_color, specular, roughness, metal, .. } = e {
+        if let Effect::Glass {
+            layer,
+            property,
+            softness,
+            light_type,
+            light_height,
+            light_color,
+            specular,
+            roughness,
+            metal,
+            ..
+        } = e
+        {
             *layer = json!("ramp");
             *property = "luminance".into();
             *softness = 3.0;
@@ -238,7 +352,11 @@ fn b441_glass() {
             *metal = 0.0;
         }
     });
-    let classic = changed(&t, "fx_glass_001.json", |e| if let Effect::Glass { light_type, .. } = e { *light_type = "classic".into() });
+    let classic = changed(&t, "fx_glass_001.json", |e| {
+        if let Effect::Glass { light_type, .. } = e {
+            *light_type = "classic".into()
+        }
+    });
     t.taken(
         &mut document,
         "fx_glass_001.json",
@@ -283,12 +401,26 @@ fn b441_glass() {
     t.heading("Pictures: in `verification/D-561 pictures/`");
     let dir = repo("verification/D-561 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (w, h) = TOWN;
     let middle = |p: &[u8]| at(p, w, w / 2, h / 2).to_vec();
 
@@ -323,7 +455,9 @@ fn b441_glass() {
         said.is_empty() && said2.is_empty() && metal != orange,
     );
 
-    let (point, said) = street(json!({"light_type": "point", "light_position": [25, 30], "light_height": 80, "specular": 60}));
+    let (point, said) = street(
+        json!({"light_type": "point", "light_position": [25, 30], "light_height": 80, "specular": 60}),
+    );
     write("6_point_light.png", TOWN, &point);
     t.row(
         "6_point_light.png, a point light at 25, 30 per cent, 80 pixels up: brightest toward the top left, not 2_as_added.png; draws cleanly",
@@ -331,7 +465,8 @@ fn b441_glass() {
         said.is_empty() && point != added,
     );
 
-    let (flat, said) = street(json!({"displacement": 0, "ambient": 100, "diffuse": 0, "specular": 0}));
+    let (flat, said) =
+        street(json!({"displacement": 0, "ambient": 100, "diffuse": 0, "specular": 0}));
     write("7_flat.png", TOWN, &flat);
     t.row(
         "7_flat.png, Displacement 0, Ambient 100, Diffuse 0, Specular 0: the street unchanged within 1 level at its middle pixel; draws cleanly",
@@ -368,21 +503,46 @@ fn b441_glass_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
         ("Noise, then CC Glass as added", Some(json!({}))),
-        ("the same, Luminance, softness 30, a point light, metal 0", Some(json!({"property": "luminance", "softness": 30, "light_type": "point", "metal": 0}))),
+        (
+            "the same, Luminance, softness 30, a point light, metal 0",
+            Some(
+                json!({"property": "luminance", "softness": 30, "light_type": "point", "metal": 0}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B441_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-441_timing_raw.md"));
+    let out = std::env::var("B441_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-441_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

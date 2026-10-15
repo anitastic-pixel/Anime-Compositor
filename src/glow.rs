@@ -61,11 +61,27 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
     }
     // D-337: in display values the tint is used as written, and what glows is still tested on
     // the pixel's own linear value.
-    let tint = g.tint.map(|t| t.map(|v| if g.display { v as f32 / 255.0 } else { srgb_to_linear(v as f32 / 255.0) }));
+    let tint = g.tint.map(|t| {
+        t.map(|v| {
+            if g.display {
+                v as f32 / 255.0
+            } else {
+                srgb_to_linear(v as f32 / 255.0)
+            }
+        })
+    });
     let lights = |px: &[f32]| {
         if g.display && px[3] > 0.0 {
             let a = px[3];
-            glows(&[srgb_to_linear(px[0] / a) * a, srgb_to_linear(px[1] / a) * a, srgb_to_linear(px[2] / a) * a, a], g)
+            glows(
+                &[
+                    srgb_to_linear(px[0] / a) * a,
+                    srgb_to_linear(px[1] / a) * a,
+                    srgb_to_linear(px[2] / a) * a,
+                    a,
+                ],
+                g,
+            )
         } else {
             glows(px, g)
         }
@@ -92,8 +108,19 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
 
     // (3) Spread: document 21's blur at sigma radius / 3, growing the light's bounds; D-322's
     // After Effects units blur as Gaussian Blur at Blurriness radius.
-    let (sigma, long) = crate::effects::glow_reach(g.radius, if g.after_effects { "after_effects" } else { "classic" });
-    let r = crate::effects::blur_axes(&mut light, &crate::effects::reach_weights(sigma, long), (true, true));
+    let (sigma, long) = crate::effects::glow_reach(
+        g.radius,
+        if g.after_effects {
+            "after_effects"
+        } else {
+            "classic"
+        },
+    );
+    let r = crate::effects::blur_axes(
+        &mut light,
+        &crate::effects::reach_weights(sigma, long),
+        (true, true),
+    );
 
     // (4) Strength and (5) on top of the picture, which is empty outside its own bounds.
     // D-331: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) is the colour read straight: the

@@ -24,7 +24,16 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// Radial Shadow with its colour, opacity, light, distance, softness, render, colour influence
 /// and shadow only.
 #[allow(clippy::too_many_arguments)]
-fn shadow(color: &str, opacity: f64, light: [f64; 2], distance: f64, softness: f64, render: &str, influence: f64, only: &str) -> Effect {
+fn shadow(
+    color: &str,
+    opacity: f64,
+    light: [f64; 2],
+    distance: f64,
+    softness: f64,
+    render: &str,
+    influence: f64,
+    only: &str,
+) -> Effect {
     Effect::RadialShadow {
         color: color.to_string(),
         opacity,
@@ -39,7 +48,16 @@ fn shadow(color: &str, opacity: f64, light: [f64; 2], distance: f64, softness: f
 
 /// As it starts.
 fn plain() -> Effect {
-    shadow("#000000", 50.0, [50.0, 0.0], 10.0, 0.0, "regular", 100.0, "off")
+    shadow(
+        "#000000",
+        50.0,
+        [50.0, 0.0],
+        10.0,
+        0.0,
+        "regular",
+        100.0,
+        "off",
+    )
 }
 
 const PLATE: (usize, usize) = (160, 100);
@@ -74,7 +92,10 @@ fn drawing() -> Vec<u8> {
 /// same enlarged three times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/radial_shadow/fx_rshadow_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/radial_shadow/fx_rshadow_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("drawing.png");
@@ -88,9 +109,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -138,7 +170,16 @@ fn b146_radial_shadow() {
         &got.to_string(),
         got == 0,
     );
-    let mut draft = shadow("#2040a0", 75.0, [20.0, 30.0], 40.0, 12.0, "glass_edge", 60.0, "on");
+    let mut draft = shadow(
+        "#2040a0",
+        75.0,
+        [20.0, 30.0],
+        40.0,
+        12.0,
+        "glass_edge",
+        60.0,
+        "on",
+    );
     draft.scale_distances(|d| d * 0.5);
     t.row(
         "a half-size draft preview halves the softening, a distance in pixels, and keeps the light, \
@@ -148,7 +189,14 @@ fn b146_radial_shadow() {
     );
 
     t.heading("The file");
-    t.round_trips(&(1..=25).map(|n| format!("fx_rshadow_{n:03}.json")).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>());
+    t.round_trips(
+        &(1..=25)
+            .map(|n| format!("fx_rshadow_{n:03}.json"))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    );
     t.shape_refused(
         "fx_rshadow_001.json",
         "no `render` at all",
@@ -170,28 +218,184 @@ fn b146_radial_shadow() {
     t.refused(
         &mut document,
         vec![
-            ("opacity 101", set(shadow("#000000", 101.0, [50.0, 0.0], 10.0, 0.0, "regular", 100.0, "off"))),
-            ("distance -1", set(shadow("#000000", 50.0, [50.0, 0.0], -1.0, 0.0, "regular", 100.0, "off"))),
-            ("distance 1001", set(shadow("#000000", 50.0, [50.0, 0.0], 1001.0, 0.0, "regular", 100.0, "off"))),
-            ("softness 501", set(shadow("#000000", 50.0, [50.0, 0.0], 10.0, 501.0, "regular", 100.0, "off"))),
-            ("colour influence 101", set(shadow("#000000", 50.0, [50.0, 0.0], 10.0, 0.0, "regular", 101.0, "off"))),
-            ("light down 1001", set(shadow("#000000", 50.0, [50.0, 1001.0], 10.0, 0.0, "regular", 100.0, "off"))),
-            ("colour \"black\"", set(shadow("black", 50.0, [50.0, 0.0], 10.0, 0.0, "regular", 100.0, "off"))),
-            ("render \"glassy\"", set(shadow("#000000", 50.0, [50.0, 0.0], 10.0, 0.0, "glassy", 100.0, "off"))),
-            ("render \"Glass_Edge\", written with capitals", set(shadow("#000000", 50.0, [50.0, 0.0], 10.0, 0.0, "Glass_Edge", 100.0, "off"))),
-            ("shadow only \"yes\"", set(shadow("#000000", 50.0, [50.0, 0.0], 10.0, 0.0, "regular", 100.0, "yes"))),
-            ("distance keyed to 1200", keys("distance", &[(0, &[10.0]), (4, &[1200.0])])),
-            ("light keyed to 2000 across", keys("light", &[(0, &[50.0, 0.0]), (4, &[2000.0, 0.0])])),
+            (
+                "opacity 101",
+                set(shadow(
+                    "#000000",
+                    101.0,
+                    [50.0, 0.0],
+                    10.0,
+                    0.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "distance -1",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    -1.0,
+                    0.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "distance 1001",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    1001.0,
+                    0.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "softness 501",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    10.0,
+                    501.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "colour influence 101",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    10.0,
+                    0.0,
+                    "regular",
+                    101.0,
+                    "off",
+                )),
+            ),
+            (
+                "light down 1001",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 1001.0],
+                    10.0,
+                    0.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "colour \"black\"",
+                set(shadow(
+                    "black",
+                    50.0,
+                    [50.0, 0.0],
+                    10.0,
+                    0.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "render \"glassy\"",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    10.0,
+                    0.0,
+                    "glassy",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "render \"Glass_Edge\", written with capitals",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    10.0,
+                    0.0,
+                    "Glass_Edge",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "shadow only \"yes\"",
+                set(shadow(
+                    "#000000",
+                    50.0,
+                    [50.0, 0.0],
+                    10.0,
+                    0.0,
+                    "regular",
+                    100.0,
+                    "yes",
+                )),
+            ),
+            (
+                "distance keyed to 1200",
+                keys("distance", &[(0, &[10.0]), (4, &[1200.0])]),
+            ),
+            (
+                "light keyed to 2000 across",
+                keys("light", &[(0, &[50.0, 0.0]), (4, &[2000.0, 0.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_rshadow_001.json",
         vec![
-            ("every number at its bottom,", set(shadow("#2040a0", 0.0, [-1000.0, -1000.0], 0.0, 0.0, "glass_edge", 0.0, "on"))),
-            ("every number at its top,", set(shadow("#ffffff", 100.0, [1000.0, 1000.0], 1000.0, 500.0, "regular", 100.0, "off"))),
-            ("light keyed across the top", keys("light", &[(0, &[0.0, 0.0]), (4, &[100.0, 0.0])])),
-            ("colour influence keyed from 0 to 100", keys("color_influence", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "every number at its bottom,",
+                set(shadow(
+                    "#2040a0",
+                    0.0,
+                    [-1000.0, -1000.0],
+                    0.0,
+                    0.0,
+                    "glass_edge",
+                    0.0,
+                    "on",
+                )),
+            ),
+            (
+                "every number at its top,",
+                set(shadow(
+                    "#ffffff",
+                    100.0,
+                    [1000.0, 1000.0],
+                    1000.0,
+                    500.0,
+                    "regular",
+                    100.0,
+                    "off",
+                )),
+            ),
+            (
+                "light keyed across the top",
+                keys("light", &[(0, &[0.0, 0.0]), (4, &[100.0, 0.0])]),
+            ),
+            (
+                "colour influence keyed from 0 to 100",
+                keys("color_influence", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -208,7 +412,15 @@ fn b146_radial_shadow() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -224,7 +436,12 @@ fn b146_radial_shadow() {
     write("before.png", &big, 3);
     // The drawing's fully covered pixels, which a shadow behind never changes.
     let solid: Vec<_> = every().filter(|&p| px(&before, p)[3] == 255).collect();
-    let kept = |bytes: &[u8]| solid.iter().filter(|&&p| px(bytes, p) != px(&before, p)).count();
+    let kept = |bytes: &[u8]| {
+        solid
+            .iter()
+            .filter(|&&p| px(bytes, p) != px(&before, p))
+            .count()
+    };
     t.row(
         "before.png, opacity 0: the drawing as it is, drawn cleanly",
         &format!("{said:?}, {} pixels shown", shown(&before)),
@@ -247,11 +464,22 @@ fn b146_radial_shadow() {
     t.row(
         "corner.png, the light at the top-left, distance 40: the shadow thrown down and to the \
          right, half black at (120, 85), nothing up and to the left at (50, 20); draws cleanly",
-        &format!("{said:?}, {:?} and {:?}, {} changed", px(&four, (120, 85)), px(&four, (50, 20)), kept(&four)),
-        said.is_empty() && near(px(&four, (120, 85)), half_black) && px(&four, (50, 20))[3] == 0 && kept(&four) == 0,
+        &format!(
+            "{said:?}, {:?} and {:?}, {} changed",
+            px(&four, (120, 85)),
+            px(&four, (50, 20)),
+            kept(&four)
+        ),
+        said.is_empty()
+            && near(px(&four, (120, 85)), half_black)
+            && px(&four, (50, 20))[3] == 0
+            && kept(&four) == 0,
     );
 
-    let (ring, big, said) = picture(&dir, one(serde_json::json!({ "light": [50, 50], "distance": 50 })));
+    let (ring, big, said) = picture(
+        &dir,
+        one(serde_json::json!({ "light": [50, 50], "distance": 50 })),
+    );
     write("middle.png", &big, 3);
     let round = [(52, 50), (108, 50), (80, 20), (80, 80)];
     t.row(
@@ -261,16 +489,28 @@ fn b146_radial_shadow() {
         said.is_empty() && round.iter().all(|&p| px(&before, p)[3] == 0 && near(px(&ring, p), half_black)),
     );
 
-    let (soft, big, said) = picture(&dir, one(serde_json::json!({ "light": [0, 0], "distance": 40, "softness": 12 })));
+    let (soft, big, said) = picture(
+        &dir,
+        one(serde_json::json!({ "light": [0, 0], "distance": 40, "softness": 12 })),
+    );
     write("soft.png", &big, 3);
     t.row(
         "soft.png, corner.png with softening 12: the shadow's edge blurred, so it reaches more \
          pixels than corner.png's; draws cleanly",
-        &format!("{said:?}, pixels shown: soft {}, corner {}", shown(&soft), shown(&four)),
+        &format!(
+            "{said:?}, pixels shown: soft {}, corner {}",
+            shown(&soft),
+            shown(&four)
+        ),
         said.is_empty() && shown(&soft) > shown(&four) && kept(&soft) == 0,
     );
 
-    let (blue, big, said) = picture(&dir, one(serde_json::json!({ "light": [0, 0], "distance": 40, "opacity": 100, "color": "#2040a0" })));
+    let (blue, big, said) = picture(
+        &dir,
+        one(
+            serde_json::json!({ "light": [0, 0], "distance": 40, "opacity": 100, "color": "#2040a0" }),
+        ),
+    );
     write("blue.png", &big, 3);
     t.row(
         "blue.png, corner.png in blue #2040a0 at opacity 100: inside the shadow it is exactly that \
@@ -279,7 +519,11 @@ fn b146_radial_shadow() {
         said.is_empty() && near(px(&blue, (120, 85)), [32, 64, 160, 255]),
     );
 
-    let glass_at = |influence: f64| one(serde_json::json!({ "light": [0, 0], "distance": 40, "opacity": 100, "render": "glass_edge", "color_influence": influence }));
+    let glass_at = |influence: f64| {
+        one(
+            serde_json::json!({ "light": [0, 0], "distance": 40, "opacity": 100, "render": "glass_edge", "color_influence": influence }),
+        )
+    };
     let (glass, big, said) = picture(&dir, glass_at(100.0));
     write("glass.png", &big, 3);
     let (halfway, big2, said2) = picture(&dir, glass_at(50.0));
@@ -294,7 +538,10 @@ fn b146_radial_shadow() {
         said.is_empty() && said2.is_empty() && near(g, skin) && (0..3).all(|c| 0 < m[c] && m[c] < g[c]) && m[3] == 255,
     );
 
-    let (only, big, said) = picture(&dir, one(serde_json::json!({ "light": [0, 0], "distance": 40, "shadow_only": "on" })));
+    let (only, big, said) = picture(
+        &dir,
+        one(serde_json::json!({ "light": [0, 0], "distance": 40, "shadow_only": "on" })),
+    );
     write("shadow_only.png", &big, 3);
     t.row(
         "shadow_only.png, Shadow Only on: the drawing is gone, so (90, 60), skin before, is now the \
@@ -303,7 +550,10 @@ fn b146_radial_shadow() {
         said.is_empty() && near(px(&only, (90, 60)), half_black) && px(&only, (120, 85)) == px(&four, (120, 85)),
     );
 
-    let (low, big, said) = picture(&dir, one(serde_json::json!({ "light": [110, 80], "distance": 60 })));
+    let (low, big, said) = picture(
+        &dir,
+        one(serde_json::json!({ "light": [110, 80], "distance": 60 })),
+    );
     write("low_right.png", &big, 3);
     t.row(
         "low_right.png, the light low and off to the right, distance 60: the shadow thrown up and to \

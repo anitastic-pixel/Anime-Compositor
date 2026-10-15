@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -32,10 +33,12 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// A Curl Noise with the settings `p`, every one `p` leaves out as it is added.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.curl_noise" => json!({"source": "internal", "speed": 10, "direction": 0, "size": 100, "offset": [0, 0], "evolution": 0,
+        "core.curl_noise" => {
+            json!({"source": "internal", "speed": 10, "direction": 0, "size": 100, "offset": [0, 0], "evolution": 0,
             "turbulence_speed": 20, "swirl": 45, "density": 0, "smoothness": 50, "vertical_bias": 50, "sample_count": 12, "sample_radius": 30,
             "flow_softness": 20, "edge_definition": 50, "flow_falloff": 0, "view": "final_render", "contrast": 100, "brightness": 0,
-            "clip_hdr_results": "on", "channel": "rgb"}),
+            "clip_hdr_results": "on", "channel": "rgb"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -46,7 +49,10 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
@@ -68,7 +74,10 @@ fn rings() -> Vec<u8> {
 /// `effects` on the street (in `dir`), with `rings.png` (in `dir`) beneath it as the hidden layer
 /// `rings`, drawn on the processor at `frame`, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let mut asset = project["assets"][0].clone();
     asset["id"] = J::from("asset-rings");
@@ -93,11 +102,26 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     hidden["enabled"] = J::from(false);
     hidden["effects"] = json!([]);
     comp["layers"].as_array_mut().unwrap().push(hidden);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("rings"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("rings"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -128,7 +152,10 @@ fn b461_curl_sources() {
     t.fixtures_numbered("expected_curl_noise.json", 45..=60);
 
     t.heading("The file");
-    let mut all = vec!["fx_curl_033.json".to_string(), "fx_curl_034.json".to_string()];
+    let mut all = vec![
+        "fx_curl_033.json".to_string(),
+        "fx_curl_034.json".to_string(),
+    ];
     all.extend((45..=60).map(|n| format!("fx_curl_{n:03}.json")));
     t.round_trips(&all.iter().map(String::as_str).collect::<Vec<_>>());
     let old = t.saved_parameters("fx_curl_001.json");
@@ -141,12 +168,22 @@ fn b461_curl_sources() {
     t.row(
         "fx_curl_048.json is saved with Source Other Layer, its layer and Center",
         &saved.to_string(),
-        saved["source"] == "other_layer" && saved["source_layer"] == "ramp" && saved["source_mapping"] == "center",
+        saved["source"] == "other_layer"
+            && saved["source_layer"] == "ramp"
+            && saved["source_mapping"] == "center",
     );
     let saved = t.saved_parameters("fx_curl_051.json");
-    t.row("fx_curl_051.json is saved with Mirror at Edge on", &saved.to_string(), saved["mirror_at_edge"] == "on");
+    t.row(
+        "fx_curl_051.json is saved with Mirror at Edge on",
+        &saved.to_string(),
+        saved["mirror_at_edge"] == "on",
+    );
     let saved = t.saved_parameters("fx_curl_056.json");
-    t.row("fx_curl_056.json is saved with Softness's keys kept", &saved["softness"].to_string(), saved["softness"]["keyframes"][1]["value"] == json!(30));
+    t.row(
+        "fx_curl_056.json is saved with Softness's keys kept",
+        &saved["softness"].to_string(),
+        saved["softness"]["keyframes"][1]["value"] == json!(30),
+    );
     for (file, want) in [
         ("fx_curl_034.json", "Curl Noise's Source is Other Layer, but Source Layer names no layer: choose one, or set Source to Internal or This Layer."),
         ("fx_curl_057.json", "Curl Noise's softness runs from 0 to 100, and this is 101."),
@@ -162,24 +199,72 @@ fn b461_curl_sources() {
     let mut document = t.load("fx_curl_047.json").document;
     let with = |f: fn(&mut Effect)| changed(&t, "fx_curl_047.json", f);
     let refused = vec![
-        ("softness 101", set(with(|e| if let Effect::CurlNoise { softness, .. } = e { *softness = 101.0 }))),
-        ("source mapping \"stretch\"", set(with(|e| if let Effect::CurlNoise { source_mapping, .. } = e { *source_mapping = "stretch".into() }))),
-        ("mirror at edge \"yes\"", set(with(|e| if let Effect::CurlNoise { mirror_at_edge, .. } = e { *mirror_at_edge = "yes".into() }))),
-        ("source layer 3", set(with(|e| if let Effect::CurlNoise { source_layer, .. } = e { *source_layer = json!(3) }))),
-        ("Other Layer naming no layer", set(with(|e| if let Effect::CurlNoise { source_layer, .. } = e { *source_layer = json!("") }))),
+        (
+            "softness 101",
+            set(with(|e| {
+                if let Effect::CurlNoise { softness, .. } = e {
+                    *softness = 101.0
+                }
+            })),
+        ),
+        (
+            "source mapping \"stretch\"",
+            set(with(|e| {
+                if let Effect::CurlNoise { source_mapping, .. } = e {
+                    *source_mapping = "stretch".into()
+                }
+            })),
+        ),
+        (
+            "mirror at edge \"yes\"",
+            set(with(|e| {
+                if let Effect::CurlNoise { mirror_at_edge, .. } = e {
+                    *mirror_at_edge = "yes".into()
+                }
+            })),
+        ),
+        (
+            "source layer 3",
+            set(with(|e| {
+                if let Effect::CurlNoise { source_layer, .. } = e {
+                    *source_layer = json!(3)
+                }
+            })),
+        ),
+        (
+            "Other Layer naming no layer",
+            set(with(|e| {
+                if let Effect::CurlNoise { source_layer, .. } = e {
+                    *source_layer = json!("")
+                }
+            })),
+        ),
     ];
     let taken = vec![
         (
             "This Layer, softness 20, mirror at edge on",
             set(with(|e| {
-                if let Effect::CurlNoise { source, softness, mirror_at_edge, .. } = e {
+                if let Effect::CurlNoise {
+                    source,
+                    softness,
+                    mirror_at_edge,
+                    ..
+                } = e
+                {
                     *source = "this_layer".into();
                     *softness = 20.0;
                     *mirror_at_edge = "on".into();
                 }
             })),
         ),
-        ("Other Layer \"ramp\", Center", set(with(|e| if let Effect::CurlNoise { source_mapping, .. } = e { *source_mapping = "center".into() }))),
+        (
+            "Other Layer \"ramp\", Center",
+            set(with(|e| {
+                if let Effect::CurlNoise { source_mapping, .. } = e {
+                    *source_mapping = "center".into()
+                }
+            })),
+        ),
     ];
     t.refused(&mut document, refused);
     t.taken(&mut document, "fx_curl_047.json", taken);
@@ -199,7 +284,11 @@ fn b461_curl_sources() {
     let comp = Id::new(MAIN);
     for n in [33u32, 34].into_iter().chain(45..=60) {
         let file = format!("fx_curl_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -207,7 +296,9 @@ fn b461_curl_sources() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CurlNoise { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CurlNoise { .. })
+                });
             }
         }
         // The refused ones (034, 057 to 060) and the one whose layer is gone (053) leave nothing
@@ -223,9 +314,18 @@ fn b461_curl_sources() {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in [
@@ -234,7 +334,10 @@ fn b461_curl_sources() {
             "This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20",
             json!({"source": "this_layer", "softness": 20, "view": "curl_generation", "mirror_at_edge": "on", "offset": [30, -20]}),
         ),
-        ("Other Layer layer4, Fill, radius 12", json!({"source": "other_layer", "source_layer": "layer-4", "sample_radius": 12})),
+        (
+            "Other Layer layer4, Fill, radius 12",
+            json!({"source": "other_layer", "source_layer": "layer-4", "sample_radius": 12}),
+        ),
         (
             "Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha",
             json!({"source": "other_layer", "source_layer": "layer-4", "source_mapping": "center", "softness": keyed(&[(0, json!(0)), (239, json!(40))]), "channel": "alpha"}),
@@ -250,7 +353,9 @@ fn b461_curl_sources() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(&mut gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CurlNoise { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::CurlNoise { .. })
+                });
                 t.row(
                     &format!("the reference shot, Curl Noise {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -263,13 +368,27 @@ fn b461_curl_sources() {
     t.heading("Pictures: the street, in `verification/D-583 pictures/`");
     let dir = repo("verification/D-583 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     write("rings.png", &rings());
     let street = |p: J| picture(&dir, json!([fx("core.curl_noise", "fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (internal, _) = street(json!({}));
     let (own, said) = street(json!({"source": "this_layer"}));
@@ -283,7 +402,11 @@ fn b461_curl_sources() {
     let (input, said) = street(json!({"source": "this_layer", "view": "input_noise"}));
     write("3_this_layer_input_noise.png", &input);
     let luminance = |p: &[u8]| 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
-    let darker = input.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(a, b)| (a[0] as f64 - luminance(b)).abs() > 40.0).count();
+    let darker = input
+        .chunks_exact(4)
+        .zip(before.chunks_exact(4))
+        .filter(|(a, b)| (a[0] as f64 - luminance(b)).abs() > 40.0)
+        .count();
     t.row(
         "3_this_layer_input_noise.png, This Layer, View Input Noise: the street in grey, its own lightness; draws cleanly",
         &format!("{said:?}, {darker} pixels far from the street's lightness"),
@@ -298,16 +421,22 @@ fn b461_curl_sources() {
         said.is_empty() && greys(&soft, &before) && soft != own,
     );
 
-    let (ringed, said) = street(json!({"source": "other_layer", "source_layer": "rings", "view": "curl_generation"}));
+    let (ringed, said) = street(
+        json!({"source": "other_layer", "source_layer": "rings", "view": "curl_generation"}),
+    );
     write("5_rings_curl_generation.png", &ringed);
-    let coloured = ringed.chunks_exact(4).filter(|p| p[0].abs_diff(p[1]) > 8).count();
+    let coloured = ringed
+        .chunks_exact(4)
+        .filter(|p| p[0].abs_diff(p[1]) > 8)
+        .count();
     t.row(
         "5_rings_curl_generation.png, Source Other Layer, the hidden layer rings (rings.png), View Curl Generation: the flow as red and green running round the rings; draws cleanly",
         &format!("{said:?}, {coloured} pixels where red and green differ"),
         said.is_empty() && coloured > ringed.len() / 4 / 2,
     );
 
-    let (swirls, said) = street(json!({"source": "other_layer", "source_layer": "rings", "sample_radius": 40}));
+    let (swirls, said) =
+        street(json!({"source": "other_layer", "source_layer": "rings", "sample_radius": 40}));
     write("6_rings_flow.png", &swirls);
     t.row(
         "6_rings_flow.png, Source Other Layer rings, radius 40: grey flow lines in circles round the middle; draws cleanly",
@@ -350,22 +479,48 @@ fn b461_curl_sources_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Curl Noise This Layer as added", Some(json!({"source": "this_layer"}))),
-        ("the same with Softness 50", Some(json!({"source": "this_layer", "softness": 50}))),
+        (
+            "Noise, then Curl Noise This Layer as added",
+            Some(json!({"source": "this_layer"})),
+        ),
+        (
+            "the same with Softness 50",
+            Some(json!({"source": "this_layer", "softness": 50})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx("core.curl_noise", &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B461_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-461_timing_raw.md"));
+    let out = std::env::var("B461_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-461_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

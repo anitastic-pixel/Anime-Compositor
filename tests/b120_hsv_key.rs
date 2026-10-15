@@ -61,7 +61,9 @@ fn plate() -> Vec<u8> {
             let body = (0.0..=1.0).contains(&t) && fx >= l && fx <= r;
             let c = if head < 18.0 {
                 SKIN
-            } else if head < 20.0 || (body && (fx - l < 2.0 || r - fx < 2.0 || t * 42.0 < 2.0 || t * 42.0 > 40.0)) {
+            } else if head < 20.0
+                || (body && (fx - l < 2.0 || r - fx < 2.0 || t * 42.0 < 2.0 || t * 42.0 > 40.0))
+            {
                 LINE
             } else if body && fx - l < 5.0 {
                 SPILL
@@ -100,15 +102,30 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
-            let board = if (x / 15 + y / 15) % 2 == 1 { 200.0 } else { 150.0 };
+            let board = if (x / 15 + y / 15) % 2 == 1 {
+                200.0
+            } else {
+                150.0
+            };
             let a = f64::from(bytes[i + 3]) / 255.0;
             let mix = |c: u8| (f64::from(c) * a + board * (1.0 - a)).round() as u8;
             [mix(bytes[i]), mix(bytes[i + 1]), mix(bytes[i + 2]), 255]
@@ -133,7 +150,11 @@ fn b120_hsv_key() {
 
     t.heading("How far it reaches");
     let got = key(ADDED, "off").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = key(ADDED, "on");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -167,21 +188,42 @@ fn b120_hsv_key() {
     t.refused(
         &mut document,
         vec![
-            ("hue 361", set(key([361.0, 60.0, 60.0, 40.0, 40.0, 40.0], "off"))),
-            ("hue range 181", set(key([120.0, 60.0, 60.0, 181.0, 40.0, 40.0], "off"))),
-            ("saturation 101", set(key([120.0, 101.0, 60.0, 40.0, 40.0, 40.0], "off"))),
-            ("value range -1", set(key([120.0, 60.0, 60.0, 40.0, 40.0, -1.0], "off"))),
+            (
+                "hue 361",
+                set(key([361.0, 60.0, 60.0, 40.0, 40.0, 40.0], "off")),
+            ),
+            (
+                "hue range 181",
+                set(key([120.0, 60.0, 60.0, 181.0, 40.0, 40.0], "off")),
+            ),
+            (
+                "saturation 101",
+                set(key([120.0, 101.0, 60.0, 40.0, 40.0, 40.0], "off")),
+            ),
+            (
+                "value range -1",
+                set(key([120.0, 60.0, 60.0, 40.0, 40.0, -1.0], "off")),
+            ),
             ("invert \"yes\"", set(key(ADDED, "yes"))),
-            ("hue range keyed to 200", keys("hue_range", &[(0, &[40.0]), (4, &[200.0])])),
+            (
+                "hue range keyed to 200",
+                keys("hue_range", &[(0, &[40.0]), (4, &[200.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_hsv_001.json",
         vec![
-            ("every setting at the top of its range,", set(key([360.0, 100.0, 100.0, 180.0, 100.0, 100.0], "on"))),
+            (
+                "every setting at the top of its range,",
+                set(key([360.0, 100.0, 100.0, 180.0, 100.0, 100.0], "on")),
+            ),
             ("every setting at the bottom,", set(key([0.0; 6], "off"))),
-            ("hue keyed from 0 to 360", keys("hue", &[(0, &[0.0]), (4, &[360.0])])),
+            (
+                "hue keyed from 0 to 360",
+                keys("hue", &[(0, &[0.0]), (4, &[360.0])]),
+            ),
         ],
     );
 
@@ -189,13 +231,40 @@ fn b120_hsv_key() {
     let dir = effect_table::repo("verification/B-120 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
-    png_out::write_rgba(&dir.join("plate.png"), w, h, OutputDepth::Eight, &[], &plate()).unwrap();
+    png_out::write_rgba(
+        &dir.join("plate.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &plate(),
+    )
+    .unwrap();
     let (_, big, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the plate with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the plate with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (screen, shadow, spill, skin, shirt) = ((10, 10), (10, 90), (61, 70), (80, 30), (90, 75));
     for (name, n, invert, what, gone, kept) in [
-        ("as_added", ADDED, "off", "as it is added", vec![screen, shadow, spill], vec![skin, shirt]),
+        (
+            "as_added",
+            ADDED,
+            "off",
+            "as it is added",
+            vec![screen, shadow, spill],
+            vec![skin, shirt],
+        ),
         (
             "narrow",
             [142.0, 100.0, 50.0, 5.0, 10.0, 50.0],
@@ -221,14 +290,28 @@ fn b120_hsv_key() {
             },
         }]);
         let (bytes, big, said) = picture(&dir, effects);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w * 3, h * 3, OutputDepth::Eight, &[], &big)
-            .unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w * 3,
+            h * 3,
+            OutputDepth::Eight,
+            &[],
+            &big,
+        )
+        .unwrap();
         let alpha = |(x, y): (usize, usize)| bytes[(y * w + x) * 4 + 3];
         t.row(
-            &format!("{name}.png, {what}, draws cleanly, takes out {gone:?} and keeps {kept:?} whole"),
-            &format!("{said:?}, covering {:?} and {:?}", gone.iter().map(|&p| alpha(p)).collect::<Vec<_>>(),
-                kept.iter().map(|&p| alpha(p)).collect::<Vec<_>>()),
-            said.is_empty() && gone.iter().all(|&p| alpha(p) == 0) && kept.iter().all(|&p| alpha(p) == 255),
+            &format!(
+                "{name}.png, {what}, draws cleanly, takes out {gone:?} and keeps {kept:?} whole"
+            ),
+            &format!(
+                "{said:?}, covering {:?} and {:?}",
+                gone.iter().map(|&p| alpha(p)).collect::<Vec<_>>(),
+                kept.iter().map(|&p| alpha(p)).collect::<Vec<_>>()
+            ),
+            said.is_empty()
+                && gone.iter().all(|&p| alpha(p) == 0)
+                && kept.iter().all(|&p| alpha(p) == 255),
         );
     }
 

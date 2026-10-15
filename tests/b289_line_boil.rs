@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, reference, repo, same_json, saved, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, reference, repo, same_json, saved, set, time_passes,
+    town, Table, MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -33,11 +34,31 @@ fn is_turb(c: &render::OnCard) -> bool {
 }
 
 /// The Turbulent Displaces the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| is_turb(c.unmixed())).count()
-        + plan.layers
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
+    plan.layers
+        .iter()
+        .flat_map(|l| &l.on_card)
+        .filter(|c| is_turb(c.unmixed()))
+        .count()
+        + plan
+            .layers
             .iter()
             .filter_map(|l| l.adjust.as_ref())
             .filter_map(|stack| compose::adjust_run(stack, (plan.width, plan.height)))
@@ -61,7 +82,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=13 {
         let file = format!("fx_boil_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -87,17 +112,28 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project, frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, frame, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            frame,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     for (what, p) in settings {
         let project = reference(|id| json!([fx(&format!("b289-{id}"), p)]));
-        let one = reference(|id| json!([fx(&format!("b289-{id}"), &{
-            let mut q = p.clone();
-            q["new_seed_every"] = J::from(0);
-            q
-        })]));
+        let one = reference(|id| {
+            json!([fx(&format!("b289-{id}"), &{
+                let mut q = p.clone();
+                q["new_seed_every"] = J::from(0);
+                q
+            })])
+        });
         // Frame 102 is past a jump for both settings below: 2 and 3 each step between 100 and 102.
         let jumped = distance(&cpu(&project, 102), &cpu(&one, 102)).1;
         t.row(
@@ -122,7 +158,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 /// `effects` on the street at `frame`, drawn on the processor, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -134,8 +173,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let out = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let out = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (out.to_srgb8_straight(), said)
 }
 
@@ -143,7 +194,17 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
 fn draw(json: &J, root: &Path, frame: i32) -> Vec<f32> {
     let loaded = persist::load_str(&json.to_string()).expect("the file reads");
     let mut log = FrameLog::new(3);
-    render_frame(loaded.document.project(), &Id::new(MAIN), frame, root, 64, &mut log).expect("the frame draws").data().to_vec()
+    render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        root,
+        64,
+        &mut log,
+    )
+    .expect("the frame draws")
+    .data()
+    .to_vec()
 }
 
 #[test]
@@ -164,12 +225,17 @@ fn b289_line_boil() {
     t.fixtures_numbered("expected_line_boil.json", 1..=13);
 
     t.heading("Older projects: one seed, as before");
-    for (folder, prefix, count) in [("turbulent_displace", "fx_turb", 26), ("turbulent_ae", "fx_turb_ae", 12)] {
+    for (folder, prefix, count) in [
+        ("turbulent_displace", "fx_turb", 26),
+        ("turbulent_ae", "fx_turb_ae", 12),
+    ] {
         let root = repo(&format!("Fixtures/{folder}"));
         for n in 1..=count {
             let file = format!("{prefix}_{n:03}.json");
             let text = fs::read_to_string(root.join(&file)).unwrap();
-            let Ok(loaded) = persist::load_str(&text) else { continue };
+            let Ok(loaded) = persist::load_str(&text) else {
+                continue;
+            };
             let old: J = serde_json::from_str(&text).unwrap();
             let kept = same_json(&saved(&loaded), &old);
             // Its twin with New Seed Every 0 written draws the same frames, bit for bit.
@@ -179,7 +245,10 @@ fn b289_line_boil() {
             if is_turb {
                 effects[0]["parameters"]["new_seed_every"] = J::from(0);
             }
-            let same = is_turb && [0, 4].iter().all(|&f| draw(&old, &root, f) == draw(&twin, &root, f));
+            let same = is_turb
+                && [0, 4]
+                    .iter()
+                    .all(|&f| draw(&old, &root, f) == draw(&twin, &root, f));
             t.row(
                 &format!("{folder}/{file} (no new_seed_every) is saved as it was written, and draws frames 0 and 4 bit for bit as its twin with New Seed Every 0"),
                 &format!("saved {}; {}", if kept { "the same" } else { "differently" }, if same { "bit-identical" } else { "differ" }),
@@ -200,7 +269,13 @@ fn b289_line_boil() {
     for (file, what) in [("fx_boil_011.json", "-1"), ("fx_boil_012.json", "101")] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains("new_seed_every") || why.contains("new seed every");
-        t.row(&format!("{file} (New Seed Every {what}) is refused in a sentence naming new_seed_every"), &why, says);
+        t.row(
+            &format!(
+                "{file} (New Seed Every {what}) is refused in a sentence naming new_seed_every"
+            ),
+            &why,
+            says,
+        );
     }
     t.shape_refused(
         "fx_boil_001.json",
@@ -211,28 +286,51 @@ fn b289_line_boil() {
     t.heading("How far it reaches");
     let mut draft = changed(&t, "fx_boil_001.json", |_| {});
     draft.scale_distances(|d| d * 0.5);
-    let kept = matches!(draft, Effect::TurbulentDisplace { new_seed_every, .. } if new_seed_every == 2.0);
-    t.row("a half-size draft preview leaves New Seed Every, a count of frames, as it was", &format!("{draft:?}"), kept);
+    let kept =
+        matches!(draft, Effect::TurbulentDisplace { new_seed_every, .. } if new_seed_every == 2.0);
+    t.row(
+        "a half-size draft preview leaves New Seed Every, a count of frames, as it was",
+        &format!("{draft:?}"),
+        kept,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_boil_001.json").document;
-    let high = changed(&t, "fx_boil_001.json", |e| if let Effect::TurbulentDisplace { new_seed_every, .. } = e { *new_seed_every = 101.0 });
-    let low = changed(&t, "fx_boil_001.json", |e| if let Effect::TurbulentDisplace { new_seed_every, .. } = e { *new_seed_every = -1.0 });
+    let high = changed(&t, "fx_boil_001.json", |e| {
+        if let Effect::TurbulentDisplace { new_seed_every, .. } = e {
+            *new_seed_every = 101.0
+        }
+    });
+    let low = changed(&t, "fx_boil_001.json", |e| {
+        if let Effect::TurbulentDisplace { new_seed_every, .. } = e {
+            *new_seed_every = -1.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("new seed every 101", set(high)),
             ("new seed every -1", set(low)),
-            ("new seed every keyed to 150", keys("new_seed_every", &[(0, &[2.0]), (4, &[150.0])])),
+            (
+                "new seed every keyed to 150",
+                keys("new_seed_every", &[(0, &[2.0]), (4, &[150.0])]),
+            ),
         ],
     );
-    let threes = changed(&t, "fx_boil_001.json", |e| if let Effect::TurbulentDisplace { new_seed_every, .. } = e { *new_seed_every = 3.0 });
+    let threes = changed(&t, "fx_boil_001.json", |e| {
+        if let Effect::TurbulentDisplace { new_seed_every, .. } = e {
+            *new_seed_every = 3.0
+        }
+    });
     t.taken(
         &mut document,
         "fx_boil_001.json",
         vec![
             ("new seed every 3", set(threes)),
-            ("new seed every keyed from 1 to 4", keys("new_seed_every", &[(0, &[1.0]), (4, &[4.0])])),
+            (
+                "new seed every keyed from 1 to 4",
+                keys("new_seed_every", &[(0, &[1.0]), (4, &[4.0])]),
+            ),
         ],
     );
 
@@ -255,22 +353,40 @@ fn b289_line_boil() {
         &mut gpu,
         &[
             ("amount 30, size 40, new seed every 2", json!({})),
-            ("amount 60, size 20, speed 20, seed 7, new seed every 3", json!({"amount": 60, "size": 20, "speed": 20, "seed": 7, "new_seed_every": 3})),
+            (
+                "amount 60, size 20, speed 20, seed 7, new seed every 3",
+                json!({"amount": 60, "size": 20, "speed": 20, "seed": 7, "new_seed_every": 3}),
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-410 pictures/`");
     let dir = repo("verification/D-410 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // A light boil: amount 6, size 30, speed 0, a new seed every 2 frames.
     let boil = json!([fx("fx-0-0", &json!({"amount": 6, "size": 30}))]);
-    let frames: Vec<(Vec<u8>, Vec<String>)> = (0..5).map(|f| picture(&dir, boil.clone(), f)).collect();
+    let frames: Vec<(Vec<u8>, Vec<String>)> =
+        (0..5).map(|f| picture(&dir, boil.clone(), f)).collect();
     for (f, (p, _)) in frames.iter().enumerate() {
         write(&format!("{}_boil_frame_{f}.png", f + 2), p);
     }
@@ -281,7 +397,10 @@ fn b289_line_boil() {
         &format!("pixels differing: 0 to 1 {}, 1 to 2 {}, 2 to 3 {}, 3 to 4 {}; frame 0 against the street {}", d(0, 1), d(1, 2), d(2, 3), d(3, 4), distance(&frames[0].0, &before).1),
         clean && d(0, 1) == 0 && d(2, 3) == 0 && d(1, 2) > 0 && d(3, 4) > 0 && distance(&frames[0].0, &before).1 > 0,
     );
-    let one = json!([fx("fx-0-0", &json!({"amount": 6, "size": 30, "new_seed_every": 0}))]);
+    let one = json!([fx(
+        "fx-0-0",
+        &json!({"amount": 6, "size": 30, "new_seed_every": 0})
+    )]);
     let (held, said) = picture(&dir, one, 4);
     write("7_one_seed_frame_4.png", &held);
     t.row(
@@ -316,22 +435,48 @@ fn b289_line_boil_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Turbulent Displace amount 30, size 40, one seed", Some(json!({"new_seed_every": 0}))),
-        ("Noise, then Turbulent Displace amount 30, size 40, a new seed every 2", Some(json!({}))),
+        (
+            "Noise, then Turbulent Displace amount 30, size 40, one seed",
+            Some(json!({"new_seed_every": 0})),
+        ),
+        (
+            "Noise, then Turbulent Displace amount 30, size 40, a new seed every 2",
+            Some(json!({})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}t"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B289_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-289_timing_raw.md"));
+    let out = std::env::var("B289_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-289_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

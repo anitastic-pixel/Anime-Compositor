@@ -46,7 +46,12 @@ fn middle(v: &mut [f32]) -> f32 {
 /// the median's keeps its own. Median is a `threshold` of -1, nothing kept.
 // ponytail: every pixel sorts its disc afresh, about 300 taps at radius 10; a sliding histogram
 // would be the upgrade if a larger radius is ever wanted.
-pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, threshold: f64, operate_on_alpha: bool) {
+pub(crate) fn median(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    threshold: f64,
+    operate_on_alpha: bool,
+) {
     let taps = disc(radius);
     if taps.len() == 1 {
         return;
@@ -55,7 +60,13 @@ pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, threshold: f64, op
     let straight: Vec<[f32; 4]> = source
         .data()
         .par_chunks_exact(4)
-        .map(|p| if p[3] > 0.0 { [p[0] / p[3], p[1] / p[3], p[2] / p[3], p[3]] } else { [0.0; 4] })
+        .map(|p| {
+            if p[3] > 0.0 {
+                [p[0] / p[3], p[1] / p[3], p[2] / p[3], p[3]]
+            } else {
+                [0.0; 4]
+            }
+        })
         .collect();
     let mut out = WorkingBuffer::transparent(w, h);
     out.data_mut()
@@ -69,7 +80,11 @@ pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, threshold: f64, op
                 let own = straight[y * w + x];
                 let flat = taps.iter().all(|&(dx, dy)| {
                     let (tx, ty) = (x as isize + dx, y as isize + dy);
-                    tx >= 0 && ty >= 0 && tx < w as isize && ty < h as isize && straight[ty as usize * w + tx as usize] == own
+                    tx >= 0
+                        && ty >= 0
+                        && tx < w as isize
+                        && ty < h as isize
+                        && straight[ty as usize * w + tx as usize] == own
                 });
                 if flat {
                     if own[3] > 0.0 {
@@ -92,7 +107,11 @@ pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, threshold: f64, op
                     }
                 }
                 let near = |p: u8, q: u8| (p as f64 - q as f64).abs() <= threshold;
-                let mut a = if operate_on_alpha { middle(&mut v[3]) } else { own[3] };
+                let mut a = if operate_on_alpha {
+                    middle(&mut v[3])
+                } else {
+                    own[3]
+                };
                 if operate_on_alpha && near(quantise_u8(a), quantise_u8(own[3])) {
                     a = own[3];
                 }
@@ -102,7 +121,11 @@ pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, threshold: f64, op
                 for i in 0..3 {
                     let m = middle(&mut v[i]);
                     let level = |c: f32| quantise_u8(linear_to_srgb(c));
-                    let c = if own[3] > 0.0 && threshold >= 0.0 && near(level(own[i]), level(m)) { own[i] } else { m };
+                    let c = if own[3] > 0.0 && threshold >= 0.0 && near(level(own[i]), level(m)) {
+                        own[i]
+                    } else {
+                        m
+                    };
                     px[i] = c * a;
                 }
                 px[3] = a;
@@ -164,7 +187,12 @@ pub(crate) fn smart_blur(source: &mut WorkingBuffer, radius: f64, threshold: f64
 /// the pixel turns grey. Every pixel keeps its covering; the settings are already valid.
 // ponytail: every pixel weighs its whole disc, about 7,850 taps at Radius 50; a grid or
 // separable approximation would be the upgrade, at the price of the rule.
-pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold: f64, colorize: bool) {
+pub(crate) fn bilateral_blur(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    threshold: f64,
+    colorize: bool,
+) {
     let taps = disc(radius);
     let still = taps.len() == 1 || threshold <= 0.0;
     if colorize && still {
@@ -172,7 +200,14 @@ pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold:
     }
     let (w, h) = (source.width(), source.height());
     let n = if colorize { 3 } else { 1 };
-    let level = |v: f64| 255.0 * if v <= 0.0031308 { 12.92 * v } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 };
+    let level = |v: f64| {
+        255.0
+            * if v <= 0.0031308 {
+                12.92 * v
+            } else {
+                1.055 * v.powf(1.0 / 2.4) - 0.055
+            }
+    };
     // Each pixel's worked values in straight linear light, and their levels; None where it does
     // not show.
     let vals: Vec<Option<([f64; 3], [f64; 3])>> = source
@@ -182,7 +217,11 @@ pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold:
             let a = p[3] as f64;
             (a > 0.0).then(|| {
                 let c = [p[0] as f64 / a, p[1] as f64 / a, p[2] as f64 / a];
-                let v = if colorize { c } else { [0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; 3] };
+                let v = if colorize {
+                    c
+                } else {
+                    [0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; 3]
+                };
                 (v, v.map(level))
             })
         })
@@ -191,7 +230,9 @@ pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold:
     let near: Vec<f64> = if still {
         Vec::new()
     } else {
-        taps.iter().map(|&(dx, dy)| (-((dx * dx + dy * dy) as f64) / (2.0 * s * s)).exp()).collect()
+        taps.iter()
+            .map(|&(dx, dy)| (-((dx * dx + dy * dy) as f64) / (2.0 * s * s)).exp())
+            .collect()
     };
     let spread = 1.0 / (2.0 * threshold * threshold);
     let src = source.data();
@@ -200,7 +241,9 @@ pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold:
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
-            let Some((own, own_level)) = vals[i] else { return };
+            let Some((own, own_level)) = vals[i] else {
+                return;
+            };
             let a = src[4 * i + 3];
             let mut v = own;
             if !still {
@@ -212,7 +255,9 @@ pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold:
                         continue;
                     }
                     let j = ty as usize * w + tx as usize;
-                    let Some((t, t_level)) = vals[j] else { continue };
+                    let Some((t, t_level)) = vals[j] else {
+                        continue;
+                    };
                     let ga = g * src[4 * j + 3] as f64;
                     for k in 0..n {
                         let d = t_level[k] - own_level[k];
@@ -265,7 +310,10 @@ pub(crate) fn cartoon_k(e: &crate::effects::Effect) -> Option<[f64; 11]> {
         shading_smoothness / 100.0,
         edge_enhancement / 100.0,
         *edge_black_level,
-        crate::effects::CARTOON_RENDERS.iter().position(|v| v == render).unwrap_or(2) as f64,
+        crate::effects::CARTOON_RENDERS
+            .iter()
+            .position(|v| v == render)
+            .unwrap_or(2) as f64,
         (edge_width + 0.5 + soft).floor() + 1.0,
     ])
 }
@@ -282,7 +330,11 @@ fn cartoon_fill(p: &[f32], n: f64, s: f64) -> Option<[f64; 3]> {
     let q = l * n;
     let k = q.floor();
     let t = q - k;
-    let ramp = if s == 0.0 { (t >= 0.5) as u8 as f64 } else { ((t - 0.5) / s + 0.5).clamp(0.0, 1.0) };
+    let ramp = if s == 0.0 {
+        (t >= 0.5) as u8 as f64
+    } else {
+        ((t - 0.5) / s + 0.5).clamp(0.0, 1.0)
+    };
     let shade = (k + ramp) / n;
     Some(c.map(|v| (crate::grade::to_srgb(v.clamp(0.0, 1.0)) + shade - l).clamp(0.0, 1.0)))
 }
@@ -293,24 +345,47 @@ fn cartoon_fill(p: &[f32], n: f64, s: f64) -> Option<[f64; 3]> {
 /// pushed from or towards its neighbours; then laid out by the render. Every pixel keeps its
 /// covering; the settings are already valid.
 pub(crate) fn cartoon(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
-    let crate::effects::Effect::Cartoon { detail_radius, detail_threshold, .. } = e else { return };
-    let Some([threshold, ramp, width, soft, opacity, n, s, enhance, black, render, reach]) = cartoon_k(e) else { return };
+    let crate::effects::Effect::Cartoon {
+        detail_radius,
+        detail_threshold,
+        ..
+    } = e
+    else {
+        return;
+    };
+    let Some([threshold, ramp, width, soft, opacity, n, s, enhance, black, render, reach]) =
+        cartoon_k(e)
+    else {
+        return;
+    };
     bilateral_blur(source, *detail_radius, *detail_threshold, true);
     let (w, h) = (source.width() as i64, source.height() as i64);
     let src = source.data();
     let held = |x: i64, y: i64| (y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize;
-    let lumas: Vec<f64> = src.par_chunks_exact(4).map(|p| crate::layer_fx::picture_luma([p[0], p[1], p[2], p[3]])).collect();
+    let lumas: Vec<f64> = src
+        .par_chunks_exact(4)
+        .map(|p| crate::layer_fx::picture_luma([p[0], p[1], p[2], p[3]]))
+        .collect();
     let edges: Vec<f64> = (0..w * h)
         .into_par_iter()
         .map(|i| {
             let (x, y) = (i % w, i / w);
             let at = |x: i64, y: i64| lumas[held(x, y)];
-            let gx = at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x - 1, y) - at(x - 1, y + 1);
-            let gy = at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x, y - 1) - at(x + 1, y - 1);
+            let gx = at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1)
+                - at(x - 1, y - 1)
+                - 2.0 * at(x - 1, y)
+                - at(x - 1, y + 1);
+            let gy = at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1)
+                - at(x - 1, y - 1)
+                - 2.0 * at(x, y - 1)
+                - at(x + 1, y - 1);
             ((10.0 * (gx * gx + gy * gy).sqrt() / 2.0 - threshold) / ramp).clamp(0.0, 1.0)
         })
         .collect();
-    let fills: Vec<Option<[f64; 3]>> = src.par_chunks_exact(4).map(|p| cartoon_fill(p, n, s)).collect();
+    let fills: Vec<Option<[f64; 3]>> = src
+        .par_chunks_exact(4)
+        .map(|p| cartoon_fill(p, n, s))
+        .collect();
     let r = reach as i64;
     let mut out = WorkingBuffer::transparent(w as usize, h as usize);
     out.data_mut()
@@ -330,13 +405,17 @@ pub(crate) fn cartoon(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
                         }
                     }
                 }
-                f = std::array::from_fn(|c| (f[c] + enhance * edges[i] * (f[c] - m[c] / count)).clamp(0.0, 1.0));
+                f = std::array::from_fn(|c| {
+                    (f[c] + enhance * edges[i] * (f[c] - m[c] / count)).clamp(0.0, 1.0)
+                });
             }
             let mut ink = 0.0f64;
             for ty in (y - r).max(0)..=(y + r).min(h - 1) {
                 for tx in (x - r).max(0)..=(x + r).min(w - 1) {
                     let (dx, dy) = (tx - x, ty - y);
-                    let wt = ((width + 0.5 - ((dx * dx + dy * dy) as f64).sqrt()) / (2.0 * soft) + 0.5).clamp(0.0, 1.0);
+                    let wt = ((width + 0.5 - ((dx * dx + dy * dy) as f64).sqrt()) / (2.0 * soft)
+                        + 0.5)
+                        .clamp(0.0, 1.0);
                     ink = ink.max(edges[(ty * w + tx) as usize] * wt);
                 }
             }

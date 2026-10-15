@@ -41,11 +41,14 @@ fn picture(name: &str, mix: &[Vec<f64>; 2]) {
     let (w, h) = (900usize, 200usize);
     let n = mix[0].len().max(1);
     let mut px = vec![255u8; w * h * 3];
-    let mut put = |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
+    let mut put =
+        |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
     for (c, half) in [(0usize, 0usize), (1, h / 2)] {
         for x in 0..w {
             let (a, b) = (x * n / w, ((x + 1) * n / w).max(x * n / w + 1).min(n));
-            let (lo, hi) = (a..b).map(|i| mix[c].get(i).copied().unwrap_or(0.0)).fold((0f64, 0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
+            let (lo, hi) = (a..b)
+                .map(|i| mix[c].get(i).copied().unwrap_or(0.0))
+                .fold((0f64, 0f64), |(lo, hi), v| (lo.min(v), hi.max(v)));
             let row = |v: f64| half + (((1.0 - v) / 2.0) * (h / 2 - 1) as f64).round() as usize;
             for y in row(hi)..=row(lo) {
                 put(x, y, [30, 60, 160]);
@@ -81,7 +84,10 @@ fn curve_chart(name: &str, rows: &[(f64, f64, f64)]) {
         let ((x0, want0, _), (x1, want1, _)) = (pair[0], pair[1]);
         for t in 0..=40 {
             let f = t as f64 / 40.0;
-            let (x, y) = (x0 + (x1 - x0) * f, (x0 + want0) + ((x1 + want1) - (x0 + want0)) * f);
+            let (x, y) = (
+                x0 + (x1 - x0) * f,
+                (x0 + want0) + ((x1 + want1) - (x0 + want0)) * f,
+            );
             put(at(x), h as i64 - 1 - at(y), [200, 40, 40]);
         }
     }
@@ -101,7 +107,11 @@ fn without(project: &Project, off: &[Id]) -> Project {
     let mut doc = Document::new(project.clone());
     let comp = project.compositions[0].clone();
     for layer in comp.layers_in_order() {
-        for fx in layer.effects.iter().filter(|e| off.contains(&e.instance_id)) {
+        for fx in layer
+            .effects
+            .iter()
+            .filter(|e| off.contains(&e.instance_id))
+        {
             doc.apply(Command::SetEffectEnabled {
                 composition: comp.id.clone(),
                 layer_id: layer.id.clone(),
@@ -119,7 +129,9 @@ fn last_compressor(project: &Project) -> Option<&EffectInstance> {
     project.compositions[0]
         .layers_in_order()
         .flat_map(|l| l.effects.iter())
-        .filter(|e| e.enabled && matches!(e.effect, Effect::Compressor { .. }) && e.fault().is_none())
+        .filter(|e| {
+            e.enabled && matches!(e.effect, Effect::Compressor { .. }) && e.fault().is_none()
+        })
         .last()
 }
 
@@ -133,7 +145,11 @@ fn gains(project: &Project, root: &std::path::Path, upto: u32) -> Option<Vec<Opt
     Some(
         (0..out[0].len())
             .map(|i| {
-                let c = if inn[0][i].abs() >= inn[1][i].abs() { 0 } else { 1 };
+                let c = if inn[0][i].abs() >= inn[1][i].abs() {
+                    0
+                } else {
+                    1
+                };
                 (inn[c][i] != 0.0).then(|| 20.0 * (out[c][i] / inn[c][i]).abs().log10())
             })
             .collect(),
@@ -144,8 +160,12 @@ fn gains(project: &Project, root: &std::path::Path, upto: u32) -> Option<Vec<Opt
 fn same(a: &J, b: &J) -> bool {
     match (a, b) {
         (J::Number(x), J::Number(y)) => x.as_f64() == y.as_f64(),
-        (J::Array(x), J::Array(y)) => x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y)),
-        (J::Object(x), J::Object(y)) => x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w))),
+        (J::Array(x), J::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y))
+        }
+        (J::Object(x), J::Object(y)) => {
+            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
+        }
         _ => a == b,
     }
 }
@@ -173,7 +193,10 @@ fn b522_compressor() {
          +12 dB, grey lines every 12 dB, the diagonal is no change, red the rule, blue the measured \
          steps).\n",
     );
-    let expected: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("expected_compressor.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &std::fs::read_to_string(t.root.join("expected_compressor.json")).unwrap(),
+    )
+    .unwrap();
     let tol = expected["tolerance"].as_f64().unwrap();
     let mut level = Vec::new();
     let mut curves = Vec::new();
@@ -185,46 +208,100 @@ fn b522_compressor() {
         let loaded = t.load(file);
         let project = loaded.document.project();
         let comp = &project.compositions[0];
-        let (from, frames) = (case["from"].as_i64().unwrap() as i32, case["frames"].as_u64().unwrap() as u32);
+        let (from, frames) = (
+            case["from"].as_i64().unwrap() as i32,
+            case["frames"].as_u64().unwrap() as u32,
+        );
         let (mix, said) = audio::mix(project, &t.root, comp, from, frames);
         let n = case["samples"].as_u64().unwrap() as usize;
-        t.row(&format!("frames {from} to {}: {n} samples", from + frames as i32), &format!("{} and {}", mix[0].len(), mix[1].len()), mix[0].len() == n && mix[1].len() == n);
-        let want_w: Vec<String> = case["warnings"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        t.row(
+            &format!("frames {from} to {}: {n} samples", from + frames as i32),
+            &format!("{} and {}", mix[0].len(), mix[1].len()),
+            mix[0].len() == n && mix[1].len() == n,
+        );
+        let want_w: Vec<String> = case["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
         let opened = ids(&loaded.warnings.iter().collect::<Vec<_>>());
         let mixed = ids(&said.iter().map(|(_, d)| d).collect::<Vec<_>>());
-        let words = |v: &[String]| if v.is_empty() { "none".to_string() } else { v.join(", ") };
-        t.row(&format!("opening warns of: {}", words(&want_w)), &words(&opened), opened == want_w);
-        t.row(&format!("mixing warns of: {}", words(&want_w)), &words(&mixed), mixed == want_w);
+        let words = |v: &[String]| {
+            if v.is_empty() {
+                "none".to_string()
+            } else {
+                v.join(", ")
+            }
+        };
+        t.row(
+            &format!("opening warns of: {}", words(&want_w)),
+            &words(&opened),
+            opened == want_w,
+        );
+        t.row(
+            &format!("mixing warns of: {}", words(&want_w)),
+            &words(&mixed),
+            mixed == want_w,
+        );
         let mut worst = 0f64;
         let places = case["places"].as_array().unwrap();
         for (i, v) in places.iter().zip(case["values"].as_array().unwrap()) {
             let i = i.as_u64().unwrap() as usize;
             for (c, v) in v.as_array().unwrap().iter().enumerate() {
-                worst = worst.max(mix[c].get(i).map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()));
+                worst = worst.max(
+                    mix[c]
+                        .get(i)
+                        .map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()),
+                );
             }
         }
-        t.row(&format!("{} named places within {tol}", places.len()), &format!("largest difference {worst:.2e}"), worst <= tol);
-        let want: Vec<Option<f64>> = case["peak_db"].as_array().unwrap().iter().map(|v| v.as_f64()).collect();
-        let got: Vec<Option<f64>> = mix.iter().map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs())))).collect();
+        t.row(
+            &format!("{} named places within {tol}", places.len()),
+            &format!("largest difference {worst:.2e}"),
+            worst <= tol,
+        );
+        let want: Vec<Option<f64>> = case["peak_db"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_f64())
+            .collect();
+        let got: Vec<Option<f64>> = mix
+            .iter()
+            .map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs()))))
+            .collect();
         let ok = want.iter().zip(&got).all(|(w, g)| match (w, g) {
             (Some(w), Some(g)) => (w - g).abs() <= 0.01,
             (None, None) => true,
             _ => false,
         });
-        level.push((format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])), format!("{}, {}", shown(got[0]), shown(got[1])), ok));
+        level.push((
+            format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])),
+            format!("{}, {}", shown(got[0]), shown(got[1])),
+            ok,
+        ));
 
         let upto = (from + frames as i32) as u32;
         let measured = gains(project, &t.root, upto);
         if let Some(rows) = case.get("curve").and_then(|c| c.as_array()) {
             let g = measured.as_ref().expect("a compressor runs");
             let (makeup, limit) = match &last_compressor(project).unwrap().effect {
-                Effect::Compressor { makeup, output_limit, .. } => (*makeup, *output_limit),
+                Effect::Compressor {
+                    makeup,
+                    output_limit,
+                    ..
+                } => (*makeup, *output_limit),
                 _ => unreachable!(),
             };
             let mut worst = 0f64;
             let mut points = Vec::new();
             for r in rows {
-                let (s, x, c) = (r["sample"].as_u64().unwrap() as usize, r["in_db"].as_f64().unwrap(), r["gain_db"].as_f64().unwrap());
+                let (s, x, c) = (
+                    r["sample"].as_u64().unwrap() as usize,
+                    r["in_db"].as_f64().unwrap(),
+                    r["gain_db"].as_f64().unwrap(),
+                );
                 // The rule's Output Limit holds the louder channel at the limit.
                 let want = (c + makeup).min(limit - x);
                 let got = g[s].unwrap_or(f64::NAN);
@@ -233,7 +310,11 @@ fn b522_compressor() {
             }
             t.row(&format!("the steady curve: {} steps within 0.01 dB of the rule (after the Output Limit)", rows.len()), &format!("largest difference {worst:.2e} dB"), worst <= 0.01);
             for &(x, want, got) in points.iter().filter(|p| (p.0.round() as i64) % 6 == 0) {
-                curves.push((format!("{name}: in {x:.1} dB, change {want:.3} dB"), format!("{got:.3} dB"), (got - want).abs() <= 0.01));
+                curves.push((
+                    format!("{name}: in {x:.1} dB, change {want:.3} dB"),
+                    format!("{got:.3} dB"),
+                    (got - want).abs() <= 0.01,
+                ));
             }
             curve_chart(&format!("{name}_curve"), &points);
         }
@@ -243,10 +324,21 @@ fn b522_compressor() {
                 let step = r["step"].as_u64().unwrap() as usize;
                 let to = r["to_db"].as_f64().unwrap();
                 let before = g[step - 1].unwrap();
-                let reach = |share: f64| (step..g.len()).find(|&j| (g[j].unwrap() - before) / (to - before) >= share).map(|j| j - step);
+                let reach = |share: f64| {
+                    (step..g.len())
+                        .find(|&j| (g[j].unwrap() - before) / (to - before) >= share)
+                        .map(|j| j - step)
+                };
                 let (n63, n90) = (reach(0.63), reach(0.90));
-                let want = (r["n63"].as_u64().map(|v| v as usize), r["n90"].as_u64().map(|v| v as usize));
-                let ms = |v: Option<usize>| v.map_or("never".to_string(), |v| format!("{v} samples ({:.1} ms)", v as f64 / 48.0));
+                let want = (
+                    r["n63"].as_u64().map(|v| v as usize),
+                    r["n90"].as_u64().map(|v| v as usize),
+                );
+                let ms = |v: Option<usize>| {
+                    v.map_or("never".to_string(), |v| {
+                        format!("{v} samples ({:.1} ms)", v as f64 / 48.0)
+                    })
+                };
                 times.push((
                     format!("{name}: step at sample {step}, {before:.2} to {to:.2} dB: 63% after {}, 90% after {}", ms(want.0), ms(want.1)),
                     format!("{}, {}", ms(n63), ms(n90)),
@@ -255,9 +347,15 @@ fn b522_compressor() {
             }
         }
         if ["fx_comp_004", "fx_comp_007", "fx_comp_013", "fx_comp_016"].contains(&name) {
-            let all: Vec<Id> = comp.layers_in_order().flat_map(|l| l.effects.iter().map(|e| e.instance_id.clone())).collect();
+            let all: Vec<Id> = comp
+                .layers_in_order()
+                .flat_map(|l| l.effects.iter().map(|e| e.instance_id.clone()))
+                .collect();
             let off = without(project, &all);
-            picture(&format!("{name}_before"), &audio::mix(&off, &t.root, &off.compositions[0], from, frames).0);
+            picture(
+                &format!("{name}_before"),
+                &audio::mix(&off, &t.root, &off.compositions[0], from, frames).0,
+            );
             picture(&format!("{name}_after"), &mix);
         }
     }
@@ -282,23 +380,53 @@ fn b522_compressor() {
             Ok(_) => "opened".to_string(),
             Err(d) => d.id.as_str().to_string(),
         };
-        t.row(&format!("{file}: {}", r["what"].as_str().unwrap()), &got, got == r["diagnostic"].as_str().unwrap());
+        t.row(
+            &format!("{file}: {}", r["what"].as_str().unwrap()),
+            &got,
+            got == r["diagnostic"].as_str().unwrap(),
+        );
     }
 
     t.heading("Saved again");
-    let layer_fx = |j: &J| j["compositions"][0]["layers"].as_array().unwrap().iter().find(|l| l["kind"] == "audio").unwrap()["effects"].clone();
+    let layer_fx = |j: &J| {
+        j["compositions"][0]["layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["kind"] == "audio")
+            .unwrap()["effects"]
+            .clone()
+    };
     for file in ["fx_comp_009.json", "fx_comp_015.json", "fx_comp_013.json"] {
         let loaded = t.load(file);
-        let written: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
-        let original: J = serde_json::from_str(&std::fs::read_to_string(t.root.join(file)).unwrap()).unwrap();
+        let written: J = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
+        let original: J =
+            serde_json::from_str(&std::fs::read_to_string(t.root.join(file)).unwrap()).unwrap();
         let kept = same(&layer_fx(&written), &layer_fx(&original));
-        t.row(&format!("{file}: the layer's effects as written"), &if kept { "as written".to_string() } else { layer_fx(&written).to_string() }, kept);
+        t.row(
+            &format!("{file}: the layer's effects as written"),
+            &if kept {
+                "as written".to_string()
+            } else {
+                layer_fx(&written).to_string()
+            },
+            kept,
+        );
     }
 
     t.heading("Decision 3: sound effects on sound layers only, through the commands");
     let mut doc = Document::new(t.load("fx_comp_012.json").document.project().clone());
     let comp = doc.project().compositions[0].clone();
-    let sound = comp.layers_in_order().find(|l| l.kind == LayerKind::Audio).unwrap().id.clone();
+    let sound = comp
+        .layers_in_order()
+        .find(|l| l.kind == LayerKind::Audio)
+        .unwrap()
+        .id
+        .clone();
     let compressor = Effect::Compressor {
         threshold: -16.0,
         ratio: 3.0,
@@ -315,17 +443,38 @@ fn b522_compressor() {
         effect: EffectInstance::new(Id::new("fx-new"), compressor.clone()),
         index: None,
     });
-    t.row("Compressor added to a sound layer", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_ok());
-    let mut j: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_comp_101.json")).unwrap()).unwrap();
-    j["compositions"][0]["layers"][0].as_object_mut().unwrap().remove("effects");
-    let mut solid = Document::new(persist::load_str(&j.to_string()).expect("the solid opens").document.project().clone());
+    t.row(
+        "Compressor added to a sound layer",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_ok(),
+    );
+    let mut j: J =
+        serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_comp_101.json")).unwrap())
+            .unwrap();
+    j["compositions"][0]["layers"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("effects");
+    let mut solid = Document::new(
+        persist::load_str(&j.to_string())
+            .expect("the solid opens")
+            .document
+            .project()
+            .clone(),
+    );
     let r = solid.apply(Command::AddEffect {
         composition: comp.id.clone(),
         layer_id: Id::new("solid0"),
         effect: EffectInstance::new(Id::new("fx-new"), compressor),
         index: None,
     });
-    t.row("Compressor added to a solid", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_err());
+    t.row(
+        "Compressor added to a solid",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_err(),
+    );
 
     t.heading("Speed (release build, this machine)");
     let p = t.load("fx_comp_004.json");

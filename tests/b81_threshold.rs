@@ -36,7 +36,11 @@ fn b81_threshold() {
 
     t.heading("How far it reaches");
     let got = threshold(128.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = threshold(128.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -68,7 +72,10 @@ fn b81_threshold() {
             ("level -1", set(threshold(-1.0))),
             ("level 256", set(threshold(256.0))),
             ("level 255.5", set(threshold(255.5))),
-            ("level keyed to 300", keys("level", &[(0, &[128.0]), (4, &[300.0])])),
+            (
+                "level keyed to 300",
+                keys("level", &[(0, &[128.0]), (4, &[300.0])]),
+            ),
         ],
     );
     t.taken(
@@ -77,12 +84,19 @@ fn b81_threshold() {
         vec![
             ("level 0, the bottom,", set(threshold(0.0))),
             ("level 255, the top,", set(threshold(255.0))),
-            ("level keyed from 0 to 255", keys("level", &[(0, &[0.0]), (4, &[255.0])])),
+            (
+                "level keyed from 0 to 255",
+                keys("level", &[(0, &[0.0]), (4, &[255.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_thresh_001.json", 0), ("fx_thresh_009.json", 0), ("fx_thresh_011.json", 2)]);
+    t.tiles(&[
+        ("fx_thresh_001.json", 0),
+        ("fx_thresh_009.json", 0),
+        ("fx_thresh_011.json", 2),
+    ]);
 
     t.finish("B-81_threshold_table.md");
 }

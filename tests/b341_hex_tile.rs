@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,7 +43,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=22 {
         let file = format!("fx_hex_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::HexTile { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::HexTile { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -84,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::HexTile { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::HexTile { .. })
+                });
                 t.row(
                     &format!("the reference shot, Hex Tile {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -97,8 +115,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -127,7 +166,10 @@ fn at(p: &[u8], w: usize, x: usize, y: usize) -> &[u8] {
 
 /// How many pixels of `p` and `q` are within one level of each other, out of those of `p`.
 fn alike(p: &[u8], q: &[u8]) -> usize {
-    p.chunks_exact(4).zip(q.chunks_exact(4)).filter(|(a, b)| a.iter().zip(*b).all(|(x, y)| x.abs_diff(*y) <= 1)).count()
+    p.chunks_exact(4)
+        .zip(q.chunks_exact(4))
+        .filter(|(a, b)| a.iter().zip(*b).all(|(x, y)| x.abs_diff(*y) <= 1))
+        .count()
 }
 
 #[test]
@@ -169,30 +211,73 @@ fn b341_hex_tile() {
         ("fx_hex_021.json", "center"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Hex Tile and its {want}"), &why, why.contains("Hex Tile") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Hex Tile and its {want}"),
+            &why,
+            why.contains("Hex Tile") && why.contains(want),
+        );
     }
     let full = r#"{"render": "tile", "radius": 50, "center": [50, 50], "lock_center": "off", "rotate": 0, "smearing": 0}"#;
-    t.shape_refused("fx_hex_001.json", "a Hex Tile whose radius is a word", &full.replace("\"radius\": 50", "\"radius\": \"big\""));
-    t.shape_refused("fx_hex_001.json", "a Hex Tile without its smearing", &full.replace(", \"smearing\": 0", ""));
-    t.shape_refused("fx_hex_001.json", "a Hex Tile whose center is one number", &full.replace("[50, 50]", "50"));
-    t.shape_refused("fx_hex_001.json", "a Hex Tile whose render is a number", &full.replace("\"tile\"", "2"));
+    t.shape_refused(
+        "fx_hex_001.json",
+        "a Hex Tile whose radius is a word",
+        &full.replace("\"radius\": 50", "\"radius\": \"big\""),
+    );
+    t.shape_refused(
+        "fx_hex_001.json",
+        "a Hex Tile without its smearing",
+        &full.replace(", \"smearing\": 0", ""),
+    );
+    t.shape_refused(
+        "fx_hex_001.json",
+        "a Hex Tile whose center is one number",
+        &full.replace("[50, 50]", "50"),
+    );
+    t.shape_refused(
+        "fx_hex_001.json",
+        "a Hex Tile whose render is a number",
+        &full.replace("\"tile\"", "2"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_hex_001.json").document;
-    let over = changed(&t, "fx_hex_001.json", |e| if let Effect::HexTile { radius, .. } = e { *radius = 4001.0 });
-    let far = changed(&t, "fx_hex_001.json", |e| if let Effect::HexTile { center, .. } = e { *center = [50.0, -1001.0] });
-    let word = changed(&t, "fx_hex_001.json", |e| if let Effect::HexTile { render, .. } = e { *render = "honeycomb".into() });
+    let over = changed(&t, "fx_hex_001.json", |e| {
+        if let Effect::HexTile { radius, .. } = e {
+            *radius = 4001.0
+        }
+    });
+    let far = changed(&t, "fx_hex_001.json", |e| {
+        if let Effect::HexTile { center, .. } = e {
+            *center = [50.0, -1001.0]
+        }
+    });
+    let word = changed(&t, "fx_hex_001.json", |e| {
+        if let Effect::HexTile { render, .. } = e {
+            *render = "honeycomb".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("radius 4001", set(over)),
             ("center 50, -1001", set(far)),
             ("render honeycomb", set(word)),
-            ("radius keyed to 5000", keys("radius", &[(0, &[50.0]), (4, &[5000.0])])),
+            (
+                "radius keyed to 5000",
+                keys("radius", &[(0, &[50.0]), (4, &[5000.0])]),
+            ),
         ],
     );
     let moved = changed(&t, "fx_hex_001.json", |e| {
-        if let Effect::HexTile { render, radius, center, lock_center, rotate, smearing } = e {
+        if let Effect::HexTile {
+            render,
+            radius,
+            center,
+            lock_center,
+            rotate,
+            smearing,
+        } = e
+        {
             *render = "fold_aligned".into();
             *radius = 12.0;
             *center = [20.0, 30.0];
@@ -205,8 +290,14 @@ fn b341_hex_tile() {
         &mut document,
         "fx_hex_001.json",
         vec![
-            ("Fold Aligned, radius 12, center 20, 30, locked, rotate 45, smearing 60", set(moved)),
-            ("center keyed from 0, 0 to 100, 100", keys("center", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])])),
+            (
+                "Fold Aligned, radius 12, center 20, 30, locked, rotate 45, smearing 60",
+                set(moved),
+            ),
+            (
+                "center keyed from 0, 0 to 100, 100",
+                keys("center", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])]),
+            ),
         ],
     );
 
@@ -236,19 +327,37 @@ fn b341_hex_tile() {
                 json!({"render": "fold_seamless", "radius": 60, "center": [30, 40], "rotate": 20, "smearing": 30}),
                 3,
             ),
-            ("Fold Aligned, radius 25, locked, center 70, 20", json!({"render": "fold_aligned", "radius": 25, "lock_center": "on", "center": [70, 20]}), 3),
+            (
+                "Fold Aligned, radius 25, locked, center 70, 20",
+                json!({"render": "fold_aligned", "radius": 25, "lock_center": "on", "center": [70, 20]}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-461 pictures/`");
     let dir = repo("verification/D-461 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (w, h) = TOWN;
     let all = w * h;
 
@@ -262,7 +371,10 @@ fn b341_hex_tile() {
     let (tile, said) = street(json!({"radius": 20}));
     write("2_tile_radius_20.png", TOWN, &tile);
     // A flat-topped honeycomb of radius 20 repeats every 60 pixels across.
-    let repeats = (0..h).flat_map(|y| (0..w - 60).map(move |x| (x, y))).filter(|&(x, y)| alike(at(&tile, w, x, y), at(&tile, w, x + 60, y)) == 1).count();
+    let repeats = (0..h)
+        .flat_map(|y| (0..w - 60).map(move |x| (x, y)))
+        .filter(|&(x, y)| alike(at(&tile, w, x, y), at(&tile, w, x + 60, y)) == 1)
+        .count();
     let checked = h * (w - 60);
     t.row(
         "2_tile_radius_20.png, Tile, radius 20: the street's middle repeated in a honeycomb, the picture the same 60 pixels to the right (within 1 level) almost everywhere, every pixel covered; draws cleanly",
@@ -334,22 +446,48 @@ fn b341_hex_tile_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Hex Tile radius 50", Some(json!({"radius": 50}))),
-        ("the same, Fold Seamlessly, rotate 20, smearing 30", Some(json!({"radius": 50, "render": "fold_seamless", "rotate": 20, "smearing": 30}))),
+        (
+            "Noise, then Hex Tile radius 50",
+            Some(json!({"radius": 50})),
+        ),
+        (
+            "the same, Fold Seamlessly, rotate 20, smearing 30",
+            Some(json!({"radius": 50, "render": "fold_seamless", "rotate": 20, "smearing": 30})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B341_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-341_timing_raw.md"));
+    let out = std::env::var("B341_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-341_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

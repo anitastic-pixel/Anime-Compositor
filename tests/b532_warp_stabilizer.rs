@@ -43,7 +43,12 @@ fn ws(result: &str, method: &str, framing: &str, smoothness: f64) -> Effect {
 }
 
 fn as_added() -> Effect {
-    ws("smooth_motion", "position_scale_rotation", "stabilize_crop_auto_scale", 50.0)
+    ws(
+        "smooth_motion",
+        "position_scale_rotation",
+        "stabilize_crop_auto_scale",
+        50.0,
+    )
 }
 
 fn main_comp() -> Id {
@@ -52,7 +57,12 @@ fn main_comp() -> Id {
 
 /// Set the holder's Warp Stabilizer.
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: main_comp(), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: main_comp(),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the holder's Warp Stabilizer, linearly.
@@ -62,13 +72,23 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
@@ -78,7 +98,9 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
@@ -91,7 +113,10 @@ const FRAMES: usize = 24;
 /// to the right, and a jolt of up to 5 pixels across and 4 down.
 fn hand_at(m: usize) -> (f64, f64) {
     let m = m as f64;
-    (0.5 * m + 5.0 * (2.1 * m).sin(), 4.0 * (1.7 * m + 0.5).cos() - 4.0 * 0.5f64.cos())
+    (
+        0.5 * m + 5.0 * (2.1 * m).sin(),
+        4.0 * (1.7 * m + 0.5).cos() - 4.0 * 0.5f64.cos(),
+    )
 }
 
 /// Drawing `m`: a striped, opaque scene seen through the shaking camera.
@@ -102,7 +127,9 @@ fn scene(m: usize) -> Vec<u8> {
     for y in 0..h {
         for x in 0..w {
             let (u, v) = (x as f64 + 0.5 - ox, y as f64 + 0.5 - oy);
-            let t = 0.5 + 0.3 * (2.0 * PI * u / 53.0).sin() + 0.15 * (2.0 * PI * v / 29.0 + u / 31.0).cos();
+            let t = 0.5
+                + 0.3 * (2.0 * PI * u / 53.0).sin()
+                + 0.15 * (2.0 * PI * v / 29.0 + u / 31.0).cos();
             let c = |a: f64| (a.clamp(0.0, 255.0)).round() as u8;
             bytes.extend([c(255.0 * t), c(90.0 + 100.0 * t), c(230.0 - 150.0 * t), 255]);
         }
@@ -112,11 +139,18 @@ fn scene(m: usize) -> Vec<u8> {
 
 /// The scene filmed by hand over a night-blue solid, with `effects` on the scene.
 fn picture(effects: J) -> Document {
-    let mut project: J =
-        serde_json::from_str(&fs::read_to_string(effect_table::repo("Fixtures/warp_stabilizer/fx_ws_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/warp_stabilizer/fx_ws_001.json",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["pattern"] = J::from("scene_##.png");
-    project["assets"][0]["frames"] =
-        (1..=FRAMES).map(|m| (m.to_string(), J::from(format!("scene_{m:02}.png")))).collect::<serde_json::Map<_, _>>().into();
+    project["assets"][0]["frames"] = (1..=FRAMES)
+        .map(|m| (m.to_string(), J::from(format!("scene_{m:02}.png"))))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(PICTURE.0);
     comp["height"] = J::from(PICTURE.1);
@@ -140,15 +174,38 @@ fn picture(effects: J) -> Document {
     night["effects"] = J::Array(vec![]);
     night["solid"] = serde_json::json!({"color": [0.0070, 0.0116, 0.0452], "width": PICTURE.0, "height": PICTURE.1});
     layers.insert(0, night);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("night"));
-    persist::load_str(&project.to_string()).expect("the picture's project reads").document
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("night"));
+    persist::load_str(&project.to_string())
+        .expect("the picture's project reads")
+        .document
 }
 
 /// `document`'s frame at `quality`, as bytes, with what it said.
-fn draw(document: &Document, dir: &Path, frame: i32, quality: PreviewQuality) -> (usize, Vec<u8>, Vec<String>) {
+fn draw(
+    document: &Document,
+    dir: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (usize, Vec<u8>, Vec<String>) {
     let mut log = FrameLog::new(3);
-    let drawn = preview::preview_frame(document.project(), &main_comp(), frame, dir, quality, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = preview::preview_frame(
+        document.project(),
+        &main_comp(),
+        frame,
+        dir,
+        quality,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.width(), drawn.to_srgb8_straight(), said)
 }
 
@@ -208,7 +265,11 @@ fn b532_warp_stabilizer() {
 
     t.heading("How far it reaches");
     let got = ws("smooth_motion", "perspective", "stabilize_only", 1000.0).bounds_expansion();
-    t.row("Warp Stabilizer never grows the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "Warp Stabilizer never grows the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = as_added();
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -222,7 +283,11 @@ fn b532_warp_stabilizer() {
     let files: Vec<String> = (1..=22).map(|n| format!("fx_ws_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_ws_001.json");
-    t.row("the picture it makes is never saved", &format!("{:?}", params.get("picture")), params.get("picture").is_none());
+    t.row(
+        "the picture it makes is never saved",
+        &format!("{:?}", params.get("picture")),
+        params.get("picture").is_none(),
+    );
     let without = |key: &str| {
         let mut p = added("smooth_motion", "stabilize_crop_auto_scale");
         p.remove(key);
@@ -236,8 +301,14 @@ fn b532_warp_stabilizer() {
     for (what, parameters) in [
         ("no `result` at all", without("result")),
         ("no `smoothness` at all", without("smoothness")),
-        ("no `detailed_analysis` at all", without("detailed_analysis")),
-        ("a Smoothness that is a word", with("smoothness", J::from("lots"))),
+        (
+            "no `detailed_analysis` at all",
+            without("detailed_analysis"),
+        ),
+        (
+            "a Smoothness that is a word",
+            with("smoothness", J::from("lots")),
+        ),
         ("a Framing that is a number", with("framing", J::from(1))),
     ] {
         t.shape_refused("fx_ws_001.json", what, &parameters);
@@ -249,18 +320,51 @@ fn b532_warp_stabilizer() {
         &mut t,
         &mut document,
         vec![
-            ("Smoothness 1001", set(ws("smooth_motion", "position_scale_rotation", "stabilize_crop_auto_scale", 1001.0))),
-            ("Method \"subspace_warp\"", set(ws("smooth_motion", "subspace_warp", "stabilize_crop_auto_scale", 50.0))),
-            ("Framing \"stabilize_synthesize_edges\"", set(ws("smooth_motion", "position_scale_rotation", "stabilize_synthesize_edges", 50.0))),
-            ("Maximum Scale keyed to 2000 at frame 4", keys("maximum_scale", &[(0, 150.0), (4, 2000.0)])),
+            (
+                "Smoothness 1001",
+                set(ws(
+                    "smooth_motion",
+                    "position_scale_rotation",
+                    "stabilize_crop_auto_scale",
+                    1001.0,
+                )),
+            ),
+            (
+                "Method \"subspace_warp\"",
+                set(ws(
+                    "smooth_motion",
+                    "subspace_warp",
+                    "stabilize_crop_auto_scale",
+                    50.0,
+                )),
+            ),
+            (
+                "Framing \"stabilize_synthesize_edges\"",
+                set(ws(
+                    "smooth_motion",
+                    "position_scale_rotation",
+                    "stabilize_synthesize_edges",
+                    50.0,
+                )),
+            ),
+            (
+                "Maximum Scale keyed to 2000 at frame 4",
+                keys("maximum_scale", &[(0, 150.0), (4, 2000.0)]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_ws_001.json",
         vec![
-            ("No Motion, Perspective, Stabilize Only", set(ws("no_motion", "perspective", "stabilize_only", 50.0))),
-            ("Additional Scale keyed from 100 at frame 0 to 140 at frame 4", keys("additional_scale", &[(0, 100.0), (4, 140.0)])),
+            (
+                "No Motion, Perspective, Stabilize Only",
+                set(ws("no_motion", "perspective", "stabilize_only", 50.0)),
+            ),
+            (
+                "Additional Scale keyed from 100 at frame 0 to 140 at frame 4",
+                keys("additional_scale", &[(0, 100.0), (4, 140.0)]),
+            ),
         ],
     );
 
@@ -272,37 +376,126 @@ fn b532_warp_stabilizer() {
     fs::create_dir_all(&scenes).unwrap();
     let (w, h) = PICTURE;
     for m in 0..FRAMES {
-        png_out::write_rgba(&scenes.join(format!("scene_{:02}.png", m + 1)), w, h, OutputDepth::Eight, &[], &scene(m)).unwrap();
+        png_out::write_rgba(
+            &scenes.join(format!("scene_{:02}.png", m + 1)),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &scene(m),
+        )
+        .unwrap();
     }
     let full = PreviewQuality::Full;
     let (_, three, said) = draw(&picture(J::Array(vec![])), &scenes, 3, full);
-    png_out::write_rgba(&dir.join("1_frame_3_no_effect.png"), w, h, OutputDepth::Eight, &[], &three).unwrap();
-    t.row("1_frame_3_no_effect.png, frame 3 with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("1_frame_3_no_effect.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &three,
+    )
+    .unwrap();
+    t.row(
+        "1_frame_3_no_effect.png, frame 3 with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (_, four, _) = draw(&picture(J::Array(vec![])), &scenes, 4, full);
-    png_out::write_rgba(&dir.join("2_frame_4_no_effect.png"), w, h, OutputDepth::Eight, &[], &four).unwrap();
+    png_out::write_rgba(
+        &dir.join("2_frame_4_no_effect.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &four,
+    )
+    .unwrap();
     let shaken = jitter(&three, &four);
-    t.row("frames 3 and 4 with no effect differ by the shake", &format!("{shaken:.1} levels on average in the middle"), shaken > 0.0);
-    let (_, steady3, said3) = draw(&picture(effect("smooth_motion", "stabilize_crop_auto_scale")), &scenes, 3, full);
-    let (_, steady4, said4) = draw(&picture(effect("smooth_motion", "stabilize_crop_auto_scale")), &scenes, 4, full);
-    png_out::write_rgba(&dir.join("3_as_added_frame_3.png"), w, h, OutputDepth::Eight, &[], &steady3).unwrap();
-    png_out::write_rgba(&dir.join("4_as_added_frame_4.png"), w, h, OutputDepth::Eight, &[], &steady4).unwrap();
+    t.row(
+        "frames 3 and 4 with no effect differ by the shake",
+        &format!("{shaken:.1} levels on average in the middle"),
+        shaken > 0.0,
+    );
+    let (_, steady3, said3) = draw(
+        &picture(effect("smooth_motion", "stabilize_crop_auto_scale")),
+        &scenes,
+        3,
+        full,
+    );
+    let (_, steady4, said4) = draw(
+        &picture(effect("smooth_motion", "stabilize_crop_auto_scale")),
+        &scenes,
+        4,
+        full,
+    );
+    png_out::write_rgba(
+        &dir.join("3_as_added_frame_3.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &steady3,
+    )
+    .unwrap();
+    png_out::write_rgba(
+        &dir.join("4_as_added_frame_4.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &steady4,
+    )
+    .unwrap();
     t.row(
         "3_as_added_frame_3.png and 4_as_added_frame_4.png, as added: draw cleanly, enlarged so no \
          night blue shows at the edges",
         &format!("{said3:?} {said4:?}, {} and {} night-blue pixels", uncovered(&steady3), uncovered(&steady4)),
         said3.is_empty() && said4.is_empty() && uncovered(&steady3) == 0 && uncovered(&steady4) == 0,
     );
-    let (_, only, said) = draw(&picture(effect("smooth_motion", "stabilize_only")), &scenes, 4, full);
-    png_out::write_rgba(&dir.join("5_stabilize_only_frame_4.png"), w, h, OutputDepth::Eight, &[], &only).unwrap();
+    let (_, only, said) = draw(
+        &picture(effect("smooth_motion", "stabilize_only")),
+        &scenes,
+        4,
+        full,
+    );
+    png_out::write_rgba(
+        &dir.join("5_stabilize_only_frame_4.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &only,
+    )
+    .unwrap();
     t.row(
         "5_stabilize_only_frame_4.png, Stabilize Only: draws cleanly, the edges the shake uncovers \
          show the night blue",
         &format!("{said:?}, {} night-blue pixels", uncovered(&only)),
         said.is_empty() && uncovered(&only) > 0,
     );
-    let (_, held3, _) = draw(&picture(effect("no_motion", "stabilize_only")), &scenes, 3, full);
-    let (_, held4, said) = draw(&picture(effect("no_motion", "stabilize_only")), &scenes, 4, full);
-    png_out::write_rgba(&dir.join("6_no_motion_frame_4.png"), w, h, OutputDepth::Eight, &[], &held4).unwrap();
+    let (_, held3, _) = draw(
+        &picture(effect("no_motion", "stabilize_only")),
+        &scenes,
+        3,
+        full,
+    );
+    let (_, held4, said) = draw(
+        &picture(effect("no_motion", "stabilize_only")),
+        &scenes,
+        4,
+        full,
+    );
+    png_out::write_rgba(
+        &dir.join("6_no_motion_frame_4.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &held4,
+    )
+    .unwrap();
     let still = jitter(&held3, &held4);
     t.row(
         "6_no_motion_frame_4.png, No Motion, Stabilize Only: draws cleanly, and frames 3 and 4 \
@@ -310,23 +503,61 @@ fn b532_warp_stabilizer() {
         &format!("{said:?}, {still:.1} levels against {shaken:.1}"),
         said.is_empty() && still < shaken / 3.0,
     );
-    let (dw, bytes, said) = draw(&picture(effect("smooth_motion", "stabilize_crop_auto_scale")), &scenes, 4, PreviewQuality::Draft);
-    png_out::write_rgba(&dir.join("7_as_added_draft.png"), dw, bytes.len() / 4 / dw, OutputDepth::Eight, &[], &bytes).unwrap();
-    t.row("7_as_added_draft.png, as added at Draft, draws cleanly, a quarter the size", &format!("{said:?}, {dw} wide"), said.is_empty() && dw == w / 4);
+    let (dw, bytes, said) = draw(
+        &picture(effect("smooth_motion", "stabilize_crop_auto_scale")),
+        &scenes,
+        4,
+        PreviewQuality::Draft,
+    );
+    png_out::write_rgba(
+        &dir.join("7_as_added_draft.png"),
+        dw,
+        bytes.len() / 4 / dw,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
+    t.row(
+        "7_as_added_draft.png, as added at Draft, draws cleanly, a quarter the size",
+        &format!("{said:?}, {dw} wide"),
+        said.is_empty() && dw == w / 4,
+    );
 
     t.heading("Played frame after frame with the viewer's cache");
     let played = picture(effect("smooth_motion", "stabilize_crop_auto_scale"));
     let mut cache = anime_compositor::cache::CelCache::viewer();
     let warm = |cache: &mut anime_compositor::cache::CelCache, frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(played.project(), &main_comp(), frame, &scenes, full, 64, &mut log, cache).expect("the picture draws")
+        preview::preview_frame_cached(
+            played.project(),
+            &main_comp(),
+            frame,
+            &scenes,
+            full,
+            64,
+            &mut log,
+            cache,
+        )
+        .expect("the picture draws")
     };
     let alone = |frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame(played.project(), &main_comp(), frame, &scenes, full, 64, &mut log).expect("the picture draws")
+        preview::preview_frame(
+            played.project(),
+            &main_comp(),
+            frame,
+            &scenes,
+            full,
+            64,
+            &mut log,
+        )
+        .expect("the picture draws")
     };
     const PLAYED: i32 = 8;
-    let same = (0..PLAYED).filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data()).count();
+    let same = (0..PLAYED)
+        .filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data())
+        .count();
     t.row(
         "as added, frames 0 to 7 asked for in order through one viewer's cache, as playing asks: \
          each is byte-identical to the same frame drawn alone with no cache, as an export draws it",
@@ -334,7 +565,15 @@ fn b532_warp_stabilizer() {
         same == PLAYED as usize,
     );
     let before = warm(&mut cache, 3).data().to_vec();
-    png_out::write_rgba(&scenes.join("scene_06.png"), w, h, OutputDepth::Eight, &[], &scene(0)).unwrap();
+    png_out::write_rgba(
+        &scenes.join("scene_06.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &scene(0),
+    )
+    .unwrap();
     let changed = warm(&mut cache, 3);
     t.row(
         "drawing 6 (frame 5, inside frame 3's window) rewritten as drawing 1 after it was played: \
@@ -346,7 +585,15 @@ fn b532_warp_stabilizer() {
         ),
         changed.data() == alone(3).data() && changed.data() != before.as_slice(),
     );
-    png_out::write_rgba(&scenes.join("scene_06.png"), w, h, OutputDepth::Eight, &[], &scene(5)).unwrap();
+    png_out::write_rgba(
+        &scenes.join("scene_06.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &scene(5),
+    )
+    .unwrap();
 
     t.heading("Each pair's move kept from frame to frame (audit P1)");
     use anime_compositor::compose::{forget_kept_moves, kept_moves_reused};
@@ -365,14 +612,19 @@ fn b532_warp_stabilizer() {
          byte-identical to frame 4 drawn with nothing kept",
         &format!(
             "{reused} moves reused after frame 3, {cold_reused} cold; {}",
-            if after == cold { "byte-identical" } else { "differs" }
+            if after == cold {
+                "byte-identical"
+            } else {
+                "differs"
+            }
         ),
         reused > 0 && cold_reused == 0 && after == cold,
     );
     let mut detailed = added("smooth_motion", "stabilize_crop_auto_scale");
     detailed.insert("detailed_analysis".into(), J::from("on"));
-    let detailed_fx =
-        picture(serde_json::json!([{"instance_id": "fx-1", "type_id": "core.warp_stabilizer", "enabled": true, "parameters": detailed}]));
+    let detailed_fx = picture(
+        serde_json::json!([{"instance_id": "fx-1", "type_id": "core.warp_stabilizer", "enabled": true, "parameters": detailed}]),
+    );
     let was = kept_moves_reused();
     let (_, changed, _) = draw(&detailed_fx, &scenes, 4, full);
     let changed_reused = kept_moves_reused() - was;
@@ -384,14 +636,27 @@ fn b532_warp_stabilizer() {
          and differs from as added",
         &format!(
             "{changed_reused} moves reused; {}; {}",
-            if changed == changed_cold { "byte-identical" } else { "differs" },
-            if changed != cold { "differs from as added" } else { "same as as added" }
+            if changed == changed_cold {
+                "byte-identical"
+            } else {
+                "differs"
+            },
+            if changed != cold {
+                "differs from as added"
+            } else {
+                "same as as added"
+            }
         ),
         changed_reused == 0 && changed == changed_cold && changed != cold,
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_ws_001.json", 2), ("fx_ws_003.json", 2), ("fx_ws_006.json", 2), ("fx_ws_019.json", 2)]);
+    t.tiles(&[
+        ("fx_ws_001.json", 2),
+        ("fx_ws_003.json", 2),
+        ("fx_ws_006.json", 2),
+        ("fx_ws_019.json", 2),
+    ]);
 
     t.finish("D-653_warp_stabilizer_table.md");
 }
@@ -428,12 +693,25 @@ fn b532_warp_stabilizer_timing() {
     );
     let shots: [(&str, Option<(&str, &str)>, PreviewQuality); 5] = [
         ("Noise alone", None, PreviewQuality::Full),
-        ("Warp Stabilizer as added, then Noise", Some(("stabilize_crop_auto_scale", "off")), PreviewQuality::Full),
-        ("Warp Stabilizer, Stabilize Only, Detailed Analysis on, then Noise", Some(("stabilize_only", "on")), PreviewQuality::Full),
+        (
+            "Warp Stabilizer as added, then Noise",
+            Some(("stabilize_crop_auto_scale", "off")),
+            PreviewQuality::Full,
+        ),
+        (
+            "Warp Stabilizer, Stabilize Only, Detailed Analysis on, then Noise",
+            Some(("stabilize_only", "on")),
+            PreviewQuality::Full,
+        ),
         ("Noise alone", None, PreviewQuality::Half),
-        ("Warp Stabilizer as added, then Noise", Some(("stabilize_crop_auto_scale", "off")), PreviewQuality::Half),
+        (
+            "Warp Stabilizer as added, then Noise",
+            Some(("stabilize_crop_auto_scale", "off")),
+            PreviewQuality::Half,
+        ),
     ];
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     for (name, setting, quality) in shots {
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
@@ -443,12 +721,21 @@ fn b532_warp_stabilizer_timing() {
                 p.insert("detailed_analysis".into(), J::from(detailed));
                 v.push(json!({"instance_id": format!("{id}w"), "type_id": "core.warp_stabilizer", "enabled": true, "parameters": p}));
             }
-            v.push(json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}));
+            v.push(
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            );
             j["compositions"][0]["layers"][i]["effects"] = J::Array(v);
         }
-        let project = persist::load_str(&j.to_string()).expect("the reference shot reads").document.project().clone();
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
+        let project = persist::load_str(&j.to_string())
+            .expect("the reference shot reads")
+            .document
+            .project()
+            .clone();
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
         let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, quality);
         let (mut fresh, mut stage) = (Vec::new(), Vec::new());
         anime_compositor::perf::enable();
@@ -459,14 +746,37 @@ fn b532_warp_stabilizer_timing() {
             let mut log = FrameLog::new(3);
             let t = std::time::Instant::now();
             drop(
-                preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .expect("GPU frame"),
+                preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    frame,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .expect("GPU frame"),
             );
             fresh.push(t.elapsed().as_secs_f64() * 1000.0);
-            stage.push(anime_compositor::perf::read(anime_compositor::perf::Stage::EffectWarpStabilizer).0 as f64 / 1e6);
+            stage.push(
+                anime_compositor::perf::read(anime_compositor::perf::Stage::EffectWarpStabilizer).0
+                    as f64
+                    / 1e6,
+            );
         }
-        let _ = writeln!(s, "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |", median(first), median(times), median(fresh), median(stage));
+        let _ = writeln!(
+            s,
+            "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |",
+            median(first),
+            median(times),
+            median(fresh),
+            median(stage)
+        );
     }
-    let out = std::env::var("B532_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-532_timing_raw.md"));
+    let out = std::env::var("B532_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-532_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

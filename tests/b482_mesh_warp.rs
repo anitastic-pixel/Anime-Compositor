@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -30,7 +31,16 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The mesh at rest, per cent, flat: x then y for each vertex, row by row.
 fn rest(rows: usize, cols: usize) -> Vec<f64> {
-    (0..=rows).flat_map(|j| (0..=cols).flat_map(move |i| [i as f64 / cols as f64 * 100.0, j as f64 / rows as f64 * 100.0])).collect()
+    (0..=rows)
+        .flat_map(|j| {
+            (0..=cols).flat_map(move |i| {
+                [
+                    i as f64 / cols as f64 * 100.0,
+                    j as f64 / rows as f64 * 100.0,
+                ]
+            })
+        })
+        .collect()
 }
 
 /// The mesh at rest with the vertices in `moves` ((i, j) to (x, y) per cent) moved.
@@ -75,7 +85,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=18 {
         let file = format!("fx_mesh_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -83,7 +97,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::MeshWarp { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::MeshWarp { .. })
+                });
             }
         }
         t.row(
@@ -101,9 +117,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -117,7 +142,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::MeshWarp { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::MeshWarp { .. })
+                });
                 t.row(
                     &format!("the reference shot, Mesh Warp {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -130,8 +157,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -143,8 +179,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -182,7 +230,9 @@ fn b482_mesh_warp() {
     t.row(
         "fx_mesh_001.json, the mesh at rest, is saved with an empty list",
         &empty.to_string(),
-        empty["distortion_mesh"].as_array().is_some_and(Vec::is_empty),
+        empty["distortion_mesh"]
+            .as_array()
+            .is_some_and(Vec::is_empty),
     );
     for (file, want) in [
         ("fx_mesh_013.json", "rows"),
@@ -192,28 +242,63 @@ fn b482_mesh_warp() {
         ("fx_mesh_017.json", "quality"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Mesh Warp and its {want}"), &why, why.contains("Mesh Warp") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Mesh Warp and its {want}"),
+            &why,
+            why.contains("Mesh Warp") && why.contains(want),
+        );
     }
     let full = fx("x", &json!({}))["parameters"].to_string();
-    t.shape_refused("fx_mesh_001.json", "a Mesh Warp whose rows are a word", &full.replace("\"rows\":7", "\"rows\":\"seven\""));
-    t.shape_refused("fx_mesh_001.json", "a Mesh Warp without its distortion mesh", &full.replace("\"distortion_mesh\":[],", ""));
-    t.shape_refused("fx_mesh_001.json", "a Mesh Warp whose distortion mesh is one number", &full.replace("\"distortion_mesh\":[]", "\"distortion_mesh\":50"));
+    t.shape_refused(
+        "fx_mesh_001.json",
+        "a Mesh Warp whose rows are a word",
+        &full.replace("\"rows\":7", "\"rows\":\"seven\""),
+    );
+    t.shape_refused(
+        "fx_mesh_001.json",
+        "a Mesh Warp without its distortion mesh",
+        &full.replace("\"distortion_mesh\":[],", ""),
+    );
+    t.shape_refused(
+        "fx_mesh_001.json",
+        "a Mesh Warp whose distortion mesh is one number",
+        &full.replace("\"distortion_mesh\":[]", "\"distortion_mesh\":50"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_mesh_003.json").document;
-    let tall = changed(&t, "fx_mesh_003.json", |e| if let Effect::MeshWarp { rows, .. } = e { *rows = 32.0 });
-    let short = changed(&t, "fx_mesh_003.json", |e| if let Effect::MeshWarp { distortion_mesh, .. } = e { distortion_mesh.truncate(16) });
+    let tall = changed(&t, "fx_mesh_003.json", |e| {
+        if let Effect::MeshWarp { rows, .. } = e {
+            *rows = 32.0
+        }
+    });
+    let short = changed(&t, "fx_mesh_003.json", |e| {
+        if let Effect::MeshWarp {
+            distortion_mesh, ..
+        } = e
+        {
+            distortion_mesh.truncate(16)
+        }
+    });
     let far = moved(2, 2, &[((1, 1), (600.0, 50.0))]);
     t.refused(
         &mut document,
         vec![
             ("rows 32", set(tall)),
             ("a 2 by 2 mesh of 16 numbers", set(short)),
-            ("the middle vertex keyed out to 600 per cent", keys("distortion_mesh", &[(0, &rest(2, 2)), (4, &far)])),
+            (
+                "the middle vertex keyed out to 600 per cent",
+                keys("distortion_mesh", &[(0, &rest(2, 2)), (4, &far)]),
+            ),
         ],
     );
     let nudge = changed(&t, "fx_mesh_003.json", |e| {
-        if let Effect::MeshWarp { distortion_mesh, quality, .. } = e {
+        if let Effect::MeshWarp {
+            distortion_mesh,
+            quality,
+            ..
+        } = e
+        {
             distortion_mesh[8] = 60.0;
             distortion_mesh[9] = 40.0;
             *quality = 3.0;
@@ -225,7 +310,10 @@ fn b482_mesh_warp() {
         "fx_mesh_003.json",
         vec![
             ("the middle vertex at (60, 40), quality 3", set(nudge)),
-            ("the mesh keyed from rest to the middle pushed", keys("distortion_mesh", &[(0, &rest(2, 2)), (4, &pushed)])),
+            (
+                "the mesh keyed from rest to the middle pushed",
+                keys("distortion_mesh", &[(0, &rest(2, 2)), (4, &pushed)]),
+            ),
         ],
     );
 
@@ -248,8 +336,16 @@ fn b482_mesh_warp() {
         &mut t,
         &mut gpu,
         &[
-            ("2 by 2, the middle vertex pushed to 75 per cent across", push(), 3),
-            ("3 by 3, the top and bottom edges waving, at quality 2", wave(2.0), 3),
+            (
+                "2 by 2, the middle vertex pushed to 75 per cent across",
+                push(),
+                3,
+            ),
+            (
+                "3 by 3, the top and bottom edges waving, at quality 2",
+                wave(2.0),
+                3,
+            ),
             ("folded (the middle vertex out at 150 per cent)", fold(), 3),
         ],
     );
@@ -257,14 +353,28 @@ fn b482_mesh_warp() {
     t.heading("Pictures: in `verification/D-603 pictures/`");
     let dir = repo("verification/D-603 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let (w, h) = TOWN;
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
     let open = |p: &[u8]| (0..w * h).filter(|&i| p[i * 4 + 3] == 0).count();
-    t.row("1_before.png, the street with no effect, every pixel covered; draws cleanly", &format!("{said:?}, {} clear pixels", open(&before)), said.is_empty() && open(&before) == 0);
+    t.row(
+        "1_before.png, the street with no effect, every pixel covered; draws cleanly",
+        &format!("{said:?}, {} clear pixels", open(&before)),
+        said.is_empty() && open(&before) == 0,
+    );
 
     let (added, said) = street(json!({}));
     let (written, said1) = street(json!({"distortion_mesh": rest(7, 7)}));
@@ -338,22 +448,48 @@ fn b482_mesh_warp_timing() {
     let seven = json!({"distortion_mesh": moved(7, 7, &[((3, 3), (60.0, 55.0)), ((4, 2), (50.0, 30.0)), ((2, 5), (25.0, 75.0))])});
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Mesh Warp 2 by 2 with the middle pushed", Some(push())),
-        ("Noise, then Mesh Warp 7 by 7 with three vertices moved, Quality 8", Some(seven)),
+        (
+            "Noise, then Mesh Warp 2 by 2 with the middle pushed",
+            Some(push()),
+        ),
+        (
+            "Noise, then Mesh Warp 7 by 7 with three vertices moved, Quality 8",
+            Some(seven),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B482_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-482_timing_raw.md"));
+    let out = std::env::var("B482_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-482_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

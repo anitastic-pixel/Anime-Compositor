@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,7 +43,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=20 {
         let file = format!("fx_burn_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::BurnFilm { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::BurnFilm { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -84,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::BurnFilm { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::BurnFilm { .. })
+                });
                 t.row(
                     &format!("the reference shot, Burn Film {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -97,8 +115,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -146,7 +185,10 @@ fn b340_burn_film() {
     t.row(
         "fx_burn_008.json is saved with its three settings",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 3 && saved["burn"] == 50.0 && saved["seed"] == 7.0 && saved["center"] == json!([50, 50]),
+        saved.as_object().unwrap().len() == 3
+            && saved["burn"] == 50.0
+            && saved["seed"] == 7.0
+            && saved["center"] == json!([50, 50]),
     );
     for (file, want) in [
         ("fx_burn_015.json", "burn"),
@@ -156,23 +198,50 @@ fn b340_burn_film() {
         ("fx_burn_019.json", "seed"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Burn Film and its {want}"), &why, why.contains("Burn Film") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Burn Film and its {want}"),
+            &why,
+            why.contains("Burn Film") && why.contains(want),
+        );
     }
     let full = r#"{"burn": 0, "center": [50, 50], "seed": 0}"#;
-    t.shape_refused("fx_burn_001.json", "a Burn Film whose burn is a word", &full.replace("\"burn\": 0", "\"burn\": \"lots\""));
-    t.shape_refused("fx_burn_001.json", "a Burn Film without its seed", &full.replace(", \"seed\": 0", ""));
-    t.shape_refused("fx_burn_001.json", "a Burn Film whose center is one number", &full.replace("[50, 50]", "50"));
+    t.shape_refused(
+        "fx_burn_001.json",
+        "a Burn Film whose burn is a word",
+        &full.replace("\"burn\": 0", "\"burn\": \"lots\""),
+    );
+    t.shape_refused(
+        "fx_burn_001.json",
+        "a Burn Film without its seed",
+        &full.replace(", \"seed\": 0", ""),
+    );
+    t.shape_refused(
+        "fx_burn_001.json",
+        "a Burn Film whose center is one number",
+        &full.replace("[50, 50]", "50"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_burn_001.json").document;
-    let over = changed(&t, "fx_burn_001.json", |e| if let Effect::BurnFilm { burn, .. } = e { *burn = 101.0 });
-    let far = changed(&t, "fx_burn_001.json", |e| if let Effect::BurnFilm { center, .. } = e { *center = [50.0, -1001.0] });
+    let over = changed(&t, "fx_burn_001.json", |e| {
+        if let Effect::BurnFilm { burn, .. } = e {
+            *burn = 101.0
+        }
+    });
+    let far = changed(&t, "fx_burn_001.json", |e| {
+        if let Effect::BurnFilm { center, .. } = e {
+            *center = [50.0, -1001.0]
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("burn 101", set(over)),
             ("center 50, -1001", set(far)),
-            ("burn keyed to 150", keys("burn", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "burn keyed to 150",
+                keys("burn", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let moved = changed(&t, "fx_burn_001.json", |e| {
@@ -187,7 +256,10 @@ fn b340_burn_film() {
         "fx_burn_001.json",
         vec![
             ("burn 40, center 20, 30, seed 12", set(moved)),
-            ("center keyed from 0, 0 to 100, 100", keys("center", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])])),
+            (
+                "center keyed from 0, 0 to 100, 100",
+                keys("center", &[(0, &[0.0, 0.0]), (4, &[100.0, 100.0])]),
+            ),
         ],
     );
 
@@ -212,32 +284,65 @@ fn b340_burn_film() {
         &mut gpu,
         &[
             ("burn 30", json!({"burn": 30}), 3),
-            ("burn 60, center 20, 30, seed 5", json!({"burn": 60, "center": [20, 30], "seed": 5}), 3),
+            (
+                "burn 60, center 20, 30, seed 5",
+                json!({"burn": 60, "center": [20, 30], "seed": 5}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-460 pictures/`");
     let dir = repo("verification/D-460 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (w, h) = TOWN;
     let corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)];
 
     let (added, said) = street(json!({}));
-    t.row("as added (Burn 0): the street byte for byte; draws cleanly", &format!("{said:?}, the same: {}", added == before), said.is_empty() && added == before);
+    t.row(
+        "as added (Burn 0): the street byte for byte; draws cleanly",
+        &format!("{said:?}, the same: {}", added == before),
+        said.is_empty() && added == before,
+    );
 
     let (thirty, said) = street(json!({"burn": 30}));
     write("2_burn_30.png", TOWN, &thirty);
     // Char: black with some but not all of its cover; scorched: its cover kept, darker, not black.
     let pairs = || thirty.chunks_exact(4).zip(before.chunks_exact(4));
-    let char_line = pairs().filter(|(p, q)| p[..3] == [0, 0, 0] && p[3] > 0 && p[3] < q[3]).count();
-    let scorched = pairs().filter(|(p, q)| p[3] == q[3] && p[..3] != [0, 0, 0] && p != q && p[..3].iter().zip(&q[..3]).all(|(a, b)| a <= b)).count();
-    let untouched = corners.iter().all(|&(x, y)| at(&thirty, w, x, y) == at(&before, w, x, y));
+    let char_line = pairs()
+        .filter(|(p, q)| p[..3] == [0, 0, 0] && p[3] > 0 && p[3] < q[3])
+        .count();
+    let scorched = pairs()
+        .filter(|(p, q)| {
+            p[3] == q[3]
+                && p[..3] != [0, 0, 0]
+                && p != q
+                && p[..3].iter().zip(&q[..3]).all(|(a, b)| a <= b)
+        })
+        .count();
+    let untouched = corners
+        .iter()
+        .all(|&(x, y)| at(&thirty, w, x, y) == at(&before, w, x, y));
     t.row(
         "2_burn_30.png, Burn 30: a hole through the middle (the middle pixel clear), ringed by a black char line and a scorched edge, the four corners untouched; draws cleanly",
         &format!("{said:?}, middle cover {}, char pixels {char_line}, scorched pixels {scorched}, corners untouched {untouched}", at(&thirty, w, w / 2, h / 2)[3]),
@@ -248,8 +353,15 @@ fn b340_burn_film() {
     write("3_burn_60.png", TOWN, &sixty);
     t.row(
         "3_burn_60.png, Burn 60: more burned away than at 30; draws cleanly",
-        &format!("{said:?}, pixels with any cover: before {}, burn 30 {}, burn 60 {}", covered(&before), covered(&thirty), covered(&sixty)),
-        said.is_empty() && covered(&sixty) < covered(&thirty) && covered(&thirty) < covered(&before),
+        &format!(
+            "{said:?}, pixels with any cover: before {}, burn 30 {}, burn 60 {}",
+            covered(&before),
+            covered(&thirty),
+            covered(&sixty)
+        ),
+        said.is_empty()
+            && covered(&sixty) < covered(&thirty)
+            && covered(&thirty) < covered(&before),
     );
 
     let (corner, said) = street(json!({"burn": 30, "center": [0, 0]}));
@@ -269,7 +381,11 @@ fn b340_burn_film() {
     );
 
     let (gone, said) = street(json!({"burn": 100}));
-    t.row("Burn 100: every pixel clear; draws cleanly", &format!("{said:?}, pixels with any cover {}", covered(&gone)), said.is_empty() && covered(&gone) == 0);
+    t.row(
+        "Burn 100: every pixel clear; draws cleanly",
+        &format!("{said:?}, pixels with any cover {}", covered(&gone)),
+        said.is_empty() && covered(&gone) == 0,
+    );
 
     t.finish("D-460_burn_film_table.md");
 }
@@ -303,17 +419,37 @@ fn b340_burn_film_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B340_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-340_timing_raw.md"));
+    let out = std::env::var("B340_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-340_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -42,28 +42,73 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use anime_compositor::audio;
 use anime_compositor::cache::{CelCache, Finished, FrameCache, Sight};
 use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, FAST_BLUR_LEGACY, GAUSSIAN_BLUR_LEGACY, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, CC_VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, CC_WIDE_TIME, FORCE_MOTION_BLUR, PIXEL_MOTION_BLUR, TIMEWARP, WARP_STABILIZER, ROLLING_SHUTTER_REPAIR, CC_RAINFALL, WAVE_WORLD, CAUSTICS, CARD_DANCE, CARD_DANCE_TRANSFORMS, SHATTER, TIME_DIFFERENCE, TDIFF_ALPHAS, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, IDENTIFIER, NUMBERS, BASIC_TEXT, TIMECODE, CRYPTOMATTE, DEPTH_OF_FIELD, FOG_3D, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, GLUE_GUN, THREADS, LENS_FLARE, VEGAS, CURL_NOISE, TURBULENT_NOISE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, BEZIER_WARP, MESH_WARP, WARP, LIQUIFY, RESHAPE, MASK_SMEAR, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, AUDIO_SPECTRUM, AUDIO_WAVEFORM, LIGHT_BURST, DETAIL_UPSCALE, FRACTAL, GRID, FILL, EYEDROPPER_FILL, PAINT_BUCKET, WRITE_ON, SCRIBBLE, ADD_GRAIN, NOISE_ALPHA, NOISE_HLS, NOISE_HLS_AUTO, DUST_SCRATCHES, BRUSH_STROKES, CARTOON, BLOCK_LOAD, BURN_FILM, HEX_TILE, MR_SMOOTHIE, PLASTIC, REPEAT_TILE, SCATTER, STROBE_LIGHT, TEXTURIZE, CHANNEL_THRESHOLD, THRESHOLD_RGB, CONTOUR_PAINT, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM, NOISE_GATE, COMPRESSOR, DISTORTION,
-    GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
-    TINT, MATCH_GRAIN, REMOVE_GRAIN, DEBAND, ADVANCED_SPILL_SUPPRESSOR, COLOR_DIFFERENCE_KEY, CDK_NAMES, COLOR_RANGE, CRANGE_NAMES, DIFFERENCE_MATTE, INNER_OUTER_KEY, KEY_CLEANER, LINEAR_COLOR_KEY, SCREEN_KEY, SPILL_SUPPRESSOR, REDUCE_INTERLACE_FLICKER, UNMULT, THREE_D_GLASSES, GLASS_MELT, TILE_WIPE, TEETH_WIPE, GLOW_WIPE, STRIPE_SWEEP, PUSH_IRIS, STRETCH_WIPE, TWISTER, WARP_BLEND, CHANNEL_WIPE, HALATION, CC_SPOTLIGHT, CC_BALL_ACTION, PARTICLE_SPACE, PARTICLE_SPACE_SETTINGS, PARTICLE_SPACE_WORDS, PARTICLE_SPACE_COLORS, BUBBLES, BUBBLES_SETTINGS, BUBBLES_WORDS, DRIZZLE, DRIZZLE_SETTINGS, DRIZZLE_WORDS, PARTICLE_PLANE, PARTICLE_PLANE_SETTINGS, PARTICLE_PLANE_WORDS, PARTICLE_PLANE_COLORS, PARTICLE_PLAYGROUND, PARTICLE_PLAYGROUND_SETTINGS, PARTICLE_PLAYGROUND_WORDS, PARTICLE_PLAYGROUND_LAYERS, PARTICLE_PLAYGROUND_COLORS, HAIR, HAIR_SETTINGS, HAIR_WORDS, PARTICLE_EMITTER, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_EMITTER_COLORS, PARTICLE_GRID, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS, PARTICLE_GRID_LAYERS, PARTICLE_GRID_COLORS, MERCURY, MERCURY_SETTINGS, MERCURY_WORDS, POLYGON_SHARDS, POLYGON_SHARDS_SETTINGS, POLYGON_SHARDS_WORDS, FOAM, FOAM_SETTINGS, FOAM_WORDS, SCATTERIZE, SCATTERIZE_SETTINGS, SCATTERIZE_WORDS, STAR_BURST, STAR_BURST_SETTINGS, ENERGY_STROKE, CC_CYLINDER, CC_ENVIRONMENT, CC_SPHERE, CARD_WIPE, SIMPLE_WIRE_REMOVAL,
+    Effect, EffectInstance, EffectKey, ADD_GRAIN, ADVANCED_SPILL_SUPPRESSOR, AERIAL_HAZE,
+    ARBITRARY_MAP, AUDIO_SPECTRUM, AUDIO_WAVEFORM, BASIC_TEXT, BEAM, BENDER, BEND_IT, BEVEL_ALPHA,
+    BEVEL_EDGES, BEZIER_WARP, BILATERAL_BLUR, BLACK_WHITE, BLOBBYLIZE, BLOCK_DISSOLVE, BLOCK_LOAD,
+    BLOOM, BRIGHTNESS_CONTRAST, BROADCAST_SAFE, BRUSH_STROKES, BUBBLES, BUBBLES_SETTINGS,
+    BUBBLES_WORDS, BULGE, BURN_FILM, CAMERA_SHAKE, CARD_DANCE, CARD_DANCE_TRANSFORMS, CARD_WIPE,
+    CARTOON, CAUSTICS, CC_BALL_ACTION, CC_CYLINDER, CC_ENVIRONMENT, CC_RAINFALL, CC_SPHERE,
+    CC_SPOTLIGHT, CC_VIGNETTE, CC_WIDE_TIME, CDK_NAMES, CELL_PATTERN, CHANGE_COLOR,
+    CHANGE_TO_COLOR, CHANNEL_BLUR, CHANNEL_MIXER, CHANNEL_THRESHOLD, CHANNEL_WIPE, CHECKERBOARD,
+    CHROMATIC_ABERRATION, CIRCLE, COLORAMA, COLOR_BALANCE, COLOR_BALANCE_HLS, COLOR_DIFFERENCE_KEY,
+    COLOR_GRADE, COLOR_GRADE_SETTINGS, COLOR_KEY, COLOR_LINK, COLOR_LOOKUP, COLOR_NEUTRALIZER,
+    COLOR_OFFSET, COLOR_RANGE, COLOR_STABILIZER, COMPOUND_BLUR, COMPRESSOR, CONTOUR_PAINT,
+    CORNER_PIN, CRANGE_NAMES, CROSS_BLUR, CROSS_GLARE, CRYPTOMATTE, CURL_NOISE, CURVES, DEBAND,
+    DEPTH_KEY, DEPTH_OF_FIELD, DETAIL_UPSCALE, DIFFERENCE_MATTE, DIFFUSION, DIRECTIONAL_BLUR,
+    DISPLACEMENT_MAP, DISTANCE_GRADATION, DISTORTION, DRIZZLE, DRIZZLE_SETTINGS, DRIZZLE_WORDS,
+    DROP_SHADOW, DUST_SCRATCHES, ECHO, ELLIPSE, EMBOSS, ENERGY_STROKE, EXPOSURE, EXPOSURE_FLICKER,
+    EXTRACT, EYEDROPPER_FILL, FAST_BLUR_LEGACY, FAST_BOX_BLUR, FAST_ZOOM_BLUR, FILL, FIND_EDGES,
+    FISHEYE, FLOW_MOTION, FOAM, FOAM_SETTINGS, FOAM_WORDS, FOG_3D, FORCE_MOTION_BLUR,
+    FOUR_COLOR_GRADIENT, FRACTAL, FRACTAL_NOISE, GAMMA_PEDESTAL_GAIN, GAUSSIAN_BLUR,
+    GAUSSIAN_BLUR_LEGACY, GLASS, GLASS_MELT, GLOW, GLOW_WIPE, GLUE_GUN, GRADIENT, GRADIENT_MAP,
+    GRADIENT_WIPE, GRID, GRIDDLER, HAIR, HAIR_SETTINGS, HAIR_WORDS, HALATION, HALFTONE, HEX_TILE,
+    HSV_KEY, HUE_RANGES, HUE_SATURATION, IDENTIFIER, ID_KEY, INNER_OUTER_KEY, INVERT, IRIS_WIPE,
+    KALEIDOSCOPE, KERNEL, KEY_CLEANER, KIRA_KIRA, LEAVE_COLOR, LENS_BLUR, LENS_FLARE, LEVELS,
+    LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, LIGHTNING_BOLT, LIGHT_BURST, LIGHT_RAYS,
+    LIGHT_SWEEP, LIGHT_WRAP, LINEAR_COLOR_KEY, LINEAR_WIPE, LINE_BLUR, LINE_RECOLOR, LINE_SMOOTH,
+    LINE_WIDTH, LIQUIFY, MAGNIFY, MASK_SMEAR, MATCH_GRAIN, MATTE_CHOKER, MEDIAN, MERCURY,
+    MERCURY_SETTINGS, MERCURY_WORDS, MESH_WARP, MIRROR, MOMENT_MAP, MOSAIC, MOTION_TILE,
+    MR_SMOOTHIE, NOISE, NOISE_ALPHA, NOISE_GATE, NOISE_HLS, NOISE_HLS_AUTO, NUMBERS, OFFSET,
+    OPTICS_COMPENSATION, OUTLINE, PAGE_TURN, PAINT_BUCKET, PARAFFIN, PARTICLE_EMITTER,
+    PARTICLE_EMITTER_COLORS, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_GRID,
+    PARTICLE_GRID_COLORS, PARTICLE_GRID_LAYERS, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS,
+    PARTICLE_PLANE, PARTICLE_PLANE_COLORS, PARTICLE_PLANE_SETTINGS, PARTICLE_PLANE_WORDS,
+    PARTICLE_PLAYGROUND, PARTICLE_PLAYGROUND_COLORS, PARTICLE_PLAYGROUND_LAYERS,
+    PARTICLE_PLAYGROUND_SETTINGS, PARTICLE_PLAYGROUND_WORDS, PARTICLE_SPACE, PARTICLE_SPACE_COLORS,
+    PARTICLE_SPACE_SETTINGS, PARTICLE_SPACE_WORDS, PASS_EXTRACT, PHOTO_FILTER, PIXEL_MOTION_BLUR,
+    PLASTIC, POLAR_COORDINATES, POLYGON_SHARDS, POLYGON_SHARDS_SETTINGS, POLYGON_SHARDS_WORDS,
+    POSTERIZE, POSTERIZE_TIME, POWER_PIN, PUSH_IRIS, RADIAL_BLUR, RADIAL_SHADOW, RADIAL_WIPE,
+    RADIO_WAVES, RAIN, REDUCE_INTERLACE_FLICKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE,
+    REMOVE_GRAIN, REPEAT_TILE, RESHAPE, RIM_LIGHT, RIPPLE, RIPPLE_PULSE, ROLLING_SHUTTER_REPAIR,
+    ROUGHEN_EDGES, SCATTER, SCATTERIZE, SCATTERIZE_SETTINGS, SCATTERIZE_WORDS, SCREEN_KEY,
+    SCRIBBLE, SELECTIVE_COLOR, SELECTIVE_COLOR_BLUR, SELECT_COLOR, SHADOW_HIGHLIGHT, SHARPEN,
+    SHATTER, SHIFT_CHANNELS, SIMPLE_CHOKER, SIMPLE_WIRE_REMOVAL, SLANT, SMART_BLUR, SMEAR,
+    SNOWFALL, SOLARIZE, SOLID_COMPOSITE, SPEED_LINES, SPHERIZE, SPILL_SUPPRESSOR, SPIN_ZOOM_BLUR,
+    SPLIT, SPLIT_2, SPREAD_TONES, STAR_BURST, STAR_BURST_SETTINGS, STRETCH_COLOR, STRETCH_CONTRAST,
+    STRETCH_LEVELS, STRETCH_WIPE, STRIPE_SWEEP, STROBE_LIGHT, STROKE, TDIFF_ALPHAS, TEETH_WIPE,
+    TEXTURIZE, TEXT_ANIMATOR, THREADS, THREE_D_GLASSES, THRESHOLD, THRESHOLD_RGB, TILES, TILE_WIPE,
+    TIMECODE, TIMEWARP, TIME_DIFFERENCE, TINT, TONER, TRANSFORM, TRITONE, TURBULENT_DISPLACE,
+    TURBULENT_NOISE, TWIRL, TWISTER, UNMULT, VECTOR_BLUR, VEGAS, VENETIAN_BLINDS, VIBRANCE,
+    VIGNETTE, WARP, WARP_BLEND, WARP_STABILIZER, WAVE_WARP, WAVE_WORLD, WRITE_ON,
 };
 use anime_compositor::export::{
     self, ExportChoices, ExportReport, ExportRequest, ExportStatus, MissingSource, OutputFormat,
 };
-use anime_compositor::mp4_out::Mp4Quality;
 use anime_compositor::exr_io::{self, ExrSamples};
 use anime_compositor::gpu::{Gpu, Paint};
-use anime_compositor::audio;
-use anime_compositor::media;
 use anime_compositor::lut;
+use anime_compositor::media;
 use anime_compositor::model::{
-    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe, Layer, LayerKind, Marker, MatteMode, Project,
-    Prop, Property, Solid, Value,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe,
+    Layer, LayerKind, Marker, MatteMode, Project, Prop, Property, Solid, Value,
 };
+use anime_compositor::mp4_out::Mp4Quality;
 use anime_compositor::package::{self, Answer};
 use anime_compositor::persist::{self, Preserved};
 use anime_compositor::preview::{self, Playback, PreviewQuality};
@@ -313,12 +358,17 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
                     .windows(2)
                     .map(|w| apart(&w[0].points, &w[1].points))
                     .sum();
-                before + apart(&keys[i - 1].points, &anime_compositor::mask::points_at_time(base, keys, u))
+                before
+                    + apart(
+                        &keys[i - 1].points,
+                        &anime_compositor::mask::points_at_time(base, keys, u),
+                    )
             };
             let (from, to) = (number("from", 0), number("to", 0));
             let to = to.clamp(from, from.saturating_add(10_000));
-            let samples: Vec<serde_json::Value> =
-                (from..=to).map(|f| serde_json::json!([travelled(f)])).collect();
+            let samples: Vec<serde_json::Value> = (from..=to)
+                .map(|f| serde_json::json!([travelled(f)]))
+                .collect();
             return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
         }
         // D-22: a scale is a percentage in the panels and a lens is millimetres, so the graph is
@@ -333,7 +383,11 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
                 .camera
                 .clone()
                 .unwrap_or_else(|| Camera::default_for(comp.width, comp.height));
-            let factor = if which == CameraProp::Zoom { 36.0 / comp.width as f64 } else { 1.0 };
+            let factor = if which == CameraProp::Zoom {
+                36.0 / comp.width as f64
+            } else {
+                1.0
+            };
             (camera.get(which).clone(), factor)
         } else {
             let prop = property(&name)?;
@@ -341,17 +395,22 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
             when = Some(layer);
             // B-13d: looked up once rather than per frame, because the lookup that reaches a
             // depth as well as the five hands back something owned.
-            (property_of(layer, prop), if prop == Prop::Scale { 100.0 } else { 1.0 })
+            (
+                property_of(layer, prop),
+                if prop == Prop::Scale { 100.0 } else { 1.0 },
+            )
         };
         let (from, to) = (number("from", 0), number("to", 0));
         // A range wider than the longest composition the envelope allows is a page with a bug,
         // not a person with a problem, so it is cut short rather than refused.
         let to = to.clamp(from, from.saturating_add(10_000));
         let samples: Vec<serde_json::Value> = (from..=to)
-            .map(|f| match held.value_at_time(when.map_or(f as f64, |l| l.key_time(f as f64))) {
-                Value::Scalar(v) => serde_json::json!([v * factor]),
-                Value::Vec2(x, y) => serde_json::json!([x * factor, y * factor]),
-            })
+            .map(
+                |f| match held.value_at_time(when.map_or(f as f64, |l| l.key_time(f as f64))) {
+                    Value::Scalar(v) => serde_json::json!([v * factor]),
+                    Value::Vec2(x, y) => serde_json::json!([x * factor, y * factor]),
+                },
+            )
             .collect();
         Some(serde_json::json!({ "from": from, "to": to, "samples": samples }))
     })();
@@ -452,9 +511,17 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
     // columns, then camera and anything else. D-84g: the grid always has an Action column.
     let action = serde_json::json!({ "name": "Action" });
     let cel = serde_json::json!({ "name": "" });
-    let mut columns: Vec<(&serde_json::Value, bool)> =
-        vec![(text.iter().find(|c| c["kind"] == "action").unwrap_or(&action), true)];
-    columns.extend(text.iter().filter(|c| c["kind"] == "dialogue").map(|c| (c, true)));
+    let mut columns: Vec<(&serde_json::Value, bool)> = vec![(
+        text.iter()
+            .find(|c| c["kind"] == "action")
+            .unwrap_or(&action),
+        true,
+    )];
+    columns.extend(
+        text.iter()
+            .filter(|c| c["kind"] == "dialogue")
+            .map(|c| (c, true)),
+    );
     columns.extend(drawings.iter().map(|c| (c, false)));
     columns.extend((drawings.len()..6).map(|_| (&cel, false)));
     columns.extend(
@@ -463,9 +530,10 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
             .map(|c| (c, true)),
     );
     let rate = &grid["frame_rate"];
-    let fps = (rate["numerator"].as_f64().unwrap_or(24.0) / rate["denominator"].as_f64().unwrap_or(1.0))
-        .round()
-        .max(1.0) as usize;
+    let fps = (rate["numerator"].as_f64().unwrap_or(24.0)
+        / rate["denominator"].as_f64().unwrap_or(1.0))
+    .round()
+    .max(1.0) as usize;
     let duration = grid["duration"].as_u64().unwrap_or(0) as usize;
     let half = 3 * fps;
     let halves = seconds / 3;
@@ -494,7 +562,10 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
             ));
             for (c, words) in &columns {
                 let class = if *words { " class=\"words\"" } else { "" };
-                html.push_str(&format!("<th{class}>{}</th>", escape(c["name"].as_str().unwrap_or(""))));
+                html.push_str(&format!(
+                    "<th{class}>{}</th>",
+                    escape(c["name"].as_str().unwrap_or(""))
+                ));
             }
             html.push_str("</tr>\n");
             for i in first..first + half {
@@ -510,7 +581,11 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
                 if i >= duration {
                     class.push("past");
                 }
-                let second = if (i + 1) % fps == 0 { ((i + 1) / fps).to_string() } else { String::new() };
+                let second = if (i + 1) % fps == 0 {
+                    ((i + 1) / fps).to_string()
+                } else {
+                    String::new()
+                };
                 html.push_str(&format!(
                     "<tr data-row=\"{}\" class=\"{}\"><td class=\"sec\">{second}</td><td class=\"frame\">{}</td>",
                     i + 1,
@@ -518,19 +593,31 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
                     i + 1
                 ));
                 for (c, words) in &columns {
-                    let cell = if i < duration { c["cells"].get(i) } else { None };
+                    let cell = if i < duration {
+                        c["cells"].get(i)
+                    } else {
+                        None
+                    };
                     html.push_str(&match (cell.map(|v| v.as_str()), words) {
                         (None, _) | (Some(Some("")), _) => "<td></td>".to_string(),
                         (Some(None), _) => "<td class=\"out\"></td>".to_string(),
                         (Some(Some("|")), _) => "<td class=\"hold\"></td>".to_string(),
                         (Some(Some("x")), false) => "<td>\u{d7}</td>".to_string(),
-                        (Some(Some(mark)), true) => format!("<td class=\"words\">{}</td>", escape(mark)),
+                        (Some(Some(mark)), true) => {
+                            format!("<td class=\"words\">{}</td>", escape(mark))
+                        }
                         // D-84g: a key drawing's number is circled wherever it is written.
                         (Some(Some(mark)), false) => {
                             let key = c["keys"].as_array().is_some_and(|keys| {
-                                keys.iter().any(|n| n.as_u64().map(|n| n.to_string()).as_deref() == Some(mark))
+                                keys.iter().any(|n| {
+                                    n.as_u64().map(|n| n.to_string()).as_deref() == Some(mark)
+                                })
                             });
-                            format!("<td{}>{}</td>", if key { " class=\"key\"" } else { "" }, escape(mark))
+                            format!(
+                                "<td{}>{}</td>",
+                                if key { " class=\"key\"" } else { "" },
+                                escape(mark)
+                            )
                         }
                     });
                 }
@@ -549,8 +636,12 @@ fn sheet_paper(grid: &serde_json::Value, seconds: usize, red: bool) -> String {
 /// window prints from its own page; the copy is for the printable page opened on its own.
 fn sheet_paper_style() -> &'static str {
     let page = include_str!("../ui/index.html");
-    let from = page.find("/* sheet paper: begin").expect("the page has the sheet paper style");
-    let to = page.find("/* sheet paper: end */").expect("the sheet paper style ends");
+    let from = page
+        .find("/* sheet paper: begin")
+        .expect("the page has the sheet paper style");
+    let to = page
+        .find("/* sheet paper: end */")
+        .expect("the sheet paper style ends");
     &page[from..to]
 }
 
@@ -616,7 +707,8 @@ fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
                 .map(|column| {
                     let mut cells = vec![String::new(); comp.duration_frames as usize];
                     for e in &column.entries {
-                        for f in e.start_frame.max(0)..e.end_frame_exclusive.min(cells.len() as i32) {
+                        for f in e.start_frame.max(0)..e.end_frame_exclusive.min(cells.len() as i32)
+                        {
                             cells[f as usize] = if f == e.start_frame {
                                 e.text.join(" ")
                             } else {
@@ -718,7 +810,8 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             // can still carry a mask point or a free transform between the layer and the screen.
             match words {
                 Some(own) => {
-                    let mut found = boxed(layer.id.as_str(), own, &|x, y| layer.transform.apply(x, y));
+                    let mut found =
+                        boxed(layer.id.as_str(), own, &|x, y| layer.transform.apply(x, y));
                     found["words"] = serde_json::json!(own);
                     found
                 }
@@ -742,8 +835,11 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             else {
                 continue;
             };
-            let below: std::collections::HashSet<&str> =
-                comp.layers_in_order().take(at).map(|l| l.id.as_str()).collect();
+            let below: std::collections::HashSet<&str> = comp
+                .layers_in_order()
+                .take(at)
+                .map(|l| l.id.as_str())
+                .collect();
             let index = found
                 .iter()
                 .rposition(|b| b["layer"].as_str().is_some_and(|id| below.contains(id)))
@@ -857,7 +953,12 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                         }
                     }
                     // D-298: and every keyed number of a mask, for the same reason.
-                    for (i, m) in layer.masks.iter().enumerate().filter(|(_, m)| !m.tracks.is_empty()) {
+                    for (i, m) in layer
+                        .masks
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, m)| !m.tracks.is_empty())
+                    {
                         let now = m.at_time(layer.key_time(frame as f64));
                         for name in m.tracks.keys() {
                             let v = now.channel(name).and_then(|p| p.base().as_scalar());
@@ -1091,7 +1192,9 @@ impl Card {
         }
         match self.gpu.get_or_insert_with(Gpu::new) {
             Ok(gpu) => {
-                gpu.budget = self.ceiling.map_or(gpu.automatic_budget(), |c| c.min(gpu.largest_budget()));
+                gpu.budget = self
+                    .ceiling
+                    .map_or(gpu.automatic_budget(), |c| c.min(gpu.largest_budget()));
                 self.on = true;
                 format!(
                     "The preview is drawn on the graphics card{}: {}. Exports are still drawn on \
@@ -1136,7 +1239,9 @@ impl Card {
     fn about(&self) -> String {
         match &self.gpu {
             None => String::new(),
-            Some(Ok(gpu)) if self.given_up => format!("{}; Auto gave it up after it failed", gpu.about()),
+            Some(Ok(gpu)) if self.given_up => {
+                format!("{}; Auto gave it up after it failed", gpu.about())
+            }
             Some(Ok(gpu)) => match &self.off_screen {
                 None => gpu.about().to_string(),
                 Some(why) => format!("{}; not painting the window: {why}", gpu.about()),
@@ -1306,7 +1411,10 @@ fn serve_seen(
     // B-158: four finite numbers, and only for a frame asked for by number; anything else is the
     // whole frame. Playback is sent whole.
     let seen: Option<[f64; 4]> = seen.filter(|_| matches!(ask, Ask::Frame(_))).and_then(|v| {
-        let n: Vec<f64> = v.split(',').map(|x| x.trim().parse().ok().filter(|f: &f64| f.is_finite())).collect::<Option<_>>()?;
+        let n: Vec<f64> = v
+            .split(',')
+            .map(|x| x.trim().parse().ok().filter(|f: &f64| f.is_finite()))
+            .collect::<Option<_>>()?;
         <[f64; 4]>::try_from(n).ok()
     });
     // P-15: how long this whole answer took inside the window, sent back with it. The page
@@ -1317,7 +1425,8 @@ fn serve_seen(
     let began = std::time::Instant::now();
     // P-19: the switch is read once, so a frame is logged whole or not at all. The stopwatch
     // collects this thread's stages from here, which is everything this frame's own work does.
-    let logging = session.is_some_and(|s| s.lock().expect("the session log lock was poisoned").is_on());
+    let logging =
+        session.is_some_and(|s| s.lock().expect("the session log lock was poisoned").is_on());
     if logging {
         anime_compositor::perf::begin_capture();
     }
@@ -1330,7 +1439,11 @@ fn serve_seen(
             export.total,
             export.started.map_or(0, |t| t.elapsed().as_millis())
         );
-        (export.cancel.is_some(), export.said.clone(), (progress, export.changes))
+        (
+            export.cancel.is_some(),
+            export.said.clone(),
+            (progress, export.changes),
+        )
     };
     // P-01: how long the page waited for the frame already in flight. The guard outlives this
     // statement, so the duration is recorded rather than wrapped around a closure.
@@ -1404,13 +1517,19 @@ fn serve_seen(
             reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
                 .header("x-export-progress", progress.0)
                 // D-251: the queue's changes and the document's, so an edit marks rows stale.
-                .header("x-queue", format!("{} {}", progress.1, viewer.document.revision())),
+                .header(
+                    "x-queue",
+                    format!("{} {}", progress.1, viewer.document.revision()),
+                ),
         }
     };
 
     // B-154: playback's place, for the render-ahead; a frame asked for by number stops it.
-    taken.ram.lock().expect("the frame memory lock was poisoned").playing =
-        matches!(ask, Ask::At(_) | Ask::Play(_)).then_some(taken.frame);
+    taken
+        .ram
+        .lock()
+        .expect("the frame memory lock was poisoned")
+        .playing = matches!(ask, Ask::At(_) | Ask::Play(_)).then_some(taken.frame);
     let mut sight = Sight {
         project: taken.project,
         composition: taken.composition,
@@ -1422,17 +1541,26 @@ fn serve_seen(
     let kept = if taken.dragging {
         None
     } else {
-        taken.ram.lock().expect("the frame memory lock was poisoned").frames.get(&sight, taken.frame)
+        taken
+            .ram
+            .lock()
+            .expect("the frame memory lock was poisoned")
+            .frames
+            .get(&sight, taken.frame)
     };
 
     let mut log = FrameLog::new(3);
-    let mut cache = kept.is_none().then(|| taken.cache.lock().expect("the cel cache lock was poisoned"));
+    let mut cache = kept
+        .is_none()
+        .then(|| taken.cache.lock().expect("the cel cache lock was poisoned"));
     if let Some(cels) = cache.as_deref_mut() {
         fit_cels(cels, &taken.ram);
     }
     // P-19: the counters are the cache's own running totals. The lock is held from here until
     // they are read again, so the difference is this frame's and no read-ahead's.
-    let counted = cache.as_deref().map_or((0, 0, 0), |c| (c.hits(), c.misses(), c.effect_hits()));
+    let counted = cache
+        .as_deref()
+        .map_or((0, 0, 0), |c| (c.hits(), c.misses(), c.effect_hits()));
     // B-44: on the card when the switch is on. The CPU path below is unchanged, so with the
     // switch off every frame is exactly what it was.
     enum Made {
@@ -1444,7 +1572,12 @@ fn serve_seen(
         // B-154: from memory, and whether the card has painted it into the window.
         Kept(Finished, bool),
         // B-158: only the part on screen, with the whole frame's width and height.
-        Part(anime_compositor::WorkingBuffer, usize, usize, anime_compositor::render::Tile),
+        Part(
+            anime_compositor::WorkingBuffer,
+            usize,
+            usize,
+            anime_compositor::render::Tile,
+        ),
     }
     let mut card = card.map(|c| c.lock().expect("the card lock was poisoned"));
     if kept.is_none() {
@@ -1455,9 +1588,14 @@ fn serve_seen(
     let (made, files) = match (kept, cache.as_deref_mut()) {
         (Some(kept), _) => (
             Ok(match card.as_deref_mut() {
-                Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen, .. })
-                    if gpu.on_screen() && !paints.is_empty() =>
-                {
+                Some(Card {
+                    on: true,
+                    gpu: Some(Ok(gpu)),
+                    paints,
+                    size,
+                    off_screen,
+                    ..
+                }) if gpu.on_screen() && !paints.is_empty() => {
                     gpu.hold(&kept.pixels, kept.width, kept.height);
                     match gpu.show(*size, paints, taken.alpha_only) {
                         Ok(()) => Made::Kept(kept, true),
@@ -1472,9 +1610,14 @@ fn serve_seen(
             Vec::new(),
         ),
         (None, Some(cache)) => anime_compositor::cache::files_read(|| match card.as_deref_mut() {
-            Some(Card { on: true, gpu: Some(Ok(gpu)), paints, size, off_screen, .. })
-                if gpu.on_screen() && !paints.is_empty() =>
-            {
+            Some(Card {
+                on: true,
+                gpu: Some(Ok(gpu)),
+                paints,
+                size,
+                off_screen,
+                ..
+            }) if gpu.on_screen() && !paints.is_empty() => {
                 preview::preview_frame_held(
                     &sight.project,
                     &sight.composition,
@@ -1489,7 +1632,11 @@ fn serve_seen(
                 .and_then(|(width, height)| {
                     // P-25: in a drag the picture is only painted; it is read back once the
                     // hand lets go, for the frame that is kept.
-                    let pixels = if taken.dragging { Vec::new() } else { gpu.picture().unwrap_or_default() };
+                    let pixels = if taken.dragging {
+                        Vec::new()
+                    } else {
+                        gpu.picture().unwrap_or_default()
+                    };
                     match gpu.show(*size, paints, taken.alpha_only) {
                         Ok(()) => Ok(Made::Shown(pixels, width, height)),
                         // No silent fallback: the card stops painting the window, the status line
@@ -1502,7 +1649,11 @@ fn serve_seen(
                     }
                 })
             }
-            Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => preview::preview_frame_srgb8(
+            Some(Card {
+                on: true,
+                gpu: Some(Ok(gpu)),
+                ..
+            }) => preview::preview_frame_srgb8(
                 &sight.project,
                 &sight.composition,
                 taken.frame,
@@ -1545,16 +1696,25 @@ fn serve_seen(
     };
     // A frame the card failed on is not kept: made again, the card may well draw it.
     let card_failed = card.as_deref().map_or(0, Card::failures) != failures;
-    if let Some(said) = card.as_deref_mut().and_then(|c| c.give_up_if_failed(failures)) {
+    if let Some(said) = card
+        .as_deref_mut()
+        .and_then(|c| c.give_up_if_failed(failures))
+    {
         announce(viewer, said);
     }
     let card_about = card.as_deref().map_or(String::new(), Card::about);
     drop(card);
     let counted = cache.as_deref().map_or((0, 0, 0), |cache| {
-        (cache.hits() - counted.0, cache.misses() - counted.1, cache.effect_hits() - counted.2)
+        (
+            cache.hits() - counted.0,
+            cache.misses() - counted.1,
+            cache.effect_hits() - counted.2,
+        )
     });
     // B-161: what happened to a disk copy on the way, this frame's or a read-ahead's.
-    let disk_notes = cache.as_deref_mut().map_or_else(Vec::new, |c| c.take_disk_notes());
+    let disk_notes = cache
+        .as_deref_mut()
+        .map_or_else(Vec::new, |c| c.take_disk_notes());
     drop(cache);
     let made = match made {
         Ok(made) => made,
@@ -1565,7 +1725,7 @@ fn serve_seen(
             return allow_the_page_to_read_this(Response::builder().status(500))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(diagnostic.sentence().into_bytes())
-                .expect("build the diagnostic response")
+                .expect("build the diagnostic response");
         }
     };
 
@@ -1582,18 +1742,29 @@ fn serve_seen(
                 drawn_part = Some(part);
                 (buffer.to_srgb8_straight(), width, height)
             }
-            Made::Gpu(pixels, width, height) | Made::Shown(pixels, width, height) => (pixels, width, height),
+            Made::Gpu(pixels, width, height) | Made::Shown(pixels, width, height) => {
+                (pixels, width, height)
+            }
             Made::Kept(..) => unreachable!("taken above"),
         };
         finished(pixels, width, height, taken.frame, log)
     };
     {
-        let mut ram = taken.ram.lock().expect("the frame memory lock was poisoned");
+        let mut ram = taken
+            .ram
+            .lock()
+            .expect("the frame memory lock was poisoned");
         if on_screen && !finished.pixels.is_empty() {
             ram.shown = Some(finished.clone());
         }
-        if fresh && !taken.dragging && !card_failed && drawn_part.is_none() && finished.pixels.len() == finished.width * finished.height * 4 {
-            ram.frames.store(sight.clone(), taken.frame, files, finished.clone());
+        if fresh
+            && !taken.dragging
+            && !card_failed
+            && drawn_part.is_none()
+            && finished.pixels.len() == finished.width * finished.height * 4
+        {
+            ram.frames
+                .store(sight.clone(), taken.frame, files, finished.clone());
         }
     }
 
@@ -1607,11 +1778,21 @@ fn serve_seen(
     let (width, height) = (finished.width, finished.height);
     // B-158: the part on screen, cut from a frame made whole or remembered when not made alone.
     // The card painting the window (B-45) paints all of it.
-    let part = if on_screen { None } else { drawn_part.or_else(|| seen.and_then(|s| preview::part_in(s, width, height))) };
+    let part = if on_screen {
+        None
+    } else {
+        drawn_part.or_else(|| seen.and_then(|s| preview::part_in(s, width, height)))
+    };
     let mut pixels = if on_screen {
         Vec::new()
     } else if let Some(p) = part.filter(|_| drawn_part.is_none()) {
-        (p.y..p.y + p.height).flat_map(|y| finished.pixels[(y * width + p.x) * 4..(y * width + p.x + p.width) * 4].iter().copied()).collect()
+        (p.y..p.y + p.height)
+            .flat_map(|y| {
+                finished.pixels[(y * width + p.x) * 4..(y * width + p.x + p.width) * 4]
+                    .iter()
+                    .copied()
+            })
+            .collect()
     } else {
         Arc::try_unwrap(finished.pixels).unwrap_or_else(|kept| kept.to_vec())
     };
@@ -1627,24 +1808,35 @@ fn serve_seen(
     }
     let ms = began.elapsed().as_secs_f64() * 1000.0;
     if let Some(session) = session.filter(|_| logging) {
-        session.lock().expect("the session log lock was poisoned").push(session_log::Row {
-            since_on_ms: 0,
-            frame: taken.frame,
-            quality: taken.quality,
-            playing: matches!(ask, Ask::At(_) | Ask::Play(_)),
-            ms,
-            stages: anime_compositor::perf::end_capture().unwrap_or_default(),
-            dropped: taken.skipped,
-            read_ahead,
-            exporting,
-            cel_hits: counted.0,
-            cel_misses: counted.1,
-            effect_hits: counted.2,
-            warnings: finished.warnings.iter().cloned().chain(disk_notes).collect(),
-        });
+        session
+            .lock()
+            .expect("the session log lock was poisoned")
+            .push(session_log::Row {
+                since_on_ms: 0,
+                frame: taken.frame,
+                quality: taken.quality,
+                playing: matches!(ask, Ask::At(_) | Ask::Play(_)),
+                ms,
+                stages: anime_compositor::perf::end_capture().unwrap_or_default(),
+                dropped: taken.skipped,
+                read_ahead,
+                exporting,
+                cel_hits: counted.0,
+                cel_misses: counted.1,
+                effect_hits: counted.2,
+                warnings: finished
+                    .warnings
+                    .iter()
+                    .cloned()
+                    .chain(disk_notes)
+                    .collect(),
+            });
     }
     let reply = match part {
-        Some(p) => taken.reply.header("x-part", format!("{},{},{},{}", p.x, p.y, p.width, p.height)),
+        Some(p) => taken.reply.header(
+            "x-part",
+            format!("{},{},{},{}", p.x, p.y, p.width, p.height),
+        ),
         None => taken.reply,
     };
     reply
@@ -1660,7 +1852,14 @@ fn serve_seen(
         .header("x-card", for_a_header(&card_about))
         // Audit W8, W9: on a frame the card drew, the effects the processor ran for it, which
         // the viewer names beside the frame ("partly on the processor").
-        .header("x-partly", for_a_header(if drawn_on == "GPU" { &finished.on_processor } else { "" }))
+        .header(
+            "x-partly",
+            for_a_header(if drawn_on == "GPU" {
+                &finished.on_processor
+            } else {
+                ""
+            }),
+        )
         // B-45: the pixels are already in the window, under the page; the body is empty.
         .header("x-on-screen", if on_screen { "1" } else { "0" })
         // B-154: 1 when the frame was sent from memory rather than made.
@@ -1674,7 +1873,10 @@ fn serve_seen(
                 &finished
                     .warnings
                     .iter()
-                    .filter_map(|w| w.strip_prefix("TEXT_FONT_MISSING: ").map(|said| format!("{said}\t{w}")))
+                    .filter_map(|w| {
+                        w.strip_prefix("TEXT_FONT_MISSING: ")
+                            .map(|said| format!("{said}\t{w}"))
+                    })
                     .collect::<Vec<_>>()
                     .join("\n"),
             ),
@@ -1687,14 +1889,23 @@ fn serve_seen(
 /// budget when the card is drawing, `None` for the CPU.
 fn drawn_by(card: Option<&Card>) -> Option<usize> {
     match card {
-        Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => Some(gpu.budget),
+        Some(Card {
+            on: true,
+            gpu: Some(Ok(gpu)),
+            ..
+        }) => Some(gpu.budget),
         _ => None,
     }
 }
 
 /// No silent fallback: the card stops painting the window, and the status line and the switch's
 /// tooltip say why.
-fn stop_painting(viewer: &Mutex<Viewer>, gpu: &mut Gpu, off_screen: &mut Option<String>, why: String) {
+fn stop_painting(
+    viewer: &Mutex<Viewer>,
+    gpu: &mut Gpu,
+    off_screen: &mut Option<String>,
+    why: String,
+) {
     gpu.let_go();
     announce(
         viewer,
@@ -1711,7 +1922,11 @@ fn finished(pixels: Vec<u8>, width: usize, height: usize, frame: i32, log: Frame
         height,
         fell_back: log.ids_at(frame).contains(&DiagnosticId::GpuPreviewOnCpu),
         on_processor: log.on_processor().join(", "),
-        warnings: log.finish().iter().map(|d| format!("{}: {}", d.id.as_str(), d.sentence())).collect(),
+        warnings: log
+            .finish()
+            .iter()
+            .map(|d| format!("{}: {}", d.id.as_str(), d.sentence()))
+            .collect(),
     }
 }
 
@@ -1725,7 +1940,11 @@ fn render_ahead(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> usize {
         let (mut sight, order, cels, ram) = {
             let v = viewer.lock().expect("the viewer lock was poisoned");
             let ram = Arc::clone(&v.ram);
-            let Some(from) = ram.lock().expect("the frame memory lock was poisoned").playing else {
+            let Some(from) = ram
+                .lock()
+                .expect("the frame memory lock was poisoned")
+                .playing
+            else {
                 return made;
             };
             let order: Vec<i32> = std::iter::successors(Some(from), |&n| Some(v.playback.after(n)))
@@ -1752,7 +1971,11 @@ fn render_ahead(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> usize {
         let failures = card.as_deref().map_or(0, Card::failures);
         let mut log = FrameLog::new(3);
         let (result, files) = anime_compositor::cache::files_read(|| match card.as_deref_mut() {
-            Some(Card { on: true, gpu: Some(Ok(gpu)), .. }) => {
+            Some(Card {
+                on: true,
+                gpu: Some(Ok(gpu)),
+                ..
+            }) => {
                 let result = preview::preview_frame_srgb8(
                     &sight.project,
                     &sight.composition,
@@ -1766,7 +1989,11 @@ fn render_ahead(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> usize {
                 );
                 // The card's picture is also what the window shows: put back what was there.
                 if gpu.on_screen() {
-                    if let Some(shown) = &ram.lock().expect("the frame memory lock was poisoned").shown {
+                    if let Some(shown) = &ram
+                        .lock()
+                        .expect("the frame memory lock was poisoned")
+                        .shown
+                    {
                         gpu.hold(&shown.pixels, shown.width, shown.height);
                     }
                 }
@@ -1785,17 +2012,27 @@ fn render_ahead(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> usize {
             .map(|b| (b.to_srgb8_straight(), b.width(), b.height())),
         });
         let card_failed = card.as_deref().map_or(0, Card::failures) != failures;
-        if let Some(said) = card.as_deref_mut().and_then(|c| c.give_up_if_failed(failures)) {
+        if let Some(said) = card
+            .as_deref_mut()
+            .and_then(|c| c.give_up_if_failed(failures))
+        {
             announce(viewer, said);
         }
         drop(card);
         drop(cels);
-        let Ok((pixels, width, height)) = result else { return made };
+        let Ok((pixels, width, height)) = result else {
+            return made;
+        };
         if card_failed {
             return made;
         }
         let finished = finished(pixels, width, height, frame, log);
-        if !ram.lock().expect("the frame memory lock was poisoned").frames.store(sight, frame, files, finished) {
+        if !ram
+            .lock()
+            .expect("the frame memory lock was poisoned")
+            .frames
+            .store(sight, frame, files, finished)
+        {
             return made;
         }
         made += 1;
@@ -1875,7 +2112,11 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         clipboard: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(viewer_cache())),
-        ram: Arc::new(Mutex::new(Ram { frames: FrameCache::with_budget(frame_share()), playing: None, shown: None })),
+        ram: Arc::new(Mutex::new(Ram {
+            frames: FrameCache::with_budget(frame_share()),
+            playing: None,
+            shown: None,
+        })),
     })
 }
 
@@ -1895,7 +2136,9 @@ fn ram_ceiling() -> usize {
 static DISK: Mutex<Option<anime_compositor::cache::DiskCache>> = Mutex::new(None);
 
 fn disk_setting() -> Option<anime_compositor::cache::DiskCache> {
-    DISK.lock().expect("the disk setting lock was poisoned").clone()
+    DISK.lock()
+        .expect("the disk setting lock was poisoned")
+        .clone()
 }
 
 /// B-154: the most the finished frames may hold of the memory setting, in bytes: half, and never
@@ -1910,7 +2153,11 @@ fn frame_share() -> usize {
 /// setting and the cels give way only as the loop is remembered. A fixed half starved a heavy
 /// shot's first pass: document 08's ten layers dropped 85 frames of 240, not 24.
 fn fit_cels(cels: &mut CelCache, ram: &Mutex<Ram>) {
-    let frames = ram.lock().expect("the frame memory lock was poisoned").frames.held_bytes();
+    let frames = ram
+        .lock()
+        .expect("the frame memory lock was poisoned")
+        .frames
+        .held_bytes();
     cels.resize(ram_ceiling().saturating_sub(frames));
 }
 
@@ -1951,8 +2198,9 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
             .map(PathBuf::from)
             .or_else(|| app.path().app_local_data_dir().ok())
             .map(|dir| dir.join("decoded drawings"));
-        *DISK.lock().expect("the disk setting lock was poisoned") =
-            folder.filter(|_| cap > 0).map(|folder| cache::DiskCache { folder, cap });
+        *DISK.lock().expect("the disk setting lock was poisoned") = folder
+            .filter(|_| cap > 0)
+            .map(|folder| cache::DiskCache { folder, cap });
     }
     let held = {
         let (cache, ram) = {
@@ -1978,7 +2226,9 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
     }
     let on_card = match &mut card.gpu {
         Some(Ok(gpu)) => {
-            gpu.budget = card.ceiling.map_or(gpu.automatic_budget(), |c| c.min(gpu.largest_budget()));
+            gpu.budget = card
+                .ceiling
+                .map_or(gpu.automatic_budget(), |c| c.min(gpu.largest_budget()));
             serde_json::json!({
                 "memory": gpu.memory(),
                 "now": gpu.budget,
@@ -2067,7 +2317,11 @@ fn blank(root: PathBuf) -> Viewer {
         clipboard: Vec::new(),
         relink: None,
         cache: Arc::new(Mutex::new(viewer_cache())),
-        ram: Arc::new(Mutex::new(Ram { frames: FrameCache::with_budget(frame_share()), playing: None, shown: None })),
+        ram: Arc::new(Mutex::new(Ram {
+            frames: FrameCache::with_budget(frame_share()),
+            playing: None,
+            shown: None,
+        })),
     }
 }
 
@@ -2129,7 +2383,11 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
     {
         let viewer = &*viewer.lock().expect("the viewer lock was poisoned");
         let to = path.parent().unwrap_or(Path::new("."));
-        let mut copy = Document::new(persist::rebased(viewer.document.project(), &viewer.root, to));
+        let mut copy = Document::new(persist::rebased(
+            viewer.document.project(),
+            &viewer.root,
+            to,
+        ));
         if let Err(diagnostic) = persist::save(path, &mut copy, &viewer.preserved) {
             return diagnostic.sentence();
         }
@@ -2146,12 +2404,19 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
 /// trailing `_v<number>` goes up by one (`shot_v002.json` to `shot_v003.json`), a name without
 /// one gains `_v002`, and a number already taken on disk is skipped so nothing is overwritten.
 fn incremented(path: &Path) -> PathBuf {
-    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-    let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let ext = path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
     let (base, mut n) = match stem.rfind("_v") {
-        Some(at) if at + 2 < stem.len() && stem[at + 2..].bytes().all(|b| b.is_ascii_digit()) => {
-            (stem[..at].to_string(), stem[at + 2..].parse::<u64>().unwrap_or(1) + 1)
-        }
+        Some(at) if at + 2 < stem.len() && stem[at + 2..].bytes().all(|b| b.is_ascii_digit()) => (
+            stem[..at].to_string(),
+            stem[at + 2..].parse::<u64>().unwrap_or(1) + 1,
+        ),
         _ => (stem.clone(), 2),
     };
     loop {
@@ -2166,7 +2431,11 @@ fn incremented(path: &Path) -> PathBuf {
 /// D-732: Save As to the next version's name, so the window works on the copy and the file it
 /// came from is left as it was. `None` when the project has no file to count up from yet.
 fn increment_and_save(viewer: &Mutex<Viewer>) -> Option<String> {
-    let path = viewer.lock().expect("the viewer lock was poisoned").path.clone()?;
+    let path = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .path
+        .clone()?;
     Some(save_as(viewer, &incremented(&path)))
 }
 
@@ -2228,7 +2497,10 @@ fn autosave_tick(viewer: &mut Viewer, now: Instant) -> Option<String> {
 static UNSAVED: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 fn unsaved_folder() -> Option<PathBuf> {
-    UNSAVED.lock().expect("the unsaved folder lock was poisoned").clone()
+    UNSAVED
+        .lock()
+        .expect("the unsaved folder lock was poisoned")
+        .clone()
 }
 
 /// The file a never-saved project's copies are named after. It is never written itself; its
@@ -2263,10 +2535,18 @@ fn autosave_tick_in(viewer: &mut Viewer, now: Instant, unsaved: Option<&Path>) -
     viewer.dirty_since = Some(now);
     let rebased = unsaved.filter(|_| viewer.path.is_none()).map(|folder| {
         let _ = std::fs::create_dir_all(folder);
-        Document::new(persist::rebased(viewer.document.project(), &viewer.root, folder))
+        Document::new(persist::rebased(
+            viewer.document.project(),
+            &viewer.root,
+            folder,
+        ))
     });
     Some(
-        match persist::autosave(&path, rebased.as_ref().unwrap_or(&viewer.document), &viewer.preserved) {
+        match persist::autosave(
+            &path,
+            rebased.as_ref().unwrap_or(&viewer.document),
+            &viewer.preserved,
+        ) {
             Ok(written) => {
                 viewer.recovery = persist::recovery_candidates(&path)
                     .into_iter()
@@ -2296,7 +2576,11 @@ fn recover(viewer: &Mutex<Viewer>, snapshot: &Path) -> String {
 /// [`recover`] with the folder for a never-saved project's copies handed in.
 fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -> String {
     // Bound first: a lock taken in the `match` itself would be held through the arms below.
-    let path = viewer.lock().expect("the viewer lock was poisoned").path.clone();
+    let path = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .path
+        .clone();
     let project = match path {
         Some(path) => path,
         // D-256: a copy of a project that was never saved opens as one, still unsaved. Its
@@ -2311,7 +2595,10 @@ fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -
                 taken.document = Document::recovered(project.clone(), Project::new(project.id));
                 taken.path = None;
                 taken.name = "Untitled project (recovered)".to_string();
-                taken.recovery = persist::recovery_candidates(&unsaved_copy(folder)).into_iter().map(|c| c.path).collect();
+                taken.recovery = persist::recovery_candidates(&unsaved_copy(folder))
+                    .into_iter()
+                    .map(|c| c.path)
+                    .collect();
                 taken.notes.push(format!(
                     "This is the recovery copy {} of a project that was never saved. Save As gives it a file.",
                     snapshot.display()
@@ -2363,7 +2650,10 @@ fn offer_unsaved(viewer: &mut Viewer, folder: &Path) {
     if viewer.path.is_some() {
         return;
     }
-    viewer.recovery = persist::recovery_candidates(&unsaved_copy(folder)).into_iter().map(|c| c.path).collect();
+    viewer.recovery = persist::recovery_candidates(&unsaved_copy(folder))
+        .into_iter()
+        .map(|c| c.path)
+        .collect();
     // Its own sentence: document 28's speaks of a saved project still on disk, and there is none.
     match viewer.recovery.len() {
         0 => {}
@@ -2548,8 +2838,7 @@ fn property(name: &str) -> Option<Prop> {
 /// refusal. The five are cloned for the sake of one answer covering both, which costs a
 /// keyframe list per request at the rate a window asks questions.
 fn property_of(layer: &Layer, prop: Prop) -> anime_compositor::model::Property {
-    let plane_zero =
-        || anime_compositor::model::Property::constant(Value::Scalar(0.0));
+    let plane_zero = || anime_compositor::model::Property::constant(Value::Scalar(0.0));
     match prop {
         Prop::Depth => layer.depth.clone().unwrap_or_else(plane_zero),
         Prop::TimeRemap => layer.time_remap.clone().unwrap_or_else(plane_zero),
@@ -2585,7 +2874,11 @@ fn setting_value(setting: &str, count: usize, text: &str) -> Result<Vec<f64>, St
     if value.len() != count || text.split(',').count() != count {
         return Err(format!(
             "{setting} needs {}. Not \"{text}\".",
-            if count == 3 { "three numbers, like 1, 0.5, 0" } else { "a number" }
+            if count == 3 {
+                "three numbers, like 1, 0.5, 0"
+            } else {
+                "a number"
+            }
         ));
     }
     Ok(value)
@@ -2641,7 +2934,14 @@ fn effect_key_command(
         }
         _ => None,
     };
-    let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
+    let frame = frame_parameter(
+        query,
+        if id == "keyframe.move" {
+            "from"
+        } else {
+            "frame"
+        },
+    )?;
     let at = keys.iter().position(|k| k.frame == frame);
     let missing = || format!("{setting} has no keyframe at frame {frame}.");
     match (id, value) {
@@ -2907,7 +3207,11 @@ fn import_cut(viewer: &Mutex<Viewer>, folder: &Path) -> String {
          because a timesheet does not say its rate. {}Ctrl+Z takes it all back.",
         cut.name,
         cut.columns.len(),
-        if cut.columns.len() == 1 { "layer" } else { "layers" },
+        if cut.columns.len() == 1 {
+            "layer"
+        } else {
+            "layers"
+        },
         cut.duration,
         timesheet::FRAME_RATE,
         match told {
@@ -2978,7 +3282,11 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
         }
     }
     let result = media::import_sequence(files);
-    let told: Vec<String> = result.diagnostics.iter().map(Diagnostic::sentence).collect();
+    let told: Vec<String> = result
+        .diagnostics
+        .iter()
+        .map(Diagnostic::sentence)
+        .collect();
     let Some(sequence) = result.asset else {
         let mut said = match files.len() {
             1 => "The chosen file does not form an image sequence, so nothing was imported."
@@ -3019,7 +3327,8 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
         if !held.document.project().assets.iter().any(|a| a.id == id) {
             return said;
         }
-        held.notes.extend(result.diagnostics.iter().map(Diagnostic::note));
+        held.notes
+            .extend(result.diagnostics.iter().map(Diagnostic::note));
     }
     let (lo, hi) = sequence
         .range()
@@ -3041,7 +3350,9 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
 /// D-71: the sound files the window offers, played by the page's own decoder, so the list is what
 /// WebView2 decodes. D-639: the core reads them all but Opus; a video file (`mp4`, `mov`) brings
 /// in its first sound track only.
-const SOUNDS: [&str; 9] = ["wav", "mp3", "ogg", "opus", "flac", "m4a", "aac", "mp4", "mov"];
+const SOUNDS: [&str; 9] = [
+    "wav", "mp3", "ogg", "opus", "flac", "m4a", "aac", "mp4", "mov",
+];
 const DRAWINGS_AND_SOUND: [&str; 18] = [
     "png", "exr", "bmp", "tga", "tif", "tiff", "webp", "jpg", "jpeg", "wav", "mp3", "ogg", "opus",
     "flac", "m4a", "aac", "mp4", "mov",
@@ -3065,12 +3376,16 @@ fn import_sounds(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
             || file.display().to_string(),
             |n| n.to_string_lossy().into_owned(),
         );
-        let wav = file.extension().is_some_and(|e| e.eq_ignore_ascii_case("wav"));
+        let wav = file
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("wav"));
         video |= file
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("mp4") || e.eq_ignore_ascii_case("mov"));
         let told = match wav.then(|| std::fs::read(file).map(|raw| audio::read_wav(&raw))) {
-            Some(Ok(Ok(audio::Wav::Read { cut_short: true, .. }))) => Some(audio::cut_short(&name)),
+            Some(Ok(Ok(audio::Wav::Read {
+                cut_short: true, ..
+            }))) => Some(audio::cut_short(&name)),
             Some(Ok(Err(unreadable))) => Some(unreadable),
             Some(_) => None,
             None => audio::load(file).err(),
@@ -3137,9 +3452,14 @@ fn sound(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
 /// right, at 48,000 a second. `x-left-out` names the layers left out with MEDIA_AUDIO_PREVIEW_ONLY
 /// (Opus), which the page still plays from the file itself.
 fn mix(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
-    let from = parameter(query, "from").and_then(|v| v.parse::<i32>().ok()).unwrap_or(0);
+    let from = parameter(query, "from")
+        .and_then(|v| v.parse::<i32>().ok())
+        .unwrap_or(0);
     // ponytail: at most 10 seconds at 24 a second a call; the page asks for about one.
-    let frames = parameter(query, "frames").and_then(|v| v.parse::<u32>().ok()).unwrap_or(1).min(240);
+    let frames = parameter(query, "frames")
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(1)
+        .min(240);
     let (project, root, id) = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
         (shown(&held), held.root.clone(), held.composition.clone())
@@ -3156,7 +3476,11 @@ fn mix(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
         .filter(|(_, d)| d.id.as_str() == "MEDIA_AUDIO_PREVIEW_ONLY")
         .map(|(layer, _)| layer)
         .collect();
-    let body: Vec<u8> = sound.iter().flatten().flat_map(|v| (*v as f32).to_le_bytes()).collect();
+    let body: Vec<u8> = sound
+        .iter()
+        .flatten()
+        .flat_map(|v| (*v as f32).to_le_bytes())
+        .collect();
     allow_the_page_to_read_this(Response::builder())
         .header("content-type", "application/octet-stream")
         .header("x-left-out", opus.join(","))
@@ -3202,21 +3526,42 @@ fn files_gone(viewer: &Mutex<Viewer>) -> serde_json::Value {
 /// is averaged in linear light, premultiplied, then made 8-bit sRGB as frames are. Drawn on a
 /// copy, outside the lock, so the viewer is not held and nothing changes. Sound and lookup files
 /// have no picture and are refused.
-fn thumbnail(viewer: &Mutex<Viewer>, item: &Id, frame: i32) -> Result<(usize, usize, Vec<u8>), String> {
+fn thumbnail(
+    viewer: &Mutex<Viewer>,
+    item: &Id,
+    frame: i32,
+) -> Result<(usize, usize, Vec<u8>), String> {
     let (project, root) = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
         (held.document.project().clone(), held.root.clone())
     };
     let full = if project.composition(item).is_some() {
-        anime_compositor::compose::render_frame(&project, item, frame, &root, DEFAULT_TILE_SIZE, &mut FrameLog::new(0))
-            .map_err(|d| d.to_string())?
+        anime_compositor::compose::render_frame(
+            &project,
+            item,
+            frame,
+            &root,
+            DEFAULT_TILE_SIZE,
+            &mut FrameLog::new(0),
+        )
+        .map_err(|d| d.to_string())?
     } else {
-        let asset = project.assets.iter().find(|a| &a.id == item).ok_or_else(|| format!("no item {}", item.as_str()))?;
+        let asset = project
+            .assets
+            .iter()
+            .find(|a| &a.id == item)
+            .ok_or_else(|| format!("no item {}", item.as_str()))?;
         if !matches!(asset.kind, AssetKind::Still | AssetKind::ImageSequence) {
             return Err(format!("{} has no picture", asset.name));
         }
-        let first = asset.files().first().map(|f| root.join(f)).ok_or_else(|| format!("{} has no files", asset.name))?;
-        media::decode(&first).map_err(|d| d.to_string())?.into_working()
+        let first = asset
+            .files()
+            .first()
+            .map(|f| root.join(f))
+            .ok_or_else(|| format!("{} has no files", asset.name))?;
+        media::decode(&first)
+            .map_err(|d| d.to_string())?
+            .into_working()
     };
     Ok(export::small(&full, 160))
 }
@@ -3224,10 +3569,19 @@ fn thumbnail(viewer: &Mutex<Viewer>, item: &Id, frame: i32) -> Result<(usize, us
 /// D-258: one layer of the composition on screen at `frame`, drawn by itself as W-24's solo would
 /// draw it, for the onion skin. Solo is applied to a copy for this one picture: the window's own
 /// solo, the screen and the history are untouched, and nothing is cached or exported.
-fn alone(viewer: &Mutex<Viewer>, layer: &Id, frame: i32, quality: PreviewQuality) -> Result<(usize, usize, Vec<u8>), String> {
+fn alone(
+    viewer: &Mutex<Viewer>,
+    layer: &Id,
+    frame: i32,
+    quality: PreviewQuality,
+) -> Result<(usize, usize, Vec<u8>), String> {
     let (mut project, composition, root) = {
         let held = viewer.lock().expect("the viewer lock was poisoned");
-        (held.document.project().clone(), held.composition.clone(), held.root.clone())
+        (
+            held.document.project().clone(),
+            held.composition.clone(),
+            held.root.clone(),
+        )
     };
     let comp = project
         .compositions
@@ -3236,9 +3590,21 @@ fn alone(viewer: &Mutex<Viewer>, layer: &Id, frame: i32, quality: PreviewQuality
         .filter(|c| c.layer(layer).is_some())
         .ok_or_else(|| format!("no layer {} in the composition on screen", layer.as_str()))?;
     comp.solo(std::slice::from_ref(layer));
-    let picture = preview::preview_frame(&project, &composition, frame, &root, quality, DEFAULT_TILE_SIZE, &mut FrameLog::new(0))
-        .map_err(|d| d.to_string())?;
-    Ok((picture.width(), picture.height(), picture.to_srgb8_straight()))
+    let picture = preview::preview_frame(
+        &project,
+        &composition,
+        frame,
+        &root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut FrameLog::new(0),
+    )
+    .map_err(|d| d.to_string())?;
+    Ok((
+        picture.width(),
+        picture.height(),
+        picture.to_srgb8_straight(),
+    ))
 }
 
 /// The size of the drawings an asset points at now, or `None` when they cannot be read.
@@ -3279,13 +3645,21 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
         // D-182: a lookup file the reading rule refuses is not linked to.
         if lookup {
             if let Err(why) = read_lookup_file(file, is_amp(file)) {
-                return format!("{} was not used: {why}. Nothing was changed.", file.display());
+                return format!(
+                    "{} was not used: {why}. Nothing was changed.",
+                    file.display()
+                );
             }
         } else if !is_sound(file) {
             return "That is not a sound file this window plays. Nothing was changed.".to_string();
         }
         record.path = Some(persist::stored_path(&root, file));
-        return edit(viewer, Command::RelinkAsset { asset: Box::new(record) });
+        return edit(
+            viewer,
+            Command::RelinkAsset {
+                asset: Box::new(record),
+            },
+        );
     }
     let mut held = viewer.lock().expect("the viewer lock was poisoned");
     let candidate =
@@ -3560,7 +3934,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             output_white: 255.0,
         }),
         // D-383: every set at its start, which changes nothing.
-        LEVELS_INDIVIDUAL => Some(Effect::ChannelLevels { individual: true, channel: "rgb".into(), sets: [LEVELS_PLAIN; 5] }),
+        LEVELS_INDIVIDUAL => Some(Effect::ChannelLevels {
+            individual: true,
+            channel: "rgb".into(),
+            sets: [LEVELS_PLAIN; 5],
+        }),
         // D-113: all three 0, which changes nothing.
         HUE_SATURATION => Some(Effect::HueSaturation {
             hue: 0.0,
@@ -3682,7 +4060,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-562: a full lens falloff about the middle, nothing pinned; CC Vignette's starting
         // values are not published, so these are ours.
-        CC_VIGNETTE => Some(Effect::CcVignette { amount: 100.0, angle_of_view: 90.0, center: [50.0, 50.0], pin_highlights: 0.0 }),
+        CC_VIGNETTE => Some(Effect::CcVignette {
+            amount: 100.0,
+            angle_of_view: 90.0,
+            center: [50.0, 50.0],
+            pin_highlights: 0.0,
+        }),
         // D-127: a gentle wobble that moves.
         TURBULENT_DISPLACE => Some(Effect::TurbulentDisplace {
             amount: 10.0,
@@ -3955,7 +4338,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             frame: 0,
         }),
         // D-182: no file chosen, which changes nothing until one is.
-        COLOR_LOOKUP => Some(Effect::ColorLookup { lut: String::new(), table: None }),
+        COLOR_LOOKUP => Some(Effect::ColorLookup {
+            lut: String::new(),
+            table: None,
+        }),
         // D-183: a short pass along every line at full strength, over the whole layer.
         LINE_BLUR => Some(Effect::LineBlur {
             length: 4.0,
@@ -4282,7 +4668,14 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             gradient_map_2: None,
             rotation_order: "xyz".to_string(),
             transformation_order: "scale_rotate_position".to_string(),
-            sources: CARD_DANCE_TRANSFORMS.map(|t| if t == "z_position" { "intensity_1" } else { "none" }.to_string()),
+            sources: CARD_DANCE_TRANSFORMS.map(|t| {
+                if t == "z_position" {
+                    "intensity_1"
+                } else {
+                    "none"
+                }
+                .to_string()
+            }),
             multipliers: [1.0, 1.0, 1.0, 90.0, 90.0, 90.0, 0.5, 0.5],
             offsets: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
             camera_system: "camera_position".to_string(),
@@ -4427,7 +4820,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             operate_on_alpha: "off".to_string(),
         }),
         // D-642: the gate's starting settings, document 21's.
-        NOISE_GATE => Some(Effect::NoiseGate { threshold: -60.0, attack: 10.0, hold: 40.0, release: 220.0 }),
+        NOISE_GATE => Some(Effect::NoiseGate {
+            threshold: -60.0,
+            attack: 10.0,
+            hold: 40.0,
+            release: 220.0,
+        }),
         // D-643: the compressor's starting settings, After Effects 26.0's.
         // D-644: the distortion's starting settings, After Effects 26.0's.
         DISTORTION => Some(Effect::Distortion {
@@ -4474,7 +4872,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             pixel: 1.0,
         }),
         // D-460: Burn Film as it is added, nothing burned yet, from the middle.
-        BURN_FILM => Some(Effect::BurnFilm { burn: 0.0, center: [50.0, 50.0], seed: 0.0 }),
+        BURN_FILM => Some(Effect::BurnFilm {
+            burn: 0.0,
+            center: [50.0, 50.0],
+            seed: 0.0,
+        }),
         // D-461: Hex Tile as it is added: Tile, radius 50, from the middle, unlocked; After
         // Effects' starting values are not published, so these are ours.
         HEX_TILE => Some(Effect::HexTile {
@@ -4708,9 +5110,18 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             invert_mask: "off".to_string(),
         }),
         // D-374: every setting 0, which changes nothing.
-        COLOR_BALANCE_HLS => Some(Effect::ColorBalanceHls { hue: 0.0, lightness: 0.0, saturation: 0.0 }),
+        COLOR_BALANCE_HLS => Some(Effect::ColorBalanceHls {
+            hue: 0.0,
+            lightness: 0.0,
+            saturation: 0.0,
+        }),
         // D-382: no stretch, every gamma and gain 1, every pedestal 0, which changes nothing.
-        GAMMA_PEDESTAL_GAIN => Some(Effect::GammaPedestalGain { black_stretch: 1.0, gamma: [1.0; 3], pedestal: [0.0; 3], gain: [1.0; 3] }),
+        GAMMA_PEDESTAL_GAIN => Some(Effect::GammaPedestalGain {
+            black_stretch: 1.0,
+            gamma: [1.0; 3],
+            pedestal: [0.0; 3],
+            gain: [1.0; 3],
+        }),
         // D-397: every setting at its start and no look, which changes nothing.
         COLOR_GRADE => Some(Effect::ColorGrade {
             values: COLOR_GRADE_SETTINGS.map(|s| s.3),
@@ -4912,7 +5323,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             dimensions: "both".to_string(),
         }),
         // D-472: Blurriness 0, which changes nothing.
-        GAUSSIAN_BLUR_LEGACY => Some(Effect::GaussianBlurLegacy { blurriness: 0.0, dimensions: "both".to_string() }),
+        GAUSSIAN_BLUR_LEGACY => Some(Effect::GaussianBlurLegacy {
+            blurriness: 0.0,
+            dimensions: "both".to_string(),
+        }),
         // D-316: After Effects' start, phase from intensity round a hue cycle, here five hues
         // evenly spaced; no layer added.
         COLORAMA => Some(Effect::Colorama {
@@ -4985,7 +5399,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             rotation: 0.0,
             cut_tiles: "on".to_string(),
         }),
-        FISHEYE => Some(Effect::Fisheye { center: [50.0, 50.0], size: 50.0, convergence: 50.0 }),
+        FISHEYE => Some(Effect::Fisheye {
+            center: [50.0, 50.0],
+            size: 50.0,
+            convergence: 50.0,
+        }),
         // D-388..D-390: this program's own starting values: the bottom right corner turned up to
         // three quarters of the way, each pin where it starts, and no pulse until the level moves.
         PAGE_TURN => Some(Effect::PageTurn {
@@ -5048,9 +5466,18 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             vertical_distortion: 0.0,
         }),
         // D-603: seven by seven at rest, Quality 8, as After Effects adds it.
-        MESH_WARP => Some(Effect::MeshWarp { rows: 7.0, columns: 7.0, quality: 8.0, distortion_mesh: Vec::new(), vertex_handles: Vec::new() }),
+        MESH_WARP => Some(Effect::MeshWarp {
+            rows: 7.0,
+            columns: 7.0,
+            quality: 8.0,
+            distortion_mesh: Vec::new(),
+            vertex_handles: Vec::new(),
+        }),
         // D-602: every point where it starts, Quality 8, as After Effects adds it.
-        BEZIER_WARP => Some(Effect::BezierWarp { points: anime_compositor::effects::BEZIER_START, quality: 8.0 }),
+        BEZIER_WARP => Some(Effect::BezierWarp {
+            points: anime_compositor::effects::BEZIER_START,
+            quality: 8.0,
+        }),
         POWER_PIN => Some(Effect::PowerPin {
             top_left: [0.0, 0.0],
             top_right: [100.0, 0.0],
@@ -5073,10 +5500,28 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             set_color: "off".to_string(),
             color: "#000000".to_string(),
         }),
-        SMEAR => Some(Effect::Smear { from: [40.0, 50.0], to: [60.0, 50.0], reach: 100.0, radius: 70.0 }),
-        SPLIT => Some(Effect::Split { point_a: [25.0, 50.0], point_b: [75.0, 50.0], split: 50.0 }),
-        SPLIT_2 => Some(Effect::Split2 { point_a: [25.0, 50.0], point_b: [75.0, 50.0], split_1: 50.0, split_2: 50.0 }),
-        TILES => Some(Effect::Tiles { scale: 50.0, center: [50.0, 50.0], blend: 0.0 }),
+        SMEAR => Some(Effect::Smear {
+            from: [40.0, 50.0],
+            to: [60.0, 50.0],
+            reach: 100.0,
+            radius: 70.0,
+        }),
+        SPLIT => Some(Effect::Split {
+            point_a: [25.0, 50.0],
+            point_b: [75.0, 50.0],
+            split: 50.0,
+        }),
+        SPLIT_2 => Some(Effect::Split2 {
+            point_a: [25.0, 50.0],
+            point_b: [75.0, 50.0],
+            split_1: 50.0,
+            split_2: 50.0,
+        }),
+        TILES => Some(Effect::Tiles {
+            scale: 50.0,
+            center: [50.0, 50.0],
+            blend: 0.0,
+        }),
         // D-405: Adobe gives no starting values but Blending Mode's Normal; the rest are ours.
         MAGNIFY => Some(Effect::Magnify {
             shape: "circle".to_string(),
@@ -5091,7 +5536,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             resize_layer: "off".to_string(),
         }),
         // D-406: Adobe gives no starting radius; 100 is ours.
-        SPHERIZE => Some(Effect::Spherize { radius: 100.0, center: [50.0, 50.0] }),
+        SPHERIZE => Some(Effect::Spherize {
+            radius: 100.0,
+            center: [50.0, 50.0],
+        }),
         // D-413: the anchor in the middle, squares 64 pixels across in white, laid in place of
         // the layer, as After Effects adds it.
         CHECKERBOARD => Some(Effect::Checkerboard {
@@ -5133,7 +5581,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             composite: "on".to_string(),
         }),
         // D-407: After Effects' own starting settings.
-        DETAIL_UPSCALE => Some(Effect::DetailUpscale { scale: 100.0, reduce_noise: 0.0, detail: 20.0 }),
+        DETAIL_UPSCALE => Some(Effect::DetailUpscale {
+            scale: 100.0,
+            reduce_noise: 0.0,
+            detail: 20.0,
+        }),
         // D-420: After Effects' own starting settings; no Audio Layer, so silence until one is
         // chosen.
         AUDIO_SPECTRUM => Some(Effect::AudioSpectrum {
@@ -5341,7 +5793,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-500: as added (Adobe gives no values we found): Lab, every end of the box 0, which
         // keys nothing until set.
-        COLOR_RANGE => Some(Effect::ColorRange { color_space: "lab".to_string(), fuzziness: 0.0, range: [0.0; 6] }),
+        COLOR_RANGE => Some(Effect::ColorRange {
+            color_space: "lab".to_string(),
+            fuzziness: 0.0,
+            range: [0.0; 6],
+        }),
         // D-501: as added (Adobe gives no values we found): the final picture, no plate until one
         // is chosen (the layer is left as it is), centred, tolerance 15, no softness, no blur.
         DIFFERENCE_MATTE => Some(Effect::DifferenceMatte {
@@ -5368,7 +5824,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             paths: None,
         }),
         // D-503: as added: Adobe's radius 10; no contrast added; the whole of the cleaning.
-        KEY_CLEANER => Some(Effect::KeyCleaner { additional_edge_radius: 10.0, alpha_contrast: 0.0, strength: 100.0 }),
+        KEY_CLEANER => Some(Effect::KeyCleaner {
+            additional_edge_radius: 10.0,
+            alpha_contrast: 0.0,
+            strength: 100.0,
+        }),
         // D-504: as added (Adobe gives no values we found): final, pure blue, RGB as Adobe
         // advises, tolerance and softness 10 (softness under Adobe's best 20).
         LINEAR_COLOR_KEY => Some(Effect::LinearColorKey {
@@ -5396,7 +5856,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-548: as added: a blue screen's spill, as Color Difference Key and Linear Color Key
         // start from blue, held down fully; After Effects' starting values are not published.
-        SPILL_SUPPRESSOR => Some(Effect::SpillSuppressor { color_to_suppress: "#0000ff".to_string(), suppression: 100.0 }),
+        SPILL_SUPPRESSOR => Some(Effect::SpillSuppressor {
+            color_to_suppress: "#0000ff".to_string(),
+            suppression: 100.0,
+        }),
         // D-549: as added, a slight softening, sigma 1 pixel; After Effects' is not published.
         REDUCE_INTERLACE_FLICKER => Some(Effect::ReduceInterlaceFlicker { softness: 1.0 }),
         // D-505: as added (Adobe gives no values we found): black, level 0, no softness, so
@@ -5634,7 +6097,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-677: as added (ours, CycoreFX gives no values we found): a fine field, fully
         // scattered, flying towards the eye at a picture height a second.
-        STAR_BURST => Some(Effect::StarBurst { values: STAR_BURST_SETTINGS.map(|s| s.3), clock: [0.0; 2], view: [0.0; 4], history: None }),
+        STAR_BURST => Some(Effect::StarBurst {
+            values: STAR_BURST_SETTINGS.map(|s| s.3),
+            clock: [0.0; 2],
+            view: [0.0; 4],
+            history: None,
+        }),
         // D-671: as added (ours, CycoreFX gives no values we found): a hundred small bubbles
         // rising slowly and wobbling once a second, turned over, faded towards the middle.
         BUBBLES => Some(Effect::Bubbles {
@@ -5749,9 +6217,17 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         }),
         // D-516: as added (CycoreFX gives none): nothing stretched, from the middle, toward the
         // right.
-        STRETCH_WIPE => Some(Effect::StretchWipe { scale: 100.0, center: [50.0, 50.0], direction: 0.0 }),
+        STRETCH_WIPE => Some(Effect::StretchWipe {
+            scale: 100.0,
+            center: [50.0, 50.0],
+            direction: 0.0,
+        }),
         // D-515: as added (CycoreFX gives none): nothing opened, from the middle.
-        PUSH_IRIS => Some(Effect::PushIris { completion: 0.0, center: [50.0, 50.0], reverse: "off".to_string() }),
+        PUSH_IRIS => Some(Effect::PushIris {
+            completion: 0.0,
+            center: [50.0, 50.0],
+            reverse: "off".to_string(),
+        }),
         STRIPE_SWEEP => Some(Effect::StripeSweep {
             completion: 0.0,
             direction: 0.0,
@@ -5896,9 +6372,17 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             set_color: "off".to_string(),
             color: "#ffffff".to_string(),
         }),
-        ARBITRARY_MAP => Some(Effect::ArbitraryMap { map: String::new(), phase: 0.0, apply_to_alpha: "off".to_string(), table: None }),
+        ARBITRARY_MAP => Some(Effect::ArbitraryMap {
+            map: String::new(),
+            phase: 0.0,
+            apply_to_alpha: "off".to_string(),
+            table: None,
+        }),
         // D-396: Photoshop's own start, every amount 0, which changes nothing.
-        SELECTIVE_COLOR => Some(Effect::SelectiveColor { method: "relative".to_string(), families: std::array::from_fn(|_| vec![0.0; 4]) }),
+        SELECTIVE_COLOR => Some(Effect::SelectiveColor {
+            method: "relative".to_string(),
+            families: std::array::from_fn(|_| vec![0.0; 4]),
+        }),
         // D-400: After Effects' panel as it starts.
         SHADOW_HIGHLIGHT => Some(Effect::ShadowHighlight {
             shadow_amount: 50.0,
@@ -6259,7 +6743,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             snap_neutral_midtones: "off".to_string(),
             stats: None,
         }),
-        SPREAD_TONES => Some(Effect::SpreadTones { equalize: "rgb".to_string(), amount: 100.0 }),
+        SPREAD_TONES => Some(Effect::SpreadTones {
+            equalize: "rgb".to_string(),
+            amount: 100.0,
+        }),
         // D-352: as added, a choke that takes in the edge a little and rounds it.
         MATTE_CHOKER => Some(Effect::MatteChoker {
             geometric_softness_1: 4.0,
@@ -6351,7 +6838,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             .unwrap_or_default();
         match parts[..] {
             [x, y] => Ok([x, y]),
-            _ => Err(format!("{name} needs two numbers, like 50, 50. Not \"{text}\".")),
+            _ => Err(format!(
+                "{name} needs two numbers, like 50, 50. Not \"{text}\"."
+            )),
         }
     };
     // D-130, D-366: a tone as the page sends it, red, green and blue with commas. How many
@@ -6384,14 +6873,26 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
     // D-545: Lens Dirt's settings, as added when the command leaves them out; the layer travels
     // as `dirt_layer`, as written, "" for none.
     let dirt = || -> Result<anime_compositor::effects::LensDirt, String> {
-        let or = |name: &str, start: f64| if parameter(query, name).is_some() { number(name) } else { Ok(start) };
+        let or = |name: &str, start: f64| {
+            if parameter(query, name).is_some() {
+                number(name)
+            } else {
+                Ok(start)
+            }
+        };
         Ok(anime_compositor::effects::LensDirt {
-            layer: serde_json::Value::from(parameter(query, "dirt_layer").unwrap_or_default().trim()),
+            layer: serde_json::Value::from(
+                parameter(query, "dirt_layer").unwrap_or_default().trim(),
+            ),
             opacity: or("dirt_opacity", 100.0)?,
             inherit: or("dirt_inherit", 0.0)?,
             exposure: or("dirt_exposure", 0.0)?,
             gamma: or("dirt_gamma", 1.0)?,
-            repeat: if parameter(query, "dirt_repeat").is_some() { word("dirt_repeat")? } else { "on".to_string() },
+            repeat: if parameter(query, "dirt_repeat").is_some() {
+                word("dirt_repeat")?
+            } else {
+                "on".to_string()
+            },
             map: None,
         })
     };
@@ -9649,11 +10150,19 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 .filter(|piece| !piece.starts_with("prop=") && !piece.starts_with("value="))
                 .collect();
             let half = |prop: &str, value: &str| {
-                let query = format!("{}&prop={prop}&value={}&drag=1", rest.join("&"), value.trim());
+                let query = format!(
+                    "{}&prop={prop}&value={}&drag=1",
+                    rest.join("&"),
+                    value.trim()
+                );
                 edit_command(viewer, id, Some(&query)).unwrap_or_default()
             };
             let said = half("position_x", x);
-            let said = if said == "Dragging." { half("position_y", y) } else { said };
+            let said = if said == "Dragging." {
+                half("position_y", y)
+            } else {
+                said
+            };
             let dragging = id == "property.drag_update" || parameter(query, "drag").is_some();
             return Some(match (dragging, said == "Dragging.") {
                 (false, true) => end_drag(viewer),
@@ -9675,16 +10184,27 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 parameter(query, "effect").map(Id::new),
                 frame_parameter(query, "frame"),
             ) else {
-                return Some("Fit which effect, on which frame? Say layer, effect and frame.".to_string());
+                return Some(
+                    "Fit which effect, on which frame? Say layer, effect and frame.".to_string(),
+                );
             };
             let across = match parameter(query, "to").as_deref() {
                 Some("width") => true,
                 Some("height") => false,
-                _ => return Some("Fit to the width or the height? Say to=width or to=height.".to_string()),
+                _ => {
+                    return Some(
+                        "Fit to the width or the height? Say to=width or to=height.".to_string(),
+                    )
+                }
             };
             let (project, composition, root, cache) = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
-                (held.document.project().clone(), held.composition.clone(), held.root.clone(), Arc::clone(&held.cache))
+                (
+                    held.document.project().clone(),
+                    held.composition.clone(),
+                    held.root.clone(),
+                    Arc::clone(&held.cache),
+                )
             };
             let Some(comp) = project.compositions.iter().find(|c| c.id == composition) else {
                 return Some("There is no composition open.".to_string());
@@ -9726,16 +10246,26 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             );
             let size = plan
                 .ok()
-                .and_then(|p| p.layers.iter().find(|d| d.id == layer_id).map(|d| (d.source.width(), d.source.height())))
+                .and_then(|p| {
+                    p.layers
+                        .iter()
+                        .find(|d| d.id == layer_id)
+                        .map(|d| (d.source.width(), d.source.height()))
+                })
                 .filter(|&(w, h)| w > 0 && h > 0);
             let Some((w, h)) = size else {
-                return Some(format!("{layer_id} is not drawn on frame {frame}, so there is nothing to fit."));
+                return Some(format!(
+                    "{layer_id} is not drawn on frame {frame}, so there is nothing to fit."
+                ));
             };
-            let scale = (if across { cw / w as f64 } else { ch / h as f64 } * 100.0).clamp(100.0, 1000.0);
+            let scale =
+                (if across { cw / w as f64 } else { ch / h as f64 } * 100.0).clamp(100.0, 1000.0);
             return edit_command(
                 viewer,
                 "property.set_base",
-                Some(&format!("layer={layer_id}&prop=fx:{fx}:scale&value={scale}&frame={frame}")),
+                Some(&format!(
+                    "layer={layer_id}&prop=fx:{fx}:scale&value={scale}&frame={frame}"
+                )),
             );
         }
         // B-19g: D-69's Separate Dimensions, which is a toggle like the others: which way it
@@ -9967,7 +10497,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let Some(label) = parameter(query, "label").and_then(|n| n.parse::<u8>().ok()) else {
                 return Some("Which colour? Send a label from 0, none, to 8.".to_string());
             };
-            return Some(edit(viewer, Command::SetItemLabel { item: Id::new(&item), label }));
+            return Some(edit(
+                viewer,
+                Command::SetItemLabel {
+                    item: Id::new(&item),
+                    label,
+                },
+            ));
         }
         // W-01 step 3, which had no command until B-12d. Answered here rather than below
         // because everything below reads the composition on screen first, and this is the one
@@ -10058,8 +10594,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         }
         // D-261: the Sketch workspace's layers and strokes, on the composition on screen. Never
         // drawn into a frame or an export; the page draws them over the picture for the eye.
-        "sketch.set_layer" | "sketch.remove_layer" | "sketch.add_stroke" | "sketch.clear" | "sketch.set_look"
-        | "sketch.move_layer" | "sketch.remove_strokes" | "sketch.move_strokes" => {
+        "sketch.set_layer"
+        | "sketch.remove_layer"
+        | "sketch.add_stroke"
+        | "sketch.clear"
+        | "sketch.set_look"
+        | "sketch.move_layer"
+        | "sketch.remove_strokes"
+        | "sketch.move_strokes" => {
             let composition = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
                 match held.document.project().composition(&held.composition) {
@@ -10085,12 +10627,17 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 parameter(query, "strokes")
                     .unwrap_or_default()
                     .split(',')
-                    .map(|i| i.trim().parse().map_err(|_| "Which strokes? Send strokes=0,3,4.".to_string()))
+                    .map(|i| {
+                        i.trim()
+                            .parse()
+                            .map_err(|_| "Which strokes? Send strokes=0,3,4.".to_string())
+                    })
                     .collect()
             };
             let number = |key: &str| -> Result<f64, String> {
                 let text = parameter(query, key).unwrap_or_default();
-                text.parse().map_err(|_| format!("\"{text}\" is not a number for {key}."))
+                text.parse()
+                    .map_err(|_| format!("\"{text}\" is not a number for {key}."))
             };
             let command = match id {
                 "sketch.set_look" => match number("opacity") {
@@ -10103,15 +10650,30 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     Err(said) => return Some(said),
                 },
                 "sketch.move_layer" => match parameter(query, "to").and_then(|t| t.parse().ok()) {
-                    Some(to) => Command::MoveSketchLayer { composition, sketch, to },
-                    None => return Some("Where to? Send to=<its place>, 0 the bottom.".to_string()),
+                    Some(to) => Command::MoveSketchLayer {
+                        composition,
+                        sketch,
+                        to,
+                    },
+                    None => {
+                        return Some("Where to? Send to=<its place>, 0 the bottom.".to_string())
+                    }
                 },
                 "sketch.remove_strokes" => match strokes() {
-                    Ok(strokes) => Command::RemoveSketchStrokes { composition, sketch, strokes },
+                    Ok(strokes) => Command::RemoveSketchStrokes {
+                        composition,
+                        sketch,
+                        strokes,
+                    },
                     Err(said) => return Some(said),
                 },
                 "sketch.move_strokes" => match (strokes(), number("dx"), number("dy")) {
-                    (Ok(strokes), Ok(dx), Ok(dy)) => Command::MoveSketchStrokes { composition, sketch, strokes, by: [dx, dy] },
+                    (Ok(strokes), Ok(dx), Ok(dy)) => Command::MoveSketchStrokes {
+                        composition,
+                        sketch,
+                        strokes,
+                        by: [dx, dy],
+                    },
                     (Err(said), _, _) | (_, Err(said), _) | (_, _, Err(said)) => return Some(said),
                 },
                 "sketch.set_layer" => Command::SetSketchLayer {
@@ -10149,7 +10711,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         Some(text) => text.split(';').map(|p| p.trim().parse().ok()).collect(),
                     };
                     let Some(pressure) = pressure else {
-                        return Some("The stroke's pressure is written p;p, one per point.".to_string());
+                        return Some(
+                            "The stroke's pressure is written p;p, one per point.".to_string(),
+                        );
                     };
                     Command::AddSketchStroke {
                         composition,
@@ -10164,7 +10728,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             points,
                             pressure,
                             // D-286, D-287.
-                            pressure_opacity: parameter(query, "pressure_opacity").as_deref() == Some("true"),
+                            pressure_opacity: parameter(query, "pressure_opacity").as_deref()
+                                == Some("true"),
                             filled: parameter(query, "filled").as_deref() == Some("true"),
                             ..Default::default()
                         },
@@ -10177,7 +10742,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // D-253: By cut sets a status on any cut, so it may name one; otherwise the one on screen.
             let (comp, on_screen) = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
-                let wanted = parameter(query, "composition").map(|c| Id::new(&c)).unwrap_or(held.composition.clone());
+                let wanted = parameter(query, "composition")
+                    .map(|c| Id::new(&c))
+                    .unwrap_or(held.composition.clone());
                 match held.document.project().composition(&wanted) {
                     Some(comp) => (comp.clone(), wanted == held.composition),
                     None => {
@@ -10231,11 +10798,17 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             };
             // D-311: `none`, or three numbers from 0 to 1, linear; a page that does not send it
             // keeps what the composition has.
-            let background_color = match parameter(query, "background_color").as_deref().map(str::trim) {
+            let background_color = match parameter(query, "background_color")
+                .as_deref()
+                .map(str::trim)
+            {
                 None => comp.background_color,
                 Some("none") => None,
                 Some(text) => {
-                    let n: Vec<f64> = text.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+                    let n: Vec<f64> = text
+                        .split(',')
+                        .filter_map(|v| v.trim().parse().ok())
+                        .collect();
                     match n[..] {
                         [r, g, b] => Some([r, g, b]),
                         _ => {
@@ -10275,7 +10848,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         episode: parameter(query, "episode").unwrap_or(comp.sheet_details.episode),
                         scene: parameter(query, "scene").unwrap_or(comp.sheet_details.scene),
                         cut: parameter(query, "cut").unwrap_or(comp.sheet_details.cut),
-                        animator: parameter(query, "animator").unwrap_or(comp.sheet_details.animator),
+                        animator: parameter(query, "animator")
+                            .unwrap_or(comp.sheet_details.animator),
                         status,
                     },
                 },
@@ -10320,9 +10894,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 for part in text.split(',') {
                     match part.trim().parse::<f64>() {
                         Ok(number) => numbers.push(number),
-                        Err(_) => {
-                            return Some(format!("\"{}\" is not a number.", part.trim()))
-                        }
+                        Err(_) => return Some(format!("\"{}\" is not a number.", part.trim())),
                     }
                 }
             }
@@ -10340,8 +10912,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 }
                 (CameraProp::Depth, _) => {
                     return Some(
-                        "The camera's depth is one number, in pixels: value=-2666.67."
-                            .to_string(),
+                        "The camera's depth is one number, in pixels: value=-2666.67.".to_string(),
                     )
                 }
                 (CameraProp::Zoom, _) => {
@@ -10562,7 +11133,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     // does; one naming no layer here is kept as written.
                     for instance in &mut copied.effects {
                         for (named, _) in instance.effect.layer_settings_mut() {
-                            if let Some(other) = layers.iter().position(|l| named.as_str() == Some(l.id.as_str())) {
+                            if let Some(other) = layers
+                                .iter()
+                                .position(|l| named.as_str() == Some(l.id.as_str()))
+                            {
                                 *named = new_id(other).as_str().into();
                             }
                         }
@@ -10818,15 +11392,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let Some(comp) = held.document.project().composition(&composition) else {
                 return Some("There is no composition on screen to edit.".to_string());
             };
-            let mut rows: std::collections::BTreeMap<(String, String), Vec<f64>> = Default::default();
+            let mut rows: std::collections::BTreeMap<(String, String), Vec<f64>> =
+                Default::default();
             for named in parameters(query, "key") {
                 let mut parts = named.rsplitn(3, '|');
-                let (Some(Ok(at)), Some(prop), Some(layer)) =
-                    (parts.next().map(str::parse::<f64>), parts.next(), parts.next())
-                else {
+                let (Some(Ok(at)), Some(prop), Some(layer)) = (
+                    parts.next().map(str::parse::<f64>),
+                    parts.next(),
+                    parts.next(),
+                ) else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
-                rows.entry((layer.to_string(), prop.to_string())).or_default().push(at);
+                rows.entry((layer.to_string(), prop.to_string()))
+                    .or_default()
+                    .push(at);
             }
             let shown: Vec<f64> = rows.values().flatten().copied().collect();
             let lo = shown.iter().copied().fold(f64::MAX, f64::min);
@@ -10835,10 +11414,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 return Some("Choose two or more keys on different frames to reverse.".to_string());
             }
             // A chosen key's stored frame and the one it goes to, by B-150c's rule.
-            let place = |layer: Option<&Layer>, f: f64| match layer.filter(|l| l.time_stretch != 100.0) {
-                Some(l) => (l.key_time(f).round() as i32, l.key_time(lo + hi - f).round() as i32),
-                None => (f.round() as i32, (lo + hi - f).round() as i32),
-            };
+            let place =
+                |layer: Option<&Layer>, f: f64| match layer.filter(|l| l.time_stretch != 100.0) {
+                    Some(l) => (
+                        l.key_time(f).round() as i32,
+                        l.key_time(lo + hi - f).round() as i32,
+                    ),
+                    None => (f.round() as i32, (lo + hi - f).round() as i32),
+                };
             let (mut removes, mut sets) = (Vec::new(), Vec::new());
             for ((named, prop), frames) in rows {
                 let layer = comp.layer(&Id::new(&named));
@@ -10850,7 +11433,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 moves.dedup();
                 if let (Some(which), Some(layer)) = (path_prop(&prop), layer) {
                     let made = with_path(composition.clone(), layer, which, |_, keys| {
-                        let new = reversed(&keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(), &moves)?;
+                        let new = reversed(
+                            &keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(),
+                            &moves,
+                        )?;
                         for (k, (frame, interp)) in keys.iter_mut().zip(new) {
                             (k.frame, k.interp) = (frame, interp);
                         }
@@ -10864,11 +11450,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     continue;
                 }
                 if let (Some((instance, setting)), Some(layer)) = (effect_setting(&prop), layer) {
-                    let Some(existing) = layer.effects.iter().find(|e| e.instance_id == instance) else {
+                    let Some(existing) = layer.effects.iter().find(|e| e.instance_id == instance)
+                    else {
                         return Some(format!("{instance} is not an effect on {named}."));
                     };
                     let mut keys = existing.keys(&setting);
-                    let new = match reversed(&keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(), &moves) {
+                    let new = match reversed(
+                        &keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(),
+                        &moves,
+                    ) {
                         Ok(new) => new,
                         Err(said) => return Some(said),
                     };
@@ -10887,21 +11477,33 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 }
                 let (target, chosen, property) = match layer {
                     None => {
-                        let Some(which) = anime_compositor::model::CameraProp::from_str(&prop) else {
+                        let Some(which) = anime_compositor::model::CameraProp::from_str(&prop)
+                        else {
                             return Some(format!("The camera has no {prop}."));
                         };
                         let camera = comp.camera.clone().unwrap_or_else(|| {
                             anime_compositor::model::Camera::default_for(comp.width, comp.height)
                         });
-                        (Target::Camera, prop_of_camera(which), camera.get(which).clone())
+                        (
+                            Target::Camera,
+                            prop_of_camera(which),
+                            camera.get(which).clone(),
+                        )
                     }
                     Some(layer) => match property(&prop) {
-                        Some(chosen) => (Target::Layer(layer.id.clone()), chosen, property_of(layer, chosen)),
+                        Some(chosen) => (
+                            Target::Layer(layer.id.clone()),
+                            chosen,
+                            property_of(layer, chosen),
+                        ),
                         None => return Some(format!("{} has no {prop}.", layer.name)),
                     },
                 };
                 let keys = property.keyframes();
-                let new = match reversed(&keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(), &moves) {
+                let new = match reversed(
+                    &keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(),
+                    &moves,
+                ) {
                     Ok(new) => new,
                     Err(said) => return Some(said),
                 };
@@ -10926,10 +11528,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     });
                 }
             }
-            return Some(match held.document.apply_all(removes.into_iter().chain(sets).collect()) {
-                Ok(record) => record.label.clone(),
-                Err(diagnostic) => diagnostic.sentence(),
-            });
+            return Some(
+                match held
+                    .document
+                    .apply_all(removes.into_iter().chain(sets).collect())
+                {
+                    Ok(record) => record.label.clone(),
+                    Err(diagnostic) => diagnostic.sentence(),
+                },
+            );
         }
         // W-17: every chosen key moved by the same distance, as one entry to undo. Each is named
         // `layer|prop|frame`, split from the right because a frame and a property name cannot
@@ -10957,8 +11564,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // B-19d: the chosen keys that are an effect setting's, by layer, effect and setting,
             // each with the frame it is on and the value sent with it. `key_values` is the
             // values of the others, which `value=` no longer lines up with once these are out.
-            let mut fx: std::collections::BTreeMap<(String, String, String), Vec<((i32, i32), Option<String>)>> =
-                Default::default();
+            let mut fx: std::collections::BTreeMap<
+                (String, String, String),
+                Vec<((i32, i32), Option<String>)>,
+            > = Default::default();
             let mut paths: std::collections::BTreeMap<(String, (bool, usize)), Vec<(i32, i32)>> =
                 Default::default();
             let all_values = parameters(query, "value");
@@ -10974,10 +11583,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // B-24f: a path's keys, by layer and path. A value sent with one is the graph's
                 // travelled distance and not something a path can hold, so it is not read.
                 if let (Some(which), Some(at)) = (path_prop(prop), stored(layer, at)) {
-                    paths.entry((layer.to_string(), which)).or_default().push(at);
+                    paths
+                        .entry((layer.to_string(), which))
+                        .or_default()
+                        .push(at);
                     continue;
                 }
-                if let (Some((instance, setting)), Some(at)) = (effect_setting(prop), stored(layer, at)) {
+                if let (Some((instance, setting)), Some(at)) =
+                    (effect_setting(prop), stored(layer, at))
+                {
                     fx.entry((layer.to_string(), instance.as_str().to_string(), setting))
                         .or_default()
                         .push((at, all_values.get(i).cloned()));
@@ -11012,7 +11626,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .project()
                     .composition(&composition)
                     .and_then(|c| c.layer(&Id::new(&layer)))
-                    .and_then(|l| l.effects.iter().find(|e| e.instance_id.as_str() == instance));
+                    .and_then(|l| {
+                        l.effects
+                            .iter()
+                            .find(|e| e.instance_id.as_str() == instance)
+                    });
                 let Some(existing) = existing else {
                     return Some(format!("{instance} is not an effect on {layer}."));
                 };
@@ -11032,7 +11650,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 }
                 if id == "keyframe.add_remove" {
                     list.retain(|k| !chosen.iter().any(|((at, _), _)| *at == k.frame));
-                } else if chosen.iter().all(|((at, to), text)| at == to && text.is_none()) {
+                } else if chosen
+                    .iter()
+                    .all(|((at, to), text)| at == to && text.is_none())
+                {
                     continue;
                 }
                 list.sort_by_key(|k| k.frame);
@@ -11062,7 +11683,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 };
                 let made = with_path(composition.clone(), layer, which, |base, keys| {
                     let named = |frame: i32| chosen.iter().find(|(at, _)| *at == frame);
-                    if let Some((at, _)) = chosen.iter().find(|(at, _)| keys.iter().all(|k| k.frame != *at)) {
+                    if let Some((at, _)) = chosen
+                        .iter()
+                        .find(|(at, _)| keys.iter().all(|k| k.frame != *at))
+                    {
                         return Err(format!("This path has no key at frame {at}."));
                     }
                     if removing {
@@ -11128,7 +11752,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             };
                             comp.camera
                                 .clone()
-                                .unwrap_or_else(|| anime_compositor::model::Camera::default_for(comp.width, comp.height))
+                                .unwrap_or_else(|| {
+                                    anime_compositor::model::Camera::default_for(
+                                        comp.width,
+                                        comp.height,
+                                    )
+                                })
                                 .get(which)
                                 .clone()
                         }
@@ -11159,13 +11788,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let commands: Vec<Command> = keys
                 .into_iter()
                 .filter(|(_, _, at, to)| at != to)
-                .map(|(target, prop, from_frame, to_frame)| Command::MoveKeyframe {
-                    composition: composition.clone(),
-                    target,
-                    prop,
-                    from_frame,
-                    to_frame,
-                })
+                .map(
+                    |(target, prop, from_frame, to_frame)| Command::MoveKeyframe {
+                        composition: composition.clone(),
+                        target,
+                        prop,
+                        from_frame,
+                        to_frame,
+                    },
+                )
                 .chain(sets)
                 .chain(fx_commands)
                 .collect();
@@ -11424,8 +12055,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let side = |prefix: &str| {
                 let name = parameter(query, &format!("{prefix}prop")).unwrap_or_default();
                 if parameter(query, &format!("{prefix}target")).as_deref() == Some("camera") {
-                    let prop = anime_compositor::model::CameraProp::from_str(&name)
-                        .map(prop_of_camera);
+                    let prop =
+                        anime_compositor::model::CameraProp::from_str(&name).map(prop_of_camera);
                     return prop.map(|p| (expr::Target::Camera, p)).ok_or(name);
                 }
                 let layer = parameter(query, &format!("{prefix}layer")).map(Id::new);
@@ -11500,13 +12131,22 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             let size = project
                 .assets
                 .iter()
-                .find(|a| a.id == layer.asset_id && matches!(a.kind, AssetKind::Still | AssetKind::ImageSequence))
-                .and_then(|a| a.files().first().and_then(|f| media::decode(&held.root.join(f)).ok()))
+                .find(|a| {
+                    a.id == layer.asset_id
+                        && matches!(a.kind, AssetKind::Still | AssetKind::ImageSequence)
+                })
+                .and_then(|a| {
+                    a.files()
+                        .first()
+                        .and_then(|f| media::decode(&held.root.join(f)).ok())
+                })
                 .map(|image| (image.width() as f64, image.height() as f64));
             if let Some((w, h)) = size {
                 layer.transform.anchor = Property::constant(Value::Vec2(w / 2.0, h / 2.0));
-                layer.transform.position =
-                    Property::constant(Value::Vec2(comp.width as f64 / 2.0, comp.height as f64 / 2.0));
+                layer.transform.position = Property::constant(Value::Vec2(
+                    comp.width as f64 / 2.0,
+                    comp.height as f64 / 2.0,
+                ));
             }
             // The end of the order is the front of the picture -- `layers_in_order` is bottom
             // first -- and the front is where somebody who has just added a layer looks for it.
@@ -11717,17 +12357,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // The camera is not a layer, so this arm is beside the layer block rather than inside
             // it. Nothing here looks a layer up, and a lock on a layer does not reach it.
             use anime_compositor::model::{Camera, CameraProp};
-            let name = match parameter(query, "prop") {
-                Some(name) => name,
-                // D-53: a path is position only, so that route names no property.
-                None if id == "keyframe.set_path" => "position".to_string(),
-                None => {
-                    return Some(
+            let name =
+                match parameter(query, "prop") {
+                    Some(name) => name,
+                    // D-53: a path is position only, so that route names no property.
+                    None if id == "keyframe.set_path" => "position".to_string(),
+                    None => return Some(
                         "Which of the camera's properties? Its position, its depth or its zoom."
                             .to_string(),
-                    )
-                }
-            };
+                    ),
+                };
             let Some(which) = CameraProp::from_str(&name) else {
                 return Some(format!(
                     "\"{name}\" is not one of the camera's properties. They are position, \
@@ -13677,7 +14316,11 @@ fn what_the_export_did(report: &ExportReport, into: &Path) -> String {
         ExportStatus::Completed if report.files_expected != report.frames_requested => format!(
             "Exported {} frames as one file, {}.",
             report.frames_requested,
-            report.written.first().unwrap_or(&into.to_path_buf()).display()
+            report
+                .written
+                .first()
+                .unwrap_or(&into.to_path_buf())
+                .display()
         ),
         ExportStatus::Completed => format!(
             "Exported {} frames into {}.",
@@ -13851,10 +14494,15 @@ fn ask_where_to_export(
 
 /// Audit B8: what the export asks before writing over files already in the folder.
 fn replace_question(first: &Path, count: usize) -> String {
-    let name = first.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    let name = first
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
     match count {
         1 => format!("{name} is already in this folder. Replace it?"),
-        n => format!("{name} and {} more files this export writes are already in this folder. Replace them?", n - 1),
+        n => format!(
+            "{name} and {} more files this export writes are already in this folder. Replace them?",
+            n - 1
+        ),
     }
 }
 
@@ -14023,8 +14671,20 @@ fn pause_export(export: &Mutex<Export>) -> String {
 /// far whose drawing was missing, and whether it is paused.
 fn watching(export: &Mutex<Export>) -> serde_json::Value {
     let held = locked(export);
-    let frames: Vec<i32> = held.watch.written.lock().expect("the watch lock was poisoned").iter().map(|w| w.0).collect();
-    let missing = held.watch.missing.lock().expect("the watch lock was poisoned").clone();
+    let frames: Vec<i32> = held
+        .watch
+        .written
+        .lock()
+        .expect("the watch lock was poisoned")
+        .iter()
+        .map(|w| w.0)
+        .collect();
+    let missing = held
+        .watch
+        .missing
+        .lock()
+        .expect("the watch lock was poisoned")
+        .clone();
     serde_json::json!({
         "running": held.cancel.is_some(),
         "paused": held.cancel.is_some() && held.watch.pause.load(Ordering::SeqCst),
@@ -14039,7 +14699,10 @@ fn watching(export: &Mutex<Export>) -> serde_json::Value {
 fn watched_frame(export: &Mutex<Export>, frame: i32) -> Option<(usize, usize, Vec<u8>)> {
     let watch = Arc::clone(&locked(export).watch);
     let written = watch.written.lock().expect("the watch lock was poisoned");
-    written.iter().find(|w| w.0 == frame).map(|w| (w.1, w.2, w.3.clone()))
+    written
+        .iter()
+        .find(|w| w.0 == frame)
+        .map(|w| (w.1, w.2, w.3.clone()))
 }
 
 // -------------------------------------------------------------------------------------------
@@ -14075,7 +14738,11 @@ fn format_name(format: OutputFormat, choices: ExportChoices) -> String {
         OutputFormat::Gif => "GIF".into(),
         OutputFormat::Apng => "Animated PNG".into(),
         OutputFormat::Mp4 => format!("MP4, {:?}", choices.mp4_quality),
-    }) + if choices.wav && !matches!(format, OutputFormat::Gif | OutputFormat::Mp4) { ", with a WAV" } else { "" }
+    }) + if choices.wav && !matches!(format, OutputFormat::Gif | OutputFormat::Mp4) {
+        ", with a WAV"
+    } else {
+        ""
+    }
 }
 
 fn locked(export: &Mutex<Export>) -> std::sync::MutexGuard<'_, Export> {
@@ -14094,7 +14761,9 @@ fn queue_add(
 ) -> String {
     let (project, root, mut request) = export_job(viewer, into, missing, format);
     request.choices = choices;
-    let name = project.composition(&request.composition).map_or_else(String::new, |c| c.name.clone());
+    let name = project
+        .composition(&request.composition)
+        .map_or_else(String::new, |c| c.name.clone());
     let said = format!(
         "Added {name} to the render queue{}, into {}. \u{25b7} Render writes it.",
         written_as(format, choices),
@@ -14107,7 +14776,9 @@ fn queue_add(
         id,
         ticked: true,
         name,
-        added: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis()),
+        added: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis()),
         job: Arc::new((project, root, request)),
         status: "Queued",
         said: String::new(),
@@ -14146,14 +14817,15 @@ fn queue_list(export: &Mutex<Export>, viewer: &Mutex<Viewer>) -> serde_json::Val
 /// Tick, remove, move or refresh one row, `?do=&row=`. Returns what the status line says, or
 /// nothing for a tick.
 fn queue_change(export: &Mutex<Export>, viewer: &Mutex<Viewer>, query: Option<&str>) -> String {
-    let id = parameter(query, "row").and_then(|r| r.parse::<u64>().ok()).unwrap_or(0);
+    let id = parameter(query, "row")
+        .and_then(|r| r.parse::<u64>().ok())
+        .unwrap_or(0);
     let what = parameter(query, "do");
     // Taken before the queue's lock, in the order queue_list takes them.
-    let project = (what.as_deref() == Some("refresh"))
-        .then(|| {
-            let viewer = viewer.lock().expect("the viewer lock was poisoned");
-            (viewer.document.project().clone(), viewer.root.clone())
-        });
+    let project = (what.as_deref() == Some("refresh")).then(|| {
+        let viewer = viewer.lock().expect("the viewer lock was poisoned");
+        (viewer.document.project().clone(), viewer.root.clone())
+    });
     let mut held = locked(export);
     let running = held.cancel.is_some();
     let Some(at) = held.queue.iter().position(|r| r.id == id) else {
@@ -14164,24 +14836,37 @@ fn queue_change(export: &Mutex<Export>, viewer: &Mutex<Viewer>, query: Option<&s
             held.queue[at].ticked = parameter(query, "on").as_deref() != Some("0");
             String::new()
         }
-        Some("remove") if running => "The render queue is rendering. Stop it before removing a row.".into(),
+        Some("remove") if running => {
+            "The render queue is rendering. Stop it before removing a row.".into()
+        }
         Some("remove") => {
             let row = held.queue.remove(at);
             format!("Removed {} from the render queue.", row.name)
         }
         Some("move") => {
             let row = held.queue.remove(at);
-            let to = parameter(query, "to").and_then(|t| t.parse::<usize>().ok()).unwrap_or(at).min(held.queue.len());
+            let to = parameter(query, "to")
+                .and_then(|t| t.parse::<usize>().ok())
+                .unwrap_or(at)
+                .min(held.queue.len());
             held.queue.insert(to, row);
             String::new()
         }
-        Some("refresh") if running => "The render queue is rendering. Stop it before refreshing a row.".into(),
+        Some("refresh") if running => {
+            "The render queue is rendering. Stop it before refreshing a row.".into()
+        }
         Some("refresh") => {
             let (project, root) = project.expect("taken above for a refresh");
             let row = &mut held.queue[at];
             let old = &row.job.2;
-            let Some((first, last)) = project.composition(&old.composition).map(|c| c.work_frames()) else {
-                return format!("{} is no longer in the project, so its row cannot be refreshed.", row.name);
+            let Some((first, last)) = project
+                .composition(&old.composition)
+                .map(|c| c.work_frames())
+            else {
+                return format!(
+                    "{} is no longer in the project, so its row cannot be refreshed.",
+                    row.name
+                );
             };
             let request = ExportRequest {
                 composition: old.composition.clone(),
@@ -14196,9 +14881,14 @@ fn queue_change(export: &Mutex<Export>, viewer: &Mutex<Viewer>, query: Option<&s
                 format: old.format,
                 choices: old.choices,
             };
-            row.name = project.composition(&request.composition).map_or_else(String::new, |c| c.name.clone());
+            row.name = project
+                .composition(&request.composition)
+                .map_or_else(String::new, |c| c.name.clone());
             row.job = Arc::new((project, root, request));
-            format!("{} in the render queue now has the project as it is.", row.name)
+            format!(
+                "{} in the render queue now has the project as it is.",
+                row.name
+            )
         }
         _ => "The render queue can tick, remove, move or refresh a row.".into(),
     };
@@ -14219,7 +14909,11 @@ fn render_queue(export: &Mutex<Export>, cancel: &AtomicBool) -> String {
             row.said.clear();
             row.took = 0;
         }
-        held.queue.iter().filter(|r| r.ticked).map(|r| r.id).collect()
+        held.queue
+            .iter()
+            .filter(|r| r.ticked)
+            .map(|r| r.id)
+            .collect()
     };
     if ids.is_empty() {
         return "Nothing in the render queue is ticked.".into();
@@ -14230,7 +14924,9 @@ fn render_queue(export: &Mutex<Export>, cancel: &AtomicBool) -> String {
         let (job, done, watch) = {
             let mut held = locked(export);
             held.changes += 1;
-            let Some(row) = held.queue.iter_mut().find(|r| r.id == *id) else { continue };
+            let Some(row) = held.queue.iter_mut().find(|r| r.id == *id) else {
+                continue;
+            };
             if stopped.is_some() || cancel.load(Ordering::SeqCst) {
                 row.status = "Not started";
                 stopped.get_or_insert(n);
@@ -14238,7 +14934,13 @@ fn render_queue(export: &Mutex<Export>, cancel: &AtomicBool) -> String {
             }
             row.status = "Rendering";
             let job = Arc::clone(&row.job);
-            let said = format!("Rendering row {} of {}, {}{}.", n + 1, ids.len(), row.name, written_as(job.2.format, job.2.choices).trim_end_matches(','));
+            let said = format!(
+                "Rendering row {} of {}, {}{}.",
+                n + 1,
+                ids.len(),
+                row.name,
+                written_as(job.2.format, job.2.choices).trim_end_matches(',')
+            );
             held.row = Some(*id);
             held.done = Arc::new(AtomicUsize::new(0));
             held.total = (job.2.last_frame - job.2.first_frame + 1).max(0) as usize;
@@ -14284,7 +14986,8 @@ fn start_queue(app: &AppHandle) -> String {
     let said = {
         let mut export = locked(&state);
         if export.cancel.is_some() {
-            return "An export is already running. Cancel it, or wait for it to finish.".to_string();
+            return "An export is already running. Cancel it, or wait for it to finish."
+                .to_string();
         }
         let ticked = export.queue.iter().filter(|r| r.ticked).count();
         if ticked == 0 {
@@ -14302,8 +15005,10 @@ fn start_queue(app: &AppHandle) -> String {
     let started = said.clone();
     std::thread::spawn(move || {
         let state = handle.state::<Mutex<Export>>();
-        let done = contained(&handle, "rendering the queue", || render_queue(&state, &cancel))
-            .unwrap_or_else(|said| said);
+        let done = contained(&handle, "rendering the queue", || {
+            render_queue(&state, &cancel)
+        })
+        .unwrap_or_else(|said| said);
         {
             let mut export = locked(&state);
             export.cancel = None;
@@ -14339,7 +15044,14 @@ fn queue(app: &AppHandle, query: Option<&str>) -> serde_json::Value {
                         let said = {
                             let viewer = handle.state::<Mutex<Viewer>>();
                             let held = viewer.lock().expect("the viewer lock was poisoned");
-                            queue_add(&handle.state::<Mutex<Export>>(), &held, &into, missing, format, choices)
+                            queue_add(
+                                &handle.state::<Mutex<Export>>(),
+                                &held,
+                                &into,
+                                missing,
+                                format,
+                                choices,
+                            )
                         };
                         announce(&handle.state::<Mutex<Viewer>>(), said);
                         refresh(&handle);
@@ -14460,7 +15172,9 @@ fn window_file(app: &AppHandle) -> Option<PathBuf> {
 /// `None`, so a damaged file opens the window as a first launch does rather than somewhere odd.
 fn placement_from_text(text: &str) -> Option<Placement> {
     let words: Vec<&str> = text.split_whitespace().collect();
-    let [x, y, width, height, state] = words[..] else { return None };
+    let [x, y, width, height, state] = words[..] else {
+        return None;
+    };
     let (width, height) = (width.parse().ok()?, height.parse().ok()?);
     if !WINDOW_SIZES.contains(&width) || !WINDOW_SIZES.contains(&height) {
         return None;
@@ -14470,11 +15184,24 @@ fn placement_from_text(text: &str) -> Option<Placement> {
         "normal" => false,
         _ => return None,
     };
-    Some(Placement { x: x.parse().ok()?, y: y.parse().ok()?, width, height, maximized })
+    Some(Placement {
+        x: x.parse().ok()?,
+        y: y.parse().ok()?,
+        width,
+        height,
+        maximized,
+    })
 }
 
 fn placement_text(p: Placement) -> String {
-    format!("{} {} {} {} {}\n", p.x, p.y, p.width, p.height, if p.maximized { "maximized" } else { "normal" })
+    format!(
+        "{} {} {} {} {}\n",
+        p.x,
+        p.y,
+        p.width,
+        p.height,
+        if p.maximized { "maximized" } else { "normal" }
+    )
 }
 
 /// Where the window opens. A remembered place is kept while the middle of its title bar is on a
@@ -14484,12 +15211,22 @@ fn placement_text(p: Placement) -> String {
 fn placement_on_screen(saved: Option<Placement>, areas: &[Area], main: Area) -> Placement {
     if let Some(p) = saved {
         if let Some(&(_, _, w, h)) = areas.iter().find(|a| holds_title_bar(**a, p)) {
-            return Placement { width: p.width.min(w), height: p.height.min(h), ..p };
+            return Placement {
+                width: p.width.min(w),
+                height: p.height.min(h),
+                ..p
+            };
         }
     }
     let (x, y, w, h) = main;
     let (width, height) = (w / 4 * 3, h / 4 * 3);
-    Placement { x: x + ((w - width) / 2) as i32, y: y + ((h - height) / 2) as i32, width, height, maximized: true }
+    Placement {
+        x: x + ((w - width) / 2) as i32,
+        y: y + ((h - height) / 2) as i32,
+        width,
+        height,
+        maximized: true,
+    }
 }
 
 /// Whether the middle of the window's title bar is in the display area.
@@ -14513,16 +15250,27 @@ fn open_window(app: &AppHandle) -> tauri::Result<()> {
         .title("Anime Compositor")
         .inner_size(1000.0, 640.0);
     if let Some(main) = primary.as_ref().map(area).or(areas.first().copied()) {
-        let saved = window_file(app).and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| placement_from_text(&t));
+        let saved = window_file(app)
+            .and_then(|f| std::fs::read_to_string(f).ok())
+            .and_then(|t| placement_from_text(&t));
         let p = placement_on_screen(saved, &areas, main);
         // The builder takes points: the display the window opens on says how many pixels one is.
-        let scale = monitors.iter().find(|m| holds_title_bar(area(m), p)).or(primary.as_ref()).map_or(1.0, |m| m.scale_factor());
+        let scale = monitors
+            .iter()
+            .find(|m| holds_title_bar(area(m), p))
+            .or(primary.as_ref())
+            .map_or(1.0, |m| m.scale_factor());
         window = window
             .position(p.x as f64 / scale, p.y as f64 / scale)
             .inner_size(p.width as f64 / scale, p.height as f64 / scale)
             .maximized(p.maximized);
-        let normal = Some(Placement { maximized: false, ..p });
-        *app.state::<Mutex<[Option<Placement>; 2]>>().lock().expect("the placement lock was poisoned") = [normal, normal];
+        let normal = Some(Placement {
+            maximized: false,
+            ..p
+        });
+        *app.state::<Mutex<[Option<Placement>; 2]>>()
+            .lock()
+            .expect("the placement lock was poisoned") = [normal, normal];
     }
     window.build()?;
     Ok(())
@@ -14548,14 +15296,28 @@ fn follow_window(window: &tauri::Window, event: &WindowEvent) {
             }
             if let (Ok(at), Ok(size)) = (window.outer_position(), window.inner_size()) {
                 *before = *last;
-                *last = Some(Placement { x: at.x, y: at.y, width: size.width, height: size.height, maximized: false });
+                *last = Some(Placement {
+                    x: at.x,
+                    y: at.y,
+                    width: size.width,
+                    height: size.height,
+                    maximized: false,
+                });
             }
         }
         WindowEvent::CloseRequested { .. } => {
             let Some(p) = *last else { return };
-            let Some(file) = window_file(window.app_handle()) else { return };
+            let Some(file) = window_file(window.app_handle()) else {
+                return;
+            };
             // Like the recent list, a convenience: failing to write it is not worth a word.
-            let _ = std::fs::write(file, placement_text(Placement { maximized: window.is_maximized().unwrap_or(false), ..p }));
+            let _ = std::fs::write(
+                file,
+                placement_text(Placement {
+                    maximized: window.is_maximized().unwrap_or(false),
+                    ..p
+                }),
+            );
         }
         _ => {}
     }
@@ -14689,8 +15451,9 @@ fn text_from(
         }
     }
     if let Some(text) = parameter(query, "align") {
-        words.align = anime_compositor::text::Align::parse(text.trim())
-            .ok_or_else(|| format!("\"{text}\" is not an alignment: left, center, right or justify."))?;
+        words.align = anime_compositor::text::Align::parse(text.trim()).ok_or_else(|| {
+            format!("\"{text}\" is not an alignment: left, center, right or justify.")
+        })?;
     }
     number("tracking", &mut words.tracking)?;
     number("leading", &mut words.leading)?;
@@ -14707,13 +15470,19 @@ fn text_from(
             Some("on") => Ok(Some(true)),
             Some("off") => Ok(Some(false)),
             Some(other) => Err(format!("{name} is on or off, not \"{other}\".")),
-            None => Ok(parts.iter().any(|p| parameter(query, &format!("{name}_{p}")).is_some()).then_some(true)),
+            None => Ok(parts
+                .iter()
+                .any(|p| parameter(query, &format!("{name}_{p}")).is_some())
+                .then_some(true)),
         }
     };
     match wanted("stroke", &["color", "width"])? {
         Some(false) => words.stroke = None,
         Some(true) => {
-            let mut s = words.stroke.take().unwrap_or(Stroke { color: [0.0; 3], width: (size * 0.05).round().max(1.0) });
+            let mut s = words.stroke.take().unwrap_or(Stroke {
+                color: [0.0; 3],
+                width: (size * 0.05).round().max(1.0),
+            });
             colour("stroke_color", &mut s.color)?;
             number("stroke_width", &mut s.width)?;
             words.stroke = Some(s);
@@ -14737,7 +15506,10 @@ fn text_from(
         }
         None => {}
     }
-    match wanted("shadow", &["color", "opacity", "angle", "distance", "softness"])? {
+    match wanted(
+        "shadow",
+        &["color", "opacity", "angle", "distance", "softness"],
+    )? {
         Some(false) => words.shadow = None,
         Some(true) => {
             let mut s = words.shadow.take().unwrap_or(Shadow {
@@ -14780,7 +15552,13 @@ fn path_key(
         keys[i].interp = interp_named(query, "interp")?;
     }
     if let Some(sides) = parameter(query, "ease") {
-        let Interp::Ease { x1: ex, y1: ey, x2: fx, y2: fy } = Interp::EASY else {
+        let Interp::Ease {
+            x1: ex,
+            y1: ey,
+            x2: fx,
+            y2: fy,
+        } = Interp::EASY
+        else {
             unreachable!("easy ease is an ease")
         };
         // The curve a segment has now: its own, or the one that is exactly straight.
@@ -14796,11 +15574,21 @@ fn path_key(
         };
         if out && i + 1 < keys.len() && keys[i].interp != Interp::Hold {
             let [_, _, x2, y2] = curve(&keys[i]);
-            keys[i].interp = Interp::Ease { x1: ex, y1: ey, x2, y2 };
+            keys[i].interp = Interp::Ease {
+                x1: ex,
+                y1: ey,
+                x2,
+                y2,
+            };
         }
         if into && i > 0 && keys[i - 1].interp != Interp::Hold {
             let [x1, y1, _, _] = curve(&keys[i - 1]);
-            keys[i - 1].interp = Interp::Ease { x1, y1, x2: fx, y2: fy };
+            keys[i - 1].interp = Interp::Ease {
+                x1,
+                y1,
+                x2: fx,
+                y2: fy,
+            };
         }
     }
     if parameter(query, "to").is_some() {
@@ -14853,9 +15641,17 @@ fn with_path(
     change(base, keys)?;
     let layer_id = layer.id.clone();
     Ok(if shape {
-        Command::SetShapes { composition, layer_id, shapes }
+        Command::SetShapes {
+            composition,
+            layer_id,
+            shapes,
+        }
     } else {
-        Command::SetMasks { composition, layer_id, masks }
+        Command::SetMasks {
+            composition,
+            layer_id,
+            masks,
+        }
     })
 }
 
@@ -14869,7 +15665,14 @@ fn path_key_command(
     layer: &Layer,
     which: (bool, usize),
 ) -> Result<Command, String> {
-    let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
+    let frame = frame_parameter(
+        query,
+        if id == "keyframe.move" {
+            "from"
+        } else {
+            "frame"
+        },
+    )?;
     with_path(composition, layer, which, |base, keys| {
         let at = keys.iter().position(|k| k.frame == frame);
         let missing = || format!("This path has no key at frame {frame}.");
@@ -14902,7 +15705,9 @@ fn path_key_command(
 /// `trim_offset`. The names are the core's `SHAPE_PROPERTIES`.
 fn shape_prop(prop: &str) -> Option<(usize, &'static str)> {
     let (at, name) = prop.strip_prefix("shape:")?.split_once(':')?;
-    let name = anime_compositor::shape::SHAPE_PROPERTIES.into_iter().find(|n| *n == name)?;
+    let name = anime_compositor::shape::SHAPE_PROPERTIES
+        .into_iter()
+        .find(|n| *n == name)?;
     Some((at.parse().ok()?, name))
 }
 
@@ -14959,7 +15764,11 @@ fn shape_key_command(
     };
     edit_channels(id, query, &mut channels, values, this)?;
     shape.set_channels(name, channels);
-    Ok(Command::SetShapes { composition, layer_id: layer.id.clone(), shapes })
+    Ok(Command::SetShapes {
+        composition,
+        layer_id: layer.id.clone(),
+        shapes,
+    })
 }
 
 /// D-298: `mask:<n>:feather`, `opacity` and `expansion` name a mask's numbers wherever a request
@@ -14967,7 +15776,9 @@ fn shape_key_command(
 /// `MASK_PROPERTIES`; the values are the file's, an opacity from 0 to 1.
 fn mask_prop(prop: &str) -> Option<(usize, &'static str)> {
     let (at, name) = prop.strip_prefix("mask:")?.split_once(':')?;
-    let name = anime_compositor::mask::MASK_PROPERTIES.into_iter().find(|n| *n == name)?;
+    let name = anime_compositor::mask::MASK_PROPERTIES
+        .into_iter()
+        .find(|n| *n == name)?;
     Some((at.parse().ok()?, name))
 }
 
@@ -14994,7 +15805,11 @@ fn mask_key_command(
     };
     edit_channels(id, query, &mut channels, values, "This number")?;
     mask.set_channel(name, channels.remove(0));
-    Ok(Command::SetMasks { composition, layer_id: layer.id.clone(), masks })
+    Ok(Command::SetMasks {
+        composition,
+        layer_id: layer.id.clone(),
+        masks,
+    })
 }
 
 /// B-110b: what the five requests do to a keyed number's channels, which are keyed together: a
@@ -15008,7 +15823,14 @@ fn edit_channels(
     values: Vec<Value>,
     this: &str,
 ) -> Result<(), String> {
-    let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
+    let frame = frame_parameter(
+        query,
+        if id == "keyframe.move" {
+            "from"
+        } else {
+            "frame"
+        },
+    )?;
     let key = |frame, value| Keyframe {
         frame,
         value,
@@ -15051,7 +15873,10 @@ fn edit_channels(
             let interp = interp_parameter(query)?;
             for channel in channels.iter_mut() {
                 let was = channel.keyframe_at(frame).cloned().ok_or_else(missing)?;
-                channel.set_keyframe(Keyframe { interp: interp.clone(), ..was });
+                channel.set_keyframe(Keyframe {
+                    interp: interp.clone(),
+                    ..was
+                });
             }
         }
     }
@@ -15117,7 +15942,10 @@ fn path_point_command(
                 .to_string()),
             "path.add_point" if at > last => Err(match open {
                 true => format!("This path ends at point {last}, so nothing starts after {at}."),
-                false => format!("This path has {} points, so it has no point {at}.", base.len()),
+                false => format!(
+                    "This path has {} points, so it has no point {at}.",
+                    base.len()
+                ),
             }),
             "path.add_point" => {
                 anime_compositor::mask::insert_point(base, keys, at, t);
@@ -15163,9 +15991,9 @@ fn shape_settings(
     let number = |key: &str, what: &str| -> Result<Option<f64>, String> {
         parameter(query, key)
             .map(|text| {
-                text.trim().parse::<f64>().map_err(|_| {
-                    format!("\"{}\" is not {what}. It is a number.", text.trim())
-                })
+                text.trim()
+                    .parse::<f64>()
+                    .map_err(|_| format!("\"{}\" is not {what}. It is a number.", text.trim()))
             })
             .transpose()
     };
@@ -15177,9 +16005,15 @@ fn shape_settings(
         }
         Some(text) => {
             let color = color(text)?;
-            let (opacity, gradient) =
-                shape.fill.take().map_or((1.0, None), |f| (f.opacity, f.gradient));
-            shape.fill = Some(Fill { color, opacity, gradient });
+            let (opacity, gradient) = shape
+                .fill
+                .take()
+                .map_or((1.0, None), |f| (f.opacity, f.gradient));
+            shape.fill = Some(Fill {
+                color,
+                opacity,
+                gradient,
+            });
         }
     }
     match parameter(query, "stroke").as_deref() {
@@ -15207,9 +16041,8 @@ fn shape_settings(
             return Err(format!("\"{name}\" has no stroke to set the corners of."));
         };
         if let Some(text) = join {
-            stroke.join = Join::named(&text).ok_or_else(|| {
-                format!("\"{text}\" is not a join. It is miter, round or bevel.")
-            })?;
+            stroke.join = Join::named(&text)
+                .ok_or_else(|| format!("\"{text}\" is not a join. It is miter, round or bevel."))?;
         }
         if let Some(text) = cap {
             stroke.cap = Cap::named(&text)
@@ -15228,11 +16061,20 @@ fn shape_settings(
     let low = |v: &[f64]| v.iter().copied().fold(f64::MAX, f64::min);
     let high = |v: &[f64]| v.iter().copied().fold(f64::MIN, f64::max);
     let middle = (low(&ys) + high(&ys)) / 2.0;
-    let (left, right) = (Value::Vec2(low(&xs), middle), Value::Vec2(high(&xs), middle));
+    let (left, right) = (
+        Value::Vec2(low(&xs), middle),
+        Value::Vec2(high(&xs), middle),
+    );
     let name = shape.name.clone();
     for (paint, found) in [
-        ("fill", shape.fill.as_mut().map(|f| (f.color, &mut f.gradient))),
-        ("stroke", shape.stroke.as_mut().map(|s| (s.color, &mut s.gradient))),
+        (
+            "fill",
+            shape.fill.as_mut().map(|f| (f.color, &mut f.gradient)),
+        ),
+        (
+            "stroke",
+            shape.stroke.as_mut().map(|s| (s.color, &mut s.gradient)),
+        ),
     ] {
         let kind = parameter(query, &format!("{paint}_gradient"));
         let stops = parameter(query, &format!("{paint}_stops"));
@@ -15257,8 +16099,16 @@ fn shape_settings(
                             start: Property::constant(left),
                             end: Property::constant(right),
                             stops: vec![
-                                Stop { offset: 0.0, color, opacity: 1.0 },
-                                Stop { offset: 1.0, color: [0.0; 3], opacity: 1.0 },
+                                Stop {
+                                    offset: 0.0,
+                                    color,
+                                    opacity: 1.0,
+                                },
+                                Stop {
+                                    offset: 1.0,
+                                    color: [0.0; 3],
+                                    opacity: 1.0,
+                                },
                             ],
                         })
                     }
@@ -15267,16 +16117,24 @@ fn shape_settings(
         }
         if let Some(text) = stops {
             let Some(g) = gradient.as_mut() else {
-                return Err(format!("\"{name}\" has no {paint} gradient to set the stops of."));
+                return Err(format!(
+                    "\"{name}\" has no {paint} gradient to set the stops of."
+                ));
             };
             g.stops = text
                 .split(';')
                 .filter(|piece| !piece.trim().is_empty())
                 .map(|piece| {
-                    let n: Vec<f64> =
-                        piece.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+                    let n: Vec<f64> = piece
+                        .split(',')
+                        .filter_map(|n| n.trim().parse().ok())
+                        .collect();
                     match n[..] {
-                        [offset, r, g, b, opacity] => Ok(Stop { offset, color: [r, g, b], opacity }),
+                        [offset, r, g, b, opacity] => Ok(Stop {
+                            offset,
+                            color: [r, g, b],
+                            opacity,
+                        }),
                         _ => Err(format!(
                             "A stop is five numbers, offset,r,g,b,opacity. Not \"{piece}\"."
                         )),
@@ -15290,21 +16148,33 @@ fn shape_settings(
     match parameter(query, "trim").as_deref() {
         None => {}
         Some("on") => {
-            shape.trim.get_or_insert_with(anime_compositor::shape::Trim::whole);
+            shape
+                .trim
+                .get_or_insert_with(anime_compositor::shape::Trim::whole);
         }
         Some("off") => shape.trim = None,
         Some(text) => return Err(format!("\"{text}\" is not on or off.")),
     }
     if let Some(v) = number("fill_opacity", "an opacity")? {
         let Some(fill) = shape.fill.as_mut() else {
-            return Err(format!("\"{}\" has no fill to set the opacity of.", shape.name));
+            return Err(format!(
+                "\"{}\" has no fill to set the opacity of.",
+                shape.name
+            ));
         };
         fill.opacity = v / 100.0;
     }
-    for (key, what) in [("stroke_opacity", "an opacity"), ("stroke_width", "a width")] {
+    for (key, what) in [
+        ("stroke_opacity", "an opacity"),
+        ("stroke_width", "a width"),
+    ] {
         if let Some(v) = number(key, what)? {
             let Some(stroke) = shape.stroke.as_mut() else {
-                return Err(format!("\"{}\" has no stroke to set the {} of.", shape.name, &key[7..]));
+                return Err(format!(
+                    "\"{}\" has no stroke to set the {} of.",
+                    shape.name,
+                    &key[7..]
+                ));
             };
             match key {
                 "stroke_opacity" => stroke.opacity = v / 100.0,
@@ -15409,7 +16279,10 @@ fn reversed(keys: &[(i32, Interp)], moves: &[(i32, i32)]) -> Result<Vec<(i32, In
         );
     }
     let stays = keys.iter().enumerate().filter(|(i, _)| !chosen.contains(i));
-    if let Some((_, (frame, _))) = stays.into_iter().find(|(_, k)| moves.iter().any(|m| m.1 == k.0)) {
+    if let Some((_, (frame, _))) = stays
+        .into_iter()
+        .find(|(_, k)| moves.iter().any(|m| m.1 == k.0))
+    {
         return Err(format!(
             "A key that is not chosen is on frame {frame}, where a reversed key would land. \
              Choose it too, or move it first."
@@ -15440,7 +16313,10 @@ fn stored_frames(layer: Option<&Layer>, shown: &str, by: i32) -> Option<(i32, i3
     match layer.filter(|l| l.time_stretch != 100.0) {
         Some(l) => {
             let at: f64 = shown.parse().ok()?;
-            Some((l.key_time(at).round() as i32, l.key_time(at + by as f64).round() as i32))
+            Some((
+                l.key_time(at).round() as i32,
+                l.key_time(at + by as f64).round() as i32,
+            ))
         }
         None => shown.parse::<i32>().ok().map(|at| (at, at + by)),
     }
@@ -15452,9 +16328,15 @@ fn stored_key_query(id: &str, query: Option<&str>, layer: &Layer) -> Option<Stri
     let names: &[&str] = match id {
         "keyframe.move" => &["from", "to"],
         "mask.set" | "shape.set" => &["key", "to"],
-        "keyframe.add_remove" | "keyframe.set_interp" | "keyframe.set_path"
-        | "property.set_base" | "property.drag_update" | "mask.add_remove_key"
-        | "mask.set_path" | "shape.add_remove_key" | "shape.set_path" => &["frame"],
+        "keyframe.add_remove"
+        | "keyframe.set_interp"
+        | "keyframe.set_path"
+        | "property.set_base"
+        | "property.drag_update"
+        | "mask.add_remove_key"
+        | "mask.set_path"
+        | "shape.add_remove_key"
+        | "shape.set_path" => &["frame"],
         _ => return None,
     };
     if layer.time_stretch == 100.0 {
@@ -15603,9 +16485,17 @@ fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
         .iter()
         .any(|a| a.id == asset && a.kind == AssetKind::Lut);
     let (title, filter, kinds): (&str, &str, &[&str]) = if lookup {
-        ("Relink to this lookup file", "Colour lookup", &["cube", "amp"])
+        (
+            "Relink to this lookup file",
+            "Colour lookup",
+            &["cube", "amp"],
+        )
     } else {
-        ("Relink to these drawings", "Drawings and sound", &DRAWINGS_AND_SOUND)
+        (
+            "Relink to these drawings",
+            "Drawings and sound",
+            &DRAWINGS_AND_SOUND,
+        )
     };
     app.dialog()
         .file()
@@ -15726,7 +16616,11 @@ fn session_log_heading() -> Vec<String> {
         format!(
             "Build: {}, {}",
             env!("CARGO_PKG_VERSION"),
-            if cfg!(debug_assertions) { "debug" } else { "release" }
+            if cfg!(debug_assertions) {
+                "debug"
+            } else {
+                "release"
+            }
         ),
     ]
 }
@@ -15750,7 +16644,10 @@ fn ask_where_to_save_the_log(app: &AppHandle) {
                 .to_markdown(&session_log_heading());
             let said = match std::fs::write(&path, text) {
                 Ok(()) => format!("Saved a copy of the session log to {}.", path.display()),
-                Err(e) => format!("The session log could not be saved to {}: {e}.", path.display()),
+                Err(e) => format!(
+                    "The session log could not be saved to {}: {e}.",
+                    path.display()
+                ),
             };
             announce(&handle.state::<Mutex<Viewer>>(), said);
         });
@@ -15777,7 +16674,10 @@ fn ask_where_to_export_presets(app: &AppHandle, name: &str, presets: &str) -> St
             let said = match std::fs::write(&path, text) {
                 Ok(()) if count == 1 => format!("Exported 1 preset to {}.", path.display()),
                 Ok(()) => format!("Exported {count} presets to {}.", path.display()),
-                Err(e) => format!("The presets could not be exported to {}: {e}.", path.display()),
+                Err(e) => format!(
+                    "The presets could not be exported to {}: {e}.",
+                    path.display()
+                ),
             };
             tell_the_page_about_presets(&handle, None, said);
         });
@@ -15790,12 +16690,23 @@ fn ask_where_to_save_sketch(app: &AppHandle, name: &str, png: Vec<u8>) -> String
     if let Err(said) = sketch_png_ok(&png) {
         return said;
     }
-    let name: String = name.chars().filter(|c| !r#"\/:*?"<>|"#.contains(*c) && !c.is_control()).take(120).collect();
+    let name: String = name
+        .chars()
+        .filter(|c| !r#"\/:*?"<>|"#.contains(*c) && !c.is_control())
+        .take(120)
+        .collect();
     let handle = app.clone();
     app.dialog()
         .file()
         .set_title("Save the sketch as a picture")
-        .set_file_name(format!("{}.png", if name.trim().is_empty() { "sketch" } else { name.trim() }))
+        .set_file_name(format!(
+            "{}.png",
+            if name.trim().is_empty() {
+                "sketch"
+            } else {
+                name.trim()
+            }
+        ))
         .add_filter("PNG picture", &["png"])
         .save_file(move |chosen| {
             let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
@@ -15807,7 +16718,10 @@ fn ask_where_to_save_sketch(app: &AppHandle, name: &str, png: Vec<u8>) -> String
             };
             announce(&handle.state::<Mutex<Viewer>>(), said.clone());
             if let Some(page) = handle.get_webview_window("main") {
-                let _ = page.eval(format!("$('status').textContent = {}", serde_json::Value::String(said)));
+                let _ = page.eval(format!(
+                    "$('status').textContent = {}",
+                    serde_json::Value::String(said)
+                ));
             }
         });
     String::new()
@@ -15817,7 +16731,9 @@ fn ask_where_to_save_sketch(app: &AppHandle, name: &str, png: Vec<u8>) -> String
 fn sketch_png_ok(png: &[u8]) -> Result<(), String> {
     const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
     if !png.starts_with(&SIGNATURE) {
-        return Err("The sketch did not arrive as a PNG picture, so nothing was saved.".to_string());
+        return Err(
+            "The sketch did not arrive as a PNG picture, so nothing was saved.".to_string(),
+        );
     }
     if png.len() > 256 << 20 {
         return Err("The sketch picture is over 256 MB, so nothing was saved.".to_string());
@@ -15837,10 +16753,15 @@ fn ask_which_presets_to_import(app: &AppHandle, have: Vec<String>) {
             let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
                 return;
             };
-            let file = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+            let file = path.file_name().map_or_else(
+                || path.display().to_string(),
+                |n| n.to_string_lossy().into_owned(),
+            );
             let answer = match std::fs::read_to_string(&path) {
                 Ok(text) => imported_presets(&text, &file, &have),
-                Err(e) => Err(format!("{file} could not be read, so nothing was imported: {e}.")),
+                Err(e) => Err(format!(
+                    "{file} could not be read, so nothing was imported: {e}."
+                )),
             };
             match answer {
                 Ok((list, said)) => tell_the_page_about_presets(&handle, Some(list), said),
@@ -15851,7 +16772,8 @@ fn ask_which_presets_to_import(app: &AppHandle, have: Vec<String>) {
 
 /// D-395: whether `file` is a Photoshop arbitrary map, by its name.
 fn is_amp(file: &Path) -> bool {
-    file.extension().is_some_and(|e| e.eq_ignore_ascii_case("amp"))
+    file.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("amp"))
 }
 
 /// A lookup file read by its own rule, a .amp's (D-395) or a .cube's (D-182), or why not.
@@ -15865,8 +16787,16 @@ fn read_lookup_file(file: &Path, amp: bool) -> Result<(), String> {
 
 /// The effect `instance_id` on `layer_id` in the open composition, as it is now.
 fn effect_now_in(viewer: &Viewer, layer_id: &Id, instance_id: &Id) -> Option<Effect> {
-    let layer = viewer.document.project().composition(&viewer.composition)?.layer(layer_id)?;
-    layer.effects.iter().find(|e| &e.instance_id == instance_id).map(|e| e.effect.clone())
+    let layer = viewer
+        .document
+        .project()
+        .composition(&viewer.composition)?
+        .layer(layer_id)?;
+    layer
+        .effects
+        .iter()
+        .find(|e| &e.instance_id == instance_id)
+        .map(|e| e.effect.clone())
 }
 
 /// D-182: the .cube file for the Color Lookup `effect` on `layer`, or the .amp file for an
@@ -15874,11 +16804,20 @@ fn effect_now_in(viewer: &Viewer, layer_id: &Id, instance_id: &Id) -> Option<Eff
 fn ask_which_lut(app: &AppHandle, layer: Id, effect: Id) {
     let handle = app.clone();
     let amp = matches!(
-        effect_now_in(&app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned"), &layer, &effect),
+        effect_now_in(
+            &app.state::<Mutex<Viewer>>()
+                .lock()
+                .expect("the viewer lock was poisoned"),
+            &layer,
+            &effect
+        ),
         Some(Effect::ArbitraryMap { .. })
     );
-    let (title, filter, kinds): (&str, &str, &[&str]) =
-        if amp { ("Choose an arbitrary map file", "Arbitrary map", &["amp"]) } else { ("Choose a colour lookup file", "Colour lookup", &["cube"]) };
+    let (title, filter, kinds): (&str, &str, &[&str]) = if amp {
+        ("Choose an arbitrary map file", "Arbitrary map", &["amp"])
+    } else {
+        ("Choose a colour lookup file", "Colour lookup", &["cube"])
+    };
     app.dialog()
         .file()
         .set_title(title)
@@ -15899,7 +16838,10 @@ fn ask_which_lut(app: &AppHandle, layer: Id, effect: Id) {
 /// comes in as a lookup asset in the same entry to undo as the setting.
 /// D-395: an Arbitrary Map's .amp file the same way, its phase and alpha setting kept.
 fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path) -> String {
-    let name = file.file_name().map_or_else(|| file.display().to_string(), |n| n.to_string_lossy().into_owned());
+    let name = file.file_name().map_or_else(
+        || file.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
     let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
     let now = effect_now_in(held, &layer_id, &instance_id);
     let amp = matches!(now, Some(Effect::ArbitraryMap { .. }));
@@ -15909,10 +16851,16 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
     let stored = persist::stored_path(&held.root, file);
     let project = held.document.project();
     let mut commands = Vec::new();
-    let lut = match project.assets.iter().find(|a| a.kind == AssetKind::Lut && a.path.as_deref() == Some(stored.as_str())) {
+    let lut = match project
+        .assets
+        .iter()
+        .find(|a| a.kind == AssetKind::Lut && a.path.as_deref() == Some(stored.as_str()))
+    {
         Some(a) => a.id.clone(),
         None => {
-            let stem = file.file_stem().map_or_else(|| name.clone(), |s| s.to_string_lossy().into_owned());
+            let stem = file
+                .file_stem()
+                .map_or_else(|| name.clone(), |s| s.to_string_lossy().into_owned());
             let mut asset = Asset::still(unused_asset_id(project), stem, stored);
             asset.kind = AssetKind::Lut;
             let id = asset.id.clone();
@@ -15922,13 +16870,49 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
     };
     // D-397: a Color Grade keeps its other settings and takes the file as its look.
     let (chosen, what) = match now {
-        Some(Effect::ArbitraryMap { phase, apply_to_alpha, .. }) => {
-            (Effect::ArbitraryMap { map: lut.as_str().to_string(), phase, apply_to_alpha, table: None }, "Arbitrary Map")
-        }
-        Some(Effect::ColorGrade { values, curves, hue_saturation, more_curves, secondary_wheels, key_invert, key_view, .. }) => {
-            (Effect::ColorGrade { values, look: lut.as_str().to_string(), curves, hue_saturation, more_curves, secondary_wheels, key_invert, key_view, table: None }, "Color Grade")
-        }
-        _ => (Effect::ColorLookup { lut: lut.as_str().to_string(), table: None }, "Color Lookup"),
+        Some(Effect::ArbitraryMap {
+            phase,
+            apply_to_alpha,
+            ..
+        }) => (
+            Effect::ArbitraryMap {
+                map: lut.as_str().to_string(),
+                phase,
+                apply_to_alpha,
+                table: None,
+            },
+            "Arbitrary Map",
+        ),
+        Some(Effect::ColorGrade {
+            values,
+            curves,
+            hue_saturation,
+            more_curves,
+            secondary_wheels,
+            key_invert,
+            key_view,
+            ..
+        }) => (
+            Effect::ColorGrade {
+                values,
+                look: lut.as_str().to_string(),
+                curves,
+                hue_saturation,
+                more_curves,
+                secondary_wheels,
+                key_invert,
+                key_view,
+                table: None,
+            },
+            "Color Grade",
+        ),
+        _ => (
+            Effect::ColorLookup {
+                lut: lut.as_str().to_string(),
+                table: None,
+            },
+            "Color Lookup",
+        ),
     };
     commands.push(Command::SetEffectParameters {
         composition: held.composition.clone(),
@@ -15948,14 +16932,18 @@ fn tell_the_page_about_presets(app: &AppHandle, list: Option<serde_json::Value>,
     announce(&app.state::<Mutex<Viewer>>(), said.clone());
     if let Some(page) = app.get_webview_window("main") {
         let list = list.unwrap_or(serde_json::Value::Null);
-        let _ = page.eval(format!("receivePresets({list}, {})", serde_json::Value::String(said)));
+        let _ = page.eval(format!(
+            "receivePresets({list}, {})",
+            serde_json::Value::String(said)
+        ));
     }
 }
 
 /// D-181: the starter presets as the page keeps presets, `{name, about, effects}`, the effects as
 /// the file wrote them, since `effect.paste` reads them by the same rules again.
 fn starter_presets() -> String {
-    let root: serde_json::Value = serde_json::from_str(persist::STARTER_PRESETS).expect("the starter presets are JSON");
+    let root: serde_json::Value =
+        serde_json::from_str(persist::STARTER_PRESETS).expect("the starter presets are JSON");
     let list: Vec<serde_json::Value> = root["presets"]
         .as_array()
         .expect("the starter presets are a list")
@@ -15969,17 +16957,27 @@ fn starter_presets() -> String {
 /// D-180: a preset file's presets as the window keeps them, with the sentence saying what came
 /// in, or the sentence refusing it whole. A name in `have` comes in with " 2", or the next number
 /// free both in the window and in the file.
-fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_json::Value, String), String> {
+fn imported_presets(
+    text: &str,
+    file: &str,
+    have: &[String],
+) -> Result<(serde_json::Value, String), String> {
     let read = persist::read_presets(text).map_err(|refused| refused.sentence())?;
     // Each effect goes on as the file wrote it; `effect.paste` reads it by the same rules again.
     let root: serde_json::Value = serde_json::from_str(text).expect("read_presets read it as JSON");
-    let mut taken: Vec<String> = have.iter().cloned().chain(read.iter().map(|p| p.name.clone())).collect();
+    let mut taken: Vec<String> = have
+        .iter()
+        .cloned()
+        .chain(read.iter().map(|p| p.name.clone()))
+        .collect();
     let mut renamed = Vec::new();
     let mut list = Vec::new();
     for (i, preset) in read.iter().enumerate() {
         let mut name = preset.name.clone();
         if have.contains(&name) {
-            let n = (2..).find(|n| !taken.contains(&format!("{name} {n}"))).expect("a free number");
+            let n = (2..)
+                .find(|n| !taken.contains(&format!("{name} {n}")))
+                .expect("a free number");
             let new = format!("{name} {n}");
             renamed.push(format!("\"{name}\" as \"{new}\""));
             taken.push(new.clone());
@@ -15992,7 +16990,10 @@ fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_js
         n => format!("Imported {n} presets from {file}."),
     };
     if !renamed.is_empty() {
-        said += &format!(" Names you already had came in with a number: {}.", renamed.join(", "));
+        said += &format!(
+            " Names you already had came in with a number: {}.",
+            renamed.join(", ")
+        );
     }
     Ok((serde_json::Value::Array(list), said))
 }
@@ -16026,7 +17027,10 @@ fn place(app: &AppHandle, query: Option<&str>) -> Response<Vec<u8>> {
         .unwrap_or_default()
         .split(';')
         .filter_map(|item| {
-            let n: Vec<f32> = item.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+            let n: Vec<f32> = item
+                .split(',')
+                .filter_map(|n| n.trim().parse().ok())
+                .collect();
             let [kind, l, t, r, b, ol, ot, or, ob, r1, g1, b1, r2, g2, b2, square] = n[..] else {
                 return None;
             };
@@ -16050,15 +17054,31 @@ fn place(app: &AppHandle, query: Option<&str>) -> Response<Vec<u8>> {
     // W-41b (D-250): nothing to paint is the page asking for the picture's pixels again (a turned
     // or mirrored view, a snapshot, a compare). The card stops painting until the next place.
     if paints.is_empty() {
-        app.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").paints.clear();
+        app.state::<Mutex<Card>>()
+            .lock()
+            .expect("the card lock was poisoned")
+            .paints
+            .clear();
     }
     let (Some(window), false) = (app.get_webview_window("main"), paints.is_empty()) else {
         return answer("off");
     };
-    let alpha_only = app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned").alpha_only;
+    let alpha_only = app
+        .state::<Mutex<Viewer>>()
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .alpha_only;
     let state = app.state::<Mutex<Card>>();
     let card = &mut *state.lock().expect("the card lock was poisoned");
-    let Card { on: true, gpu: Some(Ok(gpu)), paints: placed, size, off_screen: off_screen @ None, .. } = card else {
+    let Card {
+        on: true,
+        gpu: Some(Ok(gpu)),
+        paints: placed,
+        size,
+        off_screen: off_screen @ None,
+        ..
+    } = card
+    else {
         return answer("off");
     };
     if !gpu.on_screen() {
@@ -16126,7 +17146,11 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             Some("cpu") => DrawOn::Cpu,
             _ => DrawOn::Auto,
         };
-        let said = app.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").set(mode);
+        let said = app
+            .state::<Mutex<Card>>()
+            .lock()
+            .expect("the card lock was poisoned")
+            .set(mode);
         announce(&viewer, said.clone());
         return allow_the_page_to_read_this(Response::builder())
             .header("content-type", "text/plain; charset=utf-8")
@@ -16192,11 +17216,17 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     if path == "export-watch" {
         return allow_the_page_to_read_this(Response::builder())
             .header("content-type", "application/json; charset=utf-8")
-            .body(watching(&app.state::<Mutex<Export>>()).to_string().into_bytes())
+            .body(
+                watching(&app.state::<Mutex<Export>>())
+                    .to_string()
+                    .into_bytes(),
+            )
             .expect("build the export watch response");
     }
     if path == "export-frame" {
-        let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
+        let frame = parameter(query, "frame")
+            .and_then(|f| f.parse().ok())
+            .unwrap_or(0);
         return match watched_frame(&app.state::<Mutex<Export>>(), frame) {
             Some((width, height, pixels)) => allow_the_page_to_read_this(Response::builder())
                 .header("content-type", "application/octet-stream")
@@ -16212,7 +17242,9 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     }
     if path == "thumb" {
         let item = Id::new(parameter(query, "item").unwrap_or_default());
-        let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
+        let frame = parameter(query, "frame")
+            .and_then(|f| f.parse().ok())
+            .unwrap_or(0);
         return match thumbnail(&viewer, &item, frame) {
             Ok((width, height, pixels)) => allow_the_page_to_read_this(Response::builder())
                 .header("content-type", "application/octet-stream")
@@ -16229,8 +17261,11 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     // D-258: one layer by itself, `?layer=&frame=&q=`, for the onion skin. Never on screen as it is.
     if path == "alone" {
         let layer = Id::new(parameter(query, "layer").unwrap_or_default());
-        let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
-        let quality = quality_asked(query).unwrap_or_else(|| viewer.lock().expect("the viewer lock was poisoned").quality);
+        let frame = parameter(query, "frame")
+            .and_then(|f| f.parse().ok())
+            .unwrap_or(0);
+        let quality = quality_asked(query)
+            .unwrap_or_else(|| viewer.lock().expect("the viewer lock was poisoned").quality);
         return match alone(&viewer, &layer, frame, quality) {
             Ok((width, height, pixels)) => allow_the_page_to_read_this(Response::builder())
                 .header("content-type", "application/octet-stream")
@@ -16541,8 +17576,16 @@ fn main() {
             // D-256: where a project that was never saved keeps its copies.
             if let Ok(dir) = app.path().app_local_data_dir() {
                 let folder = dir.join("Unsaved");
-                offer_unsaved(&mut app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned"), &folder);
-                *UNSAVED.lock().expect("the unsaved folder lock was poisoned") = Some(folder);
+                offer_unsaved(
+                    &mut app
+                        .state::<Mutex<Viewer>>()
+                        .lock()
+                        .expect("the viewer lock was poisoned"),
+                    &folder,
+                );
+                *UNSAVED
+                    .lock()
+                    .expect("the unsaved folder lock was poisoned") = Some(folder);
             }
             let handle = app.handle().clone();
             std::thread::spawn(move || loop {
@@ -16562,7 +17605,12 @@ fn main() {
             follow_window(window, event);
             // B-45: the card lets go of the window before the window goes.
             if let WindowEvent::Destroyed = event {
-                if let Some(Ok(gpu)) = &mut window.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").gpu {
+                if let Some(Ok(gpu)) = &mut window
+                    .state::<Mutex<Card>>()
+                    .lock()
+                    .expect("the card lock was poisoned")
+                    .gpu
+                {
                     gpu.let_go();
                 }
             }
@@ -16587,101 +17635,118 @@ fn main() {
         })
         .register_uri_scheme_protocol("project", |ctx, request: Request<Vec<u8>>| {
             contained(ctx.app_handle(), "doing what was asked", || {
-            // D-289: the page sends the sketch's PNG bytes as the body; the person chooses where.
-            if request.uri().path().trim_matches('/') == "sketch-png" {
-                let said = ask_where_to_save_sketch(
+                // D-289: the page sends the sketch's PNG bytes as the body; the person chooses where.
+                if request.uri().path().trim_matches('/') == "sketch-png" {
+                    let said = ask_where_to_save_sketch(
+                        ctx.app_handle(),
+                        &parameter(request.uri().query(), "name")
+                            .unwrap_or_else(|| "sketch".to_string()),
+                        request.body().clone(),
+                    );
+                    return allow_the_page_to_read_this(Response::builder())
+                        .header("content-type", "text/plain; charset=utf-8")
+                        .body(said.into_bytes())
+                        .expect("build the sketch response");
+                }
+                command(
                     ctx.app_handle(),
-                    &parameter(request.uri().query(), "name").unwrap_or_else(|| "sketch".to_string()),
-                    request.body().clone(),
-                );
-                return allow_the_page_to_read_this(Response::builder())
-                    .header("content-type", "text/plain; charset=utf-8")
-                    .body(said.into_bytes())
-                    .expect("build the sketch response");
-            }
-            command(
-                ctx.app_handle(),
-                request.uri().path(),
-                request.uri().query(),
-            )
+                    request.uri().path(),
+                    request.uri().query(),
+                )
             })
             .unwrap_or_else(failed_response)
         })
         .register_uri_scheme_protocol("frame", |ctx, request: Request<Vec<u8>>| {
             contained(ctx.app_handle(), "drawing a frame", || {
-            let viewer = ctx.app_handle().state::<Mutex<Viewer>>();
-            let export = ctx.app_handle().state::<Mutex<Export>>();
-            // `/boxes/<n>` rides on the frame scheme rather than the command one because it is
-            // the same kind of thing a frame is: a question about what is on screen, whose
-            // answer changes nothing and needs no undo record.
-            if let Some(n) = request
-                .uri()
-                .path()
-                .trim_matches('/')
-                .strip_prefix("boxes/")
-                .and_then(|n| n.parse::<i32>().ok())
-            {
-                return boxes(&viewer, n, quality_asked(request.uri().query()));
-            }
-            // D-71: `/sound?asset=`, one sound file's bytes for the page's decoder.
-            if request.uri().path().trim_matches('/') == "sound" {
-                return sound(&viewer, request.uri().query());
-            }
-            // D-640: `/mix?from=&frames=`, the composition's sound as the core mixes it.
-            if request.uri().path().trim_matches('/') == "mix" {
-                return mix(&viewer, request.uri().query());
-            }
-            // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
-            // question as `boxes` above, on the same scheme, for the same reason.
-            if request.uri().path().trim_matches('/') == "curve" {
-                return curve(&viewer, request.uri().query());
-            }
-            // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
-            if request.uri().path().trim_matches('/') == "sheet" {
-                return sheet(&viewer);
-            }
-            // B-45: `/place?p=`, where the viewer's picture and what is under it lie in the window.
-            if request.uri().path().trim_matches('/') == "place" {
-                return place(ctx.app_handle(), request.uri().query());
-            }
-            // W-40c (D-249): `/ready`, the frames the green line under the ruler marks.
-            if request.uri().path().trim_matches('/') == "ready" {
-                let card = ctx.app_handle().state::<Mutex<Card>>();
-                return allow_the_page_to_read_this(Response::builder())
-                    .header("content-type", "application/json; charset=utf-8")
-                    .body(ready_frames(&viewer, Some(&card)).to_string().into_bytes())
-                    .expect("build the ready response");
-            }
-            // D-84d: `/sheet/print`, the same grid as a page to print.
-            if request.uri().path().trim_matches('/') == "sheet/print" {
-                return sheet_print(&viewer, request.uri().query());
-            }
-            match parse(request.uri().path(), request.uri().query()) {
-                Some((ask, quality)) => {
-                    let session = ctx.app_handle().state::<Mutex<SessionLog>>();
-                    let card = ctx.app_handle().state::<Mutex<Card>>();
-                    // B-158: `v=`, the part of the picture on screen.
-                    let seen = parameter(request.uri().query(), "v");
-                    let reply = serve_seen(&viewer, &export, Some(&session), Some(&card), ask, quality, seen.as_deref());
-                    // B-154: while playing, the rest of the loop is made in the background, one
-                    // worker at a time.
-                    static AHEAD: AtomicBool = AtomicBool::new(false);
-                    if matches!(ask, Ask::At(_) | Ask::Play(_)) && !AHEAD.swap(true, Ordering::SeqCst) {
-                        let app = ctx.app_handle().clone();
-                        std::thread::spawn(move || {
-                            let _ = contained(&app, "drawing frames ahead", || {
-                                render_ahead(&app.state::<Mutex<Viewer>>(), Some(&app.state::<Mutex<Card>>()))
-                            });
-                            AHEAD.store(false, Ordering::SeqCst);
-                        });
-                    }
-                    reply
+                let viewer = ctx.app_handle().state::<Mutex<Viewer>>();
+                let export = ctx.app_handle().state::<Mutex<Export>>();
+                // `/boxes/<n>` rides on the frame scheme rather than the command one because it is
+                // the same kind of thing a frame is: a question about what is on screen, whose
+                // answer changes nothing and needs no undo record.
+                if let Some(n) = request
+                    .uri()
+                    .path()
+                    .trim_matches('/')
+                    .strip_prefix("boxes/")
+                    .and_then(|n| n.parse::<i32>().ok())
+                {
+                    return boxes(&viewer, n, quality_asked(request.uri().query()));
                 }
-                None => allow_the_page_to_read_this(Response::builder().status(404))
-                    .header("content-type", "text/plain; charset=utf-8")
-                    .body(b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>".to_vec())
-                    .expect("build the not-found response"),
-            }
+                // D-71: `/sound?asset=`, one sound file's bytes for the page's decoder.
+                if request.uri().path().trim_matches('/') == "sound" {
+                    return sound(&viewer, request.uri().query());
+                }
+                // D-640: `/mix?from=&frames=`, the composition's sound as the core mixes it.
+                if request.uri().path().trim_matches('/') == "mix" {
+                    return mix(&viewer, request.uri().query());
+                }
+                // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
+                // question as `boxes` above, on the same scheme, for the same reason.
+                if request.uri().path().trim_matches('/') == "curve" {
+                    return curve(&viewer, request.uri().query());
+                }
+                // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
+                if request.uri().path().trim_matches('/') == "sheet" {
+                    return sheet(&viewer);
+                }
+                // B-45: `/place?p=`, where the viewer's picture and what is under it lie in the window.
+                if request.uri().path().trim_matches('/') == "place" {
+                    return place(ctx.app_handle(), request.uri().query());
+                }
+                // W-40c (D-249): `/ready`, the frames the green line under the ruler marks.
+                if request.uri().path().trim_matches('/') == "ready" {
+                    let card = ctx.app_handle().state::<Mutex<Card>>();
+                    return allow_the_page_to_read_this(Response::builder())
+                        .header("content-type", "application/json; charset=utf-8")
+                        .body(ready_frames(&viewer, Some(&card)).to_string().into_bytes())
+                        .expect("build the ready response");
+                }
+                // D-84d: `/sheet/print`, the same grid as a page to print.
+                if request.uri().path().trim_matches('/') == "sheet/print" {
+                    return sheet_print(&viewer, request.uri().query());
+                }
+                match parse(request.uri().path(), request.uri().query()) {
+                    Some((ask, quality)) => {
+                        let session = ctx.app_handle().state::<Mutex<SessionLog>>();
+                        let card = ctx.app_handle().state::<Mutex<Card>>();
+                        // B-158: `v=`, the part of the picture on screen.
+                        let seen = parameter(request.uri().query(), "v");
+                        let reply = serve_seen(
+                            &viewer,
+                            &export,
+                            Some(&session),
+                            Some(&card),
+                            ask,
+                            quality,
+                            seen.as_deref(),
+                        );
+                        // B-154: while playing, the rest of the loop is made in the background, one
+                        // worker at a time.
+                        static AHEAD: AtomicBool = AtomicBool::new(false);
+                        if matches!(ask, Ask::At(_) | Ask::Play(_))
+                            && !AHEAD.swap(true, Ordering::SeqCst)
+                        {
+                            let app = ctx.app_handle().clone();
+                            std::thread::spawn(move || {
+                                let _ = contained(&app, "drawing frames ahead", || {
+                                    render_ahead(
+                                        &app.state::<Mutex<Viewer>>(),
+                                        Some(&app.state::<Mutex<Card>>()),
+                                    )
+                                });
+                                AHEAD.store(false, Ordering::SeqCst);
+                            });
+                        }
+                        reply
+                    }
+                    None => allow_the_page_to_read_this(Response::builder().status(404))
+                        .header("content-type", "text/plain; charset=utf-8")
+                        .body(
+                            b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>"
+                                .to_vec(),
+                        )
+                        .expect("build the not-found response"),
+                }
             })
             .unwrap_or_else(failed_response)
         })

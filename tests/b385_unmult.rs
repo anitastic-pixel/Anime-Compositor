@@ -16,7 +16,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -45,7 +46,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=19 {
         let file = format!("fx_unmult_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -53,7 +58,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Unmult { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Unmult { .. })
+                });
             }
         }
         t.row(
@@ -71,9 +78,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -87,7 +103,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Unmult { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Unmult { .. })
+                });
                 t.row(
                     &format!("the reference shot, Unmult {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -101,7 +119,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -113,8 +134,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -132,7 +165,11 @@ fn shot_on(back: f64, glow: [f64; 3], hot: bool) -> Vec<u8> {
             let (dx, dy) = (x as f64 - 240.0, y as f64 - 135.0);
             let r = (dx * dx + dy * dy).sqrt();
             let g = (1.0 - r / 110.0).clamp(0.0, 1.0).powi(2);
-            let core = if hot { (1.0 - r / 22.0).clamp(0.0, 1.0) } else { 0.0 };
+            let core = if hot {
+                (1.0 - r / 22.0).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
             let c: [u8; 3] = if x.abs_diff(GREY.0) < 20 && y.abs_diff(GREY.1) < 20 {
                 [128; 3]
             } else {
@@ -148,11 +185,19 @@ fn shot_on(back: f64, glow: [f64; 3], hot: bool) -> Vec<u8> {
 }
 
 fn to_linear(v: f64) -> f64 {
-    if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+    if v <= 0.04045 {
+        v / 12.92
+    } else {
+        ((v + 0.055) / 1.055).powf(2.4)
+    }
 }
 
 fn to_srgb(v: f64) -> f64 {
-    if v <= 0.0031308 { 12.92 * v } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 }
+    if v <= 0.0031308 {
+        12.92 * v
+    } else {
+        1.055 * v.powf(1.0 / 2.4) - 0.055
+    }
 }
 
 /// The straight 8-bit picture laid over a sky (blue at the top to pale at the bottom), in
@@ -222,7 +267,11 @@ fn b385_unmult() {
         ("fx_unmult_019.json", "clip HDR results"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_unmult_001.json",
@@ -242,18 +291,37 @@ fn b385_unmult() {
 
     t.heading("Commands");
     let mut document = t.load("fx_unmult_001.json").document;
-    let over = changed(&t, "fx_unmult_001.json", |e| if let Effect::Unmult { black_level, .. } = e { *black_level = 101.0 });
-    let word = changed(&t, "fx_unmult_001.json", |e| if let Effect::Unmult { background_color, .. } = e { *background_color = "grey".into() });
+    let over = changed(&t, "fx_unmult_001.json", |e| {
+        if let Effect::Unmult { black_level, .. } = e {
+            *black_level = 101.0
+        }
+    });
+    let word = changed(&t, "fx_unmult_001.json", |e| {
+        if let Effect::Unmult {
+            background_color, ..
+        } = e
+        {
+            *background_color = "grey".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("black level 101", set(over)),
             ("background color \"grey\"", set(word)),
-            ("softness keyed to 300", keys("softness", &[(0, &[0.0]), (4, &[300.0])])),
+            (
+                "softness keyed to 300",
+                keys("softness", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
         ],
     );
     let white = changed(&t, "fx_unmult_001.json", |e| {
-        if let Effect::Unmult { background_color, white_level, .. } = e {
+        if let Effect::Unmult {
+            background_color,
+            white_level,
+            ..
+        } = e
+        {
             *background_color = "white".into();
             *white_level = 90.0;
         }
@@ -263,7 +331,10 @@ fn b385_unmult() {
         "fx_unmult_001.json",
         vec![
             ("background white, white level 90", set(white)),
-            ("black level keyed from 0 to 40", keys("black_level", &[(0, &[0.0]), (4, &[40.0])])),
+            (
+                "black level keyed from 0 to 40",
+                keys("black_level", &[(0, &[0.0]), (4, &[40.0])]),
+            ),
         ],
     );
 
@@ -287,15 +358,33 @@ fn b385_unmult() {
         &mut gpu,
         &[
             ("as added (black)", json!({}), 3),
-            ("white, white level 80, softness 20, remove color matting off", json!({"background_color": "white", "white_level": 80, "softness": 20, "remove_color_matting": "off"}), 3),
-            ("black level 20, softness 10, clip HDR results on", json!({"black_level": 20, "softness": 10, "clip_hdr_results": "on"}), 3),
+            (
+                "white, white level 80, softness 20, remove color matting off",
+                json!({"background_color": "white", "white_level": 80, "softness": 20, "remove_color_matting": "off"}),
+                3,
+            ),
+            (
+                "black level 20, softness 10, clip HDR results on",
+                json!({"black_level": 20, "softness": 10, "clip_hdr_results": "on"}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-505 pictures/`");
     let dir = repo("verification/D-505 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("flare.png", &shot_on(0.0, ORANGE, true));
     write("smoke.png", &shot_on(255.0, [55.0; 3], false));
     let flare = |p: J| picture(&dir, "flare.png", TOWN, json!([fx("fx-0-0", &p)]));
@@ -316,7 +405,12 @@ fn b385_unmult() {
     let (after, said) = flare(json!({}));
     write("2_flare_unmult.png", &after);
     write("2b_flare_unmult_over_sky.png", &over_sky(&after));
-    let (b, c, g, m) = (at(&after, black), at(&after, core), at(&after, glow), at(&after, GREY));
+    let (b, c, g, m) = (
+        at(&after, black),
+        at(&after, core),
+        at(&after, glow),
+        at(&after, GREY),
+    );
     t.row(
         "2_flare_unmult.png, as added: the black see-through, the core whole and white, the glow pixel covering 9 of 255 at straight (255, 175, 90), the grey square covering 55 at straight white; 2b over the sky shows the glow with no black box; draws cleanly",
         &format!("{said:?}, black {b:?}, core {c:?}, glow {g:?}, grey {m:?}"),
@@ -327,7 +421,10 @@ fn b385_unmult() {
     // / 0.2 = 0.579, covering 0.125, 32 of 255.
     let (after, said) = flare(json!({"black_level": 10, "softness": 20}));
     write("3_black_level_10_softness_20.png", &after);
-    write("3b_black_level_10_softness_20_over_sky.png", &over_sky(&after));
+    write(
+        "3b_black_level_10_softness_20_over_sky.png",
+        &over_sky(&after),
+    );
     let (c, g, m) = (at(&after, core), at(&after, glow), at(&after, GREY));
     t.row(
         "3_black_level_10_softness_20.png: the faint outer glow gone (the glow pixel covering 0), the core whole, the grey square covering 32 by hand; draws cleanly",
@@ -337,7 +434,10 @@ fn b385_unmult() {
 
     let (after, said) = flare(json!({"remove_color_matting": "off"}));
     write("4_remove_color_matting_off.png", &after);
-    write("4b_remove_color_matting_off_over_sky.png", &over_sky(&after));
+    write(
+        "4b_remove_color_matting_off_over_sky.png",
+        &over_sky(&after),
+    );
     let (g, m) = (at(&after, glow), at(&after, GREY));
     t.row(
         "4_remove_color_matting_off.png: the same coverings, but each pixel keeps its own colour, so the glow and the grey stay dark (the grey straight 128 at covering 55, the glow straight (53, 33, 12) at 9); over the sky the glow looks dirtier; draws cleanly",
@@ -349,7 +449,12 @@ fn b385_unmult() {
     // 1 - 0.0382, 245 of 255, straight black; grey 128 covers 1 - 0.2158, 200, straight black.
     let (before, said_before) = picture(&dir, "smoke.png", TOWN, json!([]));
     write("5_smoke_before.png", &before);
-    let (after, said) = picture(&dir, "smoke.png", TOWN, json!([fx("fx-0-0", &json!({"background_color": "white"}))]));
+    let (after, said) = picture(
+        &dir,
+        "smoke.png",
+        TOWN,
+        json!([fx("fx-0-0", &json!({"background_color": "white"}))]),
+    );
     write("5b_smoke_unmult_white.png", &after);
     write("5c_smoke_unmult_white_over_sky.png", &over_sky(&after));
     let (w, s, m) = (at(&after, black), at(&after, core), at(&after, GREY));
@@ -388,22 +493,48 @@ fn b385_unmult_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Unmult as added (black)", Some(json!({}))),
-        ("Noise, then Unmult, white, white level 80, softness 20", Some(json!({"background_color": "white", "white_level": 80, "softness": 20}))),
-        ("Noise, then Unmult, black level 20, softness 10, matting off", Some(json!({"black_level": 20, "softness": 10, "remove_color_matting": "off"}))),
+        (
+            "Noise, then Unmult, white, white level 80, softness 20",
+            Some(json!({"background_color": "white", "white_level": 80, "softness": 20})),
+        ),
+        (
+            "Noise, then Unmult, black level 20, softness 10, matting off",
+            Some(json!({"black_level": 20, "softness": 10, "remove_color_matting": "off"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B385_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-385_timing_raw.md"));
+    let out = std::env::var("B385_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-385_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

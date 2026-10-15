@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -32,7 +33,8 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// density, smoothness, vertical bias, sample count, sample radius, flow softness, edge
 /// definition, flow falloff, contrast, brightness], [source, view, clip HDR results, channel].
 fn curl(n: [f64; 18], w: [&str; 4]) -> Effect {
-    let [speed, direction, size, ox, oy, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness] = n;
+    let [speed, direction, size, ox, oy, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness] =
+        n;
     let [source, view, clip_hdr_results, channel] = w.map(str::to_string);
     Effect::CurlNoise {
         source,
@@ -69,7 +71,10 @@ fn curl(n: [f64; 18], w: [&str; 4]) -> Effect {
     }
 }
 
-const ADDED: [f64; 18] = [10.0, 0.0, 100.0, 0.0, 0.0, 0.0, 20.0, 45.0, 0.0, 50.0, 50.0, 12.0, 30.0, 20.0, 50.0, 0.0, 100.0, 0.0];
+const ADDED: [f64; 18] = [
+    10.0, 0.0, 100.0, 0.0, 0.0, 0.0, 20.0, 45.0, 0.0, 50.0, 50.0, 12.0, 30.0, 20.0, 50.0, 0.0,
+    100.0, 0.0,
+];
 const WORDS: [&str; 4] = ["internal", "final_render", "on", "rgb"];
 
 fn numbers(change: &[(usize, f64)]) -> [f64; 18] {
@@ -92,10 +97,12 @@ fn words<'a>(change: &[(usize, &'a str)]) -> [&'a str; 4] {
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.curl_noise" => json!({"source": "internal", "speed": 10, "direction": 0, "size": 100, "offset": [0, 0], "evolution": 0,
+        "core.curl_noise" => {
+            json!({"source": "internal", "speed": 10, "direction": 0, "size": 100, "offset": [0, 0], "evolution": 0,
             "turbulence_speed": 20, "swirl": 45, "density": 0, "smoothness": 50, "vertical_bias": 50, "sample_count": 12, "sample_radius": 30,
             "flow_softness": 20, "edge_definition": 50, "flow_falloff": 0, "view": "final_render", "contrast": 100, "brightness": 0,
-            "clip_hdr_results": "on", "channel": "rgb"}),
+            "clip_hdr_results": "on", "channel": "rgb"})
+        }
         "core.noise" => json!({}),
         _ => json!({}),
     };
@@ -107,18 +114,33 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out, so the card is not asked; those in `cpu` the card
 /// refuses whole, so the processor draws them and says so.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], cpu: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    cpu: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -147,14 +169,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -182,7 +220,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 /// `effects` on the street at `frame` of a two-second shot, drawn, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -197,8 +238,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -208,21 +261,42 @@ type Shot<'a> = (&'a str, J, i32, &'a str, fn(&[u8], &[u8]) -> bool);
 /// pictures into `verification/{d} pictures/`; a row each that it draws cleanly and changes what
 /// it says it changes.
 fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, frame, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]), *frame);
         write(&file, &bytes);
         t.row(
             &format!("{file}, frame {frame}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}, the largest by {} of 255", distance(&bytes, &before).1, TOWN.0 * TOWN.1, distance(&bytes, &before).0),
+            &format!(
+                "{said:?}, {} pixels changed of {}, the largest by {} of 255",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1,
+                distance(&bytes, &before).0
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -231,8 +305,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -258,14 +344,22 @@ fn greys(a: &[u8], b: &[u8]) -> bool {
 
 /// As `covers`, and red and green differ in most pixels: the flow drawn as colours.
 fn coloured(a: &[u8], b: &[u8]) -> bool {
-    covers(a, b) && a.chunks_exact(4).filter(|p| p[0].abs_diff(p[1]) > 8).count() > a.len() / 4 / 2
+    covers(a, b)
+        && a.chunks_exact(4)
+            .filter(|p| p[0].abs_diff(p[1]) > 8)
+            .count()
+            > a.len() / 4 / 2
 }
 
 /// Holes: a tenth of the street or more less than half covered, and the colours of the street
 /// kept where it still shows.
 fn holes(a: &[u8], b: &[u8]) -> bool {
     let thin = a.chunks_exact(4).filter(|p| p[3] < 128).count();
-    let kept = a.chunks_exact(4).zip(b.chunks_exact(4)).filter(|(p, _)| p[3] >= 32).all(|(p, q)| (0..3).all(|c| p[c].abs_diff(q[c]) <= 2));
+    let kept = a
+        .chunks_exact(4)
+        .zip(b.chunks_exact(4))
+        .filter(|(p, _)| p[3] >= 32)
+        .all(|(p, q)| (0..3).all(|c| p[c].abs_diff(q[c]) <= 2));
     thin > a.len() / 4 / 10 && kept
 }
 
@@ -299,11 +393,20 @@ fn b326_curl_noise() {
     t.row(
         "fx_curl_032.json is saved with its words and numbers as written, and no frame or depth",
         &saved.to_string(),
-        saved["channel"] == "green" && saved["view"] == "final_render" && saved["swirl"] == -200 && saved["sample_radius"] == 6.5
-            && saved["offset"] == json!([0, 0]) && saved.get("frame").is_none() && saved.get("float").is_none(),
+        saved["channel"] == "green"
+            && saved["view"] == "final_render"
+            && saved["swirl"] == -200
+            && saved["sample_radius"] == 6.5
+            && saved["offset"] == json!([0, 0])
+            && saved.get("frame").is_none()
+            && saved.get("float").is_none(),
     );
     let saved = t.saved_parameters("fx_curl_029.json");
-    t.row("fx_curl_029.json is saved with Sample Radius's keys kept", &saved["sample_radius"].to_string(), saved["sample_radius"]["keyframes"][1]["value"] == json!(8));
+    t.row(
+        "fx_curl_029.json is saved with Sample Radius's keys kept",
+        &saved["sample_radius"].to_string(),
+        saved["sample_radius"]["keyframes"][1]["value"] == json!(8),
+    );
     why(
         &mut t,
         &[
@@ -321,12 +424,23 @@ fn b326_curl_noise() {
         ],
     );
     let p = r#""source": "internal", "speed": 10, "direction": 0, "size": 100, "offset": [0, 0], "evolution": 0, "turbulence_speed": 20, "swirl": 45, "density": 0, "smoothness": 50, "vertical_bias": 50, "sample_count": 12, "sample_radius": 30, "flow_softness": 20, "edge_definition": 50, "flow_falloff": 0, "contrast": 100, "brightness": 0, "clip_hdr_results": "on""#;
-    t.shape_refused("fx_curl_001.json", "a Curl Noise with no `view`", &format!("{{{p}, \"channel\": \"rgb\"}}"));
-    t.shape_refused("fx_curl_001.json", "a Curl Noise whose channel is a number", &format!("{{{p}, \"view\": \"final_render\", \"channel\": 1}}"));
+    t.shape_refused(
+        "fx_curl_001.json",
+        "a Curl Noise with no `view`",
+        &format!("{{{p}, \"channel\": \"rgb\"}}"),
+    );
+    t.shape_refused(
+        "fx_curl_001.json",
+        "a Curl Noise whose channel is a number",
+        &format!("{{{p}, \"view\": \"final_render\", \"channel\": 1}}"),
+    );
     t.shape_refused(
         "fx_curl_001.json",
         "a Curl Noise whose offset has one number",
-        &format!("{{{}, \"offset\": [3], \"view\": \"final_render\", \"channel\": \"rgb\"}}", p.replace(r#""offset": [0, 0], "#, "")),
+        &format!(
+            "{{{}, \"offset\": [3], \"view\": \"final_render\", \"channel\": \"rgb\"}}",
+            p.replace(r#""offset": [0, 0], "#, "")
+        ),
     );
 
     t.heading("Commands");
@@ -336,10 +450,16 @@ fn b326_curl_noise() {
         vec![
             ("size 0.5", set(curl(numbers(&[(2, 0.5)]), WORDS))),
             ("sample count 25", set(curl(numbers(&[(11, 25.0)]), WORDS))),
-            ("source Other Layer naming no layer", set(curl(ADDED, words(&[(0, "other_layer")])))),
+            (
+                "source Other Layer naming no layer",
+                set(curl(ADDED, words(&[(0, "other_layer")]))),
+            ),
             ("view \"lines\"", set(curl(ADDED, words(&[(1, "lines")])))),
             ("channel \"Red\"", set(curl(ADDED, words(&[(3, "Red")])))),
-            ("density keyed to 150", keys("density", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "density keyed to 150",
+                keys("density", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -440,22 +560,53 @@ fn b326_curl_noise_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Curl Noise as added (radius 30, 12 samples)", Some(json!({}))),
-        ("Noise, then Curl Noise Input Noise (no lines)", Some(json!({"view": "input_noise"}))),
-        ("Noise, then Curl Noise radius 100, 24 samples (the longest lines)", Some(json!({"sample_radius": 100, "sample_count": 24}))),
+        (
+            "Noise, then Curl Noise as added (radius 30, 12 samples)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Curl Noise Input Noise (no lines)",
+            Some(json!({"view": "input_noise"})),
+        ),
+        (
+            "Noise, then Curl Noise radius 100, 24 samples (the longest lines)",
+            Some(json!({"sample_radius": 100, "sample_count": 24})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.curl_noise", &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B326_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-326_timing_raw.md"));
+    let out = std::env::var("B326_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-326_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

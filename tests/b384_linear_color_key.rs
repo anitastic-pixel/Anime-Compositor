@@ -18,7 +18,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -46,7 +47,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=24 {
         let file = format!("fx_lckey_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -54,7 +59,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::LinearColorKey { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::LinearColorKey { .. })
+                });
             }
         }
         t.row(
@@ -72,9 +79,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -88,7 +104,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::LinearColorKey { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::LinearColorKey { .. })
+                });
                 t.row(
                     &format!("the reference shot, Linear Color Key {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -102,7 +120,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -114,8 +135,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -138,7 +171,9 @@ fn portrait() -> Vec<u8> {
             } else if r < 1.0 {
                 // The spill, from none 14 pixels in to 60% of the screen at the edge.
                 let spill = (1.0 - (1.0 - r) * 70.0 / 14.0).clamp(0.0, 1.0) * 0.6;
-                std::array::from_fn(|c| (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8)
+                std::array::from_fn(|c| {
+                    (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8
+                })
             } else {
                 SCREEN
             };
@@ -191,20 +226,34 @@ fn b384_linear_color_key() {
     );
     {
         // D-541: a file written before Keep Colors has no key operation, and keys.
-        let mut json: J = serde_json::from_str(&fs::read_to_string(t.root.join("fx_lckey_001.json")).unwrap()).unwrap();
+        let mut json: J =
+            serde_json::from_str(&fs::read_to_string(t.root.join("fx_lckey_001.json")).unwrap())
+                .unwrap();
         json["compositions"][0]["layers"][0]["effects"][0]["parameters"]
             .as_object_mut()
             .unwrap()
             .remove("key_operation");
         let read = persist::load_str(&json.to_string()).map(|l| {
-            l.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+            l.document
+                .project()
+                .composition(&Id::new(MAIN))
+                .unwrap()
+                .layer(&Id::new("art"))
+                .unwrap()
+                .effects[0]
+                .effect
+                .clone()
         });
         let op = match &read {
             Ok(Effect::LinearColorKey { key_operation, .. }) => key_operation.clone(),
             Ok(_) => "another effect".into(),
             Err(d) => d.message.clone(),
         };
-        t.row("a file written before D-541, without a key operation, opens as Key Colors", &op, op == "key");
+        t.row(
+            "a file written before D-541, without a key operation, opens as Key Colors",
+            &op,
+            op == "key",
+        );
     }
     for (file, want) in [
         ("fx_lckey_014.json", "matching tolerance"),
@@ -215,7 +264,11 @@ fn b384_linear_color_key() {
         ("fx_lckey_024.json", "key operation"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_lckey_001.json",
@@ -235,18 +288,37 @@ fn b384_linear_color_key() {
 
     t.heading("Commands");
     let mut document = t.load("fx_lckey_001.json").document;
-    let over = changed(&t, "fx_lckey_001.json", |e| if let Effect::LinearColorKey { matching_tolerance, .. } = e { *matching_tolerance = 101.0 });
-    let word = changed(&t, "fx_lckey_001.json", |e| if let Effect::LinearColorKey { match_colors, .. } = e { *match_colors = "lab".into() });
+    let over = changed(&t, "fx_lckey_001.json", |e| {
+        if let Effect::LinearColorKey {
+            matching_tolerance, ..
+        } = e
+        {
+            *matching_tolerance = 101.0
+        }
+    });
+    let word = changed(&t, "fx_lckey_001.json", |e| {
+        if let Effect::LinearColorKey { match_colors, .. } = e {
+            *match_colors = "lab".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("matching tolerance 101", set(over)),
             ("match colors \"lab\"", set(word)),
-            ("matching softness keyed to 300", keys("matching_softness", &[(0, &[0.0]), (4, &[300.0])])),
+            (
+                "matching softness keyed to 300",
+                keys("matching_softness", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
         ],
     );
     let hue = changed(&t, "fx_lckey_001.json", |e| {
-        if let Effect::LinearColorKey { key_color, match_colors, .. } = e {
+        if let Effect::LinearColorKey {
+            key_color,
+            match_colors,
+            ..
+        } = e
+        {
             *key_color = "#28b43c".into();
             *match_colors = "hue".into();
         }
@@ -256,7 +328,10 @@ fn b384_linear_color_key() {
         "fx_lckey_001.json",
         vec![
             ("match colors hue on the green screen's colour", set(hue)),
-            ("matching tolerance keyed from 0 to 40", keys("matching_tolerance", &[(0, &[0.0]), (4, &[40.0])])),
+            (
+                "matching tolerance keyed from 0 to 40",
+                keys("matching_tolerance", &[(0, &[0.0]), (4, &[40.0])]),
+            ),
         ],
     );
 
@@ -280,16 +355,38 @@ fn b384_linear_color_key() {
         &mut t,
         &mut gpu,
         &[
-            ("RGB, key white, tolerance 60, softness 20", json!({"key_color": "#ffffff", "matching_tolerance": 60, "matching_softness": 20}), 3),
-            ("hue, key orange, tolerance 30, softness 20", json!({"key_color": "#ff8000", "match_colors": "hue", "matching_tolerance": 30, "matching_softness": 20}), 3),
-            ("chroma, key grey, tolerance 10, softness 0, the matte", json!({"view": "matte", "key_color": "#808080", "match_colors": "chroma", "matching_softness": 0}), 3),
+            (
+                "RGB, key white, tolerance 60, softness 20",
+                json!({"key_color": "#ffffff", "matching_tolerance": 60, "matching_softness": 20}),
+                3,
+            ),
+            (
+                "hue, key orange, tolerance 30, softness 20",
+                json!({"key_color": "#ff8000", "match_colors": "hue", "matching_tolerance": 30, "matching_softness": 20}),
+                3,
+            ),
+            (
+                "chroma, key grey, tolerance 10, softness 0, the matte",
+                json!({"view": "matte", "key_color": "#808080", "match_colors": "chroma", "matching_softness": 0}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-504 pictures/`");
     let dir = repo("verification/D-504 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("portrait.png", TOWN, &portrait());
     let shot = |p: J| picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "portrait.png", TOWN, json!([]));
@@ -306,11 +403,22 @@ fn b384_linear_color_key() {
     // face's top edge, (156, 175, 113), the shirt.
     let (screen, face, edge, shirt) = ((20, 20), (240, 110), (240, 28), (240, 250));
     let cover = |b: &[u8], p: (usize, usize)| at(b, p.0, p.1)[3];
-    let colour_kept = |after: &[u8]| after.chunks_exact(4).zip(before.chunks_exact(4)).filter(|(a, _)| a[3] >= 16).all(|(a, b)| (0..3).all(|c| a[c].abs_diff(b[c]) <= 1));
+    let colour_kept = |after: &[u8]| {
+        after
+            .chunks_exact(4)
+            .zip(before.chunks_exact(4))
+            .filter(|(a, _)| a[3] >= 16)
+            .all(|(a, b)| (0..3).all(|c| a[c].abs_diff(b[c]) <= 1))
+    };
 
     let (after, said) = shot(json!({"key_color": "#28b43c"}));
     write("2_rgb.png", TOWN, &after);
-    let (s, f, e, sh) = (cover(&after, screen), cover(&after, face), cover(&after, edge), cover(&after, shirt));
+    let (s, f, e, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, edge),
+        cover(&after, shirt),
+    );
     t.row(
         "2_rgb.png, RGB on the screen's colour, tolerance 10, softness 10: the screen see-through, the face, the spilled pixel (45% off in red) and the shirt fully covered; colour kept wherever anything is left; draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, spilled {e}, shirt {sh}, colour kept {}", colour_kept(&after)),
@@ -322,7 +430,12 @@ fn b384_linear_color_key() {
     let hue = json!({"key_color": "#28b43c", "match_colors": "hue", "matching_tolerance": 20});
     let (after, said) = shot(hue.clone());
     write("3_hue.png", TOWN, &after);
-    let (s, f, e, sh) = (cover(&after, screen), cover(&after, face), cover(&after, edge), cover(&after, shirt));
+    let (s, f, e, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, edge),
+        cover(&after, shirt),
+    );
     t.row(
         "3_hue.png, hue on the screen's colour, tolerance 20, softness 10: the screen see-through, the face and the shirt whole, the spilled green edge fading (covering 201 by hand at the spilled pixel); draws cleanly",
         &format!("{said:?}, screen {s}, face {f}, spilled {e}, shirt {sh}"),
@@ -344,9 +457,27 @@ fn b384_linear_color_key() {
     // is 35.29 off in RGB, so kept whole, but has the screen's chromaticity, so chroma keys it
     // out; (40, 180, 90) is 11.76 off in RGB, (11.76 - 10) / 10 x 255 = 45.
     for (file, name, c, p, want) in [
-        ("shade.png", "the screen half lit (20, 90, 30), in RGB", [20u8, 90, 30], json!({"key_color": "#28b43c"}), 255u8),
-        ("shade.png", "the screen half lit (20, 90, 30), in chroma", [20, 90, 30], json!({"key_color": "#28b43c", "match_colors": "chroma"}), 0),
-        ("bluer.png", "the screen a little bluer (40, 180, 90), in RGB", [40, 180, 90], json!({"key_color": "#28b43c"}), 45),
+        (
+            "shade.png",
+            "the screen half lit (20, 90, 30), in RGB",
+            [20u8, 90, 30],
+            json!({"key_color": "#28b43c"}),
+            255u8,
+        ),
+        (
+            "shade.png",
+            "the screen half lit (20, 90, 30), in chroma",
+            [20, 90, 30],
+            json!({"key_color": "#28b43c", "match_colors": "chroma"}),
+            0,
+        ),
+        (
+            "bluer.png",
+            "the screen a little bluer (40, 180, 90), in RGB",
+            [40, 180, 90],
+            json!({"key_color": "#28b43c"}),
+            45,
+        ),
     ] {
         write(file, (4, 4), &[c[0], c[1], c[2], 255].repeat(16));
         let (after, said) = picture(&dir, file, (4, 4), json!([fx("fx-0-0", &p)]));
@@ -361,9 +492,18 @@ fn b384_linear_color_key() {
     // shirt's colour: the shirt alone comes back, as it was.
     let all = json!({"matching_tolerance": 100});
     let keep = json!({"key_operation": "keep", "key_color": "#283ca0"});
-    let (after, said) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), fx("fx-0-1", &keep)]));
+    let (after, said) = picture(
+        &dir,
+        "portrait.png",
+        TOWN,
+        json!([fx("fx-0-0", &all), fx("fx-0-1", &keep)]),
+    );
     write("5_keep_shirt.png", TOWN, &after);
-    let (s, f, sh) = (cover(&after, screen), cover(&after, face), cover(&after, shirt));
+    let (s, f, sh) = (
+        cover(&after, screen),
+        cover(&after, face),
+        cover(&after, shirt),
+    );
     let shirt_as_was = at(&after, shirt.0, shirt.1) == at(&before, shirt.0, shirt.1);
     t.row(
         "5_keep_shirt.png, everything keyed out (tolerance 100), then Keep Colors on the shirt's colour (40, 60, 160), tolerance 10: the shirt back as it was, the screen and the face still gone; draws cleanly",
@@ -371,8 +511,18 @@ fn b384_linear_color_key() {
         said.is_empty() && s == 0 && f == 0 && sh == 255 && shirt_as_was,
     );
     let exposure = json!({"instance_id": "fx-0-1", "type_id": "core.exposure", "enabled": true, "parameters": {"stops": 0}});
-    let (broken, said) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), exposure.clone(), fx("fx-0-2", &keep)]));
-    let (plain, _) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), exposure]));
+    let (broken, said) = picture(
+        &dir,
+        "portrait.png",
+        TOWN,
+        json!([fx("fx-0-0", &all), exposure.clone(), fx("fx-0-2", &keep)]),
+    );
+    let (plain, _) = picture(
+        &dir,
+        "portrait.png",
+        TOWN,
+        json!([fx("fx-0-0", &all), exposure]),
+    );
     t.row(
         "the same with an Exposure of 0 stops between the two: another effect ends the run of keys, so the Keep Colors has nothing above it to bring back, the frame the same as without it; draws cleanly",
         &format!("{said:?}, {} pixels differ", distance(&broken, &plain).1),
@@ -380,7 +530,12 @@ fn b384_linear_color_key() {
     );
     let mut off = fx("fx-0-1", &json!({"key_color": "#ffffff"}));
     off["enabled"] = J::from(false);
-    let (passed, said) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), off, fx("fx-0-2", &keep)]));
+    let (passed, said) = picture(
+        &dir,
+        "portrait.png",
+        TOWN,
+        json!([fx("fx-0-0", &all), off, fx("fx-0-2", &keep)]),
+    );
     t.row(
         "the same with a switched-off Linear Color Key between the two instead: it draws nothing, so the run goes on and the shirt comes back as in 5_keep_shirt.png; draws cleanly",
         &format!("{said:?}, {} pixels differ", distance(&passed, &after).1),
@@ -415,23 +570,54 @@ fn b384_linear_color_key_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Linear Color Key as added (RGB)", Some(json!({}))),
-        ("Noise, then Linear Color Key, hue, key orange, tolerance 30", Some(json!({"key_color": "#ff8000", "match_colors": "hue", "matching_tolerance": 30, "matching_softness": 20}))),
-        ("Noise, then Linear Color Key, chroma, the matte", Some(json!({"view": "matte", "key_color": "#808080", "match_colors": "chroma"}))),
+        (
+            "Noise, then Linear Color Key as added (RGB)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Linear Color Key, hue, key orange, tolerance 30",
+            Some(
+                json!({"key_color": "#ff8000", "match_colors": "hue", "matching_tolerance": 30, "matching_softness": 20}),
+            ),
+        ),
+        (
+            "Noise, then Linear Color Key, chroma, the matte",
+            Some(json!({"view": "matte", "key_color": "#808080", "match_colors": "chroma"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B384_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-384_timing_raw.md"));
+    let out = std::env::var("B384_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-384_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

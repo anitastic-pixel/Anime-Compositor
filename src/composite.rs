@@ -145,11 +145,17 @@ pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool
             // D-301: on the encoded colours, held to 0..1, as After Effects blends them, so a
             // 50% grey is the neutral one; `mixer` takes the colour beneath first.
             BlendMode::Overlay | BlendMode::SoftLight => {
-                let mix = crate::grade::mixer(if mode == BlendMode::Overlay { "overlay" } else { "soft_light" });
+                let mix = crate::grade::mixer(if mode == BlendMode::Overlay {
+                    "overlay"
+                } else {
+                    "soft_light"
+                });
                 let e = |v: f32| crate::grade::to_srgb((v as f64).clamp(0.0, 1.0));
                 crate::grade::to_linear(mix(e(cd[c]), e(cs[c]))) as f32
             }
-            BlendMode::Normal | BlendMode::StencilAlpha | BlendMode::StencilLuma => unreachable!("handled above"),
+            BlendMode::Normal | BlendMode::StencilAlpha | BlendMode::StencilLuma => {
+                unreachable!("handled above")
+            }
         };
         out[c] = (1.0 - a_s) * dst[c] + (1.0 - a_d) * src[c] + a_s * a_d * b;
     }

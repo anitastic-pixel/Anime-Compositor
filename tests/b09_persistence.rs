@@ -1418,14 +1418,21 @@ fn sheet_details_refuse_a_non_string_and_keep_what_they_do_not_know() {
         .err()
         .expect("a number where the episode is written is refused");
     assert!(
-        refused.detail.contains("/compositions/0/sheet_details/episode"),
+        refused
+            .detail
+            .contains("/compositions/0/sheet_details/episode"),
         "the refusal names the place: {}",
         refused.detail
     );
-    let kept = persist::load_str(&with(serde_json::json!({ "cut": "012", "studio": "later" })))
-        .expect("an unknown key opens");
+    let kept = persist::load_str(&with(
+        serde_json::json!({ "cut": "012", "studio": "later" }),
+    ))
+    .expect("an unknown key opens");
     let written = persist::to_json(kept.document.project(), &kept.preserved);
-    assert!(written.contains("\"studio\": \"later\"") && written.contains("\"cut\": \"012\""), "{written}");
+    assert!(
+        written.contains("\"studio\": \"later\"") && written.contains("\"cut\": \"012\""),
+        "{written}"
+    );
 }
 
 /// D-84g: key drawings are whole numbers. Anything else refuses the file and names the place;
@@ -1442,7 +1449,9 @@ fn key_drawings_refuse_a_non_number_and_are_written_only_when_there_are_some() {
         .err()
         .expect("a word where a drawing number is written is refused");
     assert!(
-        refused.detail.contains("/compositions/0/layers/0/key_drawings/1"),
+        refused
+            .detail
+            .contains("/compositions/0/layers/0/key_drawings/1"),
         "the refusal names the place: {}",
         refused.detail
     );

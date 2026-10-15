@@ -39,7 +39,11 @@ fn b94_twirl() {
 
     t.heading("How far it reaches");
     let got = twirl(3600.0, 10000.0, MIDDLE).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = twirl(90.0, 50.0, MIDDLE);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -83,16 +87,28 @@ fn b94_twirl() {
             ("radius -1", set(twirl(90.0, -1.0, MIDDLE))),
             ("radius 10001", set(twirl(90.0, 10001.0, MIDDLE))),
             ("centre 50, 1001", set(twirl(90.0, 50.0, [50.0, 1001.0]))),
-            ("radius keyed to 20000", keys("radius", &[(0, &[50.0]), (4, &[20000.0])])),
+            (
+                "radius keyed to 20000",
+                keys("radius", &[(0, &[50.0]), (4, &[20000.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_twirl_001.json",
         vec![
-            ("every number at its bottom,", set(twirl(-3600.0, 0.0, [-1000.0, -1000.0]))),
-            ("every number at its top,", set(twirl(3600.0, 10000.0, [1000.0, 1000.0]))),
-            ("angle keyed from 0 to 180", keys("angle", &[(0, &[0.0]), (4, &[180.0])])),
+            (
+                "every number at its bottom,",
+                set(twirl(-3600.0, 0.0, [-1000.0, -1000.0])),
+            ),
+            (
+                "every number at its top,",
+                set(twirl(3600.0, 10000.0, [1000.0, 1000.0])),
+            ),
+            (
+                "angle keyed from 0 to 180",
+                keys("angle", &[(0, &[0.0]), (4, &[180.0])]),
+            ),
         ],
     );
 

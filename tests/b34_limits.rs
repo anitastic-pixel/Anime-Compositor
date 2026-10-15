@@ -111,7 +111,9 @@ fn load(file: &str) -> persist::Loaded {
 
 fn effect_of(document: &Document) -> Effect {
     let comp = document.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("adj")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("adj")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 #[test]
@@ -140,7 +142,13 @@ fn b34_limits() {
     let mut cases: Vec<(String, J)> = Vec::new();
     for file in ["expected_limits.json", "expected_limits_d318.json"] {
         let e: J = serde_json::from_str(&fs::read_to_string(root().join(file)).unwrap()).unwrap();
-        cases.extend(e["cases"].as_object().unwrap().iter().map(|(n, c)| (n.clone(), c.clone())));
+        cases.extend(
+            e["cases"]
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(n, c)| (n.clone(), c.clone())),
+        );
     }
     for (name, case) in &cases {
         // D-318: exposure runs from -40 to 40 now. The three cases are kept as written.
@@ -149,11 +157,21 @@ fn b34_limits() {
             let warned = !loaded.warnings.is_empty();
             let red = render(&loaded.document, 2).data()[0];
             let (what, ok) = if name == "FX-LIMIT-004" {
-                ("the ease past 20 is no longer held at 20: frame 2 is brighter than 2^20", red > 1.01 * 1048576.0)
+                (
+                    "the ease past 20 is no longer held at 20: frame 2 is brighter than 2^20",
+                    red > 1.01 * 1048576.0,
+                )
             } else {
-                ("its value is in range now: it opens with no warning and is drawn", !warned && red != 1.0)
+                (
+                    "its value is in range now: it opens with no warning and is drawn",
+                    !warned && red != 1.0,
+                )
             };
-            t.row(&format!("{name}, superseded by D-318: {what}"), &format!("red {red:e}, warned {warned}"), ok);
+            t.row(
+                &format!("{name}, superseded by D-318: {what}"),
+                &format!("red {red:e}, warned {warned}"),
+                ok,
+            );
             continue;
         }
         let says = case["says"].as_str().unwrap();
@@ -218,12 +236,22 @@ fn b34_limits() {
     for (file, value, sentence) in [
         (
             "fx_limit_003.json",
-            Effect::GaussianBlur { sigma_px: 501.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() },
+            Effect::GaussianBlur {
+                sigma_px: 501.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
             "A Gaussian blur's sigma runs from 0 to 500, and this is 501.",
         ),
         (
             "fx_limit_003.json",
-            Effect::GaussianBlur { sigma_px: -1.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() },
+            Effect::GaussianBlur {
+                sigma_px: -1.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
             "A Gaussian blur's sigma runs from 0 to 500, and this is -1.",
         ),
         (
@@ -245,7 +273,9 @@ fn b34_limits() {
         let mut document = load(file).document;
         let (held, revision, depth) = (effect_of(&document), document.revision(), 0);
         let refused = document.apply(set(value)).err();
-        let message = refused.as_ref().map_or("taken".to_string(), |d| d.message.clone());
+        let message = refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone());
         let untouched = effect_of(&document) == held
             && document.revision() == revision
             && document.undo_depth() == depth;
@@ -256,8 +286,24 @@ fn b34_limits() {
         );
     }
     for (file, value) in [
-        ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 0.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
-        ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 500.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
+        (
+            "fx_limit_003.json",
+            Effect::GaussianBlur {
+                sigma_px: 0.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
+        (
+            "fx_limit_003.json",
+            Effect::GaussianBlur {
+                sigma_px: 500.0,
+                edges: "transparent".into(),
+                dimensions: "both".into(),
+                units: "sigma".into(),
+            },
+        ),
         ("fx_limit_001.json", Effect::exposure(-20.0)),
         ("fx_limit_001.json", Effect::exposure(20.0)),
         ("fx_limit_001.json", Effect::exposure(21.0)),

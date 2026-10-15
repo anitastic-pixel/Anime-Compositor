@@ -37,7 +37,12 @@ fn picture(dir: &Path, parameters: Option<J>) -> (Vec<u8>, Vec<String>) {
     for y in 0..h {
         let t = y as f64 / h as f64;
         for _ in 0..w {
-            sky.extend([(26.0 + 30.0 * t) as u8, (28.0 + 22.0 * t) as u8, (58.0 + 40.0 * t) as u8, 255]);
+            sky.extend([
+                (26.0 + 30.0 * t) as u8,
+                (28.0 + 22.0 * t) as u8,
+                (58.0 + 40.0 * t) as u8,
+                255,
+            ]);
         }
     }
     png_out::write_rgba(&dir.join("sky.png"), w, h, OutputDepth::Eight, &[], &sky).unwrap();
@@ -68,8 +73,20 @@ fn picture(dir: &Path, parameters: Option<J>) -> (Vec<u8>, Vec<String>) {
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -91,7 +108,10 @@ fn b215_lightning_core() {
     t.heading("The file");
     let files: Vec<String> = (1..=7).map(|n| format!("fx_lcore_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
-    let old = persist::load(&effect_table::repo("Fixtures/lightning_bolt/fx_bolt_001.json")).unwrap();
+    let old = persist::load(&effect_table::repo(
+        "Fixtures/lightning_bolt/fx_bolt_001.json",
+    ))
+    .unwrap();
     let saved = effect_table::saved(&old);
     let params = &saved["compositions"][0]["layers"][0]["effects"][0]["parameters"];
     t.row(
@@ -100,9 +120,26 @@ fn b215_lightning_core() {
         params.get("core").is_none(),
     );
     let mut document = t.load("fx_lcore_001.json").document;
-    let base = document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
+    let base = document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone();
     let wrong = t.load("fx_lcore_007.json");
-    let why = wrong.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
+    let why = wrong
+        .document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .why_invalid();
     t.row(
         "fx_lcore_007.json's core \"fuzzy\" is named in a sentence",
         &why,
@@ -110,11 +147,17 @@ fn b215_lightning_core() {
     );
 
     t.heading("Commands");
-    t.refused(&mut document, vec![("core \"fuzzy\"", set(cored(&base, "fuzzy")))]);
+    t.refused(
+        &mut document,
+        vec![("core \"fuzzy\"", set(cored(&base, "fuzzy")))],
+    );
     t.taken(
         &mut document,
         "fx_lcore_001.json",
-        vec![("core hard,", set(cored(&base, "hard"))), ("core soft,", set(cored(&base, "soft")))],
+        vec![
+            ("core hard,", set(cored(&base, "hard"))),
+            ("core soft,", set(cored(&base, "soft"))),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -125,27 +168,55 @@ fn b215_lightning_core() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = SIZE;
     let bolt = |core: &str| {
-        Some(json!({"start": [30.0, 0.0], "end": [60.0, 100.0], "jagged": 40, "detail": 6, "branches": 30,
+        Some(
+            json!({"start": [30.0, 0.0], "end": [60.0, 100.0], "jagged": 40, "detail": 6, "branches": 30,
             "width": 4, "glow": 6, "opacity": 100, "hold": 2, "seed": 0, "color": "#ffffff",
-            "glow_color": "#6e8cff", "core": core}))
+            "glow_color": "#6e8cff", "core": core}),
+        )
     };
     let (before, _) = picture(&dir, None);
     let mut shots = Vec::new();
     for (name, what, core) in [
-        ("1_hard", "core Hard, D-190's: the core one flat white ribbon with a hard edge", "hard"),
-        ("2_soft", "core Soft: the core white in the middle, fading into the glow at its edge", "soft"),
+        (
+            "1_hard",
+            "core Hard, D-190's: the core one flat white ribbon with a hard edge",
+            "hard",
+        ),
+        (
+            "2_soft",
+            "core Soft: the core white in the middle, fading into the glow at its edge",
+            "soft",
+        ),
     ] {
         let (bytes, said) = picture(&dir, bolt(core));
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
-        let changed = (0..w * h).filter(|&i| bytes[i * 4..i * 4 + 4] != before[i * 4..i * 4 + 4]).count();
-        t.row(&format!("{name}.png, {what}, draws cleanly and changes some pixels"), &format!("{said:?}, {changed} changed"), said.is_empty() && changed > 0);
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
+        let changed = (0..w * h)
+            .filter(|&i| bytes[i * 4..i * 4 + 4] != before[i * 4..i * 4 + 4])
+            .count();
+        t.row(
+            &format!("{name}.png, {what}, draws cleanly and changes some pixels"),
+            &format!("{said:?}, {changed} changed"),
+            said.is_empty() && changed > 0,
+        );
         shots.push(bytes);
     }
     let white = |b: &[u8]| b.chunks(4).filter(|p| p[..3] == [255, 255, 255]).count();
     let darker = (0..w * h).all(|i| (0..3).all(|c| shots[1][i * 4 + c] <= shots[0][i * 4 + c]));
     t.row(
         "the soft core is never brighter than the hard one, and has fewer pure white pixels",
-        &format!("pure white: hard {}, soft {}", white(&shots[0]), white(&shots[1])),
+        &format!(
+            "pure white: hard {}, soft {}",
+            white(&shots[0]),
+            white(&shots[1])
+        ),
         darker && white(&shots[1]) < white(&shots[0]),
     );
 

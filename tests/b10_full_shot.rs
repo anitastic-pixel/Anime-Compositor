@@ -83,7 +83,9 @@ use std::sync::atomic::AtomicBool;
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::DiagnosticId;
-use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource, OutputFormat};
+use anime_compositor::export::{
+    export_sequence, ExportReport, ExportRequest, MissingSource, OutputFormat,
+};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
 use anime_compositor::time::{ExposureMap, ExposureSpan, FrameRate};

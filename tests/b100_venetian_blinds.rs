@@ -41,7 +41,11 @@ fn b100_venetian_blinds() {
 
     t.heading("How far it reaches");
     let got = blinds(50.0, 30.0, 10000.0, 10000.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = blinds(50.0, 0.0, 20.0, 6.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -96,16 +100,28 @@ fn b100_venetian_blinds() {
             ("width 10001", set(blinds(50.0, 0.0, 10001.0, 0.0))),
             ("feather -1", set(blinds(50.0, 0.0, 20.0, -1.0))),
             ("angle 3601", set(blinds(50.0, 3601.0, 20.0, 0.0))),
-            ("completion keyed to 150", keys("completion", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "completion keyed to 150",
+                keys("completion", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_blinds_001.json",
         vec![
-            ("every number at its bottom,", set(blinds(0.0, -3600.0, 1.0, 0.0))),
-            ("every number at its top,", set(blinds(100.0, 3600.0, 10000.0, 10000.0))),
-            ("completion keyed from 0 to 100", keys("completion", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "every number at its bottom,",
+                set(blinds(0.0, -3600.0, 1.0, 0.0)),
+            ),
+            (
+                "every number at its top,",
+                set(blinds(100.0, 3600.0, 10000.0, 10000.0)),
+            ),
+            (
+                "completion keyed from 0 to 100",
+                keys("completion", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

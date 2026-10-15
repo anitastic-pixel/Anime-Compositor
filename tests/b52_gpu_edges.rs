@@ -43,12 +43,14 @@ struct Shot {
 /// The reference shot with `effect` on its first layer, the background plate, which fills the
 /// frame, at `edges`.
 fn plate(name: &str, effect: serde_json::Value, edges: &str) -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let mut effect = effect;
     effect["parameters"]["edges"] = json!(edges);
     j["compositions"][0]["layers"][0]["effects"] = json!([effect]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+    let loaded =
+        persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
     Shot {
         name: format!("the reference shot with {name}, edges {edges}, on the background"),
         project: loaded.document.project().clone(),
@@ -60,15 +62,31 @@ fn plate(name: &str, effect: serde_json::Value, edges: &str) -> Shot {
 
 /// The three blurs, as the pictures and the card's check put them on the background.
 fn blurs() -> Vec<(&'static str, &'static str, serde_json::Value)> {
-    let fx = |type_id: &str, parameters: serde_json::Value| {
-        json!({"instance_id": "b52", "type_id": type_id, "enabled": true, "parameters": parameters})
-    };
+    let fx = |type_id: &str, parameters: serde_json::Value| json!({"instance_id": "b52", "type_id": type_id, "enabled": true, "parameters": parameters});
     vec![
-        ("gaussian", "a Gaussian Blur of sigma 10", fx("core.gaussian_blur", json!({"sigma_px": 10.0}))),
-        ("directional", "a Directional Blur at 45 degrees, 60 long", fx("core.directional_blur", json!({"direction": 45.0, "length": 60.0}))),
+        (
+            "gaussian",
+            "a Gaussian Blur of sigma 10",
+            fx("core.gaussian_blur", json!({"sigma_px": 10.0})),
+        ),
+        (
+            "directional",
+            "a Directional Blur at 45 degrees, 60 long",
+            fx(
+                "core.directional_blur",
+                json!({"direction": 45.0, "length": 60.0}),
+            ),
+        ),
         // A spin: since D-110 a zoom about a centre inside the picture samples only inside it,
         // so its edges no longer fade.
-        ("radial", "a Radial Blur, spin 30 about the middle", fx("core.radial_blur", json!({"type": "spin", "amount": 30.0, "center": [50.0, 50.0]}))),
+        (
+            "radial",
+            "a Radial Blur, spin 30 about the middle",
+            fx(
+                "core.radial_blur",
+                json!({"type": "spin", "amount": 30.0, "center": [50.0, 50.0]}),
+            ),
+        ),
     ]
 }
 
@@ -77,11 +95,21 @@ fn fixtures() -> Vec<Shot> {
     (1..=9)
         .map(|i| {
             let name = format!("fx_edges_{i:03}");
-            let loaded = persist::load(&repo(&format!("Fixtures/edges/{name}.json"))).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+            let loaded = persist::load(&repo(&format!("Fixtures/edges/{name}.json")))
+                .unwrap_or_else(|d| panic!("{name}: {}", d.message));
             let project = loaded.document.project().clone();
             let comp = &project.compositions[0];
-            let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
-            Shot { name, project, root: repo("Fixtures/edges"), comp: id, frames }
+            let (id, frames) = (
+                comp.id.clone(),
+                (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+            );
+            Shot {
+                name,
+                project,
+                root: repo("Fixtures/edges"),
+                comp: id,
+                frames,
+            }
         })
         .collect()
 }
@@ -91,7 +119,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -101,15 +134,28 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// How many layers of the card's plan have a Radial, Directional or Gaussian Blur left for the card.
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> usize {
     let mut log = FrameLog::new(3);
-    compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer())
-        .expect("plan the frame")
-        .layers
-        .iter()
-        .filter(|l| {
-            use anime_compositor::render::OnCard;
-            l.on_card.iter().any(|c| matches!(c, OnCard::Radial(_) | OnCard::Directional(_) | OnCard::Gaussian(_)))
+    compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame")
+    .layers
+    .iter()
+    .filter(|l| {
+        use anime_compositor::render::OnCard;
+        l.on_card.iter().any(|c| {
+            matches!(
+                c,
+                OnCard::Radial(_) | OnCard::Directional(_) | OnCard::Gaussian(_)
+            )
         })
-        .count()
+    })
+    .count()
 }
 
 #[test]
@@ -126,14 +172,29 @@ fn b52_gpu_edges() {
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     let mut worst: Option<((u8, usize), String, Vec<u8>, Vec<u8>, usize, usize)> = None;
     let mut shots = fixtures();
-    shots.extend(blurs().into_iter().map(|(_, name, effect)| plate(name, effect, "repeat")));
+    shots.extend(
+        blurs()
+            .into_iter()
+            .map(|(_, name, effect)| plate(name, effect, "repeat")),
+    );
     for shot in &shots {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -144,8 +205,20 @@ fn b52_gpu_edges() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let n = left(shot, frame, quality);
@@ -180,23 +253,36 @@ fn b52_gpu_edges() {
     // The CPU drawing a plan made for the card, as it does when the card refuses a frame, draws
     // the same frame as a plan made for the CPU, byte for byte.
     for reference in &shots[shots.len() - 3..] {
-    for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
-        let mut log = FrameLog::new(3);
-        let tile = match quality {
-            PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
-            PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
-        };
-        let plan = |card: bool, log: &mut FrameLog| {
-            let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-            let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
-            preview::scale_plan(p, quality)
-        };
-        let a = render::render(&plan(false, &mut log), tile);
-        let b = render::render(&plan(true, &mut log), tile);
-        let same = a.data() == b.data();
-        checks += 1;
-        passed += same as usize;
-        let _ = writeln!(
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            let mut log = FrameLog::new(3);
+            let tile = match quality {
+                PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
+                PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
+            };
+            let plan = |card: bool, log: &mut FrameLog| {
+                let make = if card {
+                    compose::plan_frame_for_card
+                } else {
+                    compose::plan_frame_at
+                };
+                let p = make(
+                    &reference.project,
+                    &reference.comp,
+                    100,
+                    &reference.root,
+                    quality,
+                    log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan");
+                preview::scale_plan(p, quality)
+            };
+            let a = render::render(&plan(false, &mut log), tile);
+            let b = render::render(&plan(true, &mut log), tile);
+            let same = a.data() == b.data();
+            checks += 1;
+            passed += same as usize;
+            let _ = writeln!(
             rows,
             "| {} frame 100, {}: the plan made for the card, drawn by the CPU | — | — | {} | — | {} |",
             reference.name,
@@ -204,7 +290,7 @@ fn b52_gpu_edges() {
             if same { "byte-identical".to_string() } else { "the frame differs".to_string() },
             if same { "PASS" } else { "FAIL" }
         );
-    }
+        }
     }
 
     let pictures = repo("verification/B-52 pictures");
@@ -223,8 +309,13 @@ fn b52_gpu_edges() {
     for px in diff.chunks_exact_mut(4) {
         px[3] = 255;
     }
-    for (name, bytes) in [("card_cpu.png", &c), ("card_gpu.png", &g), ("card_difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+    for (name, bytes) in [
+        ("card_cpu.png", &c),
+        ("card_gpu.png", &g),
+        ("card_difference.png", &diff),
+    ] {
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let s = format!(
@@ -262,8 +353,17 @@ fn b52_pictures() {
         for edges in ["transparent", "repeat"] {
             let shot = plate(name, effect.clone(), edges);
             let mut log = FrameLog::new(3);
-            let frame = preview::preview_frame_cached(&shot.project, &shot.comp, 0, &shot.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .unwrap_or_else(|d| panic!("{}: {}", shot.name, d.message));
+            let frame = preview::preview_frame_cached(
+                &shot.project,
+                &shot.comp,
+                0,
+                &shot.root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .unwrap_or_else(|d| panic!("{}: {}", shot.name, d.message));
             let (w, h) = (frame.width(), frame.height());
             let bytes = frame.to_srgb8_straight();
             see_through.push(bytes.chunks_exact(4).filter(|p| p[3] < 255).count());
@@ -273,13 +373,25 @@ fn b52_pictures() {
                 .enumerate()
                 .flat_map(|(i, p)| {
                     let (x, y) = (i % w, i / w);
-                    let back = if (x / 32 + y / 32) % 2 == 0 { 96.0 } else { 160.0 };
+                    let back = if (x / 32 + y / 32) % 2 == 0 {
+                        96.0
+                    } else {
+                        160.0
+                    };
                     let a = p[3] as f64 / 255.0;
                     let mix = |c: u8| (c as f64 * a + back * (1.0 - a)).round() as u8;
                     [mix(p[0]), mix(p[1]), mix(p[2]), 255]
                 })
                 .collect();
-            png_out::write_rgba(&pictures.join(format!("{file}_{edges}.png")), w, h, OutputDepth::Eight, &[], &shown).expect("write a picture");
+            png_out::write_rgba(
+                &pictures.join(format!("{file}_{edges}.png")),
+                w,
+                h,
+                OutputDepth::Eight,
+                &[],
+                &shown,
+            )
+            .expect("write a picture");
         }
         let pass = see_through[0] > 0 && see_through[1] == 0;
         ok &= pass;
@@ -302,5 +414,8 @@ fn b52_pictures() {
          | Blur | Transparent | Pixels see-through | Repeat Edge Pixels | Pixels see-through | Result |\n|---|---|---:|---|---:|---|\n{rows}"
     );
     fs::write(repo("verification/B-52_pictures_table.md"), s).expect("write the pictures table");
-    assert!(ok, "B-52: a picture with repeated edges has see-through pixels, or one without has none");
+    assert!(
+        ok,
+        "B-52: a picture with repeated edges has see-through pixels, or one without has none"
+    );
 }

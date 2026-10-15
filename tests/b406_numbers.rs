@@ -35,7 +35,13 @@ fn set(effect: Effect) -> Command {
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
     let layer = comp.layer(&Id::new("plate")).unwrap();
-    layer.effects.iter().find(|i| i.instance_id.as_str() == "fx-1").unwrap().effect.clone()
+    layer
+        .effects
+        .iter()
+        .find(|i| i.instance_id.as_str() == "fx-1")
+        .unwrap()
+        .effect
+        .clone()
 }
 
 /// Where the plates are written: the system's temporary folder.
@@ -54,7 +60,12 @@ fn plate((w, h): (usize, usize), frames: u32, effects: J) -> Project {
         .flat_map(|i| {
             let (x, y) = (i % w, i / w);
             let bar = if (x / 40) % 2 == 0 { 0 } else { 24 };
-            [(20 + 80 * x / w + bar) as u8, (30 + 40 * y / h) as u8, (90 + bar) as u8, 255]
+            [
+                (20 + 80 * x / w + bar) as u8,
+                (30 + 40 * y / h) as u8,
+                (90 + bar) as u8,
+                255,
+            ]
         })
         .collect();
     png_out::write_rgba(&dir.join(&file), w, h, OutputDepth::Eight, &[], &pixels).unwrap();
@@ -77,7 +88,11 @@ fn plate((w, h): (usize, usize), frames: u32, effects: J) -> Project {
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// Numbers as added with `changes` laid over its settings.
@@ -96,7 +111,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -117,7 +137,9 @@ fn b406_numbers() {
     );
 
     t.heading("FX-NUM-001 to 045 (document 25): each frame against the words it must show");
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_numbers.json")).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_numbers.json")).unwrap())
+            .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     let mut files = Vec::new();
     let mut shots: Vec<(String, Project, i32)> = Vec::new();
@@ -131,20 +153,41 @@ fn b406_numbers() {
             let same = t.load(f["same"].as_str().unwrap()).document;
             let built = t.render(&loaded.document, frame, 64);
             let want = t.render(&same, frame, 64);
-            let d = built.data().iter().zip(want.data()).map(|(a, b)| (a - b).abs() as f64).fold(0.0, f64::max);
-            let shows = f["shows"].as_str().map_or("nothing".to_string(), |s| format!("\"{s}\""));
+            let d = built
+                .data()
+                .iter()
+                .zip(want.data())
+                .map(|(a, b)| (a - b).abs() as f64)
+                .fold(0.0, f64::max);
+            let shows = f["shows"]
+                .as_str()
+                .map_or("nothing".to_string(), |s| format!("\"{s}\""));
             t.row(
                 &format!("{name} frame {frame}: {says} Shows {shows}"),
                 &format!("largest difference {d:.1e}"),
                 d <= tolerance && built.data().len() == want.data().len(),
             );
-            shots.push((format!("{file} frame {frame}"), loaded.document.project().clone(), frame));
+            shots.push((
+                format!("{file} frame {frame}"),
+                loaded.document.project().clone(),
+                frame,
+            ));
         }
         let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
         let mut log = FrameLog::new(8);
-        let _ = plan_frame(loaded.document.project(), &Id::new(MAIN), 4, &t.root, &mut log);
+        let _ = plan_frame(
+            loaded.document.project(),
+            &Id::new(MAIN),
+            4,
+            &t.root,
+            &mut log,
+        );
         let at_frame: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-        let want: Vec<&str> = case.get("warning").and_then(J::as_str).into_iter().collect();
+        let want: Vec<&str> = case
+            .get("warning")
+            .and_then(J::as_str)
+            .into_iter()
+            .collect();
         let mut want_at_frame = want.clone();
         want_at_frame.extend(case.get("frame_warning").and_then(J::as_str));
         t.row(
@@ -159,9 +202,13 @@ fn b406_numbers() {
     for file in ["fx_num_001.json", "fx_num_024.json"] {
         let params = t.saved_parameters(file);
         t.row(
-            &format!("{file}: the clock worked each frame is never saved; the type is saved as type"),
+            &format!(
+                "{file}: the clock worked each frame is never saved; the type is saved as type"
+            ),
             &params.to_string(),
-            params.get("clock").is_none() && params.get("kind").is_none() && params.get("type").is_some(),
+            params.get("clock").is_none()
+                && params.get("kind").is_none()
+                && params.get("type").is_some(),
         );
     }
     let refusals = [
@@ -173,10 +220,18 @@ fn b406_numbers() {
     ];
     for (file, sentence) in refusals {
         let why = effect_of(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming it"), &why, why == sentence);
+        t.row(
+            &format!("{file} is refused in a sentence naming it"),
+            &why,
+            why == sentence,
+        );
     }
     let why = effect_of(&t.load("fx_num_044.json").document).why_invalid();
-    t.row("fx_num_044.json is refused in a sentence naming the font", &why, why.starts_with("Numbers needs ") && why.contains("../fonts/x.ttf"));
+    t.row(
+        "fx_num_044.json is refused in a sentence naming the font",
+        &why,
+        why.starts_with("Numbers needs ") && why.contains("../fonts/x.ttf"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_num_002.json").document;
@@ -186,46 +241,94 @@ fn b406_numbers() {
         f(&mut e);
         e
     };
-    let refused = document.apply(set(with(&|e| if let Effect::Numbers { size, .. } = e { *size = 0.0 }))).err();
+    let refused = document
+        .apply(set(with(&|e| {
+            if let Effect::Numbers { size, .. } = e {
+                *size = 0.0
+            }
+        })))
+        .err();
     let untouched = effect_of(&document) == base;
     t.row(
         "Size 0 is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
     t.taken(
         &mut document,
         "fx_num_002.json",
         vec![
-            ("Type Long Date, value 365,", set(with(&|e| if let Effect::Numbers { kind, value, .. } = e {
-                *kind = "long_date".to_string();
-                *value = 365.0;
-            }))),
-            ("Stroke over fill, width 5, monospaced, right-aligned,", set(with(&|e| if let Effect::Numbers { display, stroke_width, proportional_spacing, alignment, .. } = e {
-                *display = "stroke_over_fill".to_string();
-                *stroke_width = 5.0;
-                *proportional_spacing = "off".to_string();
-                *alignment = "right".to_string();
-            }))),
+            (
+                "Type Long Date, value 365,",
+                set(with(&|e| {
+                    if let Effect::Numbers { kind, value, .. } = e {
+                        *kind = "long_date".to_string();
+                        *value = 365.0;
+                    }
+                })),
+            ),
+            (
+                "Stroke over fill, width 5, monospaced, right-aligned,",
+                set(with(&|e| {
+                    if let Effect::Numbers {
+                        display,
+                        stroke_width,
+                        proportional_spacing,
+                        alignment,
+                        ..
+                    } = e
+                    {
+                        *display = "stroke_over_fill".to_string();
+                        *stroke_width = 5.0;
+                        *proportional_spacing = "off".to_string();
+                        *alignment = "right".to_string();
+                    }
+                })),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_num_001.json", 0), ("fx_num_017.json", 0), ("fx_num_027.json", 0), ("fx_num_030.json", 37), ("fx_num_032.json", 0)]);
+    t.tiles(&[
+        ("fx_num_001.json", 0),
+        ("fx_num_017.json", 0),
+        ("fx_num_027.json", 0),
+        ("fx_num_030.json", 37),
+        ("fx_num_032.json", 0),
+    ]);
 
     t.heading("The card against the processor, within 1 level of 255 (ADR-006, D-100)");
     let mut gpu = Gpu::new().expect("a usable card");
     let fixtures = t.root.clone();
     let plate_dir = plates();
-    let mut card: Vec<(String, Project, i32, bool)> = shots.into_iter().map(|(n, p, f)| (n, p, f, false)).collect();
+    let mut card: Vec<(String, Project, i32, bool)> = shots
+        .into_iter()
+        .map(|(n, p, f)| (n, p, f, false))
+        .collect();
     let samples: [(&str, J); 4] = [
         ("as added", json!({})),
-        ("timecode 30, monospaced, fill over stroke", json!({"type": "timecode_30", "proportional_spacing": "off", "display": "fill_over_stroke"})),
-        ("long date, size 30, stroke over fill, composite off", json!({"type": "long_date", "value": 4000, "size": 30, "display": "stroke_over_fill", "stroke_width": 4, "composite_on_original": "off"})),
-        ("random values with two places, stroke only", json!({"random_values": "on", "value": 500, "decimal_places": 2, "display": "stroke_only", "stroke_width": 5})),
+        (
+            "timecode 30, monospaced, fill over stroke",
+            json!({"type": "timecode_30", "proportional_spacing": "off", "display": "fill_over_stroke"}),
+        ),
+        (
+            "long date, size 30, stroke over fill, composite off",
+            json!({"type": "long_date", "value": 4000, "size": 30, "display": "stroke_over_fill", "stroke_width": 4, "composite_on_original": "off"}),
+        ),
+        (
+            "random values with two places, stroke only",
+            json!({"random_values": "on", "value": 500, "decimal_places": 2, "display": "stroke_only", "stroke_width": 5}),
+        ),
     ];
     for (name, changes) in samples {
-        card.push((format!("a 480 by 160 picture, {name}"), plate((480, 160), 60, json!([numbers(changes)])), 9, true));
+        card.push((
+            format!("a 480 by 160 picture, {name}"),
+            plate((480, 160), 60, json!([numbers(changes)])),
+            9,
+            true,
+        ));
     }
     let mut worst = 0u8;
     for (name, project, frame, is_sample) in &card {
@@ -234,16 +337,44 @@ fn b406_numbers() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             let mut cache = CelCache::viewer();
             let mut log = FrameLog::new(3);
-            let c = preview::preview_frame_cached(project, &comp.id, *frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                .unwrap_or_else(|d| panic!("{name} on the CPU: {}", d.message));
+            let c = preview::preview_frame_cached(
+                project,
+                &comp.id,
+                *frame,
+                root,
+                quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+            )
+            .unwrap_or_else(|d| panic!("{name} on the CPU: {}", d.message));
             let said_cpu = said(log);
             let c = c.to_srgb8_straight();
             let mut log = FrameLog::new(3);
-            let (g, ..) = preview::preview_frame_srgb8(project, &comp.id, *frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                .unwrap_or_else(|d| panic!("{name} on the GPU: {}", d.message));
+            let (g, ..) = preview::preview_frame_srgb8(
+                project,
+                &comp.id,
+                *frame,
+                root,
+                quality,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut cache,
+                &mut gpu,
+            )
+            .unwrap_or_else(|d| panic!("{name} on the GPU: {}", d.message));
             let said_gpu = said(log);
             let mut log = FrameLog::new(3);
-            let plan = compose::plan_frame_for_card(project, &comp.id, *frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+            let plan = compose::plan_frame_for_card(
+                project,
+                &comp.id,
+                *frame,
+                root,
+                quality,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("plan the frame");
             let on_card: usize = plan.layers.iter().map(|l| l.on_card.len()).sum();
             let effects = comp.layer(&Id::new("plate")).map_or(0, |l| l.effects.len());
             let d = distance(&c, &g);
@@ -256,7 +387,11 @@ fn b406_numbers() {
             );
         }
     }
-    t.row("the largest difference over every frame above", &format!("{worst} level(s)"), worst <= 1);
+    t.row(
+        "the largest difference over every frame above",
+        &format!("{worst} level(s)"),
+        worst <= 1,
+    );
 
     t.heading("Pictures: in `verification/D-526 pictures/`");
     let dir = effect_table::repo("verification/D-526 pictures");
@@ -280,11 +415,35 @@ fn b406_numbers() {
     for (file, frame, png, what) in pictures {
         let document = t.load(file).document;
         let mut log = FrameLog::new(8);
-        let b = render_frame(document.project(), &Id::new(MAIN), frame, &fixtures, 64, &mut log).expect("the frame draws");
+        let b = render_frame(
+            document.project(),
+            &Id::new(MAIN),
+            frame,
+            &fixtures,
+            64,
+            &mut log,
+        )
+        .expect("the frame draws");
         let s = said(log);
-        png_out::write_rgba(&dir.join(format!("{png}.png")), 480, 160, OutputDepth::Eight, &[], &b.to_srgb8_straight()).unwrap();
-        let want = if file == "fx_num_034.json" { "TEXT_FONT_MISSING" } else { "" };
-        t.row(&format!("{png}.png, {what}"), &format!("warnings {s:?}"), s == want);
+        png_out::write_rgba(
+            &dir.join(format!("{png}.png")),
+            480,
+            160,
+            OutputDepth::Eight,
+            &[],
+            &b.to_srgb8_straight(),
+        )
+        .unwrap();
+        let want = if file == "fx_num_034.json" {
+            "TEXT_FONT_MISSING"
+        } else {
+            ""
+        };
+        t.row(
+            &format!("{png}.png, {what}"),
+            &format!("warnings {s:?}"),
+            s == want,
+        );
     }
 
     t.finish("D-526_numbers_table.md");
@@ -307,15 +466,25 @@ fn b406_numbers_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let noise = json!({"instance_id": "fx-2", "type_id": "core.noise", "enabled": true,
                        "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}});
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Numbers, timecode 30 at size 200, then Noise", Some(numbers(json!({"type": "timecode_30", "size": 200})))),
-        ("Numbers, monospaced long date, stroke over fill, then Noise", Some(numbers(json!({"type": "long_date", "value": 4000,
-            "size": 120, "proportional_spacing": "off", "display": "stroke_over_fill", "stroke_width": 6})))),
+        (
+            "Numbers, timecode 30 at size 200, then Noise",
+            Some(numbers(json!({"type": "timecode_30", "size": 200}))),
+        ),
+        (
+            "Numbers, monospaced long date, stroke over fill, then Noise",
+            Some(numbers(json!({"type": "long_date", "value": 4000,
+            "size": 120, "proportional_spacing": "off", "display": "stroke_over_fill", "stroke_width": 6}))),
+        ),
     ];
     let dir = plates();
     for (name, e) in shots {
@@ -328,14 +497,41 @@ fn b406_numbers_timing() {
             for frame in (0..240).step_by(8) {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        &project,
+                        &Id::new(MAIN),
+                        frame,
+                        &dir,
+                        PreviewQuality::Full,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("GPU frame"),
+                );
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                assert!(log.finish().is_empty(), "{name}: the frame draws without a warning");
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                assert!(
+                    log.finish().is_empty(),
+                    "{name}: the frame draws without a warning"
+                );
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B406_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-406_timing_raw.md"));
+    let out = std::env::var("B406_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-406_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -88,9 +88,16 @@ fn b64_lens_iris() {
 
     t.heading("The file");
     let old = t.saved_parameters("fx_lens_001.json");
-    let clean = ["iris", "roundness", "rotation", "aspect", "highlight_gain", "highlight_threshold"]
-        .iter()
-        .all(|k| old.get(k).is_none());
+    let clean = [
+        "iris",
+        "roundness",
+        "rotation",
+        "aspect",
+        "highlight_gain",
+        "highlight_threshold",
+    ]
+    .iter()
+    .all(|k| old.get(k).is_none());
     t.row(
         "fx_lens_001.json, from before D-121, is saved without any of the new settings",
         &old.to_string(),
@@ -126,14 +133,63 @@ fn b64_lens_iris() {
     t.refused(
         &mut document,
         vec![
-            ("iris \"star\"", set(lens(10.0, "transparent", "star", START))),
-            ("iris \"Hexagon\"", set(lens(10.0, "transparent", "Hexagon", START))),
-            ("roundness 101", set(lens(10.0, "transparent", "square", [101.0, 0.0, 1.0, 0.0, 100.0]))),
-            ("rotation 3601", set(lens(10.0, "transparent", "square", [0.0, 3601.0, 1.0, 0.0, 100.0]))),
-            ("aspect 0.05", set(lens(10.0, "transparent", "square", [0.0, 0.0, 0.05, 0.0, 100.0]))),
-            ("highlight gain -1", set(lens(10.0, "transparent", "square", [0.0, 0.0, 1.0, -1.0, 100.0]))),
-            ("highlight threshold 101", set(lens(10.0, "transparent", "square", [0.0, 0.0, 1.0, 0.0, 101.0]))),
-            ("aspect keyed to 20", keys("aspect", &[(0, &[1.0]), (4, &[20.0])])),
+            (
+                "iris \"star\"",
+                set(lens(10.0, "transparent", "star", START)),
+            ),
+            (
+                "iris \"Hexagon\"",
+                set(lens(10.0, "transparent", "Hexagon", START)),
+            ),
+            (
+                "roundness 101",
+                set(lens(
+                    10.0,
+                    "transparent",
+                    "square",
+                    [101.0, 0.0, 1.0, 0.0, 100.0],
+                )),
+            ),
+            (
+                "rotation 3601",
+                set(lens(
+                    10.0,
+                    "transparent",
+                    "square",
+                    [0.0, 3601.0, 1.0, 0.0, 100.0],
+                )),
+            ),
+            (
+                "aspect 0.05",
+                set(lens(
+                    10.0,
+                    "transparent",
+                    "square",
+                    [0.0, 0.0, 0.05, 0.0, 100.0],
+                )),
+            ),
+            (
+                "highlight gain -1",
+                set(lens(
+                    10.0,
+                    "transparent",
+                    "square",
+                    [0.0, 0.0, 1.0, -1.0, 100.0],
+                )),
+            ),
+            (
+                "highlight threshold 101",
+                set(lens(
+                    10.0,
+                    "transparent",
+                    "square",
+                    [0.0, 0.0, 1.0, 0.0, 101.0],
+                )),
+            ),
+            (
+                "aspect keyed to 20",
+                keys("aspect", &[(0, &[1.0]), (4, &[20.0])]),
+            ),
         ],
     );
     t.taken(
@@ -146,9 +202,17 @@ fn b64_lens_iris() {
             ),
             (
                 "the far ends: decagon, roundness 100, rotation -3600, aspect 10, gain 100 over 0",
-                set(lens(4.0, "transparent", "decagon", [100.0, -3600.0, 10.0, 100.0, 0.0])),
+                set(lens(
+                    4.0,
+                    "transparent",
+                    "decagon",
+                    [100.0, -3600.0, 10.0, 100.0, 0.0],
+                )),
             ),
-            ("rotation keyed from 0 to 3600", keys("rotation", &[(0, &[0.0]), (4, &[3600.0])])),
+            (
+                "rotation keyed from 0 to 3600",
+                keys("rotation", &[(0, &[0.0]), (4, &[3600.0])]),
+            ),
         ],
     );
 

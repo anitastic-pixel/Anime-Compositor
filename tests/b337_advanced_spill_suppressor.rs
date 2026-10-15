@@ -19,7 +19,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -48,7 +49,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=28 {
         let file = format!("fx_spill_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -56,7 +61,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::AdvancedSpillSuppressor { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::AdvancedSpillSuppressor { .. })
+                });
             }
         }
         t.row(
@@ -74,9 +81,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -90,7 +106,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::AdvancedSpillSuppressor { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::AdvancedSpillSuppressor { .. })
+                });
                 t.row(
                     &format!("the reference shot, Advanced Spill Suppressor {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -104,7 +122,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -116,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -139,7 +172,9 @@ fn portrait() -> Vec<u8> {
             } else if r < 1.0 {
                 // The spill, from none 14 pixels in to 60% of the screen at the edge.
                 let spill = (1.0 - (1.0 - r) * 70.0 / 14.0).clamp(0.0, 1.0) * 0.6;
-                std::array::from_fn(|c| (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8)
+                std::array::from_fn(|c| {
+                    (skin[c] + (SCREEN[c] as f64 - skin[c]) * spill).round() as u8
+                })
             } else {
                 SCREEN
             };
@@ -158,13 +193,22 @@ fn from_green(b: &[u8]) -> f64 {
         return 0.0;
     }
     let d = mx - mn;
-    let h = if r == mx { (60.0 * (g - bl) / d).rem_euclid(360.0) } else if g == mx { 60.0 * ((bl - r) / d + 2.0) } else { 60.0 * ((r - g) / d + 4.0) };
+    let h = if r == mx {
+        (60.0 * (g - bl) / d).rem_euclid(360.0)
+    } else if g == mx {
+        60.0 * ((bl - r) / d + 2.0)
+    } else {
+        60.0 * ((r - g) / d + 4.0)
+    };
     ((h - 120.0 + 180.0).rem_euclid(360.0) - 180.0).abs()
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 #[test]
@@ -194,7 +238,9 @@ fn b337_advanced_spill_suppressor() {
     t.row(
         "fx_spill_013.json is saved with its eight settings, the method Ultra and the key #3cbe50",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 8 && saved["method"] == "ultra" && saved["key_color"] == "#3cbe50",
+        saved.as_object().unwrap().len() == 8
+            && saved["method"] == "ultra"
+            && saved["key_color"] == "#3cbe50",
     );
     for (file, want) in [
         ("fx_spill_019.json", "suppression"),
@@ -209,11 +255,23 @@ fn b337_advanced_spill_suppressor() {
         ("fx_spill_028.json", "key colour"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let rest = r##""key_color": "#00ff00", "tolerance": 50, "desaturate": 25, "spill_range": 50, "spill_color_correction": 50, "luma_correction": 50"##;
-    t.shape_refused("fx_spill_001.json", "an Advanced Spill Suppressor whose suppression is a word", &format!(r#"{{"method": "standard", "suppression": "full", {rest}}}"#));
-    t.shape_refused("fx_spill_001.json", "an Advanced Spill Suppressor without its method", &format!(r#"{{"suppression": 100, {rest}}}"#));
+    t.shape_refused(
+        "fx_spill_001.json",
+        "an Advanced Spill Suppressor whose suppression is a word",
+        &format!(r#"{{"method": "standard", "suppression": "full", {rest}}}"#),
+    );
+    t.shape_refused(
+        "fx_spill_001.json",
+        "an Advanced Spill Suppressor without its method",
+        &format!(r#"{{"suppression": 100, {rest}}}"#),
+    );
     t.shape_refused(
         "fx_spill_001.json",
         "an Advanced Spill Suppressor without its key colour",
@@ -222,20 +280,38 @@ fn b337_advanced_spill_suppressor() {
 
     t.heading("Commands");
     let mut document = t.load("fx_spill_001.json").document;
-    let over = changed(&t, "fx_spill_001.json", |e| if let Effect::AdvancedSpillSuppressor { suppression, .. } = e { *suppression = 101.0 });
-    let word = changed(&t, "fx_spill_001.json", |e| if let Effect::AdvancedSpillSuppressor { method, .. } = e { *method = "auto".into() });
-    let colour = changed(&t, "fx_spill_001.json", |e| if let Effect::AdvancedSpillSuppressor { key_color, .. } = e { *key_color = "green".into() });
+    let over = changed(&t, "fx_spill_001.json", |e| {
+        if let Effect::AdvancedSpillSuppressor { suppression, .. } = e {
+            *suppression = 101.0
+        }
+    });
+    let word = changed(&t, "fx_spill_001.json", |e| {
+        if let Effect::AdvancedSpillSuppressor { method, .. } = e {
+            *method = "auto".into()
+        }
+    });
+    let colour = changed(&t, "fx_spill_001.json", |e| {
+        if let Effect::AdvancedSpillSuppressor { key_color, .. } = e {
+            *key_color = "green".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("suppression 101", set(over)),
             ("method \"auto\"", set(word)),
             ("key colour \"green\"", set(colour)),
-            ("tolerance keyed to 150", keys("tolerance", &[(0, &[50.0]), (4, &[150.0])])),
+            (
+                "tolerance keyed to 150",
+                keys("tolerance", &[(0, &[50.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let blue = changed(&t, "fx_spill_001.json", |e| {
-        if let Effect::AdvancedSpillSuppressor { method, key_color, .. } = e {
+        if let Effect::AdvancedSpillSuppressor {
+            method, key_color, ..
+        } = e
+        {
             *method = "ultra".into();
             *key_color = "#0000ff".into();
         }
@@ -243,7 +319,13 @@ fn b337_advanced_spill_suppressor() {
     t.taken(
         &mut document,
         "fx_spill_001.json",
-        vec![("Ultra with a blue key", set(blue)), ("suppression keyed from 0 to 100", keys("suppression", &[(0, &[0.0]), (4, &[100.0])]))],
+        vec![
+            ("Ultra with a blue key", set(blue)),
+            (
+                "suppression keyed from 0 to 100",
+                keys("suppression", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
+        ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
@@ -279,7 +361,17 @@ fn b337_advanced_spill_suppressor() {
     t.heading("Pictures: in `verification/D-457 pictures/`");
     let dir = repo("verification/D-457 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("portrait.png", TOWN, &portrait());
     write("town.png", TOWN, &town());
     let shot = |p: J| picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &p)]));
@@ -297,9 +389,14 @@ fn b337_advanced_spill_suppressor() {
     // blue shirt loses its blue too (Standard does not know which colour the screen was).
     let (after, said) = shot(json!({}));
     write("2_standard.png", TOWN, &after);
-    let red_leads = pairs(&before, &after).filter(|(b, _)| b[0] >= b[1] && b[0] >= b[2]).all(|(b, a)| b == a);
-    let no_lead = pairs(&before, &after).all(|(_, a)| a[1] <= a[0].max(a[2]) + 1 && a[2] <= a[0].max(a[1]) + 1);
-    let skin_edge = pairs(&before, &after).filter(|(b, a)| b[1] > b[0] && a[1] < b[1] && b[..3] != SCREEN).count();
+    let red_leads = pairs(&before, &after)
+        .filter(|(b, _)| b[0] >= b[1] && b[0] >= b[2])
+        .all(|(b, a)| b == a);
+    let no_lead = pairs(&before, &after)
+        .all(|(_, a)| a[1] <= a[0].max(a[2]) + 1 && a[2] <= a[0].max(a[1]) + 1);
+    let skin_edge = pairs(&before, &after)
+        .filter(|(b, a)| b[1] > b[0] && a[1] < b[1] && b[..3] != SCREEN)
+        .count();
     let shirt_hit = pairs(&before, &after).any(|(b, a)| b[..3] == SHIRT && a[2] < b[2]);
     t.row(
         "2_standard.png, Standard at 100: the screen turns grey, the green edge of the face clears; pixels whose red leads (the face) untouched; no green or blue lead left anywhere; the blue shirt loses its blue too, Standard's known limit; draws cleanly",
@@ -310,7 +407,9 @@ fn b337_advanced_spill_suppressor() {
     // Ultra with the green key: the shirt (about 110 degrees from green) untouched, green falls.
     let (after, said) = shot(json!({"method": "ultra"}));
     write("3_ultra_green_key.png", TOWN, &after);
-    let shirt_kept = pairs(&before, &after).filter(|(b, _)| b[..3] == SHIRT).all(|(b, a)| b == a);
+    let shirt_kept = pairs(&before, &after)
+        .filter(|(b, _)| b[..3] == SHIRT)
+        .all(|(b, a)| b == a);
     let green_falls = pairs(&before, &after).all(|(b, a)| a[1] <= b[1]);
     let moved = pairs(&before, &after).filter(|(b, a)| a[1] < b[1]).count();
     t.row(
@@ -320,9 +419,13 @@ fn b337_advanced_spill_suppressor() {
     );
 
     // Ultra, correction 100, desaturate 0, luma 0: what green loses goes to red and blue.
-    let (after, said) = shot(json!({"method": "ultra", "spill_color_correction": 100, "desaturate": 0, "luma_correction": 0}));
+    let (after, said) = shot(
+        json!({"method": "ultra", "spill_color_correction": 100, "desaturate": 0, "luma_correction": 0}),
+    );
     write("4_ultra_correction.png", TOWN, &after);
-    let given = pairs(&before, &after).filter(|(b, a)| a[1] < b[1]).all(|(b, a)| a[0] >= b[0] && a[2] >= b[2]);
+    let given = pairs(&before, &after)
+        .filter(|(b, a)| a[1] < b[1])
+        .all(|(b, a)| a[0] >= b[0] && a[2] >= b[2]);
     t.row(
         "4_ultra_correction.png, Ultra with spill colour correction 100, no desaturate, no luma: every pixel that loses green gains red and blue, so the cleaned screen turns a muted pink; draws cleanly",
         &format!("{said:?}, red and blue never fall where green fell: {given}"),
@@ -335,7 +438,9 @@ fn b337_advanced_spill_suppressor() {
     let (plain, _) = picture(&dir, "town.png", TOWN, json!([]));
     let (after, said) = street(json!({}));
     write("5_street_standard.png", TOWN, &after);
-    let sky_cut = pairs(&plain, &after).filter(|(b, _)| b[2] > b[1]).all(|(_, a)| a[2] <= a[1] + 1);
+    let sky_cut = pairs(&plain, &after)
+        .filter(|(b, _)| b[2] > b[1])
+        .all(|(_, a)| a[2] <= a[1] + 1);
     t.row(
         "5_street_standard.png, the street with Standard at 100: a scene with no screen still loses every green or blue lead (the sky greys to its green); Standard is for keyed shots only; draws cleanly",
         &format!("{said:?}, sky's blue down to its green: {sky_cut}"),
@@ -356,7 +461,12 @@ fn b337_advanced_spill_suppressor() {
     let skin: Vec<u8> = [200u8, 214, 160, 255].repeat(16);
     write("skin.png", (4, 4), &skin);
     for (suppression, want) in [(100, [200, 200, 160]), (50, [200, 207, 160])] {
-        let (after, said) = picture(&dir, "skin.png", (4, 4), json!([fx("fx-0-0", &json!({"suppression": suppression}))]));
+        let (after, said) = picture(
+            &dir,
+            "skin.png",
+            (4, 4),
+            json!([fx("fx-0-0", &json!({"suppression": suppression}))]),
+        );
         t.row(
             &format!("by hand: the skin (200, 214, 160), Standard at {suppression}, gives {want:?}; draws cleanly"),
             &format!("{said:?}, ({}, {}, {})", after[0], after[1], after[2]),
@@ -392,22 +502,48 @@ fn b337_advanced_spill_suppressor_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Advanced Spill Suppressor, Standard", Some(json!({}))),
-        ("Noise, then Advanced Spill Suppressor, Ultra", Some(json!({"method": "ultra"}))),
+        (
+            "Noise, then Advanced Spill Suppressor, Standard",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Advanced Spill Suppressor, Ultra",
+            Some(json!({"method": "ultra"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B337_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-337_timing_raw.md"));
+    let out = std::env::var("B337_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-337_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

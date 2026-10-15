@@ -20,18 +20,26 @@ use anime_compositor::cache::CelCache;
 use anime_compositor::compose::render_frame;
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::gpu::Gpu;
-use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::model::Id;
 use anime_compositor::persist;
+use anime_compositor::preview::{self, PreviewQuality};
 
 const MAIN: &str = "comp-main";
 
 fn enc(c: f64) -> f64 {
-    if c <= 0.0031308 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 }
+    if c <= 0.0031308 {
+        c * 12.92
+    } else {
+        1.055 * c.powf(1.0 / 2.4) - 0.055
+    }
 }
 
 fn lin(c: f64) -> f64 {
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
 }
 
 fn solid(id: &str, color: [f64; 3], size: u32, opacity: f64, blend: &str) -> J {
@@ -68,9 +76,19 @@ fn shot(layers: Vec<J>) -> String {
 fn frame(layers: Vec<J>) -> Vec<[f32; 4]> {
     let loaded = persist::load_str(&shot(layers)).expect("the shot reads");
     let mut log = FrameLog::new(8);
-    let f = render_frame(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), 4, &mut log)
-        .expect("the frame draws");
-    (0..16).flat_map(|y| (0..16).map(move |x| (x, y))).map(|(x, y)| f.pixel(x, y)).collect()
+    let f = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        std::path::Path::new("."),
+        4,
+        &mut log,
+    )
+    .expect("the frame draws");
+    (0..16)
+        .flat_map(|y| (0..16).map(move |x| (x, y)))
+        .map(|(x, y)| f.pixel(x, y))
+        .collect()
 }
 
 /// The backdrop, encoded (0.25, 0.75, 0.5), stored linear.
@@ -86,16 +104,27 @@ fn overlay_and_soft_light_are_the_encoded_sums_worked_by_hand() {
         let neutral = frame(vec![backdrop(), solid("top", grey, 16, 1.0, mode)]);
         for (i, (a, b)) in alone.iter().zip(&neutral).enumerate() {
             for c in 0..4 {
-                assert!((a[c] - b[c]).abs() < 1e-5, "{mode}, pixel {i}: 50% grey changes nothing: {a:?} {b:?}");
+                assert!(
+                    (a[c] - b[c]).abs() < 1e-5,
+                    "{mode}, pixel {i}: 50% grey changes nothing: {a:?} {b:?}"
+                );
             }
         }
     }
     let top = [lin(0.8), lin(0.3), lin(0.5)];
-    for (mode, want) in [("overlay", [0.4, 0.65, 0.5]), ("soft_light", [0.4, 0.675, 0.5])] {
+    for (mode, want) in [
+        ("overlay", [0.4, 0.65, 0.5]),
+        ("soft_light", [0.4, 0.675, 0.5]),
+    ] {
         let got = frame(vec![backdrop(), solid("top", top, 16, 1.0, mode)]);
         for (i, p) in got.iter().enumerate() {
             for c in 0..3 {
-                assert!((enc(p[c] as f64) - want[c]).abs() < 1e-5, "{mode}, pixel {i}, channel {c}: {} against {}", enc(p[c] as f64), want[c]);
+                assert!(
+                    (enc(p[c] as f64) - want[c]).abs() < 1e-5,
+                    "{mode}, pixel {i}, channel {c}: {} against {}",
+                    enc(p[c] as f64),
+                    want[c]
+                );
             }
             assert_eq!(p[3], 1.0, "{mode}, pixel {i}: opaque");
         }
@@ -106,8 +135,16 @@ fn overlay_and_soft_light_are_the_encoded_sums_worked_by_hand() {
 fn a_stencil_keeps_the_backdrop_only_where_it_is() {
     let alone = frame(vec![backdrop()]);
     let cases = [
-        ("stencil_alpha", solid("top", [1.0, 0.0, 0.0], 8, 0.5, "stencil_alpha"), 0.5),
-        ("stencil_luma", solid("top", [0.2, 0.2, 0.2], 8, 1.0, "stencil_luma"), enc(0.2)),
+        (
+            "stencil_alpha",
+            solid("top", [1.0, 0.0, 0.0], 8, 0.5, "stencil_alpha"),
+            0.5,
+        ),
+        (
+            "stencil_luma",
+            solid("top", [0.2, 0.2, 0.2], 8, 1.0, "stencil_luma"),
+            enc(0.2),
+        ),
     ];
     for (mode, top, k) in cases {
         let got = frame(vec![backdrop(), top]);
@@ -115,11 +152,18 @@ fn a_stencil_keeps_the_backdrop_only_where_it_is() {
             let inside = i % 16 < 8 && i / 16 < 8;
             for c in 0..4 {
                 let want = if inside { a[c] as f64 * k } else { 0.0 };
-                assert!((b[c] as f64 - want).abs() < 1e-6, "{mode}, pixel {i}, channel {c}: {} against {want}", b[c]);
+                assert!(
+                    (b[c] as f64 - want).abs() < 1e-6,
+                    "{mode}, pixel {i}, channel {c}: {} against {want}",
+                    b[c]
+                );
             }
         }
     }
-    assert!((enc(0.2) - 0.484529).abs() < 1e-6, "the luma worked by hand");
+    assert!(
+        (enc(0.2) - 0.484529).abs() < 1e-6,
+        "the luma worked by hand"
+    );
 }
 
 /// The card does not draw these four, so a frame with one is drawn on the CPU and says so, and
@@ -130,25 +174,75 @@ fn the_card_hands_them_to_the_cpu() {
         eprintln!("no usable card; nothing to check");
         return;
     };
-    for mode in ["multiply", "overlay", "soft_light", "stencil_alpha", "stencil_luma"] {
-        let loaded = persist::load_str(&shot(vec![backdrop(), solid("top", [1.0; 3], 8, 1.0, mode)])).expect("the shot reads");
+    for mode in [
+        "multiply",
+        "overlay",
+        "soft_light",
+        "stencil_alpha",
+        "stencil_luma",
+    ] {
+        let loaded = persist::load_str(&shot(vec![
+            backdrop(),
+            solid("top", [1.0; 3], 8, 1.0, mode),
+        ]))
+        .expect("the shot reads");
         let mut log = FrameLog::new(8);
         let mut cache = CelCache::viewer();
-        preview::preview_frame_srgb8(loaded.document.project(), &Id::new(MAIN), 0, std::path::Path::new("."), PreviewQuality::Full, 4, &mut log, &mut cache, &mut gpu)
-            .expect("the frame draws");
-        let on_cpu = log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu);
-        assert_eq!(on_cpu, mode != "multiply", "{mode}: drawn on the CPU only if the card cannot");
+        preview::preview_frame_srgb8(
+            loaded.document.project(),
+            &Id::new(MAIN),
+            0,
+            std::path::Path::new("."),
+            PreviewQuality::Full,
+            4,
+            &mut log,
+            &mut cache,
+            &mut gpu,
+        )
+        .expect("the frame draws");
+        let on_cpu = log
+            .finish()
+            .iter()
+            .any(|d| d.id == DiagnosticId::GpuPreviewOnCpu);
+        assert_eq!(
+            on_cpu,
+            mode != "multiply",
+            "{mode}: drawn on the CPU only if the card cannot"
+        );
     }
 }
 
 #[test]
 fn the_file_keeps_each_mode_and_refuses_an_unknown_one() {
-    for mode in ["normal", "multiply", "screen", "add", "overlay", "soft_light", "stencil_alpha", "stencil_luma"] {
-        let loaded = persist::load_str(&shot(vec![backdrop(), solid("top", [1.0; 3], 8, 1.0, mode)])).expect("the shot reads");
-        let saved: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
-        assert_eq!(saved["compositions"][0]["layers"][1]["blend_mode"], mode, "{mode} is kept");
+    for mode in [
+        "normal",
+        "multiply",
+        "screen",
+        "add",
+        "overlay",
+        "soft_light",
+        "stencil_alpha",
+        "stencil_luma",
+    ] {
+        let loaded = persist::load_str(&shot(vec![
+            backdrop(),
+            solid("top", [1.0; 3], 8, 1.0, mode),
+        ]))
+        .expect("the shot reads");
+        let saved: J = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
+        assert_eq!(
+            saved["compositions"][0]["layers"][1]["blend_mode"], mode,
+            "{mode} is kept"
+        );
     }
-    let wrong = persist::load_str(&shot(vec![backdrop(), solid("top", [1.0; 3], 8, 1.0, "dodge")]));
+    let wrong = persist::load_str(&shot(vec![
+        backdrop(),
+        solid("top", [1.0; 3], 8, 1.0, "dodge"),
+    ]));
     let why = format!("{:?}", wrong.err().expect("an unknown mode is refused"));
     assert!(why.contains("layers/1/blend_mode: expected one of normal, multiply, screen, add, overlay, soft_light, stencil_alpha, stencil_luma."), "the reason names where and what is allowed: {why}");
 }

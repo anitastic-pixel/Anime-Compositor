@@ -35,7 +35,13 @@ fn set(effect: Effect) -> Command {
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
     let layer = comp.layer(&Id::new("scene")).unwrap();
-    layer.effects.iter().find(|i| i.instance_id.as_str() == "fx-1").unwrap().effect.clone()
+    layer
+        .effects
+        .iter()
+        .find(|i| i.instance_id.as_str() == "fx-1")
+        .unwrap()
+        .effect
+        .clone()
 }
 
 /// A one-layer composition `w` by `h` of the still `path`, carrying `effects`.
@@ -58,7 +64,11 @@ fn still(path: &str, (w, h): (usize, usize), frames: u32, effects: J) -> Project
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// The playtest sample, the depth fixtures' `sample/spheres_blender.exr` (320 by 180): Blender ids,
@@ -73,14 +83,23 @@ fn fx(id: &str, type_id: &str, p: J) -> J {
 
 /// IDentifier: the channel, the id and the output.
 fn ident(aux: &str, id: f64, output: &str) -> J {
-    fx("fx-1", "core.identifier", json!({"aux_channel": aux, "id": id, "output": output}))
+    fx(
+        "fx-1",
+        "core.identifier",
+        json!({"aux_channel": aux, "id": id, "output": output}),
+    )
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -116,12 +135,24 @@ fn b405_identifier() {
     }
     let why = effect_of(&t.load("fx_ident_020.json").document).why_invalid();
     let said20 = "IDentifier's output is \"colors\", \"luma_matte\", \"alpha_matte\" or \"raw\", and this is \"matte\".";
-    t.row("fx_ident_020.json is refused in a sentence naming it", &why, why == said20);
+    t.row(
+        "fx_ident_020.json is refused in a sentence naming it",
+        &why,
+        why == said20,
+    );
     let why = effect_of(&t.load("fx_ident_021.json").document).why_invalid();
     let said21 = "IDentifier's channel is \"object_id\" or \"material_id\", and this is \"depth\".";
-    t.row("fx_ident_021.json is refused in a sentence naming it", &why, why == said21);
+    t.row(
+        "fx_ident_021.json is refused in a sentence naming it",
+        &why,
+        why == said21,
+    );
     let why = effect_of(&t.load("fx_ident_022.json").document).why_invalid();
-    t.row("fx_ident_022.json is refused in a sentence naming it", &why, why.starts_with("IDentifier's id"));
+    t.row(
+        "fx_ident_022.json is refused in a sentence naming it",
+        &why,
+        why.starts_with("IDentifier's id"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_ident_001.json").document;
@@ -131,36 +162,65 @@ fn b405_identifier() {
         f(&mut e);
         e
     };
-    let refused = document.apply(set(with(&|e| if let Effect::Identifier { output, .. } = e { *output = "matte".to_string() }))).err();
+    let refused = document
+        .apply(set(with(&|e| {
+            if let Effect::Identifier { output, .. } = e {
+                *output = "matte".to_string()
+            }
+        })))
+        .err();
     let untouched = effect_of(&document) == base;
     t.row(
         "Output \"matte\" is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
     t.taken(
         &mut document,
         "fx_ident_001.json",
         vec![
-            ("Luma matte of 4,", set(with(&|e| if let Effect::Identifier { id, output, .. } = e {
-                *id = 4.0;
-                *output = "luma_matte".to_string();
-            }))),
-            ("The material ids, raw,", set(with(&|e| if let Effect::Identifier { aux_channel, output, .. } = e {
-                *aux_channel = "material_id".to_string();
-                *output = "raw".to_string();
-            }))),
+            (
+                "Luma matte of 4,",
+                set(with(&|e| {
+                    if let Effect::Identifier { id, output, .. } = e {
+                        *id = 4.0;
+                        *output = "luma_matte".to_string();
+                    }
+                })),
+            ),
+            (
+                "The material ids, raw,",
+                set(with(&|e| {
+                    if let Effect::Identifier {
+                        aux_channel,
+                        output,
+                        ..
+                    } = e
+                    {
+                        *aux_channel = "material_id".to_string();
+                        *output = "raw".to_string();
+                    }
+                })),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_ident_001.json", 0), ("fx_ident_004.json", 0), ("fx_ident_008.json", 2), ("fx_ident_016.json", 0)]);
+    t.tiles(&[
+        ("fx_ident_001.json", 0),
+        ("fx_ident_004.json", 0),
+        ("fx_ident_008.json", 2),
+        ("fx_ident_016.json", 0),
+    ]);
 
     let fixtures = effect_table::repo("Fixtures/identifier");
     let samples = effect_table::repo("Fixtures/depth_channel");
     let draw = |p: &Project| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(p, &Id::new(MAIN), 0, &samples, 64, &mut log).expect("the sample draws");
+        let b =
+            render_frame(p, &Id::new(MAIN), 0, &samples, 64, &mut log).expect("the sample draws");
         (b, said(log))
     };
 
@@ -169,13 +229,29 @@ fn b405_identifier() {
     let mut shots: Vec<(String, Project, bool)> = Vec::new();
     for n in 1..=19 {
         let file = format!("fx_ident_{n:03}.json");
-        shots.push((file.clone(), t.load(&file).document.project().clone(), false));
+        shots.push((
+            file.clone(),
+            t.load(&file).document.project().clone(),
+            false,
+        ));
     }
     let settings: [(&str, J); 5] = [
-        ("as added (object id colours)", json!([ident("object_id", 0.0, "colors")])),
-        ("material id colours", json!([ident("material_id", 0.0, "colors")])),
-        ("luma matte of object 2", json!([ident("object_id", 2.0, "luma_matte")])),
-        ("alpha matte of material 3", json!([ident("material_id", 3.0, "alpha_matte")])),
+        (
+            "as added (object id colours)",
+            json!([ident("object_id", 0.0, "colors")]),
+        ),
+        (
+            "material id colours",
+            json!([ident("material_id", 0.0, "colors")]),
+        ),
+        (
+            "luma matte of object 2",
+            json!([ident("object_id", 2.0, "luma_matte")]),
+        ),
+        (
+            "alpha matte of material 3",
+            json!([ident("material_id", 3.0, "alpha_matte")]),
+        ),
         ("raw object ids", json!([ident("object_id", 0.0, "raw")])),
     ];
     for (name, effects) in settings {
@@ -185,21 +261,50 @@ fn b405_identifier() {
     for (name, project, is_sample) in &shots {
         let comp = &project.compositions[0];
         let root = if *is_sample { &samples } else { &fixtures };
-        let frames: Vec<i32> = (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
+        let frames: Vec<i32> =
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in frames.iter().filter(|&&f| f == 0 || f == 4) {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(project, &comp.id, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
+                let c = preview::preview_frame_cached(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(project, &comp.id, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
                 let said_gpu = said(log);
                 let mut log = FrameLog::new(3);
-                let plan = compose::plan_frame_for_card(project, &comp.id, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+                let plan = compose::plan_frame_for_card(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    &mut log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan the frame");
                 let on_card: usize = plan.layers.iter().map(|l| l.on_card.len()).sum();
                 let effects = comp.layer(&Id::new("scene")).map_or(0, |l| l.effects.len());
                 let d = distance(&c, &g);
@@ -213,7 +318,11 @@ fn b405_identifier() {
             }
         }
     }
-    t.row("the largest difference over every frame above", &format!("{worst} level(s)"), worst <= 1);
+    t.row(
+        "the largest difference over every frame above",
+        &format!("{worst} level(s)"),
+        worst <= 1,
+    );
 
     t.heading("Pictures: the sample render, in `verification/D-525 pictures/`");
     let dir = effect_table::repo("verification/D-525 pictures");
@@ -228,8 +337,20 @@ fn b405_identifier() {
     ];
     for (file, what, effects) in shots {
         let (b, s) = draw(&sample(effects));
-        png_out::write_rgba(&dir.join(format!("{file}.png")), 320, 180, OutputDepth::Eight, &[], &b.to_srgb8_straight()).unwrap();
-        t.row(&format!("{file}.png, {what}"), &format!("warnings {s:?}"), s.is_empty());
+        png_out::write_rgba(
+            &dir.join(format!("{file}.png")),
+            320,
+            180,
+            OutputDepth::Eight,
+            &[],
+            &b.to_srgb8_straight(),
+        )
+        .unwrap();
+        t.row(
+            &format!("{file}.png, {what}"),
+            &format!("warnings {s:?}"),
+            s.is_empty(),
+        );
     }
 
     t.finish("D-525_identifier_table.md");
@@ -249,8 +370,10 @@ fn b405_identifier_timing() {
     let (w, h) = (1920usize, 1080usize);
     let dir = std::env::temp_dir().join("b405_timing");
     fs::create_dir_all(&dir).unwrap();
-    let plane = |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
-    let half = |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
+    let plane =
+        |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
+    let half =
+        |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
     let channels = AnyChannels::sort(
         vec![
             AnyChannel::new("R", half(plane(&|x, y| ((x / 60 + y / 60) % 2) as f32))),
@@ -258,11 +381,17 @@ fn b405_identifier_timing() {
             AnyChannel::new("B", half(plane(&|_, _| 0.3))),
             AnyChannel::new("A", half(plane(&|_, _| 1.0))),
             // Object ids 0 to 5 in blocks, as B-229's.
-            AnyChannel::new("ObjectID", FlatSamples::F32(plane(&|x, y| ((x / 240 + y / 270) % 6) as f32))),
+            AnyChannel::new(
+                "ObjectID",
+                FlatSamples::F32(plane(&|x, y| ((x / 240 + y / 270) % 6) as f32)),
+            ),
         ]
         .into(),
     );
-    Image::from_channels((w, h), channels).write().to_file(dir.join("ids.exr")).expect("write the timing EXR");
+    Image::from_channels((w, h), channels)
+        .write()
+        .to_file(dir.join("ids.exr"))
+        .expect("write the timing EXR");
 
     let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
@@ -272,13 +401,27 @@ fn b405_identifier_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
-    let noise = fx("fx-2", "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}));
+    let noise = fx(
+        "fx-2",
+        "core.noise",
+        json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+    );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("IDentifier as added (colours), then Noise", Some(ident("object_id", 0.0, "colors"))),
-        ("IDentifier alpha matte of 3, then Noise", Some(ident("object_id", 3.0, "alpha_matte"))),
+        (
+            "IDentifier as added (colours), then Noise",
+            Some(ident("object_id", 0.0, "colors")),
+        ),
+        (
+            "IDentifier alpha matte of 3, then Noise",
+            Some(ident("object_id", 3.0, "alpha_matte")),
+        ),
     ];
     for (name, e) in shots {
         let effects: Vec<J> = e.into_iter().chain([noise.clone()]).collect();
@@ -290,14 +433,41 @@ fn b405_identifier_timing() {
             for frame in (0..240).step_by(8) {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        &project,
+                        &Id::new(MAIN),
+                        frame,
+                        &dir,
+                        PreviewQuality::Full,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("GPU frame"),
+                );
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                assert!(log.finish().is_empty(), "{name}: the frame draws without a warning");
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                assert!(
+                    log.finish().is_empty(),
+                    "{name}: the frame draws without a warning"
+                );
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B405_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-405_timing_raw.md"));
+    let out = std::env::var("B405_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-405_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

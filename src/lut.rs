@@ -72,7 +72,9 @@ pub fn parse_amp(bytes: &[u8]) -> Result<Amp, String> {
         return Err("the file is empty".to_string());
     }
     if n % 256 != 0 {
-        return Err(format!("the file is {n} bytes long, not a whole number of 256-byte tables"));
+        return Err(format!(
+            "the file is {n} bytes long, not a whole number of 256-byte tables"
+        ));
     }
     let k = n / 256;
     if k > 5 {
@@ -106,14 +108,26 @@ impl Amp {
     /// table then the master's, for Color Lookup's rule and its card pass.
     pub(crate) fn colours(&self, phase: f64) -> Cube {
         let table = (0..256)
-            .map(|x| std::array::from_fn(|c| (self.curve(0, phase, self.curve(c + 1, phase, x as f64)) / 255.0) as f32))
+            .map(|x| {
+                std::array::from_fn(|c| {
+                    (self.curve(0, phase, self.curve(c + 1, phase, x as f64)) / 255.0) as f32
+                })
+            })
             .collect();
-        Cube { three: false, size: 256, lo: [0.0; 3], hi: [1.0; 3], table }
+        Cube {
+            three: false,
+            size: 256,
+            lo: [0.0; 3],
+            hi: [1.0; 3],
+            table,
+        }
     }
 
     /// The alpha table at `phase`, 0 to 255 in and out, when the file holds one.
     pub(crate) fn alpha(&self, phase: f64) -> Option<impl Fn(f64) -> f64 + Sync + '_> {
-        self.0[4].is_some().then(move || move |u| self.curve(4, phase, u))
+        self.0[4]
+            .is_some()
+            .then(move || move |u| self.curve(4, phase, u))
     }
 }
 
@@ -122,7 +136,10 @@ fn finite(tokens: &[&str], k: usize) -> Option<Vec<f64>> {
     if tokens.len() != k {
         return None;
     }
-    let v: Vec<f64> = tokens.iter().map(|t| t.parse::<f64>().ok()).collect::<Option<_>>()?;
+    let v: Vec<f64> = tokens
+        .iter()
+        .map(|t| t.parse::<f64>().ok())
+        .collect::<Option<_>>()?;
     v.iter().all(|x| x.is_finite()).then_some(v)
 }
 
@@ -175,7 +192,9 @@ pub fn parse(bytes: &[u8]) -> Result<Cube, String> {
                     _ => None,
                 }
                 .filter(|s| (2..=top).contains(s))
-                .ok_or_else(|| format!("line {n}: {word} must be one whole number from 2 to {top}"))?;
+                .ok_or_else(|| {
+                    format!("line {n}: {word} must be one whole number from 2 to {top}")
+                })?;
                 sizes.push((word, size));
             }
             "DOMAIN_MIN" | "DOMAIN_MAX" => {
@@ -200,9 +219,11 @@ pub fn parse(bytes: &[u8]) -> Result<Cube, String> {
         [one] => one,
         [] => return Err("the file gives no LUT_3D_SIZE or LUT_1D_SIZE".to_string()),
         _ => {
-            return Err("the file gives both LUT_1D_SIZE and LUT_3D_SIZE, a 1D table before a 3D \
+            return Err(
+                "the file gives both LUT_1D_SIZE and LUT_3D_SIZE, a 1D table before a 3D \
                         one, which this program does not read"
-                .to_string())
+                    .to_string(),
+            )
         }
     };
     let has = |w: &str| seen.contains(&w);
@@ -225,7 +246,13 @@ pub fn parse(bytes: &[u8]) -> Result<Cube, String> {
             table.len()
         ));
     }
-    Ok(Cube { three, size, lo, hi, table })
+    Ok(Cube {
+        three,
+        size,
+        lo,
+        hi,
+        table,
+    })
 }
 
 impl Cube {
@@ -294,10 +321,17 @@ pub fn read_map(path: &Path) -> Result<Arc<Amp>, String> {
 
 // ponytail: never emptied; a session reads a handful of lookup files. Evict by age if one day
 // it reads hundreds.
-fn held<T>(store: &Held<T>, path: &Path, parse: fn(&[u8]) -> Result<T, String>) -> Result<Arc<T>, String> {
+fn held<T>(
+    store: &Held<T>,
+    path: &Path,
+    parse: fn(&[u8]) -> Result<T, String>,
+) -> Result<Arc<T>, String> {
     let meta = crate::cache::looked_at(path).map_err(|e| format!("it could not be read: {e}"))?;
     let stamp = (meta.len(), meta.modified().ok());
-    let mut held = store.get_or_init(Default::default).lock().expect("the lookup files' lock");
+    let mut held = store
+        .get_or_init(Default::default)
+        .lock()
+        .expect("the lookup files' lock");
     if let Some((len, modified, read)) = held.get(path) {
         if (*len, *modified) == stamp {
             return read.clone();
@@ -315,7 +349,9 @@ fn held<T>(store: &Held<T>, path: &Path, parse: fn(&[u8]) -> Result<T, String>) 
 /// when it names nothing the project has as a lookup file.
 pub fn dangling<'a>(project: &Project, effect: &'a Effect) -> Option<&'a str> {
     match effect {
-        Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. } | Effect::ColorGrade { look: lut, .. }
+        Effect::ColorLookup { lut, .. }
+        | Effect::ArbitraryMap { map: lut, .. }
+        | Effect::ColorGrade { look: lut, .. }
             if !lut.is_empty()
                 && !project
                     .assets
@@ -356,7 +392,10 @@ pub(crate) fn not_a_lookup_file(layer: &str, effect: &Effect, lut: &str) -> Diag
              is kept as written."
         ),
     )
-    .with_remediation(format!("Choose a {} file on the effect's card.", file_kind(effect)))
+    .with_remediation(format!(
+        "Choose a {} file on the effect's card.",
+        file_kind(effect)
+    ))
 }
 
 /// The file each switched-on Color Lookup or Arbitrary Map (D-395) of `effects` names, read into
@@ -374,7 +413,10 @@ pub(crate) fn fill(
             said.push(not_a_lookup_file(layer, &instance.effect, lut));
             continue;
         }
-        let (Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. } | Effect::ColorGrade { look: lut, .. }) = &instance.effect else {
+        let (Effect::ColorLookup { lut, .. }
+        | Effect::ArbitraryMap { map: lut, .. }
+        | Effect::ColorGrade { look: lut, .. }) = &instance.effect
+        else {
             continue;
         };
         let Some(asset) = project.assets.iter().find(|a| a.id.as_str() == lut) else {
@@ -405,7 +447,9 @@ pub(crate) fn fill(
         let kind = file_kind(&instance.effect);
         let read = match &mut instance.effect {
             Effect::ArbitraryMap { table, .. } => read_map(&path).map(|m| *table = Some(Map(m))),
-            Effect::ColorLookup { table, .. } | Effect::ColorGrade { table, .. } => read(&path).map(|cube| *table = Some(Table(cube))),
+            Effect::ColorLookup { table, .. } | Effect::ColorGrade { table, .. } => {
+                read(&path).map(|cube| *table = Some(Table(cube)))
+            }
             _ => Ok(()),
         };
         match read {

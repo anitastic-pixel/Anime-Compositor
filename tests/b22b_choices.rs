@@ -53,14 +53,21 @@ fn colour_label(file: &Path) -> String {
         return "the file does not say".into();
     };
     let n = |i: usize| u16::from_be_bytes([bytes[at + 8 + i], bytes[at + 9 + i]]);
-    format!("{}, {}, {}, full range: {}", n(0), n(2), n(4), bytes[at + 14] & 0x80 != 0)
+    format!(
+        "{}, {}, {}, full range: {}",
+        n(0),
+        n(2),
+        n(4),
+        bytes[at + 14] & 0x80 != 0
+    )
 }
 
 fn small_film(file: &Path, ffmpeg: bool) {
     let rate = FrameRate::new(24, 1).unwrap();
     let frame: Vec<u8> = [40u8, 160, 90, 255].repeat(64 * 64);
     if ffmpeg {
-        let mut film = mp4_out::through_ffmpeg::Mp4::create(file, 64, 64, rate, Mp4Quality::Standard).unwrap();
+        let mut film =
+            mp4_out::through_ffmpeg::Mp4::create(file, 64, 64, rate, Mp4Quality::Standard).unwrap();
         (0..4).for_each(|_| film.push(&frame).unwrap());
         film.finish().unwrap();
     } else {
@@ -100,9 +107,16 @@ fn the_export_choices_do_what_d73_says() {
             _ => Mp4Quality::High,
         };
         t.row(
-            &format!("FX-FMT-040, {w}x{h} at {num}/{den}, {level}: bits a second asked of the encoder"),
+            &format!(
+                "FX-FMT-040, {w}x{h} at {num}/{den}, {level}: bits a second asked of the encoder"
+            ),
             n(&row["bits_a_second"]),
-            mp4_out::bitrate(w as usize, h as usize, FrameRate::new(num as u32, den as u32).unwrap(), quality),
+            mp4_out::bitrate(
+                w as usize,
+                h as usize,
+                FrameRate::new(num as u32, den as u32).unwrap(),
+                quality,
+            ),
         );
     }
 
@@ -111,9 +125,18 @@ fn the_export_choices_do_what_d73_says() {
         assert_eq!(cases[fx]["limit"], 16, "the build's limit is D-73a's");
         let case = &cases[fx];
         let bytes = |v: &serde_json::Value| -> Vec<u8> {
-            v.as_array().unwrap().iter().map(|x| x.as_u64().unwrap() as u8).collect()
+            v.as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_u64().unwrap() as u8)
+                .collect()
         };
-        let rgba: Vec<u8> = case["pixels_rgba"].as_array().unwrap().iter().flat_map(bytes).collect();
+        let rgba: Vec<u8> = case["pixels_rgba"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(bytes)
+            .collect();
         let palette: Vec<[u8; 3]> = case["palette_rgb"]
             .as_array()
             .unwrap()
@@ -124,14 +147,33 @@ fn the_export_choices_do_what_d73_says() {
         let grid = |cells: Vec<Option<u64>>| {
             cells
                 .chunks(width)
-                .map(|r| r.iter().map(|c| c.map_or(".".into(), |c| c.to_string())).collect::<String>())
+                .map(|r| {
+                    r.iter()
+                        .map(|c| c.map_or(".".into(), |c| c.to_string()))
+                        .collect::<String>()
+                })
                 .collect::<Vec<_>>()
                 .join(" / ")
         };
         t.row(
-            &format!("{fx}, dithered: {} Rows top to bottom, a dot is see-through", case["says"].as_str().unwrap()),
-            grid(case["palette_index_or_null"].as_array().unwrap().iter().map(|v| v.as_u64()).collect()),
-            grid(dither_indices(&rgba, width, &palette, None).into_iter().map(|p| p.map(u64::from)).collect()),
+            &format!(
+                "{fx}, dithered: {} Rows top to bottom, a dot is see-through",
+                case["says"].as_str().unwrap()
+            ),
+            grid(
+                case["palette_index_or_null"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_u64())
+                    .collect(),
+            ),
+            grid(
+                dither_indices(&rgba, width, &palette, None)
+                    .into_iter()
+                    .map(|p| p.map(u64::from))
+                    .collect(),
+            ),
         );
     }
 
@@ -139,19 +181,33 @@ fn the_export_choices_do_what_d73_says() {
     let label = &cases["FX-FMT-060"];
     let want = format!(
         "{}, {}, {}, full range: {}",
-        label["colour_primaries"], label["transfer_characteristics"], label["matrix_coefficients"], label["full_range"]
+        label["colour_primaries"],
+        label["transfer_characteristics"],
+        label["matrix_coefficients"],
+        label["full_range"]
     );
     small_film(&tmp.join("windows.mp4"), false);
     t.row("FX-FMT-060, the encoder Windows carries: primaries, transfer, matrix, range, read from the file", &want, colour_label(&tmp.join("windows.mp4")));
-    if std::process::Command::new("ffmpeg").arg("-version").output().is_ok() {
+    if std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .is_ok()
+    {
         small_film(&tmp.join("ffmpeg.mp4"), true);
-        t.row("FX-FMT-060, through ffmpeg (B-21e)", &want, colour_label(&tmp.join("ffmpeg.mp4")));
+        t.row(
+            "FX-FMT-060, through ffmpeg (B-21e)",
+            &want,
+            colour_label(&tmp.join("ffmpeg.mp4")),
+        );
     } else {
-        t.out.push_str("| FX-FMT-060, through ffmpeg | not run: this machine has no ffmpeg | | skipped |\n");
+        t.out.push_str(
+            "| FX-FMT-060, through ffmpeg | not run: this machine has no ffmpeg | | skipped |\n",
+        );
     }
 
     // ---- the films -----------------------------------------------------------------------------
-    let loaded = persist::load(&repo("verification/B-08a_project.json")).unwrap_or_else(|d| panic!("{}", d.message));
+    let loaded = persist::load(&repo("verification/B-08a_project.json"))
+        .unwrap_or_else(|d| panic!("{}", d.message));
     let project = loaded.document.project().clone();
     let root = repo("Fixtures/reference_shot");
     let out = repo("verification/B-22 films");
@@ -172,12 +228,29 @@ fn the_export_choices_do_what_d73_says() {
             choices,
         };
         let report = export_sequence(&project, &root, &request, &AtomicBool::new(false));
-        assert!(report.succeeded(), "{name} did not export: {:?}", report.diagnostics);
+        assert!(
+            report.succeeded(),
+            "{name} did not export: {:?}",
+            report.diagnostics
+        );
         fs::metadata(out.join(name)).unwrap().len()
     };
     let mut weighs = Vec::new();
-    for (name, mp4_quality) in [("preview.mp4", Mp4Quality::Preview), ("standard.mp4", Mp4Quality::Standard), ("high.mp4", Mp4Quality::High)] {
-        weighs.push(export(name, 16, 37, OutputFormat::Mp4, ExportChoices { mp4_quality, ..Default::default() }));
+    for (name, mp4_quality) in [
+        ("preview.mp4", Mp4Quality::Preview),
+        ("standard.mp4", Mp4Quality::Standard),
+        ("high.mp4", Mp4Quality::High),
+    ] {
+        weighs.push(export(
+            name,
+            16,
+            37,
+            OutputFormat::Mp4,
+            ExportChoices {
+                mp4_quality,
+                ..Default::default()
+            },
+        ));
     }
     // No document sets a size: the encoder spends what the picture needs. That the three differ
     // in the right order is this test's own check that the choice reaches the encoder.
@@ -186,12 +259,33 @@ fn the_export_choices_do_what_d73_says() {
         true,
         weighs[0] < weighs[1] && weighs[1] < weighs[2],
     );
-    t.row("the high film says its colour too", &want, colour_label(&out.join("high.mp4")));
+    t.row(
+        "the high film says its colour too",
+        &want,
+        colour_label(&out.join("high.mp4")),
+    );
 
-    let plain = export("plain.gif", 6, 8, OutputFormat::Gif, ExportChoices::default());
-    let dithered = export("dithered.gif", 6, 8, OutputFormat::Gif, ExportChoices { gif_dither: true, ..Default::default() });
+    let plain = export(
+        "plain.gif",
+        6,
+        8,
+        OutputFormat::Gif,
+        ExportChoices::default(),
+    );
+    let dithered = export(
+        "dithered.gif",
+        6,
+        8,
+        OutputFormat::Gif,
+        ExportChoices {
+            gif_dither: true,
+            ..Default::default()
+        },
+    );
     let frames = |name: &str| {
-        let mut decoder = gif::DecodeOptions::new().read_info(fs::File::open(out.join(name)).unwrap()).unwrap();
+        let mut decoder = gif::DecodeOptions::new()
+            .read_info(fs::File::open(out.join(name)).unwrap())
+            .unwrap();
         let mut n = 0;
         while decoder.read_next_frame().unwrap().is_some() {
             n += 1;
@@ -204,7 +298,11 @@ fn the_export_choices_do_what_d73_says() {
         format!("{}, {}, {}", frames("plain.gif"), frames("dithered.gif"), if fs::read(out.join("plain.gif")).unwrap() != fs::read(out.join("dithered.gif")).unwrap() { "different" } else { "the same" }),
     );
 
-    t.out.push_str(&format!("\n**{} of {} match.**\n", t.passed, t.checks));
+    t.out
+        .push_str(&format!("\n**{} of {} match.**\n", t.passed, t.checks));
     fs::write(repo("verification/B-22b_choices_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-22b_choices_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-22b_choices_table.md"
+    );
 }

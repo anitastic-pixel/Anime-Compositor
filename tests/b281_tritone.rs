@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,7 +43,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=15 {
         let file = format!("fx_tritone_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Tritone { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Tritone { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -84,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Tritone { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Tritone { .. })
+                });
                 t.row(
                     &format!("the reference shot, Tritone {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -98,7 +116,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,14 +131,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 #[test]
@@ -144,7 +180,10 @@ fn b281_tritone() {
 
     t.heading("The file");
     // 006, its colours in capitals, is saved in small letters (the row after).
-    let files: Vec<String> = (1..=15).filter(|n| *n != 6).map(|n| format!("fx_tritone_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=15)
+        .filter(|n| *n != 6)
+        .map(|n| format!("fx_tritone_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let caps = t.saved_parameters("fx_tritone_006.json");
     t.row(
@@ -171,26 +210,55 @@ fn b281_tritone() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
     t.shape_refused("fx_tritone_001.json", "a Tritone whose blend is a word", r##"{"highlights": "#ffffff", "midtones": "#8c7355", "shadows": "#000000", "blend_with_original": "none"}"##);
-    t.shape_refused("fx_tritone_001.json", "a Tritone without its Midtones", r##"{"highlights": "#ffffff", "shadows": "#000000", "blend_with_original": 0}"##);
+    t.shape_refused(
+        "fx_tritone_001.json",
+        "a Tritone without its Midtones",
+        r##"{"highlights": "#ffffff", "shadows": "#000000", "blend_with_original": 0}"##,
+    );
     t.shape_refused("fx_tritone_001.json", "a Tritone whose Shadows is a number", r##"{"highlights": "#ffffff", "midtones": "#8c7355", "shadows": 0, "blend_with_original": 0}"##);
 
     t.heading("Commands");
     let mut document = t.load("fx_tritone_001.json").document;
-    let over = changed(&t, "fx_tritone_001.json", |e| if let Effect::Tritone { blend_with_original, .. } = e { *blend_with_original = 101.0 });
-    let bad = changed(&t, "fx_tritone_001.json", |e| if let Effect::Tritone { midtones, .. } = e { *midtones = "#fff".into() });
+    let over = changed(&t, "fx_tritone_001.json", |e| {
+        if let Effect::Tritone {
+            blend_with_original,
+            ..
+        } = e
+        {
+            *blend_with_original = 101.0
+        }
+    });
+    let bad = changed(&t, "fx_tritone_001.json", |e| {
+        if let Effect::Tritone { midtones, .. } = e {
+            *midtones = "#fff".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("blend 101", set(over)),
             ("Midtones #fff", set(bad)),
-            ("blend keyed to 150", keys("blend_with_original", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "blend keyed to 150",
+                keys("blend_with_original", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let night = changed(&t, "fx_tritone_001.json", |e| {
-        if let Effect::Tritone { highlights, midtones, shadows, .. } = e {
+        if let Effect::Tritone {
+            highlights,
+            midtones,
+            shadows,
+            ..
+        } = e
+        {
             *highlights = "#fdf3a7".into();
             *midtones = "#c0392b".into();
             *shadows = "#1a2a6c".into();
@@ -201,7 +269,10 @@ fn b281_tritone() {
         "fx_tritone_001.json",
         vec![
             ("night to sunset", set(night)),
-            ("blend keyed from 0 to 100", keys("blend_with_original", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "blend keyed from 0 to 100",
+                keys("blend_with_original", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -224,20 +295,42 @@ fn b281_tritone() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("night to sunset at blend 70", json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}), 3),
-            ("one colour three times", json!({"highlights": "#6450a0", "midtones": "#6450a0", "shadows": "#6450a0"}), 3),
+            (
+                "night to sunset at blend 70",
+                json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}),
+                3,
+            ),
+            (
+                "one colour three times",
+                json!({"highlights": "#6450a0", "midtones": "#6450a0", "shadows": "#6450a0"}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-402 pictures/`");
     let dir = repo("verification/D-402 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({"blend_with_original": 100}));
     t.row(
         "blend with original 100 changes nothing: the street byte for byte; draws cleanly",
@@ -249,25 +342,34 @@ fn b281_tritone() {
     let (sepia, said) = street(json!({}));
     write("2_as_added.png", TOWN, &sepia);
     // Sepia: every middling pixel warmer than it is blue (red above blue).
-    let warm = pairs(&before, &sepia).filter(|(b, _)| (60.0..200.0).contains(&luma(b))).all(|(_, a)| a[0] > a[2]);
+    let warm = pairs(&before, &sepia)
+        .filter(|(b, _)| (60.0..200.0).contains(&luma(b)))
+        .all(|(_, a)| a[0] > a[2]);
     t.row(
         "2_as_added.png, as added (white, a sepia brown, black): the street in browns, every middling pixel redder than it is blue; draws cleanly",
         &format!("{said:?}, all warm: {warm}"),
         said.is_empty() && warm && sepia != before,
     );
 
-    let (night, said) = street(json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c"}));
+    let (night, said) =
+        street(json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c"}));
     write("3_night_to_sunset.png", TOWN, &night);
     // The darkest parts go navy (blue above red) and the lightest pale yellow (red above blue).
-    let dark_blue = pairs(&before, &night).filter(|(b, _)| luma(b) < 40.0).all(|(_, a)| a[2] > a[0]);
-    let light_yellow = pairs(&before, &night).filter(|(b, _)| luma(b) > 215.0).all(|(_, a)| a[0] > a[2]);
+    let dark_blue = pairs(&before, &night)
+        .filter(|(b, _)| luma(b) < 40.0)
+        .all(|(_, a)| a[2] > a[0]);
+    let light_yellow = pairs(&before, &night)
+        .filter(|(b, _)| luma(b) > 215.0)
+        .all(|(_, a)| a[0] > a[2]);
     t.row(
         "3_night_to_sunset.png, shadows navy (#1a2a6c), midtones red (#c0392b), highlights pale yellow (#fdf3a7): the dark parts bluer than red, the light parts redder than blue; draws cleanly",
         &format!("{said:?}, dark parts blue: {dark_blue}, light parts yellow: {light_yellow}"),
         said.is_empty() && dark_blue && light_yellow,
     );
 
-    let (part, said) = street(json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}));
+    let (part, said) = street(
+        json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}),
+    );
     write("4_blend_70.png", TOWN, &part);
     t.row(
         "4_blend_70.png, the same three at blend 70: the street with a light wash of them, nearer the street than 3 is; draws cleanly",
@@ -279,9 +381,18 @@ fn b281_tritone() {
     // hundred less the blend, draws the same street byte for byte.
     for (what, p) in [
         ("as added", json!({})),
-        ("night to sunset", json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c"})),
-        ("night to sunset at blend 70", json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70})),
-        ("one colour three times at blend 25", json!({"highlights": "#6450a0", "midtones": "#6450a0", "shadows": "#6450a0", "blend_with_original": 25})),
+        (
+            "night to sunset",
+            json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c"}),
+        ),
+        (
+            "night to sunset at blend 70",
+            json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}),
+        ),
+        (
+            "one colour three times at blend 25",
+            json!({"highlights": "#6450a0", "midtones": "#6450a0", "shadows": "#6450a0", "blend_with_original": 25}),
+        ),
     ] {
         let tri = fx("fx-0-0", &p);
         let q = &tri["parameters"];
@@ -329,22 +440,50 @@ fn b281_tritone_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Tritone as added (white, sepia, black, blend 0)", Some(json!({}))),
-        ("Noise, then Tritone, night to sunset at blend 70", Some(json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}))),
+        (
+            "Noise, then Tritone as added (white, sepia, black, blend 0)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Tritone, night to sunset at blend 70",
+            Some(
+                json!({"highlights": "#fdf3a7", "midtones": "#c0392b", "shadows": "#1a2a6c", "blend_with_original": 70}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B281_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-281_timing_raw.md"));
+    let out = std::env::var("B281_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-281_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

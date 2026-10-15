@@ -35,7 +35,13 @@ fn set(effect: Effect) -> Command {
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
     let layer = comp.layer(&Id::new("scene")).unwrap();
-    layer.effects.iter().find(|i| i.instance_id.as_str() == "fx-1").unwrap().effect.clone()
+    layer
+        .effects
+        .iter()
+        .find(|i| i.instance_id.as_str() == "fx-1")
+        .unwrap()
+        .effect
+        .clone()
 }
 
 /// A one-layer composition `w` by `h` of the still `path`, carrying `effects`.
@@ -58,7 +64,11 @@ fn still(path: &str, (w, h): (usize, usize), frames: u32, effects: J) -> Project
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// The playtest's sample, the depth fixtures' `sample/spheres.exr` (320 by 180): balls at
@@ -83,7 +93,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -119,7 +134,11 @@ fn b403_depth_of_field() {
     }
     let why = effect_of(&t.load("fx_dof_023.json").document).why_invalid();
     let said23 = "Depth of Field's maximum radius runs from 0 to 200, and this is 201.";
-    t.row("fx_dof_023.json is refused in a sentence naming it", &why, why == said23);
+    t.row(
+        "fx_dof_023.json is refused in a sentence naming it",
+        &why,
+        why == said23,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_dof_002.json").document;
@@ -129,36 +148,70 @@ fn b403_depth_of_field() {
         f(&mut e);
         e
     };
-    let refused = document.apply(set(with(&|e| if let Effect::DepthOfField { focal_bias, .. } = e { *focal_bias = 101.0 }))).err();
+    let refused = document
+        .apply(set(with(&|e| {
+            if let Effect::DepthOfField { focal_bias, .. } = e {
+                *focal_bias = 101.0
+            }
+        })))
+        .err();
     let untouched = effect_of(&document) == base;
     t.row(
         "Focal Bias 101 is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
     t.taken(
         &mut document,
         "fx_dof_002.json",
         vec![
-            ("Focal Plane 9, Thickness 2,", set(with(&|e| if let Effect::DepthOfField { focal_plane, focal_plane_thickness, .. } = e {
-                *focal_plane = 9.0;
-                *focal_plane_thickness = 2.0;
-            }))),
-            ("Maximum Radius 12, Bias 80,", set(with(&|e| if let Effect::DepthOfField { maximum_radius, focal_bias, .. } = e {
-                *maximum_radius = 12.0;
-                *focal_bias = 80.0;
-            }))),
+            (
+                "Focal Plane 9, Thickness 2,",
+                set(with(&|e| {
+                    if let Effect::DepthOfField {
+                        focal_plane,
+                        focal_plane_thickness,
+                        ..
+                    } = e
+                    {
+                        *focal_plane = 9.0;
+                        *focal_plane_thickness = 2.0;
+                    }
+                })),
+            ),
+            (
+                "Maximum Radius 12, Bias 80,",
+                set(with(&|e| {
+                    if let Effect::DepthOfField {
+                        maximum_radius,
+                        focal_bias,
+                        ..
+                    } = e
+                    {
+                        *maximum_radius = 12.0;
+                        *focal_bias = 80.0;
+                    }
+                })),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_dof_001.json", 0), ("fx_dof_002.json", 0), ("fx_dof_013.json", 0), ("fx_dof_019.json", 0)]);
+    t.tiles(&[
+        ("fx_dof_001.json", 0),
+        ("fx_dof_002.json", 0),
+        ("fx_dof_013.json", 0),
+        ("fx_dof_019.json", 0),
+    ]);
 
     let fixtures = effect_table::repo("Fixtures/depth_of_field");
     let samples = effect_table::repo("Fixtures/depth_channel");
     let draw = |p: &Project| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(p, &Id::new(MAIN), 0, &samples, 64, &mut log).expect("the sample draws");
+        let b =
+            render_frame(p, &Id::new(MAIN), 0, &samples, 64, &mut log).expect("the sample draws");
         (b, said(log))
     };
 
@@ -167,15 +220,37 @@ fn b403_depth_of_field() {
     let mut shots: Vec<(String, Project, bool)> = Vec::new();
     for n in 1..=22 {
         let file = format!("fx_dof_{n:03}.json");
-        shots.push((file.clone(), t.load(&file).document.project().clone(), false));
+        shots.push((
+            file.clone(),
+            t.load(&file).document.project().clone(),
+            false,
+        ));
     }
     let settings: [(&str, J); 6] = [
-        ("focused on the red ball (6), radius 8", json!([dof(6.0, 8.0, 0.0, 50.0)])),
-        ("focused on the blue ball (9), radius 8", json!([dof(9.0, 8.0, 0.0, 50.0)])),
-        ("focused on the yellow ball (14), thickness 2, radius 12", json!([dof(14.0, 12.0, 2.0, 50.0)])),
-        ("focused on the blue ball, bias 100, radius 20", json!([dof(9.0, 20.0, 0.0, 100.0)])),
-        ("focused on the blue ball, bias 10, radius 30", json!([dof(9.0, 30.0, 0.0, 10.0)])),
-        ("as added (focal plane 0, radius 10)", json!([dof(0.0, 10.0, 0.0, 50.0)])),
+        (
+            "focused on the red ball (6), radius 8",
+            json!([dof(6.0, 8.0, 0.0, 50.0)]),
+        ),
+        (
+            "focused on the blue ball (9), radius 8",
+            json!([dof(9.0, 8.0, 0.0, 50.0)]),
+        ),
+        (
+            "focused on the yellow ball (14), thickness 2, radius 12",
+            json!([dof(14.0, 12.0, 2.0, 50.0)]),
+        ),
+        (
+            "focused on the blue ball, bias 100, radius 20",
+            json!([dof(9.0, 20.0, 0.0, 100.0)]),
+        ),
+        (
+            "focused on the blue ball, bias 10, radius 30",
+            json!([dof(9.0, 30.0, 0.0, 10.0)]),
+        ),
+        (
+            "as added (focal plane 0, radius 10)",
+            json!([dof(0.0, 10.0, 0.0, 50.0)]),
+        ),
     ];
     for (name, effects) in settings {
         shots.push((format!("the sample, {name}"), sample(effects), true));
@@ -184,21 +259,50 @@ fn b403_depth_of_field() {
     for (name, project, is_sample) in &shots {
         let comp = &project.compositions[0];
         let root = if *is_sample { &samples } else { &fixtures };
-        let frames: Vec<i32> = (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
+        let frames: Vec<i32> =
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in frames.iter().filter(|&&f| f == 0 || f == 4) {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(project, &comp.id, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
+                let c = preview::preview_frame_cached(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(project, &comp.id, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
                 let said_gpu = said(log);
                 let mut log = FrameLog::new(3);
-                let plan = compose::plan_frame_for_card(project, &comp.id, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+                let plan = compose::plan_frame_for_card(
+                    project,
+                    &comp.id,
+                    frame,
+                    root,
+                    quality,
+                    &mut log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan the frame");
                 let on_card: usize = plan.layers.iter().map(|l| l.on_card.len()).sum();
                 let effects = comp.layer(&Id::new("scene")).map_or(0, |l| l.effects.len());
                 let d = distance(&c, &g);
@@ -212,7 +316,11 @@ fn b403_depth_of_field() {
             }
         }
     }
-    t.row("the largest difference over every frame above", &format!("{worst} level(s)"), worst <= 1);
+    t.row(
+        "the largest difference over every frame above",
+        &format!("{worst} level(s)"),
+        worst <= 1,
+    );
 
     t.heading("Pictures: the sample render, in `verification/D-523 pictures/`");
     let dir = effect_table::repo("verification/D-523 pictures");
@@ -227,8 +335,20 @@ fn b403_depth_of_field() {
     ];
     for (file, what, effects) in shots {
         let (b, s) = draw(&sample(effects));
-        png_out::write_rgba(&dir.join(format!("{file}.png")), 320, 180, OutputDepth::Eight, &[], &b.to_srgb8_straight()).unwrap();
-        t.row(&format!("{file}.png, {what}"), &format!("warnings {s:?}"), s.is_empty());
+        png_out::write_rgba(
+            &dir.join(format!("{file}.png")),
+            320,
+            180,
+            OutputDepth::Eight,
+            &[],
+            &b.to_srgb8_straight(),
+        )
+        .unwrap();
+        t.row(
+            &format!("{file}.png, {what}"),
+            &format!("warnings {s:?}"),
+            s.is_empty(),
+        );
     }
 
     t.finish("D-523_depth_of_field_table.md");
@@ -248,8 +368,10 @@ fn b403_depth_of_field_timing() {
     let (w, h) = (1920usize, 1080usize);
     let dir = std::env::temp_dir().join("b403_timing");
     fs::create_dir_all(&dir).unwrap();
-    let plane = |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
-    let half = |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
+    let plane =
+        |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
+    let half =
+        |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
     let channels = AnyChannels::sort(
         vec![
             AnyChannel::new("R", half(plane(&|x, y| ((x / 60 + y / 60) % 2) as f32))),
@@ -257,11 +379,17 @@ fn b403_depth_of_field_timing() {
             AnyChannel::new("B", half(plane(&|_, _| 0.3))),
             AnyChannel::new("A", half(plane(&|_, _| 1.0))),
             // Depth from 2 at the left to 20 at the right.
-            AnyChannel::new("Z", FlatSamples::F32(plane(&|x, _| 2.0 + 18.0 * x as f32 / w as f32))),
+            AnyChannel::new(
+                "Z",
+                FlatSamples::F32(plane(&|x, _| 2.0 + 18.0 * x as f32 / w as f32)),
+            ),
         ]
         .into(),
     );
-    Image::from_channels((w, h), channels).write().to_file(dir.join("depth.exr")).expect("write the timing EXR");
+    Image::from_channels((w, h), channels)
+        .write()
+        .to_file(dir.join("depth.exr"))
+        .expect("write the timing EXR");
 
     let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
@@ -271,14 +399,31 @@ fn b403_depth_of_field_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
-    let noise = fx("fx-2", "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}));
+    let noise = fx(
+        "fx-2",
+        "core.noise",
+        json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+    );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Depth of Field, radius 10, then Noise", Some(dof(8.0, 10.0, 0.0, 50.0))),
-        ("Depth of Field, radius 30, then Noise", Some(dof(8.0, 30.0, 0.0, 50.0))),
-        ("Depth of Field, radius 60, then Noise", Some(dof(8.0, 60.0, 0.0, 50.0))),
+        (
+            "Depth of Field, radius 10, then Noise",
+            Some(dof(8.0, 10.0, 0.0, 50.0)),
+        ),
+        (
+            "Depth of Field, radius 30, then Noise",
+            Some(dof(8.0, 30.0, 0.0, 50.0)),
+        ),
+        (
+            "Depth of Field, radius 60, then Noise",
+            Some(dof(8.0, 60.0, 0.0, 50.0)),
+        ),
     ];
     for (name, e) in shots {
         let effects: Vec<J> = e.into_iter().chain([noise.clone()]).collect();
@@ -290,14 +435,41 @@ fn b403_depth_of_field_timing() {
             for frame in (0..240).step_by(8) {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        &project,
+                        &Id::new(MAIN),
+                        frame,
+                        &dir,
+                        PreviewQuality::Full,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("GPU frame"),
+                );
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                assert!(log.finish().is_empty(), "{name}: the frame draws without a warning");
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                assert!(
+                    log.finish().is_empty(),
+                    "{name}: the frame draws without a warning"
+                );
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B403_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-403_timing_raw.md"));
+    let out = std::env::var("B403_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-403_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

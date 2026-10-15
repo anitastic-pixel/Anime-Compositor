@@ -31,12 +31,23 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// and Draft. The files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_scatterize.json")).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_scatterize.json")).unwrap())
+            .unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = case["project"].as_str().unwrap();
-        let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-        let project = persist::load(&t.root.join(file)).unwrap().document.project().clone();
+        let frames: Vec<i32> = case["frames"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|f| f.parse().unwrap())
+            .collect();
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &frames {
@@ -44,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Scatterize { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Scatterize { .. })
+                });
             }
         }
         t.row(
@@ -62,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -78,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Scatterize { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Scatterize { .. })
+                });
                 t.row(
                     &format!("the reference shot, Scatterize {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// with what it warned of; `camera` the composition camera, if any.
 fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,8 +138,20 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -120,7 +159,14 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
 /// nothing.
 fn fault_of(t: &Table, file: &str) -> String {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// A Scatterize' settings, every one `p` leaves out as it is added.
@@ -181,21 +227,50 @@ fn b555_scatterize() {
             && saved["left_twist"] == -60
             && saved["transfer_mode"] == "composite",
     );
-    for (n, want) in [(18, "amount"), (19, "amount"), (20, "right twist"), (21, "left twist"), (22, "transfer mode"), (23, "amount")] {
+    for (n, want) in [
+        (18, "amount"),
+        (19, "amount"),
+        (20, "right twist"),
+        (21, "left twist"),
+        (22, "transfer mode"),
+        (23, "amount"),
+    ] {
         let file = format!("fx_scatz_{n:03}.json");
         let why = fault_of(&t, &file);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_scatz_001.json", "a Scatterize whose amount is a word", &parameters(&json!({"amount": "lots"})).to_string());
-    t.shape_refused("fx_scatz_001.json", "a Scatterize whose transfer mode is a number", &parameters(&json!({"transfer_mode": 1})).to_string());
-    t.shape_refused("fx_scatz_001.json", "a Scatterize without its left twist", &{
-        let mut p = parameters(&json!({}));
-        p.as_object_mut().unwrap().remove("left_twist");
-        p.to_string()
-    });
+    t.shape_refused(
+        "fx_scatz_001.json",
+        "a Scatterize whose amount is a word",
+        &parameters(&json!({"amount": "lots"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_scatz_001.json",
+        "a Scatterize whose transfer mode is a number",
+        &parameters(&json!({"transfer_mode": 1})).to_string(),
+    );
+    t.shape_refused(
+        "fx_scatz_001.json",
+        "a Scatterize without its left twist",
+        &{
+            let mut p = parameters(&json!({}));
+            p.as_object_mut().unwrap().remove("left_twist");
+            p.to_string()
+        },
+    );
 
     t.heading("Tiles");
-    t.tiles(&[("fx_scatz_002.json", 3), ("fx_scatz_007.json", 3), ("fx_scatz_011.json", 3), ("fx_scatz_012.json", 6), ("fx_scatz_017.json", 3)]);
+    t.tiles(&[
+        ("fx_scatz_002.json", 3),
+        ("fx_scatz_007.json", 3),
+        ("fx_scatz_011.json", 3),
+        ("fx_scatz_012.json", 6),
+        ("fx_scatz_017.json", 3),
+    ]);
 
     t.heading("On the card (D-676)");
     let mut gpu = Gpu::new().expect("a graphics card");
@@ -205,7 +280,11 @@ fn b555_scatterize() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("Amount 300, the right edge turned edge-on, screened", json!({"amount": 300, "right_twist": 90, "transfer_mode": "screen"}), 3),
+            (
+                "Amount 300, the right edge turned edge-on, screened",
+                json!({"amount": 300, "right_twist": 90, "transfer_mode": "screen"}),
+                3,
+            ),
             (
                 "Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add",
                 json!({"right_twist": 120, "left_twist": -120, "transfer_mode": "alpha_add", "amount": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 600, "interp": "linear"}]}}),
@@ -221,16 +300,36 @@ fn b555_scatterize() {
     for (name, p) in [
         ("1_as_added", json!({})),
         ("2_cloud_amount_300", json!({"amount": 300})),
-        ("3_ribbon_twisted_180", json!({"amount": 0, "right_twist": 180, "left_twist": -180})),
-        ("4_right_edge_on_with_add", json!({"amount": 30, "right_twist": 90, "transfer_mode": "add"})),
+        (
+            "3_ribbon_twisted_180",
+            json!({"amount": 0, "right_twist": 180, "left_twist": -180}),
+        ),
+        (
+            "4_right_edge_on_with_add",
+            json!({"amount": 30, "right_twist": 90, "transfer_mode": "add"}),
+        ),
         ("5_blown_away_amount_3000", json!({"amount": 3000})),
-        ("6_screened_cloud", json!({"amount": 600, "transfer_mode": "screen"})),
+        (
+            "6_screened_cloud",
+            json!({"amount": 600, "transfer_mode": "screen"}),
+        ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), 0, None);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
@@ -263,22 +362,50 @@ fn b555_scatterize_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Scatterize as added", Some(json!({}))),
-        ("Noise, then Scatterize, Amount 300, the right edge edge-on", Some(json!({"amount": 300, "right_twist": 90}))),
-        ("Noise, then Scatterize, Amount keyed 0 to 600, Add", Some(json!({"transfer_mode": "add", "amount": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 600, "interp": "linear"}]}}))),
+        (
+            "Noise, then Scatterize, Amount 300, the right edge edge-on",
+            Some(json!({"amount": 300, "right_twist": 90})),
+        ),
+        (
+            "Noise, then Scatterize, Amount keyed 0 to 600, Add",
+            Some(
+                json!({"transfer_mode": "add", "amount": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 600, "interp": "linear"}]}}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B555_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-555_timing_raw.md"));
+    let out = std::env::var("B555_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-555_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

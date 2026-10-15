@@ -39,7 +39,7 @@ fn set(doc: &mut Document, float_depth: bool, eight_bpc: bool) -> Result<(), Str
         background_color: comp.background_color,
         float_depth,
         eight_bpc,
-            ae_32bpc: false,
+        ae_32bpc: false,
     })
     .map(|_| ())
     .map_err(|d| d.message)
@@ -98,8 +98,13 @@ fn tips() -> Vec<u8> {
     (0..w * h)
         .flat_map(|i| {
             let (x, y) = (i % w, i / w);
-            let tip = (378..381).contains(&y) && [260, 300, 340].iter().any(|c| x + 2 >= *c && x <= c + 2);
-            if tip { [0x09, 0x6b, 0xf1, 255] } else { [0; 4] }
+            let tip = (378..381).contains(&y)
+                && [260, 300, 340].iter().any(|c| x + 2 >= *c && x <= c + 2);
+            if tip {
+                [0x09, 0x6b, 0xf1, 255]
+            } else {
+                [0; 4]
+            }
         })
         .collect()
 }
@@ -141,12 +146,31 @@ fn reflection(dir: &Path, depth: &str) -> (Vec<u8>, usize, Vec<String>) {
     ]);
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
-    let over = |c: f32| (anime_compositor::color::linear_to_srgb(c.clamp(0.0, 1.0)) * 255.0).round() as u8;
-    let black: Vec<u8> = frame.data().chunks(4).flat_map(|p| [over(p[0]), over(p[1]), over(p[2]), 255]).collect();
-    let lit = black.chunks(4).filter(|p| p[..3].iter().any(|&v| v > 0)).count();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
+    let over =
+        |c: f32| (anime_compositor::color::linear_to_srgb(c.clamp(0.0, 1.0)) * 255.0).round() as u8;
+    let black: Vec<u8> = frame
+        .data()
+        .chunks(4)
+        .flat_map(|p| [over(p[0]), over(p[1]), over(p[2]), 255])
+        .collect();
+    let lit = black
+        .chunks(4)
+        .filter(|p| p[..3].iter().any(|&v| v > 0))
+        .count();
     (black, lit, said)
 }
 
@@ -174,7 +198,9 @@ fn b210_eight_bpc() {
     let expected = file(&t, "expected_eight_bpc.json");
     for (name, load) in expected["loads"].as_object().unwrap() {
         let text = fs::read_to_string(t.root.join(name)).unwrap();
-        let refused = persist::load_str(&text).err().map(|d| d.id.as_str().to_string());
+        let refused = persist::load_str(&text)
+            .err()
+            .map(|d| d.id.as_str().to_string());
         t.row(
             &format!("{name}: {}", load["says"].as_str().unwrap()),
             &format!("{refused:?}"),
@@ -186,26 +212,68 @@ fn b210_eight_bpc() {
     let mut doc = t.load("fx_8bpc_004.json").document;
     set(&mut doc, false, false).unwrap();
     let off = saved(&doc).get("eight_bpc").is_none();
-    t.row("Set to Display, no eight_bpc line is written", if off { "no line" } else { "a line" }, off);
-    let d = largest_difference(&t.render(&doc, 0, 64), &expected["cases"]["FX-8BPC-004"]["frames"]["0"]);
-    t.row("And FX-8BPC-004's blur is no longer rounded", &format!("largest difference {d:.1e}"), d > 1e-3);
+    t.row(
+        "Set to Display, no eight_bpc line is written",
+        if off { "no line" } else { "a line" },
+        off,
+    );
+    let d = largest_difference(
+        &t.render(&doc, 0, 64),
+        &expected["cases"]["FX-8BPC-004"]["frames"]["0"],
+    );
+    t.row(
+        "And FX-8BPC-004's blur is no longer rounded",
+        &format!("largest difference {d:.1e}"),
+        d > 1e-3,
+    );
     set(&mut doc, false, true).unwrap();
     let line = saved(&doc).get("eight_bpc").cloned();
-    t.row("Set to 8 bpc through the command, it is written as eight_bpc: true", &format!("{line:?}"), line == Some(json!(true)));
-    let d = largest_difference(&t.render(&doc, 0, 64), &expected["cases"]["FX-8BPC-004"]["frames"]["0"]);
-    t.row("And draws FX-8BPC-004's frame again", &format!("largest difference {d:.1e}"), d <= 2e-5);
+    t.row(
+        "Set to 8 bpc through the command, it is written as eight_bpc: true",
+        &format!("{line:?}"),
+        line == Some(json!(true)),
+    );
+    let d = largest_difference(
+        &t.render(&doc, 0, 64),
+        &expected["cases"]["FX-8BPC-004"]["frames"]["0"],
+    );
+    t.row(
+        "And draws FX-8BPC-004's frame again",
+        &format!("largest difference {d:.1e}"),
+        d <= 2e-5,
+    );
     let back = persist::load_str(&persist::to_json(doc.project(), &Default::default())).unwrap();
     let on = back.document.project().compositions[0].eight_bpc;
-    t.row("And is read back as 8 bpc", if on { "8 bpc" } else { "not" }, on);
+    t.row(
+        "And is read back as 8 bpc",
+        if on { "8 bpc" } else { "not" },
+        on,
+    );
     doc.undo().expect("one step to undo");
     let off = !doc.project().compositions[0].eight_bpc && saved(&doc).get("eight_bpc").is_none();
-    t.row("Undo puts it back to Display, and nothing is written", if off { "Display, no line" } else { "not put back" }, off);
+    t.row(
+        "Undo puts it back to Display, and nothing is written",
+        if off {
+            "Display, no line"
+        } else {
+            "not put back"
+        },
+        off,
+    );
     let refused = set(&mut doc, true, true);
-    t.row("Float and 8 bpc both at once is refused by the command", &format!("{refused:?}"), refused.is_err());
+    t.row(
+        "Float and 8 bpc both at once is refused by the command",
+        &format!("{refused:?}"),
+        refused.is_err(),
+    );
 
     t.heading("A composition inside another follows the outermost one");
     let one = &expected["cases"]["FX-8BPC-001"]["frames"]["0"];
-    for (outer, inner, same) in [(true, false, true), (false, true, false), (true, true, true)] {
+    for (outer, inner, same) in [
+        (true, false, true),
+        (false, true, false),
+        (true, true, true),
+    ] {
         let doc = nested(&t, "fx_8bpc_001.json", outer, inner);
         let d = largest_difference(&t.render(&doc, 0, 64), one);
         let depth = |e: bool| if e { "8 bpc" } else { "Display" };
@@ -214,7 +282,11 @@ fn b210_eight_bpc() {
                 "FX-8BPC-001's layer inside a composition: outer {}, inner {}, {}",
                 depth(outer),
                 depth(inner),
-                if same { "draws FX-8BPC-001's frame" } else { "is not rounded" }
+                if same {
+                    "draws FX-8BPC-001's frame"
+                } else {
+                    "is not rounded"
+                }
             ),
             &format!("largest difference {d:.1e}"),
             if same { d <= 2e-5 } else { d > 1e-3 },
@@ -227,21 +299,71 @@ fn b210_eight_bpc() {
     let mut cache = CelCache::viewer();
     for pass in ["first", "second"] {
         let mut log = FrameLog::new(3);
-        let frame = preview::preview_frame_cached(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).unwrap();
+        let frame = preview::preview_frame_cached(
+            &project,
+            &comp,
+            0,
+            &t.root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut cache,
+        )
+        .unwrap();
         let d = largest_difference(&frame, one);
-        t.row(&format!("FX-8BPC-001 in the viewer, {pass} time (its effects are not kept between frames)"), &format!("largest difference {d:.1e}"), d <= 2e-5);
+        t.row(
+            &format!(
+                "FX-8BPC-001 in the viewer, {pass} time (its effects are not kept between frames)"
+            ),
+            &format!("largest difference {d:.1e}"),
+            d <= 2e-5,
+        );
     }
     match Gpu::new() {
-        Err(why) => t.row("The preview card draws an 8 bpc frame", &format!("NOT RUN: no usable card ({why})"), false),
+        Err(why) => t.row(
+            "The preview card draws an 8 bpc frame",
+            &format!("NOT RUN: no usable card ({why})"),
+            false,
+        ),
         Ok(mut gpu) => {
             for name in ["fx_8bpc_001.json", "fx_8bpc_002.json", "fx_8bpc_004.json"] {
                 let project = t.load(name).document.project().clone();
                 let mut log = FrameLog::new(3);
-                let cpu = preview::preview_frame_cached(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).unwrap().to_srgb8_straight();
+                let cpu = preview::preview_frame_cached(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap()
+                .to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (card, ..) = preview::preview_frame_srgb8(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).unwrap();
-                let on_cpu = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-                let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+                let (card, ..) = preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap();
+                let on_cpu = log
+                    .finish()
+                    .iter()
+                    .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+                let worst = cpu
+                    .iter()
+                    .zip(&card)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap_or(0);
                 t.row(
                     &format!("{name}: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU)"),
                     &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
@@ -255,18 +377,32 @@ fn b210_eight_bpc() {
     let dir = repo("verification/D-330 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     write("tips.png", &tips());
     let mut lit = Vec::new();
     for (name, depth, what) in [
-        ("built_1_display.png", "Display", "Display, as before: the blur's faint edge lit wide"),
+        (
+            "built_1_display.png",
+            "Display",
+            "Display, as before: the blur's faint edge lit wide",
+        ),
         ("built_2_float.png", "Float", "Float: the same wide light"),
-        ("built_3_eight_bpc.png", "8 bpc", "8 bpc: the faint edge rounds to nothing, one small spot where the tips are"),
+        (
+            "built_3_eight_bpc.png",
+            "8 bpc",
+            "8 bpc: the faint edge rounds to nothing, one small spot where the tips are",
+        ),
     ] {
         let (bytes, n, said) = reflection(&dir, depth);
         write(name, &bytes);
         lit.push(n);
-        t.row(&format!("{name}, {what}; draws cleanly"), &format!("{said:?}, {n} pixels show"), said.is_empty());
+        t.row(
+            &format!("{name}, {what}; draws cleanly"),
+            &format!("{said:?}, {n} pixels show"),
+            said.is_empty(),
+        );
     }
     t.row(
         "In 8 bpc under a tenth as many pixels show as in Display",
@@ -277,8 +413,18 @@ fn b210_eight_bpc() {
     t.heading("Files from before D-330");
     let shot = persist::load(&repo("verification/B-08a_project.json")).unwrap();
     let text = persist::to_json(shot.document.project(), &shot.preserved);
-    let none = !text.contains("eight_bpc") && shot.document.project().compositions.iter().all(|c| !c.eight_bpc);
-    t.row("The reference shot is not 8 bpc in any composition and saves no eight_bpc line", if none { "no line" } else { "differs" }, none);
+    let none = !text.contains("eight_bpc")
+        && shot
+            .document
+            .project()
+            .compositions
+            .iter()
+            .all(|c| !c.eight_bpc);
+    t.row(
+        "The reference shot is not 8 bpc in any composition and saves no eight_bpc line",
+        if none { "no line" } else { "differs" },
+        none,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[("fx_8bpc_001.json", 0), ("fx_8bpc_002.json", 0)]);

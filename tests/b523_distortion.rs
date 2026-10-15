@@ -40,13 +40,18 @@ fn picture(name: &str, mix: &[Vec<f64>; 2]) {
     let (w, h) = (900usize, 200usize);
     let n = mix[0].len().max(1);
     let mut px = vec![255u8; w * h * 3];
-    let mut put = |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
+    let mut put =
+        |x: usize, y: usize, c: [u8; 3]| px[(y.min(h - 1) * w + x) * 3..][..3].copy_from_slice(&c);
     for (c, half) in [(0usize, 0usize), (1, h / 2)] {
         for x in 0..w {
             let (a, b) = (x * n / w, ((x + 1) * n / w).max(x * n / w + 1).min(n));
             // One sample past the column too, so neighbouring columns join up.
-            let (lo, hi) = (a..(b + 1).min(n)).map(|i| mix[c].get(i).copied().unwrap_or(0.0)).fold((f64::MAX, f64::MIN), |(lo, hi), v| (lo.min(v), hi.max(v)));
-            let row = |v: f64| half + (((1.0 - v.clamp(-1.0, 1.0)) / 2.0) * (h / 2 - 1) as f64).round() as usize;
+            let (lo, hi) = (a..(b + 1).min(n))
+                .map(|i| mix[c].get(i).copied().unwrap_or(0.0))
+                .fold((f64::MAX, f64::MIN), |(lo, hi), v| (lo.min(v), hi.max(v)));
+            let row = |v: f64| {
+                half + (((1.0 - v.clamp(-1.0, 1.0)) / 2.0) * (h / 2 - 1) as f64).round() as usize
+            };
             put(x, half + h / 4, [150, 150, 150]);
             for y in row(hi)..=row(lo) {
                 put(x, y, [30, 60, 160]);
@@ -128,8 +133,12 @@ fn harmonics(m: &[f64]) -> [Option<f64>; 2] {
 fn same(a: &J, b: &J) -> bool {
     match (a, b) {
         (J::Number(x), J::Number(y)) => x.as_f64() == y.as_f64(),
-        (J::Array(x), J::Array(y)) => x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y)),
-        (J::Object(x), J::Object(y)) => x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w))),
+        (J::Array(x), J::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y))
+        }
+        (J::Object(x), J::Object(y)) => {
+            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
+        }
         _ => a == b,
     }
 }
@@ -158,7 +167,10 @@ fn b523_distortion() {
          sine (`_sine`: distorted above, clean below), and waveforms (left channel above, right below, `_before` with the effects \
          switched off).\n",
     );
-    let expected: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("expected_distortion.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &std::fs::read_to_string(t.root.join("expected_distortion.json")).unwrap(),
+    )
+    .unwrap();
     let tol = expected["tolerance"].as_f64().unwrap();
     let mut level = Vec::new();
     let mut curves = Vec::new();
@@ -170,71 +182,166 @@ fn b523_distortion() {
         let loaded = t.load(file);
         let project = loaded.document.project();
         let comp = &project.compositions[0];
-        let (from, frames) = (case["from"].as_i64().unwrap() as i32, case["frames"].as_u64().unwrap() as u32);
+        let (from, frames) = (
+            case["from"].as_i64().unwrap() as i32,
+            case["frames"].as_u64().unwrap() as u32,
+        );
         let (mix, said) = audio::mix(project, &t.root, comp, from, frames);
         let n = case["samples"].as_u64().unwrap() as usize;
-        t.row(&format!("frames {from} to {}: {n} samples", from + frames as i32), &format!("{} and {}", mix[0].len(), mix[1].len()), mix[0].len() == n && mix[1].len() == n);
-        let want_w: Vec<String> = case["warnings"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        t.row(
+            &format!("frames {from} to {}: {n} samples", from + frames as i32),
+            &format!("{} and {}", mix[0].len(), mix[1].len()),
+            mix[0].len() == n && mix[1].len() == n,
+        );
+        let want_w: Vec<String> = case["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
         let opened = ids(&loaded.warnings.iter().collect::<Vec<_>>());
         let mixed = ids(&said.iter().map(|(_, d)| d).collect::<Vec<_>>());
-        let words = |v: &[String]| if v.is_empty() { "none".to_string() } else { v.join(", ") };
-        t.row(&format!("opening warns of: {}", words(&want_w)), &words(&opened), opened == want_w);
-        t.row(&format!("mixing warns of: {}", words(&want_w)), &words(&mixed), mixed == want_w);
+        let words = |v: &[String]| {
+            if v.is_empty() {
+                "none".to_string()
+            } else {
+                v.join(", ")
+            }
+        };
+        t.row(
+            &format!("opening warns of: {}", words(&want_w)),
+            &words(&opened),
+            opened == want_w,
+        );
+        t.row(
+            &format!("mixing warns of: {}", words(&want_w)),
+            &words(&mixed),
+            mixed == want_w,
+        );
         let mut worst = 0f64;
         let places = case["places"].as_array().unwrap();
         for (i, v) in places.iter().zip(case["values"].as_array().unwrap()) {
             let i = i.as_u64().unwrap() as usize;
             for (c, v) in v.as_array().unwrap().iter().enumerate() {
-                worst = worst.max(mix[c].get(i).map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()));
+                worst = worst.max(
+                    mix[c]
+                        .get(i)
+                        .map_or(f64::INFINITY, |g| (g - v.as_f64().unwrap()).abs()),
+                );
             }
         }
-        t.row(&format!("{} named places within {tol}", places.len()), &format!("largest difference {worst:.2e}"), worst <= tol);
-        let want: Vec<Option<f64>> = case["peak_db"].as_array().unwrap().iter().map(|v| v.as_f64()).collect();
-        let got: Vec<Option<f64>> = mix.iter().map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs())))).collect();
+        t.row(
+            &format!("{} named places within {tol}", places.len()),
+            &format!("largest difference {worst:.2e}"),
+            worst <= tol,
+        );
+        let want: Vec<Option<f64>> = case["peak_db"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_f64())
+            .collect();
+        let got: Vec<Option<f64>> = mix
+            .iter()
+            .map(|c| db(c.iter().fold(0f64, |m, v| m.max(v.abs()))))
+            .collect();
         let ok = want.iter().zip(&got).all(|(w, g)| match (w, g) {
             (Some(w), Some(g)) => (w - g).abs() <= 0.01,
             (None, None) => true,
             _ => false,
         });
-        level.push((format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])), format!("{}, {}", shown(got[0]), shown(got[1])), ok));
+        level.push((
+            format!("{name}: left {}, right {}", shown(want[0]), shown(want[1])),
+            format!("{}, {}", shown(got[0]), shown(got[1])),
+            ok,
+        ));
 
         if let Some(rows) = case.get("curve").and_then(|c| c.as_array()) {
             let mut worst = 0f64;
             for r in rows {
-                let (s, x, y) = (r["sample"].as_u64().unwrap() as usize, r["in"].as_f64().unwrap(), r["out"].as_f64().unwrap());
+                let (s, x, y) = (
+                    r["sample"].as_u64().unwrap() as usize,
+                    r["in"].as_f64().unwrap(),
+                    r["out"].as_f64().unwrap(),
+                );
                 let g = mix[0][s];
                 worst = worst.max((g - y).abs());
-                curves.push((format!("{name}: in {x:+.3}, out {y:+.5}"), format!("{g:+.5}"), (g - y).abs() <= tol));
+                curves.push((
+                    format!("{name}: in {x:+.3}, out {y:+.5}"),
+                    format!("{g:+.5}"),
+                    (g - y).abs() <= tol,
+                ));
             }
-            t.row(&format!("the curve: {} ramp samples within {tol}", rows.len()), &format!("largest difference {worst:.2e}"), worst <= tol);
+            t.row(
+                &format!("the curve: {} ramp samples within {tol}", rows.len()),
+                &format!("largest difference {worst:.2e}"),
+                worst <= tol,
+            );
             let off = without(project);
             let clean = audio::mix(&off, &t.root, &off.compositions[0], from, frames).0;
-            let pts: Vec<(f64, f64)> = (24000..72000).step_by(20).map(|s| (clean[0][s], mix[0][s])).collect();
+            let pts: Vec<(f64, f64)> = (24000..72000)
+                .step_by(20)
+                .map(|s| (clean[0][s], mix[0][s]))
+                .collect();
             curve_chart(&format!("{name}_curve"), &pts);
-            picture(&format!("{name}_sine"), &[mix[0][4800..4896].to_vec(), clean[0][4800..4896].to_vec()]);
-            let want: Vec<Option<f64>> = case["harmonics_db"].as_array().unwrap().iter().map(|v| v.as_f64()).collect();
+            picture(
+                &format!("{name}_sine"),
+                &[mix[0][4800..4896].to_vec(), clean[0][4800..4896].to_vec()],
+            );
+            let want: Vec<Option<f64>> = case["harmonics_db"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_f64())
+                .collect();
             let got = harmonics(&mix[0]);
             let ok = want.iter().zip(&got).all(|(w, g)| match (w, g) {
                 (Some(w), Some(g)) => (w - g).abs() <= 0.01,
                 (None, None) => true,
                 _ => false,
             });
-            harms.push((format!("{name}: 2nd {}, 3rd {}", shown(want[0]), shown(want[1])), format!("{}, {}", shown(got[0]), shown(got[1])), ok));
+            harms.push((
+                format!("{name}: 2nd {}, 3rd {}", shown(want[0]), shown(want[1])),
+                format!("{}, {}", shown(got[0]), shown(got[1])),
+                ok,
+            ));
         }
         if name == "fx_dist_009" {
             // Resolution 4 bits: every sample a whole number of eighths.
-            let off = mix.iter().flatten().map(|v| (v * 8.0 - (v * 8.0).round()).abs()).fold(0f64, f64::max);
-            t.row("Resolution 4: every sample on a step of 1/8 (exactly)", &format!("largest distance from a step {off:.1e}"), off <= 1e-12);
+            let off = mix
+                .iter()
+                .flatten()
+                .map(|v| (v * 8.0 - (v * 8.0).round()).abs())
+                .fold(0f64, f64::max);
+            t.row(
+                "Resolution 4: every sample on a step of 1/8 (exactly)",
+                &format!("largest distance from a step {off:.1e}"),
+                off <= 1e-12,
+            );
         }
         if name == "fx_dist_010" {
             // Downsample 4: samples 4k to 4k + 3 the same, in both channels.
             let held = (0..mix[0].len()).all(|i| (0..2).all(|c| mix[c][i] == mix[c][i - i % 4]));
-            let moved = (0..mix[0].len() / 4 - 1).filter(|k| mix[0][4 * k] != mix[0][4 * k + 4]).count();
+            let moved = (0..mix[0].len() / 4 - 1)
+                .filter(|k| mix[0][4 * k] != mix[0][4 * k + 4])
+                .count();
             t.row("Downsample 4: each run of four samples from the layer's first is one value (exactly)", &format!("{}; {moved} of {} runs differ from the next", if held { "held" } else { "not held" }, mix[0].len() / 4 - 1), held && moved > 0);
         }
-        if ["fx_dist_005", "fx_dist_008", "fx_dist_009", "fx_dist_011", "fx_dist_012", "fx_dist_015"].contains(&name) {
+        if [
+            "fx_dist_005",
+            "fx_dist_008",
+            "fx_dist_009",
+            "fx_dist_011",
+            "fx_dist_012",
+            "fx_dist_015",
+        ]
+        .contains(&name)
+        {
             let off = without(project);
-            picture(&format!("{name}_before"), &audio::mix(&off, &t.root, &off.compositions[0], from, frames).0);
+            picture(
+                &format!("{name}_before"),
+                &audio::mix(&off, &t.root, &off.compositions[0], from, frames).0,
+            );
             picture(&format!("{name}_after"), &mix);
         }
     }
@@ -259,23 +366,58 @@ fn b523_distortion() {
             Ok(_) => "opened".to_string(),
             Err(d) => d.id.as_str().to_string(),
         };
-        t.row(&format!("{file}: {}", r["what"].as_str().unwrap()), &got, got == r["diagnostic"].as_str().unwrap());
+        t.row(
+            &format!("{file}: {}", r["what"].as_str().unwrap()),
+            &got,
+            got == r["diagnostic"].as_str().unwrap(),
+        );
     }
 
     t.heading("Saved again");
-    let layer_fx = |j: &J| j["compositions"][0]["layers"].as_array().unwrap().iter().find(|l| l["kind"] == "audio").unwrap()["effects"].clone();
-    for file in ["fx_dist_008.json", "fx_dist_012.json", "fx_dist_017.json", "fx_dist_018.json"] {
+    let layer_fx = |j: &J| {
+        j["compositions"][0]["layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["kind"] == "audio")
+            .unwrap()["effects"]
+            .clone()
+    };
+    for file in [
+        "fx_dist_008.json",
+        "fx_dist_012.json",
+        "fx_dist_017.json",
+        "fx_dist_018.json",
+    ] {
         let loaded = t.load(file);
-        let written: J = serde_json::from_str(&persist::to_json(loaded.document.project(), &loaded.preserved)).unwrap();
-        let original: J = serde_json::from_str(&std::fs::read_to_string(t.root.join(file)).unwrap()).unwrap();
+        let written: J = serde_json::from_str(&persist::to_json(
+            loaded.document.project(),
+            &loaded.preserved,
+        ))
+        .unwrap();
+        let original: J =
+            serde_json::from_str(&std::fs::read_to_string(t.root.join(file)).unwrap()).unwrap();
         let kept = same(&layer_fx(&written), &layer_fx(&original));
-        t.row(&format!("{file}: the layer's effects as written"), &if kept { "as written".to_string() } else { layer_fx(&written).to_string() }, kept);
+        t.row(
+            &format!("{file}: the layer's effects as written"),
+            &if kept {
+                "as written".to_string()
+            } else {
+                layer_fx(&written).to_string()
+            },
+            kept,
+        );
     }
 
     t.heading("Decision 3: sound effects on sound layers only, through the commands");
     let mut doc = Document::new(t.load("fx_dist_001.json").document.project().clone());
     let comp = doc.project().compositions[0].clone();
-    let sound = comp.layers_in_order().find(|l| l.kind == LayerKind::Audio).unwrap().id.clone();
+    let sound = comp
+        .layers_in_order()
+        .find(|l| l.kind == LayerKind::Audio)
+        .unwrap()
+        .id
+        .clone();
     let distortion = Effect::Distortion {
         kind: "soft_clip".into(),
         drive: 25.0,
@@ -291,17 +433,38 @@ fn b523_distortion() {
         effect: EffectInstance::new(Id::new("fx-new"), distortion.clone()),
         index: None,
     });
-    t.row("Distortion added to a sound layer", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_ok());
-    let mut j: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_dist_101.json")).unwrap()).unwrap();
-    j["compositions"][0]["layers"][0].as_object_mut().unwrap().remove("effects");
-    let mut solid = Document::new(persist::load_str(&j.to_string()).expect("the solid opens").document.project().clone());
+    t.row(
+        "Distortion added to a sound layer",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_ok(),
+    );
+    let mut j: J =
+        serde_json::from_str(&std::fs::read_to_string(t.root.join("fx_dist_101.json")).unwrap())
+            .unwrap();
+    j["compositions"][0]["layers"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("effects");
+    let mut solid = Document::new(
+        persist::load_str(&j.to_string())
+            .expect("the solid opens")
+            .document
+            .project()
+            .clone(),
+    );
     let r = solid.apply(Command::AddEffect {
         composition: comp.id.clone(),
         layer_id: Id::new("solid0"),
         effect: EffectInstance::new(Id::new("fx-new"), distortion),
         index: None,
     });
-    t.row("Distortion added to a solid", &r.as_ref().map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()), r.is_err());
+    t.row(
+        "Distortion added to a solid",
+        &r.as_ref()
+            .map_or_else(|d| format!("refused: {}", d.message), |_| "added".into()),
+        r.is_err(),
+    );
 
     t.heading("Speed (release build, this machine)");
     let p = t.load("fx_dist_001.json");

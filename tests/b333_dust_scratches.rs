@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -29,7 +30,11 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn dust(radius: f64, threshold: f64, operate_on_alpha: &str) -> Effect {
-    Effect::DustScratches { radius, threshold, operate_on_alpha: operate_on_alpha.to_string() }
+    Effect::DustScratches {
+        radius,
+        threshold,
+        operate_on_alpha: operate_on_alpha.to_string(),
+    }
 }
 
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
@@ -47,17 +52,31 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -78,14 +97,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -113,7 +148,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 /// `effects` on the street at `frame` of a two-second shot, drawn, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -128,8 +166,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -139,21 +189,42 @@ type Shot<'a> = (&'a str, J, i32, &'a str, fn(&[u8], &[u8]) -> bool);
 /// pictures into `verification/{d} pictures/`; a row each that it draws cleanly and changes what
 /// it says it changes.
 fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]), 0);
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, frame, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]), *frame);
         write(&file, &bytes);
         t.row(
             &format!("{file}, frame {frame}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}, the largest by {} of 255", distance(&bytes, &before).1, TOWN.0 * TOWN.1, distance(&bytes, &before).0),
+            &format!(
+                "{said:?}, {} pixels changed of {}, the largest by {} of 255",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1,
+                distance(&bytes, &before).0
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -162,8 +233,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[Shot]) {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -179,7 +262,10 @@ fn is_dust(e: &Effect) -> bool {
 
 /// Pixels changed, and the covering of every pixel kept.
 fn cleaned(a: &[u8], b: &[u8]) -> (usize, bool) {
-    let kept = a.chunks_exact(4).zip(b.chunks_exact(4)).all(|(p, q)| p[3] == q[3]);
+    let kept = a
+        .chunks_exact(4)
+        .zip(b.chunks_exact(4))
+        .all(|(p, q)| p[3] == q[3]);
     (distance(a, b).1, kept)
 }
 
@@ -226,9 +312,21 @@ fn b333_dust_scratches() {
             ("fx_dust_018.json", "Dust & Scratches's operate on alpha is \"off\" or \"on\", and this is \"sometimes\"."),
         ],
     );
-    t.shape_refused("fx_dust_001.json", "a Dust & Scratches with no `operate_on_alpha`", "{\"radius\": 1, \"threshold\": 0}");
-    t.shape_refused("fx_dust_001.json", "a Dust & Scratches whose operate on alpha is a number", "{\"radius\": 1, \"threshold\": 0, \"operate_on_alpha\": 1}");
-    t.shape_refused("fx_dust_001.json", "a Dust & Scratches with no `threshold`", "{\"radius\": 1, \"operate_on_alpha\": \"off\"}");
+    t.shape_refused(
+        "fx_dust_001.json",
+        "a Dust & Scratches with no `operate_on_alpha`",
+        "{\"radius\": 1, \"threshold\": 0}",
+    );
+    t.shape_refused(
+        "fx_dust_001.json",
+        "a Dust & Scratches whose operate on alpha is a number",
+        "{\"radius\": 1, \"threshold\": 0, \"operate_on_alpha\": 1}",
+    );
+    t.shape_refused(
+        "fx_dust_001.json",
+        "a Dust & Scratches with no `threshold`",
+        "{\"radius\": 1, \"operate_on_alpha\": \"off\"}",
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_dust_001.json").document;
@@ -240,16 +338,28 @@ fn b333_dust_scratches() {
             ("threshold 255.5", set(dust(1.0, 255.5, "off"))),
             ("threshold -2", set(dust(1.0, -2.0, "off"))),
             ("operate on alpha \"On\"", set(dust(1.0, 0.0, "On"))),
-            ("threshold keyed to 400", keys("threshold", &[(0, &[0.0]), (4, &[400.0])])),
+            (
+                "threshold keyed to 400",
+                keys("threshold", &[(0, &[0.0]), (4, &[400.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_dust_001.json",
         vec![
-            ("radius 4, threshold 30, operate on alpha on", set(dust(4.0, 30.0, "on"))),
-            ("radius keyed from 0 to 10", keys("radius", &[(0, &[0.0]), (4, &[10.0])])),
-            ("threshold keyed from 0 to 255", keys("threshold", &[(0, &[0.0]), (4, &[255.0])])),
+            (
+                "radius 4, threshold 30, operate on alpha on",
+                set(dust(4.0, 30.0, "on")),
+            ),
+            (
+                "radius keyed from 0 to 10",
+                keys("radius", &[(0, &[0.0]), (4, &[10.0])]),
+            ),
+            (
+                "threshold keyed from 0 to 255",
+                keys("threshold", &[(0, &[0.0]), (4, &[255.0])]),
+            ),
         ],
     );
 
@@ -279,9 +389,18 @@ fn b333_dust_scratches() {
         "core.dust_scratches",
         &[
             ("Radius 4, Threshold 0", json!({"radius": 4})),
-            ("Radius 6, Threshold 20", json!({"radius": 6, "threshold": 20})),
-            ("Radius 4, Threshold 8, Operate on Alpha on", json!({"radius": 4, "threshold": 8, "operate_on_alpha": "on"})),
-            ("Radius 4, Threshold keyed 0 to 60", json!({"radius": 4, "threshold": keyed(&[(0, json!(0)), (239, json!(60))])})),
+            (
+                "Radius 6, Threshold 20",
+                json!({"radius": 6, "threshold": 20}),
+            ),
+            (
+                "Radius 4, Threshold 8, Operate on Alpha on",
+                json!({"radius": 4, "threshold": 8, "operate_on_alpha": "on"}),
+            ),
+            (
+                "Radius 4, Threshold keyed 0 to 60",
+                json!({"radius": 4, "threshold": keyed(&[(0, json!(0)), (239, json!(60))])}),
+            ),
         ],
         is_dust,
     );
@@ -345,22 +464,53 @@ fn b333_dust_scratches_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Dust & Scratches as added (Radius 1, Threshold 0)", Some(json!({}))),
-        ("Noise, then Dust & Scratches Radius 3, Threshold 20", Some(json!({"radius": 3, "threshold": 20}))),
-        ("Noise, then Dust & Scratches Radius 5, Threshold 8, Operate on Alpha on", Some(json!({"radius": 5, "threshold": 8, "operate_on_alpha": "on"}))),
+        (
+            "Noise, then Dust & Scratches as added (Radius 1, Threshold 0)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Dust & Scratches Radius 3, Threshold 20",
+            Some(json!({"radius": 3, "threshold": 20})),
+        ),
+        (
+            "Noise, then Dust & Scratches Radius 5, Threshold 8, Operate on Alpha on",
+            Some(json!({"radius": 5, "threshold": 8, "operate_on_alpha": "on"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.dust_scratches", &format!("{id}d"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B333_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-333_timing_raw.md"));
+    let out = std::env::var("B333_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-333_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

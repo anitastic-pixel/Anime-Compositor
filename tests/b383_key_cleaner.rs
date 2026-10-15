@@ -18,7 +18,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -32,16 +33,24 @@ use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn kc(additional_edge_radius: f64, alpha_contrast: f64, strength: f64) -> Effect {
-    Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength }
+    Effect::KeyCleaner {
+        additional_edge_radius,
+        alpha_contrast,
+        strength,
+    }
 }
 
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.key_cleaner" => json!({"additional_edge_radius": 10, "alpha_contrast": 0, "strength": 100}),
-        "core.extract" => json!({"channel": "luminance", "black_point": 0, "white_point": 255, "black_softness": 0,
-            "white_softness": 0, "invert": "off"}),
+        "core.key_cleaner" => {
+            json!({"additional_edge_radius": 10, "alpha_contrast": 0, "strength": 100})
+        }
+        "core.extract" => {
+            json!({"channel": "luminance", "black_point": 0, "white_point": 255, "black_softness": 0,
+            "white_softness": 0, "invert": "off"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -52,7 +61,14 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A luma key first (Extract: the darker pixels gone, a soft edge), then Key Cleaner with `p`.
 fn keyed_then(id: &str, p: &J) -> J {
-    json!([fx("core.extract", &format!("{id}k"), &json!({"black_point": 70, "black_softness": 60})), fx("core.key_cleaner", &format!("{id}c"), p)])
+    json!([
+        fx(
+            "core.extract",
+            &format!("{id}k"),
+            &json!({"black_point": 70, "black_softness": 60})
+        ),
+        fx("core.key_cleaner", &format!("{id}c"), p)
+    ])
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
@@ -61,7 +77,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -69,7 +89,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::KeyCleaner { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::KeyCleaner { .. })
+                });
             }
         }
         t.row(
@@ -87,15 +109,26 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, fn(&str) -> J
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     for (what, stack) in settings {
         let project = reference(|id| stack(&format!("b383-{id}")));
         // Without the cleaner: the stack's other effects alone.
         let without = reference(|id| {
-            let J::Array(mut v) = stack(&format!("b383-{id}")) else { unreachable!() };
+            let J::Array(mut v) = stack(&format!("b383-{id}")) else {
+                unreachable!()
+            };
             v.retain(|e| e["type_id"] != "core.key_cleaner");
             J::Array(v)
         });
@@ -108,7 +141,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, fn(&str) -> J
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::KeyCleaner { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::KeyCleaner { .. })
+                });
                 t.row(
                     &format!("the reference shot, {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -121,7 +156,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, fn(&str) -> J
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -133,8 +171,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -152,8 +202,20 @@ fn hard(a: &[u8], b: &[u8]) -> bool {
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -188,16 +250,42 @@ fn b383_key_cleaner() {
     why(
         &mut t,
         &[
-            ("fx_kclean_012.json", "Key Cleaner's additional edge radius runs from 0 to 100, and this is 101."),
-            ("fx_kclean_013.json", "Key Cleaner's additional edge radius runs from 0 to 100, and this is -1."),
-            ("fx_kclean_014.json", "Key Cleaner's alpha contrast runs from 0 to 100, and this is 101."),
-            ("fx_kclean_015.json", "Key Cleaner's alpha contrast runs from 0 to 100, and this is -1."),
-            ("fx_kclean_016.json", "Key Cleaner's strength runs from 0 to 100, and this is 101."),
-            ("fx_kclean_017.json", "Key Cleaner's strength runs from 0 to 100, and this is -1."),
+            (
+                "fx_kclean_012.json",
+                "Key Cleaner's additional edge radius runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_kclean_013.json",
+                "Key Cleaner's additional edge radius runs from 0 to 100, and this is -1.",
+            ),
+            (
+                "fx_kclean_014.json",
+                "Key Cleaner's alpha contrast runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_kclean_015.json",
+                "Key Cleaner's alpha contrast runs from 0 to 100, and this is -1.",
+            ),
+            (
+                "fx_kclean_016.json",
+                "Key Cleaner's strength runs from 0 to 100, and this is 101.",
+            ),
+            (
+                "fx_kclean_017.json",
+                "Key Cleaner's strength runs from 0 to 100, and this is -1.",
+            ),
         ],
     );
-    t.shape_refused("fx_kclean_001.json", "a Key Cleaner with no `strength`", r#"{"additional_edge_radius": 10, "alpha_contrast": 0}"#);
-    t.shape_refused("fx_kclean_001.json", "a Key Cleaner with a radius in words", r#"{"additional_edge_radius": "ten", "alpha_contrast": 0, "strength": 100}"#);
+    t.shape_refused(
+        "fx_kclean_001.json",
+        "a Key Cleaner with no `strength`",
+        r#"{"additional_edge_radius": 10, "alpha_contrast": 0}"#,
+    );
+    t.shape_refused(
+        "fx_kclean_001.json",
+        "a Key Cleaner with a radius in words",
+        r#"{"additional_edge_radius": "ten", "alpha_contrast": 0, "strength": 100}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_kclean_001.json").document;
@@ -207,15 +295,24 @@ fn b383_key_cleaner() {
             ("additional edge radius 101", set(kc(101.0, 0.0, 100.0))),
             ("alpha contrast -1", set(kc(10.0, -1.0, 100.0))),
             ("strength 101", set(kc(10.0, 0.0, 101.0))),
-            ("strength keyed to 101", keys("strength", &[(0, &[100.0]), (4, &[101.0])])),
+            (
+                "strength keyed to 101",
+                keys("strength", &[(0, &[100.0]), (4, &[101.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_kclean_001.json",
         vec![
-            ("radius 4, contrast 30, strength 75", set(kc(4.0, 30.0, 75.0))),
-            ("additional edge radius keyed from 0 to 6", keys("additional_edge_radius", &[(0, &[0.0]), (4, &[6.0])])),
+            (
+                "radius 4, contrast 30, strength 75",
+                set(kc(4.0, 30.0, 75.0)),
+            ),
+            (
+                "additional edge radius keyed from 0 to 6",
+                keys("additional_edge_radius", &[(0, &[0.0]), (4, &[6.0])]),
+            ),
         ],
     );
     // Draft halves the radius, a distance; the contrast and strength stay.
@@ -228,7 +325,13 @@ fn b383_key_cleaner() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_kclean_001.json", 0), ("fx_kclean_005.json", 0), ("fx_kclean_007.json", 0), ("fx_kclean_009.json", 3), ("fx_kclean_011.json", 0)]);
+    t.tiles(&[
+        ("fx_kclean_001.json", 0),
+        ("fx_kclean_005.json", 0),
+        ("fx_kclean_007.json", 0),
+        ("fx_kclean_009.json", 3),
+        ("fx_kclean_011.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255 (the cleaner is drawn on the processor; the card draws what follows it)");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -237,18 +340,48 @@ fn b383_key_cleaner() {
         &mut t,
         &mut gpu,
         &[
-            ("Key Cleaner as added on the cels", |id| json!([fx("core.key_cleaner", id, &json!({}))])),
-            ("Extract (black point 70, softness 60), then Key Cleaner as added", |id| keyed_then(id, &json!({}))),
-            ("Extract, then Key Cleaner radius 4, contrast 40, strength 60", |id| keyed_then(id, &json!({"additional_edge_radius": 4, "alpha_contrast": 40, "strength": 60}))),
+            ("Key Cleaner as added on the cels", |id| {
+                json!([fx("core.key_cleaner", id, &json!({}))])
+            }),
+            (
+                "Extract (black point 70, softness 60), then Key Cleaner as added",
+                |id| keyed_then(id, &json!({})),
+            ),
+            (
+                "Extract, then Key Cleaner radius 4, contrast 40, strength 60",
+                |id| {
+                    keyed_then(
+                        id,
+                        &json!({"additional_edge_radius": 4, "alpha_contrast": 40, "strength": 60}),
+                    )
+                },
+            ),
         ],
     );
 
     t.heading("Pictures: the street, in `verification/D-503 pictures/`");
     let dir = repo("verification/D-503 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
-    let (keyed, said) = picture(&dir, json!([fx("core.extract", "k", &json!({"black_point": 70, "black_softness": 60}))]));
+    let (keyed, said) = picture(
+        &dir,
+        json!([fx(
+            "core.extract",
+            "k",
+            &json!({"black_point": 70, "black_softness": 60})
+        )]),
+    );
     write("1_keyed.png", &keyed);
     t.row("1_keyed.png, the street keyed by Extract (black point 70, softness 60), no cleaner; draws cleanly", &format!("{said:?}"), said.is_empty());
     let shots: [(&str, J, &str, fn(&[u8], &[u8]) -> bool); 4] = [
@@ -263,7 +396,11 @@ fn b383_key_cleaner() {
         write(&file, &bytes);
         t.row(
             &format!("{file}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}", distance(&bytes, &keyed).1, TOWN.0 * TOWN.1),
+            &format!(
+                "{said:?}, {} pixels changed of {}",
+                distance(&bytes, &keyed).1,
+                TOWN.0 * TOWN.1
+            ),
             said.is_empty() && check(&bytes, &keyed),
         );
     }
@@ -296,22 +433,53 @@ fn b383_key_cleaner_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Key Cleaner as added (radius 10)", Some(json!({}))),
-        ("Noise, then Key Cleaner radius 4, contrast 40", Some(json!({"additional_edge_radius": 4, "alpha_contrast": 40}))),
-        ("Noise, then Key Cleaner radius 30, strength 60", Some(json!({"additional_edge_radius": 30, "strength": 60}))),
+        (
+            "Noise, then Key Cleaner as added (radius 10)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Key Cleaner radius 4, contrast 40",
+            Some(json!({"additional_edge_radius": 4, "alpha_contrast": 40})),
+        ),
+        (
+            "Noise, then Key Cleaner radius 30, strength 60",
+            Some(json!({"additional_edge_radius": 30, "strength": 60})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.key_cleaner", &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B383_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-383_timing_raw.md"));
+    let out = std::env::var("B383_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-383_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

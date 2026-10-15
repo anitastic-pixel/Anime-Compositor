@@ -31,12 +31,23 @@ use anime_compositor::{persist, png_out, OutputDepth};
 /// and Draft. The files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_star_burst.json")).unwrap()).unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_star_burst.json")).unwrap())
+            .unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = case["project"].as_str().unwrap();
-        let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
-        let project = persist::load(&t.root.join(file)).unwrap().document.project().clone();
+        let frames: Vec<i32> = case["frames"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|f| f.parse().unwrap())
+            .collect();
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in &frames {
@@ -44,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::StarBurst { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::StarBurst { .. })
+                });
             }
         }
         t.row(
@@ -62,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -78,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::StarBurst { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::StarBurst { .. })
+                });
                 t.row(
                     &format!("the reference shot, Star Burst {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// with what it warned of; `camera` the composition camera, if any.
 fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,8 +138,20 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -120,7 +159,14 @@ fn picture(effects: J, frame: i32, camera: Option<J>) -> (Vec<u8>, Vec<String>) 
 /// nothing.
 fn fault_of(t: &Table, file: &str) -> String {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// A Star Burst's settings, every one `p` leaves out as it is added.
@@ -185,13 +231,33 @@ fn b556_star_burst() {
             && saved["size"] == 300
             && saved["blend_with_original"] == 0,
     );
-    for (n, want) in [(19, "scatter"), (20, "speed"), (21, "phase"), (22, "grid spacing"), (23, "size"), (24, "blend with original"), (25, "speed")] {
+    for (n, want) in [
+        (19, "scatter"),
+        (20, "speed"),
+        (21, "phase"),
+        (22, "grid spacing"),
+        (23, "size"),
+        (24, "blend with original"),
+        (25, "speed"),
+    ] {
         let file = format!("fx_sburst_{n:03}.json");
         let why = fault_of(&t, &file);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
-    t.shape_refused("fx_sburst_001.json", "a Star Burst whose scatter is a word", &parameters(&json!({"scatter": "lots"})).to_string());
-    t.shape_refused("fx_sburst_001.json", "a Star Burst whose grid spacing is a list", &parameters(&json!({"grid_spacing": [4, 4]})).to_string());
+    t.shape_refused(
+        "fx_sburst_001.json",
+        "a Star Burst whose scatter is a word",
+        &parameters(&json!({"scatter": "lots"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_sburst_001.json",
+        "a Star Burst whose grid spacing is a list",
+        &parameters(&json!({"grid_spacing": [4, 4]})).to_string(),
+    );
     t.shape_refused("fx_sburst_001.json", "a Star Burst without its phase", &{
         let mut p = parameters(&json!({}));
         p.as_object_mut().unwrap().remove("phase");
@@ -199,7 +265,12 @@ fn b556_star_burst() {
     });
 
     t.heading("Tiles");
-    t.tiles(&[("fx_sburst_002.json", 12), ("fx_sburst_011.json", 6), ("fx_sburst_014.json", 12), ("fx_sburst_018.json", 24)]);
+    t.tiles(&[
+        ("fx_sburst_002.json", 12),
+        ("fx_sburst_011.json", 6),
+        ("fx_sburst_014.json", 12),
+        ("fx_sburst_018.json", 24),
+    ]);
 
     t.heading("On the card (D-677)");
     let mut gpu = Gpu::new().expect("a graphics card");
@@ -209,7 +280,11 @@ fn b556_star_burst() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("Grid Spacing 20, Size 300, flying away at Speed -3", json!({"grid_spacing": 20, "size": 300, "speed": -3}), 3),
+            (
+                "Grid Spacing 20, Size 300, flying away at Speed -3",
+                json!({"grid_spacing": 20, "size": 300, "speed": -3}),
+                3,
+            ),
             (
                 "Speed keyed 0 to 5, Blend w. Original 30",
                 json!({"blend_with_original": 30, "speed": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 5, "interp": "linear"}]}}),
@@ -225,18 +300,59 @@ fn b556_star_burst() {
     let side = json!({"position": {"base": [150, 135], "keyframes": []}, "depth": {"base": -405, "keyframes": []}, "zoom": {"base": 405, "keyframes": []}});
     for (name, p, frame, camera) in [
         ("1_as_added_frame_24", json!({}), 24, None),
-        ("2_close_look_grid_20_frame_24", json!({"grid_spacing": 20}), 24, None),
-        ("3_picture_as_dots", json!({"scatter": 0, "speed": 0, "grid_spacing": 8}), 24, None),
-        ("4_dots_half_a_height_nearer", json!({"scatter": 0, "speed": 0, "phase": 0.5, "grid_spacing": 8}), 24, None),
-        ("5_big_stars_size_400_frame_48", json!({"grid_spacing": 12, "size": 400}), 48, None),
-        ("6_blend_with_original_50_frame_24", json!({"grid_spacing": 12, "blend_with_original": 50}), 24, None),
-        ("7_composition_camera_from_the_left_frame_24", json!({"grid_spacing": 12}), 24, Some(side.clone())),
+        (
+            "2_close_look_grid_20_frame_24",
+            json!({"grid_spacing": 20}),
+            24,
+            None,
+        ),
+        (
+            "3_picture_as_dots",
+            json!({"scatter": 0, "speed": 0, "grid_spacing": 8}),
+            24,
+            None,
+        ),
+        (
+            "4_dots_half_a_height_nearer",
+            json!({"scatter": 0, "speed": 0, "phase": 0.5, "grid_spacing": 8}),
+            24,
+            None,
+        ),
+        (
+            "5_big_stars_size_400_frame_48",
+            json!({"grid_spacing": 12, "size": 400}),
+            48,
+            None,
+        ),
+        (
+            "6_blend_with_original_50_frame_24",
+            json!({"grid_spacing": 12, "blend_with_original": 50}),
+            24,
+            None,
+        ),
+        (
+            "7_composition_camera_from_the_left_frame_24",
+            json!({"grid_spacing": 12}),
+            24,
+            Some(side.clone()),
+        ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), frame, camera);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png, frame {frame}: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0,
         );
     }
@@ -269,22 +385,50 @@ fn b556_star_burst_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Star Burst as added", Some(json!({}))),
-        ("Noise, then Star Burst, Grid Spacing 0.5 (about half a million stars)", Some(json!({"grid_spacing": 0.5}))),
-        ("Noise, then Star Burst, Speed keyed 0 to 5, Blend w. Original 30", Some(json!({"blend_with_original": 30, "speed": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 5, "interp": "linear"}]}}))),
+        (
+            "Noise, then Star Burst, Grid Spacing 0.5 (about half a million stars)",
+            Some(json!({"grid_spacing": 0.5})),
+        ),
+        (
+            "Noise, then Star Burst, Speed keyed 0 to 5, Blend w. Original 30",
+            Some(
+                json!({"blend_with_original": 30, "speed": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 5, "interp": "linear"}]}}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B556_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-556_timing_raw.md"));
+    let out = std::env::var("B556_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-556_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -66,7 +66,13 @@ fn badge() -> Vec<u8> {
 fn panel() -> Vec<u8> {
     let (w, h) = PLATE;
     (0..w * h)
-        .flat_map(|i| if (44..56).contains(&(i / w)) { [230, 230, 240, 255] } else { [60, 110, 200, 255] })
+        .flat_map(|i| {
+            if (44..56).contains(&(i / w)) {
+                [230, 230, 240, 255]
+            } else {
+                [60, 110, 200, 255]
+            }
+        })
         .collect()
 }
 
@@ -88,9 +94,20 @@ fn picture(dir: &Path, art: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>)
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -104,7 +121,11 @@ fn picture(dir: &Path, art: &str, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>)
 
 /// One bevel of `type_id` as a layer's `effects`, from its settings as the file writes them.
 fn one(type_id: &str, parameters: J) -> J {
-    let thickness = if type_id == "core.bevel_alpha" { 2.0 } else { 0.1 };
+    let thickness = if type_id == "core.bevel_alpha" {
+        2.0
+    } else {
+        0.1
+    };
     let mut p = serde_json::json!({
         "edge_thickness": thickness, "light_angle": -60, "light_color": "#ffffff", "light_intensity": 0.4,
     });
@@ -130,9 +151,16 @@ fn b148_bevel() {
     t.fixtures_numbered("expected_bevel.json", 1..=26);
 
     t.heading("How far they reach");
-    for (name, effect) in [("Bevel Alpha", alpha(8.0, -60.0, "#ffffff", 1.0)), ("Bevel Edges", edges(0.5, -60.0, "#ffffff", 1.0))] {
+    for (name, effect) in [
+        ("Bevel Alpha", alpha(8.0, -60.0, "#ffffff", 1.0)),
+        ("Bevel Edges", edges(0.5, -60.0, "#ffffff", 1.0)),
+    ] {
         let got = effect.bounds_expansion();
-        t.row(&format!("{name} grows the drawing's bounds by nothing"), &got.to_string(), got == 0);
+        t.row(
+            &format!("{name} grows the drawing's bounds by nothing"),
+            &got.to_string(),
+            got == 0,
+        );
     }
     let mut draft = alpha(6.0, 45.0, "#2040a0", 0.7);
     draft.scale_distances(|d| d * 0.5);
@@ -150,7 +178,14 @@ fn b148_bevel() {
     );
 
     t.heading("The file");
-    t.round_trips(&(1..=26).map(|n| format!("fx_bevel_{n:03}.json")).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>());
+    t.round_trips(
+        &(1..=26)
+            .map(|n| format!("fx_bevel_{n:03}.json"))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    );
     t.shape_refused(
         "fx_bevel_001.json",
         "no `light_color` at all",
@@ -168,22 +203,49 @@ fn b148_bevel() {
         &mut document,
         vec![
             ("edge thickness -1", set(alpha(-1.0, -60.0, "#ffffff", 0.4))),
-            ("edge thickness 201", set(alpha(201.0, -60.0, "#ffffff", 0.4))),
+            (
+                "edge thickness 201",
+                set(alpha(201.0, -60.0, "#ffffff", 0.4)),
+            ),
             ("light angle 3601", set(alpha(2.0, 3601.0, "#ffffff", 0.4))),
-            ("light angle -3601", set(alpha(2.0, -3601.0, "#ffffff", 0.4))),
-            ("light intensity 1.1", set(alpha(2.0, -60.0, "#ffffff", 1.1))),
-            ("light colour \"white\"", set(alpha(2.0, -60.0, "white", 0.4))),
-            ("edge thickness keyed to 300", keys("edge_thickness", &[(0, &[2.0]), (4, &[300.0])])),
+            (
+                "light angle -3601",
+                set(alpha(2.0, -3601.0, "#ffffff", 0.4)),
+            ),
+            (
+                "light intensity 1.1",
+                set(alpha(2.0, -60.0, "#ffffff", 1.1)),
+            ),
+            (
+                "light colour \"white\"",
+                set(alpha(2.0, -60.0, "white", 0.4)),
+            ),
+            (
+                "edge thickness keyed to 300",
+                keys("edge_thickness", &[(0, &[2.0]), (4, &[300.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_bevel_001.json",
         vec![
-            ("every number at its bottom,", set(alpha(0.0, -3600.0, "#000000", 0.0))),
-            ("every number at its top,", set(alpha(200.0, 3600.0, "#2040a0", 1.0))),
-            ("light angle keyed from 0 to 360", keys("light_angle", &[(0, &[0.0]), (4, &[360.0])])),
-            ("light intensity keyed from 0 to 1", keys("light_intensity", &[(0, &[0.0]), (4, &[1.0])])),
+            (
+                "every number at its bottom,",
+                set(alpha(0.0, -3600.0, "#000000", 0.0)),
+            ),
+            (
+                "every number at its top,",
+                set(alpha(200.0, 3600.0, "#2040a0", 1.0)),
+            ),
+            (
+                "light angle keyed from 0 to 360",
+                keys("light_angle", &[(0, &[0.0]), (4, &[360.0])]),
+            ),
+            (
+                "light intensity keyed from 0 to 1",
+                keys("light_intensity", &[(0, &[0.0]), (4, &[1.0])]),
+            ),
         ],
     );
 
@@ -193,18 +255,33 @@ fn b148_bevel() {
         &mut document,
         vec![
             ("edge thickness 0.6", set(edges(0.6, -60.0, "#ffffff", 0.4))),
-            ("edge thickness -0.01", set(edges(-0.01, -60.0, "#ffffff", 0.4))),
-            ("light intensity -0.1", set(edges(0.1, -60.0, "#ffffff", -0.1))),
+            (
+                "edge thickness -0.01",
+                set(edges(-0.01, -60.0, "#ffffff", 0.4)),
+            ),
+            (
+                "light intensity -0.1",
+                set(edges(0.1, -60.0, "#ffffff", -0.1)),
+            ),
             ("light colour \"#fff\"", set(edges(0.1, -60.0, "#fff", 0.4))),
-            ("edge thickness keyed to 0.8", keys("edge_thickness", &[(0, &[0.1]), (4, &[0.8])])),
+            (
+                "edge thickness keyed to 0.8",
+                keys("edge_thickness", &[(0, &[0.1]), (4, &[0.8])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_bevel_011.json",
         vec![
-            ("edge thickness 0.5, its top,", set(edges(0.5, 3600.0, "#ffd070", 1.0))),
-            ("edge thickness keyed from 0 to 0.5", keys("edge_thickness", &[(0, &[0.0]), (4, &[0.5])])),
+            (
+                "edge thickness 0.5, its top,",
+                set(edges(0.5, 3600.0, "#ffd070", 1.0)),
+            ),
+            (
+                "edge thickness keyed from 0 to 0.5",
+                keys("edge_thickness", &[(0, &[0.0]), (4, &[0.5])]),
+            ),
         ],
     );
 
@@ -223,7 +300,15 @@ fn b148_bevel() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     let (badge_art, panel_art) = (badge(), panel());
     write("badge.png", &badge_art, 1);
@@ -235,9 +320,16 @@ fn b148_bevel() {
     let sum = |p: [u8; 4]| p[..3].iter().map(|&c| c as i32).sum::<i32>();
     // How much lighter (above 0) or darker (below 0) each spot is than in the drawing.
     let change = |art: &[u8], bytes: &[u8], spots: &[(usize, usize)]| -> Vec<i32> {
-        spots.iter().map(|&p| sum(px(bytes, p)) - sum(px(art, p))).collect()
+        spots
+            .iter()
+            .map(|&p| sum(px(bytes, p)) - sum(px(art, p)))
+            .collect()
     };
-    let same_covering = |art: &[u8], bytes: &[u8]| art.chunks(4).zip(bytes.chunks(4)).all(|(a, b)| a[3] == b[3]);
+    let same_covering = |art: &[u8], bytes: &[u8]| {
+        art.chunks(4)
+            .zip(bytes.chunks(4))
+            .all(|(a, b)| a[3] == b[3])
+    };
 
     // On the disc's rim toward the upper left, toward the lower right, and at the middle.
     let rim = [(48, 31), (111, 68), (80, 50)];
@@ -247,7 +339,10 @@ fn b148_bevel() {
         let c = change(&badge_art, &bytes, &rim);
         t.row(
             &format!("{name}, {says}; the covering unchanged everywhere; draws cleanly"),
-            &format!("{said:?}, upper-left rim {:+}, lower-right rim {:+}, middle {:+}", c[0], c[1], c[2]),
+            &format!(
+                "{said:?}, upper-left rim {:+}, lower-right rim {:+}, middle {:+}",
+                c[0], c[1], c[2]
+            ),
             said.is_empty() && same_covering(&badge_art, &bytes) && want(&c),
         );
     };
@@ -281,7 +376,14 @@ fn b148_bevel() {
         "a blue light #2040a0 at intensity 1: the lit rim bluer, the far rim darker",
         |c| c[1] < 0 && c[2] == 0,
     );
-    let (blue, _, _) = picture(&dir, "badge.png", one("core.bevel_alpha", serde_json::json!({ "light_color": "#2040a0", "light_intensity": 1 })));
+    let (blue, _, _) = picture(
+        &dir,
+        "badge.png",
+        one(
+            "core.bevel_alpha",
+            serde_json::json!({ "light_color": "#2040a0", "light_intensity": 1 }),
+        ),
+    );
     let (lit, was) = (px(&blue, rim[0]), px(&badge_art, rim[0]));
     t.row(
         "in badge_blue.png the lit rim has less red and more blue than the drawing there",

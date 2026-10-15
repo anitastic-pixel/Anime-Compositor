@@ -45,40 +45,150 @@ struct Shot {
 }
 
 /// Each effect's name and type.
-const TWO: [(&str, &str); 2] = [("Displacement Map", "core.displacement_map"), ("CC Glass", "core.glass")];
+const TWO: [(&str, &str); 2] = [
+    ("Displacement Map", "core.displacement_map"),
+    ("CC Glass", "core.glass"),
+];
 
 /// The settings each effect is given in the reference shot, each way of working at least once.
 /// CC Glass has no fixtures, so it has the most. A map is the shot's fourth layer.
 fn settings() -> Vec<(&'static str, Value)> {
-    let dm = |layer: &str, fit: &str, h: &str, mh: f64, v: &str, mv: f64, wrap: &str, expand: &str| {
+    let dm = |layer: &str,
+              fit: &str,
+              h: &str,
+              mh: f64,
+              v: &str,
+              mv: f64,
+              wrap: &str,
+              expand: &str| {
         json!({"layer": layer, "fit": fit, "horizontal": h, "max_horizontal": mh, "vertical": v, "max_vertical": mv, "wrap": wrap, "expand": expand})
     };
-    let gl = |layer: &str, fit: &str, property: &str, s: [f64; 5], color: &str| {
-        json!({"layer": layer, "fit": fit, "property": property, "softness": s[0], "height": s[1], "displacement": s[2], "light_angle": s[3], "light_color": color, "light_intensity": s[4]})
-    };
+    let gl = |layer: &str, fit: &str, property: &str, s: [f64; 5], color: &str| json!({"layer": layer, "fit": fit, "property": property, "softness": s[0], "height": s[1], "displacement": s[2], "light_angle": s[3], "light_color": color, "light_intensity": s[4]});
     vec![
-        ("Displacement Map", dm("layer-4", "stretch", "red", 12.0, "green", 12.0, "off", "off")),
-        ("Displacement Map", dm("layer-4", "center", "luminance", -20.0, "alpha", 8.0, "on", "off")),
-        ("Displacement Map", dm("layer-4", "tile", "hue", 15.0, "saturation", -15.0, "off", "on")),
-        ("Displacement Map", dm("layer-4", "stretch", "lightness", 30.5, "blue", 0.0, "off", "on")),
-        ("Displacement Map", dm("layer-4", "stretch", "full", 6.0, "off", 40.0, "on", "on")),
-        ("CC Glass", gl("", "stretch", "intensity", [10.0, 50.0, 20.0, -45.0, 50.0], "#ffffff")),
-        ("CC Glass", gl("", "stretch", "alpha", [4.0, 100.0, 0.0, 90.0, 100.0], "#ffd080")),
-        ("CC Glass", gl("", "stretch", "luminance", [0.0, -80.0, 40.0, 30.0, 0.0], "#ffffff")),
-        ("CC Glass", gl("layer-4", "stretch", "red", [12.0, 60.0, -30.0, 135.0, 70.0], "#80c0ff")),
-        ("CC Glass", gl("layer-4", "center", "green", [25.0, 30.0, 60.0, 200.0, 40.0], "#ffffff")),
-        ("CC Glass", gl("layer-4", "tile", "blue", [6.0, -40.0, 10.0, 0.0, 90.0], "#ff4020")),
+        (
+            "Displacement Map",
+            dm(
+                "layer-4", "stretch", "red", 12.0, "green", 12.0, "off", "off",
+            ),
+        ),
+        (
+            "Displacement Map",
+            dm(
+                "layer-4",
+                "center",
+                "luminance",
+                -20.0,
+                "alpha",
+                8.0,
+                "on",
+                "off",
+            ),
+        ),
+        (
+            "Displacement Map",
+            dm(
+                "layer-4",
+                "tile",
+                "hue",
+                15.0,
+                "saturation",
+                -15.0,
+                "off",
+                "on",
+            ),
+        ),
+        (
+            "Displacement Map",
+            dm(
+                "layer-4",
+                "stretch",
+                "lightness",
+                30.5,
+                "blue",
+                0.0,
+                "off",
+                "on",
+            ),
+        ),
+        (
+            "Displacement Map",
+            dm("layer-4", "stretch", "full", 6.0, "off", 40.0, "on", "on"),
+        ),
+        (
+            "CC Glass",
+            gl(
+                "",
+                "stretch",
+                "intensity",
+                [10.0, 50.0, 20.0, -45.0, 50.0],
+                "#ffffff",
+            ),
+        ),
+        (
+            "CC Glass",
+            gl(
+                "",
+                "stretch",
+                "alpha",
+                [4.0, 100.0, 0.0, 90.0, 100.0],
+                "#ffd080",
+            ),
+        ),
+        (
+            "CC Glass",
+            gl(
+                "",
+                "stretch",
+                "luminance",
+                [0.0, -80.0, 40.0, 30.0, 0.0],
+                "#ffffff",
+            ),
+        ),
+        (
+            "CC Glass",
+            gl(
+                "layer-4",
+                "stretch",
+                "red",
+                [12.0, 60.0, -30.0, 135.0, 70.0],
+                "#80c0ff",
+            ),
+        ),
+        (
+            "CC Glass",
+            gl(
+                "layer-4",
+                "center",
+                "green",
+                [25.0, 30.0, 60.0, 200.0, 40.0],
+                "#ffffff",
+            ),
+        ),
+        (
+            "CC Glass",
+            gl(
+                "layer-4",
+                "tile",
+                "blue",
+                [6.0, -40.0, 10.0, 0.0, 90.0],
+                "#ff4020",
+            ),
+        ),
     ]
 }
 
 fn type_of(effect: &str) -> &'static str {
-    TWO.iter().find(|t| t.0 == effect).expect("one of the two").1
+    TWO.iter()
+        .find(|t| t.0 == effect)
+        .expect("one of the two")
+        .1
 }
 
 /// The reference shot with `parameters` on its first three layers, the second after a Drop
 /// Shadow, as B-151 and B-223 have it.
 fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let type_id = type_of(effect);
     let fx = |id: &str| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": parameters});
@@ -87,7 +197,8 @@ fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
     layers[0]["effects"] = json!([fx("b224-a")]);
     layers[1]["effects"] = json!([shadow, fx("b224-b")]);
     layers[2]["effects"] = json!([fx("b224-c")]);
-    let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
+    let loaded = persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot with {effect}: {}", d.message));
     Shot {
         effect,
         name: format!("the reference shot with {effect} ({})", case + 1),
@@ -103,10 +214,24 @@ fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
 /// effect's it names; one that must not open (a malformed setting) has no frame to compare.
 fn fixtures() -> Vec<Shot> {
     let mut files: Vec<PathBuf> = Vec::new();
-    for folder in fs::read_dir(repo("Fixtures")).expect("read Fixtures").map(|e| e.expect("a folder").path()).filter(|p| p.is_dir()) {
-        for f in fs::read_dir(&folder).expect("read a fixture folder").map(|e| e.expect("a file").path()) {
-            let name = f.file_name().unwrap_or_default().to_string_lossy().into_owned();
-            if name.ends_with(".json") && !name.starts_with("expected") && name != "exposure_bypass_word.json" {
+    for folder in fs::read_dir(repo("Fixtures"))
+        .expect("read Fixtures")
+        .map(|e| e.expect("a folder").path())
+        .filter(|p| p.is_dir())
+    {
+        for f in fs::read_dir(&folder)
+            .expect("read a fixture folder")
+            .map(|e| e.expect("a file").path())
+        {
+            let name = f
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            if name.ends_with(".json")
+                && !name.starts_with("expected")
+                && name != "exposure_bypass_word.json"
+            {
                 files.push(f);
             }
         }
@@ -114,17 +239,33 @@ fn fixtures() -> Vec<Shot> {
     files.sort();
     let mut shots = Vec::new();
     for file in files {
-        let Ok(text) = fs::read_to_string(&file) else { continue };
-        let Some(&(effect, _)) = TWO.iter().find(|t| text.contains(&format!("\"{}\"", t.1))) else { continue };
-        let Ok(loaded) = persist::load(&file) else { continue };
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let Some(&(effect, _)) = TWO.iter().find(|t| text.contains(&format!("\"{}\"", t.1))) else {
+            continue;
+        };
+        let Ok(loaded) = persist::load(&file) else {
+            continue;
+        };
         let root = file.parent().expect("a folder").to_path_buf();
-        let folder = root.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let folder = root
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
         let project = loaded.document.project().clone();
         let comp = &project.compositions[0];
-        let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
+        let (id, frames) = (
+            comp.id.clone(),
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+        );
         shots.push(Shot {
             effect,
-            name: format!("{folder}/{}", file.file_stem().unwrap_or_default().to_string_lossy()),
+            name: format!(
+                "{folder}/{}",
+                file.file_stem().unwrap_or_default().to_string_lossy()
+            ),
             project,
             root,
             comp: id,
@@ -140,7 +281,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -150,8 +296,25 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 /// How many effects the card's plan leaves to the card on each layer.
 fn left(shot: &Shot, frame: i32, quality: PreviewQuality) -> Vec<usize> {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(&shot.project, &shot.comp, frame, &shot.root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers.iter().map(|l| l.on_card.iter().filter(|c| matches!(c, render::OnCard::Fx(_))).count()).collect()
+    let plan = compose::plan_frame_for_card(
+        &shot.project,
+        &shot.comp,
+        frame,
+        &shot.root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
+    plan.layers
+        .iter()
+        .map(|l| {
+            l.on_card
+                .iter()
+                .filter(|c| matches!(c, render::OnCard::Fx(_)))
+                .count()
+        })
+        .collect()
 }
 
 fn said(log: FrameLog) -> String {
@@ -180,14 +343,37 @@ fn b224_gpu_maps() {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 let n = left(shot, frame, quality);
@@ -196,16 +382,24 @@ fn b224_gpu_maps() {
                 // A frame the card refuses (an 8 bpc or Float composition, an adjustment layer
                 // with an effect it does not draw there) must be the CPU's exactly, saying so.
                 let expected_cpu = {
-                    let mut ids: Vec<&str> = said_cpu.split(", ").filter(|s| !s.is_empty()).chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
+                    let mut ids: Vec<&str> = said_cpu
+                        .split(", ")
+                        .filter(|s| !s.is_empty())
+                        .chain([DiagnosticId::GpuPreviewOnCpu.as_str()])
+                        .collect();
                     ids.sort();
                     ids.join(", ")
                 };
                 // At Full the first layer's effect is the card's; at Draft one shrunk to nothing is not left.
-                let first = quality == PreviewQuality::Draft || !shot.reference || n.first() == Some(&1);
+                let first =
+                    quality == PreviewQuality::Draft || !shot.reference || n.first() == Some(&1);
                 let pass = if on_cpu {
                     !shot.reference && d.0 == 0 && said_gpu == expected_cpu
                 } else {
-                    said_cpu == said_gpu && d.0 <= LIMIT && (!shot.reference || on_card > 0) && first
+                    said_cpu == said_gpu
+                        && d.0 <= LIMIT
+                        && (!shot.reference || on_card > 0)
+                        && first
                 };
                 checks += 1;
                 passed += pass as usize;
@@ -216,7 +410,12 @@ fn b224_gpu_maps() {
                 e.3 += on_cpu as usize;
                 e.4 = e.4.max(d.0);
                 let case = format!("{} frame {frame}, {}", shot.name, quality.label());
-                let counts = n.iter().take(3).map(|k| k.to_string()).collect::<Vec<_>>().join(" / ");
+                let counts = n
+                    .iter()
+                    .take(3)
+                    .map(|k| k.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" / ");
                 let _ = writeln!(
                     rows,
                     "| {case} | {counts} | {} | {} | {} | {} |",
@@ -255,8 +454,21 @@ fn b224_gpu_maps() {
                 PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
             };
             let plan = |card: bool, log: &mut FrameLog| {
-                let make = if card { compose::plan_frame_for_card } else { compose::plan_frame_at };
-                let p = make(&reference.project, &reference.comp, 100, &reference.root, quality, log, &mut CelCache::viewer()).expect("plan");
+                let make = if card {
+                    compose::plan_frame_for_card
+                } else {
+                    compose::plan_frame_at
+                };
+                let p = make(
+                    &reference.project,
+                    &reference.comp,
+                    100,
+                    &reference.root,
+                    quality,
+                    log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan");
                 preview::scale_plan(p, quality)
             };
             let a = render::render(&plan(false, &mut log), tile);
@@ -289,13 +501,17 @@ fn b224_gpu_maps() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let mut summary = String::new();
     for (effect, _) in TWO {
         let (n, p, on_card, cpu, most) = by_effect[effect];
-        let _ = writeln!(summary, "| {effect} | {n} | {on_card} | {cpu} | {most} | {p} of {n} |");
+        let _ = writeln!(
+            summary,
+            "| {effect} | {n} | {on_card} | {cpu} | {most} | {p} of {n} |"
+        );
     }
     let s = format!(
         "# B-224: Displacement Map and CC Glass on the GPU against the CPU\n\n\
@@ -355,36 +571,66 @@ fn b224_gpu_maps_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let fx = |id: &str, type_id: &str, p: Value| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": p});
     let shots: [(&str, bool, &str, Value); 4] = [
-        ("Noise, then Displacement Map", true, "core.displacement_map",
-            json!({"layer": "layer-4", "fit": "stretch", "horizontal": "red", "max_horizontal": 12, "vertical": "green", "max_vertical": 12, "wrap": "off", "expand": "off"})),
-        ("Noise, then Displacement Map, expanded", true, "core.displacement_map",
-            json!({"layer": "layer-4", "fit": "stretch", "horizontal": "luminance", "max_horizontal": 20, "vertical": "alpha", "max_vertical": 20, "wrap": "off", "expand": "on"})),
-        ("Noise, then CC Glass", true, "core.glass",
-            json!({"layer": "", "fit": "stretch", "property": "intensity", "softness": 10, "height": 50, "displacement": 20, "light_angle": -45, "light_color": "#ffffff", "light_intensity": 50})),
-        ("Noise, then CC Glass on a map", true, "core.glass",
-            json!({"layer": "layer-4", "fit": "stretch", "property": "luminance", "softness": 25, "height": 60, "displacement": 40, "light_angle": 135, "light_color": "#ffffff", "light_intensity": 70})),
+        (
+            "Noise, then Displacement Map",
+            true,
+            "core.displacement_map",
+            json!({"layer": "layer-4", "fit": "stretch", "horizontal": "red", "max_horizontal": 12, "vertical": "green", "max_vertical": 12, "wrap": "off", "expand": "off"}),
+        ),
+        (
+            "Noise, then Displacement Map, expanded",
+            true,
+            "core.displacement_map",
+            json!({"layer": "layer-4", "fit": "stretch", "horizontal": "luminance", "max_horizontal": 20, "vertical": "alpha", "max_vertical": 20, "wrap": "off", "expand": "on"}),
+        ),
+        (
+            "Noise, then CC Glass",
+            true,
+            "core.glass",
+            json!({"layer": "", "fit": "stretch", "property": "intensity", "softness": 10, "height": 50, "displacement": 20, "light_angle": -45, "light_color": "#ffffff", "light_intensity": 50}),
+        ),
+        (
+            "Noise, then CC Glass on a map",
+            true,
+            "core.glass",
+            json!({"layer": "layer-4", "fit": "stretch", "property": "luminance", "softness": 25, "height": 60, "displacement": 40, "light_angle": 135, "light_color": "#ffffff", "light_intensity": 70}),
+        ),
     ];
     for (name, noise, type_id, p) in shots {
         let stack = |id: &str| {
             let mut v = Vec::new();
             if noise {
-                v.push(fx(&format!("{id}n"), "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"})));
+                v.push(fx(
+                    &format!("{id}n"),
+                    "core.noise",
+                    json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+                ));
             }
             v.push(fx(&format!("{id}b"), type_id, p.clone()));
             v
         };
-        let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-        let shadow = fx("d2", "core.drop_shadow", json!({"color": "#000000", "opacity": 60, "direction": 200, "distance": 6, "softness": 4}));
+        let shadow = fx(
+            "d2",
+            "core.drop_shadow",
+            json!({"color": "#000000", "opacity": 60, "direction": 200, "distance": 6, "softness": 4}),
+        );
         let layers = &mut j["compositions"][0]["layers"];
         layers[0]["effects"] = Value::Array(stack("a"));
         layers[1]["effects"] = Value::Array([vec![shadow], stack("b")].concat());
         layers[2]["effects"] = Value::Array(stack("c"));
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
         let shot = Shot {
             effect: "CC Glass",
             name: name.to_string(),
@@ -395,10 +641,32 @@ fn b224_gpu_maps_timing() {
             reference: true,
         };
         let quality = PreviewQuality::Full;
-        let (first, times) = time_passes(&mut gpu, false, 8, &shot.project, &shot.comp, &shot.root, quality);
-        let n = left(&shot, 100, quality).iter().take(3).map(|k| k.to_string()).collect::<Vec<_>>().join(" / ");
-        let _ = writeln!(s, "| {} | {} | {n} | {:.1} | {:.1} |", shot.name, quality.label(), median(first), median(times));
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &shot.project,
+            &shot.comp,
+            &shot.root,
+            quality,
+        );
+        let n = left(&shot, 100, quality)
+            .iter()
+            .take(3)
+            .map(|k| k.to_string())
+            .collect::<Vec<_>>()
+            .join(" / ");
+        let _ = writeln!(
+            s,
+            "| {} | {} | {n} | {:.1} | {:.1} |",
+            shot.name,
+            quality.label(),
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B224_OUT").map(PathBuf::from).unwrap_or_else(|_| repo("verification/B-224_timing_raw.md"));
+    let out = std::env::var("B224_OUT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-224_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

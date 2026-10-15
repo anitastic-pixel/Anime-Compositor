@@ -171,9 +171,17 @@ fn b26b_null() {
     let document = load("fx_null_007.json");
     let written = persist::to_json(document.project(), &persist::Preserved::default());
     let written_json: J = serde_json::from_str(&written).unwrap();
-    let layers = written_json["compositions"][0]["layers"].as_array().unwrap();
+    let layers = written_json["compositions"][0]["layers"]
+        .as_array()
+        .unwrap();
     let null = layers.iter().find(|l| l["id"] == "null").unwrap();
-    let drawn_keys = ["asset_id", "exposure_spans", "source_offset_frames", "solid", "shapes"];
+    let drawn_keys = [
+        "asset_id",
+        "exposure_spans",
+        "source_offset_frames",
+        "solid",
+        "shapes",
+    ];
     let present: Vec<&str> = drawn_keys
         .iter()
         .copied()
@@ -295,7 +303,9 @@ fn b26b_null() {
     for (what, command) in attempts {
         let (got, unchanged) = refused(&mut document, command);
         t.row(
-            &format!("giving the null {what}: COMMAND_INVALID_VALUE, in a sentence, and nothing changes"),
+            &format!(
+                "giving the null {what}: COMMAND_INVALID_VALUE, in a sentence, and nothing changes"
+            ),
             &format!("{got:?}"),
             got == Some(DiagnosticId::CommandInvalidValue) && unchanged,
         );
@@ -352,7 +362,11 @@ fn b26b_null() {
     let one_step = document.undo().is_some() && document.project() == &before_project;
     t.row(
         "and one undo gives back the file as it was",
-        if one_step { "the same project" } else { "different" },
+        if one_step {
+            "the same project"
+        } else {
+            "different"
+        },
         one_step,
     );
     t.row(

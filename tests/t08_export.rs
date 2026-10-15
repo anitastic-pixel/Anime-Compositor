@@ -1017,9 +1017,8 @@ fn crossed_mask_on(project: &Project) -> Project {
     // then written and read back, which is the same "it came out of a file" story as before.
     // `blend_mode` is written for every layer and for nothing else, so putting the mask in front
     // of it puts one on every layer.
-    let point = |x: f64, y: f64| {
-        format!("{{\"point\": [{x}, {y}], \"in\": [0, 0], \"out\": [0, 0]}}")
-    };
+    let point =
+        |x: f64, y: f64| format!("{{\"point\": [{x}, {y}], \"in\": [0, 0], \"out\": [0, 0]}}");
     let crossed = format!(
         "\"masks\": [{{\"name\": \"Mask 1\", \"path\": {{\"base\": {{\"points\": [{}, {}, {}, {}]}}}}}}], \"blend_mode\"",
         point(0.0, 0.0),
@@ -1027,8 +1026,8 @@ fn crossed_mask_on(project: &Project) -> Project {
         point(0.0, 10.0),
         point(10.0, 10.0),
     );
-    let text = persist::to_json(project, &persist::Preserved::none())
-        .replace("\"blend_mode\"", &crossed);
+    let text =
+        persist::to_json(project, &persist::Preserved::none()).replace("\"blend_mode\"", &crossed);
     assert!(
         text.contains("\"points\""),
         "the crossed mask went into the project file"

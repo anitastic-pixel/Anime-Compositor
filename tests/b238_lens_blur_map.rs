@@ -50,18 +50,37 @@ fn lens(layer: &str, fit: &str, channel: &str, focal_distance: f64, invert: &str
 }
 
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 fn holder_effect(document: &anime_compositor::command::Document) -> String {
-    format!("{:?}", document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0])
+    format!(
+        "{:?}",
+        document
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("holder"))
+            .unwrap()
+            .effects[0]
+    )
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -69,9 +88,24 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 }
 
 /// The Lens Blurs the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -81,30 +115,66 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers; the fourth is
 /// left as it is, to be their blur map.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// A layer's one Lens Blur, as written in a file.
@@ -115,7 +185,10 @@ fn lens_json(id: &str, p: &J) -> J {
 /// The town with `effects` on it and the ramp, white at the bottom, as its other layer; drawn,
 /// straight 8-bit, and twice enlarged.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(effect_table::repo("Fixtures/lens_blur/fx_lens_046.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(effect_table::repo("Fixtures/lens_blur/fx_lens_046.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"] = json!([
         {"id": "asset-bars", "kind": "still", "name": "town", "path": "town.png", "interpretation": {"color_space": "srgb", "alpha": "straight"}},
         {"id": "asset-ramp", "kind": "still", "name": "ramp", "path": "ramp.png", "interpretation": {"color_space": "srgb", "alpha": "straight"}}
@@ -131,11 +204,26 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layers[1]["transform"]["scale"]["base"] = json!([100, 100]);
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let (w, h) = TOWN;
-    let big: Vec<u8> = (0..h * 2).flat_map(|y| (0..w * 2).map(move |x| (y / 2 * w + x / 2) * 4)).flat_map(|i| bytes[i..i + 4].to_vec()).collect();
+    let big: Vec<u8> = (0..h * 2)
+        .flat_map(|y| (0..w * 2).map(move |x| (y / 2 * w + x / 2) * 4))
+        .flat_map(|i| bytes[i..i + 4].to_vec())
+        .collect();
     (bytes, big, said)
 }
 
@@ -155,20 +243,29 @@ fn b238_lens_blur_map() {
 
     t.heading("FX-LENS-045 to 069");
     t.fixtures_numbered("expected_lens_blur_map.json", 45..=69);
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_lens_blur_map.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("expected_lens_blur_map.json")).unwrap(),
+    )
+    .unwrap();
     for (file, case) in expected["loads"].as_object().unwrap() {
         let got = persist::load(&t.root.join(file)).err();
         let id = case["refused"].as_str().unwrap();
         t.row(
             &format!("{file}: {}", case["says"].as_str().unwrap()),
-            &got.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+            &got.as_ref().map_or("opened".to_string(), |d| {
+                format!("{} {}", d.id.as_str(), d.message)
+            }),
             got.is_some_and(|d| d.id.as_str() == id),
         );
     }
 
     t.heading("With no map, Lens Blur is the Lens Blur it was");
     let frame = |file: &str| t.render(&t.load(file).document, 0, 64).data().to_vec();
-    let (plain, unset, white) = (frame("fx_lens_007.json"), frame("fx_lens_045.json"), frame("fx_lens_050.json"));
+    let (plain, unset, white) = (
+        frame("fx_lens_007.json"),
+        frame("fx_lens_045.json"),
+        frame("fx_lens_050.json"),
+    );
     t.row(
         "fx_lens_045.json, every Blur Map setting at its start, against fx_lens_007.json, the same blur without them",
         if unset == plain { "byte-identical" } else { "differ" },
@@ -181,12 +278,22 @@ fn b238_lens_blur_map() {
         white == plain,
     );
     let old = t.saved_parameters("fx_lens_001.json");
-    let clean = ["layer", "fit", "channel", "focal_distance", "invert"].iter().all(|k| old.get(k).is_none());
-    t.row("fx_lens_001.json, from before D-359, is saved without any of the new settings", &old.to_string(), clean);
+    let clean = ["layer", "fit", "channel", "focal_distance", "invert"]
+        .iter()
+        .all(|k| old.get(k).is_none());
+    t.row(
+        "fx_lens_001.json, from before D-359, is saved without any of the new settings",
+        &old.to_string(),
+        clean,
+    );
 
     t.heading("How far it reaches");
     let got = lens("ramp", "center", "luminance", 0.0, "off").bounds_expansion();
-    t.row("with a map, the layer may grow as far as the full radius's iris reaches, 4", &got.to_string(), got == 4);
+    t.row(
+        "with a map, the layer may grow as far as the full radius's iris reaches, 4",
+        &got.to_string(),
+        got == 4,
+    );
     let mut draft = lens("ramp", "center", "luminance", 128.0, "off");
     draft.scale_distances(|d| d * 0.5);
     let mut want = lens("ramp", "center", "luminance", 128.0, "off");
@@ -212,21 +319,35 @@ fn b238_lens_blur_map() {
     let mut document = t.load("fx_lens_046.json").document;
     let held = holder_effect(&document);
     for (what, effect) in [
-        ("Blur Focal Distance 256", lens("ramp", "center", "luminance", 256.0, "off")),
-        ("Placement \"tile\"", lens("ramp", "tile", "luminance", 0.0, "off")),
+        (
+            "Blur Focal Distance 256",
+            lens("ramp", "center", "luminance", 256.0, "off"),
+        ),
+        (
+            "Placement \"tile\"",
+            lens("ramp", "tile", "luminance", 0.0, "off"),
+        ),
         ("Channel \"red\"", lens("ramp", "center", "red", 0.0, "off")),
-        ("Invert \"yes\"", lens("ramp", "center", "luminance", 0.0, "yes")),
+        (
+            "Invert \"yes\"",
+            lens("ramp", "center", "luminance", 0.0, "yes"),
+        ),
     ] {
         let refused = document.apply(set(effect)).err();
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && holder_effect(&document) == held,
         );
     }
     let before = t.render(&document, 0, 64);
     let commands = [
-        ("Stretch, Alpha, Blur Focal Distance 128, Invert on, reading the card layer", set(lens("card", "stretch", "alpha", 128.0, "on"))),
+        (
+            "Stretch, Alpha, Blur Focal Distance 128, Invert on, reading the card layer",
+            set(lens("card", "stretch", "alpha", 128.0, "on")),
+        ),
         (
             "Blur Focal Distance keyed from 0 to 255",
             Command::SetEffectKeys {
@@ -234,31 +355,59 @@ fn b238_lens_blur_map() {
                 layer_id: Id::new("holder"),
                 instance_id: Id::new("fx-1"),
                 setting: "focal_distance".into(),
-                keys: [(0, 0.0), (4, 255.0)].iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+                keys: [(0, 0.0), (4, 255.0)]
+                    .iter()
+                    .map(|&(frame, v)| EffectKey {
+                        frame,
+                        value: vec![v],
+                        interp: Interp::Linear,
+                    })
+                    .collect(),
             },
         ),
-        ("no layer, which turns the map off", set(lens("", "center", "luminance", 0.0, "off"))),
+        (
+            "no layer, which turns the map off",
+            set(lens("", "center", "luminance", 0.0, "off")),
+        ),
     ];
     let n = commands.len();
     for (what, command) in commands {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("{what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_lens_046.json", 0), ("fx_lens_053.json", 0), ("fx_lens_055.json", 0), ("fx_lens_056.json", 2), ("fx_lens_059.json", 0)]);
+    t.tiles(&[
+        ("fx_lens_046.json", 0),
+        ("fx_lens_053.json", 0),
+        ("fx_lens_055.json", 0),
+        ("fx_lens_056.json", 2),
+        ("fx_lens_059.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     let comp = Id::new(MAIN);
     for n in 45..=62 {
         let file = format!("fx_lens_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -315,17 +464,33 @@ fn b238_lens_blur_map() {
         }
     }
 
-    t.heading("Pictures: a town with a depth ramp, in `verification/D-359 pictures/`, twice enlarged");
+    t.heading(
+        "Pictures: a town with a depth ramp, in `verification/D-359 pictures/`, twice enlarged",
+    );
     let dir = effect_table::repo("verification/D-359 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    let write = |name: &str, bytes: &[u8], scale: usize| png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8], scale: usize| {
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &effect_table::town(), 1);
     // The ramp: black at the top, white at the bottom, opaque.
-    let ramp: Vec<u8> = (0..h).flat_map(|y| (0..w).flat_map(move |_| {
-        let v = (y * 255 / (h - 1)) as u8;
-        [v, v, v, 255]
-    })).collect();
+    let ramp: Vec<u8> = (0..h)
+        .flat_map(|y| {
+            (0..w).flat_map(move |_| {
+                let v = (y * 255 / (h - 1)) as u8;
+                [v, v, v, 255]
+            })
+        })
+        .collect();
     write("ramp.png", &ramp, 1);
     let one = |p: J| json!([{"instance_id": "fx-1", "type_id": "core.lens_blur", "enabled": true, "parameters": p}]);
     // Sharpness: how much each pixel differs from its right and lower neighbours, summed over a
@@ -333,14 +498,25 @@ fn b238_lens_blur_map() {
     let sharp = |b: &[u8], rows: std::ops::Range<usize>| {
         let at = |x: usize, y: usize, k: usize| b[(y * w + x) * 4 + k];
         rows.flat_map(|y| (8..w - 8).map(move |x| (x, y)))
-            .map(|(x, y)| (0..3).map(|k| (at(x, y, k).abs_diff(at(x + 1, y, k)) as u64).pow(2) + (at(x, y, k).abs_diff(at(x, y + 1, k)) as u64).pow(2)).sum::<u64>())
+            .map(|(x, y)| {
+                (0..3)
+                    .map(|k| {
+                        (at(x, y, k).abs_diff(at(x + 1, y, k)) as u64).pow(2)
+                            + (at(x, y, k).abs_diff(at(x, y + 1, k)) as u64).pow(2)
+                    })
+                    .sum::<u64>()
+            })
             .sum::<u64>()
     };
     let (house, road) = (115..205, 220..262);
 
     let (before, big, said) = picture(&dir, J::Array(vec![]));
     write("before.png", &big, 2);
-    t.row("before.png, the town with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the town with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (flat, big, said) = picture(&dir, one(json!({"edges": "transparent", "radius": 6})));
     write("lens_blur_no_map.png", &big, 2);
@@ -350,7 +526,10 @@ fn b238_lens_blur_map() {
         said.is_empty() && sharp(&flat, house.clone()) < sharp(&before, house.clone()) && sharp(&flat, road.clone()) < sharp(&before, road.clone()),
     );
 
-    let (near, big, said) = picture(&dir, one(json!({"edges": "transparent", "radius": 6, "layer": "ramp", "focal_distance": 255})));
+    let (near, big, said) = picture(
+        &dir,
+        one(json!({"edges": "transparent", "radius": 6, "layer": "ramp", "focal_distance": 255})),
+    );
     write("lens_blur_road_sharp.png", &big, 2);
     t.row(
         "lens_blur_road_sharp.png, the ramp as the blur map, Blur Focal Distance 255: the road at the bottom, white on the map, \
@@ -359,7 +538,10 @@ fn b238_lens_blur_map() {
         said.is_empty() && sharp(&near, road.clone()) > sharp(&flat, road.clone()) && sharp(&near, house.clone()) < sharp(&before, house.clone()),
     );
 
-    let (far, big, said) = picture(&dir, one(json!({"edges": "transparent", "radius": 6, "layer": "ramp", "focal_distance": 140})));
+    let (far, big, said) = picture(
+        &dir,
+        one(json!({"edges": "transparent", "radius": 6, "layer": "ramp", "focal_distance": 140})),
+    );
     write("lens_blur_houses_sharp.png", &big, 2);
     t.row(
         "lens_blur_houses_sharp.png, Blur Focal Distance 140, the houses' grey on the map: the houses kept sharper than with no map, \
@@ -395,22 +577,51 @@ fn b238_lens_blur_map_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Lens Blur radius 10, no map", Some(json!({"radius": 10, "edges": "transparent"}))),
-        ("Noise, then Lens Blur radius 10, layer 4's luminance as the blur map", Some(json!({"radius": 10, "edges": "transparent", "layer": "layer-4"}))),
-        ("Noise, then Lens Blur radius 20, layer 4's luminance as the blur map", Some(json!({"radius": 20, "edges": "transparent", "layer": "layer-4"}))),
+        (
+            "Noise, then Lens Blur radius 10, no map",
+            Some(json!({"radius": 10, "edges": "transparent"})),
+        ),
+        (
+            "Noise, then Lens Blur radius 10, layer 4's luminance as the blur map",
+            Some(json!({"radius": 10, "edges": "transparent", "layer": "layer-4"})),
+        ),
+        (
+            "Noise, then Lens Blur radius 20, layer 4's luminance as the blur map",
+            Some(json!({"radius": 20, "edges": "transparent", "layer": "layer-4"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(lens_json(id, p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B238_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-238_timing_raw.md"));
+    let out = std::env::var("B238_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-238_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

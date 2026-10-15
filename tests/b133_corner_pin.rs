@@ -26,7 +26,12 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// Upper left, upper right, lower left and lower right, in the card's order.
 fn pin(p: [[f64; 2]; 4]) -> Effect {
-    Effect::CornerPin { upper_left: p[0], upper_right: p[1], lower_left: p[2], lower_right: p[3] }
+    Effect::CornerPin {
+        upper_left: p[0],
+        upper_right: p[1],
+        lower_left: p[2],
+        lower_right: p[3],
+    }
 }
 
 const START: [[f64; 2]; 4] = [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]];
@@ -82,15 +87,30 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
             let i = (y / 3 * PLATE.0 + x / 3) * 4;
-            let check = if (x / 12 + y / 12) % 2 == 0 { 96.0 } else { 128.0 };
+            let check = if (x / 12 + y / 12) % 2 == 0 {
+                96.0
+            } else {
+                128.0
+            };
             let a = bytes[i + 3] as f64 / 255.0;
             let over = |c: u8| (c as f64 * a + check * (1.0 - a)).round() as u8;
             [over(bytes[i]), over(bytes[i + 1]), over(bytes[i + 2]), 255]
@@ -168,17 +188,37 @@ fn b133_corner_pin() {
             ("upper right y 501", set(with(1, [100.0, 501.0]))),
             ("lower left x 500.5", set(with(2, [500.5, 100.0]))),
             ("lower right y -400.5", set(with(3, [100.0, -400.5]))),
-            ("lower right keyed to (600, 100)", keys("lower_right", &[(0, &[100.0, 100.0]), (4, &[600.0, 100.0])])),
+            (
+                "lower right keyed to (600, 100)",
+                keys("lower_right", &[(0, &[100.0, 100.0]), (4, &[600.0, 100.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_pin_001.json",
         vec![
-            ("every corner at the bottom of its range,", set(pin([[-400.0; 2]; 4]))),
-            ("every corner at the top of its range,", set(pin([[500.0; 2]; 4]))),
-            ("a bow tie, which draws nothing,", set(pin([[0.0, 0.0], [100.0, 100.0], [0.0, 100.0], [100.0, 0.0]]))),
-            ("upper left keyed from (0, 0) to (-400, 500)", keys("upper_left", &[(0, &[0.0, 0.0]), (4, &[-400.0, 500.0])])),
+            (
+                "every corner at the bottom of its range,",
+                set(pin([[-400.0; 2]; 4])),
+            ),
+            (
+                "every corner at the top of its range,",
+                set(pin([[500.0; 2]; 4])),
+            ),
+            (
+                "a bow tie, which draws nothing,",
+                set(pin([
+                    [0.0, 0.0],
+                    [100.0, 100.0],
+                    [0.0, 100.0],
+                    [100.0, 0.0],
+                ])),
+            ),
+            (
+                "upper left keyed from (0, 0) to (-400, 500)",
+                keys("upper_left", &[(0, &[0.0, 0.0]), (4, &[-400.0, 500.0])]),
+            ),
         ],
     );
 
@@ -187,10 +227,30 @@ fn b133_corner_pin() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let drawn = plate();
-    png_out::write_rgba(&dir.join("plate.png"), w, h, OutputDepth::Eight, &[], &drawn).unwrap();
+    png_out::write_rgba(
+        &dir.join("plate.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &drawn,
+    )
+    .unwrap();
     let (_, big, said) = picture(&dir, J::Array(vec![]));
-    png_out::write_rgba(&dir.join("before.png"), w * 3, h * 3, OutputDepth::Eight, &[], &big).unwrap();
-    t.row("before.png, the poster with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w * 3,
+        h * 3,
+        OutputDepth::Eight,
+        &[],
+        &big,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the poster with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
         let i = (y * w + x) * 4;
         [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
@@ -259,7 +319,11 @@ fn b133_corner_pin() {
     }
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_pin_005.json", 0), ("fx_pin_012.json", 2), ("fx_pin_015.json", 0)]);
+    t.tiles(&[
+        ("fx_pin_005.json", 0),
+        ("fx_pin_012.json", 2),
+        ("fx_pin_015.json", 0),
+    ]);
 
     t.finish("B-133_corner_pin_table.md");
 }

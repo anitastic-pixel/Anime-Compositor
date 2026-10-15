@@ -48,7 +48,11 @@ fn b79_black_white() {
 
     t.heading("How far it reaches");
     let got = bw(START).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = bw(START);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -89,7 +93,10 @@ fn b79_black_white() {
             ("reds 301", set(with(0, 301.0))),
             ("yellows -201", set(with(1, -201.0))),
             ("blues 1000", set(with(4, 1000.0))),
-            ("magentas keyed to -250", keys("magentas", &[(0, &[80.0]), (4, &[-250.0])])),
+            (
+                "magentas keyed to -250",
+                keys("magentas", &[(0, &[80.0]), (4, &[-250.0])]),
+            ),
         ],
     );
     t.taken(
@@ -98,12 +105,19 @@ fn b79_black_white() {
         vec![
             ("all six at -200, the bottom,", set(bw([-200.0; 6]))),
             ("all six at 300, the top,", set(bw([300.0; 6]))),
-            ("cyans keyed from 60 to -200", keys("cyans", &[(0, &[60.0]), (4, &[-200.0])])),
+            (
+                "cyans keyed from 60 to -200",
+                keys("cyans", &[(0, &[60.0]), (4, &[-200.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_bw_001.json", 0), ("fx_bw_011.json", 0), ("fx_bw_012.json", 2)]);
+    t.tiles(&[
+        ("fx_bw_001.json", 0),
+        ("fx_bw_011.json", 0),
+        ("fx_bw_012.json", 2),
+    ]);
 
     t.finish("B-79_black_white_table.md");
 }

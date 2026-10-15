@@ -55,7 +55,11 @@ fn b103_speed_lines() {
 
     t.heading("How far it reaches");
     let got = with(1, 30.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = with(2, 150.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -107,9 +111,15 @@ fn b103_speed_lines() {
             ("seed 100001", set(with(5, 100001.0))),
             ("hold 0", set(with(6, 0.0))),
             ("opacity 101", set(with(7, 101.0))),
-            ("centre 50, 1001", set(lines([50.0, 1001.0], "#000000", START))),
+            (
+                "centre 50, 1001",
+                set(lines([50.0, 1001.0], "#000000", START)),
+            ),
             ("colour \"#12345\"", set(lines(MIDDLE, "#12345", START))),
-            ("opacity keyed to 150", keys("opacity", &[(0, &[100.0]), (4, &[150.0])])),
+            (
+                "opacity keyed to 150",
+                keys("opacity", &[(0, &[100.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -118,7 +128,11 @@ fn b103_speed_lines() {
         vec![
             (
                 "every number at its bottom,",
-                set(lines([-1000.0, -1000.0], "#000000", [4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0])),
+                set(lines(
+                    [-1000.0, -1000.0],
+                    "#000000",
+                    [4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                )),
             ),
             (
                 "every number at its top,",
@@ -128,7 +142,10 @@ fn b103_speed_lines() {
                     [1000.0, 30.0, 100000.0, 100.0, 100.0, 100000.0, 100.0, 100.0],
                 )),
             ),
-            ("count keyed from 4 to 20", keys("count", &[(0, &[4.0]), (4, &[20.0])])),
+            (
+                "count keyed from 4 to 20",
+                keys("count", &[(0, &[4.0]), (4, &[20.0])]),
+            ),
         ],
     );
 

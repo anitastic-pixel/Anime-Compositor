@@ -340,7 +340,12 @@ impl Diagnostic {
     /// W-25: a diagnostic as the notes strip carries it: the sentence, then after a tab its
     /// document 28 code and detail, which the page shows only when the error details are opened.
     pub fn note(&self) -> String {
-        format!("{}\t{} {}", self.sentence(), self.id.as_str(), self.detail.replace(['\n', '\t'], " "))
+        format!(
+            "{}\t{} {}",
+            self.sentence(),
+            self.id.as_str(),
+            self.detail.replace(['\n', '\t'], " ")
+        )
     }
 }
 
@@ -437,7 +442,9 @@ impl FrameLog {
 
     /// Record, in `into`, everything this journal recorded, in the order it was recorded.
     pub fn replay_into(self, into: &mut FrameLog) {
-        for (frame, subject, diagnostic) in self.journal.expect("replay_into needs FrameLog::journal") {
+        for (frame, subject, diagnostic) in
+            self.journal.expect("replay_into needs FrameLog::journal")
+        {
             into.record(frame, subject, diagnostic);
         }
     }

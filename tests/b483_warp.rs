@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,7 +43,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=30 {
         let file = format!("fx_warp_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::Warp { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::Warp { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -84,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::Warp { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::Warp { .. })
+                });
                 t.row(
                     &format!("the reference shot, Warp {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -97,8 +115,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor at `frame`,
 /// straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -110,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J, frame: i32
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -155,27 +194,60 @@ fn b483_warp() {
         ("fx_warp_029.json", "horizontal distortion"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Warp and its {want}"), &why, why.contains("Warp") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Warp and its {want}"),
+            &why,
+            why.contains("Warp") && why.contains(want),
+        );
     }
     let full = fx("x", &json!({}))["parameters"].to_string();
-    t.shape_refused("fx_warp_001.json", "a Warp whose style is a number", &full.replace("\"warp_style\":\"arc\"", "\"warp_style\":3"));
-    t.shape_refused("fx_warp_001.json", "a Warp whose bend is a word", &full.replace("\"bend\":50", "\"bend\":\"half\""));
-    t.shape_refused("fx_warp_001.json", "a Warp without its axis", &full.replace("\"warp_axis\":\"horizontal\",", ""));
+    t.shape_refused(
+        "fx_warp_001.json",
+        "a Warp whose style is a number",
+        &full.replace("\"warp_style\":\"arc\"", "\"warp_style\":3"),
+    );
+    t.shape_refused(
+        "fx_warp_001.json",
+        "a Warp whose bend is a word",
+        &full.replace("\"bend\":50", "\"bend\":\"half\""),
+    );
+    t.shape_refused(
+        "fx_warp_001.json",
+        "a Warp without its axis",
+        &full.replace("\"warp_axis\":\"horizontal\",", ""),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_warp_001.json").document;
-    let spiral = changed(&t, "fx_warp_001.json", |e| if let Effect::Warp { warp_style, .. } = e { *warp_style = "spiral".into() });
-    let over = changed(&t, "fx_warp_001.json", |e| if let Effect::Warp { bend, .. } = e { *bend = 101.0 });
+    let spiral = changed(&t, "fx_warp_001.json", |e| {
+        if let Effect::Warp { warp_style, .. } = e {
+            *warp_style = "spiral".into()
+        }
+    });
+    let over = changed(&t, "fx_warp_001.json", |e| {
+        if let Effect::Warp { bend, .. } = e {
+            *bend = 101.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("warp style spiral", set(spiral)),
             ("bend 101", set(over)),
-            ("vertical distortion keyed to 150", keys("vertical_distortion", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "vertical distortion keyed to 150",
+                keys("vertical_distortion", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let twist = changed(&t, "fx_warp_001.json", |e| {
-        if let Effect::Warp { warp_style, warp_axis, bend, .. } = e {
+        if let Effect::Warp {
+            warp_style,
+            warp_axis,
+            bend,
+            ..
+        } = e
+        {
             *warp_style = "twist".into();
             *warp_axis = "vertical".into();
             *bend = -70.0;
@@ -186,7 +258,10 @@ fn b483_warp() {
         "fx_warp_001.json",
         vec![
             ("twist, vertical, bend -70", set(twist)),
-            ("bend keyed from 0 to 100", keys("bend", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "bend keyed from 0 to 100",
+                keys("bend", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -210,22 +285,44 @@ fn b483_warp() {
         &mut gpu,
         &[
             ("as added, Arc at Bend 50", json!({}), 3),
-            ("Flag, vertical, Bend -60", json!({"warp_style": "flag", "warp_axis": "vertical", "bend": -60}), 3),
-            ("Twist 80 with both distortions 30", json!({"warp_style": "twist", "bend": 80, "horizontal_distortion": 30, "vertical_distortion": 30}), 3),
+            (
+                "Flag, vertical, Bend -60",
+                json!({"warp_style": "flag", "warp_axis": "vertical", "bend": -60}),
+                3,
+            ),
+            (
+                "Twist 80 with both distortions 30",
+                json!({"warp_style": "twist", "bend": 80, "horizontal_distortion": 30, "vertical_distortion": 30}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-604 pictures/`");
     let dir = repo("verification/D-604 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let (w, h) = TOWN;
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]), 0);
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]), 0);
     write("1_before.png", TOWN, &before);
     let open = |p: &[u8]| (0..w * h).filter(|&i| p[i * 4 + 3] == 0).count();
-    t.row("1_before.png, the street with no effect, every pixel covered; draws cleanly", &format!("{said:?}, {} clear pixels", open(&before)), said.is_empty() && open(&before) == 0);
+    t.row(
+        "1_before.png, the street with no effect, every pixel covered; draws cleanly",
+        &format!("{said:?}, {} clear pixels", open(&before)),
+        said.is_empty() && open(&before) == 0,
+    );
 
     let (flat, said) = street(json!({"bend": 0}));
     t.row(
@@ -305,21 +402,46 @@ fn b483_warp_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
         ("Noise, then Warp as added (Arc, Bend 50)", Some(json!({}))),
-        ("Noise, then Warp Twist 80 with both distortions 30", Some(json!({"warp_style": "twist", "bend": 80, "horizontal_distortion": 30, "vertical_distortion": 30}))),
+        (
+            "Noise, then Warp Twist 80 with both distortions 30",
+            Some(
+                json!({"warp_style": "twist", "bend": 80, "horizontal_distortion": 30, "vertical_distortion": 30}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B483_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-483_timing_raw.md"));
+    let out = std::env::var("B483_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-483_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

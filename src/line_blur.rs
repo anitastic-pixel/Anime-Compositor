@@ -27,7 +27,9 @@ fn ink(p: [f64; 4]) -> f64 {
 /// the same.
 pub(crate) fn weights(length: f64) -> Vec<f64> {
     let sigma = length / 2.0;
-    (1..=length.ceil() as i64).map(|k| (-((k * k) as f64) / (2.0 * sigma * sigma)).exp()).collect()
+    (1..=length.ceil() as i64)
+        .map(|k| (-((k * k) as f64) / (2.0 * sigma * sigma)).exp())
+        .collect()
 }
 
 /// Soften `source`'s lines along their own length, in place, and return how far it grew on
@@ -48,7 +50,12 @@ pub(crate) fn line_blur(
     let at = |x: i64, y: i64| -> [f64; 4] {
         if (0..w0).contains(&x) && (0..h0).contains(&y) {
             let i = ((y * w0 + x) * 4) as usize;
-            [src[i] as f64, src[i + 1] as f64, src[i + 2] as f64, src[i + 3] as f64]
+            [
+                src[i] as f64,
+                src[i + 1] as f64,
+                src[i + 2] as f64,
+                src[i + 3] as f64,
+            ]
         } else {
             [0.0; 4]
         }
@@ -76,9 +83,15 @@ pub(crate) fn line_blur(
         let (x0, y0) = (px.floor(), py.floor());
         let (fx, fy) = (px - x0, py - y0);
         let (x0, y0) = (x0 as i64, y0 as i64);
-        let (p00, p10, p01, p11) = (at(x0, y0), at(x0 + 1, y0), at(x0, y0 + 1), at(x0 + 1, y0 + 1));
+        let (p00, p10, p01, p11) = (
+            at(x0, y0),
+            at(x0 + 1, y0),
+            at(x0, y0 + 1),
+            at(x0 + 1, y0 + 1),
+        );
         std::array::from_fn(|i| {
-            (p00[i] * (1.0 - fx) + p10[i] * fx) * (1.0 - fy) + (p01[i] * (1.0 - fx) + p11[i] * fx) * fy
+            (p00[i] * (1.0 - fx) + p10[i] * fx) * (1.0 - fy)
+                + (p01[i] * (1.0 - fx) + p11[i] * fx) * fy
         })
     };
     let mut out = WorkingBuffer::transparent(w as usize, h as usize);

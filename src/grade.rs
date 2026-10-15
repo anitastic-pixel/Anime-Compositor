@@ -35,7 +35,11 @@ pub(crate) fn to_srgb(c: f64) -> f64 {
 /// bit for bit the pixel's before it on the row takes that pixel's colour through the curve,
 /// and, unless `placed` says `f` reads the pixel's index, its result too: the same bits,
 /// without the powers.
-pub(crate) fn grade_pixels(source: &mut WorkingBuffer, placed: bool, f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync) {
+pub(crate) fn grade_pixels(
+    source: &mut WorkingBuffer,
+    placed: bool,
+    f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync,
+) {
     let w = source.width().max(1);
     source
         .data_mut()
@@ -48,7 +52,12 @@ pub(crate) fn grade_pixels(source: &mut WorkingBuffer, placed: bool, f: impl Fn(
                 if a <= 0.0 {
                     continue;
                 }
-                let key = [px[0].to_bits(), px[1].to_bits(), px[2].to_bits(), px[3].to_bits()];
+                let key = [
+                    px[0].to_bits(),
+                    px[1].to_bits(),
+                    px[2].to_bits(),
+                    px[3].to_bits(),
+                ];
                 let e = match last {
                     Some((k, e, out)) if k == key => {
                         if !placed {
@@ -75,7 +84,12 @@ fn each_pixel(source: &mut WorkingBuffer, f: impl Fn(&mut [f32]) + Sync) {
     source.data_mut().par_chunks_mut(w * 4).for_each(|row| {
         let mut last: Option<([u32; 4], [f32; 4])> = None;
         for px in row.chunks_exact_mut(4) {
-            let key = [px[0].to_bits(), px[1].to_bits(), px[2].to_bits(), px[3].to_bits()];
+            let key = [
+                px[0].to_bits(),
+                px[1].to_bits(),
+                px[2].to_bits(),
+                px[3].to_bits(),
+            ];
             match last {
                 Some((k, out)) if k == key => px.copy_from_slice(&out),
                 _ => {
@@ -89,7 +103,9 @@ fn each_pixel(source: &mut WorkingBuffer, f: impl Fn(&mut [f32]) + Sync) {
 
 /// The same, a channel at a time on the 0 to 255 scale: `f(channel, value)`.
 fn grade(source: &mut WorkingBuffer, f: impl Fn(usize, f64) -> f64 + Sync) {
-    grade_pixels(source, false, |_, e| std::array::from_fn(|c| f(c, e[c] * 255.0) / 255.0));
+    grade_pixels(source, false, |_, e| {
+        std::array::from_fn(|c| f(c, e[c] * 255.0) / 255.0)
+    });
 }
 
 /// D-111's default curve, which changes nothing.
@@ -141,7 +157,8 @@ fn spline(points: &[Vec<f64>]) -> impl Fn(f64) -> f64 {
         }
         let i = (0..n - 1).rev().find(|&k| xs[k] <= x).unwrap_or(0);
         let (t, hi) = (x - xs[i], h[i]);
-        ys[i] + t * ((ys[i + 1] - ys[i]) / hi - hi * (2.0 * m[i] + m[i + 1]) / 6.0)
+        ys[i]
+            + t * ((ys[i + 1] - ys[i]) / hi - hi * (2.0 * m[i] + m[i + 1]) / 6.0)
             + t * t * m[i] / 2.0
             + t.powi(3) * (m[i + 1] - m[i]) / (6.0 * hi)
     }
@@ -149,11 +166,18 @@ fn spline(points: &[Vec<f64>]) -> impl Fn(f64) -> f64 {
 
 /// D-111: each channel through its own curve, then through the master. The settings are
 /// already valid; all five curves straight changes nothing.
-pub(crate) fn curves(source: &mut WorkingBuffer, master: &[Vec<f64>], rgb: [&[Vec<f64>]; 3], alpha: &[Vec<f64>]) {
+pub(crate) fn curves(
+    source: &mut WorkingBuffer,
+    master: &[Vec<f64>],
+    rgb: [&[Vec<f64>]; 3],
+    alpha: &[Vec<f64>],
+) {
     if !(is_straight(master) && rgb.iter().all(|c| is_straight(c))) {
         let m = spline(master);
         let c = rgb.map(spline);
-        grade(source, |i, x| m(c[i](x).clamp(0.0, 255.0)).clamp(0.0, 255.0));
+        grade(source, |i, x| {
+            m(c[i](x).clamp(0.0, 255.0)).clamp(0.0, 255.0)
+        });
     }
     // D-302: then the covering through its own curve, 0 to 255, the colour kept. A pixel that
     // did not show has no colour, so one the curve makes show is black.
@@ -169,7 +193,11 @@ pub(crate) fn alpha_through(source: &mut WorkingBuffer, f: impl Fn(f64) -> f64 +
         let a = px[3] as f64;
         let to = f(a * 255.0).clamp(0.0, 255.0) / 255.0;
         for c in 0..3 {
-            px[c] = if a > 0.0 { (px[c] as f64 / a * to) as f32 } else { 0.0 };
+            px[c] = if a > 0.0 {
+                (px[c] as f64 / a * to) as f32
+            } else {
+                0.0
+            };
         }
         px[3] = to as f32;
     });
@@ -191,7 +219,11 @@ pub(crate) fn channel_levels(source: &mut WorkingBuffer, sets: &[[f64; 5]; 5]) {
     use crate::effects::LEVELS_PLAIN as PLAIN;
     let level = |[ib, iw, gamma, ob, ow]: [f64; 5], x: f64| {
         let v = if iw == ib {
-            if x >= ib { 1.0 } else { 0.0 }
+            if x >= ib {
+                1.0
+            } else {
+                0.0
+            }
         } else {
             ((x - ib) / (iw - ib)).clamp(0.0, 1.0)
         };
@@ -206,7 +238,11 @@ pub(crate) fn channel_levels(source: &mut WorkingBuffer, sets: &[[f64; 5]; 5]) {
             let a = px[3] as f64;
             let to = level(sets[4], a * 255.0) / 255.0;
             for c in 0..3 {
-                px[c] = if a > 0.0 { (px[c] as f64 / a * to) as f32 } else { 0.0 };
+                px[c] = if a > 0.0 {
+                    (px[c] as f64 / a * to) as f32
+                } else {
+                    0.0
+                };
             }
             px[3] = to as f32;
         });
@@ -313,12 +349,22 @@ pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
         "multiply" => |b, c| b * c,
         "screen" => |b, c| 1.0 - (1.0 - b) * (1.0 - c),
         "add" => |b, c| b + c,
-        "overlay" => |b, c| if b <= 0.5 { 2.0 * b * c } else { 1.0 - 2.0 * (1.0 - b) * (1.0 - c) },
+        "overlay" => |b, c| {
+            if b <= 0.5 {
+                2.0 * b * c
+            } else {
+                1.0 - 2.0 * (1.0 - b) * (1.0 - c)
+            }
+        },
         "soft_light" => |b, c| {
             if c <= 0.5 {
                 b - (1.0 - 2.0 * c) * b * (1.0 - b)
             } else {
-                let d = if b <= 0.25 { ((16.0 * b - 12.0) * b + 4.0) * b } else { b.sqrt() };
+                let d = if b <= 0.25 {
+                    ((16.0 * b - 12.0) * b + 4.0) * b
+                } else {
+                    b.sqrt()
+                };
                 b + (2.0 * c - 1.0) * (d - b)
             }
         },
@@ -329,7 +375,13 @@ pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
 /// D-647: [`mixer`] with Turbulent Noise's further modes, on the layer's `b` and the noise's `c`.
 pub(crate) fn noise_mixer(blend: &str) -> fn(f64, f64) -> f64 {
     match blend {
-        "hard_light" => |b, c| if c <= 0.5 { 2.0 * b * c } else { 1.0 - 2.0 * (1.0 - b) * (1.0 - c) },
+        "hard_light" => |b, c| {
+            if c <= 0.5 {
+                2.0 * b * c
+            } else {
+                1.0 - 2.0 * (1.0 - b) * (1.0 - c)
+            }
+        },
         "darken" => f64::min,
         "lighten" => f64::max,
         "difference" => |b, c| (b - c).abs(),
@@ -363,8 +415,16 @@ fn w3c_set_lum(c: [f64; 3], l: f64) -> [f64; 3] {
     let c = c.map(|v| v + d);
     let l = w3c_lum(c);
     let (n, x) = (c[0].min(c[1]).min(c[2]), c[0].max(c[1]).max(c[2]));
-    let c = if n < 0.0 && l > n { c.map(|v| l + (v - l) * l / (l - n)) } else { c };
-    if x > 1.0 && x > l { c.map(|v| l + (v - l) * (1.0 - l) / (x - l)) } else { c }
+    let c = if n < 0.0 && l > n {
+        c.map(|v| l + (v - l) * l / (l - n))
+    } else {
+        c
+    };
+    if x > 1.0 && x > l {
+        c.map(|v| l + (v - l) * (1.0 - l) / (x - l))
+    } else {
+        c
+    }
 }
 
 /// D-730: the W3C's Sat.
@@ -375,7 +435,11 @@ fn w3c_sat(c: [f64; 3]) -> f64 {
 /// D-730: the W3C's SetSat: the least 0, the most `s`, the middle in proportion; a grey all 0.
 fn w3c_set_sat(c: [f64; 3], s: f64) -> [f64; 3] {
     let (n, x) = (c[0].min(c[1]).min(c[2]), c[0].max(c[1]).max(c[2]));
-    if x > n { c.map(|v| (v - n) * s / (x - n)) } else { [0.0; 3] }
+    if x > n {
+        c.map(|v| (v - n) * s / (x - n))
+    } else {
+        [0.0; 3]
+    }
 }
 
 /// D-185: `color` encoded 0 to 1 washed over the figure, the pixels at least half covered, from
@@ -383,32 +447,49 @@ fn w3c_set_sat(c: [f64; 3], s: f64) -> [f64; 3] {
 /// smoothstep to nothing `spread` per cent of the way across, at up to `opacity`, 0 to 100, by
 /// `blend`, on encoded values. A pixel the wash does not reach is left exactly as it is. The
 /// settings are already valid.
-pub(crate) fn paraffin(source: &mut WorkingBuffer, color: [f64; 3], direction: f64, spread: f64, opacity: f64, blend: &str) {
+pub(crate) fn paraffin(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    direction: f64,
+    spread: f64,
+    opacity: f64,
+    blend: &str,
+) {
     if opacity == 0.0 {
         return;
     }
-    let Some([ux, uy, near, reach]) = paraffin_span(source, direction, spread) else { return };
+    let Some([ux, uy, near, reach]) = paraffin_span(source, direction, spread) else {
+        return;
+    };
     let w = source.width().max(1);
     let toward = |i: usize| ((i % w) as f64 + 0.5) * ux + ((i / w) as f64 + 0.5) * uy;
     let (k, mix) = (opacity / 100.0, mixer(blend));
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3] as f64;
-        let s = ((near - toward(i)) / reach).clamp(0.0, 1.0);
-        let o = (1.0 - s * s * (3.0 - 2.0 * s)) * k;
-        if a <= 0.0 || o <= 0.0 {
-            return;
-        }
-        for c in 0..3 {
-            let b = to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
-            px[c] = (to_linear((b + o * (mix(b, color[c]) - b)).clamp(0.0, 1.0)) * a) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            let s = ((near - toward(i)) / reach).clamp(0.0, 1.0);
+            let o = (1.0 - s * s * (3.0 - 2.0 * s)) * k;
+            if a <= 0.0 || o <= 0.0 {
+                return;
+            }
+            for c in 0..3 {
+                let b = to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
+                px[c] = (to_linear((b + o * (mix(b, color[c]) - b)).clamp(0.0, 1.0)) * a) as f32;
+            }
+        });
 }
 
 /// D-185: the wash's way across `[ux, uy]`, the covered pixels' farthest place along it and how
 /// far back the wash reaches, or none when spread is 0 or no pixel is covered half or more.
 /// B-123's card takes the same.
-pub(crate) fn paraffin_span(source: &WorkingBuffer, direction: f64, spread: f64) -> Option<[f64; 4]> {
+pub(crate) fn paraffin_span(
+    source: &WorkingBuffer,
+    direction: f64,
+    spread: f64,
+) -> Option<[f64; 4]> {
     if spread == 0.0 {
         return None;
     }
@@ -506,7 +587,13 @@ pub(crate) fn four_color_gradient(
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let d = points.map(|(sx, sy)| (x - sx) * (x - sx) + (y - sy) * (y - sy));
             let m = d.iter().copied().fold(f64::INFINITY, f64::min);
-            let wk = d.map(|d| if m == 0.0 { f64::from(u8::from(d == 0.0)) } else { (m / d).powf(e) });
+            let wk = d.map(|d| {
+                if m == 0.0 {
+                    f64::from(u8::from(d == 0.0))
+                } else {
+                    (m / d).powf(e)
+                }
+            });
             let sum: f64 = wk.iter().sum();
             for c in 0..3 {
                 let g = to_linear((0..4).map(|k| wk[k] * colors[k][c]).sum::<f64>() / sum);
@@ -565,16 +652,28 @@ pub(crate) fn unit(base: u64, x: i64, y: i64, f: i64, ch: u64) -> f64 {
 pub(crate) fn value(base: u64, ch: u64, x: f64, y: f64, z: f64, block: bool, period: i64) -> f64 {
     let (i, j, k) = (x.floor(), y.floor(), z.floor());
     let fade = |t: f64| t * t * t * (t * (6.0 * t - 15.0) + 10.0);
-    let s = if block { [0.0, 0.0, fade(z - k)] } else { [fade(x - i), fade(y - j), fade(z - k)] };
+    let s = if block {
+        [0.0, 0.0, fade(z - k)]
+    } else {
+        [fade(x - i), fade(y - j), fade(z - k)]
+    };
     let (i, j, k) = (i as i64, j as i64, k as i64);
     let depth = |k: i64| if period > 0 { k.rem_euclid(period) } else { k };
     let mut v = 0.0;
     for corner in 0..8 {
         let d = [corner & 1, (corner >> 1) & 1, corner >> 2];
-        let w: f64 = (0..3).map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] }).product();
+        let w: f64 = (0..3)
+            .map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] })
+            .product();
         // D-443: a corner that weighs nothing adds nothing (the sum is the same to the bit).
         if w != 0.0 {
-            v += w * unit(base, i + d[0] as i64, j + d[1] as i64, depth(k + d[2] as i64), ch);
+            v += w * unit(
+                base,
+                i + d[0] as i64,
+                j + d[1] as i64,
+                depth(k + d[2] as i64),
+                ch,
+            );
         }
     }
     v
@@ -587,7 +686,11 @@ pub(crate) fn value(base: u64, ch: u64, x: f64, y: f64, z: f64, block: bool, per
 /// their mean, the channel intensities scale them, and the tonal weight from the pixel's
 /// brightness sets how strongly it is laid on by Film, Add or Overlay. The settings are already
 /// valid; intensity 0 changes nothing.
-pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn add_grain(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::AddGrain {
         intensity,
         size,
@@ -615,9 +718,17 @@ pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
         return;
     }
     let w = source.width();
-    let (base, mono, soft) = (mix(random_seed.floor() as u64), monochromatic == "on", *softness);
+    let (base, mono, soft) = (
+        mix(random_seed.floor() as u64),
+        monochromatic == "on",
+        *softness,
+    );
     let phase = *frame as f64 * animation_speed;
-    let z = if animate_smoothly == "on" { phase } else { phase.floor() };
+    let z = if animate_smoothly == "on" {
+        phase
+    } else {
+        phase.floor()
+    };
     let (sx, sy) = (size * aspect_ratio, *size);
     let chan = [*red_intensity, *green_intensity, *blue_intensity];
     let (mid, k) = (*midpoint, 0.1 * intensity);
@@ -635,10 +746,15 @@ pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
             } else if soft == 1.0 {
                 value(base, ch, x, y, z, false, 0)
             } else {
-                (1.0 - soft) * value(base, ch, x, y, z, true, 0) + soft * value(base, ch, x, y, z, false, 0)
+                (1.0 - soft) * value(base, ch, x, y, z, true, 0)
+                    + soft * value(base, ch, x, y, z, false, 0)
             }
         };
-        let mut g = if mono { [grain(0); 3] } else { [grain(0), grain(1), grain(2)] };
+        let mut g = if mono {
+            [grain(0); 3]
+        } else {
+            [grain(0), grain(1), grain(2)]
+        };
         if !mono {
             let m = (g[0] + g[1] + g[2]) / 3.0;
             g = g.map(|v| m + saturation * (v - m));
@@ -657,7 +773,11 @@ pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
                 1 => e + a,
                 _ => {
                     let b = (0.5 + 0.5 * a).clamp(0.0, 1.0);
-                    if e <= 0.5 { 2.0 * e * b } else { 1.0 - 2.0 * (1.0 - e) * (1.0 - b) }
+                    if e <= 0.5 {
+                        2.0 * e * b
+                    } else {
+                        1.0 - 2.0 * (1.0 - e) * (1.0 - b)
+                    }
                 }
             }
         })
@@ -686,7 +806,9 @@ pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
                 .chunks_exact(4)
                 .map(|p| {
                     let a = p[3] as f64;
-                    (a > 0.0).then(|| std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))))
+                    (a > 0.0).then(|| {
+                        std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
+                    })
                 })
                 .collect();
             let (mut s, mut n) = ([0.0f64; 3], 0usize);
@@ -709,7 +831,15 @@ pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
             }
             (s, n)
         })
-        .reduce(|| ([0.0; 3], 0), |a, b| ([a.0[0] + b.0[0], a.0[1] + b.0[1], a.0[2] + b.0[2]], a.1 + b.1));
+        .reduce(
+            || ([0.0; 3], 0),
+            |a, b| {
+                (
+                    [a.0[0] + b.0[0], a.0[1] + b.0[1], a.0[2] + b.0[2]],
+                    a.1 + b.1,
+                )
+            },
+        );
     if n == 0 {
         return [0.0; 3];
     }
@@ -721,7 +851,13 @@ pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
 /// three, 2 n sqrt(mean of sigma_c^2). None when nothing would be removed (n 0, no noise, or not
 /// yet measured).
 pub(crate) fn grain_spreads(e: &crate::effects::Effect) -> Option<[f64; 3]> {
-    let crate::effects::Effect::RemoveGrain { noise_reduction: n, mode, noise: Some(s), .. } = e else {
+    let crate::effects::Effect::RemoveGrain {
+        noise_reduction: n,
+        mode,
+        noise: Some(s),
+        ..
+    } = e
+    else {
         return None;
     };
     let h = if mode == "multichannel" {
@@ -743,7 +879,16 @@ pub(crate) fn grain_spreads(e: &crate::effects::Effect) -> Option<[f64; 3]> {
 // ponytail: each pass weighs its whole disc, about 200 taps at the fourth pass; a separable or
 // guided approximation would be the upgrade, at the price of the rule.
 pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
-    let crate::effects::Effect::RemoveGrain { noise_reduction, passes, mode, unsharp_amount, unsharp_radius, unsharp_threshold, noise } = e else {
+    let crate::effects::Effect::RemoveGrain {
+        noise_reduction,
+        passes,
+        mode,
+        unsharp_amount,
+        unsharp_radius,
+        unsharp_threshold,
+        noise,
+    } = e
+    else {
         return;
     };
     let mut measured = e.clone();
@@ -762,7 +907,11 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
             .par_chunks_exact(4)
             .map(|p| {
                 let a = p[3] as f64;
-                if a > 0.0 { std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))) } else { [0.0; 3] }
+                if a > 0.0 {
+                    std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
+                } else {
+                    [0.0; 3]
+                }
             })
             .collect();
         for k in 1..=passes.floor() as isize {
@@ -770,7 +919,13 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
             let taps: Vec<(isize, isize, f64)> = (-r..=r)
                 .flat_map(|dy| (-r..=r).map(move |dx| (dx, dy)))
                 .filter(|&(dx, dy)| dx * dx + dy * dy <= r * r)
-                .map(|(dx, dy)| (dx, dy, (-((dx * dx + dy * dy) as f64) / (2.0 * (k * k) as f64)).exp()))
+                .map(|(dx, dy)| {
+                    (
+                        dx,
+                        dy,
+                        (-((dx * dx + dy * dy) as f64) / (2.0 * (k * k) as f64)).exp(),
+                    )
+                })
                 .collect();
             enc = (0..w * ht)
                 .into_par_iter()
@@ -793,7 +948,8 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
                         let (t, ga) = (enc[j], g * cover[j]);
                         let d: [f64; 3] = std::array::from_fn(|c| t[c] - own[c]);
                         let wt: [f64; 3] = if multi {
-                            [ga * (-(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 3.0 * inv[0]).exp(); 3]
+                            [ga * (-(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 3.0 * inv[0]).exp();
+                                3]
                         } else {
                             std::array::from_fn(|c| ga * (-d[c] * d[c] * inv[c]).exp())
                         };
@@ -802,16 +958,26 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
                             weight[c] += wt[c];
                         }
                     }
-                    std::array::from_fn(|c| if h[c] > 0.0 { sum[c] / weight[c] } else { own[c] })
+                    std::array::from_fn(|c| {
+                        if h[c] > 0.0 {
+                            sum[c] / weight[c]
+                        } else {
+                            own[c]
+                        }
+                    })
                 })
                 .collect();
         }
-        source.data_mut().par_chunks_exact_mut(4).zip(enc.par_iter()).for_each(|(px, e)| {
-            let a = px[3] as f64;
-            if a > 0.0 {
-                (0..3).for_each(|c| px[c] = (to_linear(e[c]) * a) as f32);
-            }
-        });
+        source
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(enc.par_iter())
+            .for_each(|(px, e)| {
+                let a = px[3] as f64;
+                if a > 0.0 {
+                    (0..3).for_each(|c| px[c] = (to_linear(e[c]) * a) as f32);
+                }
+            });
     }
     crate::layer_fx::sharpen(source, *unsharp_amount, *unsharp_radius, *unsharp_threshold);
 }
@@ -826,7 +992,11 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
 /// the three; each reseeded by P0-23's held step and pulled back on edges by its reduction.
 /// Views Edge Only (E as grey) and Selected Edge (the edges in red). The covering is kept. The
 /// settings are already valid; blur, diffusion and noise all 0 in view Normal change nothing.
-pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn deband(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::Deband {
         view,
         edge_threshold: t,
@@ -854,7 +1024,11 @@ pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox
         .par_chunks_exact(4)
         .map(|p| {
             let a = p[3] as f64;
-            if a > 0.0 { std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))) } else { [0.0; 3] }
+            if a > 0.0 {
+                std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
+            } else {
+                [0.0; 3]
+            }
         })
         .collect();
     let on = |x: isize, y: isize| x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h;
@@ -875,10 +1049,19 @@ pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox
                     }
                 }
             }
-            if *s > 0.0 { ((g - t) / s).clamp(0.0, 1.0) } else if g > *t { 1.0 } else { 0.0 }
+            if *s > 0.0 {
+                ((g - t) / s).clamp(0.0, 1.0)
+            } else if g > *t {
+                1.0
+            } else {
+                0.0
+            }
         })
         .collect();
-    let k: Vec<f64> = crate::effects::gaussian_weights(blur_amount / 3.0).into_iter().map(f64::from).collect();
+    let k: Vec<f64> = crate::effects::gaussian_weights(blur_amount / 3.0)
+        .into_iter()
+        .map(f64::from)
+        .collect();
     let r = k.len() / 2;
     // Each pixel's sums along a row (or column) of `v`, each tap times its weight and the
     // product of (1 - E) over the pixels strictly between.
@@ -891,7 +1074,11 @@ pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox
                 for sign in [-1isize, 1] {
                     let mut through = 1.0;
                     for d in 1..=r as isize {
-                        let (tx, ty) = if across { (x + sign * d, y) } else { (x, y + sign * d) };
+                        let (tx, ty) = if across {
+                            (x + sign * d, y)
+                        } else {
+                            (x, y + sign * d)
+                        };
                         if !on(tx, ty) {
                             break;
                         }
@@ -907,7 +1094,11 @@ pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox
     let m: Vec<[f64; 3]> = if r > 0 {
         let lent: Vec<[f64; 4]> = (0..w * h)
             .map(|i| {
-                let wt = if cover[i] > 0.0 { cover[i] * (1.0 - edge[i]) } else { 0.0 };
+                let wt = if cover[i] > 0.0 {
+                    cover[i] * (1.0 - edge[i])
+                } else {
+                    0.0
+                };
                 [wt * enc[i][0], wt * enc[i][1], wt * enc[i][2], wt]
             })
             .collect();
@@ -929,55 +1120,77 @@ pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox
     let fd = crate::effects::turbulent_seed(0.0, *diffusion_reseed_interval, *frame) as i64;
     let fnz = crate::effects::turbulent_seed(0.0, *noise_reseed_interval, *frame) as i64;
     let away = |v: f64| (v.abs() + 0.5).floor().copysign(v) as isize;
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = cover[i];
-        if a <= 0.0 {
-            return;
-        }
-        let (x, y) = ((i % w) as isize, (i / w) as isize);
-        let (lx, ly) = (x as i64 - ox as i64, y as i64 - oy as i64);
-        let own = m[i];
-        let mut d = own;
-        if *dm > 0.0 {
-            let kk = dm * (1.0 - edge[i] * edr / 100.0);
-            let (vx, vy) = (kk * unit(base, lx, ly, fd, 0), kk * unit(base, lx, ly, fd, 1));
-            let (tx, ty) = (x + away(vx), y + away(vy));
-            if on(tx, ty) {
-                let j = ty as usize * w + tx as usize;
-                if cover[j] > 0.0 {
-                    d = std::array::from_fn(|c| m[j][c] * (1.0 - edge[j]) + own[c] * edge[j]);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = cover[i];
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let (lx, ly) = (x as i64 - ox as i64, y as i64 - oy as i64);
+            let own = m[i];
+            let mut d = own;
+            if *dm > 0.0 {
+                let kk = dm * (1.0 - edge[i] * edr / 100.0);
+                let (vx, vy) = (
+                    kk * unit(base, lx, ly, fd, 0),
+                    kk * unit(base, lx, ly, fd, 1),
+                );
+                let (tx, ty) = (x + away(vx), y + away(vy));
+                if on(tx, ty) {
+                    let j = ty as usize * w + tx as usize;
+                    if cover[j] > 0.0 {
+                        d = std::array::from_fn(|c| m[j][c] * (1.0 - edge[j]) + own[c] * edge[j]);
+                    }
                 }
             }
-        }
-        let tri = (unit(base, lx, ly, fnz, 2) + unit(base, lx, ly, fnz, 3)) / 2.0;
-        let n = tri * na / 255.0 * (1.0 - edge[i] * enr / 100.0);
-        let mut o = d.map(|v| (v + n).clamp(0.0, 1.0));
-        let ei = edge[i];
-        match view.as_str() {
-            "edge_only" => o = [ei; 3],
-            "selected_edge" => o = [o[0] * (1.0 - ei) + ei, o[1] * (1.0 - ei), o[2] * (1.0 - ei)],
-            _ => {}
-        }
-        (0..3).for_each(|c| px[c] = (to_linear(o[c]) * a) as f32);
-    });
+            let tri = (unit(base, lx, ly, fnz, 2) + unit(base, lx, ly, fnz, 3)) / 2.0;
+            let n = tri * na / 255.0 * (1.0 - edge[i] * enr / 100.0);
+            let mut o = d.map(|v| (v + n).clamp(0.0, 1.0));
+            let ei = edge[i];
+            match view.as_str() {
+                "edge_only" => o = [ei; 3],
+                "selected_edge" => {
+                    o = [o[0] * (1.0 - ei) + ei, o[1] * (1.0 - ei), o[2] * (1.0 - ei)]
+                }
+                _ => {}
+            }
+            (0..3).for_each(|c| px[c] = (to_linear(o[c]) * a) as f32);
+        });
 }
 
 /// D-454: Match Grain as the Add Grain it lays: its channel intensities times the source's
 /// measured grain, sigma 10 sqrt(3) (Add Grain's block grain at intensity 1 spreads 0.1 /
 /// sqrt(3)). None when nothing would be added: no source picture, intensity 0 or no channel left.
 pub(crate) fn matched_grain(e: &crate::effects::Effect) -> Option<crate::effects::Effect> {
-    let crate::effects::Effect::MatchGrain { grain, map: Some(m), .. } = e else {
+    let crate::effects::Effect::MatchGrain {
+        grain,
+        map: Some(m),
+        ..
+    } = e
+    else {
         return None;
     };
     let mut g = (**grain).clone();
-    let crate::effects::Effect::AddGrain { intensity, red_intensity, green_intensity, blue_intensity, .. } = &mut g else {
+    let crate::effects::Effect::AddGrain {
+        intensity,
+        red_intensity,
+        green_intensity,
+        blue_intensity,
+        ..
+    } = &mut g
+    else {
         return None;
     };
     let (s, k) = (grain_levels(&m.0), 10.0 * 3f64.sqrt());
     *red_intensity *= s[0] * k;
     *green_intensity *= s[1] * k;
     *blue_intensity *= s[2] * k;
-    (*intensity != 0.0 && [*red_intensity, *green_intensity, *blue_intensity] != [0.0; 3]).then_some(g)
+    (*intensity != 0.0 && [*red_intensity, *green_intensity, *blue_intensity] != [0.0; 3])
+        .then_some(g)
 }
 
 /// D-450: After Effects' Noise Alpha, by document 21's rule. The noise at the pixel in the
@@ -989,8 +1202,22 @@ pub(crate) fn matched_grain(e: &crate::effects::Effect) -> Option<crate::effects
 /// pushed out of 0 to 1 is clipped, reflected back (Wrap Back) or wrapped round (Wrap). The
 /// colour is kept, black where there was none. The settings are already valid; amount 0
 /// changes nothing.
-pub(crate) fn noise_alpha(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
-    let crate::effects::Effect::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } = e else {
+pub(crate) fn noise_alpha(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
+    let crate::effects::Effect::NoiseAlpha {
+        noise,
+        amount,
+        original_alpha,
+        overflow,
+        random_seed,
+        noise_phase,
+        cycle_noise,
+        cycle,
+    } = e
+    else {
         return;
     };
     if *amount == 0.0 {
@@ -998,51 +1225,73 @@ pub(crate) fn noise_alpha(source: &mut WorkingBuffer, e: &crate::effects::Effect
     }
     let animated = noise.ends_with("_animation");
     let squared = noise.starts_with("squared");
-    let base = mix(if animated { 0 } else { random_seed.floor() as u64 });
-    let (z, k) = (noise_phase / 360.0, amount / 100.0);
-    let period = if cycle_noise == "on" { cycle.floor() as i64 } else { 0 };
-    let how = crate::effects::NOISE_ALPHA_ORIGINALS.iter().position(|o| o == original_alpha).unwrap_or(0);
-    let wrap = crate::effects::NOISE_ALPHA_OVERFLOWS.iter().position(|o| o == overflow).unwrap_or(0);
-    let w = source.width().max(1);
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-        for (x, px) in row.chunks_exact_mut(4).enumerate() {
-            let a = px[3] as f64;
-            // Clamp, Add, Scale, Edges.
-            let skip = match how {
-                0 => a != 1.0,
-                2 => a <= 0.0,
-                3 => !(a > 0.0 && a < 1.0),
-                _ => false,
-            };
-            if skip {
-                continue;
-            }
-            let (x, y) = (x as f64 - ox as f64, y as f64 - oy as f64);
-            let mut n = value(base, 0, x, y, if animated { z } else { 0.0 }, true, period);
-            if squared {
-                n = (1.0 - (1.0 - n.abs()).powi(2)).copysign(n);
-            }
-            let d = k * n;
-            let mut t = if how == 2 { a + d * a } else { a + d };
-            if !(0.0..=1.0).contains(&t) {
-                t = match wrap {
-                    1 if t > 1.0 => 2.0 - t,
-                    1 => -t,
-                    2 if t > 1.0 => t - 1.0,
-                    2 => t + 1.0,
-                    _ => t,
-                }
-                .clamp(0.0, 1.0);
-            }
-            if t == a {
-                continue;
-            }
-            for c in 0..3 {
-                px[c] = if a > 0.0 { (px[c] as f64 / a * t) as f32 } else { 0.0 };
-            }
-            px[3] = t as f32;
-        }
+    let base = mix(if animated {
+        0
+    } else {
+        random_seed.floor() as u64
     });
+    let (z, k) = (noise_phase / 360.0, amount / 100.0);
+    let period = if cycle_noise == "on" {
+        cycle.floor() as i64
+    } else {
+        0
+    };
+    let how = crate::effects::NOISE_ALPHA_ORIGINALS
+        .iter()
+        .position(|o| o == original_alpha)
+        .unwrap_or(0);
+    let wrap = crate::effects::NOISE_ALPHA_OVERFLOWS
+        .iter()
+        .position(|o| o == overflow)
+        .unwrap_or(0);
+    let w = source.width().max(1);
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                // Clamp, Add, Scale, Edges.
+                let skip = match how {
+                    0 => a != 1.0,
+                    2 => a <= 0.0,
+                    3 => !(a > 0.0 && a < 1.0),
+                    _ => false,
+                };
+                if skip {
+                    continue;
+                }
+                let (x, y) = (x as f64 - ox as f64, y as f64 - oy as f64);
+                let mut n = value(base, 0, x, y, if animated { z } else { 0.0 }, true, period);
+                if squared {
+                    n = (1.0 - (1.0 - n.abs()).powi(2)).copysign(n);
+                }
+                let d = k * n;
+                let mut t = if how == 2 { a + d * a } else { a + d };
+                if !(0.0..=1.0).contains(&t) {
+                    t = match wrap {
+                        1 if t > 1.0 => 2.0 - t,
+                        1 => -t,
+                        2 if t > 1.0 => t - 1.0,
+                        2 => t + 1.0,
+                        _ => t,
+                    }
+                    .clamp(0.0, 1.0);
+                }
+                if t == a {
+                    continue;
+                }
+                for c in 0..3 {
+                    px[c] = if a > 0.0 {
+                        (px[c] as f64 / a * t) as f32
+                    } else {
+                        0.0
+                    };
+                }
+                px[3] = t as f32;
+            }
+        });
 }
 
 /// D-451: After Effects' Noise HLS, by document 21's rule. Three noises in -1..1 at the pixel in
@@ -1053,7 +1302,14 @@ pub(crate) fn noise_alpha(source: &mut WorkingBuffer, e: &crate::effects::Effect
 /// 180 n `amounts[0]` / 100 degrees, and the lightness and saturation move n `amounts[1]` / 100
 /// and n `amounts[2]` / 100, held in 0 to 1. The settings are already valid; all three amounts 0
 /// change nothing.
-pub(crate) fn noise_hls(source: &mut WorkingBuffer, noise: &str, amounts: [f64; 3], size: f64, z: f64, (ox, oy): (usize, usize)) {
+pub(crate) fn noise_hls(
+    source: &mut WorkingBuffer,
+    noise: &str,
+    amounts: [f64; 3],
+    size: f64,
+    z: f64,
+    (ox, oy): (usize, usize),
+) {
     if amounts == [0.0; 3] {
         return;
     }
@@ -1062,7 +1318,15 @@ pub(crate) fn noise_hls(source: &mut WorkingBuffer, noise: &str, amounts: [f64; 
     grade_pixels(source, true, |i, e| {
         let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
         let n: [f64; 3] = std::array::from_fn(|k| match noise {
-            "grain" => value(base, k as u64, (x + 0.5) / size, (y + 0.5) / size, z, false, 0),
+            "grain" => value(
+                base,
+                k as u64,
+                (x + 0.5) / size,
+                (y + 0.5) / size,
+                z,
+                false,
+                0,
+            ),
             "squared" => {
                 let n = value(base, k as u64, x, y, z, true, 0);
                 (1.0 - (1.0 - n.abs()).powi(2)).copysign(n)
@@ -1101,20 +1365,38 @@ pub(crate) fn fractal(base: u64, ch: u64, p: (f64, f64, f64), octaves: usize) ->
 /// D-299: [`fractal`] with its look. Turbulent sums each octave's size, 0 to 1, and maps the
 /// share back to -1..1; octave `o`'s depth is `2^o` times finer, so it repeats after `2^o`
 /// times the cycle's cells.
-pub(crate) fn fractal_with(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, look: Look) -> f64 {
+pub(crate) fn fractal_with(
+    base: u64,
+    ch: u64,
+    (x, y, z): (f64, f64, f64),
+    octaves: usize,
+    look: Look,
+) -> f64 {
     if look.kind > 1 || look.noise > 1 {
         return fractal_kind(base, ch, (x, y, z), octaves, look);
     }
     let (turbulent, block) = (look.kind == 1, look.noise == 1);
     let (mut sum, mut total, mut amp, mut fine) = (0.0, 0.0, 1.0, 1.0);
     for o in 0..octaves {
-        let v = value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine, block, look.cycle << o);
+        let v = value(
+            base,
+            8 * o as u64 + ch,
+            x * fine,
+            y * fine,
+            z * fine,
+            block,
+            look.cycle << o,
+        );
         sum += amp * if turbulent { v.abs() } else { v };
         total += amp;
         amp *= 0.5;
         fine *= 2.0;
     }
-    if turbulent { 2.0 * sum / total - 1.0 } else { sum / total }
+    if turbulent {
+        2.0 * sum / total - 1.0
+    } else {
+        sum / total
+    }
 }
 
 /// D-567: [`value`] for the noise types past smooth and block, by document 21's rule: linear
@@ -1133,7 +1415,12 @@ fn value_kind(base: u64, ch: u64, x: f64, y: f64, z: f64, noise: usize, period: 
     if noise == 4 {
         let catmull = |t: f64| {
             let (t2, t3) = (t * t, t * t * t);
-            [(-t3 + 2.0 * t2 - t) / 2.0, (3.0 * t3 - 5.0 * t2 + 2.0) / 2.0, (-3.0 * t3 + 4.0 * t2 + t) / 2.0, (t3 - t2) / 2.0]
+            [
+                (-t3 + 2.0 * t2 - t) / 2.0,
+                (3.0 * t3 - 5.0 * t2 + 2.0) / 2.0,
+                (-3.0 * t3 + 4.0 * t2 + t) / 2.0,
+                (t3 - t2) / 2.0,
+            ]
         };
         let (wx, wy) = (catmull(tx), catmull(ty));
         let sz = tz * tz * tz * (tz * (6.0 * tz - 15.0) + 10.0);
@@ -1149,13 +1436,27 @@ fn value_kind(base: u64, ch: u64, x: f64, y: f64, z: f64, noise: usize, period: 
         }
         return v.clamp(-1.0, 1.0);
     }
-    let curve = |t: f64| if noise == 2 { t } else { t * t * (3.0 - 2.0 * t) };
+    let curve = |t: f64| {
+        if noise == 2 {
+            t
+        } else {
+            t * t * (3.0 - 2.0 * t)
+        }
+    };
     let s = [curve(tx), curve(ty), curve(tz)];
     for corner in 0..8 {
         let d = [corner & 1, (corner >> 1) & 1, corner >> 2];
-        let w: f64 = (0..3).map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] }).product();
+        let w: f64 = (0..3)
+            .map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] })
+            .product();
         if w != 0.0 {
-            v += w * unit(base, i + d[0] as i64, j + d[1] as i64, depth(k + d[2] as i64), ch);
+            v += w * unit(
+                base,
+                i + d[0] as i64,
+                j + d[1] as i64,
+                depth(k + d[2] as i64),
+                ch,
+            );
         }
     }
     v
@@ -1166,7 +1467,9 @@ fn value_kind(base: u64, ch: u64, x: f64, y: f64, z: f64, noise: usize, period: 
 /// weighted octaves before this one over the sum of their strengths.
 fn fractal_kind(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, look: Look) -> f64 {
     let step = if look.kind == 11 { 0.35 } else { 0.5 };
-    fractal_octaves(base, ch, octaves, look, step, 2.0, |_, fine| (x * fine, y * fine, z * fine))
+    fractal_octaves(base, ch, octaves, look, step, 2.0, |_, fine| {
+        (x * fine, y * fine, z * fine)
+    })
 }
 
 /// D-647: Turbulent Noise's Transform and Sub Settings, worked once a frame. Octave o of the
@@ -1188,25 +1491,64 @@ pub(crate) struct Warp {
 
 /// D-647: the fractal at `(x, y)`, the pixel's centre in the drawing's own pixels, by `g`;
 /// `size` the clouds' size across and down. Document 21's rule, this program's own.
-pub(crate) fn fractal_warped(base: u64, ch: u64, (x, y, z): (f64, f64, f64), size: [f64; 2], octaves: usize, look: Look, g: &Warp) -> f64 {
-    let step = if look.kind == 11 { 0.35 * (g.influence / 50.0) } else { g.influence / 100.0 };
+pub(crate) fn fractal_warped(
+    base: u64,
+    ch: u64,
+    (x, y, z): (f64, f64, f64),
+    size: [f64; 2],
+    octaves: usize,
+    look: Look,
+    g: &Warp,
+) -> f64 {
+    let step = if look.kind == 11 {
+        0.35 * (g.influence / 50.0)
+    } else {
+        g.influence / 100.0
+    };
     let [cx, cy] = g.middle;
-    fractal_octaves(base, ch, octaves, look, step, 100.0 / g.sub_scaling, |o, fine| {
-        let w = if g.perspective { 0.5f64.powi(o as i32) } else { 1.0 };
-        let (dx, dy) = (x - w * g.offset[0] - o as f64 * g.sub_offset[0] - cx, y - w * g.offset[1] - o as f64 * g.sub_offset[1] - cy);
-        let [c, s] = g.turns[o];
-        let (qx, qy) = (cx + dx * c + dy * s, cy - dx * s + dy * c);
-        if g.center {
-            ((cx + fine * (qx - cx)) / size[0], (cy + fine * (qy - cy)) / size[1], z * fine)
-        } else {
-            (fine * qx / size[0], fine * qy / size[1], z * fine)
-        }
-    })
+    fractal_octaves(
+        base,
+        ch,
+        octaves,
+        look,
+        step,
+        100.0 / g.sub_scaling,
+        |o, fine| {
+            let w = if g.perspective {
+                0.5f64.powi(o as i32)
+            } else {
+                1.0
+            };
+            let (dx, dy) = (
+                x - w * g.offset[0] - o as f64 * g.sub_offset[0] - cx,
+                y - w * g.offset[1] - o as f64 * g.sub_offset[1] - cy,
+            );
+            let [c, s] = g.turns[o];
+            let (qx, qy) = (cx + dx * c + dy * s, cy - dx * s + dy * c);
+            if g.center {
+                (
+                    (cx + fine * (qx - cx)) / size[0],
+                    (cy + fine * (qy - cy)) / size[1],
+                    z * fine,
+                )
+            } else {
+                (fine * qx / size[0], fine * qy / size[1], z * fine)
+            }
+        },
+    )
 }
 
 /// D-567's octaves, each read at `at(o, fineness)`, each `step` times the last's strength and
 /// `ratio` times as fine (D-647).
-fn fractal_octaves(base: u64, ch: u64, octaves: usize, look: Look, step: f64, ratio: f64, at: impl Fn(usize, f64) -> (f64, f64, f64)) -> f64 {
+fn fractal_octaves(
+    base: u64,
+    ch: u64,
+    octaves: usize,
+    look: Look,
+    step: f64,
+    ratio: f64,
+    at: impl Fn(usize, f64) -> (f64, f64, f64),
+) -> f64 {
     use std::f64::consts::PI;
     let kind = look.kind;
     let mut fine = if kind == 14 { 4.0 } else { 1.0 };
@@ -1217,11 +1559,24 @@ fn fractal_octaves(base: u64, ch: u64, octaves: usize, look: Look, step: f64, ra
         match kind {
             4 => (px, py) = (px + 4.0 * so_far, py + 4.0 * prev),
             5 => (px, py) = (px + 2.0 * o as f64 * so_far, py + 2.0 * o as f64 * prev),
-            6 if o > 0 => (px, py) = (px + 2.0 * (2.0 * PI * so_far).cos(), py + 2.0 * (2.0 * PI * so_far).sin()),
+            6 if o > 0 => {
+                (px, py) = (
+                    px + 2.0 * (2.0 * PI * so_far).cos(),
+                    py + 2.0 * (2.0 * PI * so_far).sin(),
+                )
+            }
             8 if o > 0 => px = px / 4.0 + 2.0 * so_far,
             _ => {}
         }
-        let v = value_kind(base, 8 * o as u64 + ch, px, py, pz, look.noise, look.cycle << o);
+        let v = value_kind(
+            base,
+            8 * o as u64 + ch,
+            px,
+            py,
+            pz,
+            look.noise,
+            look.cycle << o,
+        );
         let ridge = (1.0 - v.abs()) * (1.0 - v.abs());
         let mut g = match kind {
             1 => v.abs(),
@@ -1237,7 +1592,11 @@ fn fractal_octaves(base: u64, ch: u64, octaves: usize, look: Look, step: f64, ra
         sum += amp * g;
         total += amp;
         so_far = sum / total;
-        best = if o == 0 { v } else { best + amp * (v - best).max(0.0) };
+        best = if o == 0 {
+            v
+        } else {
+            best + amp * (v - best).max(0.0)
+        };
         (prev, prev_ridge) = (v, ridge);
         amp *= step;
         fine *= ratio;
@@ -1288,7 +1647,11 @@ pub(crate) fn overflowed(v: f64, overflow: u8, float: bool) -> f64 {
         2 => 0.5 + 0.5 * (2.0 * (v - 0.5)).tanh(),
         3 => {
             let t = v.rem_euclid(2.0);
-            if t <= 1.0 { t } else { 2.0 - t }
+            if t <= 1.0 {
+                t
+            } else {
+                2.0 - t
+            }
         }
         // D-319: in Float only black holds; past white stays past white.
         _ if float => v.max(0.0),
@@ -1303,15 +1666,23 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
     // D-730: None replaces the layer with the noise, at every pixel; the stencils keep the layer
     // by the noise as document 21's layer modes do; both still clear it at opacity 0.
     let none = f.blend == "none";
-    let stencil = crate::model::BlendMode::from_str(&f.blend)
-        .filter(|m| matches!(m, crate::model::BlendMode::StencilAlpha | crate::model::BlendMode::StencilLuma));
+    let stencil = crate::model::BlendMode::from_str(&f.blend).filter(|m| {
+        matches!(
+            m,
+            crate::model::BlendMode::StencilAlpha | crate::model::BlendMode::StencilLuma
+        )
+    });
     if f.opacity == 0.0 && !none && stencil.is_none() {
         return;
     }
     let w = source.width();
     let base = mix(f.seed.floor() as u64);
     let (mixer, o) = (noise_mixer(&f.blend), f.opacity / 100.0);
-    let mixer = if f.float && f.blend == "screen" { screen_float } else { mixer };
+    let mixer = if f.float && f.blend == "screen" {
+        screen_float
+    } else {
+        mixer
+    };
     let whole = noise_whole(&f.blend);
     source
         .data_mut()
@@ -1322,14 +1693,39 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
             if a <= 0.0 && !none {
                 return;
             }
-            let (cx, cy) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+            let (cx, cy) = (
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            );
             let n = match &f.warp {
                 // D-647.
-                Some(g) => fractal_warped(base, 0, (cx, cy, f.z), [f.size, f.size_y], f.octaves, f.look, g),
-                None => fractal_with(base, 0, ((cx - f.offset[0]) / f.size, (cy - f.offset[1]) / f.size_y, f.z), f.octaves, f.look),
+                Some(g) => fractal_warped(
+                    base,
+                    0,
+                    (cx, cy, f.z),
+                    [f.size, f.size_y],
+                    f.octaves,
+                    f.look,
+                    g,
+                ),
+                None => fractal_with(
+                    base,
+                    0,
+                    (
+                        (cx - f.offset[0]) / f.size,
+                        (cy - f.offset[1]) / f.size_y,
+                        f.z,
+                    ),
+                    f.octaves,
+                    f.look,
+                ),
             };
             let n = if f.invert { -n } else { n };
-            let v = overflowed(0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0, f.overflow, f.float);
+            let v = overflowed(
+                0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0,
+                f.overflow,
+                f.float,
+            );
             let color: [f64; 3] = std::array::from_fn(|c| {
                 let [d, l] = [f.colors[0][c], f.colors[1][c]];
                 to_linear(d + v * (l - d))
@@ -1399,7 +1795,22 @@ impl Curl {
     /// `(dw, dh)`: the drawing's size, whose middle the noise turns round (D-646).
     pub(crate) fn new(e: &crate::effects::Effect, (dw, dh): (usize, usize)) -> Option<Curl> {
         let crate::effects::Effect::CurlNoise {
-            speed, direction, size, offset, rotation, scale, perspective_offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, edge_definition, frame, ..
+            speed,
+            direction,
+            size,
+            offset,
+            rotation,
+            scale,
+            perspective_offset,
+            evolution,
+            turbulence_speed,
+            swirl,
+            density,
+            smoothness,
+            vertical_bias,
+            edge_definition,
+            frame,
+            ..
         } = e
         else {
             return None;
@@ -1419,7 +1830,13 @@ impl Curl {
             swirl: *swirl,
             turn: (*rotation != 0.0 || *scale != 100.0).then(|| {
                 let r = rotation.to_radians();
-                [r.cos(), r.sin(), 100.0 / scale, dw as f64 / 2.0, dh as f64 / 2.0]
+                [
+                    r.cos(),
+                    r.sin(),
+                    100.0 / scale,
+                    dw as f64 / 2.0,
+                    dh as f64 / 2.0,
+                ]
             }),
             perspective: perspective_offset == "on",
         })
@@ -1429,7 +1846,11 @@ impl Curl {
     /// slid (half as far each octave with Perspective Offset), then turned and scaled round the
     /// drawing's middle.
     fn point(&self, px: f64, py: f64, o: usize) -> (f64, f64) {
-        let w = if self.perspective { 0.5f64.powi(o as i32) } else { 1.0 };
+        let w = if self.perspective {
+            0.5f64.powi(o as i32)
+        } else {
+            1.0
+        };
         let (x, y) = (px - w * self.shift[0], py - w * self.shift[1]);
         match self.turn {
             None => (x, y),
@@ -1452,7 +1873,13 @@ impl Curl {
                 let (mut n, mut gx, mut gy, mut total, mut fine) = (0.0, 0.0, 0.0, 0.0, 1.0);
                 for (o, amp) in self.amps.iter().enumerate() {
                     let (x, y) = self.point(px, py, o);
-                    let [v, a, b] = value_slope(base, 8 * o as u64, x / s * fine, y / s * fine, self.z * fine);
+                    let [v, a, b] = value_slope(
+                        base,
+                        8 * o as u64,
+                        x / s * fine,
+                        y / s * fine,
+                        self.z * fine,
+                    );
                     n += amp * v;
                     gx += amp * fine * a;
                     gy += amp * fine * b;
@@ -1484,7 +1911,8 @@ impl Curl {
         } else if e == 0.0 {
             value(base, 7, sx, sy, self.z, false, 0)
         } else {
-            e * value(base, 7, sx, sy, self.z, true, 0) + (1.0 - e) * value(base, 7, sx, sy, self.z, false, 0)
+            e * value(base, 7, sx, sy, self.z, true, 0)
+                + (1.0 - e) * value(base, 7, sx, sy, self.z, false, 0)
         };
         [d[0] as f32, d[1] as f32, n as f32, seed as f32]
     }
@@ -1501,8 +1929,19 @@ pub(crate) struct CurlPlane {
 
 impl CurlPlane {
     /// None for Internal, and for an Other Layer whose layer was not read.
-    pub(crate) fn new(e: &crate::effects::Effect, source: &WorkingBuffer, (ox, oy): (usize, usize)) -> Option<CurlPlane> {
-        let crate::effects::Effect::CurlNoise { source: word, softness, mirror_at_edge, map, .. } = e else {
+    pub(crate) fn new(
+        e: &crate::effects::Effect,
+        source: &WorkingBuffer,
+        (ox, oy): (usize, usize),
+    ) -> Option<CurlPlane> {
+        let crate::effects::Effect::CurlNoise {
+            source: word,
+            softness,
+            mirror_at_edge,
+            map,
+            ..
+        } = e
+        else {
             return None;
         };
         let (picture, origin) = match word.as_str() {
@@ -1511,13 +1950,21 @@ impl CurlPlane {
             _ => return None,
         };
         let mut plane = WorkingBuffer::transparent(picture.width(), picture.height());
-        plane.data_mut().par_chunks_exact_mut(4).zip(picture.data().par_chunks_exact(4)).for_each(|(o, p)| {
-            o[3] = (phase_of("luminance", p) * p[3] as f64) as f32;
-        });
+        plane
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(picture.data().par_chunks_exact(4))
+            .for_each(|(o, p)| {
+                o[3] = (phase_of("luminance", p) * p[3] as f64) as f32;
+            });
         if *softness > 0.0 {
             crate::effects::held_blur(&mut plane, softness / 10.0);
         }
-        Some(CurlPlane { plane, origin, mirror: mirror_at_edge == "on" })
+        Some(CurlPlane {
+            plane,
+            origin,
+            mirror: mirror_at_edge == "on",
+        })
     }
 
     /// The plane at pixel `(i, j)`: 0 outside, or mirrored back in.
@@ -1526,7 +1973,11 @@ impl CurlPlane {
         let (i, j) = if self.mirror {
             let fold = |i: i64, n: i64| {
                 let i = i.rem_euclid(2 * n);
-                if i >= n { 2 * n - 1 - i } else { i }
+                if i >= n {
+                    2 * n - 1 - i
+                } else {
+                    i
+                }
             };
             (fold(i, w), fold(j, h))
         } else if (0..w).contains(&i) && (0..h).contains(&j) {
@@ -1552,8 +2003,15 @@ impl CurlPlane {
     /// `(x, y)` of the drawing; a slope under 1e-5 long is nought.
     fn noise(&self, x: f64, y: f64) -> (f64, f64, f64) {
         let (x, y) = (x + self.origin[0], y + self.origin[1]);
-        let (gx, gy) = (self.read(x + 1.0, y) - self.read(x - 1.0, y), self.read(x, y + 1.0) - self.read(x, y - 1.0));
-        let (gx, gy) = if gx.hypot(gy) < 1e-5 { (0.0, 0.0) } else { (gx, gy) };
+        let (gx, gy) = (
+            self.read(x + 1.0, y) - self.read(x - 1.0, y),
+            self.read(x, y + 1.0) - self.read(x, y - 1.0),
+        );
+        let (gx, gy) = if gx.hypot(gy) < 1e-5 {
+            (0.0, 0.0)
+        } else {
+            (gx, gy)
+        };
         (2.0 * self.read(x, y) - 1.0, gx, gy)
     }
 }
@@ -1569,14 +2027,31 @@ pub(crate) fn curl_margin(radius: f64) -> usize {
 /// then at each pixel that shows the flow lines (Final Render), the noise (Input Noise) or the
 /// flow and noise as colours (Curl Generation), through Contrast and Brightness, into the
 /// channel chosen. The settings are already valid.
-pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn curl_noise(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::CurlNoise {
-        source: word, sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, ..
+        source: word,
+        sample_count,
+        sample_radius,
+        flow_softness,
+        flow_falloff,
+        view,
+        contrast,
+        brightness,
+        clip_hdr_results,
+        channel,
+        float,
+        ..
     } = e
     else {
         return;
     };
-    let Some(curl) = Curl::new(e, (source.width() - 2 * ox, source.height() - 2 * oy)) else { return };
+    let Some(curl) = Curl::new(e, (source.width() - 2 * ox, source.height() - 2 * oy)) else {
+        return;
+    };
     // D-583: an Other Layer whose layer was not read draws nothing (D-189).
     let plane = CurlPlane::new(e, source, (ox, oy));
     if plane.is_none() && word != "internal" {
@@ -1588,91 +2063,124 @@ pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     let (w, h) = (source.width(), source.height());
     let (gw, gh) = (w + 2 * m, h + 2 * m);
     let mut field = WorkingBuffer::transparent(gw, gh);
-    field.data_mut().par_chunks_mut(gw * 4).enumerate().for_each(|(gy, row)| {
-        for (gx, px) in row.chunks_exact_mut(4).enumerate() {
-            let p = curl.at(gx as f64 - m as f64 - ox as f64 + 0.5, gy as f64 - m as f64 - oy as f64 + 0.5, plane);
-            px.copy_from_slice(&p);
-        }
-    });
-    let view = crate::effects::CURL_VIEWS.iter().position(|v| v == view).unwrap_or(0);
-    let channel = crate::effects::CURL_CHANNELS.iter().position(|c| c == channel).unwrap_or(0);
+    field
+        .data_mut()
+        .par_chunks_mut(gw * 4)
+        .enumerate()
+        .for_each(|(gy, row)| {
+            for (gx, px) in row.chunks_exact_mut(4).enumerate() {
+                let p = curl.at(
+                    gx as f64 - m as f64 - ox as f64 + 0.5,
+                    gy as f64 - m as f64 - oy as f64 + 0.5,
+                    plane,
+                );
+                px.copy_from_slice(&p);
+            }
+        });
+    let view = crate::effects::CURL_VIEWS
+        .iter()
+        .position(|v| v == view)
+        .unwrap_or(0);
+    let channel = crate::effects::CURL_CHANNELS
+        .iter()
+        .position(|c| c == channel)
+        .unwrap_or(0);
     let (fs, ff) = (flow_softness / 100.0, flow_falloff / 100.0);
     let hold = !(clip_hdr_results == "off" && *float);
     let field = &field;
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-        for (x, px) in row.chunks_exact_mut(4).enumerate() {
-            let a = px[3] as f64;
-            if a <= 0.0 {
-                continue;
-            }
-            let [dx, dy, n, seed] = field.pixel(x + m, y + m).map(|v| v as f64);
-            let o = match view {
-                1 => [0.5 + 0.5 * n; 3],
-                2 => {
-                    // D-680: the direction shown one long, as before.
-                    let length = dx.hypot(dy);
-                    let (dx, dy) = if length > 0.0 { (dx / length, dy / length) } else { (0.0, 0.0) };
-                    [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n]
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
                 }
-                _ => {
-                    // D-680: each step goes as far as the flow is strong, read at most a pixel
-                    // apart; the brightening grows with how far the walk got.
-                    let step = radius / steps;
-                    let subs = step.ceil().max(1.0);
-                    let (mut sw, mut sws, mut ss, mut tw, mut walked) = (1.0, 1.0, seed, 1.0, 0.0);
-                    for way in [1.0, -1.0] {
-                        let (mut qx, mut qy) = ((x + m) as f64 + 0.5, (y + m) as f64 + 0.5);
-                        let (mut ex, mut ey) = (dx, dy);
-                        for i in 1..=steps as usize {
-                            let length = ex.hypot(ey);
-                            if length < 1e-6 {
-                                break;
-                            }
-                            walked += step * length;
-                            let (mx, my) = (way * step * ex, way * step * ey);
-                            for j in 1..=subs as usize {
-                                let f = j as f64 / subs;
-                                let s = crate::render::sample_bilinear(field, qx + f * mx, qy + f * my);
-                                let wt = 1.0 - ((i - 1) as f64 + f) / (steps + 1.0);
-                                ss += wt * s[3] as f64;
-                                tw += wt;
-                                if j == subs as usize {
-                                    (ex, ey) = (s[0] as f64, s[1] as f64);
+                let [dx, dy, n, seed] = field.pixel(x + m, y + m).map(|v| v as f64);
+                let o = match view {
+                    1 => [0.5 + 0.5 * n; 3],
+                    2 => {
+                        // D-680: the direction shown one long, as before.
+                        let length = dx.hypot(dy);
+                        let (dx, dy) = if length > 0.0 {
+                            (dx / length, dy / length)
+                        } else {
+                            (0.0, 0.0)
+                        };
+                        [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n]
+                    }
+                    _ => {
+                        // D-680: each step goes as far as the flow is strong, read at most a pixel
+                        // apart; the brightening grows with how far the walk got.
+                        let step = radius / steps;
+                        let subs = step.ceil().max(1.0);
+                        let (mut sw, mut sws, mut ss, mut tw, mut walked) =
+                            (1.0, 1.0, seed, 1.0, 0.0);
+                        for way in [1.0, -1.0] {
+                            let (mut qx, mut qy) = ((x + m) as f64 + 0.5, (y + m) as f64 + 0.5);
+                            let (mut ex, mut ey) = (dx, dy);
+                            for i in 1..=steps as usize {
+                                let length = ex.hypot(ey);
+                                if length < 1e-6 {
+                                    break;
                                 }
+                                walked += step * length;
+                                let (mx, my) = (way * step * ex, way * step * ey);
+                                for j in 1..=subs as usize {
+                                    let f = j as f64 / subs;
+                                    let s = crate::render::sample_bilinear(
+                                        field,
+                                        qx + f * mx,
+                                        qy + f * my,
+                                    );
+                                    let wt = 1.0 - ((i - 1) as f64 + f) / (steps + 1.0);
+                                    ss += wt * s[3] as f64;
+                                    tw += wt;
+                                    if j == subs as usize {
+                                        (ex, ey) = (s[0] as f64, s[1] as f64);
+                                    }
+                                }
+                                (qx, qy) = (qx + mx, qy + my);
+                                let wt = 1.0 - i as f64 / (steps + 1.0);
+                                sw += wt;
+                                sws += wt * wt;
                             }
-                            (qx, qy) = (qx + mx, qy + my);
-                            let wt = 1.0 - i as f64 / (steps + 1.0);
-                            sw += wt;
-                            sws += wt * wt;
+                        }
+                        let gain = 1.0
+                            + (sw / sws.sqrt() - 1.0)
+                                * (walked / (2.0 * radius).max(1e-9)).min(1.0);
+                        let lines = ss / tw * gain;
+                        let mixed = n + (1.0 - fs) * (radius / 8.0).min(1.0) * (lines - n);
+                        [0.5 + 0.5 * (mixed * (1.0 - ff * (0.5 - 0.5 * n))); 3]
+                    }
+                };
+                let o = o.map(|v| {
+                    let v = 0.5 + (v - 0.5) * contrast / 100.0 + brightness / 100.0;
+                    if hold {
+                        v.clamp(0.0, 1.0)
+                    } else {
+                        v.max(0.0)
+                    }
+                });
+                match channel {
+                    0 => {
+                        for c in 0..3 {
+                            px[c] = (to_linear(o[c]) * a) as f32;
                         }
                     }
-                    let gain = 1.0 + (sw / sws.sqrt() - 1.0) * (walked / (2.0 * radius).max(1e-9)).min(1.0);
-                    let lines = ss / tw * gain;
-                    let mixed = n + (1.0 - fs) * (radius / 8.0).min(1.0) * (lines - n);
-                    [0.5 + 0.5 * (mixed * (1.0 - ff * (0.5 - 0.5 * n))); 3]
-                }
-            };
-            let o = o.map(|v| {
-                let v = 0.5 + (v - 0.5) * contrast / 100.0 + brightness / 100.0;
-                if hold { v.clamp(0.0, 1.0) } else { v.max(0.0) }
-            });
-            match channel {
-                0 => {
-                    for c in 0..3 {
-                        px[c] = (to_linear(o[c]) * a) as f32;
+                    4 => {
+                        let t = a * ((o[0] + o[1] + o[2]) / 3.0).clamp(0.0, 1.0);
+                        for c in 0..3 {
+                            px[c] = (px[c] as f64 / a * t) as f32;
+                        }
+                        px[3] = t as f32;
                     }
+                    c => px[c - 1] = (to_linear(o[c - 1]) * a) as f32,
                 }
-                4 => {
-                    let t = a * ((o[0] + o[1] + o[2]) / 3.0).clamp(0.0, 1.0);
-                    for c in 0..3 {
-                        px[c] = (px[c] as f64 / a * t) as f32;
-                    }
-                    px[3] = t as f32;
-                }
-                c => px[c - 1] = (to_linear(o[c - 1]) * a) as f32,
             }
-        }
-    });
+        });
 }
 
 /// D-447: Brush Strokes' numbers, as the processor and the card share them: the stroke
@@ -1699,7 +2207,16 @@ pub(crate) struct Brush {
 impl Brush {
     pub(crate) fn new(e: &crate::effects::Effect) -> Option<Brush> {
         let crate::effects::Effect::BrushStrokes {
-            stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, frame, ..
+            stroke_angle,
+            brush_size,
+            stroke_length,
+            stroke_density,
+            stroke_randomness,
+            paint_surface,
+            blend_with_original,
+            random_seed,
+            frame,
+            ..
         } = e
         else {
             return None;
@@ -1719,7 +2236,10 @@ impl Brush {
             reach: 1.25 * r + 0.5,
             base: mix(random_seed.floor() as u64),
             frame: *frame as i64,
-            surface: crate::effects::BRUSH_SURFACES.iter().position(|v| v == paint_surface).unwrap_or(0),
+            surface: crate::effects::BRUSH_SURFACES
+                .iter()
+                .position(|v| v == paint_surface)
+                .unwrap_or(0),
             blend: blend_with_original / 100.0,
         })
     }
@@ -1730,70 +2250,80 @@ impl Brush {
 /// to the stroke direction, keeps the two highest in the pile that cover it, and lays them, the
 /// lower first, on the paint surface; then mixes back towards itself by the blend. A stroke's
 /// colour is `source`'s pixel under its start, held inside the buffer. The layer never grows.
-pub(crate) fn brush_strokes(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+pub(crate) fn brush_strokes(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let Some(b) = Brush::new(e) else { return };
     let (w, h) = (source.width(), source.height());
     let src = source.clone();
     let n = [-b.d[1], b.d[0]];
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-        for (x, px) in row.chunks_exact_mut(4).enumerate() {
-            let p = src.pixel(x, y).map(|v| v as f64);
-            let (qx, qy) = (x as f64 + 0.5 - ox as f64, y as f64 + 0.5 - oy as f64);
-            let (pu, pv) = (qx * b.d[0] + qy * b.d[1], qx * n[0] + qy * n[1]);
-            // The two highest strokes covering the pixel: their place in the pile, colour and
-            // covering.
-            let mut top: [(f64, [f64; 4], f64); 2] = [(-1.0, [0.0; 4], 0.0); 2];
-            let i0 = ((pu - b.len - b.reach) / b.su).floor() as i64 - 1;
-            let i1 = ((pu + b.reach) / b.su).floor() as i64;
-            let j0 = ((pv - b.reach - b.len * b.s) / b.sv).floor() as i64 - 1;
-            let j1 = ((pv + b.reach + b.len * b.s) / b.sv).floor() as i64;
-            for i in i0..=i1 {
-                for j in j0..=j1 {
-                    let g = mix(mix(mix(b.base ^ i as u64) ^ j as u64) ^ b.frame as u64);
-                    let hk = |k: u64| (mix(g ^ k) >> 11) as f64 / (1u64 << 53) as f64;
-                    let cu = (i as f64 + 0.5 + (hk(0) - 0.5) * b.m) * b.su;
-                    let cv = (j as f64 + 0.5 + (hk(1) - 0.5) * b.m) * b.sv;
-                    let t = (2.0 * hk(2) - 1.0) * b.slope;
-                    let el = (1.0 + t * t).sqrt();
-                    let (eu, ev) = (1.0 / el, t / el);
-                    let len = b.len * (1.0 - 0.5 * b.m * hk(3));
-                    let rho = b.r * (1.0 + 0.25 * b.m * (2.0 * hk(4) - 1.0));
-                    let (wu, wv) = (pu - cu, pv - cv);
-                    let a = (wu * eu + wv * ev).max(0.0).min(len);
-                    let cov = (rho + 0.5 - (wu - a * eu).hypot(wv - a * ev)).clamp(0.0, 1.0);
-                    if cov <= 0.0 {
-                        continue;
-                    }
-                    let pile = hk(5);
-                    if pile <= top[1].0 {
-                        continue;
-                    }
-                    let sx = ((cu * b.d[0] + cv * n[0] + ox as f64).floor().max(0.0) as usize).min(w - 1);
-                    let sy = ((cu * b.d[1] + cv * n[1] + oy as f64).floor().max(0.0) as usize).min(h - 1);
-                    let stroke = (pile, src.pixel(sx, sy).map(|v| v as f64), cov);
-                    if pile > top[0].0 {
-                        top = [stroke, top[0]];
-                    } else {
-                        top[1] = stroke;
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let p = src.pixel(x, y).map(|v| v as f64);
+                let (qx, qy) = (x as f64 + 0.5 - ox as f64, y as f64 + 0.5 - oy as f64);
+                let (pu, pv) = (qx * b.d[0] + qy * b.d[1], qx * n[0] + qy * n[1]);
+                // The two highest strokes covering the pixel: their place in the pile, colour and
+                // covering.
+                let mut top: [(f64, [f64; 4], f64); 2] = [(-1.0, [0.0; 4], 0.0); 2];
+                let i0 = ((pu - b.len - b.reach) / b.su).floor() as i64 - 1;
+                let i1 = ((pu + b.reach) / b.su).floor() as i64;
+                let j0 = ((pv - b.reach - b.len * b.s) / b.sv).floor() as i64 - 1;
+                let j1 = ((pv + b.reach + b.len * b.s) / b.sv).floor() as i64;
+                for i in i0..=i1 {
+                    for j in j0..=j1 {
+                        let g = mix(mix(mix(b.base ^ i as u64) ^ j as u64) ^ b.frame as u64);
+                        let hk = |k: u64| (mix(g ^ k) >> 11) as f64 / (1u64 << 53) as f64;
+                        let cu = (i as f64 + 0.5 + (hk(0) - 0.5) * b.m) * b.su;
+                        let cv = (j as f64 + 0.5 + (hk(1) - 0.5) * b.m) * b.sv;
+                        let t = (2.0 * hk(2) - 1.0) * b.slope;
+                        let el = (1.0 + t * t).sqrt();
+                        let (eu, ev) = (1.0 / el, t / el);
+                        let len = b.len * (1.0 - 0.5 * b.m * hk(3));
+                        let rho = b.r * (1.0 + 0.25 * b.m * (2.0 * hk(4) - 1.0));
+                        let (wu, wv) = (pu - cu, pv - cv);
+                        let a = (wu * eu + wv * ev).max(0.0).min(len);
+                        let cov = (rho + 0.5 - (wu - a * eu).hypot(wv - a * ev)).clamp(0.0, 1.0);
+                        if cov <= 0.0 {
+                            continue;
+                        }
+                        let pile = hk(5);
+                        if pile <= top[1].0 {
+                            continue;
+                        }
+                        let sx = ((cu * b.d[0] + cv * n[0] + ox as f64).floor().max(0.0) as usize)
+                            .min(w - 1);
+                        let sy = ((cu * b.d[1] + cv * n[1] + oy as f64).floor().max(0.0) as usize)
+                            .min(h - 1);
+                        let stroke = (pile, src.pixel(sx, sy).map(|v| v as f64), cov);
+                        if pile > top[0].0 {
+                            top = [stroke, top[0]];
+                        } else {
+                            top[1] = stroke;
+                        }
                     }
                 }
-            }
-            let mut o = match b.surface {
-                1 => [0.0; 4],
-                2 => [1.0; 4],
-                3 => [0.0, 0.0, 0.0, 1.0],
-                _ => p,
-            };
-            for (pile, col, cov) in [top[1], top[0]] {
-                if pile >= 0.0 {
-                    o = std::array::from_fn(|c| col[c] * cov + o[c] * (1.0 - cov * col[3]));
+                let mut o = match b.surface {
+                    1 => [0.0; 4],
+                    2 => [1.0; 4],
+                    3 => [0.0, 0.0, 0.0, 1.0],
+                    _ => p,
+                };
+                for (pile, col, cov) in [top[1], top[0]] {
+                    if pile >= 0.0 {
+                        o = std::array::from_fn(|c| col[c] * cov + o[c] * (1.0 - cov * col[3]));
+                    }
+                }
+                for c in 0..4 {
+                    px[c] = (o[c] + b.blend * (p[c] - o[c])) as f32;
                 }
             }
-            for c in 0..4 {
-                px[c] = (o[c] + b.blend * (p[c] - o[c])) as f32;
-            }
-        }
-    });
+        });
 }
 
 /// D-209: each cell's point and grey for Cell Pattern over a `w` by `h` buffer, worked once for
@@ -1817,7 +2347,11 @@ pub(crate) fn cell_points(
             let u = [0, 1, 2, 3].map(|c| unit(base, m, n, 0, c));
             let r = disperse / 2.0 * (u[0] + 1.0) / 2.0;
             let a = std::f64::consts::PI * u[1] + if u[2] >= 0.0 { t } else { -t };
-            (m as f64 + 0.5 + r * a.cos(), n as f64 + 0.5 + r * a.sin(), (u[3] + 1.0) / 2.0)
+            (
+                m as f64 + 0.5 + r * a.cos(),
+                n as f64 + 0.5 + r * a.sin(),
+                (u[3] + 1.0) / 2.0,
+            )
         })
         .collect();
     (m0, n0, cols, points)
@@ -1853,7 +2387,10 @@ pub(crate) fn cell_pattern(
                 return;
             }
             let (x, y) = (at(i % w, ox), at(i / w, oy));
-            let (ci, cj) = ((x.floor() as i64 - 2 - m0) as usize, (y.floor() as i64 - 2 - n0) as usize);
+            let (ci, cj) = (
+                (x.floor() as i64 - 2 - m0) as usize,
+                (y.floor() as i64 - 2 - n0) as usize,
+            );
             // The nearest and second nearest, squared, the first found keeping a tie.
             let (mut f1, mut f2, mut g) = (f64::INFINITY, f64::INFINITY, 0.0);
             for n in cj..cj + 5 {
@@ -1867,7 +2404,11 @@ pub(crate) fn cell_pattern(
                 }
             }
             let (f1, f2) = (f1.sqrt(), f2.sqrt());
-            let k = if f1 + f2 > 0.0 { 2.0 * f1 / (f1 + f2) } else { 0.0 };
+            let k = if f1 + f2 > 0.0 {
+                2.0 * f1 / (f1 + f2)
+            } else {
+                0.0
+            };
             let v = match pattern {
                 "bubbles" => (1.0 - k * k).sqrt(),
                 "crystals" => 1.0 - k,
@@ -1888,7 +2429,12 @@ pub(crate) fn cell_pattern(
 /// D-129: each pixel that shows takes the ramp's colour at its lightness, shadow to midtone
 /// below `midpoint` per cent and midtone to highlight above it, mixed in at `amount` per cent.
 /// The colours are encoded 0 to 1; the settings are already valid.
-pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], midpoint: f64, amount: f64) {
+pub(crate) fn gradient_map(
+    source: &mut WorkingBuffer,
+    colors: [[f64; 3]; 3],
+    midpoint: f64,
+    amount: f64,
+) {
     if amount == 0.0 {
         return;
     }
@@ -2010,84 +2556,113 @@ pub(crate) fn nearness(d: f64, t: f64, w: f64) -> f64 {
 /// the change weighed by the matching colour's nearness and the second map, by `masking`, and
 /// laid over the pixel, or alone without `composite`. With these at their start it is D-316's
 /// sum exactly.
-pub(crate) fn colorama(source: &mut WorkingBuffer, maps: [Option<&WorkingBuffer>; 2], (ox, oy): (usize, usize), c: &Colorama) {
+pub(crate) fn colorama(
+    source: &mut WorkingBuffer,
+    maps: [Option<&WorkingBuffer>; 2],
+    (ox, oy): (usize, usize),
+    c: &Colorama,
+) {
     let (n, o) = (c.ring.len(), c.blend / 100.0);
     let w = source.width();
     let empty = c.modify_alpha && c.change_empty;
     let under = |m: &WorkingBuffer, x: usize, y: usize| {
         let (mx, my) = (x.wrapping_sub(ox), y.wrapping_sub(oy));
-        if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
-    };
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-        for (x, px) in row.chunks_exact_mut(4).enumerate() {
-            let a = px[3] as f64;
-            if a <= 0.0 && !empty {
-                continue;
-            }
-            let mut phase = phase_of(c.get, px);
-            if let Some(m) = maps[0] {
-                let q = under(m, x, y);
-                let q = phase_of(c.add_from, &q) * if c.add_from == "alpha" { 1.0 } else { q[3] as f64 };
-                phase = match c.add_mode {
-                    "clamp" => (phase + q).min(1.0),
-                    "average" => (phase + q) / 2.0,
-                    "screen" => phase + q - phase * q,
-                    _ => phase + q,
-                };
-            }
-            let t = phase * c.repetitions + c.shift / 360.0;
-            let p = (t - t.floor()) * n as f64;
-            let (i, j) = (p.floor() as usize % n, (p.floor() as usize + 1) % n);
-            let f = if c.interpolate { p - p.floor() } else { 0.0 };
-            let m: [f64; 3] = std::array::from_fn(|ch| c.ring[i][ch] + f * (c.ring[j][ch] - c.ring[i][ch]));
-            let b = [0, 1, 2].map(|ch| if a > 0.0 { px[ch] as f64 / a } else { 0.0 });
-            // Encoded only when read, so D-316's sum below costs what it did.
-            let e = || b.map(|v| to_srgb(v.clamp(0.0, 1.0)));
-            let mut weight = c.matching.map_or(1.0, |(colour, kind, t, s)| nearness(change_distance(e(), colour, kind), t, s));
-            if let Some(m) = maps[1] {
-                let q = under(m, x, y);
-                let lum = phase_of("luminance", &q) * q[3] as f64;
-                weight *= match c.masking {
-                    "inverse_luminance" => 1.0 - lum,
-                    "alpha" => q[3] as f64,
-                    "inverse_alpha" => 1.0 - q[3] as f64,
-                    _ => lum,
-                };
-            }
-            if c.modify == "all" && !c.modify_alpha && weight == 1.0 {
-                // D-316's own sum, so a project from before D-381 draws exactly as it did.
-                for ch in 0..3 {
-                    let g = to_linear(m[ch]);
-                    px[ch] = ((g + o * (b[ch] - g)) * a) as f32;
-                }
-                continue;
-            }
-            let e = e();
-            let g = match c.modify {
-                "all" => m,
-                "none" => e,
-                "red" => [m[0], e[1], e[2]],
-                "green" => [e[0], m[1], e[2]],
-                "blue" => [e[0], e[1], m[2]],
-                word => {
-                    let (he, hm) = (to_hsl(e), to_hsl(m));
-                    from_hsl(match word {
-                        "hue" => [hm[0], he[1], he[2]],
-                        "lightness" => [he[0], he[1], hm[2]],
-                        _ => [he[0], hm[1], he[2]],
-                    })
-                }
-            }
-            .map(|v| to_linear(v.clamp(0.0, 1.0)));
-            let a2 = if c.modify_alpha { c.opacity[i] + f * (c.opacity[j] - c.opacity[i]) } else { a };
-            let r = [g[0] * a2, g[1] * a2, g[2] * a2, a2];
-            for ch in 0..4 {
-                let was = px[ch] as f64;
-                let laid = if c.composite { was + weight * (r[ch] - was) } else { weight * r[ch] };
-                px[ch] = (laid + o * (was - laid)) as f32;
-            }
+        if mx < m.width() && my < m.height() {
+            m.pixel(mx, my)
+        } else {
+            [0.0; 4]
         }
-    });
+    };
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 && !empty {
+                    continue;
+                }
+                let mut phase = phase_of(c.get, px);
+                if let Some(m) = maps[0] {
+                    let q = under(m, x, y);
+                    let q = phase_of(c.add_from, &q)
+                        * if c.add_from == "alpha" {
+                            1.0
+                        } else {
+                            q[3] as f64
+                        };
+                    phase = match c.add_mode {
+                        "clamp" => (phase + q).min(1.0),
+                        "average" => (phase + q) / 2.0,
+                        "screen" => phase + q - phase * q,
+                        _ => phase + q,
+                    };
+                }
+                let t = phase * c.repetitions + c.shift / 360.0;
+                let p = (t - t.floor()) * n as f64;
+                let (i, j) = (p.floor() as usize % n, (p.floor() as usize + 1) % n);
+                let f = if c.interpolate { p - p.floor() } else { 0.0 };
+                let m: [f64; 3] =
+                    std::array::from_fn(|ch| c.ring[i][ch] + f * (c.ring[j][ch] - c.ring[i][ch]));
+                let b = [0, 1, 2].map(|ch| if a > 0.0 { px[ch] as f64 / a } else { 0.0 });
+                // Encoded only when read, so D-316's sum below costs what it did.
+                let e = || b.map(|v| to_srgb(v.clamp(0.0, 1.0)));
+                let mut weight = c.matching.map_or(1.0, |(colour, kind, t, s)| {
+                    nearness(change_distance(e(), colour, kind), t, s)
+                });
+                if let Some(m) = maps[1] {
+                    let q = under(m, x, y);
+                    let lum = phase_of("luminance", &q) * q[3] as f64;
+                    weight *= match c.masking {
+                        "inverse_luminance" => 1.0 - lum,
+                        "alpha" => q[3] as f64,
+                        "inverse_alpha" => 1.0 - q[3] as f64,
+                        _ => lum,
+                    };
+                }
+                if c.modify == "all" && !c.modify_alpha && weight == 1.0 {
+                    // D-316's own sum, so a project from before D-381 draws exactly as it did.
+                    for ch in 0..3 {
+                        let g = to_linear(m[ch]);
+                        px[ch] = ((g + o * (b[ch] - g)) * a) as f32;
+                    }
+                    continue;
+                }
+                let e = e();
+                let g = match c.modify {
+                    "all" => m,
+                    "none" => e,
+                    "red" => [m[0], e[1], e[2]],
+                    "green" => [e[0], m[1], e[2]],
+                    "blue" => [e[0], e[1], m[2]],
+                    word => {
+                        let (he, hm) = (to_hsl(e), to_hsl(m));
+                        from_hsl(match word {
+                            "hue" => [hm[0], he[1], he[2]],
+                            "lightness" => [he[0], he[1], hm[2]],
+                            _ => [he[0], hm[1], he[2]],
+                        })
+                    }
+                }
+                .map(|v| to_linear(v.clamp(0.0, 1.0)));
+                let a2 = if c.modify_alpha {
+                    c.opacity[i] + f * (c.opacity[j] - c.opacity[i])
+                } else {
+                    a
+                };
+                let r = [g[0] * a2, g[1] * a2, g[2] * a2, a2];
+                for ch in 0..4 {
+                    let was = px[ch] as f64;
+                    let laid = if c.composite {
+                        was + weight * (r[ch] - was)
+                    } else {
+                        weight * r[ch]
+                    };
+                    px[ch] = (laid + o * (was - laid)) as f32;
+                }
+            }
+        });
 }
 
 /// D-130: red, green and blue pushed by `shadows`, `midtones` and `highlights`, each -100..100,
@@ -2097,7 +2672,13 @@ pub(crate) fn colorama(source: &mut WorkingBuffer, maps: [Option<&WorkingBuffer>
 /// D-295: with `keep` (Preserve Luminosity), the pushed colour is moved back to the pixel's own
 /// luma and pulled in toward that grey until it fits 0 to 1, by the compositing spec's SetLum
 /// and ClipColor with these weights. Black and white stay black and white.
-pub(crate) fn color_balance(source: &mut WorkingBuffer, shadows: [f64; 3], midtones: [f64; 3], highlights: [f64; 3], keep: bool) {
+pub(crate) fn color_balance(
+    source: &mut WorkingBuffer,
+    shadows: [f64; 3],
+    midtones: [f64; 3],
+    highlights: [f64; 3],
+    keep: bool,
+) {
     if [shadows, midtones, highlights] == [[0.0; 3]; 3] {
         return;
     }
@@ -2107,14 +2688,20 @@ pub(crate) fn color_balance(source: &mut WorkingBuffer, shadows: [f64; 3], midto
         let ws = (1.0 - 2.0 * l).clamp(0.0, 1.0);
         let wh = (2.0 * l - 1.0).clamp(0.0, 1.0);
         let wm = 1.0 - ws - wh;
-        let o: [f64; 3] = std::array::from_fn(|c| e[c] + (ws * shadows[c] + wm * midtones[c] + wh * highlights[c]) / 200.0);
+        let o: [f64; 3] = std::array::from_fn(|c| {
+            e[c] + (ws * shadows[c] + wm * midtones[c] + wh * highlights[c]) / 200.0
+        });
         if !keep {
             return o;
         }
         let d = l - luma(o);
         let o = o.map(|v| v + d);
         let (n, x) = (o[0].min(o[1]).min(o[2]), o[0].max(o[1]).max(o[2]));
-        let s = if n < 0.0 { l / (l - n) } else { 1.0 }.min(if x > 1.0 { (1.0 - l) / (x - l) } else { 1.0 });
+        let s = if n < 0.0 { l / (l - n) } else { 1.0 }.min(if x > 1.0 {
+            (1.0 - l) / (x - l)
+        } else {
+            1.0
+        });
         o.map(|v| l + (v - l) * s)
     });
 }
@@ -2166,10 +2753,17 @@ pub(crate) fn vignette(source: &mut WorkingBuffer, v: &Vignette) {
             if a <= 0.0 {
                 return;
             }
-            let (dx, dy) = (((i % w) as f64 + 0.5 - cx) / rx, ((i / w) as f64 + 0.5 - cy) / ry);
+            let (dx, dy) = (
+                ((i % w) as f64 + 0.5 - cx) / rx,
+                ((i / w) as f64 + 0.5 - cy) / ry,
+            );
             let d = vignette_distance(dx, dy, v.norm);
             let t = if v.inner == v.outer {
-                if d >= v.outer { 1.0 } else { 0.0 }
+                if d >= v.outer {
+                    1.0
+                } else {
+                    0.0
+                }
             } else {
                 let t = ((d - v.inner) / (v.outer - v.inner)).clamp(0.0, 1.0);
                 t * t * (3.0 - 2.0 * t)
@@ -2192,19 +2786,23 @@ pub(crate) fn cc_vignette(source: &mut WorkingBuffer, [cx, cy, t, amount, pin]: 
         return;
     }
     let w = source.width();
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let a = px[3] as f64;
-        if a <= 0.0 {
-            return;
-        }
-        let s = ((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) * t;
-        let g = (1.0 + s * s).powf(-2.0 * amount);
-        let b: [f64; 3] = std::array::from_fn(|c| px[c] as f64 / a);
-        let gain = g + (1.0 - g) * luma(b.map(|v| to_srgb(v.clamp(0.0, 1.0)))) * pin;
-        for c in 0..3 {
-            px[c] = ((b[c] * gain).min(b[c].max(1.0)) * a) as f32;
-        }
-    });
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let s = ((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) * t;
+            let g = (1.0 + s * s).powf(-2.0 * amount);
+            let b: [f64; 3] = std::array::from_fn(|c| px[c] as f64 / a);
+            let gain = g + (1.0 - g) * luma(b.map(|v| to_srgb(v.clamp(0.0, 1.0)))) * pin;
+            for c in 0..3 {
+                px[c] = ((b[c] * gain).min(b[c].max(1.0)) * a) as f32;
+            }
+        });
 }
 
 /// D-134: `channel` (0 red, 1 green, 2 blue, 3 all three) turned toward its opposite by
@@ -2237,7 +2835,11 @@ pub(crate) fn invert_alpha(source: &mut WorkingBuffer, amount: f64) {
     let t = amount / 100.0;
     source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
         let a = px[3] as f64;
-        let b = if a > 0.0 { [0, 1, 2].map(|c| px[c] as f64 / a) } else { [0.0; 3] };
+        let b = if a > 0.0 {
+            [0, 1, 2].map(|c| px[c] as f64 / a)
+        } else {
+            [0.0; 3]
+        };
         let n = a + t * (1.0 - 2.0 * a);
         for c in 0..3 {
             px[c] = (b[c] * n) as f32;
@@ -2251,8 +2853,14 @@ pub(crate) fn brightness_contrast(source: &mut WorkingBuffer, brightness: f64, c
     if brightness == 0.0 && contrast == 0.0 {
         return;
     }
-    let k = if contrast <= 0.0 { 1.0 + contrast / 100.0 } else { 1.0 / (1.0 - 0.99 * contrast / 100.0) };
-    grade_pixels(source, false, |_, e| e.map(|v| (v - 0.5) * k + 0.5 + brightness / 255.0))
+    let k = if contrast <= 0.0 {
+        1.0 + contrast / 100.0
+    } else {
+        1.0 / (1.0 - 0.99 * contrast / 100.0)
+    };
+    grade_pixels(source, false, |_, e| {
+        e.map(|v| (v - 0.5) * k + 0.5 + brightness / 255.0)
+    })
 }
 
 /// D-136: grey from the largest, middle and smallest channel, weighted by the setting of the
@@ -2282,7 +2890,9 @@ pub(crate) fn color_lookup(source: &mut WorkingBuffer, cube: &crate::lut::Cube) 
 /// D-137: each channel cut to `levels` flat steps.
 pub(crate) fn posterize(source: &mut WorkingBuffer, levels: f64) {
     let n = levels.floor();
-    grade_pixels(source, false, |_, e| e.map(|v| (v * n + 1e-4).floor().min(n - 1.0) / (n - 1.0)))
+    grade_pixels(source, false, |_, e| {
+        e.map(|v| (v * n + 1e-4).floor().min(n - 1.0) / (n - 1.0))
+    })
 }
 
 /// The encoded luma of an encoded colour (D-130's L, the third batch's `Y(e)`).
@@ -2292,7 +2902,13 @@ fn luma(e: [f64; 3]) -> f64 {
 
 /// D-138: white where the encoded luma reaches `level` of 255, else black.
 pub(crate) fn threshold(source: &mut WorkingBuffer, level: f64) {
-    grade_pixels(source, false, |_, e| [if 255.0 * luma(e) + 1e-4 >= level { 1.0 } else { 0.0 }; 3])
+    grade_pixels(source, false, |_, e| {
+        [if 255.0 * luma(e) + 1e-4 >= level {
+            1.0
+        } else {
+            0.0
+        }; 3]
+    })
 }
 
 /// D-468/D-469: Threshold's rule on a chosen channel, a second engine beside [`threshold`] (which
@@ -2302,8 +2918,20 @@ pub(crate) fn threshold(source: &mut WorkingBuffer, level: f64) {
 /// each encoded channel by its own level; "alpha" decides the covering, the colour kept. The
 /// result is mixed back toward the straight linear colour by `keep`, 1 for none of the layer and
 /// 0 for all of it. A pixel that does not show is left as it is.
-pub(crate) fn channel_threshold(source: &mut WorkingBuffer, levels: [f64; 3], channel: &str, inverts: [bool; 3], keep: f64) {
-    let decide = |v: f64, c: usize| if (255.0 * v + 1e-4 >= levels[c]) != inverts[c] { 1.0 } else { 0.0 };
+pub(crate) fn channel_threshold(
+    source: &mut WorkingBuffer,
+    levels: [f64; 3],
+    channel: &str,
+    inverts: [bool; 3],
+    keep: f64,
+) {
+    let decide = |v: f64, c: usize| {
+        if (255.0 * v + 1e-4 >= levels[c]) != inverts[c] {
+            1.0
+        } else {
+            0.0
+        }
+    };
     each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
@@ -2333,7 +2961,12 @@ pub(crate) fn channel_threshold(source: &mut WorkingBuffer, levels: [f64; 3], ch
 /// D-212: each shown pixel kept, all four channels alike, by how far its value in `channel`, 0
 /// to 255, lies inside the black and white points `[b, w]`, fading over the softnesses `[s, t]`
 /// inside each; with `invert` the other side is kept.
-pub(crate) fn extract(source: &mut WorkingBuffer, channel: &str, [b, w, s, t]: [f64; 4], invert: bool) {
+pub(crate) fn extract(
+    source: &mut WorkingBuffer,
+    channel: &str,
+    [b, w, s, t]: [f64; 4],
+    invert: bool,
+) {
     each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
@@ -2348,8 +2981,20 @@ pub(crate) fn extract(source: &mut WorkingBuffer, channel: &str, [b, w, s, t]: [
                 "alpha" => a,
                 _ => luma([e(0), e(1), e(2)]),
             };
-        let low = if s > 0.0 { ((v - b) / s).clamp(0.0, 1.0) } else if v + 1e-4 >= b { 1.0 } else { 0.0 };
-        let high = if t > 0.0 { ((w - v) / t).clamp(0.0, 1.0) } else if v - 1e-4 <= w { 1.0 } else { 0.0 };
+        let low = if s > 0.0 {
+            ((v - b) / s).clamp(0.0, 1.0)
+        } else if v + 1e-4 >= b {
+            1.0
+        } else {
+            0.0
+        };
+        let high = if t > 0.0 {
+            ((w - v) / t).clamp(0.0, 1.0)
+        } else if v - 1e-4 <= w {
+            1.0
+        } else {
+            0.0
+        };
         let m = if invert { 1.0 - low * high } else { low * high };
         for c in px.iter_mut() {
             *c = (*c as f64 * m) as f32;
@@ -2367,7 +3012,11 @@ pub(crate) fn shift_channels(source: &mut WorkingBuffer, take: [&str; 4]) {
     }
     each_pixel(source, |px| {
         let a = px[3] as f64;
-        let e = if a > 0.0 { [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))) } else { [0.0; 3] };
+        let e = if a > 0.0 {
+            [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)))
+        } else {
+            [0.0; 3]
+        };
         let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
         let l = (mx + mn) / 2.0;
         let from = |w: &str| match w {
@@ -2394,7 +3043,14 @@ pub(crate) fn shift_channels(source: &mut WorkingBuffer, take: [&str; 4]) {
 /// D-139: each channel remade from its row: from red, from green, from blue and a constant, in
 /// per cent; with `mono` every channel uses the red row.
 pub(crate) fn channel_mixer(source: &mut WorkingBuffer, rows: [[f64; 4]; 3], mono: bool) {
-    if !mono && rows == [[100.0, 0.0, 0.0, 0.0], [0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0]] {
+    if !mono
+        && rows
+            == [
+                [100.0, 0.0, 0.0, 0.0],
+                [0.0, 100.0, 0.0, 0.0],
+                [0.0, 0.0, 100.0, 0.0],
+            ]
+    {
         return;
     }
     grade_pixels(source, false, |_, e| {
@@ -2441,7 +3097,9 @@ pub(crate) fn broadcast_safe(source: &mut WorkingBuffer, setup: f64, method: &st
             if a <= 0.0 {
                 return;
             }
-            let (y, c) = video(std::array::from_fn(|i| to_srgb((px[i] as f64 / a).clamp(0.0, 1.0))));
+            let (y, c) = video(std::array::from_fn(|i| {
+                to_srgb((px[i] as f64 / a).clamp(0.0, 1.0))
+            }));
             if over(y, c) == unsafe_out {
                 px.fill(0.0);
             }
@@ -2467,7 +3125,13 @@ pub(crate) fn broadcast_safe(source: &mut WorkingBuffer, setup: f64, method: &st
 /// `black` when `white` is not above it, a ten-thousandth of a level early as D-138's), and the correction there, from `d[0]` at 0 straight to
 /// `d[1]` at a half and `d[2]` at 1, added; with `pinning`, faded in from black and white over
 /// `pinning / 200` of the way. All three corrections 0 changes nothing.
-pub(crate) fn color_neutralizer(source: &mut WorkingBuffer, d: [[f64; 3]; 3], pinning: f64, black: f64, white: f64) {
+pub(crate) fn color_neutralizer(
+    source: &mut WorkingBuffer,
+    d: [[f64; 3]; 3],
+    pinning: f64,
+    black: f64,
+    white: f64,
+) {
     if d == [[0.0; 3]; 3] {
         return;
     }
@@ -2481,9 +3145,17 @@ pub(crate) fn color_neutralizer(source: &mut WorkingBuffer, d: [[f64; 3]; 3], pi
         } else {
             0.0
         };
-        let w = if p == 0.0 { 1.0 } else { (t.min(1.0 - t) / p).clamp(0.0, 1.0) };
+        let w = if p == 0.0 {
+            1.0
+        } else {
+            (t.min(1.0 - t) / p).clamp(0.0, 1.0)
+        };
         std::array::from_fn(|c| {
-            let k = if t <= 0.5 { d[0][c] + (d[1][c] - d[0][c]) * 2.0 * t } else { d[1][c] + (d[2][c] - d[1][c]) * (2.0 * t - 1.0) };
+            let k = if t <= 0.5 {
+                d[0][c] + (d[1][c] - d[0][c]) * 2.0 * t
+            } else {
+                d[1][c] + (d[2][c] - d[1][c]) * (2.0 * t - 1.0)
+            };
             e[c] + w * k
         })
     })
@@ -2498,12 +3170,18 @@ pub(crate) fn color_offset(source: &mut WorkingBuffer, phases: [f64; 3], overflo
     if phases == [0.0; 3] {
         return;
     }
-    let turns = phases.map(|p| std::f64::consts::PI * p / 360.0).map(f64::sin_cos);
+    let turns = phases
+        .map(|p| std::f64::consts::PI * p / 360.0)
+        .map(f64::sin_cos);
     grade_pixels(source, false, |_, e| {
         std::array::from_fn(|c| {
             let (v, f) = (e[c], phases[c] / 360.0);
             let u = v + f;
-            let u = if (u - u.round()).abs() < 1e-9 { u.round() } else { u };
+            let u = if (u - u.round()).abs() < 1e-9 {
+                u.round()
+            } else {
+                u
+            };
             match overflow {
                 _ if f == 0.0 => v,
                 "polarize" => {
@@ -2538,7 +3216,13 @@ pub(crate) fn hsv_hue(e: [f64; 3]) -> Option<f64> {
 /// D-141: every colour whose hue lies further than `tolerance` (with `softness` beyond it) from
 /// the chosen colour's is drained toward its grey by `amount` per cent. A pixel kept whole is
 /// left exactly as it is.
-pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance: f64, softness: f64, amount: f64) {
+pub(crate) fn leave_color(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    tolerance: f64,
+    softness: f64,
+    amount: f64,
+) {
     if amount == 0.0 {
         return;
     }
@@ -2579,7 +3263,11 @@ pub(crate) fn leave_color(source: &mut WorkingBuffer, color: [f64; 3], tolerance
 fn hls(e: [f64; 3]) -> (Option<f64>, f64, f64) {
     let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
     let l = (mx + mn) / 2.0;
-    let s = if mx == mn { 0.0 } else { (mx - mn) / (1.0 - (2.0 * l - 1.0).abs()) };
+    let s = if mx == mn {
+        0.0
+    } else {
+        (mx - mn) / (1.0 - (2.0 * l - 1.0).abs())
+    };
     (hsv_hue(e), l, s)
 }
 
@@ -2613,7 +3301,10 @@ pub(crate) fn change_to_color(source: &mut WorkingBuffer, c: &ChangeToColor) {
             1.0 - (d - t) / (t * w)
         }
     };
-    let (lightness, saturation) = (c.change.contains("lightness"), c.change.contains("saturation"));
+    let (lightness, saturation) = (
+        c.change.contains("lightness"),
+        c.change.contains("saturation"),
+    );
     each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
@@ -2628,7 +3319,9 @@ pub(crate) fn change_to_color(source: &mut WorkingBuffer, c: &ChangeToColor) {
             }
             _ => 1.0,
         };
-        let k = part(dh, t[0]).min(part((l - lf).abs(), t[1])).min(part((s - sf).abs(), t[2]));
+        let k = part(dh, t[0])
+            .min(part((l - lf).abs(), t[1]))
+            .min(part((s - sf).abs(), t[2]));
         if c.matte {
             let v = (to_linear(k) * a) as f32;
             px[..3].fill(v);
@@ -2641,11 +3334,23 @@ pub(crate) fn change_to_color(source: &mut WorkingBuffer, c: &ChangeToColor) {
         let (h, l, s) = if c.transforming {
             (
                 (h + ht0 - hf0).rem_euclid(360.0),
-                if lightness { (l + lt - lf).clamp(0.0, 1.0) } else { l },
-                if saturation { (s + st - sf).clamp(0.0, 1.0) } else { s },
+                if lightness {
+                    (l + lt - lf).clamp(0.0, 1.0)
+                } else {
+                    l
+                },
+                if saturation {
+                    (s + st - sf).clamp(0.0, 1.0)
+                } else {
+                    s
+                },
             )
         } else {
-            (ht0, if lightness { lt } else { l }, if saturation { st } else { s })
+            (
+                ht0,
+                if lightness { lt } else { l },
+                if saturation { st } else { s },
+            )
         };
         let rgb = from_hls(h, l, s);
         for i in 0..3 {
@@ -2714,7 +3419,13 @@ pub(crate) fn change_color(source: &mut WorkingBuffer, c: &ChangeColor) {
         return;
     }
     let (t, w) = (c.tolerance, c.softness);
-    let push = |v: f64, p: f64| if p >= 0.0 { v + (1.0 - v) * p } else { v * (1.0 + p) };
+    let push = |v: f64, p: f64| {
+        if p >= 0.0 {
+            v + (1.0 - v) * p
+        } else {
+            v * (1.0 + p)
+        }
+    };
     each_pixel(source, |px| {
         let a = px[3] as f64;
         if a <= 0.0 {
@@ -2750,20 +3461,39 @@ pub(crate) fn color_balance_hls(source: &mut WorkingBuffer, hue: f64, light: f64
     }
     grade_pixels(source, false, |_, e| {
         let (h, l, s) = hls(e);
-        let s = if h.is_some() { (s + sat).clamp(0.0, 1.0) } else { 0.0 };
-        from_hls((h.unwrap_or(0.0) + hue).rem_euclid(360.0), (l + light).clamp(0.0, 1.0), s)
+        let s = if h.is_some() {
+            (s + sat).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        from_hls(
+            (h.unwrap_or(0.0) + hue).rem_euclid(360.0),
+            (l + light).clamp(0.0, 1.0),
+            s,
+        )
     });
 }
 
 /// D-382: Gamma/Pedestal/Gain at its start leaves the layer exactly as it is.
-pub(crate) fn gamma_pedestal_gain_untouched(stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3]) -> bool {
+pub(crate) fn gamma_pedestal_gain_untouched(
+    stretch: f64,
+    gamma: [f64; 3],
+    pedestal: [f64; 3],
+    gain: [f64; 3],
+) -> bool {
     stretch == 1.0 && gamma == [1.0; 3] && pedestal == [0.0; 3] && gain == [1.0; 3]
 }
 
 /// D-382: Gamma/Pedestal/Gain. Each encoded channel x first stretched to s x / (1 + (s - 1) x),
 /// then pedestal + (gain - pedestal) x^(1 / gamma), its own three for red, green and blue, held
 /// inside 0 to 1.
-pub(crate) fn gamma_pedestal_gain(source: &mut WorkingBuffer, stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3]) {
+pub(crate) fn gamma_pedestal_gain(
+    source: &mut WorkingBuffer,
+    stretch: f64,
+    gamma: [f64; 3],
+    pedestal: [f64; 3],
+    gain: [f64; 3],
+) {
     if gamma_pedestal_gain_untouched(stretch, gamma, pedestal, gain) {
         return;
     }
@@ -2816,7 +3546,9 @@ pub(crate) fn spill_settings(effect: &crate::effects::Effect) -> [f64; 11] {
         unreachable!("spill_settings takes Advanced Spill Suppressor")
     };
     let key = crate::effects::encoded(key_color);
-    let s = [1, 2, 0].into_iter().fold(1, |s, i| if key[i] > key[s] { i } else { s });
+    let s = [1, 2, 0]
+        .into_iter()
+        .fold(1, |s, i| if key[i] > key[s] { i } else { s });
     let [p, q] = match s {
         0 => [1, 2],
         1 => [0, 2],
@@ -2897,11 +3629,21 @@ pub(crate) fn advanced_spill_suppressor(source: &mut WorkingBuffer, k: &[f64; 11
 /// [`crate::effects::CDK_VIEWS`], the key colour's HSV hue (0 for a grey), partial A's five
 /// levels, partial B's, then the matte's five (its output always 0 to 255).
 pub(crate) fn cdk_settings(effect: &crate::effects::Effect) -> [f64; 17] {
-    let crate::effects::Effect::ColorDifferenceKey { view, key_color, partial_a, partial_b, matte } = effect else {
+    let crate::effects::Effect::ColorDifferenceKey {
+        view,
+        key_color,
+        partial_a,
+        partial_b,
+        matte,
+    } = effect
+    else {
         unreachable!("cdk_settings takes Color Difference Key")
     };
     let mut k = [0.0; 17];
-    k[0] = crate::effects::CDK_VIEWS.iter().position(|v| v == view).unwrap_or(0) as f64;
+    k[0] = crate::effects::CDK_VIEWS
+        .iter()
+        .position(|v| v == view)
+        .unwrap_or(0) as f64;
     k[1] = hsv_hue(crate::effects::encoded(key_color)).unwrap_or(0.0);
     k[2..7].copy_from_slice(partial_a);
     k[7..12].copy_from_slice(partial_b);
@@ -2914,7 +3656,11 @@ pub(crate) fn cdk_settings(effect: &crate::effects::Effect) -> [f64; 17] {
 fn cdk_level([ib, iw, gamma, ob, ow]: [f64; 5], t: f64) -> f64 {
     let x = 255.0 * t;
     let v = if iw == ib {
-        if x >= ib { 1.0 } else { 0.0 }
+        if x >= ib {
+            1.0
+        } else {
+            0.0
+        }
     } else {
         ((x - ib) / (iw - ib)).clamp(0.0, 1.0)
     };
@@ -2944,7 +3690,14 @@ pub(crate) fn cdk_mattes(e: [f64; 3], k: &[f64; 17]) -> [f64; 6] {
     let set = |i: usize| [k[i], k[i + 1], k[i + 2], k[i + 3], k[i + 4]];
     let (ca, cb) = (cdk_level(set(2), a), cdk_level(set(7), b));
     let screen = |a: f64, b: f64| 1.0 - (1.0 - a) * (1.0 - b);
-    [a, ca, b, cb, screen(a, b), cdk_level(set(12), screen(ca, cb))]
+    [
+        a,
+        ca,
+        b,
+        cb,
+        screen(a, b),
+        cdk_level(set(12), screen(ca, cb)),
+    ]
 }
 
 /// D-459: Color Difference Key. "final" multiplies every channel by the corrected matte, so the
@@ -2976,11 +3729,19 @@ pub(crate) fn color_difference_key(source: &mut WorkingBuffer, k: &[f64; 17]) {
 /// D-500: Color Range's settings as the card reads them: the colour space's place in
 /// [`crate::effects::CRANGE_SPACES`], the fuzziness, then the box's six ends.
 pub(crate) fn crange_settings(effect: &crate::effects::Effect) -> [f64; 8] {
-    let crate::effects::Effect::ColorRange { color_space, fuzziness, range } = effect else {
+    let crate::effects::Effect::ColorRange {
+        color_space,
+        fuzziness,
+        range,
+    } = effect
+    else {
         unreachable!("crange_settings takes Color Range")
     };
     let mut k = [0.0; 8];
-    k[0] = crate::effects::CRANGE_SPACES.iter().position(|v| v == color_space).unwrap_or(0) as f64;
+    k[0] = crate::effects::CRANGE_SPACES
+        .iter()
+        .position(|v| v == color_space)
+        .unwrap_or(0) as f64;
     k[1] = *fuzziness;
     k[2..].copy_from_slice(range);
     k
@@ -3004,9 +3765,17 @@ pub(crate) fn crange_kept(e: [f64; 3], k: &[f64; 8]) -> f64 {
         ],
         _ => e.map(|c| 255.0 * c),
     };
-    let d = (0..3).map(|i| (k[2 + 2 * i] - v[i]).max(v[i] - k[3 + 2 * i]).max(0.0)).fold(0.0, f64::max);
+    let d = (0..3)
+        .map(|i| (k[2 + 2 * i] - v[i]).max(v[i] - k[3 + 2 * i]).max(0.0))
+        .fold(0.0, f64::max);
     match k[1] == 0.0 {
-        true => if d == 0.0 { 0.0 } else { 1.0 },
+        true => {
+            if d == 0.0 {
+                0.0
+            } else {
+                1.0
+            }
+        }
         false => (d / k[1]).min(1.0),
     }
 }
@@ -3031,8 +3800,14 @@ pub(crate) fn color_range(source: &mut WorkingBuffer, k: &[f64; 8]) {
 /// [`crate::effects::LCKEY_VIEWS`], the match's in [`crate::effects::LCKEY_MATCHES`], the
 /// tolerance and softness, the key colour encoded, and its hue (-1 for a grey).
 pub(crate) fn lckey_settings(effect: &crate::effects::Effect) -> [f64; 8] {
-    let crate::effects::Effect::LinearColorKey { view, key_color, match_colors, matching_tolerance, matching_softness, .. } =
-        effect
+    let crate::effects::Effect::LinearColorKey {
+        view,
+        key_color,
+        match_colors,
+        matching_tolerance,
+        matching_softness,
+        ..
+    } = effect
     else {
         unreachable!("lckey_settings takes Linear Color Key")
     };
@@ -3063,7 +3838,11 @@ pub(crate) fn lckey_kept(e: [f64; 3], k: &[f64; 8]) -> f64 {
     let key = [k[4], k[5], k[6]];
     let chroma = |c: [f64; 3]| {
         let s = c[0] + c[1] + c[2];
-        if s == 0.0 { [1.0 / 3.0; 3] } else { c.map(|v| v / s) }
+        if s == 0.0 {
+            [1.0 / 3.0; 3]
+        } else {
+            c.map(|v| v / s)
+        }
     };
     let most = |a: [f64; 3], b: [f64; 3]| (0..3).map(|i| (a[i] - b[i]).abs()).fold(0.0, f64::max);
     let d = match k[1] as usize {
@@ -3078,7 +3857,13 @@ pub(crate) fn lckey_kept(e: [f64; 3], k: &[f64; 8]) -> f64 {
         _ => 100.0 * most(chroma(e), chroma(key)),
     };
     match k[3] == 0.0 {
-        true => if d <= k[2] { 0.0 } else { 1.0 },
+        true => {
+            if d <= k[2] {
+                0.0
+            } else {
+                1.0
+            }
+        }
         false => ((d - k[2]) / k[3]).clamp(0.0, 1.0),
     }
 }
@@ -3118,30 +3903,37 @@ pub(crate) fn linear_color_keep(source: &mut WorkingBuffer, before: &WorkingBuff
     if view == 1 {
         return;
     }
-    debug_assert_eq!((source.width(), source.height()), (before.width(), before.height()));
+    debug_assert_eq!(
+        (source.width(), source.height()),
+        (before.width(), before.height())
+    );
     let w = source.width().max(1) * 4;
-    source.data_mut().par_chunks_mut(w).zip(before.data().par_chunks(w)).for_each(|(row, was)| {
-        for (q, p) in row.chunks_exact_mut(4).zip(was.chunks_exact(4)) {
-            let a0 = p[3] as f64;
-            if a0 <= 0.0 {
-                continue;
-            }
-            let e = [0, 1, 2].map(|c| to_srgb((p[c] as f64 / a0).clamp(0.0, 1.0)));
-            let kk = 1.0 - lckey_kept(e, k);
-            if view == 0 {
-                if a0 * kk > q[3] as f64 {
-                    // A channel at a time (B-222).
-                    for c in 0..4 {
-                        q[c] = (p[c] as f64 * kk) as f32;
-                    }
+    source
+        .data_mut()
+        .par_chunks_mut(w)
+        .zip(before.data().par_chunks(w))
+        .for_each(|(row, was)| {
+            for (q, p) in row.chunks_exact_mut(4).zip(was.chunks_exact(4)) {
+                let a0 = p[3] as f64;
+                if a0 <= 0.0 {
+                    continue;
                 }
-                continue;
+                let e = [0, 1, 2].map(|c| to_srgb((p[c] as f64 / a0).clamp(0.0, 1.0)));
+                let kk = 1.0 - lckey_kept(e, k);
+                if view == 0 {
+                    if a0 * kk > q[3] as f64 {
+                        // A channel at a time (B-222).
+                        for c in 0..4 {
+                            q[c] = (p[c] as f64 * kk) as f32;
+                        }
+                    }
+                    continue;
+                }
+                let s = (q[3] as f64).max(a0 * kk) / a0;
+                q[..3].fill((to_linear(s) * a0) as f32);
+                q[3] = p[3];
             }
-            let s = (q[3] as f64).max(a0 * kk) / a0;
-            q[..3].fill((to_linear(s) * a0) as f32);
-            q[3] = p[3];
-        }
-    });
+        });
 }
 
 /// D-540: Screen Key's settings as the card reads them: the view's place in
@@ -3165,10 +3957,15 @@ pub(crate) fn skey_settings(effect: &crate::effects::Effect) -> [f64; 13] {
     };
     let k = crate::effects::encoded(screen_color);
     // The largest channel; on a tie green, then blue, then red.
-    let s = [1usize, 2, 0].into_iter().fold(1, |best, i| if k[i] > k[best] { i } else { best });
+    let s = [1usize, 2, 0]
+        .into_iter()
+        .fold(1, |best, i| if k[i] > k[best] { i } else { best });
     let others: Vec<usize> = (0..3).filter(|&i| i != s).collect();
     [
-        crate::effects::SKEY_VIEWS.iter().position(|v| v == view).unwrap_or(0) as f64,
+        crate::effects::SKEY_VIEWS
+            .iter()
+            .position(|v| v == view)
+            .unwrap_or(0) as f64,
         s as f64,
         others[0] as f64,
         others[1] as f64,
@@ -3196,7 +3993,11 @@ pub(crate) fn skey_matte(e: [f64; 3], k: &[f64; 13]) -> f64 {
     let s = k[1] as usize;
     let screen = [k[10], k[11], k[12]];
     let ds = screen[s] - skey_weigh(screen, k, k[5]);
-    let m = if ds <= 0.0 { 1.0 } else { (1.0 - k[4] * (e[s] - skey_weigh(e, k, k[5])) / ds).clamp(0.0, 1.0) };
+    let m = if ds <= 0.0 {
+        1.0
+    } else {
+        (1.0 - k[4] * (e[s] - skey_weigh(e, k, k[5])) / ds).clamp(0.0, 1.0)
+    };
     skey_clip(m, k)
 }
 
@@ -3205,7 +4006,13 @@ pub(crate) fn skey_matte(e: [f64; 3], k: &[f64; 13]) -> f64 {
 fn skey_clip(m: f64, k: &[f64; 13]) -> f64 {
     match k[7] > k[6] {
         true => ((m - k[6]) / (k[7] - k[6])).clamp(0.0, 1.0),
-        false => if m <= k[6] { 0.0 } else { 1.0 },
+        false => {
+            if m <= k[6] {
+                0.0
+            } else {
+                1.0
+            }
+        }
     }
 }
 
@@ -3223,12 +4030,19 @@ pub(crate) fn skey_despill(e: [f64; 3], k: &[f64; 13]) -> [f64; 3] {
 /// picture's edge held; then the view; then, for "final", Key Cleaner's fit at the edge refine.
 /// The settings are valid.
 pub(crate) fn screen_key(source: &mut WorkingBuffer, effect: &crate::effects::Effect) {
-    let crate::effects::Effect::ScreenKey { shrink_grow, softness, edge_refine, .. } = *effect else {
+    let crate::effects::Effect::ScreenKey {
+        shrink_grow,
+        softness,
+        edge_refine,
+        ..
+    } = *effect
+    else {
         unreachable!("screen_key takes Screen Key")
     };
     let k = skey_settings(effect);
     let (w, h) = (source.width(), source.height());
-    let straight = |px: &[f32]| [0, 1, 2].map(|c| to_srgb((px[c] as f64 / px[3] as f64).clamp(0.0, 1.0)));
+    let straight =
+        |px: &[f32]| [0, 1, 2].map(|c| to_srgb((px[c] as f64 / px[3] as f64).clamp(0.0, 1.0)));
     let mut m: Vec<f32> = source
         .data()
         .par_chunks_exact(4)
@@ -3240,11 +4054,14 @@ pub(crate) fn screen_key(source: &mut WorkingBuffer, effect: &crate::effects::Ef
         let n = shrink_grow.abs().ceil() as usize;
         let (pw, ph) = (w + 2 * n, h + 2 * n);
         let mut pad = WorkingBuffer::transparent(pw, ph);
-        pad.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-            let x = (i % pw).saturating_sub(n).min(w - 1);
-            let y = (i / pw).saturating_sub(n).min(h - 1);
-            px.fill(m[y * w + x]);
-        });
+        pad.data_mut()
+            .par_chunks_exact_mut(4)
+            .enumerate()
+            .for_each(|(i, px)| {
+                let x = (i % pw).saturating_sub(n).min(w - 1);
+                let y = (i / pw).saturating_sub(n).min(h - 1);
+                px.fill(m[y * w + x]);
+            });
         let g = crate::layer_fx::simple_choker(&mut pad, -shrink_grow);
         let (bw, out) = (pw + 2 * g, pad.data());
         m.par_iter_mut().enumerate().for_each(|(i, v)| {
@@ -3253,37 +4070,46 @@ pub(crate) fn screen_key(source: &mut WorkingBuffer, effect: &crate::effects::Ef
     }
     if softness > 0.0 {
         let mut b = WorkingBuffer::transparent(w, h);
-        b.data_mut().par_chunks_exact_mut(4).zip(&m).for_each(|(px, &v)| px.fill(v));
+        b.data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(&m)
+            .for_each(|(px, &v)| px.fill(v));
         crate::effects::held_blur(&mut b, softness);
-        m.par_iter_mut().zip(b.data().par_chunks_exact(4)).for_each(|(v, px)| *v = px[3]);
+        m.par_iter_mut()
+            .zip(b.data().par_chunks_exact(4))
+            .for_each(|(v, px)| *v = px[3]);
     }
     let view = k[0] as usize;
-    source.data_mut().par_chunks_exact_mut(4).zip(&m).for_each(|(px, &v)| {
-        let a = px[3] as f64;
-        if a <= 0.0 {
-            px.fill(0.0);
-            return;
-        }
-        let v = v as f64;
-        match view {
-            0 => {
-                let c = skey_despill(straight(px), &k);
-                for j in 0..3 {
-                    px[j] = (to_linear(c[j]) * a * v) as f32;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(&m)
+        .for_each(|(px, &v)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            let v = v as f64;
+            match view {
+                0 => {
+                    let c = skey_despill(straight(px), &k);
+                    for j in 0..3 {
+                        px[j] = (to_linear(c[j]) * a * v) as f32;
+                    }
+                    px[3] = (a * v) as f32;
                 }
-                px[3] = (a * v) as f32;
+                _ => {
+                    let v = match view {
+                        1 => v,
+                        _ if v >= 0.999 => 1.0,
+                        _ if v <= 0.001 => 0.0,
+                        _ => 0.5,
+                    };
+                    px[..3].fill((to_linear(v) * a) as f32);
+                }
             }
-            _ => {
-                let v = match view {
-                    1 => v,
-                    _ if v >= 0.999 => 1.0,
-                    _ if v <= 0.001 => 0.0,
-                    _ => 0.5,
-                };
-                px[..3].fill((to_linear(v) * a) as f32);
-            }
-        }
-    });
+        });
     if view == 0 && edge_refine >= 1.0 {
         crate::matte_refine::key_cleaner(source, edge_refine, 0.0, 1.0);
     }
@@ -3307,7 +4133,11 @@ pub(crate) fn unmult_settings(effect: &crate::effects::Effect) -> [f64; 5] {
     let white = background_color == "white";
     [
         white as u8 as f64,
-        if white { 1.0 - white_level / 100.0 } else { black_level / 100.0 },
+        if white {
+            1.0 - white_level / 100.0
+        } else {
+            black_level / 100.0
+        },
         softness / 100.0,
         (remove_color_matting == "on") as u8 as f64,
         (clip_hdr_results == "on") as u8 as f64,
@@ -3328,10 +4158,20 @@ pub(crate) fn unmult(source: &mut WorkingBuffer, k: &[f64; 5]) {
         }
         let c = [0, 1, 2].map(|i| px[i] as f64);
         let white = k[0] == 1.0;
-        let m = if white { a - c.iter().cloned().fold(f64::INFINITY, f64::min) } else { c.iter().cloned().fold(f64::NEG_INFINITY, f64::max) };
+        let m = if white {
+            a - c.iter().cloned().fold(f64::INFINITY, f64::min)
+        } else {
+            c.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+        };
         let m = m.clamp(0.0, a);
         let share = match k[2] == 0.0 {
-            true => if m > k[1] { 1.0 } else { 0.0 },
+            true => {
+                if m > k[1] {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             false => ((m - k[1]) / k[2]).clamp(0.0, 1.0),
         };
         let cover = m * share;
@@ -3345,7 +4185,11 @@ pub(crate) fn unmult(source: &mut WorkingBuffer, k: &[f64; 5]) {
                 (true, false) => c[i] / m,
                 (true, true) => (c[i] - a + m) / m,
             };
-            let u = if k[3] == 1.0 && k[4] == 1.0 { u.clamp(0.0, 1.0) } else { u };
+            let u = if k[3] == 1.0 && k[4] == 1.0 {
+                u.clamp(0.0, 1.0)
+            } else {
+                u
+            };
             px[i] = (u * cover) as f32;
         }
         px[3] = cover as f32;
@@ -3365,7 +4209,11 @@ pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
 /// above 0, with its amounts over 100, each channel moves by w times (-1 - s) k - s (s its own
 /// of cyan, magenta, yellow; k the black), times 1 - e when `relative`, held inside -e to 1 - e.
 /// `families` in [`crate::effects::SELECTIVE_COLOR_FAMILIES`]' order, per cent.
-pub(crate) fn selective_color(source: &mut WorkingBuffer, families: &[[f64; 4]; 9], relative: bool) {
+pub(crate) fn selective_color(
+    source: &mut WorkingBuffer,
+    families: &[[f64; 4]; 9],
+    relative: bool,
+) {
     if selective_color_untouched(families) {
         return;
     }
@@ -3405,7 +4253,13 @@ pub(crate) fn selective_color(source: &mut WorkingBuffer, families: &[[f64; 4]; 
 
 /// D-400: Shadow/Highlight with both amounts 0, and (D-563) no midtone contrast and no clip,
 /// leaves the layer exactly as it is.
-pub(crate) fn shadow_highlight_untouched(shadow: f64, highlight: f64, midtone: f64, black_clip: f64, white_clip: f64) -> bool {
+pub(crate) fn shadow_highlight_untouched(
+    shadow: f64,
+    highlight: f64,
+    midtone: f64,
+    black_clip: f64,
+    white_clip: f64,
+) -> bool {
     [shadow, highlight, midtone, black_clip, white_clip] == [0.0; 5]
 }
 
@@ -3423,7 +4277,11 @@ pub(crate) fn shadow_highlight_follow([l, p, q]: [f64; 3], l2: f64) -> [f64; 3] 
 }
 
 /// D-400: the sRGB matrix of IEC 61966-2-1, its inverse, and its own white, M (1, 1, 1).
-const SH_M: [[f64; 3]; 3] = [[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]];
+const SH_M: [[f64; 3]; 3] = [
+    [0.4124, 0.3576, 0.1805],
+    [0.2126, 0.7152, 0.0722],
+    [0.0193, 0.1192, 0.9505],
+];
 const SH_MI: [[f64; 3]; 3] = [
     [3.2406254773200533, -1.5372079722103187, -0.4986285986982479],
     [-0.9689307147293194, 1.875756060885241, 0.04151752384295394],
@@ -3435,17 +4293,36 @@ const SH_WHITE: [f64; 3] = [0.9505, 1.0, 1.089];
 /// it: L* / 100, a* / 128, b* / 128.
 pub(crate) fn shadow_highlight_lab(b: [f64; 3]) -> [f64; 3] {
     let d = 6.0 / 29.0;
-    let f = |t: f64| if t > d * d * d { t.cbrt() } else { t / (3.0 * d * d) + 4.0 / 29.0 };
-    let [x, y, z]: [f64; 3] = std::array::from_fn(|i| f((0..3).map(|j| SH_M[i][j] * b[j]).sum::<f64>() / SH_WHITE[i]));
-    [(116.0 * y - 16.0) / 100.0, 500.0 * (x - y) / 128.0, 200.0 * (y - z) / 128.0]
+    let f = |t: f64| {
+        if t > d * d * d {
+            t.cbrt()
+        } else {
+            t / (3.0 * d * d) + 4.0 / 29.0
+        }
+    };
+    let [x, y, z]: [f64; 3] =
+        std::array::from_fn(|i| f((0..3).map(|j| SH_M[i][j] * b[j]).sum::<f64>() / SH_WHITE[i]));
+    [
+        (116.0 * y - 16.0) / 100.0,
+        500.0 * (x - y) / 128.0,
+        200.0 * (y - z) / 128.0,
+    ]
 }
 
 /// D-400: [`shadow_highlight_lab`] undone.
 pub(crate) fn shadow_highlight_unlab([l, p, q]: [f64; 3]) -> [f64; 3] {
     let d = 6.0 / 29.0;
-    let finv = |u: f64| if u > d { u * u * u } else { 3.0 * d * d * (u - 4.0 / 29.0) };
+    let finv = |u: f64| {
+        if u > d {
+            u * u * u
+        } else {
+            3.0 * d * d * (u - 4.0 / 29.0)
+        }
+    };
     let fy = (100.0 * l + 16.0) / 116.0;
-    let v: [f64; 3] = std::array::from_fn(|i| SH_WHITE[i] * finv([fy + 128.0 * p / 500.0, fy, fy - 128.0 * q / 200.0][i]));
+    let v: [f64; 3] = std::array::from_fn(|i| {
+        SH_WHITE[i] * finv([fy + 128.0 * p / 500.0, fy, fy - 128.0 * q / 200.0][i])
+    });
     std::array::from_fn(|i| (0..3).map(|j| SH_MI[i][j] * v[j]).sum())
 }
 
@@ -3457,18 +4334,37 @@ pub(crate) fn shadow_highlight_unlab([l, p, q]: [f64; 3]) -> [f64; 3] {
 pub(crate) fn shadow_highlight_pixel(lpq: [f64; 3], ts: f64, th: f64, k: [f64; 5]) -> [f64; 3] {
     let [s, h, cs, ch, cc] = k;
     let sign = |v: f64| if v < 0.0 { -1.0 } else { 1.0 };
-    let recip = |v: f64| if v.abs() > 1e-6 { 1.0 / v } else { 1e6f64.copysign(v) };
+    let recip = |v: f64| {
+        if v.abs() > 1e-6 {
+            1.0 / v
+        } else {
+            1e6f64.copysign(v)
+        }
+    };
     let [mut l, mut p, mut q] = lpq;
     for (amount, t, shadows) in [(h, th, false), (s, ts, true)] {
-        let x = if shadows { t / (1.0 - cs) - cs / (1.0 - cs) } else { 1.0 - t / (1.0 - ch) }.clamp(0.0, 1.0);
-        let (near, far) = if shadows { (cc, 1.0 - cc) } else { (1.0 - cc, cc) };
+        let x = if shadows {
+            t / (1.0 - cs) - cs / (1.0 - cs)
+        } else {
+            1.0 - t / (1.0 - ch)
+        }
+        .clamp(0.0, 1.0);
+        let (near, far) = if shadows {
+            (cc, 1.0 - cc)
+        } else {
+            (1.0 - cc, cc)
+        };
         let mut n = amount * amount;
         while n > 0.0 {
             let la = l;
             let lb = (t - 0.5) * sign(1.0 - la) + 0.5;
             let o = n.min(1.0) * x;
             n -= 1.0;
-            let laid = if la > 0.5 { 1.0 - (1.0 - 2.0 * (la - 0.5)) * (1.0 - lb) } else { 2.0 * la * lb };
+            let laid = if la > 0.5 {
+                1.0 - (1.0 - 2.0 * (la - 0.5)) * (1.0 - lb)
+            } else {
+                2.0 * la * lb
+            };
             l = la * (1.0 - o) + laid * o;
             let f = l * recip(la) * near + (1.0 - l) * recip(1.0 - la) * far;
             p = p * (1.0 - o) + p * f * o;
@@ -3487,33 +4383,63 @@ pub(crate) fn shadow_highlight_pixel(lpq: [f64; 3], ts: f64, th: f64, k: [f64; 5
 /// to its darkest and lightest bins in use (`frame_stats::clip_points`); the chroma following
 /// each change; the colour held inside 0 to 1 at the pixel's own covering, which is never changed.
 pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 10]) {
-    let [shadow, highlight, shadow_width, shadow_radius, highlight_width, highlight_radius, cc, midtone, black_clip, white_clip] = v;
+    let [shadow, highlight, shadow_width, shadow_radius, highlight_width, highlight_radius, cc, midtone, black_clip, white_clip] =
+        v;
     if shadow_highlight_untouched(shadow, highlight, midtone, black_clip, white_clip) {
         return;
     }
     let w = source.width().max(1);
-    let straight = |px: &[f32], a: f64| -> [f64; 3] { std::array::from_fn(|c| (px[c] as f64 / a).clamp(0.0, 1.0)) };
+    let straight = |px: &[f32], a: f64| -> [f64; 3] {
+        std::array::from_fn(|c| (px[c] as f64 / a).clamp(0.0, 1.0))
+    };
     let mut plane = source.clone();
     plane.data_mut().par_chunks_mut(w * 4).for_each(|row| {
         for px in row.chunks_exact_mut(4) {
             let a = px[3] as f64;
-            let l = if a > 0.0 { shadow_highlight_lab(straight(px, a))[0] as f32 } else { 0.0 };
+            let l = if a > 0.0 {
+                shadow_highlight_lab(straight(px, a))[0] as f32
+            } else {
+                0.0
+            };
             px.copy_from_slice(&[l, l, l, 1.0]);
         }
     });
     let blurred = |mut b: WorkingBuffer, sigma: f64| {
-        crate::effects::held_blur_axes(&mut b, &crate::effects::gaussian_weights(sigma), (true, true));
+        crate::effects::held_blur_axes(
+            &mut b,
+            &crate::effects::gaussian_weights(sigma),
+            (true, true),
+        );
         b
     };
     // With both amounts 0 no step reads the blurs, so the plane stands in for them unblurred.
     let lifting = shadow != 0.0 || highlight != 0.0;
-    let ls = if lifting { blurred(plane.clone(), shadow_radius) } else { plane.clone() };
-    let lh = if !lifting || highlight_radius == shadow_radius { ls.clone() } else { blurred(plane, highlight_radius) };
+    let ls = if lifting {
+        blurred(plane.clone(), shadow_radius)
+    } else {
+        plane.clone()
+    };
+    let lh = if !lifting || highlight_radius == shadow_radius {
+        ls.clone()
+    } else {
+        blurred(plane, highlight_radius)
+    };
     let (ls, lh) = (ls.data(), lh.data());
-    let k = [2.0 * shadow / 100.0, 2.0 * highlight / 100.0, (1.0 - shadow_width / 100.0).min(0.99), (1.0 - highlight_width / 100.0).min(0.99), cc / 100.0];
+    let k = [
+        2.0 * shadow / 100.0,
+        2.0 * highlight / 100.0,
+        (1.0 - shadow_width / 100.0).min(0.99),
+        (1.0 - highlight_width / 100.0).min(0.99),
+        cc / 100.0,
+    ];
     let m = midtone / 100.0;
     let lifted = |px: &[f32], i: usize| -> [f64; 3] {
-        let lpq = shadow_highlight_pixel(shadow_highlight_lab(straight(px, px[3] as f64)), 1.0 - ls[i] as f64, 1.0 - lh[i] as f64, k);
+        let lpq = shadow_highlight_pixel(
+            shadow_highlight_lab(straight(px, px[3] as f64)),
+            1.0 - ls[i] as f64,
+            1.0 - lh[i] as f64,
+            k,
+        );
         let l = lpq[0];
         shadow_highlight_follow(lpq, l + m * l * (1.0 - l) * (2.0 * l - 1.0))
     };
@@ -3529,7 +4455,8 @@ pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 10]) {
                 let mut h = [0.0; 256];
                 for (j, px) in block.chunks_exact(4).enumerate() {
                     if px[3] > 0.0 {
-                        h[crate::frame_stats::bin(lifted(px, b * w * 4 * 64 + j * 4)[0])] += px[3] as f64;
+                        h[crate::frame_stats::bin(lifted(px, b * w * 4 * 64 + j * 4)[0])] +=
+                            px[3] as f64;
                     }
                 }
                 h
@@ -3544,25 +4471,34 @@ pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 10]) {
         let (kb, kw) = crate::frame_stats::clip_points(&h, black_clip, white_clip);
         let (lo, hi) = crate::frame_stats::clip_points(&h, 0.0, 0.0);
         if kw > kb {
-            line = Some((kb as f64 / 255.0, lo as f64 / 255.0, (hi - lo) as f64 / (kw - kb) as f64));
+            line = Some((
+                kb as f64 / 255.0,
+                lo as f64 / 255.0,
+                (hi - lo) as f64 / (kw - kb) as f64,
+            ));
         }
     }
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
-        for (x, px) in row.chunks_exact_mut(4).enumerate() {
-            let a = px[3] as f64;
-            if a <= 0.0 {
-                continue;
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let a = px[3] as f64;
+                if a <= 0.0 {
+                    continue;
+                }
+                let mut lpq = lifted(px, (y * w + x) * 4);
+                if let Some((kb, lo, slope)) = line {
+                    lpq =
+                        shadow_highlight_follow(lpq, (lo + (lpq[0] - kb) * slope).clamp(0.0, 1.0));
+                }
+                let o = shadow_highlight_unlab(lpq);
+                for c in 0..3 {
+                    px[c] = (o[c].clamp(0.0, 1.0) * a) as f32;
+                }
             }
-            let mut lpq = lifted(px, (y * w + x) * 4);
-            if let Some((kb, lo, slope)) = line {
-                lpq = shadow_highlight_follow(lpq, (lo + (lpq[0] - kb) * slope).clamp(0.0, 1.0));
-            }
-            let o = shadow_highlight_unlab(lpq);
-            for c in 0..3 {
-                px[c] = (o[c].clamp(0.0, 1.0) * a) as f32;
-            }
-        }
-    });
+        });
 }
 
 /// D-397: Color Grade's tone step. Each channel taken to linear light, multiplied by its gain
@@ -3570,7 +4506,11 @@ pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 10]) {
 /// highlights, shadows, whites, blacks and faded film as shares, on each encoded channel one
 /// after another: `v += c v (1 - v) (2v - 1)`, `h v² (1 - v)`, `s v (1 - v)²`, `w v² / 4`,
 /// `b (1 - v)² / 4` and `f (0.25 (1 - v)² - 0.1 v²)`; held inside 0 to 1.
-pub(crate) fn grade_tone(source: &mut WorkingBuffer, gains: [f64; 3], [c, h, s, w, b, f]: [f64; 6]) {
+pub(crate) fn grade_tone(
+    source: &mut WorkingBuffer,
+    gains: [f64; 3],
+    [c, h, s, w, b, f]: [f64; 6],
+) {
     let linear = gains != [1.0; 3];
     grade_pixels(source, false, |_, e| {
         std::array::from_fn(|i| {
@@ -3610,7 +4550,11 @@ pub(crate) fn hue_curve(points: &[Vec<f64>], hue: f64) -> f64 {
     let n = points.len();
     for i in 0..n {
         let (h0, s0, s1) = (points[i][0], points[i][1], points[(i + 1) % n][1]);
-        let h1 = if i + 1 == n { points[0][0] + 360.0 } else { points[i + 1][0] };
+        let h1 = if i + 1 == n {
+            points[0][0] + 360.0
+        } else {
+            points[i + 1][0]
+        };
         let x = if hue >= h0 { hue } else { hue + 360.0 };
         if n > 1 && h0 <= x && x < h1 {
             let u = (x - h0) / (h1 - h0);
@@ -3659,7 +4603,9 @@ pub(crate) fn grade_curve(source: &mut WorkingBuffer, which: usize, points: &[Ve
     grade_pixels(source, false, |_, e| {
         let (hue, l, s) = hls(e);
         match which {
-            0 => hue.map_or(e, |h| from_hls((h + hue_curve(points, h)).rem_euclid(360.0), l, s)),
+            0 => hue.map_or(e, |h| {
+                from_hls((h + hue_curve(points, h)).rem_euclid(360.0), l, s)
+            }),
             1 => {
                 let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
                 let lift = hue_curve(points, hue.unwrap_or(0.0)) * (mx - mn) / 200.0;
@@ -3667,7 +4613,11 @@ pub(crate) fn grade_curve(source: &mut WorkingBuffer, which: usize, points: &[Ve
             }
             _ => {
                 let l = luma(e);
-                let x = if which == 2 { 100.0 * l } else { 100.0 * s.min(1.0) };
+                let x = if which == 2 {
+                    100.0 * l
+                } else {
+                    100.0 * s.min(1.0)
+                };
                 let k = line_curve(points, x) / 100.0;
                 e.map(|v| l + (v - l) * k)
             }
@@ -3695,7 +4645,13 @@ pub(crate) struct Secondary {
 
 /// D-398: 1 from `lo` to `hi`, falling to 0 over `soft` outside them, eased.
 fn key_band(x: f64, lo: f64, hi: f64, soft: f64) -> f64 {
-    let d = if x < lo { lo - x } else if x > hi { x - hi } else { 0.0 };
+    let d = if x < lo {
+        lo - x
+    } else if x > hi {
+        x - hi
+    } else {
+        0.0
+    };
     if d <= 0.0 {
         return 1.0;
     }
@@ -3714,12 +4670,23 @@ pub(crate) fn secondary_key(e: [f64; 3], s: &Secondary) -> f64 {
     let wh = match (k[1] >= 180.0, hue) {
         (true, _) => 1.0,
         (false, None) => 0.0,
-        (false, Some(h)) => key_band(((h - k[0] + 180.0).rem_euclid(360.0) - 180.0).abs(), 0.0, k[1], k[2]),
+        (false, Some(h)) => key_band(
+            ((h - k[0] + 180.0).rem_euclid(360.0) - 180.0).abs(),
+            0.0,
+            k[1],
+            k[2],
+        ),
     };
     // A pure colour's saturation can come out a rounding above 1, which a band ending at 100
     // with no softness would drop; held inside 0 to 1 first.
-    let m = wh * key_band(sat.min(1.0) * 100.0, k[3], k[4], k[7]) * key_band(l * 100.0, k[5], k[6], k[7]);
-    if s.invert { 1.0 - m } else { m }
+    let m = wh
+        * key_band(sat.min(1.0) * 100.0, k[3], k[4], k[7])
+        * key_band(l * 100.0, k[5], k[6], k[7]);
+    if s.invert {
+        1.0 - m
+    } else {
+        m
+    }
 }
 
 /// D-571: HSL Secondary's key for every pixel (0 where it does not show), through Median's
@@ -3731,13 +4698,24 @@ fn secondary_refined_key(source: &WorkingBuffer, s: &Secondary) -> Vec<f32> {
     plane.data_mut().par_chunks_mut(w * 4).for_each(|row| {
         for px in row.chunks_exact_mut(4) {
             let a = px[3] as f64;
-            let m = if a > 0.0 { secondary_key(std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))), s) as f32 } else { 0.0 };
+            let m = if a > 0.0 {
+                secondary_key(
+                    std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))),
+                    s,
+                ) as f32
+            } else {
+                0.0
+            };
             px.copy_from_slice(&[m, m, m, 1.0]);
         }
     });
     crate::median::median(&mut plane, s.refine.0, -1.0, false);
     if s.refine.1 > 0.0 {
-        crate::effects::held_blur_axes(&mut plane, &crate::effects::gaussian_weights(s.refine.1), (true, true));
+        crate::effects::held_blur_axes(
+            &mut plane,
+            &crate::effects::gaussian_weights(s.refine.1),
+            (true, true),
+        );
     }
     plane.data().chunks_exact(4).map(|p| p[0]).collect()
 }
@@ -3768,7 +4746,10 @@ pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
             None => s.push,
             Some([sh, hi]) => {
                 let l = luma(e);
-                let (ws, wh) = ((1.0 - 2.0 * l).clamp(0.0, 1.0), (2.0 * l - 1.0).clamp(0.0, 1.0));
+                let (ws, wh) = (
+                    (1.0 - 2.0 * l).clamp(0.0, 1.0),
+                    (2.0 * l - 1.0).clamp(0.0, 1.0),
+                );
                 std::array::from_fn(|i| ws * sh[i] + (1.0 - ws - wh) * s.push[i] + wh * hi[i])
             }
         };
@@ -3779,7 +4760,11 @@ pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.
-pub(crate) fn stabilizer_sample(source: &WorkingBuffer, (px, py): (f64, f64), r: f64) -> Option<[f64; 3]> {
+pub(crate) fn stabilizer_sample(
+    source: &WorkingBuffer,
+    (px, py): (f64, f64),
+    r: f64,
+) -> Option<[f64; 3]> {
     let (w, h) = (source.width(), source.height());
     if w == 0 || h == 0 {
         return None;
@@ -3797,8 +4782,14 @@ pub(crate) fn stabilizer_sample(source: &WorkingBuffer, (px, py): (f64, f64), r:
         }
     };
     let mut found = false;
-    let (x0, x1) = ((px - r - 1.0).floor().max(0.0) as usize, ((px + r).ceil().max(0.0) as usize).min(w - 1));
-    let (y0, y1) = ((py - r - 1.0).floor().max(0.0) as usize, ((py + r).ceil().max(0.0) as usize).min(h - 1));
+    let (x0, x1) = (
+        (px - r - 1.0).floor().max(0.0) as usize,
+        ((px + r).ceil().max(0.0) as usize).min(w - 1),
+    );
+    let (y0, y1) = (
+        (py - r - 1.0).floor().max(0.0) as usize,
+        ((py + r).ceil().max(0.0) as usize).min(h - 1),
+    );
     for y in y0..=y1 {
         for x in x0..=x1 {
             if (x as f64 + 0.5 - px).hypot(y as f64 + 0.5 - py) <= r {
@@ -3808,7 +4799,10 @@ pub(crate) fn stabilizer_sample(source: &WorkingBuffer, (px, py): (f64, f64), r:
         }
     }
     if !found {
-        add((px.floor().max(0.0) as usize).min(w - 1), (py.floor().max(0.0) as usize).min(h - 1));
+        add(
+            (px.floor().max(0.0) as usize).min(w - 1),
+            (py.floor().max(0.0) as usize).min(h - 1),
+        );
     }
     (total > 0.0).then(|| sums.map(|s| s / total))
 }
@@ -3818,7 +4812,12 @@ pub(crate) fn stabilizer_sample(source: &WorkingBuffer, (px, py): (f64, f64), r:
 /// channel by the black samples' difference in brightness; "levels" and "curves" map each
 /// channel through the lines joining the pairs in order of the current value, the outer lines
 /// carried on, a pair within a millionth of the one before left out.
-pub(crate) fn color_stabilize(source: &mut WorkingBuffer, mode: &str, now: &[[f64; 3]], then: &[[f64; 3]]) {
+pub(crate) fn color_stabilize(
+    source: &mut WorkingBuffer,
+    mode: &str,
+    now: &[[f64; 3]],
+    then: &[[f64; 3]],
+) {
     if mode == "brightness" {
         let y = |e: [f64; 3]| 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
         let lift = y(then[0]) - y(now[0]);
@@ -3844,7 +4843,9 @@ pub(crate) fn color_stabilize(source: &mut WorkingBuffer, mode: &str, now: &[[f6
         let ((a, b), (c, d)) = (l[i - 1], l[i]);
         b + (v - a) * (d - b) / (c - a)
     };
-    grade_pixels(source, false, |_, e| std::array::from_fn(|c| map(&lines[c], e[c])));
+    grade_pixels(source, false, |_, e| {
+        std::array::from_fn(|c| map(&lines[c], e[c]))
+    });
 }
 
 /// D-142: each channel at or above `threshold` of 255 turned to its opposite; the rest kept bit
@@ -3894,7 +4895,10 @@ pub(crate) fn halftone(source: &mut WorkingBuffer, h: &Halftone, (ox, oy): (usiz
             if a <= 0.0 {
                 return;
             }
-            let (x, y) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+            let (x, y) = (
+                (i % w) as f64 - ox as f64 + 0.5,
+                (i / w) as f64 - oy as f64 + 0.5,
+            );
             let (u, v) = ((x * cos + y * sin) / h.size, (-x * sin + y * cos) / h.size);
             let rho = ((u - u.floor() - 0.5).powi(2) + (v - v.floor() - 0.5).powi(2)).sqrt();
             let b = [0, 1, 2].map(|c| px[c] as f64 / a);

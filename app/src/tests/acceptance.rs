@@ -112,8 +112,7 @@ fn exposures(viewer: &Mutex<Viewer>, layer_id: &str) -> String {
 /// identity per frame matches the exposure reference", and [`CEL_REFERENCE`] is the
 /// reference.
 fn cel_identity(viewer: &Mutex<Viewer>, layer_id: &str, frames: i32) -> String {
-    let Some((spans, timing)) =
-        layer(viewer, layer_id, |l| (l.exposure_spans.clone(), l.timing()))
+    let Some((spans, timing)) = layer(viewer, layer_id, |l| (l.exposure_spans.clone(), l.timing()))
     else {
         return "(no such layer)".to_string();
     };
@@ -419,9 +418,7 @@ fn the_thirteen_steps_of_w01_end_in_a_sequence_on_the_disk() {
     for (start, end, drawing) in SHEET {
         run(
             &viewer,
-            &format!(
-                "exposure.set_span?layer=layer-2&start={start}&end={end}&drawing={drawing}"
-            ),
+            &format!("exposure.set_span?layer=layer-2&start={start}&end={end}&drawing={drawing}"),
         );
     }
     report.check(
@@ -447,17 +444,13 @@ fn the_thirteen_steps_of_w01_end_in_a_sequence_on_the_disk() {
     for (start, end, drawing) in [(0, 8, 0), (8, 16, 3), (16, 24, 9)] {
         run(
             &viewer,
-            &format!(
-                "exposure.set_span?layer=layer-4&start={start}&end={end}&drawing={drawing}"
-            ),
+            &format!("exposure.set_span?layer=layer-4&start={start}&end={end}&drawing={drawing}"),
         );
     }
     for (start, end, drawing) in [(0, 12, 0), (12, 24, 10)] {
         run(
             &viewer,
-            &format!(
-                "exposure.set_span?layer=layer-3&start={start}&end={end}&drawing={drawing}"
-            ),
+            &format!("exposure.set_span?layer=layer-3&start={start}&end={end}&drawing={drawing}"),
         );
     }
     report.check(

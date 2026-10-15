@@ -26,10 +26,17 @@ use serde_json::{json, Value};
 mod common;
 use common::repo;
 
-const SHOTS: [&str; 5] = ["as it is", "adjustment layer", "Light Wrap", "motion blur", "effects"];
+const SHOTS: [&str; 5] = [
+    "as it is",
+    "adjustment layer",
+    "Light Wrap",
+    "motion blur",
+    "effects",
+];
 
 fn shot(kind: &str) -> Value {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let comp = &mut j["compositions"][0];
     match kind {
@@ -41,18 +48,23 @@ fn shot(kind: &str) -> Value {
                     "scale": {"base": [100, 100], "keyframes": []}, "rotation": still, "opacity": {"base": 0.7, "keyframes": []}},
                 "mask": null, "matte": null, "blend_mode": "normal",
                 "effects": [{"instance_id": "b159-e", "type_id": "core.exposure", "enabled": true, "parameters": {"stops": 1}}]});
-            comp["layers"].as_array_mut().expect("layers").insert(2, adj);
-            comp["layer_order"].as_array_mut().expect("layer order").insert(2, "b159-adj".into());
+            comp["layers"]
+                .as_array_mut()
+                .expect("layers")
+                .insert(2, adj);
+            comp["layer_order"]
+                .as_array_mut()
+                .expect("layer order")
+                .insert(2, "b159-adj".into());
         }
         "Light Wrap" => {
             comp["layers"][2]["effects"] = json!([{"instance_id": "b159-w", "type_id": "core.light_wrap", "enabled": true,
                 "parameters": {"width": 20, "intensity": 100, "blend": "screen"}}]);
         }
         "motion blur" => {
-            comp["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
-            let keys = |a: Value, b: Value| {
-                json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]})
-            };
+            comp["motion_blur"] =
+                json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
+            let keys = |a: Value, b: Value| json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]});
             let layers = comp["layers"].as_array_mut().expect("layers");
             for l in layers.iter_mut() {
                 l["motion_blur"] = true.into();
@@ -85,22 +97,54 @@ fn edited(base: &Value, layer: usize, edit: usize) -> Project {
 }
 
 fn load(j: &Value) -> Project {
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("{}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 const MIDDLE: [f64; 4] = [0.25, 0.25, 0.75, 0.75];
 
 /// One frame, whole or the middle quarter, with `cache`.
-fn draw(p: &Project, frame: i32, quality: PreviewQuality, part: bool, cache: &mut CelCache) -> Vec<u32> {
-    let (root, comp) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
+fn draw(
+    p: &Project,
+    frame: i32,
+    quality: PreviewQuality,
+    part: bool,
+    cache: &mut CelCache,
+) -> Vec<u32> {
+    let (root, comp) = (
+        repo("Fixtures/reference_shot"),
+        Id::new("comp-reference-shot"),
+    );
     let mut log = FrameLog::new(3);
     let pixels = if part {
-        preview::preview_part(p, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, cache, MIDDLE)
-            .unwrap_or_else(|d| panic!("{}", d.message))
-            .0
+        preview::preview_part(
+            p,
+            &comp,
+            frame,
+            &root,
+            quality,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            cache,
+            MIDDLE,
+        )
+        .unwrap_or_else(|d| panic!("{}", d.message))
+        .0
     } else {
-        preview::preview_frame_cached(p, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, cache)
-            .unwrap_or_else(|d| panic!("{}", d.message))
+        preview::preview_frame_cached(
+            p,
+            &comp,
+            frame,
+            &root,
+            quality,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            cache,
+        )
+        .unwrap_or_else(|d| panic!("{}", d.message))
     };
     pixels.data().iter().map(|v| v.to_bits()).collect()
 }
@@ -113,13 +157,20 @@ fn b159_below() {
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     for kind in SHOTS {
         let base = shot(kind);
-        let layers = base["compositions"][0]["layers"].as_array().expect("layers").len();
+        let layers = base["compositions"][0]["layers"]
+            .as_array()
+            .expect("layers")
+            .len();
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100] {
                 for part in [false, true] {
                     let mut viewer = CelCache::viewer();
                     draw(&load(&base), frame, quality, part, &mut viewer);
-                    let mut row = |what: String, warm: Vec<u32>, cold: Vec<u32>, reused: bool, must: Option<bool>| {
+                    let mut row = |what: String,
+                                   warm: Vec<u32>,
+                                   cold: Vec<u32>,
+                                   reused: bool,
+                                   must: Option<bool>| {
                         let same = warm == cold;
                         let ok = same && must.is_none_or(|m| m == reused);
                         checks += 1;
@@ -143,7 +194,13 @@ fn b159_below() {
                             let reused = viewer.below_reused() > before;
                             let cold = draw(&p, frame, quality, part, &mut plain);
                             let must = (layer > 0 && edit > 0).then_some(true);
-                            row(format!("layer {} {name}", layer + 1), warm, cold, reused, must);
+                            row(
+                                format!("layer {} {name}", layer + 1),
+                                warm,
+                                cold,
+                                reused,
+                                must,
+                            );
                         }
                     }
                     let p = load(&base);
@@ -151,7 +208,13 @@ fn b159_below() {
                     let warm = draw(&p, frame + 1, quality, part, &mut viewer);
                     let reused = viewer.below_reused() > before;
                     let cold = draw(&p, frame + 1, quality, part, &mut plain);
-                    row(format!("next frame, {}, as it is", frame + 1), warm, cold, reused, Some(false));
+                    row(
+                        format!("next frame, {}, as it is", frame + 1),
+                        warm,
+                        cold,
+                        reused,
+                        Some(false),
+                    );
                 }
             }
         }
@@ -183,7 +246,11 @@ fn b159_timing() {
     let (_, declared_root, declared) = common::build_fixture("b159");
     let declared: Value = serde_json::from_str(&declared).expect("the fixture is JSON");
     let shots = [
-        ("reference shot", shot("as it is"), repo("Fixtures/reference_shot")),
+        (
+            "reference shot",
+            shot("as it is"),
+            repo("Fixtures/reference_shot"),
+        ),
         ("declared ten-layer fixture", declared, declared_root),
     ];
     let mut rows = String::new();
@@ -200,7 +267,10 @@ fn b159_timing() {
             for (which, at) in [("top", n - 1), ("middle", n / 2), ("second from bottom", 1)] {
                 let with = |opacity: f64| {
                     let mut j = base.clone();
-                    for l in j["compositions"][0]["layers"].as_array_mut().expect("layers") {
+                    for l in j["compositions"][0]["layers"]
+                        .as_array_mut()
+                        .expect("layers")
+                    {
                         if l["id"] == order[at].as_str() {
                             l["transform"]["opacity"] = json!({"base": opacity, "keyframes": []});
                         }
@@ -212,8 +282,17 @@ fn b159_timing() {
                 let mut log = FrameLog::new(3);
                 let mut once = |p: &Project, cache: &mut CelCache| {
                     let at = std::time::Instant::now();
-                    preview::preview_frame_cached(p, &comp, 10, root, quality, DEFAULT_TILE_SIZE, &mut log, cache)
-                        .unwrap_or_else(|d| panic!("{}", d.message));
+                    preview::preview_frame_cached(
+                        p,
+                        &comp,
+                        10,
+                        root,
+                        quality,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        cache,
+                    )
+                    .unwrap_or_else(|d| panic!("{}", d.message));
                     at.elapsed().as_secs_f64() * 1000.0
                 };
                 // The frame as it is, then the first edit, which is where what is below is kept.
@@ -221,7 +300,14 @@ fn b159_timing() {
                 once(&edits[1], &mut cache);
                 let mut ms: Vec<f64> = (0..20).map(|i| once(&edits[i % 2], &mut cache)).collect();
                 ms.sort_by(f64::total_cmp);
-                writeln!(rows, "| {name} | {} | {which} ({} of {n}) | {:.1} |", quality.label(), at + 1, ms[ms.len() / 2]).unwrap();
+                writeln!(
+                    rows,
+                    "| {name} | {} | {which} ({} of {n}) | {:.1} |",
+                    quality.label(),
+                    at + 1,
+                    ms[ms.len() / 2]
+                )
+                .unwrap();
             }
         }
     }

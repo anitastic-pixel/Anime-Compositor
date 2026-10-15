@@ -57,12 +57,20 @@ struct Pass {
 
 fn play(w: &Workload, ahead: bool, gap: Duration) -> Pass {
     let comp = Id::new(COMP);
-    let c = w.project.composition(&comp).expect("the fixture has its composition");
+    let c = w
+        .project
+        .composition(&comp)
+        .expect("the fixture has its composition");
     let (first, last) = c.work_frames();
     let mut clock = Playback::new(first, last, c.frame_rate);
     let length = Duration::from_secs_f64((last - first + 1) as f64 / 24.0);
     let cache = Arc::new(Mutex::new(CelCache::viewer()));
-    let mut pass = Pass { shown: 0, skipped: 0, ms: Vec::new(), frames: Vec::new() };
+    let mut pass = Pass {
+        shown: 0,
+        skipped: 0,
+        ms: Vec::new(),
+        frames: Vec::new(),
+    };
     let began = Instant::now();
     let mut pending = None;
     while began.elapsed() < length {
@@ -82,8 +90,13 @@ fn play(w: &Workload, ahead: bool, gap: Duration) -> Pass {
         // What `app/src/main.rs` does between the render and the encode.
         if ahead {
             let next = clock.after(shown.frame);
-            let handle =
-                preview::read_ahead(w.project.clone(), comp.clone(), next, w.root.clone(), cache.clone());
+            let handle = preview::read_ahead(
+                w.project.clone(),
+                comp.clone(),
+                next,
+                w.root.clone(),
+                cache.clone(),
+            );
             pending = Some(handle);
         }
         let pixels = buffer.to_srgb8_straight();
@@ -116,7 +129,11 @@ fn p18_read_ahead() {
             project: reference.document.project().clone(),
             root: repo("Fixtures/reference_shot"),
         },
-        Workload { name: "the declared ten-layer fixture (10 layers)", project: declared, root: declared_root },
+        Workload {
+            name: "the declared ten-layer fixture (10 layers)",
+            project: declared,
+            root: declared_root,
+        },
     ];
 
     let mut s = String::from(

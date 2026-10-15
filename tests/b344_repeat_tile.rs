@@ -14,7 +14,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,7 +43,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=30 {
         let file = format!("fx_repeat_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -50,7 +55,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::RepeatTile { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::RepeatTile { .. })
+                });
             }
         }
         t.row(
@@ -68,9 +75,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in cases {
@@ -84,7 +100,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::RepeatTile { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::RepeatTile { .. })
+                });
                 t.row(
                     &format!("the reference shot, Repeat Tile {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -97,8 +115,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, cases: &[(&str, J, usize)]) {
 
 /// `effects` on the still `asset` (in `dir`, `size` pixels) in the middle of a composition `room`
 /// pixels, drawn on the processor at `frame`, straight 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), room: (usize, usize), effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    room: (usize, usize),
+    effects: J,
+    frame: i32,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(room.0);
@@ -109,8 +137,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), room: (usize, usize), 
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -160,29 +200,68 @@ fn b344_repeat_tile() {
         ("fx_repeat_029.json", "blend borders"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Repeat Tile and its {want}"), &why, why.contains("Repeat Tile") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Repeat Tile and its {want}"),
+            &why,
+            why.contains("Repeat Tile") && why.contains(want),
+        );
     }
     let full = r#"{"expand_right": 0, "expand_left": 0, "expand_down": 0, "expand_up": 0, "tiling": "unfold", "blend_borders": 0}"#;
-    t.shape_refused("fx_repeat_001.json", "a Repeat Tile whose expand right is a word", &full.replace("\"expand_right\": 0", "\"expand_right\": \"far\""));
-    t.shape_refused("fx_repeat_001.json", "a Repeat Tile without its blend borders", &full.replace(", \"blend_borders\": 0", ""));
-    t.shape_refused("fx_repeat_001.json", "a Repeat Tile whose tiling is a number", &full.replace("\"unfold\"", "3"));
+    t.shape_refused(
+        "fx_repeat_001.json",
+        "a Repeat Tile whose expand right is a word",
+        &full.replace("\"expand_right\": 0", "\"expand_right\": \"far\""),
+    );
+    t.shape_refused(
+        "fx_repeat_001.json",
+        "a Repeat Tile without its blend borders",
+        &full.replace(", \"blend_borders\": 0", ""),
+    );
+    t.shape_refused(
+        "fx_repeat_001.json",
+        "a Repeat Tile whose tiling is a number",
+        &full.replace("\"unfold\"", "3"),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_repeat_001.json").document;
-    let over = changed(&t, "fx_repeat_001.json", |e| if let Effect::RepeatTile { expand_down, .. } = e { *expand_down = 4001.0 });
-    let much = changed(&t, "fx_repeat_001.json", |e| if let Effect::RepeatTile { blend_borders, .. } = e { *blend_borders = 101.0 });
-    let word = changed(&t, "fx_repeat_001.json", |e| if let Effect::RepeatTile { tiling, .. } = e { *tiling = "wallpaper".into() });
+    let over = changed(&t, "fx_repeat_001.json", |e| {
+        if let Effect::RepeatTile { expand_down, .. } = e {
+            *expand_down = 4001.0
+        }
+    });
+    let much = changed(&t, "fx_repeat_001.json", |e| {
+        if let Effect::RepeatTile { blend_borders, .. } = e {
+            *blend_borders = 101.0
+        }
+    });
+    let word = changed(&t, "fx_repeat_001.json", |e| {
+        if let Effect::RepeatTile { tiling, .. } = e {
+            *tiling = "wallpaper".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("expand down 4001", set(over)),
             ("blend borders 101", set(much)),
             ("tiling wallpaper", set(word)),
-            ("expand left keyed to 5000", keys("expand_left", &[(0, &[0.0]), (4, &[5000.0])])),
+            (
+                "expand left keyed to 5000",
+                keys("expand_left", &[(0, &[0.0]), (4, &[5000.0])]),
+            ),
         ],
     );
     let moved = changed(&t, "fx_repeat_001.json", |e| {
-        if let Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } = e {
+        if let Effect::RepeatTile {
+            expand_right,
+            expand_left,
+            expand_down,
+            expand_up,
+            tiling,
+            blend_borders,
+        } = e
+        {
             *expand_right = 12.0;
             *expand_left = 3.0;
             *expand_down = 7.0;
@@ -195,8 +274,14 @@ fn b344_repeat_tile() {
         &mut document,
         "fx_repeat_001.json",
         vec![
-            ("Brick, grown 12 right, 3 left, 7 down and half a pixel up, blend 40", set(moved)),
-            ("blend borders keyed from 0 to 100", keys("blend_borders", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "Brick, grown 12 right, 3 left, 7 down and half a pixel up, blend 40",
+                set(moved),
+            ),
+            (
+                "blend borders keyed from 0 to 100",
+                keys("blend_borders", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -233,8 +318,16 @@ fn b344_repeat_tile() {
                 json!({"tiling": "brick", "expand_right": 150, "expand_left": 150, "expand_down": 150, "expand_up": 150, "blend_borders": 40}),
                 3,
             ),
-            ("Random, grown 80 left and up, blend 100", json!({"tiling": "random", "expand_left": 80, "expand_up": 80, "blend_borders": 100}), 3),
-            ("Repeat, nothing grown, blend 60", json!({"tiling": "repeat", "blend_borders": 60}), 3),
+            (
+                "Random, grown 80 left and up, blend 100",
+                json!({"tiling": "random", "expand_left": 80, "expand_up": 80, "blend_borders": 100}),
+                3,
+            ),
+            (
+                "Repeat, nothing grown, blend 60",
+                json!({"tiling": "repeat", "blend_borders": 60}),
+                3,
+            ),
         ],
     );
 
@@ -245,7 +338,17 @@ fn b344_repeat_tile() {
     // The street in the middle of a composition twice its size, so the copies have room.
     let room = (2 * w, 2 * h);
     let all = room.0 * room.1;
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, room, json!([fx("fx-0-0", &p)]), 0);
     let grown = |tiling: &str, more: J| {
@@ -274,8 +377,13 @@ fn b344_repeat_tile() {
 
     let (repeat, said) = grown("repeat", json!({}));
     write("2_repeat.png", room, &repeat);
-    let copies = (0..room.1).flat_map(|y| (0..room.0 - w).map(move |x| (x, y))).filter(|&(x, y)| at(&repeat, room.0, x, y) == at(&repeat, room.0, x + w, y)).count();
-    let middle = (0..h).all(|y| (0..w).all(|x| at(&repeat, room.0, x0 + x, y0 + y) == at(&before, room.0, x0 + x, y0 + y)));
+    let copies = (0..room.1)
+        .flat_map(|y| (0..room.0 - w).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&repeat, room.0, x, y) == at(&repeat, room.0, x + w, y))
+        .count();
+    let middle = (0..h).all(|y| {
+        (0..w).all(|x| at(&repeat, room.0, x0 + x, y0 + y) == at(&before, room.0, x0 + x, y0 + y))
+    });
     t.row(
         "2_repeat.png, Repeat, grown half the street each way: the whole composition covered, the street kept in the middle, and the picture the same one street to the right everywhere; draws cleanly",
         &format!("{said:?}, covered {} of {all}, middle kept {middle}, the same a street to the right at {copies} of {}", covered(&repeat), room.1 * (room.0 - w)),
@@ -285,7 +393,11 @@ fn b344_repeat_tile() {
     let (unfold, said) = grown("unfold", json!({}));
     write("3_unfold.png", room, &unfold);
     // The copy on the right is the street mirrored about its right edge.
-    let mirrored = (0..h).all(|y| (0..x0).all(|k| at(&unfold, room.0, x0 + w + k, y0 + y) == at(&unfold, room.0, x0 + w - 1 - k, y0 + y)));
+    let mirrored = (0..h).all(|y| {
+        (0..x0).all(|k| {
+            at(&unfold, room.0, x0 + w + k, y0 + y) == at(&unfold, room.0, x0 + w - 1 - k, y0 + y)
+        })
+    });
     t.row(
         "3_unfold.png, Unfold: the copies mirrored about the street's edges, so the right copy is the street flipped, whole composition covered; draws cleanly",
         &format!("{said:?}, mirrored {mirrored}, covered {} of {all}", covered(&unfold)),
@@ -295,7 +407,11 @@ fn b344_repeat_tile() {
     let (brick, said) = grown("brick", json!({}));
     write("4_brick.png", room, &brick);
     // The rows above and below are pushed half a street across.
-    let pushed = (0..y0).all(|y| (0..x0).all(|x| at(&brick, room.0, x0 + x + w / 2, y) == at(&before, room.0, x0 + x, y0 + h - y0 + y)));
+    let pushed = (0..y0).all(|y| {
+        (0..x0).all(|x| {
+            at(&brick, room.0, x0 + x + w / 2, y) == at(&before, room.0, x0 + x, y0 + h - y0 + y)
+        })
+    });
     t.row(
         "4_brick.png, Brick: the rows above and below the street pushed half a street across, whole composition covered; draws cleanly",
         &format!("{said:?}, pushed {pushed}, not 2_repeat.png {}, covered {} of {all}", brick != repeat, covered(&brick)),
@@ -304,7 +420,10 @@ fn b344_repeat_tile() {
 
     let (blended, said) = grown("repeat", json!({"blend_borders": 100}));
     write("5_repeat_blend_100.png", room, &blended);
-    let copies = (0..room.1).flat_map(|y| (0..room.0 - w).map(move |x| (x, y))).filter(|&(x, y)| at(&blended, room.0, x, y) == at(&blended, room.0, x + w, y)).count();
+    let copies = (0..room.1)
+        .flat_map(|y| (0..room.0 - w).map(move |x| (x, y)))
+        .filter(|&(x, y)| at(&blended, room.0, x, y) == at(&blended, room.0, x + w, y))
+        .count();
     t.row(
         "5_repeat_blend_100.png, Repeat with Blend Borders 100: not 2_repeat.png, still the same one street to the right everywhere, whole composition covered; draws cleanly",
         &format!("{said:?}, different {}, the same a street to the right at {copies} of {}, covered {} of {all}", blended != repeat, room.1 * (room.0 - w), covered(&blended)),
@@ -365,25 +484,52 @@ fn b344_repeat_tile_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Repeat Tile, Unfold grown 200 each way", Some(json!({"expand_right": 200, "expand_left": 200, "expand_down": 200, "expand_up": 200}))),
+        (
+            "Noise, then Repeat Tile, Unfold grown 200 each way",
+            Some(
+                json!({"expand_right": 200, "expand_left": 200, "expand_down": 200, "expand_up": 200}),
+            ),
+        ),
         (
             "the same, Brick with Blend Borders 50",
-            Some(json!({"expand_right": 200, "expand_left": 200, "expand_down": 200, "expand_up": 200, "tiling": "brick", "blend_borders": 50})),
+            Some(
+                json!({"expand_right": 200, "expand_left": 200, "expand_down": 200, "expand_up": 200, "tiling": "brick", "blend_borders": 50}),
+            ),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}b"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B344_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-344_timing_raw.md"));
+    let out = std::env::var("B344_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-344_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -85,8 +85,20 @@ fn picture(dir: &Path, parameters: &J, frame: i32) -> (Vec<u8>, Vec<String>) {
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {} {}", d.id.as_str(), d.message, d.detail)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {} {}", d.id.as_str(), d.message, d.detail))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -94,7 +106,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -102,9 +119,24 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 }
 
 /// The Vegases the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -114,24 +146,56 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers, each with three
 /// circle masks of mode None to draw along.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
@@ -144,7 +208,11 @@ fn reference(stack: impl Fn(&str) -> J) -> Project {
         layers[i]["masks"] = J::Array(masks);
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// Vegas's parameters: the effect's values as added with `changes` laid over them.
@@ -194,10 +262,21 @@ fn b324_vegas() {
     let files: Vec<String> = (1..=60).map(|n| format!("fx_vegas_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
     let saved = t.saved_parameters("fx_vegas_001.json");
-    t.row("the paths compose finds are not saved", &saved.to_string(), saved.get("paths").is_none());
+    t.row(
+        "the paths compose finds are not saved",
+        &saved.to_string(),
+        saved.get("paths").is_none(),
+    );
     for (file, said) in [
         ("fx_vegas_042.json", "Vegas's Image Contours stroke is not built yet: it draws only along masks and shape paths, so set Stroke to Masks or Shapes."),
         ("fx_vegas_043.json", "Vegas's stroke is \"masks\", \"shapes\" or \"image_contours\", and this is \"edges\"."),
@@ -211,7 +290,11 @@ fn b324_vegas() {
         t.row(&format!("{file} is refused in a sentence"), &why, why == said);
     }
     let fx42 = t.saved_parameters("fx_vegas_042.json");
-    t.row("fx_vegas_042.json's Image Contours is kept as written", &fx42.to_string(), fx42["stroke"] == "image_contours");
+    t.row(
+        "fx_vegas_042.json's Image Contours is kept as written",
+        &fx42.to_string(),
+        fx42["stroke"] == "image_contours",
+    );
     t.shape_refused("fx_vegas_001.json", "a width written as a word", r##"{"stroke": "masks", "mask": 1, "all_masks": "off", "segments": 4, "length": 1, "segment_distribution": "bunched", "rotation": 0, "random_phase": "off", "random_seed": 1, "blend_mode": "over", "color": "#ffffff", "width": "2", "hardness": 0, "start_opacity": 1, "mid_point_opacity": 0, "mid_point_position": 0.5, "end_opacity": 0}"##);
     t.shape_refused("fx_vegas_001.json", "no blend mode", r##"{"stroke": "masks", "mask": 1, "all_masks": "off", "segments": 4, "length": 1, "segment_distribution": "bunched", "rotation": 0, "random_phase": "off", "random_seed": 1, "color": "#ffffff", "width": 2, "hardness": 0, "start_opacity": 1, "mid_point_opacity": 0, "mid_point_position": 0.5, "end_opacity": 0}"##);
 
@@ -221,23 +304,70 @@ fn b324_vegas() {
     t.refused(
         &mut document,
         vec![
-            ("width 201", set(with(&base, |e| if let Effect::Vegas { width, .. } = e { *width = 201.0 }))),
-            ("stroke \"image_contours\"", set(with(&base, |e| if let Effect::Vegas { stroke, .. } = e { *stroke = "image_contours".into() }))),
-            ("blend mode \"Over\"", set(with(&base, |e| if let Effect::Vegas { blend_mode, .. } = e { *blend_mode = "Over".into() }))),
-            ("Segments keyed to 1001", keys("segments", &[(0, &[4.0]), (4, &[1001.0])])),
+            (
+                "width 201",
+                set(with(&base, |e| {
+                    if let Effect::Vegas { width, .. } = e {
+                        *width = 201.0
+                    }
+                })),
+            ),
+            (
+                "stroke \"image_contours\"",
+                set(with(&base, |e| {
+                    if let Effect::Vegas { stroke, .. } = e {
+                        *stroke = "image_contours".into()
+                    }
+                })),
+            ),
+            (
+                "blend mode \"Over\"",
+                set(with(&base, |e| {
+                    if let Effect::Vegas { blend_mode, .. } = e {
+                        *blend_mode = "Over".into()
+                    }
+                })),
+            ),
+            (
+                "Segments keyed to 1001",
+                keys("segments", &[(0, &[4.0]), (4, &[1001.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_vegas_001.json",
         vec![
-            ("Rotation 90, Even,", set(with(&base, |e| if let Effect::Vegas { rotation, segment_distribution, .. } = e { *rotation = 90.0; *segment_distribution = "even".into() }))),
-            ("Rotation keyed from 0 to 360,", keys("rotation", &[(0, &[0.0]), (4, &[360.0])])),
+            (
+                "Rotation 90, Even,",
+                set(with(&base, |e| {
+                    if let Effect::Vegas {
+                        rotation,
+                        segment_distribution,
+                        ..
+                    } = e
+                    {
+                        *rotation = 90.0;
+                        *segment_distribution = "even".into()
+                    }
+                })),
+            ),
+            (
+                "Rotation keyed from 0 to 360,",
+                keys("rotation", &[(0, &[0.0]), (4, &[360.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_vegas_001.json", 0), ("fx_vegas_007.json", 2), ("fx_vegas_009.json", 0), ("fx_vegas_029.json", 2), ("fx_vegas_031.json", 0), ("fx_vegas_035.json", 0)]);
+    t.tiles(&[
+        ("fx_vegas_001.json", 0),
+        ("fx_vegas_007.json", 2),
+        ("fx_vegas_009.json", 0),
+        ("fx_vegas_029.json", 2),
+        ("fx_vegas_031.json", 0),
+        ("fx_vegas_035.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -245,7 +375,11 @@ fn b324_vegas() {
     let fixture_root = effect_table::repo("Fixtures/vegas");
     for n in 1..=41 {
         let file = format!("fx_vegas_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -269,18 +403,52 @@ fn b324_vegas() {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = effect_table::repo("Fixtures/reference_shot");
     for (what, p) in [
-        ("as added (mask 1, 32 segments, white, Width 2)", vegas_of(json!({}))),
-        ("All Masks, Segments 12, Length 0.5, Even, orange, Width 24, Hardness 0.5", vegas_of(json!({"all_masks": "on", "segments": 12, "length": 0.5, "segment_distribution": "even", "color": "#ff8800", "width": 24, "hardness": 0.5}))),
-        ("mask 2, Segments 5, Rotation 77, Random Phase, Width 40, Under, Mid-point Opacity 0.6", vegas_of(json!({"mask": 2, "segments": 5, "rotation": 77, "random_phase": "on", "width": 40, "blend_mode": "under", "mid_point_opacity": 0.6}))),
-        ("All Masks, Segments 3, Width 60, Transparent", vegas_of(json!({"all_masks": "on", "segments": 3, "width": 60, "blend_mode": "transparent"}))),
-        ("All Masks, Segments 8, Length 0.7, Width 50, Stencil", vegas_of(json!({"all_masks": "on", "segments": 8, "length": 0.7, "width": 50, "blend_mode": "stencil"}))),
+        (
+            "as added (mask 1, 32 segments, white, Width 2)",
+            vegas_of(json!({})),
+        ),
+        (
+            "All Masks, Segments 12, Length 0.5, Even, orange, Width 24, Hardness 0.5",
+            vegas_of(
+                json!({"all_masks": "on", "segments": 12, "length": 0.5, "segment_distribution": "even", "color": "#ff8800", "width": 24, "hardness": 0.5}),
+            ),
+        ),
+        (
+            "mask 2, Segments 5, Rotation 77, Random Phase, Width 40, Under, Mid-point Opacity 0.6",
+            vegas_of(
+                json!({"mask": 2, "segments": 5, "rotation": 77, "random_phase": "on", "width": 40, "blend_mode": "under", "mid_point_opacity": 0.6}),
+            ),
+        ),
+        (
+            "All Masks, Segments 3, Width 60, Transparent",
+            vegas_of(
+                json!({"all_masks": "on", "segments": 3, "width": 60, "blend_mode": "transparent"}),
+            ),
+        ),
+        (
+            "All Masks, Segments 8, Length 0.7, Width 50, Stencil",
+            vegas_of(
+                json!({"all_masks": "on", "segments": 8, "length": 0.7, "width": 50, "blend_mode": "stencil"}),
+            ),
+        ),
     ] {
-        let project = reference(|id| json!([{"instance_id": format!("b324-{id}"), "type_id": "core.vegas", "enabled": true, "parameters": p.clone()}]));
+        let project = reference(
+            |id| json!([{"instance_id": format!("b324-{id}"), "type_id": "core.vegas", "enabled": true, "parameters": p.clone()}]),
+        );
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &ref_comp,
+                100,
+                &ref_root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
         let changed = distance(&cpu(&project), &cpu(&reference(|_| json!([])))).1;
         t.row(
@@ -306,15 +474,32 @@ fn b324_vegas() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
     let street = town();
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &street).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &street,
+    )
+    .unwrap();
     let ((cx, cy), r) = CIRCLE;
     // Pixels changed, and how many of them are further from the circle than the dashes reach.
     let changed = |b: &[u8], reach: f64| {
-        let all: Vec<usize> = (0..w * h).filter(|&i| b[i * 4..][..4] != street[i * 4..][..4]).collect();
-        let off = all.iter().filter(|&&i| (((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) - r).abs() > reach).count();
+        let all: Vec<usize> = (0..w * h)
+            .filter(|&i| b[i * 4..][..4] != street[i * 4..][..4])
+            .collect();
+        let off = all
+            .iter()
+            .filter(|&&i| {
+                (((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) - r).abs() > reach
+            })
+            .count();
         (all.len(), off)
     };
-    let chase = vegas_of(json!({"segments": 5, "length": 0.5, "segment_distribution": "even", "rotation": keyed(0.0, 360.0), "color": "#ff8800", "width": 10, "hardness": 0.6}));
+    let chase = vegas_of(
+        json!({"segments": 5, "length": 0.5, "segment_distribution": "even", "rotation": keyed(0.0, 360.0), "color": "#ff8800", "width": 10, "hardness": 0.6}),
+    );
     let mut frames = Vec::new();
     let mut counts = Vec::new();
     let mut ok = true;
@@ -323,13 +508,29 @@ fn b324_vegas() {
         let (all, off) = changed(&bytes, 6.0);
         ok &= said.is_empty() && off == 0 && all > 0;
         counts.push(all);
-        png_out::write_rgba(&dir.join(format!("chase_f{frame:02}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &dir.join(format!("chase_f{frame:02}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         frames.push(bytes);
     }
     let round = distance(&frames[0], &frames[4]);
     let moved = distance(&frames[0], &frames[1]).1;
     let (wide, bytes) = strip(&frames);
-    png_out::write_rgba(&dir.join("chase_strip.png"), wide, h, OutputDepth::Eight, &[], &bytes).unwrap();
+    png_out::write_rgba(
+        &dir.join("chase_strip.png"),
+        wide,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
     t.row(
         "chase_strip.png (frames 0, 6, 12, 18 and 24, each also alone as chase_fNN.png), five orange dashes spread round the circle, Rotation keyed from 0 to 360: they chase once round, frame 24 back where frame 0 was; nothing changes off the circle",
         &format!("pixels changed per frame {counts:?}; frame 6 differs from frame 0 in {moved} pixels; frame 24 against frame 0, largest difference {} of 255", round.0),
@@ -349,7 +550,8 @@ fn b324_vegas() {
     t.row(
         "the street with Stroke Image Contours: drawn without the effect, and a sentence says why",
         &format!("{said:?}"),
-        said.iter().any(|s| s.contains("Image Contours stroke is not built yet")),
+        said.iter()
+            .any(|s| s.contains("Image Contours stroke is not built yet")),
     );
 
     t.finish("D-444_vegas_table.md");
@@ -367,7 +569,8 @@ fn b324_vegas_timing() {
 
     let cpu = std::env::var("B324_CPU").is_ok();
     let mut gpu = Gpu::new().expect("a usable card");
-    let mut s = format!(
+    let mut s =
+        format!(
         "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: {}\n\n\
          | Shot | Quality | First | Again |\n|---|---|---:|---:|\n",
         gpu.about(),
@@ -379,22 +582,55 @@ fn b324_vegas_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Vegas as added (mask 1, 32 segments, Width 2)", Some(vegas_of(json!({})))),
-        ("Noise, then Vegas, All Masks, 64 segments, Width 24", Some(vegas_of(json!({"all_masks": "on", "segments": 64, "width": 24})))),
-        ("Noise, then Vegas, All Masks, 8 segments, Length 0.5, Even, Width 60", Some(vegas_of(json!({"all_masks": "on", "segments": 8, "length": 0.5, "segment_distribution": "even", "width": 60})))),
+        (
+            "Noise, then Vegas as added (mask 1, 32 segments, Width 2)",
+            Some(vegas_of(json!({}))),
+        ),
+        (
+            "Noise, then Vegas, All Masks, 64 segments, Width 24",
+            Some(vegas_of(
+                json!({"all_masks": "on", "segments": 64, "width": 24}),
+            )),
+        ),
+        (
+            "Noise, then Vegas, All Masks, 8 segments, Length 0.5, Even, Width 60",
+            Some(vegas_of(
+                json!({"all_masks": "on", "segments": 8, "length": 0.5, "segment_distribution": "even", "width": 60}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(json!({"instance_id": format!("{id}v"), "type_id": "core.vegas", "enabled": true, "parameters": p.clone()}));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B324_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-324_timing_raw.md"));
+    let out = std::env::var("B324_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-324_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

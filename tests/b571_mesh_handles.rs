@@ -15,7 +15,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{changed, distance, keys, median, reference, repo, set, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    changed, distance, keys, median, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::compose::render_frame;
@@ -72,7 +74,10 @@ fn fx(id: &str, p: &J) -> J {
 /// `effects` on the street (in `dir`), drawn on the processor at frame 0, straight 8-bit, with
 /// what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -84,8 +89,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -116,21 +133,45 @@ fn b571_mesh_handles() {
         saved.as_object().unwrap().len() == 5 && h == 72 && saved["vertex_handles"][33] == -20.0,
     );
     let full = fx("x", &json!({}))["parameters"].to_string();
-    for (file, want) in [("fx_meshh_011.json", "vertex handles are none, or 72 numbers"), ("fx_meshh_012.json", "vertex handles")] {
+    for (file, want) in [
+        (
+            "fx_meshh_011.json",
+            "vertex handles are none, or 72 numbers",
+        ),
+        ("fx_meshh_012.json", "vertex handles"),
+    ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming Mesh Warp and its {want}"), &why, why.contains("Mesh Warp") && why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming Mesh Warp and its {want}"),
+            &why,
+            why.contains("Mesh Warp") && why.contains(want),
+        );
     }
-    t.shape_refused("fx_meshh_003.json", "a Mesh Warp whose vertex handles are one number", &full.replace("\"distortion_mesh\":[]", "\"distortion_mesh\":[],\"vertex_handles\":5"));
+    t.shape_refused(
+        "fx_meshh_003.json",
+        "a Mesh Warp whose vertex handles are one number",
+        &full.replace(
+            "\"distortion_mesh\":[]",
+            "\"distortion_mesh\":[],\"vertex_handles\":5",
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_meshh_003.json").document;
-    let short = changed(&t, "fx_meshh_003.json", |e| if let Effect::MeshWarp { vertex_handles, .. } = e { vertex_handles.truncate(70) });
+    let short = changed(&t, "fx_meshh_003.json", |e| {
+        if let Effect::MeshWarp { vertex_handles, .. } = e {
+            vertex_handles.truncate(70)
+        }
+    });
     let far = handles(2, 2, &[((1, 1, 0), (500.0, 0.0))]);
     t.refused(
         &mut document,
         vec![
             ("a 2 by 2 mesh's handles as 70 numbers", set(short)),
-            ("a handle keyed out to 500 per cent", keys("vertex_handles", &[(0, &handles(2, 2, &[])), (4, &far)])),
+            (
+                "a handle keyed out to 500 per cent",
+                keys("vertex_handles", &[(0, &handles(2, 2, &[])), (4, &far)]),
+            ),
         ],
     );
     let nudge = changed(&t, "fx_meshh_003.json", |e| {
@@ -143,41 +184,86 @@ fn b571_mesh_handles() {
         &mut document,
         "fx_meshh_003.json",
         vec![
-            ("the middle's right handle also 10 per cent right", set(nudge)),
-            ("the handles keyed from none moved to the middle's lifted", keys("vertex_handles", &[(0, &handles(2, 2, &[])), (4, &lifted)])),
+            (
+                "the middle's right handle also 10 per cent right",
+                set(nudge),
+            ),
+            (
+                "the handles keyed from none moved to the middle's lifted",
+                keys("vertex_handles", &[(0, &handles(2, 2, &[])), (4, &lifted)]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_meshh_003.json", 0), ("fx_meshh_005.json", 0), ("fx_meshh_006.json", 0), ("fx_meshh_007.json", 2)]);
+    t.tiles(&[
+        ("fx_meshh_003.json", 0),
+        ("fx_meshh_005.json", 0),
+        ("fx_meshh_006.json", 0),
+        ("fx_meshh_007.json", 2),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     // 002 changes nothing, so nothing is left to the card; the refused (011 to 013) neither.
     // 007 rests at frame 0 only; 009 and 010 move a handle, so the card draws them though the
     // frame comes out as the drawing.
-    t.card_fixtures(&mut gpu, "expected_mesh_handles.json", &[2, 11, 12, 13], mine);
+    t.card_fixtures(
+        &mut gpu,
+        "expected_mesh_handles.json",
+        &[2, 11, 12, 13],
+        mine,
+    );
     let shots: Vec<(&str, Project, usize)> = [
-        ("Mesh Warp 2 by 2 at rest, the middle's right handle lifted 20 per cent", lift()),
-        ("Mesh Warp 1 by 1, the top edge's handles pulled 30 per cent down", sag()),
-        ("Mesh Warp 2 by 2, the middle pushed and its handles turned into an S", s_curve()),
+        (
+            "Mesh Warp 2 by 2 at rest, the middle's right handle lifted 20 per cent",
+            lift(),
+        ),
+        (
+            "Mesh Warp 1 by 1, the top edge's handles pulled 30 per cent down",
+            sag(),
+        ),
+        (
+            "Mesh Warp 2 by 2, the middle pushed and its handles turned into an S",
+            s_curve(),
+        ),
     ]
     .into_iter()
-    .map(|(what, p)| (what, reference(|id| json!([fx(&format!("b571-{id}"), &p)])), 3))
+    .map(|(what, p)| {
+        (
+            what,
+            reference(|id| json!([fx(&format!("b571-{id}"), &p)])),
+            3,
+        )
+    })
     .collect();
     t.card_reference(&mut gpu, &reference(|_| json!([])), &shots, mine);
 
     t.heading("Pictures: in `verification/D-701 pictures/`");
     let dir = repo("verification/D-701 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (w, hh) = TOWN;
     let street = |p: J| picture(&dir, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
     let open = |p: &[u8]| (0..w * hh).filter(|&i| p[i * 4 + 3] == 0).count();
-    t.row("1_before.png, the street with no effect, every pixel covered; draws cleanly", &format!("{said:?}, {} clear pixels", open(&before)), said.is_empty() && open(&before) == 0);
+    t.row(
+        "1_before.png, the street with no effect, every pixel covered; draws cleanly",
+        &format!("{said:?}, {} clear pixels", open(&before)),
+        said.is_empty() && open(&before) == 0,
+    );
 
     let (zero, said) = street(json!({"vertex_handles": handles(7, 7, &[])}));
     t.row(
@@ -196,7 +282,11 @@ fn b571_mesh_handles() {
 
     let (sagged, said) = street(sag());
     write("3_top_sags.png", &sagged);
-    let top = |x: usize| (0..hh).take_while(|&y| sagged[(y * w + x) * 4 + 3] == 0).count();
+    let top = |x: usize| {
+        (0..hh)
+            .take_while(|&y| sagged[(y * w + x) * 4 + 3] == 0)
+            .count()
+    };
     t.row(
         "3_top_sags.png, one cell, the top edge's handles pulled 30 per cent down: clear above the top edge, deepest in the middle (about 22 per cent), none at the corners; draws cleanly",
         &format!("{said:?}, clear rows from the top at the left edge, a quarter and half across: {}, {}, {}", top(0), top(w / 4), top(w / 2)),
@@ -205,7 +295,9 @@ fn b571_mesh_handles() {
 
     let (s, said) = street(s_curve());
     write("4_s_curve.png", &s);
-    let (bow, _) = street(json!({"rows": 2, "columns": 2, "distortion_mesh": [0, 0, 50, 0, 100, 0, 0, 50, 75, 50, 100, 50, 0, 100, 50, 100, 100, 100]}));
+    let (bow, _) = street(
+        json!({"rows": 2, "columns": 2, "distortion_mesh": [0, 0, 50, 0, 100, 0, 0, 50, 75, 50, 100, 50, 0, 100, 50, 100, 100, 100]}),
+    );
     write("5_bow_without_handles.png", &bow);
     t.row(
         "4_s_curve.png, the middle pushed right and its handles turned: differs from 5_bow_without_handles.png, the same push with no handle moved; draws cleanly",
@@ -240,22 +332,48 @@ fn b571_mesh_handles_timing() {
     let seven = json!({"vertex_handles": handles(7, 7, &[((3, 3, 0), (5.0, -5.0)), ((3, 3, 2), (-5.0, 0.0)), ((4, 2, 1), (0.0, 8.0)), ((2, 5, 3), (6.0, 0.0))])});
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Mesh Warp 2 by 2, the middle pushed and its handles turned", Some(s_curve())),
-        ("Noise, then Mesh Warp 7 by 7 at rest with four handles moved, Quality 8", Some(seven)),
+        (
+            "Noise, then Mesh Warp 2 by 2, the middle pushed and its handles turned",
+            Some(s_curve()),
+        ),
+        (
+            "Noise, then Mesh Warp 7 by 7 at rest with four handles moved, Quality 8",
+            Some(seven),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B571_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-571_timing_raw.md"));
+    let out = std::env::var("B571_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-571_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

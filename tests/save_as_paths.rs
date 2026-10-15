@@ -19,7 +19,11 @@ fn a_project_saved_elsewhere_still_finds_its_drawings() {
     let inside = from.join("layer1");
 
     let mut project = Project::new(Id::new("p"));
-    project.assets.push(Asset::still(Id::new("still"), "still", "layer1/layer1_000.png"));
+    project.assets.push(Asset::still(
+        Id::new("still"),
+        "still",
+        "layer1/layer1_000.png",
+    ));
     project.assets.push(
         Asset::sequence(Id::new("seq"), "seq", "layer1_###.png")
             .with_frames(BTreeMap::from([(0, "layer1/layer1_000.png".to_string())])),
@@ -29,7 +33,11 @@ fn a_project_saved_elsewhere_still_finds_its_drawings() {
     let moved = persist::rebased(&project, &from, &outside);
     for asset in &moved.assets {
         for file in asset.files() {
-            assert!(outside.join(file).is_file(), "{file} is lost from {}", outside.display());
+            assert!(
+                outside.join(file).is_file(),
+                "{file} is lost from {}",
+                outside.display()
+            );
         }
     }
 

@@ -59,7 +59,12 @@ fn main_comp() -> Id {
 
 /// Set the holder's Timewarp.
 fn set(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: main_comp(), layer_id: Id::new("holder"), instance_id: Id::new("fx-1"), effect }
+    Command::SetEffectParameters {
+        composition: main_comp(),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-1"),
+        effect,
+    }
 }
 
 /// Key a setting of the holder's Timewarp, linearly.
@@ -69,13 +74,23 @@ fn keys(setting: &str, values: &[(i32, f64)]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-1"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: vec![v], interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: vec![v],
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 /// The whole composition, to see that a refused command changed nothing.
 fn everything(document: &Document) -> String {
-    format!("{:?}", document.project().composition(&main_comp()).unwrap())
+    format!(
+        "{:?}",
+        document.project().composition(&main_comp()).unwrap()
+    )
 }
 
 fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)>) {
@@ -85,7 +100,9 @@ fn refused(t: &mut Table, document: &mut Document, commands: Vec<(&str, Command)
         let untouched = everything(document) == held;
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && untouched,
         );
     }
@@ -96,7 +113,10 @@ const FRAMES: usize = 24;
 
 /// Where drawing `m` (from 0) has the ball: moving 16 pixels right a frame, bouncing.
 fn ball_at(m: usize) -> (f64, f64) {
-    (50.0 + 16.0 * m as f64, 225.0 - 170.0 * (PI * (m as f64 + 3.0) / 12.0).cos().abs())
+    (
+        50.0 + 16.0 * m as f64,
+        225.0 - 170.0 * (PI * (m as f64 + 3.0) / 12.0).cos().abs(),
+    )
 }
 
 /// Drawing `m`: an orange ball, radius 24, with an ink ring its outer 5 pixels, on nothing.
@@ -110,7 +130,12 @@ fn ball(m: usize) -> Vec<u8> {
             let cover = (24.0 - d).clamp(0.0, 1.0);
             let ink = (d - 19.0).clamp(0.0, 1.0);
             let mix = |a: f64, b: f64| (a * (1.0 - ink) + b * ink).round() as u8;
-            bytes.extend([mix(245.0, 70.0), mix(150.0, 30.0), mix(50.0, 20.0), (255.0 * cover).round() as u8]);
+            bytes.extend([
+                mix(245.0, 70.0),
+                mix(150.0, 30.0),
+                mix(50.0, 20.0),
+                (255.0 * cover).round() as u8,
+            ]);
         }
     }
     bytes
@@ -118,10 +143,15 @@ fn ball(m: usize) -> Vec<u8> {
 
 /// The ball bouncing on ones over a night-blue solid, with `effects` on the ball.
 fn picture(effects: J) -> Document {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(effect_table::repo("Fixtures/timewarp/fx_tw_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(effect_table::repo("Fixtures/timewarp/fx_tw_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["pattern"] = J::from("ball_##.png");
-    project["assets"][0]["frames"] =
-        (1..=FRAMES).map(|m| (m.to_string(), J::from(format!("ball_{m:02}.png")))).collect::<serde_json::Map<_, _>>().into();
+    project["assets"][0]["frames"] = (1..=FRAMES)
+        .map(|m| (m.to_string(), J::from(format!("ball_{m:02}.png"))))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(PICTURE.0);
     comp["height"] = J::from(PICTURE.1);
@@ -145,15 +175,38 @@ fn picture(effects: J) -> Document {
     night["effects"] = J::Array(vec![]);
     night["solid"] = serde_json::json!({"color": [0.0070, 0.0116, 0.0452], "width": PICTURE.0, "height": PICTURE.1});
     layers.insert(0, night);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("night"));
-    persist::load_str(&project.to_string()).expect("the picture's project reads").document
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("night"));
+    persist::load_str(&project.to_string())
+        .expect("the picture's project reads")
+        .document
 }
 
 /// `document`'s frame at `quality`, as bytes, with what it said.
-fn draw(document: &Document, dir: &Path, frame: i32, quality: PreviewQuality) -> (usize, Vec<u8>, Vec<String>) {
+fn draw(
+    document: &Document,
+    dir: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> (usize, Vec<u8>, Vec<String>) {
     let mut log = FrameLog::new(3);
-    let drawn = preview::preview_frame(document.project(), &main_comp(), frame, dir, quality, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = preview::preview_frame(
+        document.project(),
+        &main_comp(),
+        frame,
+        dir,
+        quality,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.width(), drawn.to_srgb8_straight(), said)
 }
 
@@ -198,7 +251,11 @@ fn b531_timewarp() {
 
     t.heading("How far it reaches");
     let got = tw("pixel_motion", 1000.0, 10.0).bounds_expansion();
-    t.row("Timewarp never grows the drawing's bounds", &got.to_string(), got == 0);
+    t.row(
+        "Timewarp never grows the drawing's bounds",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = tw("pixel_motion", 50.0, 1.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -212,7 +269,11 @@ fn b531_timewarp() {
     let files: Vec<String> = (1..=26).map(|n| format!("fx_tw_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_tw_001.json");
-    t.row("the picture it makes is never saved", &format!("{:?}", params.get("picture")), params.get("picture").is_none());
+    t.row(
+        "the picture it makes is never saved",
+        &format!("{:?}", params.get("picture")),
+        params.get("picture").is_none(),
+    );
     let without = |key: &str| {
         let mut p = added("pixel_motion", 50.0);
         p.remove(key);
@@ -228,7 +289,10 @@ fn b531_timewarp() {
         ("no `speed` at all", without("speed")),
         ("no `blue_weight` at all", without("blue_weight")),
         ("a Speed that is a word", with("speed", J::from("fast"))),
-        ("a Filtering that is a number", with("filtering", J::from(1))),
+        (
+            "a Filtering that is a number",
+            with("filtering", J::from(1)),
+        ),
     ] {
         t.shape_refused("fx_tw_001.json", what, &parameters);
     }
@@ -242,15 +306,24 @@ fn b531_timewarp() {
             ("Speed 1001", set(tw("pixel_motion", 1001.0, 1.0))),
             ("Error Threshold -1", set(tw("pixel_motion", 50.0, -1.0))),
             ("Method \"optical\"", set(tw("optical", 50.0, 1.0))),
-            ("Shutter Samples keyed to 100 at frame 4", keys("shutter_samples", &[(0, 5.0), (4, 100.0)])),
+            (
+                "Shutter Samples keyed to 100 at frame 4",
+                keys("shutter_samples", &[(0, 5.0), (4, 100.0)]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_tw_001.json",
         vec![
-            ("Frame Mix at Speed 200, Error Threshold 10", set(tw("frame_mix", 200.0, 10.0))),
-            ("Speed keyed from 100 at frame 0 to -100 at frame 4", keys("speed", &[(0, 100.0), (4, -100.0)])),
+            (
+                "Frame Mix at Speed 200, Error Threshold 10",
+                set(tw("frame_mix", 200.0, 10.0)),
+            ),
+            (
+                "Speed keyed from 100 at frame 0 to -100 at frame 4",
+                keys("speed", &[(0, 100.0), (4, -100.0)]),
+            ),
         ],
     );
 
@@ -262,26 +335,70 @@ fn b531_timewarp() {
     fs::create_dir_all(&balls).unwrap();
     let (w, h) = PICTURE;
     for m in 0..FRAMES {
-        png_out::write_rgba(&balls.join(format!("ball_{:02}.png", m + 1)), w, h, OutputDepth::Eight, &[], &ball(m)).unwrap();
+        png_out::write_rgba(
+            &balls.join(format!("ball_{:02}.png", m + 1)),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &ball(m),
+        )
+        .unwrap();
     }
     let full = PreviewQuality::Full;
     // At Speed 50 frame 17 shows source time 8.25, a quarter of the way from drawing 9 (frame 8)
     // to drawing 10 (frame 9).
     let (_, eight, said) = draw(&picture(J::Array(vec![])), &balls, 8, full);
-    png_out::write_rgba(&dir.join("1_frame_8_no_effect.png"), w, h, OutputDepth::Eight, &[], &eight).unwrap();
+    png_out::write_rgba(
+        &dir.join("1_frame_8_no_effect.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &eight,
+    )
+    .unwrap();
     let one = touched(&eight);
-    t.row("1_frame_8_no_effect.png, frame 8 with no effect, draws cleanly", &format!("{said:?}, {one} pixels show the ball"), said.is_empty());
+    t.row(
+        "1_frame_8_no_effect.png, frame 8 with no effect, draws cleanly",
+        &format!("{said:?}, {one} pixels show the ball"),
+        said.is_empty(),
+    );
     let (_, nine, _) = draw(&picture(J::Array(vec![])), &balls, 9, full);
-    png_out::write_rgba(&dir.join("2_frame_9_no_effect.png"), w, h, OutputDepth::Eight, &[], &nine).unwrap();
+    png_out::write_rgba(
+        &dir.join("2_frame_9_no_effect.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &nine,
+    )
+    .unwrap();
     let (_, whole, said) = draw(&picture(effect("whole_frames", 50.0)), &balls, 17, full);
-    png_out::write_rgba(&dir.join("3_whole_frames.png"), w, h, OutputDepth::Eight, &[], &whole).unwrap();
+    png_out::write_rgba(
+        &dir.join("3_whole_frames.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &whole,
+    )
+    .unwrap();
     t.row(
         "3_whole_frames.png, Whole Frames at Speed 50, frame 17: draws cleanly, byte-identical to frame 8 with no effect",
         &format!("{said:?}, {}", if whole == eight { "byte-identical" } else { "differs" }),
         said.is_empty() && whole == eight,
     );
     let (_, mix, said) = draw(&picture(effect("frame_mix", 50.0)), &balls, 17, full);
-    png_out::write_rgba(&dir.join("4_frame_mix.png"), w, h, OutputDepth::Eight, &[], &mix).unwrap();
+    png_out::write_rgba(
+        &dir.join("4_frame_mix.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &mix,
+    )
+    .unwrap();
     let two = touched(&mix);
     t.row(
         "4_frame_mix.png, Frame Mix at Speed 50, frame 17: draws cleanly, two faint balls covering more pixels than one",
@@ -289,7 +406,15 @@ fn b531_timewarp() {
         said.is_empty() && two > one,
     );
     let (_, moved, said) = draw(&picture(effect("pixel_motion", 50.0)), &balls, 17, full);
-    png_out::write_rgba(&dir.join("5_pixel_motion.png"), w, h, OutputDepth::Eight, &[], &moved).unwrap();
+    png_out::write_rgba(
+        &dir.join("5_pixel_motion.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &moved,
+    )
+    .unwrap();
     let now = touched(&moved);
     t.row(
         "5_pixel_motion.png, as added (Pixel Motion at Speed 50), frame 17: draws cleanly, one ball \
@@ -297,22 +422,60 @@ fn b531_timewarp() {
         &format!("{said:?}, {now} pixels show the ball"),
         said.is_empty() && now < two,
     );
-    let (dw, bytes, said) = draw(&picture(effect("pixel_motion", 50.0)), &balls, 17, PreviewQuality::Draft);
-    png_out::write_rgba(&dir.join("6_pixel_motion_draft.png"), dw, bytes.len() / 4 / dw, OutputDepth::Eight, &[], &bytes).unwrap();
-    t.row("6_pixel_motion_draft.png, as added at Draft, draws cleanly, a quarter the size", &format!("{said:?}, {dw} wide"), said.is_empty() && dw == w / 4);
+    let (dw, bytes, said) = draw(
+        &picture(effect("pixel_motion", 50.0)),
+        &balls,
+        17,
+        PreviewQuality::Draft,
+    );
+    png_out::write_rgba(
+        &dir.join("6_pixel_motion_draft.png"),
+        dw,
+        bytes.len() / 4 / dw,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
+    t.row(
+        "6_pixel_motion_draft.png, as added at Draft, draws cleanly, a quarter the size",
+        &format!("{said:?}, {dw} wide"),
+        said.is_empty() && dw == w / 4,
+    );
 
     t.heading("Played frame after frame with the viewer's cache");
     let played = picture(effect("pixel_motion", 50.0));
     let mut cache = anime_compositor::cache::CelCache::viewer();
     let warm = |cache: &mut anime_compositor::cache::CelCache, frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(played.project(), &main_comp(), frame, &balls, full, 64, &mut log, cache).expect("the picture draws")
+        preview::preview_frame_cached(
+            played.project(),
+            &main_comp(),
+            frame,
+            &balls,
+            full,
+            64,
+            &mut log,
+            cache,
+        )
+        .expect("the picture draws")
     };
     let alone = |frame: i32| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame(played.project(), &main_comp(), frame, &balls, full, 64, &mut log).expect("the picture draws")
+        preview::preview_frame(
+            played.project(),
+            &main_comp(),
+            frame,
+            &balls,
+            full,
+            64,
+            &mut log,
+        )
+        .expect("the picture draws")
     };
-    let same = (0..FRAMES as i32).filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data()).count();
+    let same = (0..FRAMES as i32)
+        .filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data())
+        .count();
     t.row(
         "as added, frames 0 to 23 asked for in order through one viewer's cache, as playing asks: \
          each is byte-identical to the same frame drawn alone with no cache, as an export draws it",
@@ -320,7 +483,15 @@ fn b531_timewarp() {
         same == FRAMES,
     );
     let before = warm(&mut cache, 17).data().to_vec();
-    png_out::write_rgba(&balls.join("ball_10.png"), w, h, OutputDepth::Eight, &[], &ball(0)).unwrap();
+    png_out::write_rgba(
+        &balls.join("ball_10.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &ball(0),
+    )
+    .unwrap();
     let changed = warm(&mut cache, 17);
     t.row(
         "drawing 10 (source frame 9, which frame 17 is made from) rewritten as drawing 1 after it \
@@ -328,15 +499,36 @@ fn b531_timewarp() {
          frame 17 drawn alone",
         &format!(
             "{}, {}",
-            if changed.data() == alone(17).data() { "byte-identical" } else { "differs" },
-            if changed.data() != before.as_slice() { "changed" } else { "unchanged" }
+            if changed.data() == alone(17).data() {
+                "byte-identical"
+            } else {
+                "differs"
+            },
+            if changed.data() != before.as_slice() {
+                "changed"
+            } else {
+                "unchanged"
+            }
         ),
         changed.data() == alone(17).data() && changed.data() != before.as_slice(),
     );
-    png_out::write_rgba(&balls.join("ball_10.png"), w, h, OutputDepth::Eight, &[], &ball(9)).unwrap();
+    png_out::write_rgba(
+        &balls.join("ball_10.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &ball(9),
+    )
+    .unwrap();
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_tw_001.json", 2), ("fx_tw_012.json", 2), ("fx_tw_016.json", 1), ("fx_tw_019.json", 2)]);
+    t.tiles(&[
+        ("fx_tw_001.json", 2),
+        ("fx_tw_012.json", 2),
+        ("fx_tw_016.json", 1),
+        ("fx_tw_019.json", 2),
+    ]);
 
     t.finish("D-652_timewarp_table.md");
 }
@@ -373,13 +565,30 @@ fn b531_timewarp_timing() {
     );
     let shots: [(&str, Option<&str>, PreviewQuality); 6] = [
         ("Noise alone", None, PreviewQuality::Full),
-        ("Timewarp Whole Frames at Speed 50, then Noise", Some("whole_frames"), PreviewQuality::Full),
-        ("Timewarp Frame Mix at Speed 50, then Noise", Some("frame_mix"), PreviewQuality::Full),
-        ("Timewarp as added (Pixel Motion at Speed 50), then Noise", Some("pixel_motion"), PreviewQuality::Full),
+        (
+            "Timewarp Whole Frames at Speed 50, then Noise",
+            Some("whole_frames"),
+            PreviewQuality::Full,
+        ),
+        (
+            "Timewarp Frame Mix at Speed 50, then Noise",
+            Some("frame_mix"),
+            PreviewQuality::Full,
+        ),
+        (
+            "Timewarp as added (Pixel Motion at Speed 50), then Noise",
+            Some("pixel_motion"),
+            PreviewQuality::Full,
+        ),
         ("Noise alone", None, PreviewQuality::Half),
-        ("Timewarp as added, then Noise", Some("pixel_motion"), PreviewQuality::Half),
+        (
+            "Timewarp as added, then Noise",
+            Some("pixel_motion"),
+            PreviewQuality::Half,
+        ),
     ];
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     for (name, method, quality) in shots {
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
@@ -387,12 +596,21 @@ fn b531_timewarp_timing() {
             if let Some(method) = method {
                 v.push(json!({"instance_id": format!("{id}t"), "type_id": "core.timewarp", "enabled": true, "parameters": added(method, 50.0)}));
             }
-            v.push(json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}));
+            v.push(
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            );
             j["compositions"][0]["layers"][i]["effects"] = J::Array(v);
         }
-        let project = persist::load_str(&j.to_string()).expect("the reference shot reads").document.project().clone();
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
+        let project = persist::load_str(&j.to_string())
+            .expect("the reference shot reads")
+            .document
+            .project()
+            .clone();
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
         let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, quality);
         let (mut fresh, mut stage) = (Vec::new(), Vec::new());
         anime_compositor::perf::enable();
@@ -403,14 +621,37 @@ fn b531_timewarp_timing() {
             let mut log = FrameLog::new(3);
             let t = std::time::Instant::now();
             drop(
-                preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .expect("GPU frame"),
+                preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    frame,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .expect("GPU frame"),
             );
             fresh.push(t.elapsed().as_secs_f64() * 1000.0);
-            stage.push(anime_compositor::perf::read(anime_compositor::perf::Stage::EffectTimewarp).0 as f64 / 1e6);
+            stage.push(
+                anime_compositor::perf::read(anime_compositor::perf::Stage::EffectTimewarp).0
+                    as f64
+                    / 1e6,
+            );
         }
-        let _ = writeln!(s, "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |", median(first), median(times), median(fresh), median(stage));
+        let _ = writeln!(
+            s,
+            "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |",
+            median(first),
+            median(times),
+            median(fresh),
+            median(stage)
+        );
     }
-    let out = std::env::var("B531_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-531_timing_raw.md"));
+    let out = std::env::var("B531_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-531_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

@@ -27,7 +27,11 @@ pub(crate) struct Mesh {
 impl Mesh {
     /// The grid's own places over a drawing `dw` by `dh`: the mesh that changes nothing.
     pub fn grid(cols: usize, rows: usize, (dw, dh): (f64, f64)) -> Mesh {
-        let at = (0..=rows).flat_map(|j| (0..=cols).map(move |i| [i as f64 / cols as f64 * dw, j as f64 / rows as f64 * dh])).collect();
+        let at = (0..=rows)
+            .flat_map(|j| {
+                (0..=cols).map(move |i| [i as f64 / cols as f64 * dw, j as f64 / rows as f64 * dh])
+            })
+            .collect();
         Mesh { cols, rows, at }
     }
 
@@ -46,19 +50,35 @@ impl Mesh {
 
     /// Each tile's triangles, in order: the offsets (one past the last tile too) and the list,
     /// for a buffer `w` by `h` with the drawing's corner at `origin`.
-    pub fn tiles(&self, (w, h): (usize, usize), (ox, oy): (usize, usize)) -> (usize, Vec<u32>, Vec<u32>) {
+    pub fn tiles(
+        &self,
+        (w, h): (usize, usize),
+        (ox, oy): (usize, usize),
+    ) -> (usize, Vec<u32>, Vec<u32>) {
         let (tx, ty) = (w.div_ceil(TILE), h.div_ceil(TILE));
         let mut each: Vec<Vec<u32>> = vec![Vec::new(); tx * ty];
-        let tile = |v: f64, o: usize, n: usize| (((v + o as f64 - 0.5) / TILE as f64).floor().max(0.0) as usize).min(n - 1);
+        let tile = |v: f64, o: usize, n: usize| {
+            (((v + o as f64 - 0.5) / TILE as f64).floor().max(0.0) as usize).min(n - 1)
+        };
         for t in 0..self.cols * self.rows * 2 {
             let p = self.triangle(t);
             if p.iter().flatten().any(|v| !v.is_finite()) {
                 continue;
             }
-            let (x0, x1) = (p[0][0].min(p[1][0]).min(p[2][0]), p[0][0].max(p[1][0]).max(p[2][0]));
-            let (y0, y1) = (p[0][1].min(p[1][1]).min(p[2][1]), p[0][1].max(p[1][1]).max(p[2][1]));
+            let (x0, x1) = (
+                p[0][0].min(p[1][0]).min(p[2][0]),
+                p[0][0].max(p[1][0]).max(p[2][0]),
+            );
+            let (y0, y1) = (
+                p[0][1].min(p[1][1]).min(p[2][1]),
+                p[0][1].max(p[1][1]).max(p[2][1]),
+            );
             // Wholly past the buffer's last pixel centre or before its first holds none.
-            if x1 + ox as f64 - 0.5 < 0.0 || y1 + oy as f64 - 0.5 < 0.0 || x0 + ox as f64 - 0.5 > (w - 1) as f64 || y0 + oy as f64 - 0.5 > (h - 1) as f64 {
+            if x1 + ox as f64 - 0.5 < 0.0
+                || y1 + oy as f64 - 0.5 < 0.0
+                || x0 + ox as f64 - 0.5 > (w - 1) as f64
+                || y0 + oy as f64 - 0.5 > (h - 1) as f64
+            {
                 continue;
             }
             for b in tile(y0, oy, ty)..=tile(y1, oy, ty) {
@@ -84,7 +104,11 @@ impl Mesh {
             let (l1, l2) = barycentric(a, b, c, x)?;
             let (c, second) = (t / 2, t % 2 == 1);
             let (i, j) = ((c % self.cols) as f64, (c / self.cols) as f64);
-            Some(if second { (i + l1, j + l1 + l2) } else { (i + l1 + l2, j + l2) })
+            Some(if second {
+                (i + l1, j + l1 + l2)
+            } else {
+                (i + l1 + l2, j + l2)
+            })
         })
     }
 }
@@ -113,27 +137,50 @@ pub(crate) fn draw(source: &mut WorkingBuffer, mesh: &Mesh, origin: (usize, usiz
     let (cols, rows) = (mesh.cols as f64, mesh.rows as f64);
     let drawing = &*source;
     let mut out = WorkingBuffer::transparent(w, h);
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (bx, by) = (i % w, i / w);
-        let t = by / TILE * tx + bx / TILE;
-        let mine = &list[offsets[t] as usize..offsets[t + 1] as usize];
-        if let Some((u, v)) = mesh.locate(mine, [bx as f64 + 0.5 - ox, by as f64 + 0.5 - oy]) {
-            px.copy_from_slice(&sample_bilinear(drawing, u / cols * dw + ox, v / rows * dh + oy));
-        }
-    });
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (bx, by) = (i % w, i / w);
+            let t = by / TILE * tx + bx / TILE;
+            let mine = &list[offsets[t] as usize..offsets[t + 1] as usize];
+            if let Some((u, v)) = mesh.locate(mine, [bx as f64 + 0.5 - ox, by as f64 + 0.5 - oy]) {
+                px.copy_from_slice(&sample_bilinear(
+                    drawing,
+                    u / cols * dw + ox,
+                    v / rows * dh + oy,
+                ));
+            }
+        });
     *source = out;
 }
 
 /// The card's numbers for `mesh` (warp mode 150): a 0, the columns and rows, the drawing's size
 /// and corner, the tiles across, then where the points, the offsets and the list start, padded
 /// to 16; then those three.
-pub(crate) fn mesh_numbers(mesh: &Mesh, (w, h): (usize, usize), origin: (usize, usize)) -> Vec<f64> {
+pub(crate) fn mesh_numbers(
+    mesh: &Mesh,
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Vec<f64> {
     let (tx, offsets, list) = mesh.tiles((w, h), origin);
     let (dw, dh) = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
     let points = 16;
     let offs = points + 2 * mesh.at.len();
     let start = offs + offsets.len();
-    let mut k = vec![0.0, mesh.cols as f64, mesh.rows as f64, dw, dh, origin.0 as f64, origin.1 as f64, tx as f64, points as f64, offs as f64, start as f64];
+    let mut k = vec![
+        0.0,
+        mesh.cols as f64,
+        mesh.rows as f64,
+        dw,
+        dh,
+        origin.0 as f64,
+        origin.1 as f64,
+        tx as f64,
+        points as f64,
+        offs as f64,
+        start as f64,
+    ];
     k.resize(points, 0.0);
     k.extend(mesh.at.iter().flatten());
     k.extend(offsets.iter().map(|&o| o as f64));
@@ -151,7 +198,11 @@ pub(crate) struct Field {
 impl Field {
     /// No step anywhere.
     pub fn still(gx: usize, gy: usize) -> Field {
-        Field { gx, gy, step: vec![[0.0; 2]; (gx + 1) * (gy + 1)] }
+        Field {
+            gx,
+            gy,
+            step: vec![[0.0; 2]; (gx + 1) * (gy + 1)],
+        }
     }
 
     /// The step at the drawing's (x, y) of a drawing `dw` by `dh`: the four corners round it
@@ -160,35 +211,76 @@ impl Field {
         let (gx, gy) = (self.gx as f64, self.gy as f64);
         let fx = (x / dw * gx).clamp(0.0, gx);
         let fy = (y / dh * gy).clamp(0.0, gy);
-        let (i, j) = ((fx.floor() as usize).min(self.gx - 1), (fy.floor() as usize).min(self.gy - 1));
+        let (i, j) = (
+            (fx.floor() as usize).min(self.gx - 1),
+            (fy.floor() as usize).min(self.gy - 1),
+        );
         let (u, v) = (fx - i as f64, fy - j as f64);
         let n = self.gx + 1;
-        let (p, q, r, s) = (self.step[j * n + i], self.step[j * n + i + 1], self.step[(j + 1) * n + i], self.step[(j + 1) * n + i + 1]);
-        [0, 1].map(|k| (1.0 - v) * ((1.0 - u) * p[k] + u * q[k]) + v * ((1.0 - u) * r[k] + u * s[k]))
+        let (p, q, r, s) = (
+            self.step[j * n + i],
+            self.step[j * n + i + 1],
+            self.step[(j + 1) * n + i],
+            self.step[(j + 1) * n + i + 1],
+        );
+        [0, 1]
+            .map(|k| (1.0 - v) * ((1.0 - u) * p[k] + u * q[k]) + v * ((1.0 - u) * r[k] + u * s[k]))
     }
 }
 
 /// D-601: the backward `field` over the drawing in `source` (its corner at `origin`), `share` of
 /// each step, read `offset` back; the same size.
-pub(crate) fn draw_field(source: &mut WorkingBuffer, field: &Field, share: f64, offset: [f64; 2], origin: (usize, usize)) {
+pub(crate) fn draw_field(
+    source: &mut WorkingBuffer,
+    field: &Field,
+    share: f64,
+    offset: [f64; 2],
+    origin: (usize, usize),
+) {
     let (w, h) = (source.width(), source.height());
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let size = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
     let drawing = &*source;
     let mut out = WorkingBuffer::transparent(w, h);
-    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
-        let [dx, dy] = field.at(size, x - offset[0], y - offset[1]);
-        px.copy_from_slice(&sample_bilinear(drawing, x + share * dx + ox, y + share * dy + oy));
-    });
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
+            let [dx, dy] = field.at(size, x - offset[0], y - offset[1]);
+            px.copy_from_slice(&sample_bilinear(
+                drawing,
+                x + share * dx + ox,
+                y + share * dy + oy,
+            ));
+        });
     *source = out;
 }
 
 /// The card's numbers for `field` (warp mode 151): a 0, the cells across and down, the
 /// drawing's size and corner, the share, the offset, 0, 0; then the steps.
-pub(crate) fn field_numbers(field: &Field, share: f64, offset: [f64; 2], (w, h): (usize, usize), origin: (usize, usize)) -> Vec<f64> {
+pub(crate) fn field_numbers(
+    field: &Field,
+    share: f64,
+    offset: [f64; 2],
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Vec<f64> {
     let (dw, dh) = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
-    let mut k = vec![0.0, field.gx as f64, field.gy as f64, dw, dh, origin.0 as f64, origin.1 as f64, share, offset[0], offset[1], 0.0, 0.0];
+    let mut k = vec![
+        0.0,
+        field.gx as f64,
+        field.gy as f64,
+        dw,
+        dh,
+        origin.0 as f64,
+        origin.1 as f64,
+        share,
+        offset[0],
+        offset[1],
+        0.0,
+        0.0,
+    ];
     k.extend(field.step.iter().flatten());
     k
 }
@@ -197,7 +289,11 @@ pub(crate) fn field_numbers(field: &Field, share: f64, offset: [f64; 2], (w, h):
 /// of the outline's four cubic edges over the drawing's 4 q by 4 q grid, q `quality` rounded.
 /// `points` are per cent of the drawing `dw` by `dh`, in [`crate::effects::BEZIER_POINTS`]'
 /// order; `None` when every one is where it starts, the drawing as it was.
-pub(crate) fn bezier_mesh(points: &[[f64; 2]; 12], quality: f64, (dw, dh): (f64, f64)) -> Option<Mesh> {
+pub(crate) fn bezier_mesh(
+    points: &[[f64; 2]; 12],
+    quality: f64,
+    (dw, dh): (f64, f64),
+) -> Option<Mesh> {
     if *points == crate::effects::BEZIER_START {
         return None;
     }
@@ -218,11 +314,18 @@ pub(crate) fn bezier_mesh(points: &[[f64; 2]; 12], quality: f64, (dw, dh): (f64,
             let left = cubic(tl, p[11], p[10], bl, v);
             [0, 1].map(|k| {
                 (1.0 - v) * top[k] + v * bottom[k] + (1.0 - u) * left[k] + u * right[k]
-                    - ((1.0 - u) * (1.0 - v) * tl[k] + u * (1.0 - v) * tr[k] + (1.0 - u) * v * bl[k] + u * v * br[k])
+                    - ((1.0 - u) * (1.0 - v) * tl[k]
+                        + u * (1.0 - v) * tr[k]
+                        + (1.0 - u) * v * bl[k]
+                        + u * v * br[k])
             })
         })
         .collect();
-    Some(Mesh { cols: n, rows: n, at })
+    Some(Mesh {
+        cols: n,
+        rows: n,
+        at,
+    })
 }
 
 /// D-603: Mesh Warp's rows and columns as drawn, `rows` and `columns` rounded and held to 1 to 31.
@@ -244,13 +347,14 @@ pub(crate) fn warp_rests(rows: f64, columns: f64, v: &[f64], h: &[f64]) -> bool 
     let (r, c) = warp_size(rows, columns);
     h.iter().all(|x| *x == 0.0)
         && (v.is_empty()
-        || (v.len() == warp_count(rows, columns)
-            && (0..=r).all(|j| {
-                (0..=c).all(|i| {
-                    let n = 2 * (j * (c + 1) + i);
-                    v[n] == i as f64 / c as f64 * 100.0 && v[n + 1] == j as f64 / r as f64 * 100.0
-                })
-            })))
+            || (v.len() == warp_count(rows, columns)
+                && (0..=r).all(|j| {
+                    (0..=c).all(|i| {
+                        let n = 2 * (j * (c + 1) + i);
+                        v[n] == i as f64 / c as f64 * 100.0
+                            && v[n + 1] == j as f64 / r as f64 * 100.0
+                    })
+                })))
 }
 
 /// D-603: Mesh Warp's mesh, worked as `tools/mesh_warp_reference.py` works it: the Catmull-Rom
@@ -261,7 +365,14 @@ pub(crate) fn warp_rests(rows: f64, columns: f64, v: &[f64], h: &[f64]) -> bool 
 /// (right, left, lower and upper handle, x then y, per cent), moves the control points of each
 /// cell's Bezier patch; the surface is linear in them, so each moved handle adds its offset times
 /// the two Bernstein weights of the point it moves. An empty `v` is the mesh at rest.
-pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], h: &[f64], (dw, dh): (f64, f64)) -> Option<Mesh> {
+pub(crate) fn warp_mesh(
+    rows: f64,
+    columns: f64,
+    quality: f64,
+    v: &[f64],
+    h: &[f64],
+    (dw, dh): (f64, f64),
+) -> Option<Mesh> {
     if warp_rests(rows, columns, v, h) {
         return None;
     }
@@ -282,7 +393,10 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], h: &[f
             return line(vertex(v, r, c, d, c, j), vertex(v, r, c, d, c - 1, j));
         }
         if v.is_empty() {
-            return [i as f64 / c as f64 * 100.0 / 100.0 * d.0, j as f64 / r as f64 * 100.0 / 100.0 * d.1];
+            return [
+                i as f64 / c as f64 * 100.0 / 100.0 * d.0,
+                j as f64 / r as f64 * 100.0 / 100.0 * d.1,
+            ];
         }
         let n = 2 * (j * (c + 1) + i) as usize;
         [v[n] / 100.0 * d.0, v[n + 1] / 100.0 * d.1]
@@ -290,14 +404,36 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], h: &[f
     // D-701: control point (a across, b down) of cell (col, row), moved by vertex (col + di,
     // row + dj)'s handle `which` (0 right, 1 left, 2 lower, 3 upper).
     const MOVES: [(usize, usize, usize, usize, usize); 16] = [
-        (1, 0, 0, 0, 0), (2, 0, 1, 0, 1), (1, 3, 0, 1, 0), (2, 3, 1, 1, 1),
-        (0, 1, 0, 0, 2), (0, 2, 0, 1, 3), (3, 1, 1, 0, 2), (3, 2, 1, 1, 3),
-        (1, 1, 0, 0, 0), (1, 1, 0, 0, 2), (2, 1, 1, 0, 1), (2, 1, 1, 0, 2),
-        (1, 2, 0, 1, 0), (1, 2, 0, 1, 3), (2, 2, 1, 1, 1), (2, 2, 1, 1, 3),
+        (1, 0, 0, 0, 0),
+        (2, 0, 1, 0, 1),
+        (1, 3, 0, 1, 0),
+        (2, 3, 1, 1, 1),
+        (0, 1, 0, 0, 2),
+        (0, 2, 0, 1, 3),
+        (3, 1, 1, 0, 2),
+        (3, 2, 1, 1, 3),
+        (1, 1, 0, 0, 0),
+        (1, 1, 0, 0, 2),
+        (2, 1, 1, 0, 1),
+        (2, 1, 1, 0, 2),
+        (1, 2, 0, 1, 0),
+        (1, 2, 0, 1, 3),
+        (2, 2, 1, 1, 1),
+        (2, 2, 1, 1, 3),
     ];
-    let bern = |s: f64| [(1.0 - s).powi(3), 3.0 * s * (1.0 - s).powi(2), 3.0 * s * s * (1.0 - s), s.powi(3)];
+    let bern = |s: f64| {
+        [
+            (1.0 - s).powi(3),
+            3.0 * s * (1.0 - s).powi(2),
+            3.0 * s * s * (1.0 - s),
+            s.powi(3),
+        ]
+    };
     let cr = |p0: f64, p1: f64, p2: f64, p3: f64, s: f64| {
-        0.5 * (2.0 * p1 + (p2 - p0) * s + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * s * s + (3.0 * p1 - p0 - 3.0 * p2 + p3) * s * s * s)
+        0.5 * (2.0 * p1
+            + (p2 - p0) * s
+            + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * s * s
+            + (3.0 * p1 - p0 - 3.0 * p2 + p3) * s * s * s)
     };
     let (ri, ci) = (r as isize, c as isize);
     let q = (quality + 0.5).floor() as usize;
@@ -310,11 +446,14 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], h: &[f
             let s = (a - col * q) as f64 / q as f64;
             let across: Vec<[f64; 2]> = (row as isize - 1..row as isize + 3)
                 .map(|jj| {
-                    let p: Vec<[f64; 2]> = (col as isize - 1..col as isize + 3).map(|ii| vertex(v, ri, ci, (dw, dh), ii, jj)).collect();
+                    let p: Vec<[f64; 2]> = (col as isize - 1..col as isize + 3)
+                        .map(|ii| vertex(v, ri, ci, (dw, dh), ii, jj))
+                        .collect();
                     [0, 1].map(|k| cr(p[0][k], p[1][k], p[2][k], p[3][k], s))
                 })
                 .collect();
-            let mut p = [0, 1].map(|k| cr(across[0][k], across[1][k], across[2][k], across[3][k], t));
+            let mut p =
+                [0, 1].map(|k| cr(across[0][k], across[1][k], across[2][k], across[3][k], t));
             if !h.is_empty() {
                 let (bs, bt) = (bern(s), bern(t));
                 for (ca, cb, di, dj, which) in MOVES {
@@ -326,7 +465,11 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], h: &[f
             at.push(p);
         }
     }
-    Some(Mesh { cols: c * q, rows: r * q, at })
+    Some(Mesh {
+        cols: c * q,
+        rows: r * q,
+        at,
+    })
 }
 
 /// D-604: Warp's grid, cells each way.
@@ -374,7 +517,14 @@ fn warp_styled(style: &str, b: f64, u: f64, v: f64) -> (f64, f64) {
 /// D-604: Warp's mesh over the drawing `dw` by `dh`: the `WARP_GRID` grid's points moved by the
 /// style (u and v changing places about it with `axis` "vertical") and then the distortions.
 /// `None` with Bend and both Distortions 0, the drawing as it was.
-pub(crate) fn warp_preset_mesh(style: &str, axis: &str, bend: f64, horizontal: f64, vertical: f64, (dw, dh): (f64, f64)) -> Option<Mesh> {
+pub(crate) fn warp_preset_mesh(
+    style: &str,
+    axis: &str,
+    bend: f64,
+    horizontal: f64,
+    vertical: f64,
+    (dw, dh): (f64, f64),
+) -> Option<Mesh> {
     if bend == 0.0 && horizontal == 0.0 && vertical == 0.0 {
         return None;
     }
@@ -393,14 +543,24 @@ pub(crate) fn warp_preset_mesh(style: &str, axis: &str, bend: f64, horizontal: f
             [(p + 0.5) * dw, (q + 0.5) * dh]
         })
         .collect();
-    Some(Mesh { cols: g, rows: g, at })
+    Some(Mesh {
+        cols: g,
+        rows: g,
+        at,
+    })
 }
 
 /// D-605: where Liquify's brush lands along `stroke` (x then y, per cent of the drawing `dw` by
 /// `dh`) at reach `reach`, and how far each dab moves, as `tools/liquify_reference.py` lays them.
 fn liquify_dabs(stroke: &[f64], reach: f64, (dw, dh): (f64, f64)) -> Vec<([f64; 2], [f64; 2])> {
-    let pts: Vec<[f64; 2]> = stroke.chunks_exact(2).map(|p| [p[0] / 100.0 * dw, p[1] / 100.0 * dh]).collect();
-    let pieces: Vec<([f64; 2], [f64; 2], f64)> = pts.windows(2).map(|w| (w[0], w[1], (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]))).collect();
+    let pts: Vec<[f64; 2]> = stroke
+        .chunks_exact(2)
+        .map(|p| [p[0] / 100.0 * dw, p[1] / 100.0 * dh])
+        .collect();
+    let pieces: Vec<([f64; 2], [f64; 2], f64)> = pts
+        .windows(2)
+        .map(|w| (w[0], w[1], (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])))
+        .collect();
     let length = pieces.iter().fold(0.0, |s, p| s + p.2);
     if length == 0.0 {
         return vec![(pts[0], [0.0, 0.0])];
@@ -416,7 +576,10 @@ fn liquify_dabs(stroke: &[f64], reach: f64, (dw, dh): (f64, f64)) -> Vec<([f64; 
             if left <= l || m == pieces.len() - 1 {
                 let u = (left / l).min(1.0);
                 let c = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
-                let d = [(b[0] - a[0]) / l * length / n as f64, (b[1] - a[1]) / l * length / n as f64];
+                let d = [
+                    (b[0] - a[0]) / l * length / n as f64,
+                    (b[1] - a[1]) / l * length / n as f64,
+                ];
                 out.push((c, d));
                 break;
             }
@@ -434,7 +597,10 @@ fn liquify_step(tool: &str, f: f64, p: [f64; 2], c: [f64; 2], d: [f64; 2]) -> [f
         "warp" => [-f * d[0], -f * d[1]],
         "twirl_clockwise" | "twirl_counterclockwise" => {
             let a = 0.2 * f * if tool == "twirl_clockwise" { -1.0 } else { 1.0 };
-            [qx * a.cos() - qy * a.sin() - qx, qx * a.sin() + qy * a.cos() - qy]
+            [
+                qx * a.cos() - qy * a.sin() - qx,
+                qx * a.sin() + qy * a.cos() - qy,
+            ]
         }
         "pucker" => [0.2 * f * qx, 0.2 * f * qy],
         "bloat" => [-0.2 * f * qx, -0.2 * f * qy],
@@ -446,7 +612,9 @@ fn liquify_step(tool: &str, f: f64, p: [f64; 2], c: [f64; 2], d: [f64; 2]) -> [f
 /// `tools/liquify_brushes_reference.py` has it: -1 to 1.
 fn liquify_noise(x: f64, y: f64, k: i64) -> f64 {
     let hash = |i: i64, j: i64| {
-        let mut h = (73856093u32.wrapping_mul(i as u32)) ^ (19349663u32.wrapping_mul(j as u32)) ^ (83492791u32.wrapping_mul(k as u32));
+        let mut h = (73856093u32.wrapping_mul(i as u32))
+            ^ (19349663u32.wrapping_mul(j as u32))
+            ^ (83492791u32.wrapping_mul(k as u32));
         h ^= h >> 13;
         h = h.wrapping_mul(1540483477);
         h ^= h >> 15;
@@ -469,15 +637,33 @@ pub(crate) fn liquify_stroke_fault(e: &[f64]) -> Option<String> {
         return Some(format!("is its tool, brush size, brush pressure, turbulent jitter, clone offset x and y and reconstruction mode, then x then y for one point or more, and this has {} numbers", e.len()));
     }
     let whole = |v: f64, hi: f64| v.fract() == 0.0 && (0.0..=hi).contains(&v);
-    let limits = [("brush size", 1, 1.0, 1000.0), ("brush pressure", 2, 1.0, 100.0), ("turbulent jitter", 3, 1.0, 100.0), ("clone offset x", 4, -10000.0, 10000.0), ("clone offset y", 5, -10000.0, 10000.0)];
+    let limits = [
+        ("brush size", 1, 1.0, 1000.0),
+        ("brush pressure", 2, 1.0, 100.0),
+        ("turbulent jitter", 3, 1.0, 100.0),
+        ("clone offset x", 4, -10000.0, 10000.0),
+        ("clone offset y", 5, -10000.0, 10000.0),
+    ];
     if !whole(e[0], 11.0) {
-        Some(format!("has tool number {}, and the tools are numbered 0 to 11", e[0]))
+        Some(format!(
+            "has tool number {}, and the tools are numbered 0 to 11",
+            e[0]
+        ))
     } else if !whole(e[6], 3.0) {
-        Some(format!("has reconstruction mode number {}, and the modes are numbered 0 to 3", e[6]))
-    } else if let Some((name, i, lo, hi)) = limits.into_iter().find(|&(_, i, lo, hi)| !(lo..=hi).contains(&e[i])) {
+        Some(format!(
+            "has reconstruction mode number {}, and the modes are numbered 0 to 3",
+            e[6]
+        ))
+    } else if let Some((name, i, lo, hi)) = limits
+        .into_iter()
+        .find(|&(_, i, lo, hi)| !(lo..=hi).contains(&e[i]))
+    {
         Some(format!("has {name} {}, and it is {lo} to {hi}", e[i]))
     } else {
-        e[7..].iter().find(|v| !(-100.0..=200.0).contains(*v)).map(|v| format!("has a point at {v} per cent, and they are -100 to 200"))
+        e[7..]
+            .iter()
+            .find(|v| !(-100.0..=200.0).contains(*v))
+            .map(|v| format!("has a point at {v} per cent, and they are -100 to 200"))
     }
 }
 
@@ -487,29 +673,81 @@ pub(crate) fn liquify_stroke_fault(e: &[f64]) -> Option<String> {
 /// freeze area mask or an earlier Freeze Area holds it. `None` when it draws nothing: no stroke,
 /// none of it drawn, or a freeze area mask named and not found.
 pub(crate) fn liquify(effect: &crate::effects::Effect, (dw, dh): (f64, f64)) -> Option<Field> {
-    let crate::effects::Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, turbulent_jitter, clone_offset, reconstruction_mode, strokes, freeze_path, .. } = effect else {
+    let crate::effects::Effect::Liquify {
+        tool,
+        brush_size,
+        brush_pressure,
+        stroke,
+        distortion_percentage,
+        turbulent_jitter,
+        clone_offset,
+        reconstruction_mode,
+        strokes,
+        freeze_path,
+        ..
+    } = effect
+    else {
         return None;
     };
-    if (stroke.is_empty() && strokes.is_empty()) || *distortion_percentage == 0.0 || freeze_path.as_ref().is_some_and(|p| p.is_empty()) {
+    if (stroke.is_empty() && strokes.is_empty())
+        || *distortion_percentage == 0.0
+        || freeze_path.as_ref().is_some_and(|p| p.is_empty())
+    {
         return None;
     }
     use crate::effects::{LIQUIFY_MODES, LIQUIFY_TOOLS};
     // Every stroke as (tool, brush size, pressure, jitter, clone offset, mode, points), oldest first.
-    let mut all: Vec<(&str, f64, f64, f64, [f64; 2], &str, &[f64])> =
-        strokes.iter().map(|e| (LIQUIFY_TOOLS[e[0] as usize], e[1], e[2], e[3], [e[4], e[5]], LIQUIFY_MODES[e[6] as usize], &e[7..])).collect();
+    let mut all: Vec<(&str, f64, f64, f64, [f64; 2], &str, &[f64])> = strokes
+        .iter()
+        .map(|e| {
+            (
+                LIQUIFY_TOOLS[e[0] as usize],
+                e[1],
+                e[2],
+                e[3],
+                [e[4], e[5]],
+                LIQUIFY_MODES[e[6] as usize],
+                &e[7..],
+            )
+        })
+        .collect();
     if !stroke.is_empty() {
-        all.push((tool.as_str(), *brush_size, *brush_pressure, *turbulent_jitter, *clone_offset, reconstruction_mode.as_str(), stroke.as_slice()));
+        all.push((
+            tool.as_str(),
+            *brush_size,
+            *brush_pressure,
+            *turbulent_jitter,
+            *clone_offset,
+            reconstruction_mode.as_str(),
+            stroke.as_slice(),
+        ));
     }
-    let (gx, gy) = ((dw / 2.0).ceil().min(256.0) as usize, (dh / 2.0).ceil().min(256.0) as usize);
-    let corner = |n: usize| [(n % (gx + 1)) as f64 * dw / gx as f64, (n / (gx + 1)) as f64 * dh / gy as f64];
+    let (gx, gy) = (
+        (dw / 2.0).ceil().min(256.0) as usize,
+        (dh / 2.0).ceil().min(256.0) as usize,
+    );
+    let corner = |n: usize| {
+        [
+            (n % (gx + 1)) as f64 * dw / gx as f64,
+            (n / (gx + 1)) as f64 * dh / gy as f64,
+        ]
+    };
     let count = (gx + 1) * (gy + 1);
-    let inside: Vec<bool> = (0..count).map(|n| freeze_path.as_ref().is_some_and(|m| crate::mask::point_inside(m, corner(n)[0], corner(n)[1]))).collect();
+    let inside: Vec<bool> = (0..count)
+        .map(|n| {
+            freeze_path
+                .as_ref()
+                .is_some_and(|m| crate::mask::point_inside(m, corner(n)[0], corner(n)[1]))
+        })
+        .collect();
     let mut s = Field::still(gx, gy);
     let mut z = vec![0.0; count];
     for (tool, size, pressure, jitter, clone, mode, pts) in all {
         let (reach, pressure) = (size / 2.0, pressure / 100.0);
         let landed = liquify_dabs(pts, reach, (dw, dh));
-        let frozen: Vec<f64> = (0..count).map(|n| if inside[n] { 1.0 } else { z[n] }).collect();
+        let frozen: Vec<f64> = (0..count)
+            .map(|n| if inside[n] { 1.0 } else { z[n] })
+            .collect();
         let fall = |p: [f64; 2], c: [f64; 2]| {
             let t = (p[0] - c[0]).hypot(p[1] - c[1]) / reach;
             if t < 1.0 {
@@ -523,7 +761,11 @@ pub(crate) fn liquify(effect: &crate::effects::Effect, (dw, dh): (f64, f64)) -> 
                 for &(c, _) in &landed {
                     for (n, z) in z.iter_mut().enumerate() {
                         let f = fall(corner(n), c);
-                        *z = if tool == "freeze_area" { *z + f * (1.0 - *z) } else { *z - f * *z };
+                        *z = if tool == "freeze_area" {
+                            *z + f * (1.0 - *z)
+                        } else {
+                            *z - f * *z
+                        };
                     }
                 }
             }
@@ -533,7 +775,12 @@ pub(crate) fn liquify(effect: &crate::effects::Effect, (dw, dh): (f64, f64)) -> 
                 let at = |x: f64, y: f64| s.at((dw, dh), x, y);
                 let (hx, hy) = (dw / gx as f64, dh / gy as f64);
                 let big_a = at(a[0], a[1]);
-                let (r, l, d, u) = (at(a[0] + hx, a[1]), at(a[0] - hx, a[1]), at(a[0], a[1] + hy), at(a[0], a[1] - hy));
+                let (r, l, d, u) = (
+                    at(a[0] + hx, a[1]),
+                    at(a[0] - hx, a[1]),
+                    at(a[0], a[1] + hy),
+                    at(a[0], a[1] - hy),
+                );
                 let gxv = [0, 1].map(|k| (r[k] - l[k]) / (2.0 * hx));
                 let gyv = [0, 1].map(|k| (d[k] - u[k]) / (2.0 * hy));
                 let lin = if mode == "amplitwist" {
@@ -545,11 +792,20 @@ pub(crate) fn liquify(effect: &crate::effects::Effect, (dw, dh): (f64, f64)) -> 
                 let target = |p: [f64; 2]| match mode {
                     "revert" => [0.0, 0.0],
                     "displace" => big_a,
-                    _ => [0, 1].map(|k| big_a[k] + lin[k][0] * (p[0] - a[0]) + lin[k][1] * (p[1] - a[1])),
+                    _ => [0, 1]
+                        .map(|k| big_a[k] + lin[k][0] * (p[0] - a[0]) + lin[k][1] * (p[1] - a[1])),
                 };
-                let targets: Vec<[f64; 2]> = if tool == "reconstruction" { (0..count).map(|n| target(corner(n))).collect() } else { Vec::new() };
+                let targets: Vec<[f64; 2]> = if tool == "reconstruction" {
+                    (0..count).map(|n| target(corner(n))).collect()
+                } else {
+                    Vec::new()
+                };
                 for &(c, d) in &landed {
-                    let before = Field { gx, gy, step: s.step.clone() };
+                    let before = Field {
+                        gx,
+                        gy,
+                        step: s.step.clone(),
+                    };
                     let ln = d[0].hypot(d[1]);
                     s.step.par_iter_mut().enumerate().for_each(|(n, sn)| {
                         let p = corner(n);
@@ -590,7 +846,10 @@ pub(crate) fn liquify(effect: &crate::effects::Effect, (dw, dh): (f64, f64)) -> 
                         }
                         let st = if tool == "turbulence" {
                             let a = 0.1 * f * jitter * reach;
-                            [a * liquify_noise(p[0] / reach, p[1] / reach, 0), a * liquify_noise(p[0] / reach, p[1] / reach, 1)]
+                            [
+                                a * liquify_noise(p[0] / reach, p[1] / reach, 0),
+                                a * liquify_noise(p[0] / reach, p[1] / reach, 1),
+                            ]
                         } else {
                             liquify_step(tool, f, p, c, d)
                         };
@@ -611,8 +870,12 @@ const RESHAPE_POINTS: usize = 64;
 /// starting at its first point, as `tools/reshape_reference.py` lays them.
 pub(crate) fn resample(outline: &[(f64, f64)]) -> Vec<[f64; 2]> {
     let n = outline.len();
-    let pieces: Vec<((f64, f64), (f64, f64))> = (0..n).map(|i| (outline[i], outline[(i + 1) % n])).collect();
-    let lengths: Vec<f64> = pieces.iter().map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1)).collect();
+    let pieces: Vec<((f64, f64), (f64, f64))> =
+        (0..n).map(|i| (outline[i], outline[(i + 1) % n])).collect();
+    let lengths: Vec<f64> = pieces
+        .iter()
+        .map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1))
+        .collect();
     let total = lengths.iter().fold(0.0, |s, l| s + l);
     let (mut i, mut c) = (0, 0.0);
     (0..RESHAPE_POINTS)
@@ -623,7 +886,11 @@ pub(crate) fn resample(outline: &[(f64, f64)]) -> Vec<[f64; 2]> {
                 i += 1;
             }
             let (a, b) = pieces[i];
-            let u = if lengths[i] > 0.0 { (s - c) / lengths[i] } else { 0.0 };
+            let u = if lengths[i] > 0.0 {
+                (s - c) / lengths[i]
+            } else {
+                0.0
+            };
             [a.0 + (b.0 - a.0) * u, a.1 + (b.1 - a.1) * u]
         })
         .collect()
@@ -640,9 +907,14 @@ fn winding(outline: &[(f64, f64)]) -> f64 {
 
 /// D-606: Reshape's source and destination outlines resampled, the destination first turned to
 /// wind the source's way, keeping its first point.
-pub(crate) fn reshape_points(source: &[(f64, f64)], destination: &[(f64, f64)]) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+pub(crate) fn reshape_points(
+    source: &[(f64, f64)],
+    destination: &[(f64, f64)],
+) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
     if winding(source) * winding(destination) < 0.0 {
-        let turned: Vec<(f64, f64)> = std::iter::once(destination[0]).chain(destination[1..].iter().rev().copied()).collect();
+        let turned: Vec<(f64, f64)> = std::iter::once(destination[0])
+            .chain(destination[1..].iter().rev().copied())
+            .collect();
         return (resample(source), resample(&turned));
     }
     (resample(source), resample(destination))
@@ -652,8 +924,12 @@ pub(crate) fn reshape_points(source: &[(f64, f64)], destination: &[(f64, f64)]) 
 /// its points.
 fn along(outline: &[(f64, f64)], s: f64) -> [f64; 2] {
     let n = outline.len();
-    let pieces: Vec<((f64, f64), (f64, f64))> = (0..n).map(|i| (outline[i], outline[(i + 1) % n])).collect();
-    let lengths: Vec<f64> = pieces.iter().map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1)).collect();
+    let pieces: Vec<((f64, f64), (f64, f64))> =
+        (0..n).map(|i| (outline[i], outline[(i + 1) % n])).collect();
+    let lengths: Vec<f64> = pieces
+        .iter()
+        .map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1))
+        .collect();
     let at = s * lengths.iter().fold(0.0, |s, l| s + l);
     let (mut i, mut c) = (0, 0.0);
     while i < n - 1 && c + lengths[i] <= at {
@@ -661,7 +937,11 @@ fn along(outline: &[(f64, f64)], s: f64) -> [f64; 2] {
         i += 1;
     }
     let (a, b) = pieces[i];
-    let u = if lengths[i] > 0.0 { (at - c) / lengths[i] } else { 0.0 };
+    let u = if lengths[i] > 0.0 {
+        (at - c) / lengths[i]
+    } else {
+        0.0
+    };
     [a.0 + (b.0 - a.0) * u, a.1 + (b.1 - a.1) * u]
 }
 
@@ -669,25 +949,58 @@ fn along(outline: &[(f64, f64)], s: f64) -> [f64; 2] {
 /// the source and the destination as drawn; none is D-606's [`reshape_points`]. Between two
 /// pairs the source's points, equally spaced from the first pair's, answer places spread evenly
 /// along the destination between the pairs' own, as `tools/reshape_points_reference.py` does.
-pub(crate) fn reshape_matched(source: &[(f64, f64)], destination: &[(f64, f64)], pairs: &[f64]) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+pub(crate) fn reshape_matched(
+    source: &[(f64, f64)],
+    destination: &[(f64, f64)],
+    pairs: &[f64],
+) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
     if pairs.len() < 2 {
         return reshape_points(source, destination);
     }
     let flip = winding(source) * winding(destination) < 0.0;
-    let turned: Vec<(f64, f64)> = if flip { std::iter::once(destination[0]).chain(destination[1..].iter().rev().copied()).collect() } else { destination.to_vec() };
+    let turned: Vec<(f64, f64)> = if flip {
+        std::iter::once(destination[0])
+            .chain(destination[1..].iter().rev().copied())
+            .collect()
+    } else {
+        destination.to_vec()
+    };
     let frac = |p: f64| (p / 100.0).rem_euclid(1.0);
-    let mut ps: Vec<(f64, f64)> = pairs.chunks_exact(2).map(|c| (frac(c[0]), if flip { (1.0 - frac(c[1])).rem_euclid(1.0) } else { frac(c[1]) })).collect();
+    let mut ps: Vec<(f64, f64)> = pairs
+        .chunks_exact(2)
+        .map(|c| {
+            (
+                frac(c[0]),
+                if flip {
+                    (1.0 - frac(c[1])).rem_euclid(1.0)
+                } else {
+                    frac(c[1])
+                },
+            )
+        })
+        .collect();
     ps.sort_by(|a, b| a.0.total_cmp(&b.0));
     let a0 = ps[0].0;
-    let o: Vec<f64> = ps.iter().map(|p| p.0 - a0).chain(std::iter::once(1.0)).collect();
+    let o: Vec<f64> = ps
+        .iter()
+        .map(|p| p.0 - a0)
+        .chain(std::iter::once(1.0))
+        .collect();
     (0..RESHAPE_POINTS)
         .map(|k| {
             let r = k as f64 / RESHAPE_POINTS as f64;
             let i = (0..ps.len()).rev().find(|&j| o[j] <= r).unwrap_or(0);
             let next = ps[(i + 1) % ps.len()].1;
             let f = (r - o[i]) / (o[i + 1] - o[i]);
-            let g = if ps.len() == 1 { 1.0 } else { (next - ps[i].1).rem_euclid(1.0) };
-            (along(source, (a0 + r).rem_euclid(1.0)), along(&turned, (ps[i].1 + f * g).rem_euclid(1.0)))
+            let g = if ps.len() == 1 {
+                1.0
+            } else {
+                (next - ps[i].1).rem_euclid(1.0)
+            };
+            (
+                along(source, (a0 + r).rem_euclid(1.0)),
+                along(&turned, (ps[i].1 + f * g).rem_euclid(1.0)),
+            )
         })
         .unzip()
 }
@@ -697,16 +1010,30 @@ pub(crate) fn reshape_matched(source: &[(f64, f64)], destination: &[(f64, f64)],
 /// and their weights, a straight line between the two keys, or the uniform Catmull-Rom through
 /// the key before, the two and the key after (an end key standing in for one not there); the
 /// keys' eases are not read. Empty, for Percent at `u` alone (D-606), anywhere else.
-pub(crate) fn reshape_between(interpolation: &str, keys: &[crate::model::Keyframe], u: f64) -> Vec<(f64, f64)> {
+pub(crate) fn reshape_between(
+    interpolation: &str,
+    keys: &[crate::model::Keyframe],
+    u: f64,
+) -> Vec<(f64, f64)> {
     if !matches!(interpolation, "linear" | "smooth") {
         return Vec::new();
     }
-    let Some(j) = keys.windows(2).position(|w| (w[0].frame as f64) < u && u < w[1].frame as f64) else {
+    let Some(j) = keys
+        .windows(2)
+        .position(|w| (w[0].frame as f64) < u && u < w[1].frame as f64)
+    else {
         return Vec::new();
     };
-    let val = |i: isize| keys[i.clamp(0, keys.len() as isize - 1) as usize].value.as_scalar().unwrap_or(0.0).clamp(0.0, 100.0);
+    let val = |i: isize| {
+        keys[i.clamp(0, keys.len() as isize - 1) as usize]
+            .value
+            .as_scalar()
+            .unwrap_or(0.0)
+            .clamp(0.0, 100.0)
+    };
     let j = j as isize;
-    let s = (u - keys[j as usize].frame as f64) / (keys[j as usize + 1].frame - keys[j as usize].frame) as f64;
+    let s = (u - keys[j as usize].frame as f64)
+        / (keys[j as usize + 1].frame - keys[j as usize].frame) as f64;
     if interpolation == "linear" {
         return vec![(val(j), 1.0 - s), (val(j + 1), s)];
     }
@@ -722,34 +1049,81 @@ pub(crate) fn reshape_between(interpolation: &str, keys: &[crate::model::Keyfram
 /// D-606: Reshape's field from compose's outlines (source, destination, then the boundary if
 /// one is named), `percent` of the way, at `elasticity`. D-702: matched by `pairs`, and, when
 /// `between` holds Percents and weights, those fields blended; `None` when every Percent is 0.
-pub(crate) fn reshape(paths: &[Vec<(f64, f64)>], percent: f64, between: &[(f64, f64)], pairs: &[f64], elasticity: &str, size: (f64, f64)) -> Option<Field> {
-    let parts = if between.is_empty() { vec![(percent, 1.0)] } else { between.to_vec() };
+pub(crate) fn reshape(
+    paths: &[Vec<(f64, f64)>],
+    percent: f64,
+    between: &[(f64, f64)],
+    pairs: &[f64],
+    elasticity: &str,
+    size: (f64, f64),
+) -> Option<Field> {
+    let parts = if between.is_empty() {
+        vec![(percent, 1.0)]
+    } else {
+        between.to_vec()
+    };
     if parts.iter().all(|(p, _)| *p == 0.0) {
         return None;
     }
     let (src, dst) = reshape_matched(&paths[0], &paths[1], pairs);
-    let e = RESHAPE_ELASTICITY.iter().find(|(w, _)| *w == elasticity).map_or(2.5, |(_, e)| *e);
+    let e = RESHAPE_ELASTICITY
+        .iter()
+        .find(|(w, _)| *w == elasticity)
+        .map_or(2.5, |(_, e)| *e);
     let mut total: Option<Field> = None;
     for (p, w) in parts {
-        let f = reshape_field(&src, &dst, paths.get(2).map(Vec::as_slice), p / 100.0, e, size);
+        let f = reshape_field(
+            &src,
+            &dst,
+            paths.get(2).map(Vec::as_slice),
+            p / 100.0,
+            e,
+            size,
+        );
         match &mut total {
-            None => total = Some(Field { step: f.step.iter().map(|v| [w * v[0], w * v[1]]).collect(), ..f }),
-            Some(t) => t.step.iter_mut().zip(&f.step).for_each(|(a, v)| *a = [a[0] + w * v[0], a[1] + w * v[1]]),
+            None => {
+                total = Some(Field {
+                    step: f.step.iter().map(|v| [w * v[0], w * v[1]]).collect(),
+                    ..f
+                })
+            }
+            Some(t) => t
+                .step
+                .iter_mut()
+                .zip(&f.step)
+                .for_each(|(a, v)| *a = [a[0] + w * v[0], a[1] + w * v[1]]),
         }
     }
     total
 }
 
 /// D-606: the power each elasticity gives the inverse-distance blend, stiff to liquid.
-pub(crate) const RESHAPE_ELASTICITY: [(&str, f64); 7] =
-    [("stiff", 1.0), ("less_stiff", 1.5), ("below_normal", 2.0), ("normal", 2.5), ("above_normal", 3.0), ("super_fluid", 4.0), ("liquid", 5.0)];
+pub(crate) const RESHAPE_ELASTICITY: [(&str, f64); 7] = [
+    ("stiff", 1.0),
+    ("less_stiff", 1.5),
+    ("below_normal", 2.0),
+    ("normal", 2.5),
+    ("above_normal", 3.0),
+    ("super_fluid", 4.0),
+    ("liquid", 5.0),
+];
 
 /// D-606: Reshape's backward field over the drawing `dw` by `dh`: each source point `src[k]`
 /// pulled `t` of the way to `dst[k]` reads the drawing back at the source point; the boundary's
 /// points are held; the steps blended by inverse distance to the power `e` at each corner of a
 /// grid of cells two pixels across (at most 256 each way), 0 outside the boundary.
-pub(crate) fn reshape_field(src: &[[f64; 2]], dst: &[[f64; 2]], boundary: Option<&[(f64, f64)]>, t: f64, e: f64, (dw, dh): (f64, f64)) -> Field {
-    let (gx, gy) = ((dw / 2.0).ceil().min(256.0) as usize, (dh / 2.0).ceil().min(256.0) as usize);
+pub(crate) fn reshape_field(
+    src: &[[f64; 2]],
+    dst: &[[f64; 2]],
+    boundary: Option<&[(f64, f64)]>,
+    t: f64,
+    e: f64,
+    (dw, dh): (f64, f64),
+) -> Field {
+    let (gx, gy) = (
+        (dw / 2.0).ceil().min(256.0) as usize,
+        (dh / 2.0).ceil().min(256.0) as usize,
+    );
     let rect = [(0.0, 0.0), (dw, 0.0), (dw, dh), (0.0, dh)];
     let mut anchors: Vec<([f64; 2], [f64; 2])> = src
         .iter()
@@ -759,11 +1133,18 @@ pub(crate) fn reshape_field(src: &[[f64; 2]], dst: &[[f64; 2]], boundary: Option
             (q, [s[0] - q[0], s[1] - q[1]])
         })
         .collect();
-    anchors.extend(resample(boundary.unwrap_or(&rect)).into_iter().map(|b| (b, [0.0, 0.0])));
+    anchors.extend(
+        resample(boundary.unwrap_or(&rect))
+            .into_iter()
+            .map(|b| (b, [0.0, 0.0])),
+    );
     let step = (0..(gx + 1) * (gy + 1))
         .into_par_iter()
         .map(|n| {
-            let p = [(n % (gx + 1)) as f64 * dw / gx as f64, (n / (gx + 1)) as f64 * dh / gy as f64];
+            let p = [
+                (n % (gx + 1)) as f64 * dw / gx as f64,
+                (n / (gx + 1)) as f64 * dh / gy as f64,
+            ];
             if boundary.is_some_and(|b| !crate::mask::point_inside(b, p[0], p[1])) {
                 return [0.0, 0.0];
             }
@@ -788,7 +1169,12 @@ pub(crate) fn reshape_field(src: &[[f64; 2]], dst: &[[f64; 2]], boundary: Option
 /// D-607: Smear's source outline resampled as Reshape's is, and its destination: each point moved
 /// about the points' mean (summed in order), scaled by `scale` per cent, turned `rotation` degrees
 /// clockwise on the screen and moved by `offset` pixels, as `tools/mask_smear_reference.py` moves it.
-pub(crate) fn smear_points(source: &[(f64, f64)], offset: [f64; 2], rotation: f64, scale: f64) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+pub(crate) fn smear_points(
+    source: &[(f64, f64)],
+    offset: [f64; 2],
+    rotation: f64,
+    scale: f64,
+) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
     let src = resample(source);
     let (mut cx, mut cy) = (0.0, 0.0);
     for p in &src {
@@ -802,7 +1188,10 @@ pub(crate) fn smear_points(source: &[(f64, f64)], offset: [f64; 2], rotation: f6
         .iter()
         .map(|p| {
             let (dx, dy) = (s * (p[0] - cx), s * (p[1] - cy));
-            [cx + offset[0] + (dx * cos - dy * sin), cy + offset[1] + (dx * sin + dy * cos)]
+            [
+                cx + offset[0] + (dx * cos - dy * sin),
+                cy + offset[1] + (dx * sin + dy * cos),
+            ]
         })
         .collect();
     (src, dst)
@@ -810,10 +1199,28 @@ pub(crate) fn smear_points(source: &[(f64, f64)], offset: [f64; 2], rotation: f6
 
 /// D-607: Smear's field from compose's outlines (the source, then the boundary if one is named),
 /// drawn as Reshape's is.
-pub(crate) fn smear(paths: &[Vec<(f64, f64)>], offset: [f64; 2], rotation: f64, scale: f64, percent: f64, elasticity: &str, size: (f64, f64)) -> Field {
+pub(crate) fn smear(
+    paths: &[Vec<(f64, f64)>],
+    offset: [f64; 2],
+    rotation: f64,
+    scale: f64,
+    percent: f64,
+    elasticity: &str,
+    size: (f64, f64),
+) -> Field {
     let (src, dst) = smear_points(&paths[0], offset, rotation, scale);
-    let e = RESHAPE_ELASTICITY.iter().find(|(w, _)| *w == elasticity).map_or(2.5, |(_, e)| *e);
-    reshape_field(&src, &dst, paths.get(1).map(Vec::as_slice), percent / 100.0, e, size)
+    let e = RESHAPE_ELASTICITY
+        .iter()
+        .find(|(w, _)| *w == elasticity)
+        .map_or(2.5, |(_, e)| *e);
+    reshape_field(
+        &src,
+        &dst,
+        paths.get(1).map(Vec::as_slice),
+        percent / 100.0,
+        e,
+        size,
+    )
 }
 
 #[cfg(test)]
@@ -831,7 +1238,10 @@ mod tests {
     }
 
     fn close(a: &WorkingBuffer, b: &WorkingBuffer) -> bool {
-        a.data().iter().zip(b.data()).all(|(p, q)| (p - q).abs() < 1e-6)
+        a.data()
+            .iter()
+            .zip(b.data())
+            .all(|(p, q)| (p - q).abs() < 1e-6)
     }
 
     #[test]
@@ -850,8 +1260,15 @@ mod tests {
         for y in 0..h {
             for x in 0..w {
                 let got = &b.data()[(y * w + x) * 4..][..4];
-                let want: &[f32] = if x < 2 { &[0.0; 4] } else { &plain.data()[(y * w + x - 2) * 4..][..4] };
-                assert!(got.iter().zip(want).all(|(p, q)| (p - q).abs() < 1e-6), "{x} {y}");
+                let want: &[f32] = if x < 2 {
+                    &[0.0; 4]
+                } else {
+                    &plain.data()[(y * w + x - 2) * 4..][..4]
+                };
+                assert!(
+                    got.iter().zip(want).all(|(p, q)| (p - q).abs() < 1e-6),
+                    "{x} {y}"
+                );
             }
         }
     }
@@ -861,12 +1278,17 @@ mod tests {
         let (w, h) = (40, 20);
         let plain = drawing(w, h);
         let mut fold = Mesh::grid(2, 1, (w as f64, h as f64));
-        fold.at.iter_mut().for_each(|p| p[0] = p[0].min(w as f64 - p[0]));
+        fold.at
+            .iter_mut()
+            .for_each(|p| p[0] = p[0].min(w as f64 - p[0]));
         let mut b = plain.clone();
         draw(&mut b, &fold, (0, 0));
         for y in 0..h {
             for x in 0..w / 2 {
-                assert_eq!(&b.data()[(y * w + x) * 4..][..4], &plain.data()[(y * w + w - 1 - x) * 4..][..4]);
+                assert_eq!(
+                    &b.data()[(y * w + x) * 4..][..4],
+                    &plain.data()[(y * w + w - 1 - x) * 4..][..4]
+                );
             }
             assert_eq!(&b.data()[(y * w + w - 1) * 4..][..4], &[0.0; 4]);
         }
@@ -887,7 +1309,11 @@ mod tests {
             for x in 0..w {
                 let t = y / TILE * tx + x / TILE;
                 let p = [x as f64 + 0.5 - 3.0, y as f64 + 0.5 - 2.0];
-                assert_eq!(m.locate(&list[offsets[t] as usize..offsets[t + 1] as usize], p), m.locate(&all, p), "{x} {y}");
+                assert_eq!(
+                    m.locate(&list[offsets[t] as usize..offsets[t + 1] as usize], p),
+                    m.locate(&all, p),
+                    "{x} {y}"
+                );
             }
         }
     }
@@ -905,11 +1331,23 @@ mod tests {
         draw_field(&mut b, &one, 1.0, [0.0; 2], (0, 0));
         for y in 0..h {
             for x in 0..w - 1 {
-                assert_eq!(&b.data()[(y * w + x) * 4..][..4], &plain.data()[(y * w + x + 1) * 4..][..4]);
+                assert_eq!(
+                    &b.data()[(y * w + x) * 4..][..4],
+                    &plain.data()[(y * w + x + 1) * 4..][..4]
+                );
             }
         }
-        let ramp = Field { gx: 4, gy: 3, step: (0..4).flat_map(|_| (0..5).map(|i| [i as f64 / 4.0 * 2.0, 0.0])).collect() };
-        assert_eq!(ramp.at((w as f64, h as f64), w as f64 / 2.0, 3.0), [1.0, 0.0]);
+        let ramp = Field {
+            gx: 4,
+            gy: 3,
+            step: (0..4)
+                .flat_map(|_| (0..5).map(|i| [i as f64 / 4.0 * 2.0, 0.0]))
+                .collect(),
+        };
+        assert_eq!(
+            ramp.at((w as f64, h as f64), w as f64 / 2.0, 3.0),
+            [1.0, 0.0]
+        );
         assert_eq!(ramp.at((w as f64, h as f64), -5.0, 3.0), [0.0, 0.0]);
     }
 }

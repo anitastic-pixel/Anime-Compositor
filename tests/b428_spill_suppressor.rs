@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -43,7 +44,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=15 {
         let file = format!("fx_ssup_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -51,7 +56,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::SpillSuppressor { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::SpillSuppressor { .. })
+                });
             }
         }
         t.row(
@@ -69,9 +76,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -85,7 +101,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::SpillSuppressor { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::SpillSuppressor { .. })
+                });
                 t.row(
                     &format!("the reference shot, Spill Suppressor {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -99,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,14 +132,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Solid pixels of `before` and `after` side by side.
 fn solid<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] == 255)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] == 255)
 }
 
 /// By hand, in encoded 8-bit values: the leading channel `s` less `amount` of how far it stands
@@ -170,26 +206,60 @@ fn b428_spill_suppressor() {
         ("fx_ssup_015.json", "color to suppress"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
-    t.shape_refused("fx_ssup_001.json", "a Spill Suppressor whose suppression is a word", r##"{"color_to_suppress": "#0000ff", "suppression": "all"}"##);
-    t.shape_refused("fx_ssup_001.json", "a Spill Suppressor without its colour", r#"{"suppression": 100}"#);
-    t.shape_refused("fx_ssup_001.json", "a Spill Suppressor whose colour is a number", r#"{"color_to_suppress": 255, "suppression": 100}"#);
+    t.shape_refused(
+        "fx_ssup_001.json",
+        "a Spill Suppressor whose suppression is a word",
+        r##"{"color_to_suppress": "#0000ff", "suppression": "all"}"##,
+    );
+    t.shape_refused(
+        "fx_ssup_001.json",
+        "a Spill Suppressor without its colour",
+        r#"{"suppression": 100}"#,
+    );
+    t.shape_refused(
+        "fx_ssup_001.json",
+        "a Spill Suppressor whose colour is a number",
+        r#"{"color_to_suppress": 255, "suppression": 100}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_ssup_001.json").document;
-    let over = changed(&t, "fx_ssup_001.json", |e| if let Effect::SpillSuppressor { suppression, .. } = e { *suppression = 101.0 });
-    let word = changed(&t, "fx_ssup_001.json", |e| if let Effect::SpillSuppressor { color_to_suppress, .. } = e { *color_to_suppress = "green".into() });
+    let over = changed(&t, "fx_ssup_001.json", |e| {
+        if let Effect::SpillSuppressor { suppression, .. } = e {
+            *suppression = 101.0
+        }
+    });
+    let word = changed(&t, "fx_ssup_001.json", |e| {
+        if let Effect::SpillSuppressor {
+            color_to_suppress, ..
+        } = e
+        {
+            *color_to_suppress = "green".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("suppression 101", set(over)),
             ("colour to suppress \"green\"", set(word)),
-            ("suppression keyed to 150", keys("suppression", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "suppression keyed to 150",
+                keys("suppression", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     let picked = changed(&t, "fx_ssup_001.json", |e| {
-        if let Effect::SpillSuppressor { color_to_suppress, suppression } = e {
+        if let Effect::SpillSuppressor {
+            color_to_suppress,
+            suppression,
+        } = e
+        {
             *color_to_suppress = "#28b43c".into();
             *suppression = 40.0;
         }
@@ -198,8 +268,14 @@ fn b428_spill_suppressor() {
         &mut document,
         "fx_ssup_001.json",
         vec![
-            ("a green screen's colour picked, suppression 40", set(picked)),
-            ("suppression keyed from 0 to 100", keys("suppression", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "a green screen's colour picked, suppression 40",
+                set(picked),
+            ),
+            (
+                "suppression keyed from 0 to 100",
+                keys("suppression", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -223,20 +299,42 @@ fn b428_spill_suppressor() {
         &mut gpu,
         &[
             ("as added (blue, 100)", json!({}), 3),
-            ("green screen colour #28b43c, suppression 60", json!({"color_to_suppress": "#28b43c", "suppression": 60}), 3),
-            ("red, suppression 30", json!({"color_to_suppress": "#ff0000", "suppression": 30}), 3),
+            (
+                "green screen colour #28b43c, suppression 60",
+                json!({"color_to_suppress": "#28b43c", "suppression": 60}),
+                3,
+            ),
+            (
+                "red, suppression 30",
+                json!({"color_to_suppress": "#ff0000", "suppression": 30}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-548 pictures/`");
     let dir = repo("verification/D-548 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     let (same, said) = street(json!({"suppression": 0}));
     t.row(
@@ -252,7 +350,11 @@ fn b428_spill_suppressor() {
         let (mut worst, mut lost) = (0.0f64, 0);
         for (b, a) in solid(&before, after) {
             for i in 0..3 {
-                let want = if i == s { by_hand(b, s, amount) } else { b[i] as f64 };
+                let want = if i == s {
+                    by_hand(b, s, amount)
+                } else {
+                    b[i] as f64
+                };
                 worst = worst.max((a[i] as f64 - want).abs());
             }
             lost += (a[s] < b[s]) as usize;
@@ -318,22 +420,48 @@ fn b428_spill_suppressor_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Spill Suppressor as added (blue, 100)", Some(json!({}))),
-        ("Noise, then Spill Suppressor #28b43c at 60", Some(json!({"color_to_suppress": "#28b43c", "suppression": 60}))),
+        (
+            "Noise, then Spill Suppressor as added (blue, 100)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Spill Suppressor #28b43c at 60",
+            Some(json!({"color_to_suppress": "#28b43c", "suppression": 60})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B428_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-428_timing_raw.md"));
+    let out = std::env::var("B428_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-428_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

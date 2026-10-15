@@ -42,7 +42,11 @@ fn b82_channel_mixer() {
 
     t.heading("How far it reaches");
     let got = mixer(&B, &G, &R, "on").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = mixer(&B, &G, &R, "off");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -80,9 +84,18 @@ fn b82_channel_mixer() {
     t.refused(
         &mut document,
         vec![
-            ("red 201, 0, 0, 0", set(mixer(&[201.0, 0.0, 0.0, 0.0], &G, &B, "off"))),
-            ("green's constant -201", set(mixer(&R, &[0.0, 100.0, 0.0, -201.0], &B, "off"))),
-            ("blue as three numbers", set(mixer(&R, &G, &[0.0, 0.0, 100.0], "off"))),
+            (
+                "red 201, 0, 0, 0",
+                set(mixer(&[201.0, 0.0, 0.0, 0.0], &G, &B, "off")),
+            ),
+            (
+                "green's constant -201",
+                set(mixer(&R, &[0.0, 100.0, 0.0, -201.0], &B, "off")),
+            ),
+            (
+                "blue as three numbers",
+                set(mixer(&R, &G, &[0.0, 0.0, 100.0], "off")),
+            ),
             ("monochrome \"yes\"", set(mixer(&R, &G, &B, "yes"))),
             (
                 "red keyed to 0, 0, 300, 0",
@@ -102,12 +115,19 @@ fn b82_channel_mixer() {
                 "every number at 200 with monochrome on, the top,",
                 set(mixer(&[200.0; 4], &[200.0; 4], &[200.0; 4], "on")),
             ),
-            ("red keyed from red to blue", keys("red", &[(0, &R), (4, &B)])),
+            (
+                "red keyed from red to blue",
+                keys("red", &[(0, &R), (4, &B)]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_mixer_002.json", 0), ("fx_mixer_008.json", 0), ("fx_mixer_012.json", 2)]);
+    t.tiles(&[
+        ("fx_mixer_002.json", 0),
+        ("fx_mixer_008.json", 0),
+        ("fx_mixer_012.json", 2),
+    ]);
 
     t.finish("B-82_channel_mixer_table.md");
 }

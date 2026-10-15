@@ -48,7 +48,11 @@ fn square() -> Vec<u8> {
     (0..w * h)
         .flat_map(|i| {
             let (x, y) = (i % w, i / w);
-            if (84..108).contains(&x) && (42..66).contains(&y) { [255; 4] } else { [0; 4] }
+            if (84..108).contains(&x) && (42..66).contains(&y) {
+                [255; 4]
+            } else {
+                [0; 4]
+            }
         })
         .collect()
 }
@@ -76,15 +80,28 @@ fn picture(dir: &Path, settings: J, float: bool) -> (Vec<u8>, Vec<String>) {
     }
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     // Over black in linear light: the premultiplied colour itself, held to white.
     let black = frame
         .data()
         .chunks(4)
         .flat_map(|p| {
-            let over = |c: f32| (anime_compositor::color::linear_to_srgb(c.clamp(0.0, 1.0)) * 255.0).round() as u8;
+            let over = |c: f32| {
+                (anime_compositor::color::linear_to_srgb(c.clamp(0.0, 1.0)) * 255.0).round() as u8
+            };
             [over(p[0]), over(p[1]), over(p[2]), 255]
         })
         .collect();
@@ -112,42 +129,122 @@ fn b206_glow_ae() {
     t.fixtures("expected_glow_ae.json");
 
     t.heading("The file");
-    t.round_trips(&["fx_glow_ae_001.json", "fx_glow_ae_002.json", "fx_glow_ae_003.json", "fx_glow_ae_004.json", "fx_glow_ae_009.json"]);
+    t.round_trips(&[
+        "fx_glow_ae_001.json",
+        "fx_glow_ae_002.json",
+        "fx_glow_ae_003.json",
+        "fx_glow_ae_004.json",
+        "fx_glow_ae_009.json",
+    ]);
     let saved = t.saved_parameters("fx_glow_ae_002.json");
-    t.row("fx_glow_ae_002.json, a glow with no units as before D-322, is saved without units", &saved.to_string(), saved.get("units").is_none());
+    t.row(
+        "fx_glow_ae_002.json, a glow with no units as before D-322, is saved without units",
+        &saved.to_string(),
+        saved.get("units").is_none(),
+    );
     let saved = t.saved_parameters("fx_glow_ae_001.json");
-    t.row("A glow in After Effects units is saved as units: after_effects", &saved.to_string(), saved["units"] == "after_effects");
+    t.row(
+        "A glow in After Effects units is saved as units: after_effects",
+        &saved.to_string(),
+        saved["units"] == "after_effects",
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_glow_ae_002.json").document;
     t.refused(
         &mut document,
-        vec![("units \"ae\"", set(glow("ae"))), ("units \"After_Effects\", written with capitals", set(glow("After_Effects")))],
+        vec![
+            ("units \"ae\"", set(glow("ae"))),
+            (
+                "units \"After_Effects\", written with capitals",
+                set(glow("After_Effects")),
+            ),
+        ],
     );
-    t.taken(&mut document, "fx_glow_ae_002.json", vec![("FX-GLOW-AE-002 set to After Effects units,", set(glow("after_effects")))]);
+    t.taken(
+        &mut document,
+        "fx_glow_ae_002.json",
+        vec![(
+            "FX-GLOW-AE-002 set to After Effects units,",
+            set(glow("after_effects")),
+        )],
+    );
     let mut document = t.load("fx_glow_ae_002.json").document;
     document.apply(set(glow("after_effects"))).unwrap();
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_glow_ae.json")).unwrap()).unwrap();
-    let d = effect_table::largest_difference(&t.render(&document, 0, 64), &expected["cases"]["FX-GLOW-AE-001"]["frames"]["0"]);
-    t.row("FX-GLOW-AE-002 set to After Effects units by the command draws FX-GLOW-AE-001's frame", &format!("largest difference {d:.1e}"), d <= 2e-5);
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(t.root.join("expected_glow_ae.json")).unwrap())
+            .unwrap();
+    let d = effect_table::largest_difference(
+        &t.render(&document, 0, 64),
+        &expected["cases"]["FX-GLOW-AE-001"]["frames"]["0"],
+    );
+    t.row(
+        "FX-GLOW-AE-002 set to After Effects units by the command draws FX-GLOW-AE-001's frame",
+        &format!("largest difference {d:.1e}"),
+        d <= 2e-5,
+    );
 
     t.heading("The preview card");
     match Gpu::new() {
-        Err(why) => t.row("The card draws the glow", &format!("NOT RUN: no usable card ({why})"), false),
+        Err(why) => t.row(
+            "The card draws the glow",
+            &format!("NOT RUN: no usable card ({why})"),
+            false,
+        ),
         Ok(mut gpu) => {
-            for name in ["fx_glow_ae_001.json", "fx_glow_ae_002.json", "fx_glow_ae_004.json", "fx_glow_ae_006.json", "fx_glow_ae_007.json", "fx_glow_ae_008.json"] {
+            for name in [
+                "fx_glow_ae_001.json",
+                "fx_glow_ae_002.json",
+                "fx_glow_ae_004.json",
+                "fx_glow_ae_006.json",
+                "fx_glow_ae_007.json",
+                "fx_glow_ae_008.json",
+            ] {
                 let project = t.load(name).document.project().clone();
                 let comp = Id::new("comp-main");
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let cpu = preview::preview_frame_cached(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).unwrap().to_srgb8_straight();
+                let cpu = preview::preview_frame_cached(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap()
+                .to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (card, ..) = preview::preview_frame_srgb8(&project, &comp, 0, &t.root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).unwrap();
-                let on_cpu = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-                let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+                let (card, ..) = preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    0,
+                    &t.root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap();
+                let on_cpu = log
+                    .finish()
+                    .iter()
+                    .any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
+                let worst = cpu
+                    .iter()
+                    .zip(&card)
+                    .map(|(a, b)| a.abs_diff(*b))
+                    .max()
+                    .unwrap_or(0);
                 t.row(
                     &format!("{name}: drawn on the card, within 1 level of 255 of the CPU"),
-                    &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
+                    &format!(
+                        "{}, largest difference {worst} of 255",
+                        if on_cpu { "CPU" } else { "card" }
+                    ),
                     !on_cpu && worst <= 1,
                 );
             }
@@ -158,7 +255,9 @@ fn b206_glow_ae() {
     let dir = effect_table::repo("verification/D-322 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], bytes).unwrap()
+    };
     write("square.png", &square());
     // Along the middle row, 6 and 20 pixels right of the square.
     let row = |bytes: &[u8]| {
@@ -188,7 +287,11 @@ fn b206_glow_ae() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_glow_ae_001.json", 0), ("fx_glow_ae_004.json", 0), ("fx_glow_ae_008.json", 0)]);
+    t.tiles(&[
+        ("fx_glow_ae_001.json", 0),
+        ("fx_glow_ae_004.json", 0),
+        ("fx_glow_ae_008.json", 0),
+    ]);
 
     t.finish("D-322_glow_ae_table.md");
 }

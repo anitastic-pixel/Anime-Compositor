@@ -33,7 +33,11 @@ fn b87_mosaic() {
 
     t.heading("How far it reaches");
     let got = mosaic(1000.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = mosaic(10.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -64,7 +68,11 @@ fn b87_mosaic() {
         "fx_mosaic_020.json",
     ]);
     t.shape_refused("fx_mosaic_001.json", "no `size` at all", r#"{}"#);
-    t.shape_refused("fx_mosaic_001.json", "a size that is a word", r#"{"size": "big"}"#);
+    t.shape_refused(
+        "fx_mosaic_001.json",
+        "a size that is a word",
+        r#"{"size": "big"}"#,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_mosaic_001.json").document;
@@ -73,7 +81,10 @@ fn b87_mosaic() {
         vec![
             ("size 0.5", set(mosaic(0.5))),
             ("size 1001", set(mosaic(1001.0))),
-            ("size keyed to 0", keys("size", &[(0, &[10.0]), (4, &[0.0])])),
+            (
+                "size keyed to 0",
+                keys("size", &[(0, &[10.0]), (4, &[0.0])]),
+            ),
         ],
     );
     t.taken(
@@ -82,7 +93,10 @@ fn b87_mosaic() {
         vec![
             ("size 1, the bottom,", set(mosaic(1.0))),
             ("size 1000, the top,", set(mosaic(1000.0))),
-            ("size keyed from 2 to 6", keys("size", &[(0, &[2.0]), (4, &[6.0])])),
+            (
+                "size keyed from 2 to 6",
+                keys("size", &[(0, &[2.0]), (4, &[6.0])]),
+            ),
         ],
     );
 

@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -42,14 +43,20 @@ fn fx(id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// `effects` on the street (in `dir`) at `frame`, drawn by the processor, straight 8-bit, with
 /// what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -64,8 +71,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -100,31 +119,80 @@ fn b525_curl_transform() {
     t.row(
         "fx_curl_067.json is saved with Rotation 45, Scale 150 and Perspective Offset on",
         &saved.to_string(),
-        saved["rotation"] == json!(45) && saved["scale"] == json!(150) && saved["perspective_offset"] == "on",
+        saved["rotation"] == json!(45)
+            && saved["scale"] == json!(150)
+            && saved["perspective_offset"] == "on",
     );
     let saved = t.saved_parameters("fx_curl_070.json");
-    t.row("fx_curl_070.json is saved with Rotation's keys kept", &saved["rotation"].to_string(), saved["rotation"]["keyframes"][1]["value"] == json!(90));
+    t.row(
+        "fx_curl_070.json is saved with Rotation's keys kept",
+        &saved["rotation"].to_string(),
+        saved["rotation"]["keyframes"][1]["value"] == json!(90),
+    );
     for (file, want) in [
-        ("fx_curl_074.json", "Curl Noise's scale runs from 1 to 10000, and this is 0.5."),
-        ("fx_curl_075.json", "Curl Noise's rotation runs from -100000 to 100000, and this is 200000."),
-        ("fx_curl_076.json", "Curl Noise's perspective offset is \"off\" or \"on\", and this is \"yes\"."),
+        (
+            "fx_curl_074.json",
+            "Curl Noise's scale runs from 1 to 10000, and this is 0.5.",
+        ),
+        (
+            "fx_curl_075.json",
+            "Curl Noise's rotation runs from -100000 to 100000, and this is 200000.",
+        ),
+        (
+            "fx_curl_076.json",
+            "Curl Noise's perspective offset is \"off\" or \"on\", and this is \"yes\".",
+        ),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == want);
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == want,
+        );
     }
 
     t.heading("Commands");
     let mut document = t.load("fx_curl_072.json").document;
     let with = |f: fn(&mut Effect)| changed(&t, "fx_curl_072.json", f);
     let refused = vec![
-        ("scale 0.5", set(with(|e| if let Effect::CurlNoise { scale, .. } = e { *scale = 0.5 }))),
-        ("rotation 200000", set(with(|e| if let Effect::CurlNoise { rotation, .. } = e { *rotation = 200000.0 }))),
-        ("perspective offset \"yes\"", set(with(|e| if let Effect::CurlNoise { perspective_offset, .. } = e { *perspective_offset = "yes".into() }))),
+        (
+            "scale 0.5",
+            set(with(|e| {
+                if let Effect::CurlNoise { scale, .. } = e {
+                    *scale = 0.5
+                }
+            })),
+        ),
+        (
+            "rotation 200000",
+            set(with(|e| {
+                if let Effect::CurlNoise { rotation, .. } = e {
+                    *rotation = 200000.0
+                }
+            })),
+        ),
+        (
+            "perspective offset \"yes\"",
+            set(with(|e| {
+                if let Effect::CurlNoise {
+                    perspective_offset, ..
+                } = e
+                {
+                    *perspective_offset = "yes".into()
+                }
+            })),
+        ),
     ];
     let taken = vec![(
         "rotation -45, scale 300, perspective offset on",
         set(with(|e| {
-            if let Effect::CurlNoise { rotation, scale, perspective_offset, .. } = e {
+            if let Effect::CurlNoise {
+                rotation,
+                scale,
+                perspective_offset,
+                ..
+            } = e
+            {
                 *rotation = -45.0;
                 *scale = 300.0;
                 *perspective_offset = "on".into();
@@ -135,14 +203,23 @@ fn b525_curl_transform() {
     t.taken(&mut document, "fx_curl_072.json", taken);
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_curl_062.json", 0), ("fx_curl_067.json", 2), ("fx_curl_069.json", 0), ("fx_curl_071.json", 0)]);
+    t.tiles(&[
+        ("fx_curl_062.json", 0),
+        ("fx_curl_067.json", 2),
+        ("fx_curl_069.json", 0),
+        ("fx_curl_071.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     let comp = Id::new(MAIN);
     for n in 61..=77u32 {
         let file = format!("fx_curl_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -150,7 +227,9 @@ fn b525_curl_transform() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CurlNoise { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::CurlNoise { .. })
+                });
             }
         }
         // The refused ones (074 to 077) leave nothing for the card.
@@ -164,17 +243,37 @@ fn b525_curl_transform() {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
-    let as_added = cpu(&reference(|id| json!([fx(&format!("b525-{id}"), &json!({}))])));
+    let as_added = cpu(&reference(|id| {
+        json!([fx(&format!("b525-{id}"), &json!({}))])
+    }));
     for (what, p) in [
         ("Rotation 30", json!({"rotation": 30})),
-        ("Rotation 45, Scale 250, Perspective Offset on, Speed 40", json!({"rotation": 45, "scale": 250, "perspective_offset": "on", "speed": 40})),
-        ("Rotation keyed 0 to 720, Curl Generation", json!({"rotation": keyed(&[(0, json!(0)), (239, json!(720))]), "view": "curl_generation"})),
-        ("This Layer, Rotation 90, Scale 50", json!({"source": "this_layer", "rotation": 90, "scale": 50})),
+        (
+            "Rotation 45, Scale 250, Perspective Offset on, Speed 40",
+            json!({"rotation": 45, "scale": 250, "perspective_offset": "on", "speed": 40}),
+        ),
+        (
+            "Rotation keyed 0 to 720, Curl Generation",
+            json!({"rotation": keyed(&[(0, json!(0)), (239, json!(720))]), "view": "curl_generation"}),
+        ),
+        (
+            "This Layer, Rotation 90, Scale 50",
+            json!({"source": "this_layer", "rotation": 90, "scale": 50}),
+        ),
     ] {
         let project = reference(|id| json!([fx(&format!("b525-{id}"), &p)]));
         let drawn = cpu(&project);
@@ -187,7 +286,9 @@ fn b525_curl_transform() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(&mut gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CurlNoise { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::CurlNoise { .. })
+                });
                 t.row(
                     &format!("the reference shot, Curl Noise {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -200,7 +301,17 @@ fn b525_curl_transform() {
     t.heading("Pictures: the street, in `verification/D-646 pictures/`");
     let dir = repo("verification/D-646 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let street = |p: J| picture(&dir, json!([fx("fx-0-0", &p)]), 0);
     let (plain, said) = street(json!({"size": 40, "view": "input_noise"}));
@@ -258,21 +369,44 @@ fn b525_curl_transform_timing() {
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
         ("Noise, then Curl Noise as added", Some(json!({}))),
-        ("the same with Rotation 45, Scale 150, Perspective Offset on", Some(json!({"rotation": 45, "scale": 150, "perspective_offset": "on"}))),
+        (
+            "the same with Rotation 45, Scale 150, Perspective Offset on",
+            Some(json!({"rotation": 45, "scale": 150, "perspective_offset": "on"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B525_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-525_timing_raw.md"));
+    let out = std::env::var("B525_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-525_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

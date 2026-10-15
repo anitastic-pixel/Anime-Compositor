@@ -50,11 +50,23 @@ fn b104_cross_glare() {
 
     t.heading("How far it reaches");
     let got = with(1, 40.7).bounds_expansion();
-    t.row("length 40.7 grows the drawing's bounds by 40 pixels", &got.to_string(), got == 40);
+    t.row(
+        "length 40.7 grows the drawing's bounds by 40 pixels",
+        &got.to_string(),
+        got == 40,
+    );
     let got = with(1, 0.9).bounds_expansion();
-    t.row("length 0.9, taken down to 0, grows them by nothing", &got.to_string(), got == 0);
+    t.row(
+        "length 0.9, taken down to 0, grows them by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let got = with(4, 0.0).bounds_expansion();
-    t.row("intensity 0 grows them by nothing", &got.to_string(), got == 0);
+    t.row(
+        "intensity 0 grows them by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = with(1, 40.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -105,16 +117,28 @@ fn b104_cross_glare() {
             ("intensity 11", set(with(4, 11.0))),
             ("colour \"#12345\"", set(glare(START, "#12345"))),
             ("colour \"white\"", set(glare(START, "white"))),
-            ("intensity keyed to 11", keys("intensity", &[(0, &[1.0]), (4, &[11.0])])),
+            (
+                "intensity keyed to 11",
+                keys("intensity", &[(0, &[1.0]), (4, &[11.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_glare_001.json",
         vec![
-            ("every number at its bottom,", set(glare([0.0, 0.0, 1.0, -3600.0, 0.0], "#000000"))),
-            ("every number at its top,", set(glare([100.0, 1000.0, 8.0, 3600.0, 10.0], "#ffffff"))),
-            ("length keyed from 0 to 8", keys("length", &[(0, &[0.0]), (4, &[8.0])])),
+            (
+                "every number at its bottom,",
+                set(glare([0.0, 0.0, 1.0, -3600.0, 0.0], "#000000")),
+            ),
+            (
+                "every number at its top,",
+                set(glare([100.0, 1000.0, 8.0, 3600.0, 10.0], "#ffffff")),
+            ),
+            (
+                "length keyed from 0 to 8",
+                keys("length", &[(0, &[0.0]), (4, &[8.0])]),
+            ),
         ],
     );
 

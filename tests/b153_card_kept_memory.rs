@@ -33,7 +33,8 @@ use common::repo;
 /// keys; or frame mix on a stretched second layer and a dissolve on the fourth, with an animated
 /// Roughen Edges on the first; or the first, with the Roughen Edges in place of its motion blur.
 fn shot(kind: &str) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
     let comp = &mut j["compositions"][0];
     if kind == "mix" {
@@ -44,10 +45,9 @@ fn shot(kind: &str) -> Project {
         comp["layers"][0]["effects"] = json!([{"instance_id": "b153-r", "type_id": "core.roughen_edges", "enabled": true,
             "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
     } else {
-        comp["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
-        let keys = |a: serde_json::Value, b: serde_json::Value| {
-            json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]})
-        };
+        comp["motion_blur"] =
+            json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
+        let keys = |a: serde_json::Value, b: serde_json::Value| json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]});
         let layers = comp["layers"].as_array_mut().expect("layers");
         for l in layers.iter_mut() {
             l["motion_blur"] = true.into();
@@ -61,7 +61,11 @@ fn shot(kind: &str) -> Project {
                 "parameters": {"edge_type": "roughen_color", "edge_color": "#8a3c14", "border": 6, "size": 8, "complexity": 3, "evolution": 30, "speed": 10, "seed": 3}}]);
         }
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{kind}: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("{kind}: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -75,12 +79,21 @@ fn b153_card_kept_memory() {
             return;
         }
     };
-    let (root, comp) = (repo("Fixtures/reference_shot"), Id::new("comp-reference-shot"));
+    let (root, comp) = (
+        repo("Fixtures/reference_shot"),
+        Id::new("comp-reference-shot"),
+    );
     let (mut rows, mut checks, mut passed) = (String::new(), 0, 0);
     for (kind, name) in [
         ("blur", "the reference shot with motion blur"),
-        ("mix", "the reference shot with frame mix, dissolve and Roughen Edges"),
-        ("rough", "the reference shot with motion blur and Roughen Edges"),
+        (
+            "mix",
+            "the reference shot with frame mix, dissolve and Roughen Edges",
+        ),
+        (
+            "rough",
+            "the reference shot with motion blur and Roughen Edges",
+        ),
     ] {
         let project = shot(kind);
         for quality in [PreviewQuality::Draft, PreviewQuality::Full] {
@@ -91,13 +104,35 @@ fn b153_card_kept_memory() {
                 let before = gpu.made();
                 for frame in (0..240).step_by(8) {
                     let mut log = FrameLog::new(3);
-                    let (kept, ..) = preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                        .unwrap_or_else(|d| panic!("{name} frame {frame}: {}", d.message));
+                    let (kept, ..) = preview::preview_frame_srgb8(
+                        &project,
+                        &comp,
+                        frame,
+                        &root,
+                        quality,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .unwrap_or_else(|d| panic!("{name} frame {frame}: {}", d.message));
                     if play == 1 && frame % 48 == 0 {
                         let mut fresh = Gpu::new().expect("a second card");
                         let mut log = FrameLog::new(3);
-                        let (new, ..) = preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer(), &mut fresh)
-                            .unwrap_or_else(|d| panic!("{name} frame {frame} on a fresh card: {}", d.message));
+                        let (new, ..) = preview::preview_frame_srgb8(
+                            &project,
+                            &comp,
+                            frame,
+                            &root,
+                            quality,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut CelCache::viewer(),
+                            &mut fresh,
+                        )
+                        .unwrap_or_else(|d| {
+                            panic!("{name} frame {frame} on a fresh card: {}", d.message)
+                        });
                         compared += 1;
                         same += (kept == new) as usize;
                     }
@@ -105,12 +140,26 @@ fn b153_card_kept_memory() {
                 made[play] = gpu.made() - before;
             }
             for (pass, what) in [
-                (compared > 0 && same == compared, format!("{same} of {compared} frames byte for byte a fresh card's")),
-                (made[1] == 0, format!("{} pieces of memory made the first time through, {} the second", made[0], made[1])),
+                (
+                    compared > 0 && same == compared,
+                    format!("{same} of {compared} frames byte for byte a fresh card's"),
+                ),
+                (
+                    made[1] == 0,
+                    format!(
+                        "{} pieces of memory made the first time through, {} the second",
+                        made[0], made[1]
+                    ),
+                ),
             ] {
                 checks += 1;
                 passed += pass as usize;
-                let _ = writeln!(rows, "| {name} | {} | {what} | {} |", quality.label(), if pass { "PASS" } else { "FAIL" });
+                let _ = writeln!(
+                    rows,
+                    "| {name} | {} | {what} | {} |",
+                    quality.label(),
+                    if pass { "PASS" } else { "FAIL" }
+                );
             }
         }
     }

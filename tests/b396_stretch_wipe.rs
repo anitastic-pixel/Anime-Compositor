@@ -16,7 +16,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN};
+use effect_table::{
+    both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -30,14 +32,17 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers.
 
-
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=17 {
         let file = format!("fx_stretch_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -45,7 +50,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::StretchWipe { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::StretchWipe { .. })
+                });
             }
         }
         t.row(
@@ -63,9 +70,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -79,7 +95,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::StretchWipe { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::StretchWipe { .. })
+                });
                 t.row(
                     &format!("the reference shot, Stretch Wipe {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,7 +111,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -105,18 +126,28 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
-
 
 /// The pixel at (x, y) of a picture at the street's size.
 fn at(bytes: &[u8], p: (usize, usize)) -> [u8; 4] {
     let i = (p.1 * TOWN.0 + p.0) * 4;
     [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
 }
-
 
 /// A Stretch Wipe with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
@@ -145,7 +176,9 @@ fn b396_stretch_wipe() {
     t.fixtures_numbered("expected_stretch_wipe.json", 1..=17);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=17).map(|n| format!("fx_stretch_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=17)
+        .map(|n| format!("fx_stretch_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_stretch_012.json");
     t.row(
@@ -163,7 +196,11 @@ fn b396_stretch_wipe() {
         ("fx_stretch_016.json", "direction"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     t.shape_refused(
         "fx_stretch_001.json",
@@ -184,9 +221,21 @@ fn b396_stretch_wipe() {
         &mut gpu,
         &[
             ("scale 300 (as added otherwise)", json!({"scale": 300}), 3),
-            ("scale 1000, direction 90", json!({"scale": 1000, "direction": 90}), 3),
-            ("scale 175, direction -135, Center [60, 40]", json!({"scale": 175, "direction": -135, "center": [60, 40]}), 3),
-            ("scale keyed 150 to 5000", json!({"scale": {"base": 150, "keyframes": [{"frame": 0, "value": 150, "interp": "linear"}, {"frame": 239, "value": 5000, "interp": "linear"}]}}), 3),
+            (
+                "scale 1000, direction 90",
+                json!({"scale": 1000, "direction": 90}),
+                3,
+            ),
+            (
+                "scale 175, direction -135, Center [60, 40]",
+                json!({"scale": 175, "direction": -135, "center": [60, 40]}),
+                3,
+            ),
+            (
+                "scale keyed 150 to 5000",
+                json!({"scale": {"base": 150, "keyframes": [{"frame": 0, "value": 150, "interp": "linear"}, {"frame": 239, "value": 5000, "interp": "linear"}]}}),
+                3,
+            ),
         ],
     );
 
@@ -195,33 +244,81 @@ fn b396_stretch_wipe() {
     let out = repo("verification/D-516 pictures");
     fs::create_dir_all(&out).unwrap();
     let (street, _) = picture(&dir, "1_left.png", (480, 270), json!([]));
-    png_out::write_rgba(&out.join("0_the_street.png"), 480, 270, OutputDepth::Eight, &[], &street).unwrap();
+    png_out::write_rgba(
+        &out.join("0_the_street.png"),
+        480,
+        270,
+        OutputDepth::Eight,
+        &[],
+        &street,
+    )
+    .unwrap();
     // name, settings, a pixel behind the line that must be as the street's.
     for (name, p, kept) in [
         ("1_stretched", json!({"scale": 300}), (100, 135)),
         ("2_down", json!({"scale": 200, "direction": 90}), (240, 2)),
-        ("3_turned", json!({"scale": 175, "direction": -135, "center": [60, 40]}), (470, 268)),
-        ("4_off_the_left", json!({"scale": 150, "center": [-20, 50]}), (0, 0)),
+        (
+            "3_turned",
+            json!({"scale": 175, "direction": -135, "center": [60, 40]}),
+            (470, 268),
+        ),
+        (
+            "4_off_the_left",
+            json!({"scale": 150, "center": [-20, 50]}),
+            (0, 0),
+        ),
     ] {
         let (bytes, said) = picture(&dir, "1_left.png", (480, 270), json!([fx("pic", &p)]));
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let k = at(&bytes, kept);
         let off = name == "4_off_the_left";
         let changed_px = distance(&bytes, &street).1;
         t.row(
-            &format!("{name}.png: drawn without a warning, {}", if off { "every pixel stretched".to_string() } else { format!("pixels changed, the one at {kept:?} behind the line as the street's") }),
+            &format!(
+                "{name}.png: drawn without a warning, {}",
+                if off {
+                    "every pixel stretched".to_string()
+                } else {
+                    format!("pixels changed, the one at {kept:?} behind the line as the street's")
+                }
+            ),
             &format!("{changed_px} pixels changed; at {kept:?} {k:?}; warnings {said:?}"),
             said.is_empty() && changed_px > 0 && (off || k == at(&street, kept)),
         );
     }
     // At 100000 the right half is the middle line drawn out: every pixel there is read within a
     // quarter pixel right of the line, so it lies between the street's two middle columns.
-    let (bytes, said) = picture(&dir, "1_left.png", (480, 270), json!([fx("pic", &json!({"scale": 100000}))]));
-    png_out::write_rgba(&out.join("5_streaks.png"), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
-    let rows_same = (0..270).all(|y| (241..480).all(|x| {
-        let (l, r) = (at(&street, (239, y)), at(&street, (240, y)));
-        at(&bytes, (x, y)).iter().enumerate().all(|(c, v)| v.saturating_add(1) >= l[c].min(r[c]) && *v <= l[c].max(r[c]).saturating_add(1))
-    }));
+    let (bytes, said) = picture(
+        &dir,
+        "1_left.png",
+        (480, 270),
+        json!([fx("pic", &json!({"scale": 100000}))]),
+    );
+    png_out::write_rgba(
+        &out.join("5_streaks.png"),
+        480,
+        270,
+        OutputDepth::Eight,
+        &[],
+        &bytes,
+    )
+    .unwrap();
+    let rows_same = (0..270).all(|y| {
+        (241..480).all(|x| {
+            let (l, r) = (at(&street, (239, y)), at(&street, (240, y)));
+            at(&bytes, (x, y)).iter().enumerate().all(|(c, v)| {
+                v.saturating_add(1) >= l[c].min(r[c]) && *v <= l[c].max(r[c]).saturating_add(1)
+            })
+        })
+    });
     t.row(
         "5_streaks.png: drawn without a warning, scale 100000: along every row the right half lies between the street's two middle columns, within 1 level",
         &format!("{} pixels changed; every row from x 241 to 479 between columns 239 and 240: {rows_same}; warnings {said:?}", distance(&bytes, &street).1),
@@ -229,7 +326,6 @@ fn b396_stretch_wipe() {
     );
     t.finish("D-516_stretch_wipe_table.md");
 }
-
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
 /// that changes every frame on its first three layers, so nothing is kept, then the effect,
@@ -256,23 +352,52 @@ fn b396_stretch_wipe_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Stretch Wipe, scale 300 (as added otherwise)", Some(json!({"scale": 300}))),
-        ("Noise, then Stretch Wipe, scale 100000, direction 90", Some(json!({"scale": 100000, "direction": 90}))),
-        ("Noise, then Stretch Wipe, scale 175, direction -135, Center [60, 40]", Some(json!({"scale": 175, "direction": -135, "center": [60, 40]}))),
+        (
+            "Noise, then Stretch Wipe, scale 300 (as added otherwise)",
+            Some(json!({"scale": 300})),
+        ),
+        (
+            "Noise, then Stretch Wipe, scale 100000, direction 90",
+            Some(json!({"scale": 100000, "direction": 90})),
+        ),
+        (
+            "Noise, then Stretch Wipe, scale 175, direction -135, Center [60, 40]",
+            Some(json!({"scale": 175, "direction": -135, "center": [60, 40]})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B396_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-396_timing_raw.md"));
+    let out = std::env::var("B396_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-396_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

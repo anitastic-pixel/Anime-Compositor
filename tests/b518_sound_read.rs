@@ -22,7 +22,13 @@ fn first_sample(n: u64, rate: u64) -> usize {
 /// between frames 7 and 15.
 fn clicks(mean: &dyn Fn(usize) -> f64, len: usize, rate: u64) -> [usize; 2] {
     let loudest = |a: usize, b: usize| {
-        (a..b.min(len)).fold(a, |best, i| if mean(i).abs() > mean(best).abs() { i } else { best })
+        (a..b.min(len)).fold(a, |best, i| {
+            if mean(i).abs() > mean(best).abs() {
+                i
+            } else {
+                best
+            }
+        })
     };
     let (a, b) = (first_sample(7, rate), first_sample(15, rate));
     [loudest(0, a), loudest(a, b)]
@@ -60,7 +66,10 @@ fn b518_sound_read() {
          of frames 2 and 12 at 24 frames a second (B-112's method), so a click on the right sample \
          means the sound is in step with the picture.\n",
     );
-    let expected: J = serde_json::from_str(&std::fs::read_to_string(t.root.join("expected_sound_read.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &std::fs::read_to_string(t.root.join("expected_sound_read.json")).unwrap(),
+    )
+    .unwrap();
     let bound = expected["lossy_bound"].as_f64().unwrap();
     let media = t.root.join("media");
     let mut measured: Vec<(String, f64)> = Vec::new();
@@ -71,32 +80,71 @@ fn b518_sound_read() {
         let sound = match audio::read_file(&media.join(name)) {
             Ok(s) => s,
             Err(d) => {
-                t.row(&format!("`{name}` is read"), &format!("refused: {}", d.id.as_str()), false);
+                t.row(
+                    &format!("`{name}` is read"),
+                    &format!("refused: {}", d.id.as_str()),
+                    false,
+                );
                 continue;
             }
         };
-        let (rate, ch) = (f["rate"].as_u64().unwrap(), f["channels"].as_u64().unwrap() as usize);
+        let (rate, ch) = (
+            f["rate"].as_u64().unwrap(),
+            f["channels"].as_u64().unwrap() as usize,
+        );
         let lossless = f["lossless"].as_bool().unwrap();
         let tol = if lossless { 2e-5 } else { bound };
         t.row(
-            &format!("`{name}`: {rate} a second, {ch} channel{}", if ch == 1 { "" } else { "s" }),
-            &format!("{} a second, {} channel{}", sound.rate, sound.channels(), if sound.channels() == 1 { "" } else { "s" }),
+            &format!(
+                "`{name}`: {rate} a second, {ch} channel{}",
+                if ch == 1 { "" } else { "s" }
+            ),
+            &format!(
+                "{} a second, {} channel{}",
+                sound.rate,
+                sound.channels(),
+                if sound.channels() == 1 { "" } else { "s" }
+            ),
             sound.rate as u64 == rate && sound.channels() == ch,
         );
         let len = sound.samples as usize;
-        let (lo, hi) = (f["shortest"].as_u64().unwrap() as usize, f["samples"].as_u64().unwrap() as usize);
-        let want_len = if lo == hi { format!("{hi}") } else { format!("{lo} to {hi}") };
-        t.row(&format!("`{name}`: length {want_len} samples"), &format!("{len}"), (lo..=hi).contains(&len));
-        let want_clicks: Vec<usize> = f["clicks"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as usize).collect();
+        let (lo, hi) = (
+            f["shortest"].as_u64().unwrap() as usize,
+            f["samples"].as_u64().unwrap() as usize,
+        );
+        let want_len = if lo == hi {
+            format!("{hi}")
+        } else {
+            format!("{lo} to {hi}")
+        };
+        t.row(
+            &format!("`{name}`: length {want_len} samples"),
+            &format!("{len}"),
+            (lo..=hi).contains(&len),
+        );
+        let want_clicks: Vec<usize> = f["clicks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_u64().unwrap() as usize)
+            .collect();
         let got = clicks(&|i| sound.mean(i as i64), len, rate);
         t.row(
-            &format!("`{name}`: clicks on samples {} and {}", want_clicks[0], want_clicks[1]),
+            &format!(
+                "`{name}`: clicks on samples {} and {}",
+                want_clicks[0], want_clicks[1]
+            ),
             &format!("{} and {}", got[0], got[1]),
             got[..] == want_clicks[..],
         );
         let mut worst = 0f64;
         let mut compared = 0;
-        for (i, v) in f["places"].as_array().unwrap().iter().zip(f["values"].as_array().unwrap()) {
+        for (i, v) in f["places"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(f["values"].as_array().unwrap())
+        {
             let i = i.as_u64().unwrap() as usize;
             if i >= len {
                 continue;
@@ -107,7 +155,14 @@ fn b518_sound_read() {
             }
         }
         t.row(
-            &format!("`{name}`: {compared} named places within {}", if lossless { "2e-5".to_string() } else { format!("{bound} (lossy, before measuring)") }),
+            &format!(
+                "`{name}`: {compared} named places within {}",
+                if lossless {
+                    "2e-5".to_string()
+                } else {
+                    format!("{bound} (lossy, before measuring)")
+                }
+            ),
             &format!("largest difference {worst:.2e}"),
             worst <= tol,
         );
@@ -117,17 +172,41 @@ fn b518_sound_read() {
         if let Some(w) = f.get("working") {
             let [l, r] = sound.working();
             let n = w["samples"].as_u64().unwrap() as usize;
-            t.row(&format!("`{name}` working sound: {n} samples at 48,000"), &format!("{} and {}", l.len(), r.len()), l.len() == n && r.len() == n);
-            let wc: Vec<usize> = w["clicks"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as usize).collect();
+            t.row(
+                &format!("`{name}` working sound: {n} samples at 48,000"),
+                &format!("{} and {}", l.len(), r.len()),
+                l.len() == n && r.len() == n,
+            );
+            let wc: Vec<usize> = w["clicks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap() as usize)
+                .collect();
             let got = clicks(&|i| (l[i] + r[i]) / 2.0, l.len(), 48000);
-            t.row(&format!("`{name}` working sound: clicks on {} and {}", wc[0], wc[1]), &format!("{} and {}", got[0], got[1]), got[..] == wc[..]);
+            t.row(
+                &format!("`{name}` working sound: clicks on {} and {}", wc[0], wc[1]),
+                &format!("{} and {}", got[0], got[1]),
+                got[..] == wc[..],
+            );
             let mut worst = 0f64;
-            for (i, v) in w["places"].as_array().unwrap().iter().zip(w["values"].as_array().unwrap()) {
+            for (i, v) in w["places"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(w["values"].as_array().unwrap())
+            {
                 let i = i.as_u64().unwrap() as usize;
                 let v = v.as_array().unwrap();
-                worst = worst.max((l[i] - v[0].as_f64().unwrap()).abs()).max((r[i] - v[1].as_f64().unwrap()).abs());
+                worst = worst
+                    .max((l[i] - v[0].as_f64().unwrap()).abs())
+                    .max((r[i] - v[1].as_f64().unwrap()).abs());
             }
-            t.row(&format!("`{name}` working sound: named places within 2e-5"), &format!("largest difference {worst:.2e}"), worst <= 2e-5);
+            t.row(
+                &format!("`{name}` working sound: named places within 2e-5"),
+                &format!("largest difference {worst:.2e}"),
+                worst <= 2e-5,
+            );
         }
         picture(name, &sound);
     }
@@ -140,25 +219,58 @@ fn b518_sound_read() {
             Ok(_) => "read".to_string(),
             Err(d) => format!("{}: {}", d.id.as_str(), d.message),
         };
-        t.row(&format!("`{name}` refused with {want}, the window still plays it"), &got, got.starts_with(want));
+        t.row(
+            &format!("`{name}` refused with {want}, the window still plays it"),
+            &got,
+            got.starts_with(want),
+        );
     }
     let wav = std::fs::read(media.join("stereo_48k.wav")).unwrap();
     let by_hand = audio::Sound::read(wav).unwrap();
     let by_name = audio::read_file(&media.join("stereo_48k.wav")).unwrap();
     let same = by_hand.samples == by_name.samples
-        && (0..by_hand.samples as i64).all(|i| by_hand.at(0, i) == by_name.at(0, i) && by_hand.at(1, i) == by_name.at(1, i));
-    t.row("a WAV reads exactly as D-71's reader reads it", if same { "every sample the same" } else { "different" }, same);
+        && (0..by_hand.samples as i64)
+            .all(|i| by_hand.at(0, i) == by_name.at(0, i) && by_hand.at(1, i) == by_name.at(1, i));
+    t.row(
+        "a WAV reads exactly as D-71's reader reads it",
+        if same {
+            "every sample the same"
+        } else {
+            "different"
+        },
+        same,
+    );
     let working = by_name.working();
-    let same = (0..by_name.samples as usize).all(|i| working[0][i] == by_name.at(0, i as i64) && working[1][i] == by_name.at(1, i as i64));
-    t.row("a 48,000 stereo file's working sound is the file", if same { "every sample the same" } else { "different" }, same);
-    let not = audio::read_file(&repo("Fixtures/audio/media/not_a_wav.wav")).err().map(|d| d.id.as_str());
-    t.row("a file that is not a WAV inside is still MEDIA_AUDIO_UNREADABLE", &format!("{not:?}"), not == Some("MEDIA_AUDIO_UNREADABLE"));
+    let same = (0..by_name.samples as usize).all(|i| {
+        working[0][i] == by_name.at(0, i as i64) && working[1][i] == by_name.at(1, i as i64)
+    });
+    t.row(
+        "a 48,000 stereo file's working sound is the file",
+        if same {
+            "every sample the same"
+        } else {
+            "different"
+        },
+        same,
+    );
+    let not = audio::read_file(&repo("Fixtures/audio/media/not_a_wav.wav"))
+        .err()
+        .map(|d| d.id.as_str());
+    t.row(
+        "a file that is not a WAV inside is still MEDIA_AUDIO_UNREADABLE",
+        &format!("{not:?}"),
+        not == Some("MEDIA_AUDIO_UNREADABLE"),
+    );
 
     // B-518's measurement: the lossy files land as close to ffmpeg's decode as the lossless
     // ones, so the usual 2e-5 is proposed for them too, and checked here.
     t.heading("Measured: the lossy files against ffmpeg's decode, held to 2e-5");
     for (name, worst) in &measured {
-        t.row(&format!("`{name}`: largest difference at the named places"), &format!("{worst:.2e}"), *worst <= 2e-5);
+        t.row(
+            &format!("`{name}`: largest difference at the named places"),
+            &format!("{worst:.2e}"),
+            *worst <= 2e-5,
+        );
     }
     t.finish("D-639_sound_read_table.md");
 }
@@ -172,7 +284,19 @@ fn b518_sound_read_timing() {
     std::fs::create_dir_all(&dir).unwrap();
     let wav = dir.join("long.wav");
     let ok = std::process::Command::new("ffmpeg")
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100:duration=180", "-ac", "2", "-c:a", "pcm_s16le"])
+        .args([
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=44100:duration=180",
+            "-ac",
+            "2",
+            "-c:a",
+            "pcm_s16le",
+        ])
         .arg(&wav)
         .status()
         .unwrap()
@@ -180,7 +304,14 @@ fn b518_sound_read_timing() {
     assert!(ok);
     for (ext, codec) in [("mp3", "libmp3lame"), ("flac", "flac"), ("m4a", "aac")] {
         let to = dir.join(format!("long.{ext}"));
-        assert!(std::process::Command::new("ffmpeg").args(["-v", "error", "-y", "-i"]).arg(&wav).args(["-c:a", codec]).arg(&to).status().unwrap().success());
+        assert!(std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-y", "-i"])
+            .arg(&wav)
+            .args(["-c:a", codec])
+            .arg(&to)
+            .status()
+            .unwrap()
+            .success());
     }
     let mut out = String::new();
     for ext in ["wav", "flac", "mp3", "m4a"] {
@@ -191,7 +322,14 @@ fn b518_sound_read_timing() {
         let start = std::time::Instant::now();
         let w = s.working();
         let work = start.elapsed().as_secs_f64() * 1000.0;
-        out.push_str(&format!("| {ext} | {:.0} | {:.0} | {} |\n", read, work, w[0].len()));
+        out.push_str(&format!(
+            "| {ext} | {:.0} | {:.0} | {} |\n",
+            read,
+            work,
+            w[0].len()
+        ));
     }
-    println!("| File | Read (ms) | Working sound (ms) | Working samples |\n|---|---:|---:|---:|\n{out}");
+    println!(
+        "| File | Read (ms) | Working sound (ms) | Working samples |\n|---|---:|---:|---:|\n{out}"
+    );
 }

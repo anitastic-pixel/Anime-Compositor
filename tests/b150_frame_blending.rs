@@ -26,7 +26,14 @@ fn json(t: &Table, file: &str) -> J {
 
 /// FX-FBLEND-012's project with its layer `bar` given these times and position keys at `keys`
 /// (x the key's own frame), in a composition long enough for all of them.
-fn timed(t: &Table, in_frame: i32, out_frame: i32, offset: i32, stretch: f64, keys: &[i32]) -> Document {
+fn timed(
+    t: &Table,
+    in_frame: i32,
+    out_frame: i32,
+    offset: i32,
+    stretch: f64,
+    keys: &[i32],
+) -> Document {
     let mut p = json(t, "fx_fblend_012.json");
     let comp = &mut p["compositions"][0];
     comp["duration_frames"] = J::from(100);
@@ -40,24 +47,50 @@ fn timed(t: &Table, in_frame: i32, out_frame: i32, offset: i32, stretch: f64, ke
         .iter()
         .map(|k| serde_json::json!({ "frame": k, "value": [k, 0], "interp": "linear" }))
         .collect();
-    persist::load_str(&p.to_string()).expect("the made-up project reads").document
+    persist::load_str(&p.to_string())
+        .expect("the made-up project reads")
+        .document
 }
 
 fn bar(document: &Document) -> &Layer {
-    document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("bar")).unwrap()
+    document
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("bar"))
+        .unwrap()
 }
 
 fn stored(document: &Document) -> Vec<i32> {
     let layer = bar(document);
-    layer.transform.get(Prop::Position).unwrap().keyframes().iter().map(|k| k.frame).collect()
+    layer
+        .transform
+        .get(Prop::Position)
+        .unwrap()
+        .keyframes()
+        .iter()
+        .map(|k| k.frame)
+        .collect()
 }
 
 fn layer_cmd(which: &str, value: f64) -> Command {
     let (composition, layer_id) = (Id::new(MAIN), Id::new("bar"));
     match which {
-        "stretch" => Command::SetLayerTimeStretch { composition, layer_id, value },
-        "dissolve" => Command::SetDrawingDissolve { composition, layer_id, frames: value as u32 },
-        _ => Command::SetLayerFrameBlend { composition, layer_id, value: value != 0.0 },
+        "stretch" => Command::SetLayerTimeStretch {
+            composition,
+            layer_id,
+            value,
+        },
+        "dissolve" => Command::SetDrawingDissolve {
+            composition,
+            layer_id,
+            frames: value as u32,
+        },
+        _ => Command::SetLayerFrameBlend {
+            composition,
+            layer_id,
+            value: value != 0.0,
+        },
     }
 }
 
@@ -67,7 +100,11 @@ fn close(a: f64, b: &J, tolerance: f64) -> bool {
 
 /// The codes a frame's log holds, each once, in order.
 fn codes(log: FrameLog) -> Vec<String> {
-    let mut out: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
+    let mut out: Vec<String> = log
+        .finish()
+        .iter()
+        .map(|d| d.id.as_str().to_string())
+        .collect();
     out.sort();
     out.dedup();
     out
@@ -122,7 +159,9 @@ fn b150_frame_blending() {
         layer["out_frame"] = J::from(1000);
         layer["source_offset_frames"] = case["source_offset_frames"].clone();
         layer["time_stretch"] = case["time_stretch"].clone();
-        let document = persist::load_str(&p.to_string()).expect("the made-up project reads").document;
+        let document = persist::load_str(&p.to_string())
+            .expect("the made-up project reads")
+            .document;
         let layer = bar(&document);
         for row in case["rows"].as_array().unwrap() {
             let n = row["n"].as_i64().unwrap() as i32;
@@ -148,8 +187,15 @@ fn b150_frame_blending() {
         for (frame, pixels) in case["frames"].as_object().unwrap() {
             let n: i32 = frame.parse().unwrap();
             let mut log = FrameLog::new(64);
-            let got = render_frame(loaded.document.project(), &Id::new(MAIN), n, &t.root, 64, &mut log)
-                .unwrap_or_else(|d| panic!("{file} frame {n} renders: {}", d.message));
+            let got = render_frame(
+                loaded.document.project(),
+                &Id::new(MAIN),
+                n,
+                &t.root,
+                64,
+                &mut log,
+            )
+            .unwrap_or_else(|d| panic!("{file} frame {n} renders: {}", d.message));
             let d = effect_table::largest_difference(&got, pixels);
             let said = codes(log);
             let mut want: Vec<String> = case["diagnostics"]
@@ -167,7 +213,11 @@ fn b150_frame_blending() {
             );
         }
         let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
-        t.row(&format!("{name}: opening it warns of nothing"), &format!("{on_open:?}"), on_open.is_empty());
+        t.row(
+            &format!("{name}: opening it warns of nothing"),
+            &format!("{on_open:?}"),
+            on_open.is_empty(),
+        );
     }
 
     t.heading("The file");
@@ -205,13 +255,17 @@ fn b150_frame_blending() {
     }
     let again = saved(&t.load("fx_fblend_024.json"));
     let comp = &again["compositions"][0];
-    let quiet = comp.get("frame_blending").is_none() && comp["layers"][0].get("time_stretch").is_none();
+    let quiet =
+        comp.get("frame_blending").is_none() && comp["layers"][0].get("time_stretch").is_none();
     t.row(
         "FX-FBLEND-024: a file that writes stretch 100 and the switch false is saved without either",
         &format!("{}", comp["layers"][0].get("time_stretch").is_some() || comp.get("frame_blending").is_some()),
         quiet,
     );
-    let fourteen = same_json(&saved(&t.load("fx_fblend_014.json")), &json(&t, "fx_fblend_014.json"));
+    let fourteen = same_json(
+        &saved(&t.load("fx_fblend_014.json")),
+        &json(&t, "fx_fblend_014.json"),
+    );
     t.row(
         "FX-FBLEND-014: a file written before D-216 is saved with none of the four fields",
         if fourteen { "the same" } else { "differs" },
@@ -221,8 +275,14 @@ fn b150_frame_blending() {
         let refused = persist::load(&t.root.join(case["project"].as_str().unwrap())).err();
         let code = refused.as_ref().map(|d| d.id.as_str().to_string());
         t.row(
-            &format!("{name}: {} Refused as {}", case["says"].as_str().unwrap(), case["code"].as_str().unwrap()),
-            &refused.as_ref().map_or("opened".to_string(), |d| format!("{}: {}", d.id.as_str(), d.message)),
+            &format!(
+                "{name}: {} Refused as {}",
+                case["says"].as_str().unwrap(),
+                case["code"].as_str().unwrap()
+            ),
+            &refused.as_ref().map_or("opened".to_string(), |d| {
+                format!("{}: {}", d.id.as_str(), d.message)
+            }),
             code.as_deref() == case["code"].as_str(),
         );
     }
@@ -230,15 +290,29 @@ fn b150_frame_blending() {
     t.heading("FX-FBLEND-040 to 044: the Time Stretch command");
     for (name, case) in expected["commands"].as_object().unwrap() {
         let get = |k: &str| case[k].as_f64().unwrap();
-        let mut document = timed(&t, get("in_frame") as i32, get("out_frame") as i32, 0, get("from"), &[]);
+        let mut document = timed(
+            &t,
+            get("in_frame") as i32,
+            get("out_frame") as i32,
+            0,
+            get("from"),
+            &[],
+        );
         let before = format!("{:?}", bar(&document));
         let taken = document.apply(layer_cmd("stretch", get("to"))).is_ok();
         let out = bar(&document).out_frame;
         document.undo();
         let back = format!("{:?}", bar(&document)) == before;
         t.row(
-            &format!("{name}: {} One undo puts it back.", case["says"].as_str().unwrap()),
-            &format!("{}, out point {out}, undone {}", if taken { "taken" } else { "refused" }, back),
+            &format!(
+                "{name}: {} One undo puts it back.",
+                case["says"].as_str().unwrap()
+            ),
+            &format!(
+                "{}, out point {out}, undone {}",
+                if taken { "taken" } else { "refused" },
+                back
+            ),
             taken && out as f64 == get("out_after") && back,
         );
     }
@@ -248,28 +322,64 @@ fn b150_frame_blending() {
         ("a stretch of 0.5", layer_cmd("stretch", 0.5)),
         ("a stretch of 10001", layer_cmd("stretch", 10001.0)),
         ("a stretch of -100", layer_cmd("stretch", -100.0)),
-        ("a stretch that is no number", layer_cmd("stretch", f64::NAN)),
-        ("a drawing dissolve of 101 frames", layer_cmd("dissolve", 101.0)),
+        (
+            "a stretch that is no number",
+            layer_cmd("stretch", f64::NAN),
+        ),
+        (
+            "a drawing dissolve of 101 frames",
+            layer_cmd("dissolve", 101.0),
+        ),
     ] {
         let refused = document.apply(command).err();
         t.row(
             &format!("{what} is refused with a sentence, and nothing changes"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some() && format!("{:?}", bar(&document)) == before,
         );
     }
     let mut p = json(&t, "fx_fblend_060.json");
-    p["compositions"][0]["layers"][1].as_object_mut().unwrap().remove("time_stretch");
-    let mut solid = persist::load_str(&p.to_string()).expect("the solid's project reads").document;
+    p["compositions"][0]["layers"][1]
+        .as_object_mut()
+        .unwrap()
+        .remove("time_stretch");
+    let mut solid = persist::load_str(&p.to_string())
+        .expect("the solid's project reads")
+        .document;
     for (what, command) in [
-        ("a stretch on a solid layer", Command::SetLayerTimeStretch { composition: Id::new(MAIN), layer_id: Id::new("card"), value: 200.0 }),
-        ("frame mix on a solid layer", Command::SetLayerFrameBlend { composition: Id::new(MAIN), layer_id: Id::new("card"), value: true }),
-        ("a drawing dissolve on a solid layer", Command::SetDrawingDissolve { composition: Id::new(MAIN), layer_id: Id::new("card"), frames: 1 }),
+        (
+            "a stretch on a solid layer",
+            Command::SetLayerTimeStretch {
+                composition: Id::new(MAIN),
+                layer_id: Id::new("card"),
+                value: 200.0,
+            },
+        ),
+        (
+            "frame mix on a solid layer",
+            Command::SetLayerFrameBlend {
+                composition: Id::new(MAIN),
+                layer_id: Id::new("card"),
+                value: true,
+            },
+        ),
+        (
+            "a drawing dissolve on a solid layer",
+            Command::SetDrawingDissolve {
+                composition: Id::new(MAIN),
+                layer_id: Id::new("card"),
+                frames: 1,
+            },
+        ),
     ] {
         let refused = solid.apply(command).err();
         t.row(
             &format!("{what} is refused with a sentence"),
-            &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+            &refused
+                .as_ref()
+                .map_or("taken".to_string(), |d| d.message.clone()),
             refused.is_some(),
         );
     }
@@ -277,12 +387,22 @@ fn b150_frame_blending() {
     let before = t.render(&document, 3, 64);
     let steps = [
         ("the layer's frame mix switched on", layer_cmd("mix", 1.0)),
-        ("the composition's frame blending switched on", Command::SetFrameBlending { composition: Id::new(MAIN), value: true }),
+        (
+            "the composition's frame blending switched on",
+            Command::SetFrameBlending {
+                composition: Id::new(MAIN),
+                value: true,
+            },
+        ),
     ];
     let n = steps.len() + 1;
     for (what, command) in steps {
         let taken = document.apply(command).is_ok();
-        t.row(&format!("on FX-FBLEND-011, {what} is taken"), if taken { "taken" } else { "refused" }, taken);
+        t.row(
+            &format!("on FX-FBLEND-011, {what} is taken"),
+            if taken { "taken" } else { "refused" },
+            taken,
+        );
     }
     let now = t.render(&document, 3, 64);
     let loaded_12 = t.load("fx_fblend_012.json").document;
@@ -295,7 +415,11 @@ fn b150_frame_blending() {
     let dissolved = t.render(&document, 1, 64).data() != t.render(&loaded_12, 1, 64).data();
     t.row(
         "then a drawing dissolve of 2 frames is taken, and frame 1 changes with it",
-        &format!("{}, frame 1 {}", if taken { "taken" } else { "refused" }, if dissolved { "changed" } else { "the same" }),
+        &format!(
+            "{}, frame 1 {}",
+            if taken { "taken" } else { "refused" },
+            if dissolved { "changed" } else { "the same" }
+        ),
         taken && dissolved,
     );
     for _ in 0..n {
@@ -312,7 +436,12 @@ fn b150_frame_blending() {
     for (name, case) in expected["keys"].as_object().unwrap() {
         let in_frame = case["in_frame"].as_i64().unwrap() as i32;
         let stretch = case["time_stretch"].as_f64().unwrap();
-        let want: Vec<i32> = case["stored"].as_array().unwrap().iter().map(|k| k.as_i64().unwrap() as i32).collect();
+        let want: Vec<i32> = case["stored"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|k| k.as_i64().unwrap() as i32)
+            .collect();
         let document = match case.get("playhead").and_then(J::as_i64) {
             // A key set at the playhead: stored where the build puts it, by the command a key
             // takes.
@@ -334,7 +463,8 @@ fn b150_frame_blending() {
             // Keys stored at 100, then the layer stretched by the command.
             None if in_frame == 0 && stretch == 200.0 => {
                 let mut d = timed(&t, in_frame, 12, 0, 100.0, &want);
-                d.apply(layer_cmd("stretch", stretch)).expect("the stretch is taken");
+                d.apply(layer_cmd("stretch", stretch))
+                    .expect("the stretch is taken");
                 d
             }
             None => timed(&t, in_frame, 40, 0, stretch, &want),
@@ -342,10 +472,16 @@ fn b150_frame_blending() {
         let layer = bar(&document);
         let keys = stored(&document);
         let played: Vec<f64> = keys.iter().map(|k| layer.played_at(*k)).collect();
-        let reads_back = keys.iter().zip(&played).all(|(k, p)| (layer.key_time(*p) - *k as f64).abs() <= tolerance);
+        let reads_back = keys
+            .iter()
+            .zip(&played)
+            .all(|(k, p)| (layer.key_time(*p) - *k as f64).abs() <= tolerance);
         let ok = keys == want
             && played.len() == case["played"].as_array().unwrap().len()
-            && played.iter().zip(case["played"].as_array().unwrap()).all(|(p, e)| close(*p, e, tolerance))
+            && played
+                .iter()
+                .zip(case["played"].as_array().unwrap())
+                .all(|(p, e)| close(*p, e, tolerance))
             && reads_back;
         t.row(
             &format!("{name}: {}", case["says"].as_str().unwrap()),
@@ -357,19 +493,32 @@ fn b150_frame_blending() {
     t.heading("FX-FBLEND-064 to 067: trimming a stretched layer's in point");
     for (name, case) in expected["trims"].as_object().unwrap() {
         let get = |k: &str| case[k].as_f64().unwrap();
-        let keys: Vec<i32> = case["keys"].as_array().unwrap().iter().map(|k| k.as_i64().unwrap() as i32).collect();
+        let keys: Vec<i32> = case["keys"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|k| k.as_i64().unwrap() as i32)
+            .collect();
         let (in_frame, out_frame) = (get("in_frame") as i32, get("out_frame") as i32);
-        let mut document = timed(&t, in_frame, out_frame, get("source_offset_frames") as i32, get("time_stretch"), &keys);
+        let mut document = timed(
+            &t,
+            in_frame,
+            out_frame,
+            get("source_offset_frames") as i32,
+            get("time_stretch"),
+            &keys,
+        );
         let before = format!("{:?}", bar(&document));
         let played: Vec<f64> = keys.iter().map(|k| bar(&document).played_at(*k)).collect();
-        let result = document.apply(Command::TrimLayer {
-            composition: Id::new(MAIN),
-            layer_id: Id::new("bar"),
-            in_frame: get("new_in") as i32,
-            out_frame,
-        })
-        .map(|_| ())
-        .map_err(|d| d.message.clone());
+        let result = document
+            .apply(Command::TrimLayer {
+                composition: Id::new(MAIN),
+                layer_id: Id::new("bar"),
+                in_frame: get("new_in") as i32,
+                out_frame,
+            })
+            .map(|_| ())
+            .map_err(|d| d.message.clone());
         let layer = bar(&document);
         let now = stored(&document);
         let (built, ok) = match &case["after"] {
@@ -378,31 +527,71 @@ fn b150_frame_blending() {
                 result.is_err() && format!("{layer:?}") == before,
             ),
             after => {
-                let want: Vec<i32> = after["keys"].as_array().unwrap().iter().map(|k| k.as_i64().unwrap() as i32).collect();
+                let want: Vec<i32> = after["keys"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|k| k.as_i64().unwrap() as i32)
+                    .collect();
                 let still: Vec<f64> = now.iter().map(|k| layer.played_at(*k)).collect();
                 (
-                    format!("offset {}, keys at {now:?}, playing at {still:?} (were {played:?})", layer.source_offset_frames),
+                    format!(
+                        "offset {}, keys at {now:?}, playing at {still:?} (were {played:?})",
+                        layer.source_offset_frames
+                    ),
                     result.is_ok()
-                        && layer.source_offset_frames as i64 == after["source_offset_frames"].as_i64().unwrap()
+                        && layer.source_offset_frames as i64
+                            == after["source_offset_frames"].as_i64().unwrap()
                         && now == want
                         && still == played,
                 )
             }
         };
-        t.row(&format!("{name}: {}", case["says"].as_str().unwrap()), &built, ok);
+        t.row(
+            &format!("{name}: {}", case["says"].as_str().unwrap()),
+            &built,
+            ok,
+        );
     }
 
     t.heading("A mixed or dissolved layer is marked as built by the processor, which the card lays (B-152)");
     for (file, n, mixed, says) in [
-        ("fx_fblend_012.json", 1, true, "a frame half way between two frames"),
-        ("fx_fblend_012.json", 2, false, "a whole frame of the same layer"),
-        ("fx_fblend_011.json", 1, false, "a stretched frame held, not mixed"),
+        (
+            "fx_fblend_012.json",
+            1,
+            true,
+            "a frame half way between two frames",
+        ),
+        (
+            "fx_fblend_012.json",
+            2,
+            false,
+            "a whole frame of the same layer",
+        ),
+        (
+            "fx_fblend_011.json",
+            1,
+            false,
+            "a stretched frame held, not mixed",
+        ),
         ("fx_fblend_030.json", 1, true, "a dissolved frame"),
-        ("fx_fblend_021.json", 1, true, "a composition layer between two of its frames"),
+        (
+            "fx_fblend_021.json",
+            1,
+            true,
+            "a composition layer between two of its frames",
+        ),
     ] {
         let loaded = t.load(file);
         let mut log = FrameLog::new(8);
-        let plan = plan_frame(loaded.document.project(), &Id::new(MAIN), n, &t.root, &mut log).unwrap();
+        let plan = plan_frame(
+            loaded.document.project(),
+            &Id::new(MAIN),
+            n,
+            &t.root,
+            &mut log,
+        )
+        .unwrap();
         let got = plan.layers.iter().any(|l| l.mixed);
         t.row(
             &format!("{file} frame {n}, {says}: marked as mixed {mixed}"),
@@ -419,7 +608,9 @@ fn b150_frame_blending() {
         ("fx_fblend_038.json", 1),
     ]);
 
-    t.heading("Pictures: a made-up ball in three drawings on twos, in `verification/B-150 pictures/`");
+    t.heading(
+        "Pictures: a made-up ball in three drawings on twos, in `verification/B-150 pictures/`",
+    );
     let dir = effect_table::repo("verification/B-150 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = BALL;
@@ -428,9 +619,15 @@ fn b150_frame_blending() {
         png_out::write_rgba(&path, w, h, OutputDepth::Eight, &[], &ball(x, 16.0)).unwrap();
     }
     let template = json(&t, "fx_fblend_012.json");
-    let strip = |name: &str, stretch: f64, mix: bool, dissolve: u32, frames: i32| -> (Vec<Vec<u8>>, Vec<String>) {
+    let strip = |name: &str,
+                 stretch: f64,
+                 mix: bool,
+                 dissolve: u32,
+                 frames: i32|
+     -> (Vec<Vec<u8>>, Vec<String>) {
         let mut p = template.clone();
-        p["assets"][0]["frames"] = serde_json::json!({ "1": "ball_0001.png", "2": "ball_0002.png", "3": "ball_0003.png" });
+        p["assets"][0]["frames"] =
+            serde_json::json!({ "1": "ball_0001.png", "2": "ball_0002.png", "3": "ball_0003.png" });
         let comp = &mut p["compositions"][0];
         comp["width"] = J::from(w);
         comp["height"] = J::from(h);
@@ -442,13 +639,20 @@ fn b150_frame_blending() {
             layer.as_object_mut().unwrap().remove("frame_blend");
         }
         layer["drawing_dissolve"] = J::from(dissolve);
-        let document = persist::load_str(&p.to_string()).expect("the picture's project reads").document;
+        let document = persist::load_str(&p.to_string())
+            .expect("the picture's project reads")
+            .document;
         let mut said = Vec::new();
         let mut shots = Vec::new();
         for n in 0..frames {
             let mut log = FrameLog::new(8);
-            let frame = render_frame(document.project(), &Id::new(MAIN), n, &dir, 64, &mut log).expect("the picture draws");
-            said.extend(log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)));
+            let frame = render_frame(document.project(), &Id::new(MAIN), n, &dir, 64, &mut log)
+                .expect("the picture draws");
+            said.extend(
+                log.finish()
+                    .iter()
+                    .map(|d| format!("{} {}", d.id.as_str(), d.message)),
+            );
             shots.push(frame.to_srgb8_straight());
         }
         // Side by side, twice the size, a grey line between frames.
@@ -488,7 +692,10 @@ fn b150_frame_blending() {
     t.row(
         "on_twos.png, as drawn: each drawing held two frames, whole",
         &format!("{said:?}, ball at {places:?}"),
-        said.is_empty() && places[0] == places[1] && places[1] != places[2] && places.iter().all(|p| p.1 == 0),
+        said.is_empty()
+            && places[0] == places[1]
+            && places[1] != places[2]
+            && places.iter().all(|p| p.1 == 0),
     );
     let (held, said) = strip("stretched_held.png", 200.0, false, 0, 12);
     let places: Vec<(f64, usize)> = held.iter().map(seen).collect();

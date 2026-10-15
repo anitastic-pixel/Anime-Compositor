@@ -37,7 +37,11 @@ fn b78_brightness_contrast() {
 
     t.heading("How far it reaches");
     let got = bricon(150.0, 100.0).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = bricon(30.0, 40.0);
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -59,7 +63,11 @@ fn b78_brightness_contrast() {
         "fx_bricon_017.json",
         "fx_bricon_022.json",
     ]);
-    t.shape_refused("fx_bricon_001.json", "no `contrast` at all", r#"{"brightness": 0}"#);
+    t.shape_refused(
+        "fx_bricon_001.json",
+        "no `contrast` at all",
+        r#"{"brightness": 0}"#,
+    );
     t.shape_refused(
         "fx_bricon_001.json",
         "a brightness that is a word",
@@ -75,16 +83,28 @@ fn b78_brightness_contrast() {
             ("brightness -151", set(bricon(-151.0, 0.0))),
             ("contrast 101", set(bricon(0.0, 101.0))),
             ("contrast -101", set(bricon(0.0, -101.0))),
-            ("contrast keyed to 120", keys("contrast", &[(0, &[0.0]), (4, &[120.0])])),
+            (
+                "contrast keyed to 120",
+                keys("contrast", &[(0, &[0.0]), (4, &[120.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_bricon_001.json",
         vec![
-            ("brightness -150 and contrast 100, the ends,", set(bricon(-150.0, 100.0))),
-            ("brightness 150 and contrast -100, the other ends,", set(bricon(150.0, -100.0))),
-            ("brightness keyed from 0 to 150", keys("brightness", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "brightness -150 and contrast 100, the ends,",
+                set(bricon(-150.0, 100.0)),
+            ),
+            (
+                "brightness 150 and contrast -100, the other ends,",
+                set(bricon(150.0, -100.0)),
+            ),
+            (
+                "brightness keyed from 0 to 150",
+                keys("brightness", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
 

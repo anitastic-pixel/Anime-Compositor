@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -43,7 +44,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=14 {
         let file = format!("fx_threshrgb_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -51,7 +56,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ThresholdRgb { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ThresholdRgb { .. })
+                });
             }
         }
         t.row(
@@ -69,9 +76,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -85,7 +101,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ThresholdRgb { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ThresholdRgb { .. })
+                });
                 t.row(
                     &format!("the reference shot, Threshold RGB {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -99,7 +117,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -111,14 +132,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 #[test]
@@ -147,7 +183,9 @@ fn b349_threshold_rgb() {
     t.root = root;
 
     t.heading("The file");
-    let files: Vec<String> = (1..=14).map(|n| format!("fx_threshrgb_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=14)
+        .map(|n| format!("fx_threshrgb_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_threshrgb_002.json");
     t.row(
@@ -170,7 +208,11 @@ fn b349_threshold_rgb() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let says = why.contains(want) || why.contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, says);
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            says,
+        );
     }
     t.shape_refused("fx_threshrgb_001.json", "a Threshold RGB whose red threshold is a word", r#"{"red_threshold": "half", "green_threshold": 128, "blue_threshold": 128, "invert_red": "off", "invert_green": "off", "invert_blue": "off", "blend_with_original": 0}"#);
     t.shape_refused("fx_threshrgb_001.json", "a Threshold RGB without its blue threshold", r#"{"red_threshold": 128, "green_threshold": 128, "invert_red": "off", "invert_green": "off", "invert_blue": "off", "blend_with_original": 0}"#);
@@ -178,18 +220,34 @@ fn b349_threshold_rgb() {
 
     t.heading("Commands");
     let mut document = t.load("fx_threshrgb_001.json").document;
-    let over = changed(&t, "fx_threshrgb_001.json", |e| if let Effect::ThresholdRgb { red_threshold, .. } = e { *red_threshold = 256.0 });
-    let bad = changed(&t, "fx_threshrgb_001.json", |e| if let Effect::ThresholdRgb { invert_blue, .. } = e { *invert_blue = "yes".into() });
+    let over = changed(&t, "fx_threshrgb_001.json", |e| {
+        if let Effect::ThresholdRgb { red_threshold, .. } = e {
+            *red_threshold = 256.0
+        }
+    });
+    let bad = changed(&t, "fx_threshrgb_001.json", |e| {
+        if let Effect::ThresholdRgb { invert_blue, .. } = e {
+            *invert_blue = "yes".into()
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("red threshold 256", set(over)),
             ("invert blue yes", set(bad)),
-            ("green threshold keyed to 300", keys("green_threshold", &[(0, &[128.0]), (4, &[300.0])])),
+            (
+                "green threshold keyed to 300",
+                keys("green_threshold", &[(0, &[128.0]), (4, &[300.0])]),
+            ),
         ],
     );
     let green = changed(&t, "fx_threshrgb_001.json", |e| {
-        if let Effect::ThresholdRgb { invert_green, blue_threshold, .. } = e {
+        if let Effect::ThresholdRgb {
+            invert_green,
+            blue_threshold,
+            ..
+        } = e
+        {
             *invert_green = "on".into();
             *blue_threshold = 40.0;
         }
@@ -199,7 +257,10 @@ fn b349_threshold_rgb() {
         "fx_threshrgb_001.json",
         vec![
             ("green turned over, blue at 40", set(green)),
-            ("red keyed from 0 to 255", keys("red_threshold", &[(0, &[0.0]), (4, &[255.0])])),
+            (
+                "red keyed from 0 to 255",
+                keys("red_threshold", &[(0, &[0.0]), (4, &[255.0])]),
+            ),
         ],
     );
 
@@ -223,20 +284,42 @@ fn b349_threshold_rgb() {
         &mut gpu,
         &[
             ("as added", json!({}), 3),
-            ("red 200, green 90 turned over, blue 40, blend 30", json!({"red_threshold": 200, "green_threshold": 90, "blue_threshold": 40, "invert_green": "on", "blend_with_original": 30}), 3),
-            ("all three turned over", json!({"invert_red": "on", "invert_green": "on", "invert_blue": "on"}), 3),
+            (
+                "red 200, green 90 turned over, blue 40, blend 30",
+                json!({"red_threshold": 200, "green_threshold": 90, "blue_threshold": 40, "invert_green": "on", "blend_with_original": 30}),
+                3,
+            ),
+            (
+                "all three turned over",
+                json!({"invert_red": "on", "invert_green": "on", "invert_blue": "on"}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-469 pictures/`");
     let dir = repo("verification/D-469 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({"blend_with_original": 100}));
     t.row(
         "blend with original 100 changes nothing: the street byte for byte; draws cleanly",
@@ -248,7 +331,9 @@ fn b349_threshold_rgb() {
     let full = |v: u8| v == 0 || v == 255;
     let (plain, said) = street(json!({}));
     write("2_as_added.png", TOWN, &plain);
-    let eight = pairs(&before, &plain).filter(|(b, _)| solid(b)).all(|(_, a)| a[..3].iter().all(|v| full(*v)));
+    let eight = pairs(&before, &plain)
+        .filter(|(b, _)| solid(b))
+        .all(|(_, a)| a[..3].iter().all(|v| full(*v)));
     t.row(
         "2_as_added.png, as added (every threshold 128): every channel of every solid pixel full or nothing, so one of eight pure colours; draws cleanly",
         &format!("{said:?}, every channel full or nothing: {eight}"),
@@ -257,7 +342,9 @@ fn b349_threshold_rgb() {
 
     let (low_red, said) = street(json!({"red_threshold": 20}));
     write("3_red_20.png", TOWN, &low_red);
-    let redder = pairs(&plain, &low_red).filter(|(b, _)| solid(b)).all(|(p, q)| q[0] >= p[0] && q[1] == p[1] && q[2] == p[2]);
+    let redder = pairs(&plain, &low_red)
+        .filter(|(b, _)| solid(b))
+        .all(|(p, q)| q[0] >= p[0] && q[1] == p[1] && q[2] == p[2]);
     let some = pairs(&plain, &low_red).any(|(p, q)| q[0] > p[0]);
     t.row(
         "3_red_20.png, red at 20, the rest at 128: red full in more of the street than in 2, green and blue as in 2; draws cleanly",
@@ -267,7 +354,9 @@ fn b349_threshold_rgb() {
 
     let (green, said) = street(json!({"invert_green": "on"}));
     write("4_invert_green.png", TOWN, &green);
-    let flipped = pairs(&plain, &green).filter(|(b, _)| solid(b)).all(|(p, q)| q[1] == 255 - p[1] && q[0] == p[0] && q[2] == p[2]);
+    let flipped = pairs(&plain, &green)
+        .filter(|(b, _)| solid(b))
+        .all(|(p, q)| q[1] == 255 - p[1] && q[0] == p[0] && q[2] == p[2]);
     t.row(
         "4_invert_green.png, Invert Green: 2 with its green turned over and its red and blue kept; draws cleanly",
         &format!("{said:?}, green turned over, the rest kept: {flipped}"),
@@ -278,7 +367,11 @@ fn b349_threshold_rgb() {
     write("5_blend_50.png", TOWN, &half);
     t.row(
         "5_blend_50.png, as added at blend 50: nearer the street than 2 is; draws cleanly",
-        &format!("{said:?}, largest difference from the street {} against 2's {}", distance(&half, &before).0, distance(&plain, &before).0),
+        &format!(
+            "{said:?}, largest difference from the street {} against 2's {}",
+            distance(&half, &before).0,
+            distance(&plain, &before).0
+        ),
         said.is_empty() && distance(&half, &before).0 < distance(&plain, &before).0,
     );
 
@@ -287,8 +380,10 @@ fn b349_threshold_rgb() {
     for (level, invert) in [(60, "off"), (128, "on"), (210, "off")] {
         let ch = json!({"instance_id": "fx-0-0", "type_id": "core.channel_threshold", "enabled": true, "parameters": {
             "threshold": level, "channel": "rgb", "invert": invert, "blend_with_original": 20}});
-        let (a, said0) = street(json!({"red_threshold": level, "green_threshold": level, "blue_threshold": level,
-            "invert_red": invert, "invert_green": invert, "invert_blue": invert, "blend_with_original": 20}));
+        let (a, said0) = street(
+            json!({"red_threshold": level, "green_threshold": level, "blue_threshold": level,
+            "invert_red": invert, "invert_green": invert, "invert_blue": invert, "blend_with_original": 20}),
+        );
         let (b, said1) = picture(&dir, "town.png", TOWN, json!([ch]));
         t.row(
             &format!("Threshold RGB with every level {level} and Invert {invert} at blend 20 against Channel Threshold's RGB the same: the same street byte for byte; both draw cleanly"),
@@ -325,22 +420,50 @@ fn b349_threshold_rgb_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Threshold RGB as added (every level 128)", Some(json!({}))),
-        ("Noise, then Threshold RGB, red 200, green 90 turned over, blue 40, blend 30", Some(json!({"red_threshold": 200, "green_threshold": 90, "blue_threshold": 40, "invert_green": "on", "blend_with_original": 30}))),
+        (
+            "Noise, then Threshold RGB as added (every level 128)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Threshold RGB, red 200, green 90 turned over, blue 40, blend 30",
+            Some(
+                json!({"red_threshold": 200, "green_threshold": 90, "blue_threshold": 40, "invert_green": "on", "blend_with_original": 30}),
+            ),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B349_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-349_timing_raw.md"));
+    let out = std::env::var("B349_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-349_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

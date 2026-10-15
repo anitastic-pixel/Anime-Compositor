@@ -64,9 +64,17 @@ fn b70_turbulent_displace() {
         got == 3,
     );
     let got = turb([2.5, 60.0, 2.0, 0.0, 20.0, 0.0], "repeat").bounds_expansion();
-    t.row("with repeat edges it grows them by nothing", &got.to_string(), got == 0);
+    t.row(
+        "with repeat edges it grows them by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let got = with(0, 0.0).bounds_expansion();
-    t.row("at amount 0 it grows them by nothing", &got.to_string(), got == 0);
+    t.row(
+        "at amount 0 it grows them by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = START;
     draft[0] = 20.0;
     let mut draft = turb(draft, "transparent");
@@ -124,7 +132,10 @@ fn b70_turbulent_displace() {
             ("speed -361", set(with(4, -361.0))),
             ("seed 100001", set(with(5, 100001.0))),
             ("edges \"wrap\"", set(turb(START, "wrap"))),
-            ("amount keyed to 1500", keys("amount", &[(0, &[10.0]), (4, &[1500.0])])),
+            (
+                "amount keyed to 1500",
+                keys("amount", &[(0, &[10.0]), (4, &[1500.0])]),
+            ),
         ],
     );
     t.taken(
@@ -134,14 +145,20 @@ fn b70_turbulent_displace() {
             (
                 "amount 1000, size 1000, complexity 8, evolution 100000, speed 360 and seed \
                  100000, the tops,",
-                set(turb([1000.0, 1000.0, 8.0, 100000.0, 360.0, 100000.0], "repeat")),
+                set(turb(
+                    [1000.0, 1000.0, 8.0, 100000.0, 360.0, 100000.0],
+                    "repeat",
+                )),
             ),
             (
                 "amount 0, size 1, complexity 1, evolution -100000, speed -360 and seed 0, the \
                  bottoms,",
                 set(turb([0.0, 1.0, 1.0, -100000.0, -360.0, 0.0], "transparent")),
             ),
-            ("speed keyed from 20 to -20", keys("speed", &[(0, &[20.0]), (4, &[-20.0])])),
+            (
+                "speed keyed from 20 to -20",
+                keys("speed", &[(0, &[20.0]), (4, &[-20.0])]),
+            ),
         ],
     );
 

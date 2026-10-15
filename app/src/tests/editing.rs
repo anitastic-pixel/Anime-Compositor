@@ -89,12 +89,28 @@ fn an_unknown_effect_travels_with_every_copy_of_its_layer() {
         let held = held(&viewer);
         serde_json::from_str(&persist::to_json(held.document.project(), &held.preserved)).unwrap()
     };
-    let layers = saved["compositions"][0]["layers"].as_array().expect("layers");
-    assert_eq!(layers.len(), 3, "the duplicate, the split-off half and the pasted copy");
+    let layers = saved["compositions"][0]["layers"]
+        .as_array()
+        .expect("layers");
+    assert_eq!(
+        layers.len(),
+        3,
+        "the duplicate, the split-off half and the pasted copy"
+    );
     for layer in layers {
         let effect = &layer["effects"][0];
-        assert_eq!(effect["parameters"], serde_json::json!({"strength": 0.5}), "{}", layer["id"]);
-        assert_eq!(effect["opaque_unknown_data"], serde_json::json!({"keep_me": true}), "{}", layer["id"]);
+        assert_eq!(
+            effect["parameters"],
+            serde_json::json!({"strength": 0.5}),
+            "{}",
+            layer["id"]
+        );
+        assert_eq!(
+            effect["opaque_unknown_data"],
+            serde_json::json!({"keep_me": true}),
+            "{}",
+            layer["id"]
+        );
     }
 }
 
@@ -538,7 +554,11 @@ fn increment_and_save_writes_the_next_version_and_works_on_it() {
         ("shot_v1_final.json", "shot_v1_final_v002.json"),
         ("shot_v.json", "shot_v_v002.json"),
     ] {
-        report.check(&format!("the next version of `{from}` is called"), to, name(incremented(&folder.join(from))));
+        report.check(
+            &format!("the next version of `{from}` is called"),
+            to,
+            name(incremented(&folder.join(from))),
+        );
     }
     std::fs::write(folder.join("shot_v003.json"), "{}").expect("write a taken name");
     std::fs::write(folder.join("shot_v004.json"), "{}").expect("write a taken name");
@@ -560,39 +580,67 @@ fn increment_and_save_writes_the_next_version_and_works_on_it() {
     let said = increment_and_save(&viewer).unwrap_or_default();
     let second = folder.join("scene_v002.json");
     let shown = |text: &str| text.replace(&folder.display().to_string(), "<scratch folder>");
-    report.check("pressing it once says", shown(&format!("Saved to {}", second.display())), shown(&said));
+    report.check(
+        "pressing it once says",
+        shown(&format!("Saved to {}", second.display())),
+        shown(&said),
+    );
     report.check("scene_v002.json is on disk", true, second.is_file());
     report.check(
         "the window now works on",
         "scene_v002.json",
-        viewer.lock().unwrap().path.clone().map(name).unwrap_or_default(),
+        viewer
+            .lock()
+            .unwrap()
+            .path
+            .clone()
+            .map(name)
+            .unwrap_or_default(),
     );
-    report.check("scene.json is left exactly as it was", true, std::fs::read(&first).ok() == Some(before));
+    report.check(
+        "scene.json is left exactly as it was",
+        true,
+        std::fs::read(&first).ok() == Some(before),
+    );
     increment_and_save(&viewer);
     report.check(
         "pressing it again, the window works on",
         "scene_v003.json",
-        viewer.lock().unwrap().path.clone().map(name).unwrap_or_default(),
+        viewer
+            .lock()
+            .unwrap()
+            .path
+            .clone()
+            .map(name)
+            .unwrap_or_default(),
     );
     report.check(
         "the copies hold the same project",
         true,
-        std::fs::read_to_string(&second).ok() == std::fs::read_to_string(folder.join("scene_v003.json")).ok(),
+        std::fs::read_to_string(&second).ok()
+            == std::fs::read_to_string(folder.join("scene_v003.json")).ok(),
     );
 
     write_artifact(
         &report,
         "verification/D-732_increment_save_table.md",
         "D-732: Increment and Save (Ctrl+Alt+Shift+S)",
-        &["After Effects' File > Increment and Save: the project is saved under its name with \
+        &[
+            "After Effects' File > Increment and Save: the project is saved under its name with \
            the next version number, and the window carries on with that new file. A name with \
            no `_v` number gains `_v002`; a number already used by a file in the folder is \
            skipped, so an older version is never written over. Under the hood it is Save As \
            to a name the window picks, so everything Save As promises (media paths kept, \
-           unknown data kept) holds here too."],
+           unknown data kept) holds here too.",
+        ],
         &[],
     );
-    let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+    let failed: Vec<&String> = report
+        .rows
+        .iter()
+        .filter(|(_, e, a)| e != a)
+        .map(|(c, _, _)| c)
+        .collect();
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
 
@@ -618,12 +666,21 @@ fn previous_and_next_drawing_land_where_the_sheet_changes() {
     let viewer = Mutex::new(demo());
     // A blank on layer 2 from frame 20 to 23, so that a blank's start is tried too.
     for f in 20..24 {
-        run(&viewer, &format!("exposure.set_span?layer=layer-2&was={f}&start={f}&drawing="));
+        run(
+            &viewer,
+            &format!("exposure.set_span?layer=layer-2&was={f}&start={f}&drawing="),
+        );
     }
     let grid = sheet_grid(&viewer);
     let from = grid["from"].as_i64().unwrap_or(0);
     let column = |layer: &str| {
-        grid["columns"].as_array().into_iter().flatten().find(|c| c["layer"] == layer).cloned().unwrap_or_default()
+        grid["columns"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|c| c["layer"] == layer)
+            .cloned()
+            .unwrap_or_default()
     };
     let lands = |layer: &str, at: i64, later: bool| -> String {
         let changes: Vec<i64> = column(layer)["cells"]
@@ -639,62 +696,167 @@ fn previous_and_next_drawing_land_where_the_sheet_changes() {
         } else {
             changes.iter().filter(|&&f| f < at).max()
         };
-        found.map_or("stays, and says there is none".to_string(), |f| f.to_string())
+        found.map_or("stays, and says there is none".to_string(), |f| {
+            f.to_string()
+        })
     };
     report.check(
         "layer 2's Sheet column, frames 17 to 25",
         "17, 18, 19, x, (blank), (blank), (blank), 0, 1",
-        column("layer-2")["cells"].as_array().map_or(String::new(), |cells| {
-            cells[17..26]
-                .iter()
-                .map(|c| match c.as_str() {
-                    Some("") => "(blank)".to_string(),
-                    Some(m) => m.to_string(),
-                    None => "(outside)".to_string(),
-                })
-                .collect::<Vec<_>>()
-                .join(", ")
-        }),
+        column("layer-2")["cells"]
+            .as_array()
+            .map_or(String::new(), |cells| {
+                cells[17..26]
+                    .iter()
+                    .map(|c| match c.as_str() {
+                        Some("") => "(blank)".to_string(),
+                        Some(m) => m.to_string(),
+                        None => "(outside)".to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }),
     );
     for (what, layer, at, later, expected) in [
-        ("layer 1 (one drawing the whole shot), from frame 10, next", "layer-1", 10, true, "stays, and says there is none"),
-        ("layer 1, from frame 10, previous", "layer-1", 10, false, "0"),
-        ("layer 3 (on twos), from frame 10, next", "layer-3", 10, true, "12"),
-        ("layer 3, from frame 10, previous", "layer-3", 10, false, "8"),
-        ("layer 3, from frame 11 (a held frame), previous", "layer-3", 11, false, "10"),
-        ("layer 3, from frame 0, previous", "layer-3", 0, false, "stays, and says there is none"),
-        ("layer 4 (on threes), from frame 10, next", "layer-4", 10, true, "12"),
-        ("layer 4, from frame 10, previous", "layer-4", 10, false, "9"),
-        ("layer 4, from frame 150, next (a one-frame drawing at 152)", "layer-4", 150, true, "152"),
+        (
+            "layer 1 (one drawing the whole shot), from frame 10, next",
+            "layer-1",
+            10,
+            true,
+            "stays, and says there is none",
+        ),
+        (
+            "layer 1, from frame 10, previous",
+            "layer-1",
+            10,
+            false,
+            "0",
+        ),
+        (
+            "layer 3 (on twos), from frame 10, next",
+            "layer-3",
+            10,
+            true,
+            "12",
+        ),
+        (
+            "layer 3, from frame 10, previous",
+            "layer-3",
+            10,
+            false,
+            "8",
+        ),
+        (
+            "layer 3, from frame 11 (a held frame), previous",
+            "layer-3",
+            11,
+            false,
+            "10",
+        ),
+        (
+            "layer 3, from frame 0, previous",
+            "layer-3",
+            0,
+            false,
+            "stays, and says there is none",
+        ),
+        (
+            "layer 4 (on threes), from frame 10, next",
+            "layer-4",
+            10,
+            true,
+            "12",
+        ),
+        (
+            "layer 4, from frame 10, previous",
+            "layer-4",
+            10,
+            false,
+            "9",
+        ),
+        (
+            "layer 4, from frame 150, next (a one-frame drawing at 152)",
+            "layer-4",
+            150,
+            true,
+            "152",
+        ),
         ("layer 4, from frame 152, next", "layer-4", 152, true, "153"),
-        ("layer 4, from frame 163, next (drawing 11 shown again at 165)", "layer-4", 163, true, "165"),
-        ("layer 2 (on ones, blank 20 to 23), from frame 19, next", "layer-2", 19, true, "20"),
-        ("layer 2, from frame 20, next (past the blank)", "layer-2", 20, true, "24"),
-        ("layer 2, from frame 22, previous", "layer-2", 22, false, "20"),
-        ("layer 2, from frame 24, previous", "layer-2", 24, false, "20"),
-        ("layer 2, from the last frame, next", "layer-2", 239, true, "stays, and says there is none"),
+        (
+            "layer 4, from frame 163, next (drawing 11 shown again at 165)",
+            "layer-4",
+            163,
+            true,
+            "165",
+        ),
+        (
+            "layer 2 (on ones, blank 20 to 23), from frame 19, next",
+            "layer-2",
+            19,
+            true,
+            "20",
+        ),
+        (
+            "layer 2, from frame 20, next (past the blank)",
+            "layer-2",
+            20,
+            true,
+            "24",
+        ),
+        (
+            "layer 2, from frame 22, previous",
+            "layer-2",
+            22,
+            false,
+            "20",
+        ),
+        (
+            "layer 2, from frame 24, previous",
+            "layer-2",
+            24,
+            false,
+            "20",
+        ),
+        (
+            "layer 2, from the last frame, next",
+            "layer-2",
+            239,
+            true,
+            "stays, and says there is none",
+        ),
     ] {
-        report.check(&format!("{what}: the playhead goes to"), expected, lands(layer, at, later));
+        report.check(
+            &format!("{what}: the playhead goes to"),
+            expected,
+            lands(layer, at, later),
+        );
     }
 
     write_artifact(
         &report,
         "verification/D-733_previous_next_drawing_table.md",
         "D-733: previous and next drawing (Shift+, and Shift+.)",
-        &["OpenToonz's, Harmony's and TVPaint's previous and next drawing. Shift+, sends the \
+        &[
+            "OpenToonz's, Harmony's and TVPaint's previous and next drawing. Shift+, sends the \
            playhead to the nearest frame before it where the selected layer's drawing \
            changes; Shift+. to the nearest one after it. A change is a new drawing number on \
            the layer's Sheet column, or the start of a blank; a held frame is not a change. \
            With no drawing layer selected it uses the first column, as the sheet strip does.",
-           "The expected frames are worked out by hand from the exposures written in \
+            "The expected frames are worked out by hand from the exposures written in \
            `verification/B-08a_project.json` (layer 1 one drawing, layer 2 on ones, layer 3 \
            on twos, layer 4 on threes with a one-frame drawing at 152 and drawing 11 shown \
            again at 165); a blank is cleared into layer 2 for the test. The rule the page \
            applies is the text pinned in the first row; the rows after apply that rule to the \
-           Sheet the window answers the page with."],
+           Sheet the window answers the page with.",
+        ],
         &[],
     );
-    let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+    let failed: Vec<&String> = report
+        .rows
+        .iter()
+        .filter(|(_, e, a)| e != a)
+        .map(|(c, _, _)| c)
+        .collect();
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
 
@@ -713,11 +875,20 @@ fn replace_layer_source_swaps_only_the_source() {
     let viewer = Mutex::new(demo());
     let layer = |id: &str| {
         let held = held(&viewer);
-        held.document.project().composition(&held.composition).and_then(|c| c.layer(&Id::new(id))).cloned().unwrap()
+        held.document
+            .project()
+            .composition(&held.composition)
+            .and_then(|c| c.layer(&Id::new(id)))
+            .cloned()
+            .unwrap()
     };
     let sound = {
         let held = held(&viewer);
-        let mut asset = Asset::still(unused_asset_id(held.document.project()), "line.wav".to_string(), "line.wav".to_string());
+        let mut asset = Asset::still(
+            unused_asset_id(held.document.project()),
+            "line.wav".to_string(),
+            "line.wav".to_string(),
+        );
         asset.kind = AssetKind::Audio;
         asset
     };
@@ -727,24 +898,50 @@ fn replace_layer_source_swaps_only_the_source() {
     let before = layer("layer-1");
     let depth = held(&viewer).document.undo_depth();
 
-    let said = run(&viewer, "layer.replace_source?layer=layer-1&asset=asset-layer2");
-    report.check("replacing layer 1's drawings with layer 2's says", "Replace the layer's source with layer2", said);
+    let said = run(
+        &viewer,
+        "layer.replace_source?layer=layer-1&asset=asset-layer2",
+    );
+    report.check(
+        "replacing layer 1's drawings with layer 2's says",
+        "Replace the layer's source with layer2",
+        said,
+    );
     let after = layer("layer-1");
-    report.check("layer 1 now shows", "asset-layer2", after.asset_id.to_string());
+    report.check(
+        "layer 1 now shows",
+        "asset-layer2",
+        after.asset_id.to_string(),
+    );
     report.check(
         "its name, keys, effects (a Tint was added first), transform, timing and Sheet are unchanged",
         true,
         Layer { asset_id: before.asset_id.clone(), ..after.clone() } == before,
     );
-    report.check("entries added to undo", 1, held(&viewer).document.undo_depth() - depth);
+    report.check(
+        "entries added to undo",
+        1,
+        held(&viewer).document.undo_depth() - depth,
+    );
     run(&viewer, "edit.undo");
-    report.check("one undo puts the old source back, and the layer is exactly as it was", true, layer("layer-1") == before);
+    report.check(
+        "one undo puts the old source back, and the layer is exactly as it was",
+        true,
+        layer("layer-1") == before,
+    );
 
     run(&viewer, "layer.add_solid");
     let solid = {
         let held = held(&viewer);
-        let comp = held.document.project().composition(&held.composition).unwrap();
-        let id = comp.layers_in_order().find(|l| l.kind == LayerKind::Solid).map(|l| l.id.to_string());
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .unwrap();
+        let id = comp
+            .layers_in_order()
+            .find(|l| l.kind == LayerKind::Solid)
+            .map(|l| l.id.to_string());
         id.unwrap_or_default()
     };
     run(&viewer, "layer.toggle_lock?layer=layer-3");
@@ -761,27 +958,43 @@ fn replace_layer_source_swaps_only_the_source() {
     ] {
         report.check(&format!("{what}: the window says"), expected, run(&viewer, &format!("layer.replace_source?{query}")));
     }
-    let locked = run(&viewer, "layer.replace_source?layer=layer-3&asset=asset-layer2");
-    report.check("a locked layer is refused", true, layer("layer-3").asset_id.as_str() == "asset-layer3" && !locked.starts_with("Replace"));
+    let locked = run(
+        &viewer,
+        "layer.replace_source?layer=layer-3&asset=asset-layer2",
+    );
+    report.check(
+        "a locked layer is refused",
+        true,
+        layer("layer-3").asset_id.as_str() == "asset-layer3" && !locked.starts_with("Replace"),
+    );
 
     write_artifact(
         &report,
         "verification/D-734_replace_source_table.md",
         "D-734: Replace layer source (Ctrl+Alt+/)",
-        &["After Effects' Replace Layer Source. Select a layer, click a picture, sequence or \
+        &[
+            "After Effects' Replace Layer Source. Select a layer, click a picture, sequence or \
            sound in the Project panel, and press Ctrl+Alt+/ (or Layer > Replace layer source): \
            the layer shows the new item and keeps its name, keys, effects, transform, timing \
            and Sheet. A drawing layer takes a picture or a sequence and a sound layer a sound \
            file; anything else is refused with a sentence, and nothing changes.",
-           "The project is `verification/B-08a_project.json` with a Tint added to layer 1 and \
+            "The project is `verification/B-08a_project.json` with a Tint added to layer 1 and \
            a sound file added to the Project panel. The third row compares the whole layer \
-           before and after, apart from its source."],
-        &["## What to look at\n\n- **A drawing number the new sequence does not have** is \
+           before and after, apart from its source.",
+        ],
+        &[
+            "## What to look at\n\n- **A drawing number the new sequence does not have** is \
            not refused: the Sheet keeps its numbers, and a frame showing a number the new \
            sequence lacks is reported as a missing drawing, as it is anywhere else.\n- **A \
-           composition layer's source** is not replaced by this; that is left for later."],
+           composition layer's source** is not replaced by this; that is left for later.",
+        ],
     );
-    let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+    let failed: Vec<&String> = report
+        .rows
+        .iter()
+        .filter(|(_, e, a)| e != a)
+        .map(|(c, _, _)| c)
+        .collect();
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
 
@@ -821,9 +1034,17 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
     ] {
         report.check(what, true, holds);
     }
-    let capture = page.find("// W-37 (D-735): the Keyboard shortcuts window.").unwrap_or(usize::MAX);
-    let own = page.find("addEventListener('keydown', (e) => {").unwrap_or(0);
-    report.check("the changed keys are read before the window's own key handler", true, capture < own);
+    let capture = page
+        .find("// W-37 (D-735): the Keyboard shortcuts window.")
+        .unwrap_or(usize::MAX);
+    let own = page
+        .find("addEventListener('keydown', (e) => {")
+        .unwrap_or(0);
+    report.check(
+        "the changed keys are read before the window's own key handler",
+        true,
+        capture < own,
+    );
     // The finder's lines and their default keys, as the window lists them.
     let lines: Vec<(String, String)> = page
         .split("function paletteLines() {")
@@ -839,11 +1060,22 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
         })
         .collect();
     let keyed: Vec<&(String, String)> = lines.iter().filter(|(_, k)| !k.is_empty()).collect();
-    report.check("command finder lines the window lists", "126 lines, 88 with keys of their own",
-        format!("{} lines, {} with keys of their own", lines.len(), keyed.len()));
+    report.check(
+        "command finder lines the window lists",
+        "126 lines, 88 with keys of their own",
+        format!(
+            "{} lines, {} with keys of their own",
+            lines.len(),
+            keyed.len()
+        ),
+    );
     let mut shared: Vec<String> = Vec::new();
     for (_, keys) in &keyed {
-        let with: Vec<&str> = keyed.iter().filter(|(_, k)| k == keys).map(|(l, _)| l.as_str()).collect();
+        let with: Vec<&str> = keyed
+            .iter()
+            .filter(|(_, k)| k == keys)
+            .map(|(l, _)| l.as_str())
+            .collect();
         let row = format!("{keys}: {}", with.join(", "));
         if with.len() > 1 && !shared.contains(&row) {
             shared.push(row);
@@ -861,7 +1093,8 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
         &report,
         "verification/D-735_shortcut_editor_table.md",
         "D-735: the Keyboard shortcuts window (W-37)",
-        &["W-37 from `design/W-37_shortcuts.html`. The bottom strip's long line of key hints is \
+        &[
+            "W-37 from `design/W-37_shortcuts.html`. The bottom strip's long line of key hints is \
            now a Keyboard shortcuts button; the Help menu and the command finder open the same \
            window. It lists every command finder line in areas (Project, Edit, New layers, \
            Layers, Time, Keys, Properties, Timeline, Viewer, Tools, Finding, Sheet) with its \
@@ -869,20 +1102,28 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
            none can be given some), names a clash before anything changes, and resets one line \
            or all of them. Changes are kept on this computer, never in the project. Print or \
            save as PDF prints the list.",
-           "The window is page code only, so the rows pin the page text each promise rests on; \
+            "The window is page code only, so the rows pin the page text each promise rests on; \
            the last rows read the command finder's lines for the defaults. No default key \
            changed. Pictures of the window, taken from the page in a browser with no project \
-           open, and the printed list as a PDF, are in `verification/D-735 pictures/`."],
-        &["## What was left out\n\n- **Keys that are not command finder lines** (the arrows, \
+           open, and the printed list as a PDF, are in `verification/D-735 pictures/`.",
+        ],
+        &[
+            "## What was left out\n\n- **Keys that are not command finder lines** (the arrows, \
            A S R T M, the Alt+Shift keys that set a key, the Sheet's and the Sketch board's \
            keys) are named in a clash but cannot be changed.\n- **Ctrl+C and Ctrl+V** are \
            shared by several lines and act on what is selected; giving one of those lines new \
            keys does not take Ctrl+C or Ctrl+V away from the others.\n- **A changed key does \
            not act while you type in a field or in the Sheet**, unless it uses Ctrl.\n- **The \
            areas** are chosen from each line's name; a new command finder line with an unusual \
-           name lands in Layers."],
+           name lands in Layers.",
+        ],
     );
-    let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+    let failed: Vec<&String> = report
+        .rows
+        .iter()
+        .filter(|(_, e, a)| e != a)
+        .map(|(c, _, _)| c)
+        .collect();
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
 
@@ -1040,10 +1281,21 @@ fn d314_chosen_keys_reverse_and_a_drawing_freezes() {
     );
     let l = "layer-cel";
     for (frame, x) in [(0, 0), (4, 100), (10, 400)] {
-        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame={frame}"));
-        run(&viewer, &format!("property.set_base?layer={l}&prop=position&value={x},0&frame={frame}"));
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={l}&prop=position&frame={frame}"),
+        );
+        run(
+            &viewer,
+            &format!("property.set_base?layer={l}&prop=position&value={x},0&frame={frame}"),
+        );
     }
-    run(&viewer, &format!("keyframe.set_interp?layer={l}&prop=position&frame=4&mode=ease&curve=0.25,0.5,0.75,1"));
+    run(
+        &viewer,
+        &format!(
+            "keyframe.set_interp?layer={l}&prop=position&frame=4&mode=ease&curve=0.25,0.5,0.75,1"
+        ),
+    );
     let before = keys(&viewer, l, "position");
     let depth = held(&viewer).document.undo_depth();
     let all = format!("key={l}|position|0&key={l}|position|4&key={l}|position|10");
@@ -1054,13 +1306,31 @@ fn d314_chosen_keys_reverse_and_a_drawing_freezes() {
         keys(&viewer, l, "position"),
         "[400,0]@0 ease [0.25,0,0.75,0.5], [100,0]@6 linear, [0,0]@10 linear",
     );
-    assert_eq!(held(&viewer).document.undo_depth() - depth, 1, "one entry to undo");
-    run(&viewer, &format!("keyframe.reverse?key={l}|position|0&key={l}|position|6&key={l}|position|10"));
-    assert_eq!(keys(&viewer, l, "position"), before, "reversed twice is as it was");
+    assert_eq!(
+        held(&viewer).document.undo_depth() - depth,
+        1,
+        "one entry to undo"
+    );
+    run(
+        &viewer,
+        &format!("keyframe.reverse?key={l}|position|0&key={l}|position|6&key={l}|position|10"),
+    );
+    assert_eq!(
+        keys(&viewer, l, "position"),
+        before,
+        "reversed twice is as it was"
+    );
     undo(&viewer);
     undo(&viewer);
-    assert_eq!(keys(&viewer, l, "position"), before, "and undo takes both back");
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=6"));
+    assert_eq!(
+        keys(&viewer, l, "position"),
+        before,
+        "and undo takes both back"
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=position&frame=6"),
+    );
     assert_eq!(
         run(&viewer, &format!("keyframe.reverse?{all}")),
         "A key that is not chosen is on frame 6, where a reversed key would land. \
@@ -1084,7 +1354,11 @@ fn d314_chosen_keys_reverse_and_a_drawing_freezes() {
         spans(&viewer),
         serde_json::json!([{"start_frame": 0, "end_frame_exclusive": 5, "drawing_number": 2}]),
     );
-    assert_eq!(held(&viewer).document.undo_depth() - depth, 1, "one entry to undo");
+    assert_eq!(
+        held(&viewer).document.undo_depth() - depth,
+        1,
+        "one entry to undo"
+    );
     undo(&viewer);
     assert_eq!(
         spans(&viewer),
@@ -1395,9 +1669,7 @@ fn the_inspector_changes_a_transform_and_a_drag_is_one_history_entry() {
     for (x, s) in [(240, 120), (270, 160), (300, 200)] {
         run(
             &viewer,
-            &format!(
-                "property.drag_update?layer=layer-cel&prop=position&value={x},-40&frame=12"
-            ),
+            &format!("property.drag_update?layer=layer-cel&prop=position&value={x},-40&frame=12"),
         );
         run(
             &viewer,
@@ -1959,29 +2231,62 @@ fn an_effect_setting_takes_an_expression() {
     );
     run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
     // D-401: the older Tint, whose colour is a keyable number setting.
-    run(&viewer, "effect.set_parameters?layer=layer-cel&effect=fx-1&color=0,0,0&amount=0");
+    run(
+        &viewer,
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&color=0,0,0&amount=0",
+    );
     let expression = || {
         let held = held(&viewer);
-        let comp = held.document.project().composition(&held.composition).cloned().unwrap();
-        let fx = comp.layer(&Id::new("layer-cel")).unwrap().effects.iter()
-            .find(|e| e.instance_id.as_str() == "fx-1").cloned().unwrap();
+        let comp = held
+            .document
+            .project()
+            .composition(&held.composition)
+            .cloned()
+            .unwrap();
+        let fx = comp
+            .layer(&Id::new("layer-cel"))
+            .unwrap()
+            .effects
+            .iter()
+            .find(|e| e.instance_id.as_str() == "fx-1")
+            .cloned()
+            .unwrap();
         fx.expression("amount").map(|e| (e.text.clone(), e.enabled))
     };
     assert_eq!(
-        run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount&text=time&on=true"),
+        run(
+            &viewer,
+            "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount&text=time&on=true"
+        ),
         "Change the expression of Tint's amount"
     );
     assert_eq!(expression(), Some(("time".to_string(), true)));
-    run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount&text=time&on=false");
-    assert_eq!(expression(), Some(("time".to_string(), false)), "switched off and kept");
-    run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount");
+    run(
+        &viewer,
+        "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount&text=time&on=false",
+    );
+    assert_eq!(
+        expression(),
+        Some(("time".to_string(), false)),
+        "switched off and kept"
+    );
+    run(
+        &viewer,
+        "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount",
+    );
     assert_eq!(expression(), None, "no text removes it");
     assert_eq!(
-        run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:color&text=1&on=true"),
+        run(
+            &viewer,
+            "property.set_expression?layer=layer-cel&prop=fx:fx-1:color&text=1&on=true"
+        ),
         "Tint's color cannot carry an expression; it takes keys only."
     );
     assert_eq!(
-        run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-9:amount&text=1&on=true"),
+        run(
+            &viewer,
+            "property.set_expression?layer=layer-cel&prop=fx:fx-9:amount&text=1&on=true"
+        ),
         "fx-9 is not an effect on this layer."
     );
 }
@@ -1995,18 +2300,38 @@ fn pasted_effects_arrive_whole_or_not_at_all() {
         open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
     );
     let l = "layer-cel";
-    let paste = |effects: &str| run(&viewer, &format!("effect.paste?layer={l}&effects={effects}"));
+    let paste = |effects: &str| {
+        run(
+            &viewer,
+            &format!("effect.paste?layer={l}&effects={effects}"),
+        )
+    };
     run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
-    run(&viewer, "effect.set_parameters?layer=layer-cel&effect=fx-1&color=1,0,0&amount=0.25");
-    run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=fx:fx-1:amount&frame=0");
-    run(&viewer, "effect.add?layer=layer-cel&type=core.gaussian_blur");
+    run(
+        &viewer,
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&color=1,0,0&amount=0.25",
+    );
+    run(
+        &viewer,
+        "keyframe.add_remove?layer=layer-cel&prop=fx:fx-1:amount&frame=0",
+    );
+    run(
+        &viewer,
+        "effect.add?layer=layer-cel&type=core.gaussian_blur",
+    );
     let records = effect_records(&viewer, l);
-    let [unknown, tint, blur] = &records[..] else { panic!("three effects: {records:?}") };
+    let [unknown, tint, blur] = &records[..] else {
+        panic!("three effects: {records:?}")
+    };
     let copied = serde_json::json!([tint, blur]).to_string();
     let depth = held(&viewer).document.undo_depth();
 
     assert_eq!(paste(&copied), "Add Tint and 1 more");
-    assert_eq!(held(&viewer).document.undo_depth(), depth + 1, "one entry to undo");
+    assert_eq!(
+        held(&viewer).document.undo_depth(),
+        depth + 1,
+        "one entry to undo"
+    );
     let after = effect_records(&viewer, l);
     assert_eq!(after.len(), 5);
     // The copies are the originals under new identifiers, the tint's key with them.
@@ -2017,12 +2342,19 @@ fn pasted_effects_arrive_whole_or_not_at_all() {
         assert_eq!(&same, original);
     }
     run(&viewer, "edit.undo");
-    assert_eq!(effect_records(&viewer, l).len(), 3, "one undo takes both away");
+    assert_eq!(
+        effect_records(&viewer, l).len(),
+        3,
+        "one undo takes both away"
+    );
 
     // Refused whole, with nothing changed.
     let depth = held(&viewer).document.undo_depth();
     let said = paste(&serde_json::json!([blur, unknown]).to_string());
-    assert!(said.contains("vendor.future.effect cannot be pasted: this build does not have it."), "{said}");
+    assert!(
+        said.contains("vendor.future.effect cannot be pasted: this build does not have it."),
+        "{said}"
+    );
     let mut odd = tint.clone();
     odd["parameters"]["sparkle"] = serde_json::json!(3);
     let said = paste(&serde_json::json!([odd]).to_string());
@@ -2036,7 +2368,10 @@ fn pasted_effects_arrive_whole_or_not_at_all() {
 fn a_new_channel_blur_starts_in_blurriness() {
     let source = repo("Fixtures/projects/unknown_effect_project.json");
     let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
-    assert_eq!(run(&viewer, "effect.add?layer=layer-cel&type=core.channel_blur"), "Add Channel Blur");
+    assert_eq!(
+        run(&viewer, "effect.add?layer=layer-cel&type=core.channel_blur"),
+        "Add Channel Blur"
+    );
     let said = settings(&viewer, "layer-cel", "fx-1");
     assert!(said.contains(r#""units":"blurriness""#), "{said}");
     let all = "effect.set_parameters?layer=layer-cel&effect=fx-1&red_blurriness=10&green_blurriness=0&blue_blurriness=0&alpha_blurriness=0";
@@ -2044,7 +2379,10 @@ fn a_new_channel_blur_starts_in_blurriness() {
     assert!(said.starts_with("Change "), "{said}");
     assert!(!settings(&viewer, "layer-cel", "fx-1").contains("units"));
     let said = run(&viewer, &format!("{all}&units=pixels"));
-    assert!(said.contains(r#"units are "sigma" or "blurriness""#), "{said}");
+    assert!(
+        said.contains(r#"units are "sigma" or "blurriness""#),
+        "{said}"
+    );
 }
 
 #[test]
@@ -2344,7 +2682,10 @@ fn the_effects_panel_builds_a_stack_and_keeps_the_one_it_cannot_draw() {
         "fx-3 core.selective_color_blur on, fx-2 core.line_smooth on, \
          fx-unknown-1 vendor.future.effect on, fx-1 core.gaussian_blur on",
         {
-            run(&viewer, "effect.add?layer=layer-cel&type=core.selective_color_blur");
+            run(
+                &viewer,
+                "effect.add?layer=layer-cel&type=core.selective_color_blur",
+            );
             stack(&viewer, l)
         },
     );
@@ -2621,13 +2962,19 @@ fn the_inspector_chooses_a_matte_and_refuses_the_ones_that_would_not_work() {
     report.check(
         "D-293: choosing luma says so in the words undo will use",
         "Set matte mode to luma inverted",
-        run(&viewer, "layer.set_matte_mode?layer=layer-cel&mode=luma_inverted"),
+        run(
+            &viewer,
+            "layer.set_matte_mode?layer=layer-cel&mode=luma_inverted",
+        ),
     );
     report.check(
         "D-293: changing the matte layer keeps the mode",
         r#"{"layer_id":"layer-1","matte_only":false,"mode":"luma_inverted"}"#,
         {
-            run(&viewer, "layer.set_matte?layer=layer-cel&matte=layer-1&only=false");
+            run(
+                &viewer,
+                "layer.set_matte?layer=layer-cel&matte=layer-1&only=false",
+            );
             matte(&viewer, "layer-cel")
         },
     );
@@ -2637,7 +2984,10 @@ fn the_inspector_chooses_a_matte_and_refuses_the_ones_that_would_not_work() {
         run(&viewer, "layer.set_matte_mode?layer=layer-cel&mode=lumen"),
     );
     run(&viewer, "layer.set_matte_mode?layer=layer-cel&mode=alpha");
-    run(&viewer, "layer.set_matte?layer=layer-cel&matte=layer-1&only=true");
+    run(
+        &viewer,
+        "layer.set_matte?layer=layer-cel&matte=layer-1&only=true",
+    );
 
     // ---- clearing it ---------------------------------------------------------------------------
     report.check(
@@ -2931,7 +3281,10 @@ fn the_inspector_chooses_a_parent_and_says_when_a_layer_cannot_keep_its_shape() 
     // hold: the anchor lands where it was and the rest of the layer moves. Both are allowed;
     // what separates them is whether the window says so.
     run(&viewer, "layer.set_parent?layer=layer-cel&parent=&frame=0");
-    run(&viewer, "property.set_base?layer=layer-1&prop=scale&value=200,200");
+    run(
+        &viewer,
+        "property.set_base?layer=layer-1&prop=scale&value=200,200",
+    );
     report.check(
         "a parent scaled evenly keeps the layer exactly, and the answer says only what it did",
         "Set parent to layer-1",
@@ -2941,8 +3294,14 @@ fn the_inspector_chooses_a_parent_and_says_when_a_layer_cannot_keep_its_shape() 
         ),
     );
     undo(&viewer);
-    run(&viewer, "property.set_base?layer=layer-1&prop=scale&value=200,50");
-    run(&viewer, "property.set_base?layer=layer-cel&prop=rotation&value=45");
+    run(
+        &viewer,
+        "property.set_base?layer=layer-1&prop=scale&value=200,50",
+    );
+    run(
+        &viewer,
+        "property.set_base?layer=layer-cel&prop=rotation&value=45",
+    );
     report.check(
         "a parent stretched one way, under a turned layer, says the shape could not be kept",
         "Set parent to layer-1 It could not keep its shape exactly: the parent is stretched \
@@ -2997,14 +3356,10 @@ fn the_inspector_chooses_a_parent_and_says_when_a_layer_cannot_keep_its_shape() 
         depth + 1,
         held(&viewer).document.undo_depth(),
     );
-    report.check(
-        "so one undo brings the layer back",
-        "Cel, Head",
-        {
-            undo(&viewer);
-            names(&viewer)
-        },
-    );
+    report.check("so one undo brings the layer back", "Cel, Head", {
+        undo(&viewer);
+        names(&viewer)
+    });
     report.check(
         "with the layer riding on it again",
         "\"layer-1\"",
@@ -3183,14 +3538,10 @@ fn the_inspector_sets_a_depth_and_places_the_camera() {
             depth_of(&viewer, "layer-cel")
         },
     );
-    report.check(
-        "undo puts back the depth that was replaced",
-        "640",
-        {
-            undo(&viewer);
-            depth_of(&viewer, "layer-cel")
-        },
-    );
+    report.check("undo puts back the depth that was replaced", "640", {
+        undo(&viewer);
+        depth_of(&viewer, "layer-cel")
+    });
     report.check(
         "and undoing the first one puts the layer back on the composition's own plane",
         "null",
@@ -3271,18 +3622,17 @@ fn the_inspector_sets_a_depth_and_places_the_camera() {
         "placing the camera takes both numbers in one request",
         "[760,540]",
         {
-            run(&viewer, "camera.set_property?property=position&value=760,540");
+            run(
+                &viewer,
+                "camera.set_property?property=position&value=760,540",
+            );
             camera_of(&viewer, "position")
         },
     );
-    report.check(
-        "and its depth is one",
-        "-1920",
-        {
-            run(&viewer, "camera.set_property?property=depth&value=-1920");
-            camera_of(&viewer, "depth")
-        },
-    );
+    report.check("and its depth is one", "-1920", {
+        run(&viewer, "camera.set_property?property=depth&value=-1920");
+        camera_of(&viewer, "depth")
+    });
     report.check(
         "undo takes back the camera one property at a time",
         "[960,540]",
@@ -3387,7 +3737,10 @@ fn a_depth_keys_like_any_other_property() {
         "the diamond puts a key where the playhead is, holding the value already there",
         "0@0 linear",
         {
-            run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=depth&frame=0");
+            run(
+                &viewer,
+                "keyframe.add_remove?layer=layer-cel&prop=depth&frame=0",
+            );
             keys(&viewer, "layer-cel", "depth")
         },
     );
@@ -3455,14 +3808,20 @@ fn a_depth_keys_like_any_other_property() {
         "the diamond pressed again on a frame that has a key takes that key away",
         "640@24 linear",
         {
-            run(&viewer, "keyframe.add_remove?layer=layer-cel&prop=depth&frame=0");
+            run(
+                &viewer,
+                "keyframe.add_remove?layer=layer-cel&prop=depth&frame=0",
+            );
             keys(&viewer, "layer-cel", "depth")
         },
     );
     report.check(
         "a property the window does not have is refused by name, and the six are named",
         "Which property? Say anchor, position, scale, rotation, opacity or depth.",
-        run(&viewer, "property.set_base?layer=layer-cel&prop=wobble&value=1"),
+        run(
+            &viewer,
+            "property.set_base?layer=layer-cel&prop=wobble&value=1",
+        ),
     );
 
     write_artifact(
@@ -3548,7 +3907,10 @@ fn the_camera_keys_like_any_other_property() {
         "the diamond puts a key where the playhead is, holding the lens already shown",
         format!("{lens}@0 linear"),
         {
-            run(&viewer, "keyframe.add_remove?target=camera&prop=zoom&frame=0");
+            run(
+                &viewer,
+                "keyframe.add_remove?target=camera&prop=zoom&frame=0",
+            );
             camera_keys(&viewer, "zoom")
         },
     );
@@ -3639,7 +4001,10 @@ fn the_camera_keys_like_any_other_property() {
         "a depth nobody has keyed is still set as a base, which is W-10's rule",
         "-1920",
         {
-            run(&viewer, "property.set_base?target=camera&prop=depth&value=-1920");
+            run(
+                &viewer,
+                "property.set_base?target=camera&prop=depth&value=-1920",
+            );
             camera_of(&viewer, "depth")
         },
     );
@@ -3657,7 +4022,10 @@ fn the_camera_keys_like_any_other_property() {
     report.check(
         "a property the camera does not have is named back with the three it does",
         "\"tilt\" is not one of the camera's properties. They are position, depth and zoom.",
-        run(&viewer, "property.set_base?target=camera&prop=tilt&value=50"),
+        run(
+            &viewer,
+            "property.set_base?target=camera&prop=tilt&value=50",
+        ),
     );
     report.check(
         "a request naming no property is asked which one",
@@ -3667,7 +4035,10 @@ fn the_camera_keys_like_any_other_property() {
     report.check(
         "a keyed property needs the frame the value belongs to, and says which to send",
         "The camera's zoom is keyframed, so a value belongs to a frame. Say frame=<frame>.",
-        run(&viewer, "property.set_base?target=camera&prop=zoom&value=50"),
+        run(
+            &viewer,
+            "property.set_base?target=camera&prop=zoom&value=50",
+        ),
     );
     report.check(
         "an interpolation the window does not have is quoted back with the three it does",
@@ -4168,8 +4539,7 @@ fn the_media_bin_imports_a_sequence_and_the_exposures_it_is_given() {
     report.check(
         "media chosen from outside the project's folder keeps its whole path",
         true,
-        stored(&viewer, "asset-1", 0)
-            .ends_with("Fixtures/reference_shot/layer3/layer3_000.png"),
+        stored(&viewer, "asset-1", 0).ends_with("Fixtures/reference_shot/layer3/layer3_000.png"),
     );
     report.check(
         "and it is written with forward slashes, so the project can be handed over",
@@ -5008,7 +5378,10 @@ fn an_expression_is_typed_switched_and_removed_from_the_window() {
         "typing `time * 90` into the box makes frame 24 (one second) read 90",
         "90, none",
         {
-            run(&viewer, "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*%2090&on=true");
+            run(
+                &viewer,
+                "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*%2090&on=true",
+            );
             both(shown_at(&viewer, 24, "layer-cel", "rotation"))
         },
     );
@@ -5016,7 +5389,10 @@ fn an_expression_is_typed_switched_and_removed_from_the_window() {
         "the switch turns it off, keeping the text, and the rotation is its own again",
         r#"{"enabled":false,"text":"time * 90"}, 0"#,
         {
-            run(&viewer, "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*%2090&on=false");
+            run(
+                &viewer,
+                "property.set_expression?layer=layer-cel&prop=rotation&text=time%20*%2090&on=false",
+            );
             both((
                 expression_of(&viewer, "layer-cel", "rotation"),
                 shown_at(&viewer, 24, "layer-cel", "rotation").0,
@@ -5394,8 +5770,7 @@ fn a_shot_is_collected_and_checked_from_the_window() {
         "with its code in the note",
         true,
         held(&viewer).notes.iter().any(|n| {
-            n.starts_with("media/asset-cel/cel_0001.png: ")
-                && n.contains("PACKAGE_FILE_CHANGED")
+            n.starts_with("media/asset-cel/cel_0001.png: ") && n.contains("PACKAGE_FILE_CHANGED")
         }),
     );
     // Save As moves the file but leaves the media root in the old folder; the manifest is
@@ -5430,7 +5805,10 @@ fn a_shot_is_collected_and_checked_from_the_window() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, a)| (c, a))
         .collect();
-    assert!(failed.is_empty(), "these checks failed, with what they got: {failed:#?}");
+    assert!(
+        failed.is_empty(),
+        "these checks failed, with what they got: {failed:#?}"
+    );
 }
 
 const PACKAGE_PANEL_INTRO: &[&str] = &[
@@ -5721,7 +6099,10 @@ fn the_new_drawing_formats_come_in_from_the_window() {
         "webp_lossless.webp",
         "jpeg_q95.jpg",
     ] {
-        let said = run(&viewer, &import_of(&[repo(&format!("Fixtures/formats/media/{name}"))]));
+        let said = run(
+            &viewer,
+            &import_of(&[repo(&format!("Fixtures/formats/media/{name}"))]),
+        );
         report.check(
             &format!("{name} imports as a still picture"),
             format!("Import {name}: a still picture"),
@@ -5734,11 +6115,18 @@ fn the_new_drawing_formats_come_in_from_the_window() {
         );
     }
     let before = asset_count(&viewer);
-    let said = run(&viewer, &import_of(&[repo("Fixtures/formats/expected_formats.json")]));
+    let said = run(
+        &viewer,
+        &import_of(&[repo("Fixtures/formats/expected_formats.json")]),
+    );
     report.check(
         "a file that is not a drawing is still not imported",
         format!("true, {before} assets"),
-        format!("{}, {} assets", said.contains("othing was imported"), asset_count(&viewer)),
+        format!(
+            "{}, {} assets",
+            said.contains("othing was imported"),
+            asset_count(&viewer)
+        ),
     );
 
     write_artifact(
@@ -5765,10 +6153,9 @@ fn a_gif_and_an_animated_png_go_out_from_the_window() {
     let viewer = Mutex::new(
         open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
     );
-    let page = std::fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
-    )
-    .expect("the page");
+    let page =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"))
+            .expect("the page");
     report.check(
         "the list beside Export offers a GIF, and says it is a preview with no sound (D-641)",
         true,
@@ -5789,23 +6176,39 @@ fn a_gif_and_an_animated_png_go_out_from_the_window() {
         let format = output_format(Some(&format!("format={choice}"))).expect("a listed format");
         // The fixture's drawings are not on the disk, so the frames are written without
         // them, as the window's own tick box asks; what is checked here is the file.
-        let (snapshot, root, mut request) =
-            export_job(&held(&viewer), &into, MissingSource::RenderTransparent, format);
-        report.check(&format!("{choice}: the file is named"), file, &request.naming);
+        let (snapshot, root, mut request) = export_job(
+            &held(&viewer),
+            &into,
+            MissingSource::RenderTransparent,
+            format,
+        );
+        report.check(
+            &format!("{choice}: the file is named"),
+            file,
+            &request.naming,
+        );
         request.last_frame = request.first_frame + 2;
         let said = run_export(&snapshot, &root, &request, &AtomicBool::new(false));
         report.check(
             &format!("{choice}: three frames are one file, and the window says so"),
             format!("Exported 3 frames as one file, the chosen folder's {file}."),
-            said.replace(&format!("{}{}", into.display(), std::path::MAIN_SEPARATOR), "the chosen folder's ")
-                .split_inclusive('.')
-                .take(2)
-                .collect::<String>(),
+            said.replace(
+                &format!("{}{}", into.display(), std::path::MAIN_SEPARATOR),
+                "the chosen folder's ",
+            )
+            .split_inclusive('.')
+            .take(2)
+            .collect::<String>(),
         );
     }
     let mut files: Vec<String> = std::fs::read_dir(&into)
         .expect("the export folder")
-        .map(|f| f.expect("a file").file_name().to_string_lossy().into_owned())
+        .map(|f| {
+            f.expect("a file")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
         .collect();
     files.sort();
     report.check(
@@ -5836,11 +6239,13 @@ fn a_gif_and_an_animated_png_go_out_from_the_window() {
         &report,
         "verification/B-21c_panel_table.md",
         "B-21c: GIF and animated PNG out of the window",
-        &["D-72 added a GIF and an animated PNG as things an export can be, and \
+        &[
+            "D-72 added a GIF and an animated PNG as things an export can be, and \
            `verification/B-21c_films_table.md` reads both files back frame by frame. This \
            is the window's half: the list beside Export offers them, the job names one file \
            rather than one a frame, and the status line says so. The folder picker is \
-           skipped, as in every panel table: no test can answer a Windows dialog."],
+           skipped, as in every panel table: no test can answer a Windows dialog.",
+        ],
         &[],
     );
     let failed: Vec<&String> = report
@@ -5856,10 +6261,9 @@ fn a_gif_and_an_animated_png_go_out_from_the_window() {
 #[test]
 fn the_export_choices_are_in_the_window() {
     let mut report = Report { rows: Vec::new() };
-    let page = std::fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
-    )
-    .expect("the page");
+    let page =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"))
+            .expect("the page");
     report.check(
         "the page has a quality list of Preview, Standard and High, starting on Standard and hidden until MP4 is chosen",
         true,
@@ -5889,7 +6293,12 @@ fn the_export_choices_are_in_the_window() {
         report.check(
             &format!("`{query}` is this quality"),
             quality,
-            format!("{:?}", export_choices(Some(query)).expect("a listed quality").mp4_quality),
+            format!(
+                "{:?}",
+                export_choices(Some(query))
+                    .expect("a listed quality")
+                    .mp4_quality
+            ),
         );
     }
     report.check(
@@ -5902,11 +6311,19 @@ fn the_export_choices_are_in_the_window() {
         "true, false",
         format!(
             "{}, {}",
-            export_choices(Some("format=gif&dither=on")).expect("choices").gif_dither,
-            export_choices(Some("format=gif")).expect("choices").gif_dither
+            export_choices(Some("format=gif&dither=on"))
+                .expect("choices")
+                .gif_dither,
+            export_choices(Some("format=gif"))
+                .expect("choices")
+                .gif_dither
         ),
     );
-    let high = ExportChoices { mp4_quality: Mp4Quality::High, gif_dither: true, ..ExportChoices::default() };
+    let high = ExportChoices {
+        mp4_quality: Mp4Quality::High,
+        gif_dither: true,
+        ..ExportChoices::default()
+    };
     report.check(
         "the status line names the MP4's quality",
         " as one MP4 at High quality, over black, with the composition's sound,",
@@ -5917,11 +6334,16 @@ fn the_export_choices_are_in_the_window() {
         "true, false",
         format!(
             "{}, {}",
-            export_choices(Some("format=png&wav=on")).expect("choices").wav,
+            export_choices(Some("format=png&wav=on"))
+                .expect("choices")
+                .wav,
             export_choices(Some("format=png")).expect("choices").wav
         ),
     );
-    let wav = ExportChoices { wav: true, ..ExportChoices::default() };
+    let wav = ExportChoices {
+        wav: true,
+        ..ExportChoices::default()
+    };
     report.check(
         "D-641: the status line says the WAV is written beside a PNG sequence",
         " with its sound as a WAV beside it,",
@@ -5951,22 +6373,24 @@ fn the_export_choices_are_in_the_window() {
         &report,
         "verification/B-22c_panel_table.md",
         "B-22c: the export choices in the window",
-        &["D-73 gave an MP4 three qualities and a GIF a dithering choice, and \
+        &[
+            "D-73 gave an MP4 three qualities and a GIF a dithering choice, and \
            `verification/B-22b_choices_table.md` shows what each does to the written file. \
            This is the window's half: the two controls are on the page beside the format \
            they belong to, what the page sends is read into the choice, a value the page \
            does not offer is refused, and the status line says what was chosen. Not \
            reachable by a test, and said so: the one line that hands the choice to the job \
            sits behind the Windows folder dialog, so that the chosen quality reaches the \
-           file is what `verification/B-22c_choices_playtest.md` asks the owner to see."],
+           file is what `verification/B-22c_choices_playtest.md` asks the owner to see.",
+        ],
         &[],
     );
-    let failed: Vec<&(String, String, String)> = report
-        .rows
-        .iter()
-        .filter(|(_, e, a)| e != a)
-        .collect();
-    assert!(failed.is_empty(), "see verification/B-22c_panel_table.md: {failed:?}");
+    let failed: Vec<&(String, String, String)> =
+        report.rows.iter().filter(|(_, e, a)| e != a).collect();
+    assert!(
+        failed.is_empty(),
+        "see verification/B-22c_panel_table.md: {failed:?}"
+    );
 }
 
 /// B-21d: an MP4 from the window (D-72, D-30).
@@ -5978,10 +6402,9 @@ fn an_mp4_goes_out_from_the_window() {
     let viewer = Mutex::new(
         open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
     );
-    let page = std::fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
-    )
-    .expect("the page");
+    let page =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"))
+            .expect("the page");
     report.check(
         "the list beside Export offers an MP4, and says it carries the sound (D-641)",
         true,
@@ -5993,33 +6416,55 @@ fn an_mp4_goes_out_from_the_window() {
     let format = output_format(Some("format=mp4")).expect("a listed format");
     // The fixture's drawings are not on the disk, so the frames are written without them,
     // as the window's own tick box asks; what is checked here is the file.
-    let (snapshot, root, mut request) =
-        export_job(&held(&viewer), &into, MissingSource::RenderTransparent, format);
-    report.check("the file is named", "cel_holds_project.mp4", &request.naming);
+    let (snapshot, root, mut request) = export_job(
+        &held(&viewer),
+        &into,
+        MissingSource::RenderTransparent,
+        format,
+    );
+    report.check(
+        "the file is named",
+        "cel_holds_project.mp4",
+        &request.naming,
+    );
     request.last_frame = request.first_frame + 2;
     let said = run_export(&snapshot, &root, &request, &AtomicBool::new(false));
     report.check(
         "three frames are one file, and the window says so",
         "Exported 3 frames as one file, the chosen folder's cel_holds_project.mp4.",
-        said.replace(&format!("{}{}", into.display(), std::path::MAIN_SEPARATOR), "the chosen folder's ")
-            .split_inclusive('.')
-            .take(2)
-            .collect::<String>(),
+        said.replace(
+            &format!("{}{}", into.display(), std::path::MAIN_SEPARATOR),
+            "the chosen folder's ",
+        )
+        .split_inclusive('.')
+        .take(2)
+        .collect::<String>(),
     );
     report.check(
         "the file is there and is not empty",
         true,
-        std::fs::metadata(into.join("cel_holds_project.mp4")).map(|m| m.len() > 0).unwrap_or(false),
+        std::fs::metadata(into.join("cel_holds_project.mp4"))
+            .map(|m| m.len() > 0)
+            .unwrap_or(false),
     );
 
     // An odd size: the composition made one pixel narrower, as Ctrl+K would.
     let width = {
         let v = held(&viewer);
-        v.document.project().composition(&v.composition).expect("the composition").width - 1
+        v.document
+            .project()
+            .composition(&v.composition)
+            .expect("the composition")
+            .width
+            - 1
     };
     run(&viewer, &format!("composition.set_settings?width={width}"));
-    let (odd, root, mut request) =
-        export_job(&held(&viewer), &into, MissingSource::RenderTransparent, format);
+    let (odd, root, mut request) = export_job(
+        &held(&viewer),
+        &into,
+        MissingSource::RenderTransparent,
+        format,
+    );
     request.naming = "odd.mp4".to_string();
     request.last_frame = request.first_frame;
     let said = run_export(&odd, &root, &request, &AtomicBool::new(false));
@@ -6038,12 +6483,14 @@ fn an_mp4_goes_out_from_the_window() {
         &report,
         "verification/B-21d_panel_table.md",
         "B-21d: MP4 out of the window",
-        &["D-72 added an MP4 as a thing an export can be, written by the H.264 encoder \
+        &[
+            "D-72 added an MP4 as a thing an export can be, written by the H.264 encoder \
            Windows carries (D-30), and `verification/B-21d_mp4_table.md` reads the written \
            files' own time numbers back. This is the window's half: the list beside Export \
            offers it, the job names one file, the status line says so, and an odd size is \
            refused in a sentence. The folder picker is skipped, as in every panel table: \
-           no test can answer a Windows dialog."],
+           no test can answer a Windows dialog.",
+        ],
         &[],
     );
     let failed: Vec<&String> = report
@@ -6110,7 +6557,11 @@ fn an_adjustment_layer_is_added_from_the_window() {
         format!(
             "{}, {}",
             layer["kind"].as_str().unwrap_or("(no kind)"),
-            if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" }
+            if layer.get("asset_id").is_none() {
+                "no asset_id"
+            } else {
+                "an asset_id"
+            }
         ),
     );
     report.check(
@@ -6149,7 +6600,10 @@ fn an_adjustment_layer_is_added_from_the_window() {
         .unwrap_or_default()
         .to_string();
 
-    run(&viewer, &format!("effect.add?layer={id}&type=core.exposure"));
+    run(
+        &viewer,
+        &format!("effect.add?layer={id}&type=core.exposure"),
+    );
     report.check(
         "an effect is added to it as to any layer",
         "1 effect(s): core.exposure",
@@ -6163,15 +6617,24 @@ fn an_adjustment_layer_is_added_from_the_window() {
         },
     );
     // D-297: an adjustment layer takes any blend mode, as in After Effects (D-66 refused).
-    run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
+    run(
+        &viewer,
+        &format!("layer.set_blend_mode?layer={id}&mode=multiply"),
+    );
     report.check(
         "a blend mode other than normal is taken (D-297)",
         "multiply",
-        shown_layer(&viewer, "Grade")["blend_mode"].as_str().unwrap_or("(none)"),
+        shown_layer(&viewer, "Grade")["blend_mode"]
+            .as_str()
+            .unwrap_or("(none)"),
     );
 
     run(&viewer, &format!("layer.delete?layer={id}&frame=0"));
-    report.check("Delete layer takes it out", "Cel, Adjustment layer", names(&viewer));
+    report.check(
+        "Delete layer takes it out",
+        "Cel, Adjustment layer",
+        names(&viewer),
+    );
     run(&viewer, "edit.undo");
     report.check(
         "and Undo brings it back as an adjustment layer, effect and all",
@@ -6179,8 +6642,12 @@ fn an_adjustment_layer_is_added_from_the_window() {
         format!(
             "{}; {} with {} effect(s)",
             names(&viewer),
-            shown_layer(&viewer, "Grade")["kind"].as_str().unwrap_or("(no kind)"),
-            shown_layer(&viewer, "Grade")["effects"].as_array().map_or(0, |a| a.len())
+            shown_layer(&viewer, "Grade")["kind"]
+                .as_str()
+                .unwrap_or("(no kind)"),
+            shown_layer(&viewer, "Grade")["effects"]
+                .as_array()
+                .map_or(0, |a| a.len())
         ),
     );
 
@@ -6217,9 +6684,9 @@ fn a_null_is_added_and_carries_its_children_from_the_window() {
         let found = answer["layers"].as_array().cloned().unwrap_or_default();
         let at = found.iter().position(|b| b["layer"] == id);
         let corners = at.map_or(Vec::new(), |at| {
-            found[at]["corners"]
-                .as_array()
-                .map_or(Vec::new(), |c| c.iter().map(|v| v.as_f64().unwrap_or(f64::NAN)).collect())
+            found[at]["corners"].as_array().map_or(Vec::new(), |c| {
+                c.iter().map(|v| v.as_f64().unwrap_or(f64::NAN)).collect()
+            })
         });
         (at, corners)
     };
@@ -6239,8 +6706,16 @@ fn a_null_is_added_and_carries_its_children_from_the_window() {
         format!(
             "{}, {}, {}",
             layer["kind"].as_str().unwrap_or("(no kind)"),
-            if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" },
-            if layer.get("exposure_spans").is_none() { "no exposure_spans" } else { "exposure_spans" }
+            if layer.get("asset_id").is_none() {
+                "no asset_id"
+            } else {
+                "an asset_id"
+            },
+            if layer.get("exposure_spans").is_none() {
+                "no exposure_spans"
+            } else {
+                "exposure_spans"
+            }
         ),
     );
     report.check(
@@ -6257,7 +6732,12 @@ fn a_null_is_added_and_carries_its_children_from_the_window() {
     report.check(
         "Undo says what it would take back",
         "Add layer Null 1",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     let (at, corners) = outline(&viewer, &id);
     report.check(
@@ -6276,19 +6756,31 @@ fn a_null_is_added_and_carries_its_children_from_the_window() {
     report.check(
         "a blend mode on the null is refused, with the reason",
         "\"Null 1\" is a null, which is never drawn, so it has no picture for that to work on.",
-        run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply")),
+        run(
+            &viewer,
+            &format!("layer.set_blend_mode?layer={id}&mode=multiply"),
+        ),
     );
     report.check(
         "the null as Cel's matte is refused, with the reason",
         "\"Null 1\" is a null, which is never drawn, so it cannot be a matte.",
-        run(&viewer, &format!("layer.set_matte?layer=layer-cel&matte={id}&only=false")),
+        run(
+            &viewer,
+            &format!("layer.set_matte?layer=layer-cel&matte={id}&only=false"),
+        ),
     );
 
     // A second null, moved off the first and parented to it, keeps its place; the first
     // moved 100 to the right takes it along.
     run(&viewer, "layer.add_null");
-    let child = shown_layer(&viewer, "Null 2")["id"].as_str().unwrap_or_default().to_string();
-    run(&viewer, &format!("property.set_base?layer={child}&prop=position&value=700,300"));
+    let child = shown_layer(&viewer, "Null 2")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    run(
+        &viewer,
+        &format!("property.set_base?layer={child}&prop=position&value=700,300"),
+    );
     let (at_child, child_before) = outline(&viewer, &child);
     report.check(
         "Null 2 is added at the front, and its outline comes after Null 1's as its row is above",
@@ -6296,18 +6788,26 @@ fn a_null_is_added_and_carries_its_children_from_the_window() {
         format!(
             "{}; {}",
             names(&viewer),
-            if at_child > outline(&viewer, &id).0 { "after" } else { "before" }
+            if at_child > outline(&viewer, &id).0 {
+                "after"
+            } else {
+                "before"
+            }
         ),
     );
-    run(&viewer, &format!("layer.set_parent?layer={child}&parent={id}&frame=0"));
+    run(
+        &viewer,
+        &format!("layer.set_parent?layer={child}&parent={id}&frame=0"),
+    );
     let (_, child_parented) = outline(&viewer, &child);
-    run(&viewer, &format!("property.set_base?layer={id}&prop=position&value=1060,540"));
+    run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=position&value=1060,540"),
+    );
     let (_, child_carried) = outline(&viewer, &child);
-    let moved = |a: &[f64], b: &[f64]| {
-        match (a.first(), b.first(), a.get(1), b.get(1)) {
-            (Some(ax), Some(bx), Some(ay), Some(by)) => format!("{:.0},{:.0}", bx - ax, by - ay),
-            _ => "no outline".to_string(),
-        }
+    let moved = |a: &[f64], b: &[f64]| match (a.first(), b.first(), a.get(1), b.get(1)) {
+        (Some(ax), Some(bx), Some(ay), Some(by)) => format!("{:.0},{:.0}", bx - ax, by - ay),
+        _ => "no outline".to_string(),
     };
     report.check(
         "Null 2 parented to Null 1 stays where it was",
@@ -6333,7 +6833,11 @@ fn a_null_is_added_and_carries_its_children_from_the_window() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-27c: D-83's pick whip from the window. Each drop is sent as the page sends it.
@@ -6348,21 +6852,29 @@ fn the_pick_whip_links_and_parents_from_the_window() {
     let source = root.join("pickwhip_project.json");
     let fresh = || {
         Mutex::new(
-            open(&source)
-                .unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
         )
     };
     // What the page puts in the request for one side of a drop, as `whoseId` writes it.
     let side = |prefix: &str, pair: &serde_json::Value| match pair[0].as_str().unwrap_or("") {
-        "camera" => format!("{prefix}target=camera&{prefix}prop={}", pair[1].as_str().unwrap_or("")),
-        id => format!("{prefix}layer={id}&{prefix}prop={}", pair[1].as_str().unwrap_or("")),
+        "camera" => format!(
+            "{prefix}target=camera&{prefix}prop={}",
+            pair[1].as_str().unwrap_or("")
+        ),
+        id => format!(
+            "{prefix}layer={id}&{prefix}prop={}",
+            pair[1].as_str().unwrap_or("")
+        ),
     };
     // The text the property was given, read from what the page is given.
     let written = |viewer: &Mutex<Viewer>, pair: &serde_json::Value| {
         let answer: serde_json::Value =
             serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
         let comp = &answer["project"]["compositions"][0];
-        let (who, prop) = (pair[0].as_str().unwrap_or(""), pair[1].as_str().unwrap_or(""));
+        let (who, prop) = (
+            pair[0].as_str().unwrap_or(""),
+            pair[1].as_str().unwrap_or(""),
+        );
         let record = if who == "camera" {
             comp["camera"][prop].clone()
         } else {
@@ -6370,7 +6882,11 @@ fn the_pick_whip_links_and_parents_from_the_window() {
                 .as_array()
                 .and_then(|all| all.iter().find(|l| l["id"] == who).cloned())
                 .unwrap_or_default();
-            if prop == "depth" { layer["depth"].clone() } else { layer["transform"][prop].clone() }
+            if prop == "depth" {
+                layer["depth"].clone()
+            } else {
+                layer["transform"][prop].clone()
+            }
         };
         record["expression"]["text"]
             .as_str()
@@ -6397,7 +6913,10 @@ fn the_pick_whip_links_and_parents_from_the_window() {
                     drop["source"][0].as_str().unwrap_or(""),
                     drop["source"][1].as_str().unwrap_or("")
                 ),
-                format!("`{}`, 1 step", drop["text"].as_str().unwrap_or("").replace('\n', " ")),
+                format!(
+                    "`{}`, 1 step",
+                    drop["text"].as_str().unwrap_or("").replace('\n', " ")
+                ),
                 format!(
                     "`{}`, {} step",
                     written(&viewer, &drop["destination"]),
@@ -6409,10 +6928,27 @@ fn the_pick_whip_links_and_parents_from_the_window() {
 
     // Undo names a drop as it names a typed expression, because it is one.
     let (whipped, typed) = (fresh(), fresh());
-    run(&whipped, "property.link?layer=layer-target&prop=position&from_layer=null-1&from_prop=position");
-    run(&typed, "property.set_expression?layer=layer-target&prop=position&text=value");
-    let last = |v: &Mutex<Viewer>| held(v).document.undo_labels().last().map(|s| s.to_string()).unwrap_or_default();
-    report.check("Undo names the drop as it names a typed expression", last(&typed), last(&whipped));
+    run(
+        &whipped,
+        "property.link?layer=layer-target&prop=position&from_layer=null-1&from_prop=position",
+    );
+    run(
+        &typed,
+        "property.set_expression?layer=layer-target&prop=position&text=value",
+    );
+    let last = |v: &Mutex<Viewer>| {
+        held(v)
+            .document
+            .undo_labels()
+            .last()
+            .map(|s| s.to_string())
+            .unwrap_or_default()
+    };
+    report.check(
+        "Undo names the drop as it names a typed expression",
+        last(&typed),
+        last(&whipped),
+    );
     held(&whipped).document.undo();
     report.check(
         "and Undo takes the drop back",
@@ -6436,7 +6972,11 @@ fn the_pick_whip_links_and_parents_from_the_window() {
             "A property cannot be linked to itself.; nothing changed",
             format!(
                 "{said}; {}",
-                if held(&viewer).document.undo_depth() == depth { "nothing changed" } else { "changed" }
+                if held(&viewer).document.undo_depth() == depth {
+                    "nothing changed"
+                } else {
+                    "changed"
+                }
             ),
         );
     }
@@ -6444,12 +6984,18 @@ fn the_pick_whip_links_and_parents_from_the_window() {
     report.check(
         "a separated half is not a place to drop, and says so",
         "An expression cannot read position_x, so nothing can link to it.",
-        run(&viewer, "property.link?layer=layer-target&prop=rotation&from_layer=null-1&from_prop=position_x"),
+        run(
+            &viewer,
+            "property.link?layer=layer-target&prop=rotation&from_layer=null-1&from_prop=position_x",
+        ),
     );
     report.check(
         "nor is a property that does not exist",
         "\"wobble\" is not a property that can be linked.",
-        run(&viewer, "property.link?layer=layer-target&prop=rotation&from_layer=null-1&from_prop=wobble"),
+        run(
+            &viewer,
+            "property.link?layer=layer-target&prop=rotation&from_layer=null-1&from_prop=wobble",
+        ),
     );
 
     // The parent whip builds its request as the Parent list does: the same command, the
@@ -6472,16 +7018,26 @@ fn the_pick_whip_links_and_parents_from_the_window() {
         ),
     );
     let viewer = fresh();
-    run(&viewer, "layer.set_parent?layer=layer-target&parent=null-1&frame=0");
+    run(
+        &viewer,
+        "layer.set_parent?layer=layer-target&parent=null-1&frame=0",
+    );
     report.check(
         "Target whipped onto Null 1 rides on it",
         "null-1",
-        shown_layer(&viewer, "Target")["parent"].as_str().unwrap_or("(none)").to_string(),
+        shown_layer(&viewer, "Target")["parent"]
+            .as_str()
+            .unwrap_or("(none)")
+            .to_string(),
     );
     report.check(
         "and Null 1 whipped back onto Target is refused as a loop",
         true,
-        !run(&viewer, "layer.set_parent?layer=null-1&parent=layer-target&frame=0").is_empty()
+        !run(
+            &viewer,
+            "layer.set_parent?layer=null-1&parent=layer-target&frame=0",
+        )
+        .is_empty()
             && shown_layer(&viewer, "Null 1")["parent"].is_null(),
     );
 
@@ -6498,7 +7054,11 @@ fn the_pick_whip_links_and_parents_from_the_window() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-28d: the Sheet tab, on D-84a. FX-XDTS-040's grid, as the page is given it, against
@@ -6563,7 +7123,11 @@ fn the_sheet_tab_matches_the_fixture_catalogue() {
         "A, B, C",
         columns(&g).join(", "),
     );
-    report.check("the sheet starts at the composition's first frame", "0", g["from"].to_string());
+    report.check(
+        "the sheet starts at the composition's first frame",
+        "0",
+        g["from"].to_string(),
+    );
 
     let catalogue = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md"))
         .expect("read document 25");
@@ -6573,9 +7137,17 @@ fn the_sheet_tab_matches_the_fixture_catalogue() {
         .and_then(|rest| rest.split("Its notes").next())
         .expect("document 25 has FX-XDTS-040's table");
     let rows = table.lines().filter_map(|line| {
-        let cells: Vec<&str> =
-            line.trim().trim_matches('|').split('|').map(str::trim).collect();
-        cells.first()?.parse::<usize>().ok().map(|frame| (frame, cells[1..].to_vec()))
+        let cells: Vec<&str> = line
+            .trim()
+            .trim_matches('|')
+            .split('|')
+            .map(str::trim)
+            .collect();
+        cells
+            .first()?
+            .parse::<usize>()
+            .ok()
+            .map(|frame| (frame, cells[1..].to_vec()))
     });
     let by_column = ["A", "B", "C"].map(|name| shown(&g, name));
     let mut read = 0;
@@ -6600,7 +7172,11 @@ fn the_sheet_tab_matches_the_fixture_catalogue() {
             ),
         );
     }
-    report.check("document 25's table has a row for each of the 48 frames", "48", read.to_string());
+    report.check(
+        "document 25's table has a row for each of the 48 frames",
+        "48",
+        read.to_string(),
+    );
 
     report.check(
         "A as written: a number where a drawing starts and a line while it holds",
@@ -6657,7 +7233,9 @@ fn the_sheet_tab_matches_the_fixture_catalogue() {
     report.check(
         "the page has the Sheet as a panel of its own (D-85), and asks for the grid",
         "present",
-        if page.contains("<section class=\"panel\" id=\"sheetpanel\"") && page.contains("FRAMES + '/sheet'") {
+        if page.contains("<section class=\"panel\" id=\"sheetpanel\"")
+            && page.contains("FRAMES + '/sheet'")
+        {
             "present"
         } else {
             "absent"
@@ -6677,7 +7255,11 @@ fn the_sheet_tab_matches_the_fixture_catalogue() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-28f: the dialogue and camera columns, on D-84c. FX-XDTS-040's text cells, as the page
@@ -6735,7 +7317,11 @@ fn the_sheet_text_columns_match_the_fixture_catalogue() {
         .chain(text.iter().filter(|c| c["kind"] == "action").map(named))
         .chain(text.iter().filter(|c| c["kind"] == "dialogue").map(named))
         .chain(g["columns"].as_array().into_iter().flatten().map(named))
-        .chain(text.iter().filter(|c| c["kind"] != "action" && c["kind"] != "dialogue").map(named))
+        .chain(
+            text.iter()
+                .filter(|c| c["kind"] != "action" && c["kind"] != "dialogue")
+                .map(named),
+        )
         .collect();
     report.check(
         "document 25's order, left to right, is the Sheet's: Action, dialogue, the drawings bottom first, camera",
@@ -6744,25 +7330,38 @@ fn the_sheet_text_columns_match_the_fixture_catalogue() {
     );
     report.check(
         "Action is empty on every frame, as document 25 says",
-        if paragraph.contains("Action is empty on every frame.") { "48 empty cells" } else { "(document 25 does not say)" },
+        if paragraph.contains("Action is empty on every frame.") {
+            "48 empty cells"
+        } else {
+            "(document 25 does not say)"
+        },
         format!(
             "{} empty cells",
             text.iter()
                 .find(|c| c["kind"] == "action")
                 .and_then(|c| c["cells"].as_array())
-                .map_or(0, |cells| cells.iter().filter(|c| c.as_str() == Some("")).count())
+                .map_or(0, |cells| cells
+                    .iter()
+                    .filter(|c| c.as_str() == Some(""))
+                    .count())
         ),
     );
     let shows = paragraph.split(". ").last().unwrap_or("");
     let mut clauses = 0;
     for clause in shows.split("; ") {
-        let Some((name, rest)) = clause.split_once(" shows `") else { continue };
-        let Some((said, rest)) = rest.split_once("` on frame ") else { continue };
+        let Some((name, rest)) = clause.split_once(" shows `") else {
+            continue;
+        };
+        let Some((said, rest)) = rest.split_once("` on frame ") else {
+            continue;
+        };
         let numbers: Vec<usize> = rest
             .split(|c: char| !c.is_ascii_digit())
             .filter_map(|n| n.parse().ok())
             .collect();
-        let [start, from, to] = numbers[..] else { continue };
+        let [start, from, to] = numbers[..] else {
+            continue;
+        };
         clauses += 1;
         let expected: Vec<String> = (0..48)
             .map(|f| match f {
@@ -6788,7 +7387,11 @@ fn the_sheet_text_columns_match_the_fixture_catalogue() {
             got.join(" / "),
         );
     }
-    report.check("document 25 describes both columns", "2", clauses.to_string());
+    report.check(
+        "document 25 describes both columns",
+        "2",
+        clauses.to_string(),
+    );
 
     let a = g["columns"][0]["layer"].as_str().unwrap_or("").to_string();
     run(&viewer, &format!("exposure.write?layer={a}&frame=1&mark=3"));
@@ -6809,8 +7412,18 @@ fn the_sheet_text_columns_match_the_fixture_catalogue() {
             .into_iter()
             .flatten()
             .map(|c| {
-                let written = c["cells"].as_array().is_some_and(|cells| cells.iter().any(|x| x != ""));
-                format!("{}, {}", named(c), if written { "written in" } else { "nothing written" })
+                let written = c["cells"]
+                    .as_array()
+                    .is_some_and(|cells| cells.iter().any(|x| x != ""));
+                format!(
+                    "{}, {}",
+                    named(c),
+                    if written {
+                        "written in"
+                    } else {
+                        "nothing written"
+                    }
+                )
             })
             .collect::<Vec<_>>()
             .join("; "),
@@ -6819,7 +7432,11 @@ fn the_sheet_text_columns_match_the_fixture_catalogue() {
     report.check(
         "the page draws the text columns it is given",
         "present",
-        if page.contains("grid.text") { "present" } else { "absent" },
+        if page.contains("grid.text") {
+            "present"
+        } else {
+            "absent"
+        },
     );
 
     write_artifact(
@@ -6835,7 +7452,11 @@ fn the_sheet_text_columns_match_the_fixture_catalogue() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-28g: printing the Sheet, on D-84d. Each FX-PRINT case, read from document 25 itself,
@@ -6854,13 +7475,20 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
     let mut cases: Vec<(String, Vec<(String, String)>)> = Vec::new();
     for line in section.lines().map(str::trim) {
         if let Some(rest) = line.strip_prefix("- FX-PRINT-") {
-            cases.push((format!("FX-PRINT-{}", rest.split(':').next().unwrap_or(rest)), Vec::new()));
+            cases.push((
+                format!("FX-PRINT-{}", rest.split(':').next().unwrap_or(rest)),
+                Vec::new(),
+            ));
         } else if let (Some(rest), Some(case)) = (line.strip_prefix("- "), cases.last_mut()) {
             let (label, said) = rest.split_once(": ").unwrap_or(("", rest));
             case.1.push((label.to_string(), said.to_string()));
         }
     }
-    report.check("document 25 has eleven cases", "11", cases.len().to_string());
+    report.check(
+        "document 25 has eleven cases",
+        "11",
+        cases.len().to_string(),
+    );
     // "Everything else as FX-PRINT-001": that case's lines as well as its own.
     let cases: Vec<(String, Vec<(String, String)>)> = cases
         .iter()
@@ -6879,7 +7507,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
         .collect();
 
     let quoted = |text: &str| -> Vec<String> {
-        text.split('`').skip(1).step_by(2).map(str::to_string).collect()
+        text.split('`')
+            .skip(1)
+            .step_by(2)
+            .map(str::to_string)
+            .collect()
     };
     // The text between `open` and the next `close` after it, for each `open`.
     let between = |text: &str, open: &str, close: &str| -> Vec<String> {
@@ -6923,14 +7555,24 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                     } else {
                         format!("{label} (unlabelled)")
                     },
-                    if boxes.is_empty() { "(no box)".to_string() } else { boxes.concat() },
+                    if boxes.is_empty() {
+                        "(no box)".to_string()
+                    } else {
+                        boxes.concat()
+                    },
                 )
             })
             .collect();
         let show = |pairs: &[(String, String)]| {
             pairs
                 .iter()
-                .map(|(l, v)| if v.is_empty() { format!("{l} empty") } else { format!("{l} {v}") })
+                .map(|(l, v)| {
+                    if v.is_empty() {
+                        format!("{l} empty")
+                    } else {
+                        format!("{l} {v}")
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join("; ")
         };
@@ -6955,7 +7597,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
     };
     let shown_comp = |viewer: &Mutex<Viewer>| {
         let held = held(viewer);
-        held.document.project().composition(&held.composition).cloned().expect("a composition on screen")
+        held.document
+            .project()
+            .composition(&held.composition)
+            .cloned()
+            .expect("a composition on screen")
     };
     let saved_at = crate::test_temp().join("anime_compositor_b28i");
     std::fs::create_dir_all(&saved_at).expect("a folder to save into");
@@ -7035,9 +7681,7 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                 let header = between(p, "<header>", "</header>").concat();
                 ["name", "sheet", "time", "rate"]
                     .iter()
-                    .map(|field| {
-                        between(&header, &format!("class=\"{field}\">"), "<").concat()
-                    })
+                    .map(|field| between(&header, &format!("class=\"{field}\">"), "<").concat())
                     .collect()
             })
             .collect();
@@ -7045,11 +7689,16 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
             .iter()
             .map(|t| {
                 let (first, rest) = t.split_once('"').unwrap_or(("", ""));
-                (first.to_string(), rest.rsplit('"').next().unwrap_or("").to_string())
+                (
+                    first.to_string(),
+                    rest.rsplit('"').next().unwrap_or("").to_string(),
+                )
             })
             .collect();
         if name.starts_with("FX-PRINT-004") {
-            let message = lines.iter().find_map(|(l, said)| quoted(&format!("{l}: {said}")).first().cloned());
+            let message = lines
+                .iter()
+                .find_map(|(l, said)| quoted(&format!("{l}: {said}")).first().cloned());
             let message = message.unwrap_or_default();
             report.check(
                 &format!("{name}: `/sheet/print` writes no pages"),
@@ -7061,8 +7710,16 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                 format!("{message} / {message}"),
                 format!(
                     "{} / {}",
-                    if paper.contains(&message) { &message } else { "(not in the page)" },
-                    if page.contains(&format!("'{message}'")) { &message } else { "(not in the page)" }
+                    if paper.contains(&message) {
+                        &message
+                    } else {
+                        "(not in the page)"
+                    },
+                    if page.contains(&format!("'{message}'")) {
+                        &message
+                    } else {
+                        "(not in the page)"
+                    }
                 ),
             );
             report.check(
@@ -7090,7 +7747,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                 format!(
                     "{} pages, {}",
                     pages.len(),
-                    if paper.contains(&message) { &message } else { "(not said)" }
+                    if paper.contains(&message) {
+                        &message
+                    } else {
+                        "(not said)"
+                    }
                 ),
             );
             let offered = between(page, "<select id=\"printseconds\">", "</select>").concat();
@@ -7105,7 +7766,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
             match label.as_str() {
                 "Header" if said.starts_with("NAME ") => {
                     let (wanted, got) = labelled(said, pages.first().map_or("", String::as_str));
-                    report.check(&format!("{name}: the title block of the first page"), wanted, got);
+                    report.check(
+                        &format!("{name}: the title block of the first page"),
+                        wanted,
+                        got,
+                    );
                 }
                 "" if said.starts_with("One Undo") => {
                     run(&viewer, "edit.undo");
@@ -7129,14 +7794,25 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                         written.join(", "),
                         [d.episode, d.scene, d.cut, d.animator].join(", "),
                     );
-                    let (wanted, got) = labelled(&header_009, pages.first().map_or("", String::as_str));
+                    let (wanted, got) =
+                        labelled(&header_009, pages.first().map_or("", String::as_str));
                     report.check(&format!("{name}: printed as FX-PRINT-009"), wanted, got);
                 }
                 "" if said.starts_with("Saved with the four empty") => {
-                    run(&viewer, &set_four(&[String::new(), String::new(), String::new(), String::new()]));
+                    run(
+                        &viewer,
+                        &set_four(&[String::new(), String::new(), String::new(), String::new()]),
+                    );
                     save_as(&viewer, &saved_at);
-                    let emptied = std::fs::read_to_string(&saved_at).expect("read the saved project");
-                    let has = |text: &str| if text.contains("\"sheet_details\"") { "has it" } else { "has none" };
+                    let emptied =
+                        std::fs::read_to_string(&saved_at).expect("read the saved project");
+                    let has = |text: &str| {
+                        if text.contains("\"sheet_details\"") {
+                            "has it"
+                        } else {
+                            "has none"
+                        }
+                    };
                     report.check(
                         &format!("{name}: `sheet_details` in the file, with the four written and then empty"),
                         "has it, then has none",
@@ -7159,7 +7835,10 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                     );
                 }
                 "Columns" => {
-                    let first = between(&paper, "<table", "</tr>").first().cloned().unwrap_or_default();
+                    let first = between(&paper, "<table", "</tr>")
+                        .first()
+                        .cloned()
+                        .unwrap_or_default();
                     // Empty headings side by side are counted, as document 25 writes them.
                     let count = ["", "one", "two", "three", "four", "five", "six"];
                     let mut shown: Vec<String> = Vec::new();
@@ -7203,8 +7882,9 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                         .iter()
                         .filter_map(|t| {
                             let second = t.rsplit('>').next().unwrap_or("");
-                            (!second.is_empty())
-                                .then(|| format!("{second} at {}", t.split('"').next().unwrap_or("")))
+                            (!second.is_empty()).then(|| {
+                                format!("{second} at {}", t.split('"').next().unwrap_or(""))
+                            })
                         })
                         .collect();
                     report.check(
@@ -7217,7 +7897,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                     report.check(
                         &format!("{name}: the paper is printed red"),
                         "red",
-                        if paper.contains("<div id=\"paper\" class=\"red\">") { "red" } else { "black" },
+                        if paper.contains("<div id=\"paper\" class=\"red\">") {
+                            "red"
+                        } else {
+                            "black"
+                        },
                     );
                     // What the red style colours: its text colour and its lines, by what
                     // they are drawn on. The marks and title entries are named by neither.
@@ -7230,7 +7914,9 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                             .flat_map(|(selectors, _)| selectors.split(", "))
                             .map(|s| {
                                 let s = s.trim_start_matches("#paper.red ");
-                                s.trim_start_matches("tr.past ").trim_start_matches("tr ").to_string()
+                                s.trim_start_matches("tr.past ")
+                                    .trim_start_matches("tr ")
+                                    .to_string()
                             })
                             .collect();
                         on.sort();
@@ -7252,7 +7938,9 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                     // Every number but the page numbers, in pairs.
                     let mut numbers = Vec::new();
                     let mut after_page = false;
-                    for word in said.split(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == ':') {
+                    for word in
+                        said.split(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == ':')
+                    {
                         if word.eq_ignore_ascii_case("page") {
                             after_page = true;
                         } else if let Ok(n) = word.parse::<u32>() {
@@ -7262,18 +7950,27 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                             after_page = false;
                         }
                     }
-                    let expected: Vec<String> = numbers.chunks(2).map(|c| format!("{} to {}", c[0], c.get(1).unwrap_or(&0))).collect();
+                    let expected: Vec<String> = numbers
+                        .chunks(2)
+                        .map(|c| format!("{} to {}", c[0], c.get(1).unwrap_or(&0)))
+                        .collect();
                     report.check(
                         &format!("{name}: the halves, page by page, left then right"),
                         expected.join(", "),
-                        halves.iter().map(|(a, b)| format!("{a} to {b}")).collect::<Vec<_>>().join(", "),
+                        halves
+                            .iter()
+                            .map(|(a, b)| format!("{a} to {b}"))
+                            .collect::<Vec<_>>()
+                            .join(", "),
                     );
                 }
                 _ => {}
             }
         }
         if let Some(end) = lines.iter().find_map(|(l, said)| {
-            format!("{l} {said}").contains("End line").then(|| format!("{l}{said}"))
+            format!("{l} {said}")
+                .contains("End line")
+                .then(|| format!("{l}{said}"))
         }) {
             let wanted = end.rsplit(' ').next().unwrap_or("").to_string();
             let got: Vec<String> = between(&paper, "<tr data-row=\"", ">")
@@ -7281,7 +7978,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                 .filter(|t| t.contains("end\"") || t.contains("end "))
                 .map(|t| t.split('"').next().unwrap_or("").to_string())
                 .collect();
-            report.check(&format!("{name}: the heavy line under the last frame"), wanted, got.join(", "));
+            report.check(
+                &format!("{name}: the heavy line under the last frame"),
+                wanted,
+                got.join(", "),
+            );
         }
 
         // Every printed cell against the Sheet's, in D-84e's order: Action, dialogue, the
@@ -7289,12 +7990,17 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
         let empty = Vec::new();
         let text = grid["text"].as_array().unwrap_or(&empty);
         let drawings = grid["columns"].as_array().unwrap_or(&empty);
-        let order: Vec<Option<&serde_json::Value>> = std::iter::once(text.iter().find(|c| c["kind"] == "action"))
-            .chain(text.iter().filter(|c| c["kind"] == "dialogue").map(Some))
-            .chain(drawings.iter().map(Some))
-            .chain((drawings.len()..6).map(|_| None))
-            .chain(text.iter().filter(|c| c["kind"] != "dialogue" && c["kind"] != "action").map(Some))
-            .collect();
+        let order: Vec<Option<&serde_json::Value>> =
+            std::iter::once(text.iter().find(|c| c["kind"] == "action"))
+                .chain(text.iter().filter(|c| c["kind"] == "dialogue").map(Some))
+                .chain(drawings.iter().map(Some))
+                .chain((drawings.len()..6).map(|_| None))
+                .chain(
+                    text.iter()
+                        .filter(|c| c["kind"] != "dialogue" && c["kind"] != "action")
+                        .map(Some),
+                )
+                .collect();
         let duration = grid["duration"].as_u64().unwrap_or(0) as usize;
         let (mut compared, mut differ) = (0, Vec::new());
         for row in between(&paper, "<tr data-row=\"", "</tr>") {
@@ -7319,7 +8025,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                 })
                 .collect();
             if cells.len() != order.len() {
-                differ.push(format!("frame {frame} has {} cells, not {}", cells.len(), order.len()));
+                differ.push(format!(
+                    "frame {frame} has {} cells, not {}",
+                    cells.len(),
+                    order.len()
+                ));
             }
             for (column, cell) in order.iter().zip(&cells) {
                 let wanted = column
@@ -7328,7 +8038,10 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
                     .unwrap_or(serde_json::json!(""));
                 compared += 1;
                 if &wanted != cell {
-                    differ.push(format!("frame {frame} {}", column.map_or(&serde_json::json!("(empty)"), |c| &c["name"])));
+                    differ.push(format!(
+                        "frame {frame} {}",
+                        column.map_or(&serde_json::json!("(empty)"), |c| &c["name"])
+                    ));
                 }
             }
         }
@@ -7395,11 +8108,19 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
         }
         let keep = match name.as_str() {
             n if n.starts_with("FX-PRINT-001") => Some("verification/B-28g_sheet_print_040.html"),
-            n if n.starts_with("FX-PRINT-002") => Some("verification/B-28g_sheet_print_300_frames.html"),
-            n if n.starts_with("FX-PRINT-003") => Some("verification/B-28g_sheet_print_30_fps.html"),
-            n if n.starts_with("FX-PRINT-005") => Some("verification/B-28g_sheet_print_3_seconds.html"),
+            n if n.starts_with("FX-PRINT-002") => {
+                Some("verification/B-28g_sheet_print_300_frames.html")
+            }
+            n if n.starts_with("FX-PRINT-003") => {
+                Some("verification/B-28g_sheet_print_30_fps.html")
+            }
+            n if n.starts_with("FX-PRINT-005") => {
+                Some("verification/B-28g_sheet_print_3_seconds.html")
+            }
             n if n.starts_with("FX-PRINT-007") => Some("verification/B-28g_sheet_print_red.html"),
-            n if n.starts_with("FX-PRINT-009") => Some("verification/B-28g_sheet_print_title_block.html"),
+            n if n.starts_with("FX-PRINT-009") => {
+                Some("verification/B-28g_sheet_print_title_block.html")
+            }
             n if n.starts_with("FX-PRINT-011") => Some("verification/B-28g_sheet_print_keys.html"),
             _ => None,
         };
@@ -7423,7 +8144,8 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
         "present",
         if page.contains("FRAMES + '/sheet/print?seconds='")
             && page.contains("window.print()")
-            && page.contains("(e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }")
+            && page
+                .contains("(e.key === 'p' || e.key === 'P')) { e.preventDefault(); printSheet(); }")
         {
             "present"
         } else {
@@ -7444,7 +8166,11 @@ fn the_printed_sheet_matches_the_fixture_catalogue() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-28e: writing into the Sheet, on D-84b. Every FX-SHEET case, read from document 25
@@ -7469,7 +8195,10 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
             case[1] = says.to_string();
             cases.push(case);
         } else if let Some(case) = cases.last_mut() {
-            for (i, key) in ["- Before:", "- Do:", "- After:", "- Exposures:"].iter().enumerate() {
+            for (i, key) in ["- Before:", "- Do:", "- After:", "- Exposures:"]
+                .iter()
+                .enumerate()
+            {
                 if let Some(value) = line.strip_prefix(key) {
                     // D-84g's Before and After have more than a line in backticks.
                     case[i + 2] = if i == 0 || i == 2 {
@@ -7481,7 +8210,11 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
             }
         }
     }
-    report.check("document 25 has twenty-four cases", "24", cases.len().to_string());
+    report.check(
+        "document 25 has twenty-four cases",
+        "24",
+        cases.len().to_string(),
+    );
     // D-84g's cases say what the Action column or the keys show, and are played below.
     let (cases, d84g): (Vec<[String; 6]>, Vec<[String; 6]>) = cases
         .into_iter()
@@ -7557,7 +8290,12 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         }
         let mut project = template.clone();
         project["assets"][0]["frames"] = (1..=9)
-            .map(|n| (n.to_string(), serde_json::json!(format!("media/cel_{n:04}.png"))))
+            .map(|n| {
+                (
+                    n.to_string(),
+                    serde_json::json!(format!("media/cel_{n:04}.png")),
+                )
+            })
             .collect::<serde_json::Map<_, _>>()
             .into();
         let comp = &mut project["compositions"][0];
@@ -7592,7 +8330,13 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
             run(&viewer, "edit.undo");
         }
         let plain = before.replace(" /", "");
-        let with_count = |n: String| if count.is_empty() { String::new() } else { format!("; exposures: {n}") };
+        let with_count = |n: String| {
+            if count.is_empty() {
+                String::new()
+            } else {
+                format!("; exposures: {n}")
+            }
+        };
         report.check(
             &format!("{name}: {says}"),
             format!(
@@ -7600,7 +8344,11 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
                 with_count(count.clone()),
                 if after == plain { 0 } else { 1 }
             ),
-            format!("{now}{}; {entries} in the history; Undo gives {}", with_count(kept.to_string()), shown(&viewer)),
+            format!(
+                "{now}{}; {entries} in the history; Undo gives {}",
+                with_count(kept.to_string()),
+                shown(&viewer)
+            ),
         );
         let answer = match name.as_str() {
             "FX-SHEET-009" => "Nothing is written on frame 1 of Cel to erase: it holds the drawing above it.",
@@ -7613,7 +8361,11 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         report.check(
             &format!("{name}: what the window says"),
             answer,
-            if said.ends_with(answer) { answer } else { &said },
+            if said.ends_with(answer) {
+                answer
+            } else {
+                &said
+            },
         );
     }
 
@@ -7645,7 +8397,10 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         if keys.is_empty() {
             "none".to_string()
         } else {
-            keys.iter().map(u32::to_string).collect::<Vec<_>>().join(" and ")
+            keys.iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join(" and ")
         }
     };
     // The frames where the Sheet writes a number that is a key.
@@ -7658,9 +8413,11 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
             .flatten()
             .enumerate()
             .filter(|(_, cell)| {
-                column["keys"].as_array().into_iter().flatten().any(|k| {
-                    cell.as_str() == Some(k.to_string().as_str())
-                })
+                column["keys"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|k| cell.as_str() == Some(k.to_string().as_str()))
             })
             .map(|(i, _)| (grid["from"].as_i64().unwrap_or(0) + i as i64).to_string())
             .collect();
@@ -7721,21 +8478,47 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         // Before's drawing line, or `1 1 2 2` as long as its Action line.
         let quoted = |part: &str| part.split('`').nth(1).unwrap_or("").to_string();
         let parts: Vec<&str> = before.split("; ").collect();
-        let action_before = parts.iter().find(|p| p.starts_with("Action `")).map(|p| quoted(p));
-        let line = parts.iter().find(|p| p.starts_with('`')).map(|p| quoted(p)).unwrap_or_else(|| {
-            let n = action_before.as_deref().map_or(4, |a| a.split(' ').count());
-            ["1", "1", "2", "2"].iter().cycle().take(n).copied().collect::<Vec<_>>().join(" ")
-        });
+        let action_before = parts
+            .iter()
+            .find(|p| p.starts_with("Action `"))
+            .map(|p| quoted(p));
+        let line = parts
+            .iter()
+            .find(|p| p.starts_with('`'))
+            .map(|p| quoted(p))
+            .unwrap_or_else(|| {
+                let n = action_before.as_deref().map_or(4, |a| a.split(' ').count());
+                ["1", "1", "2", "2"]
+                    .iter()
+                    .cycle()
+                    .take(n)
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            });
         let mut viewer = set_up(name, &line);
         // Before's notes and keys, put there with the commands the Sheet sends.
         for (frame, note) in action_before.iter().flat_map(|a| a.split(' ').enumerate()) {
             if note != "." {
-                run(&viewer, &format!("sheet.write_action?frame={frame}&text={}", written(note)));
+                run(
+                    &viewer,
+                    &format!("sheet.write_action?frame={frame}&text={}", written(note)),
+                );
             }
         }
-        if let Some(k) = parts.iter().find_map(|p| p.strip_prefix("Keys: ")).filter(|k| *k != "none") {
-            let at = line.split(' ').position(|m| m == k).expect("the key is written in Before");
-            run(&viewer, &format!("exposure.toggle_key?layer=layer-cel&frame={at}"));
+        if let Some(k) = parts
+            .iter()
+            .find_map(|p| p.strip_prefix("Keys: "))
+            .filter(|k| *k != "none")
+        {
+            let at = line
+                .split(' ')
+                .position(|m| m == k)
+                .expect("the key is written in Before");
+            run(
+                &viewer,
+                &format!("exposure.toggle_key?layer=layer-cel&frame={at}"),
+            );
         }
         let was = depth(&viewer);
         let mut said = Vec::new();
@@ -7743,7 +8526,10 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         for step in action.split("; ") {
             let frame = step.rsplit(' ').next().unwrap_or("");
             let query = if let Some(rest) = step.strip_prefix("write `") {
-                format!("sheet.write_action?frame={frame}&text={}", written(rest.split('`').next().unwrap_or("")))
+                format!(
+                    "sheet.write_action?frame={frame}&text={}",
+                    written(rest.split('`').next().unwrap_or(""))
+                )
             } else if step.starts_with("erase Action on frame ") {
                 format!("sheet.write_action?frame={frame}")
             } else if step.starts_with("press K on frame ") {
@@ -7753,12 +8539,15 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
                 save_as(&viewer, &path);
                 let file = std::fs::read_to_string(&path).expect("read the saved case");
                 report.check(
-                    &format!("{name}: `key_drawings` in the saved file, for the one layer with keys"),
+                    &format!(
+                        "{name}: `key_drawings` in the saved file, for the one layer with keys"
+                    ),
                     "1",
                     file.matches("\"key_drawings\"").count().to_string(),
                 );
                 let id = held(&viewer).composition.clone();
-                let mut again = open(&path).unwrap_or_else(|d| panic!("open {name} again: {}", d.message));
+                let mut again =
+                    open(&path).unwrap_or_else(|d| panic!("open {name} again: {}", d.message));
                 again.composition = id;
                 viewer = Mutex::new(again);
                 reopened = true;
@@ -7772,30 +8561,53 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         if reopened {
             report.check(&format!("{name}: {says}"), after.clone(), now);
             // The key unmarked again, the layer has none to save.
-            let at = line.split(' ').position(|m| Some(m) == parts.iter().find_map(|p| p.strip_prefix("Keys: ")));
-            run(&viewer, &format!("exposure.toggle_key?layer=layer-cel&frame={}", at.unwrap_or(0)));
+            let at = line
+                .split(' ')
+                .position(|m| Some(m) == parts.iter().find_map(|p| p.strip_prefix("Keys: ")));
+            run(
+                &viewer,
+                &format!(
+                    "exposure.toggle_key?layer=layer-cel&frame={}",
+                    at.unwrap_or(0)
+                ),
+            );
             let path = folder.join(format!("{name}_no_keys.json"));
             save_as(&viewer, &path);
             report.check(
                 &format!("{name}: `key_drawings` in the saved file once the key is unmarked"),
                 "0",
-                std::fs::read_to_string(&path).expect("read the saved case").matches("\"key_drawings\"").count().to_string(),
+                std::fs::read_to_string(&path)
+                    .expect("read the saved case")
+                    .matches("\"key_drawings\"")
+                    .count()
+                    .to_string(),
             );
             continue;
         }
-        let entries = depth(&viewer).checked_sub(was).expect("the history grew or stayed");
+        let entries = depth(&viewer)
+            .checked_sub(was)
+            .expect("the history grew or stayed");
         for _ in 0..entries {
             run(&viewer, "edit.undo");
         }
         // Refused: After says nothing Before did not.
-        let unchanged = after.split("; ").all(|p| before.split("; ").any(|q| q == p));
+        let unchanged = after
+            .split("; ")
+            .all(|p| before.split("; ").any(|q| q == p));
         report.check(
             &format!("{name}: {says}"),
             format!(
                 "{after}; {} in the history; Undo gives {before}",
-                if unchanged { 0 } else { action.split("; ").count() }
+                if unchanged {
+                    0
+                } else {
+                    action.split("; ").count()
+                }
             ),
-            format!("{now}; {entries} in the history; Undo gives {}", state(before, &viewer, name)),
+            format!(
+                "{now}; {entries} in the history; Undo gives {}",
+                state(before, &viewer, name)
+            ),
         );
         let answers: &[&str] = match name.as_str() {
             "FX-SHEET-020" => &[
@@ -7815,7 +8627,13 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
             answers
                 .iter()
                 .zip(&said)
-                .map(|(a, s)| if s.ends_with(a) { a.to_string() } else { s.clone() })
+                .map(|(a, s)| {
+                    if s.ends_with(a) {
+                        a.to_string()
+                    } else {
+                        s.clone()
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(" / "),
         );
@@ -7825,12 +8643,18 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
     report.check(
         "the page writes a cell with exposure.write",
         "present",
-        if page.contains("'/exposure.write?layer='") { "present" } else { "absent" },
+        if page.contains("'/exposure.write?layer='") {
+            "present"
+        } else {
+            "absent"
+        },
     );
     report.check(
         "the page writes Action with sheet.write_action, and K sends exposure.toggle_key",
         "present",
-        if page.contains("'/sheet.write_action?frame='") && page.contains("'/exposure.toggle_key?layer='") {
+        if page.contains("'/sheet.write_action?frame='")
+            && page.contains("'/exposure.toggle_key?layer='")
+        {
             "present"
         } else {
             "absent"
@@ -7850,7 +8674,11 @@ fn writing_into_the_sheet_matches_the_fixture_catalogue() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-28c: a cut imported from its timesheet from the window, on D-84. The order is the
@@ -7917,7 +8745,10 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
     );
     // The project's drawings are not on disk, and it says so in the notes on opening.
     held(&viewer).notes.clear();
-    let said = run(&viewer, &format!("timesheet.import?folder={}", cut.display()));
+    let said = run(
+        &viewer,
+        &format!("timesheet.import?folder={}", cut.display()),
+    );
     report.check(
         "choosing FX-XDTS-040's folder imports it and says what arrived",
         "s01 c012 is imported and open: 3 layers from its timesheet, 48 frames at 24 frames a \
@@ -7930,7 +8761,11 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
         "s01 c012, 160 by 90, 48 frames at 24/1",
         on_screen(&viewer),
     );
-    report.check("a layer a column, track 0 at the bottom", "A, B, C", names(&viewer));
+    report.check(
+        "a layer a column, track 0 at the bottom",
+        "A, B, C",
+        names(&viewer),
+    );
     report.check(
         "each layer's inspector is given where its timing came from",
         "fx_xdts_040.xdts, column A, track 0; fx_xdts_040.xdts, column B, track 1; \
@@ -7952,7 +8787,8 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
     report.check(
         "the page shows that record as one line of the inspector",
         "present",
-        if include_str!("../../ui/index.html").contains("if (layer.timesheet) field(dl, 'Timesheet'")
+        if include_str!("../../ui/index.html")
+            .contains("if (layer.timesheet) field(dl, 'Timesheet'")
         {
             "present"
         } else {
@@ -7999,7 +8835,11 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
         "A, C",
         outlined(20),
     );
-    report.check("on frame 0 it outlines A and B, before C comes in", "A, B", outlined(0));
+    report.check(
+        "on frame 0 it outlines A and B, before C comes in",
+        "A, B",
+        outlined(0),
+    );
     report.check(
         "what was not read goes to the notes: C's tick mark and the background (dialogue and camerawork are read since D-84c)",
         "TIMESHEET_MARK, TIMESHEET_NOT_USED",
@@ -8008,7 +8848,12 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
     report.check(
         "Undo names the import by its first step and the count of the rest",
         "Import A_%04d.png and 3 more",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     run(&viewer, "edit.undo");
     report.check(
@@ -8021,7 +8866,11 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
             format!(
                 "{n}; {} composition{}, {} drawing{}",
                 project.compositions.len(),
-                if project.compositions.len() == 1 { "" } else { "s" },
+                if project.compositions.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                },
                 project.assets.len(),
                 if project.assets.len() == 1 { "" } else { "s" }
             )
@@ -8039,7 +8888,10 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
     report.check(
         "a folder with two timesheets imports nothing and says why",
         "Nothing was imported.",
-        refused.split(". ").next().map_or(String::new(), |s| format!("{s}.")),
+        refused
+            .split(". ")
+            .next()
+            .map_or(String::new(), |s| format!("{s}.")),
     );
     report.check(
         "and the refusal is in the notes with its code",
@@ -8069,7 +8921,11 @@ fn a_cut_is_imported_from_its_timesheet_from_the_window() {
         .filter(|(_, e, a)| e != a)
         .map(|(c, _, _)| c)
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }
 
 /// B-23c: the solid from the window, on D-74. The order is the playtest sheet's.
@@ -8084,7 +8940,9 @@ fn a_solid_is_added_and_set_from_the_window() {
         let layer = shown_layer(viewer, name);
         format!(
             "{} {}x{}, anchor {}",
-            layer["solid"]["color"], layer["solid"]["width"], layer["solid"]["height"],
+            layer["solid"]["color"],
+            layer["solid"]["width"],
+            layer["solid"]["height"],
             layer["transform"]["anchor"]["base"]
         )
     };
@@ -8103,8 +8961,16 @@ fn a_solid_is_added_and_set_from_the_window() {
         format!(
             "{}, {}, {}",
             layer["kind"].as_str().unwrap_or("(no kind)"),
-            if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" },
-            if layer.get("exposure_spans").is_none() { "no exposure_spans" } else { "exposure_spans" }
+            if layer.get("asset_id").is_none() {
+                "no asset_id"
+            } else {
+                "an asset_id"
+            },
+            if layer.get("exposure_spans").is_none() {
+                "no exposure_spans"
+            } else {
+                "exposure_spans"
+            }
         ),
     );
     report.check(
@@ -8113,10 +8979,12 @@ fn a_solid_is_added_and_set_from_the_window() {
         format!(
             "{:.6} x{}, {} by {}",
             layer["solid"]["color"][0].as_f64().unwrap_or(-1.0),
-            layer["solid"]["color"]
-                .as_array()
-                .map_or(0, |c| c.iter().filter(|v| *v == &layer["solid"]["color"][0]).count()),
-            layer["solid"]["width"], layer["solid"]["height"]
+            layer["solid"]["color"].as_array().map_or(0, |c| c
+                .iter()
+                .filter(|v| *v == &layer["solid"]["color"][0])
+                .count()),
+            layer["solid"]["width"],
+            layer["solid"]["height"]
         ),
     );
     report.check(
@@ -8135,7 +9003,12 @@ fn a_solid_is_added_and_set_from_the_window() {
     report.check(
         "Undo says what it would take back",
         "Add layer Solid 1",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
 
     // With a layer chosen, the page sends `to`: the index above it.
@@ -8145,7 +9018,10 @@ fn a_solid_is_added_and_set_from_the_window() {
         "Cel, Solid 2, Solid 1",
         names(&viewer),
     );
-    let id = shown_layer(&viewer, "Solid 2")["id"].as_str().unwrap_or_default().to_string();
+    let id = shown_layer(&viewer, "Solid 2")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
 
     // The picker's #ff0000 is what `linearOf` sends as 1,0,0.
     run(&viewer, &format!("solid.set?layer={id}&color=1,0,0"));
@@ -8186,17 +9062,25 @@ fn a_solid_is_added_and_set_from_the_window() {
         "[1,0,0] 1920x1080, anchor [960,540]",
         solid_of(&viewer, "Solid 2"),
     );
-    let cel = shown_layer(&viewer, "Cel")["id"].as_str().unwrap_or_default().to_string();
+    let cel = shown_layer(&viewer, "Cel")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
     report.check(
         "a drawing's layer has no colour to set, and says so",
         "\"Cel\" is not a solid, so it has no colour and size.",
         run(&viewer, &format!("solid.set?layer={cel}&color=1,0,0")),
     );
-    run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
+    run(
+        &viewer,
+        &format!("layer.set_blend_mode?layer={id}&mode=multiply"),
+    );
     report.check(
         "a solid takes any blend mode",
         "multiply",
-        shown_layer(&viewer, "Solid 2")["blend_mode"].as_str().unwrap_or("(none)"),
+        shown_layer(&viewer, "Solid 2")["blend_mode"]
+            .as_str()
+            .unwrap_or("(none)"),
     );
 
     run(&viewer, &format!("layer.delete?layer={id}&frame=0"));
@@ -8208,7 +9092,9 @@ fn a_solid_is_added_and_set_from_the_window() {
         format!(
             "{}; {} {}",
             names(&viewer),
-            shown_layer(&viewer, "Solid 2")["kind"].as_str().unwrap_or("(no kind)"),
+            shown_layer(&viewer, "Solid 2")["kind"]
+                .as_str()
+                .unwrap_or("(no kind)"),
             solid_of(&viewer, "Solid 2")
         ),
     );
@@ -8255,12 +9141,22 @@ fn masks_are_drawn_and_set_from_the_window() {
                     "{} {} {} points, opacity {}, feather {}, expansion {}{}{}",
                     m["name"].as_str().unwrap_or("(no name)"),
                     m["mode"].as_str().unwrap_or("(no mode)"),
-                    m["path"]["base"]["points"].as_array().map_or(0, |p| p.len()),
+                    m["path"]["base"]["points"]
+                        .as_array()
+                        .map_or(0, |p| p.len()),
                     m["opacity"],
                     m["feather_px"],
                     m["expansion_px"],
-                    if m["inverted"] == serde_json::Value::Bool(true) { ", inverted" } else { "" },
-                    if m["enabled"] == serde_json::Value::Bool(false) { ", off" } else { "" },
+                    if m["inverted"] == serde_json::Value::Bool(true) {
+                        ", inverted"
+                    } else {
+                        ""
+                    },
+                    if m["enabled"] == serde_json::Value::Bool(false) {
+                        ", off"
+                    } else {
+                        ""
+                    },
                 )
             })
             .collect::<Vec<_>>()
@@ -8270,7 +9166,11 @@ fn masks_are_drawn_and_set_from_the_window() {
     // mask sends, and what the rectangle tool sends when it is dragged corner to corner.
     let whole = "0,0,0,0,0,0;1920,0,0,0,0,0;1920,1080,0,0,0,0;0,1080,0,0,0,0";
 
-    report.check("the drawing layer starts with no masks", "none", masks_of(&viewer));
+    report.check(
+        "the drawing layer starts with no masks",
+        "none",
+        masks_of(&viewer),
+    );
     run(&viewer, &format!("mask.add?layer={cel}&points={whole}"));
     report.check(
         "New mask, the pen and the two shape tools all send mask.add, and the first is Mask 1",
@@ -8280,7 +9180,12 @@ fn masks_are_drawn_and_set_from_the_window() {
     report.check(
         "Undo says what it would take back",
         "Draw Mask 1",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     // An ellipse, as the ellipse tool draws one: four points with the handles that round it.
     run(
@@ -8321,21 +9226,35 @@ fn masks_are_drawn_and_set_from_the_window() {
     );
 
     // The panel's own controls, each sending one setting and leaving the rest alone.
-    run(&viewer, &format!("mask.set?layer={cel}&mask=0&mode=subtract"));
+    run(
+        &viewer,
+        &format!("mask.set?layer={cel}&mask=0&mode=subtract"),
+    );
     run(&viewer, &format!("mask.set?layer={cel}&mask=0&opacity=50"));
     run(&viewer, &format!("mask.set?layer={cel}&mask=0&feather=8"));
-    run(&viewer, &format!("mask.set?layer={cel}&mask=0&expansion=-4"));
+    run(
+        &viewer,
+        &format!("mask.set?layer={cel}&mask=0&expansion=-4"),
+    );
     run(&viewer, &format!("mask.set?layer={cel}&mask=0&inverted=1"));
     report.check(
         "the mode, opacity, feather, expansion and invert of one mask, each on its own",
         "Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted",
-        masks_of(&viewer).split("; ").next().unwrap_or_default().to_string(),
+        masks_of(&viewer)
+            .split("; ")
+            .next()
+            .unwrap_or_default()
+            .to_string(),
     );
     run(&viewer, &format!("mask.set?layer={cel}&mask=1&enabled=1"));
     report.check(
         "the On button turns one mask off without touching the other",
         "Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off",
-        masks_of(&viewer).split("; ").nth(1).unwrap_or_default().to_string(),
+        masks_of(&viewer)
+            .split("; ")
+            .nth(1)
+            .unwrap_or_default()
+            .to_string(),
     );
 
     // What must be refused, each with the reason a person is given.
@@ -8343,7 +9262,10 @@ fn masks_are_drawn_and_set_from_the_window() {
         "a shape of fewer than three points is refused by the core, with the reason",
         "A mask needs at least three points, and this one has 2. Add points until the \
          shape closes on an area.",
-        run(&viewer, &format!("mask.add?layer={cel}&points=0,0,0,0,0,0;10,10,0,0,0,0")),
+        run(
+            &viewer,
+            &format!("mask.add?layer={cel}&points=0,0,0,0,0,0;10,10,0,0,0,0"),
+        ),
     );
     report.check(
         "a shape that crosses itself is refused, with the reason",
@@ -8372,7 +9294,10 @@ fn masks_are_drawn_and_set_from_the_window() {
     report.check(
         "a mode nobody has is refused, with the five there are",
         "A mask mode is add, subtract, intersect, difference or none. Not \"lighten\".",
-        run(&viewer, &format!("mask.set?layer={cel}&mask=0&mode=lighten")),
+        run(
+            &viewer,
+            &format!("mask.set?layer={cel}&mask=0&mode=lighten"),
+        ),
     );
     report.check(
         "a mask that is not there is refused, and the window says how many there are",
@@ -8402,8 +9327,14 @@ fn masks_are_drawn_and_set_from_the_window() {
 
     // D-298: the diamond keys a mask's feather, a value on another frame is a second key,
     // and the frame between draws with the number halfway.
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=mask:0:feather&frame=0"));
-    run(&viewer, &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=28"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop=mask:0:feather&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=28"),
+    );
     report.check(
         "D-298: Mask 1's feather keyed 8 at frame 0 and 28 at frame 10 is 18 at frame 5",
         "18.0",
@@ -8419,7 +9350,10 @@ fn masks_are_drawn_and_set_from_the_window() {
         "D-298: a feather key below 0 is refused by the core, with the reason",
         "Mask \"Mask 1\" was given a feather of -1 pixels, which is below 0. Set a value \
          inside the range and send the masks again.",
-        run(&viewer, &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=-1")),
+        run(
+            &viewer,
+            &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=-1"),
+        ),
     );
 
     write_artifact(
@@ -8648,10 +9582,19 @@ fn a_path_gains_and_loses_a_point_from_the_window() {
     report.check(
         "and Undo says what it would take back",
         "Add a point to Mask 1",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     run(&viewer, "edit.undo");
-    report.check("one Undo takes the point off again", "base 4", counts(&viewer));
+    report.check(
+        "one Undo takes the point off again",
+        "base 4",
+        counts(&viewer),
+    );
 
     // The same, on a path that is already moving: the reason D-79 exists.
     run(
@@ -8704,12 +9647,20 @@ fn a_path_gains_and_loses_a_point_from_the_window() {
     report.check(
         "and Undo says that too",
         "Remove a point from Mask 1",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     report.check(
         "a point the path has not got is refused, and the window says how many it has",
         "This path has 4 points, so it has no point 9.",
-        run(&viewer, &format!("path.add_point?layer={cel}&prop=mask:0&at=9")),
+        run(
+            &viewer,
+            &format!("path.add_point?layer={cel}&prop=mask:0&at=9"),
+        ),
     );
     report.check(
         "a place that is not along a segment is refused",
@@ -8769,7 +9720,12 @@ fn a_path_gains_and_loses_a_point_from_the_window() {
     report.check(
         "and Undo offers to take back all three of them, once",
         "Remove 3 points from Mask 1",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     run(&viewer, "edit.undo");
     report.check(
@@ -8904,7 +9860,11 @@ fn a_path_gains_and_loses_a_point_from_the_window() {
     );
     report.check(
         "and both masks moved the whole 20: the first mask's first point, and the second mask",
-        format!("{:?},{:?} | 20.0,0.0 30.0,0.0 30.0,10.0", was[0].0 + 20.0, was[0].1),
+        format!(
+            "{:?},{:?} | 20.0,0.0 30.0,0.0 30.0,10.0",
+            was[0].0 + 20.0,
+            was[0].1
+        ),
         format!("{} | {}", shape_at(&viewer, 4)[0], second(&viewer)),
     );
     run(&viewer, "edit.undo");
@@ -8968,9 +9928,8 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
             .collect::<Vec<_>>()
             .join("; ")
     };
-    let mask_keys = |viewer: &Mutex<Viewer>| {
-        keys_of(&shown_layer(viewer, "Cel")["masks"][0]["path"])
-    };
+    let mask_keys =
+        |viewer: &Mutex<Viewer>| keys_of(&shown_layer(viewer, "Cel")["masks"][0]["path"]);
     // The outline the renderer drew at a frame: the second point's x.
     let shape_at = |viewer: &Mutex<Viewer>, frame: i32| {
         let body = boxes(viewer, frame, None).into_body();
@@ -8981,8 +9940,17 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
     let at = |x: i32| format!("0,0,0,0,0,0;{x},0,0,0,0,0;{x},100,0,0,0,0;0,100,0,0,0,0");
 
     run(&viewer, &format!("mask.add?layer={cel}&points={}", at(100)));
-    run(&viewer, &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"));
-    run(&viewer, &format!("mask.set_path?layer={cel}&mask=0&frame=8&points={}", at(300)));
+    run(
+        &viewer,
+        &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!(
+            "mask.set_path?layer={cel}&mask=0&frame=8&points={}",
+            at(300)
+        ),
+    );
     report.check(
         "a mask keyed at frame 0 and frame 8, as B-24d leaves it",
         "frame 0 linear at x 100; frame 8 linear at x 300",
@@ -9006,13 +9974,22 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
         mask_keys(&viewer),
     );
     run(&viewer, "edit.redo");
-    run(&viewer, &format!("mask.set_path?layer={cel}&mask=0&frame=8&points={}", at(100)));
+    run(
+        &viewer,
+        &format!(
+            "mask.set_path?layer={cel}&mask=0&frame=8&points={}",
+            at(100)
+        ),
+    );
     report.check(
         "and Redo moves it again; a third key at 8 takes the path back",
         "frame 0 linear at x 100; frame 4 linear at x 300; frame 8 linear at x 100",
         mask_keys(&viewer),
     );
-    run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=4&ease=both"));
+    run(
+        &viewer,
+        &format!("mask.set?layer={cel}&mask=0&key=4&ease=both"),
+    );
     report.check(
         "F9 on the middle key eases both sides of it: the segment it is reached by ends \
          slowly, the one it leaves by starts slowly, and each keeps its other half straight",
@@ -9027,8 +10004,14 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
         "225.0 and 225.0",
         format!("{} and {}", shape_at(&viewer, 2), shape_at(&viewer, 6)),
     );
-    run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=0&interp=linear"));
-    run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=8&ease=in"));
+    run(
+        &viewer,
+        &format!("mask.set?layer={cel}&mask=0&key=0&interp=linear"),
+    );
+    run(
+        &viewer,
+        &format!("mask.set?layer={cel}&mask=0&key=8&ease=in"),
+    );
     report.check(
         "Shift+F9 eases only the side a key is reached by; linear, which Ctrl+Alt+G sends to \
          release a held key, straightened the first segment again",
@@ -9036,7 +10019,10 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
          linear at x 100",
         mask_keys(&viewer),
     );
-    run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=0&interp=hold"));
+    run(
+        &viewer,
+        &format!("mask.set?layer={cel}&mask=0&key=0&interp=hold"),
+    );
     report.check(
         "Ctrl+Alt+G holds a key: the path stays as it is until the next key",
         "frame 0 hold at x 100; 100.0 at frame 3, 300.0 at frame 4",
@@ -9061,7 +10047,10 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
     report.check(
         "and so is an ease that is not one of F9's three",
         "F9 eases both, in or out. Not \"sideways\".",
-        run(&viewer, &format!("mask.set?layer={cel}&mask=0&key=4&ease=sideways")),
+        run(
+            &viewer,
+            &format!("mask.set?layer={cel}&mask=0&key=4&ease=sideways"),
+        ),
     );
 
     // A shape's path is a mask's path, and `shape.set` takes the same words.
@@ -9070,11 +10059,29 @@ fn a_path_key_is_moved_and_eased_from_the_window() {
         .as_str()
         .unwrap_or_default()
         .to_string();
-    run(&viewer, &format!("shape.add?layer={shape}&points={}", at(100)));
-    run(&viewer, &format!("shape.add_remove_key?layer={shape}&shape=0&frame=0"));
-    run(&viewer, &format!("shape.set_path?layer={shape}&shape=0&frame=6&points={}", at(300)));
-    run(&viewer, &format!("shape.set?layer={shape}&shape=0&key=6&to=3"));
-    run(&viewer, &format!("shape.set?layer={shape}&shape=0&key=3&ease=in"));
+    run(
+        &viewer,
+        &format!("shape.add?layer={shape}&points={}", at(100)),
+    );
+    run(
+        &viewer,
+        &format!("shape.add_remove_key?layer={shape}&shape=0&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!(
+            "shape.set_path?layer={shape}&shape=0&frame=6&points={}",
+            at(300)
+        ),
+    );
+    run(
+        &viewer,
+        &format!("shape.set?layer={shape}&shape=0&key=6&to=3"),
+    );
+    run(
+        &viewer,
+        &format!("shape.set?layer={shape}&shape=0&key=3&ease=in"),
+    );
     report.check(
         "a shape's key is dragged and eased the same way",
         "frame 0 ease 0.333,0.333,0.667,1.000 at x 100; frame 3 linear at x 300",
@@ -9136,9 +10143,8 @@ fn a_path_key_goes_where_a_property_key_goes() {
             .collect::<Vec<_>>()
             .join("; ")
     };
-    let mask_keys = |viewer: &Mutex<Viewer>| {
-        keys_of(&shown_layer(viewer, "Cel")["masks"][0]["path"])
-    };
+    let mask_keys =
+        |viewer: &Mutex<Viewer>| keys_of(&shown_layer(viewer, "Cel")["masks"][0]["path"]);
     let rotation_keys = |viewer: &Mutex<Viewer>| {
         shown_layer(viewer, "Cel")["transform"]["rotation"]["keyframes"]
             .as_array()
@@ -9157,16 +10163,35 @@ fn a_path_key_goes_where_a_property_key_goes() {
             serde_json::from_slice(&body).expect("the curve answer is JSON");
         frames
             .iter()
-            .map(|f| format!("{:.3}", answer["samples"][*f as usize][0].as_f64().unwrap_or(f64::NAN)))
+            .map(|f| {
+                format!(
+                    "{:.3}",
+                    answer["samples"][*f as usize][0]
+                        .as_f64()
+                        .unwrap_or(f64::NAN)
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ")
     };
     let at = |x: i32| format!("0,0,0,0,0,0;{x},0,0,0,0,0;{x},100,0,0,0,0;0,100,0,0,0,0");
 
     run(&viewer, &format!("mask.add?layer={cel}&points={}", at(100)));
-    run(&viewer, &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"));
-    run(&viewer, &format!("mask.set_path?layer={cel}&mask=0&frame=8&points={}", at(300)));
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=rotation&frame=0"));
+    run(
+        &viewer,
+        &format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!(
+            "mask.set_path?layer={cel}&mask=0&frame=8&points={}",
+            at(300)
+        ),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop=rotation&frame=0"),
+    );
     report.check(
         "a mask keyed at frame 0 and frame 8, and the layer's rotation keyed at frame 0",
         "frame 0 linear at x 100; frame 8 linear at x 300 / frame 0",
@@ -9183,7 +10208,10 @@ fn a_path_key_goes_where_a_property_key_goes() {
     let mask_key = |frame: i32| format!("key={cel}%7Cmask:0%7C{frame}");
     run(
         &viewer,
-        &format!("keyframe.move?by=2&{}&key={cel}%7Crotation%7C0", mask_key(8)),
+        &format!(
+            "keyframe.move?by=2&{}&key={cel}%7Crotation%7C0",
+            mask_key(8)
+        ),
     );
     report.check(
         "the mask's key at 8 chosen with the rotation's key at 0, and both dragged two frames \
@@ -9220,7 +10248,10 @@ fn a_path_key_goes_where_a_property_key_goes() {
         mask_keys(&viewer),
     );
     run(&viewer, "edit.undo");
-    run(&viewer, &format!("keyframe.add_remove?{}&{}", mask_key(0), mask_key(8)));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?{}&{}", mask_key(0), mask_key(8)),
+    );
     report.check(
         "Delete on both keys stops the path, which keeps the shape the first of them had",
         "no keys; x 100",
@@ -9234,7 +10265,10 @@ fn a_path_key_goes_where_a_property_key_goes() {
         ),
     );
     run(&viewer, "edit.undo");
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=mask:0&frame=4"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop=mask:0&frame=4"),
+    );
     report.check(
         "the diamond, sent with the path's name, sets a key holding the shape the path has \
          there: half way",
@@ -9289,7 +10323,10 @@ fn a_path_key_goes_where_a_property_key_goes() {
     // the pen's own request at that frame, then its curve, one entry to undo.
     run(
         &viewer,
-        &format!("mask.set_path?layer={cel}&frame=12&drag=1&mask=0&points={}", at(300)),
+        &format!(
+            "mask.set_path?layer={cel}&frame=12&drag=1&mask=0&points={}",
+            at(300)
+        ),
     );
     run(
         &viewer,
@@ -9323,10 +10360,25 @@ fn a_path_key_goes_where_a_property_key_goes() {
         .as_str()
         .unwrap_or_default()
         .to_string();
-    run(&viewer, &format!("shape.add?layer={shape}&points={}", at(100)));
-    run(&viewer, &format!("shape.add_remove_key?layer={shape}&shape=0&frame=0"));
-    run(&viewer, &format!("shape.set_path?layer={shape}&shape=0&frame=6&points={}", at(300)));
-    run(&viewer, &format!("keyframe.move?by=-2&key={shape}%7Cshape:0%7C6"));
+    run(
+        &viewer,
+        &format!("shape.add?layer={shape}&points={}", at(100)),
+    );
+    run(
+        &viewer,
+        &format!("shape.add_remove_key?layer={shape}&shape=0&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!(
+            "shape.set_path?layer={shape}&shape=0&frame=6&points={}",
+            at(300)
+        ),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.move?by=-2&key={shape}%7Cshape:0%7C6"),
+    );
     run(
         &viewer,
         &format!("keyframe.set_interp?layer={shape}&prop=shape:0&frame=4&mode=hold"),
@@ -9369,19 +10421,34 @@ fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
     run(&viewer, &format!("layer.shift?layer={l}&in=4"));
 
     // ---- at 100%, nothing changes -----------------------------------------------------------
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=12"));
-    run(&viewer, &format!("keyframe.move?layer={l}&prop=position&from=12&to=20"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=position&frame=12"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.move?layer={l}&prop=position&from=12&to=20"),
+    );
     report.check(
         "at 100% a key set with the playhead on frame 12 and dragged to 20 is stored on 20, \
          as before",
         "[0,0]@20 linear",
         keys(&viewer, l, "position"),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=20"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=position&frame=20"),
+    );
 
     // ---- at 200% from frame 4 ---------------------------------------------------------------
-    run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=200"));
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=12"));
+    run(
+        &viewer,
+        &format!("layer.set_time_stretch?layer={l}&value=200"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=position&frame=12"),
+    );
     report.check(
         "at 200% a key set with the playhead on frame 12 is stored at 8, which plays on 12: \
          4 + (8 - 4) x 200 / 100",
@@ -9399,34 +10466,53 @@ fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
     report.check(
         "and a mask's or a shape's path keys too, on their own rows and on their diamond",
         2,
-        page.matches("const keys = shownKeys(layer, maskKeys(mask));").count(),
+        page.matches("const keys = shownKeys(layer, maskKeys(mask));")
+            .count(),
     );
-    run(&viewer, &format!("keyframe.set_interp?layer={l}&prop=position&frame=12&mode=hold"));
+    run(
+        &viewer,
+        &format!("keyframe.set_interp?layer={l}&prop=position&frame=12&mode=hold"),
+    );
     report.check(
         "the key named by the frame it is shown on, 12, is the one held",
         "[0,0]@8 hold",
         keys(&viewer, l, "position"),
     );
-    run(&viewer, &format!("keyframe.move?layer={l}&prop=position&from=12&to=20"));
+    run(
+        &viewer,
+        &format!("keyframe.move?layer={l}&prop=position&from=12&to=20"),
+    );
     report.check(
         "dragged from 12 to 20 on the timeline, it is stored at 12, which plays on 20",
         "[0,0]@12 hold",
         keys(&viewer, l, "position"),
     );
-    run(&viewer, &format!("keyframe.move?by=4&key={l}%7Cposition%7C20"));
+    run(
+        &viewer,
+        &format!("keyframe.move?by=4&key={l}%7Cposition%7C20"),
+    );
     report.check(
         "chosen and dragged four frames on, it plays on 24, stored at 14",
         "[0,0]@14 hold",
         keys(&viewer, l, "position"),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=24"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=position&frame=24"),
+    );
     report.check(
         "its diamond pressed with the playhead on 24 takes it off",
         "",
         keys(&viewer, l, "position"),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=opacity&frame=4"));
-    run(&viewer, &format!("property.set_base?layer={l}&prop=opacity&frame=12&value=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=opacity&frame=4"),
+    );
+    run(
+        &viewer,
+        &format!("property.set_base?layer={l}&prop=opacity&frame=12&value=0"),
+    );
     report.check(
         "an opacity keyed on 4 and typed to 0 on frame 12 has keys stored at 4 and 8",
         "1@4 linear, 0@8 linear",
@@ -9442,7 +10528,10 @@ fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
     );
     let square = "0,0,0,0,0,0;100,0,0,0,0,0;100,100,0,0,0,0;0,100,0,0,0,0";
     run(&viewer, &format!("mask.add?layer={l}&points={square}"));
-    run(&viewer, &format!("mask.add_remove_key?layer={l}&mask=0&frame=12"));
+    run(
+        &viewer,
+        &format!("mask.add_remove_key?layer={l}&mask=0&frame=12"),
+    );
     let mask_frames = |viewer: &Mutex<Viewer>| {
         let answer: serde_json::Value =
             serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
@@ -9460,7 +10549,10 @@ fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
         "8",
         mask_frames(&viewer),
     );
-    run(&viewer, &format!("keyframe.move?by=4&key={l}%7Cmask:0%7C12"));
+    run(
+        &viewer,
+        &format!("keyframe.move?by=4&key={l}%7Cmask:0%7C12"),
+    );
     report.check(
         "and dragged four frames on it plays on 16, stored at 10",
         "10",
@@ -9468,25 +10560,46 @@ fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
     );
 
     // ---- at 50% from frame 4 ----------------------------------------------------------------
-    run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=50"));
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=rotation&frame=9"));
+    run(
+        &viewer,
+        &format!("layer.set_time_stretch?layer={l}&value=50"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=rotation&frame=9"),
+    );
     report.check(
         "at 50% a key set with the playhead on frame 9 is stored at 14, which plays on 9: \
          4 + (14 - 4) x 50 / 100",
         "0@14 linear",
         keys(&viewer, l, "rotation"),
     );
-    run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=100"));
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=rotation&frame=15"));
-    run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=50"));
-    run(&viewer, &format!("keyframe.set_interp?layer={l}&prop=rotation&frame=9.5&mode=hold"));
+    run(
+        &viewer,
+        &format!("layer.set_time_stretch?layer={l}&value=100"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=rotation&frame=15"),
+    );
+    run(
+        &viewer,
+        &format!("layer.set_time_stretch?layer={l}&value=50"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.set_interp?layer={l}&prop=rotation&frame=9.5&mode=hold"),
+    );
     report.check(
         "a key stored at 15 plays half way between 9 and 10, is shown there, and is held \
          when named 9.5",
         "0@14 linear, 0@15 hold",
         keys(&viewer, l, "rotation"),
     );
-    run(&viewer, &format!("keyframe.move?by=2&key={l}%7Crotation%7C9.5"));
+    run(
+        &viewer,
+        &format!("keyframe.move?by=2&key={l}%7Crotation%7C9.5"),
+    );
     report.check(
         "dragged two frames on it plays on 11.5, stored at 19",
         "0@14 linear, 0@19 hold",
@@ -9499,8 +10612,14 @@ fn a_stretched_layers_keys_are_shown_and_set_where_they_play() {
     );
 
     // ---- back at 100% -----------------------------------------------------------------------
-    run(&viewer, &format!("layer.set_time_stretch?layer={l}&value=100"));
-    run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=scale&frame=12"));
+    run(
+        &viewer,
+        &format!("layer.set_time_stretch?layer={l}&value=100"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={l}&prop=scale&frame=12"),
+    );
     report.check(
         "set back to 100%, a key set on frame 12 is stored on 12 again",
         "[100,100]@12 linear",
@@ -9554,18 +10673,29 @@ fn a_shape_layer_is_drawn_from_the_window() {
                             "{} at {}{}",
                             p["color"],
                             p["opacity"],
-                            p.get("width_px").map_or(String::new(), |w| format!(", {w} px"))
+                            p.get("width_px")
+                                .map_or(String::new(), |w| format!(", {w} px"))
                         )
                     }
                 };
                 format!(
                     "{} {} {} points, fill {}, stroke {}{}",
                     s["name"].as_str().unwrap_or("(no name)"),
-                    if s["closed"] == serde_json::Value::Bool(false) { "open" } else { "closed" },
-                    s["path"]["base"]["points"].as_array().map_or(0, |p| p.len()),
+                    if s["closed"] == serde_json::Value::Bool(false) {
+                        "open"
+                    } else {
+                        "closed"
+                    },
+                    s["path"]["base"]["points"]
+                        .as_array()
+                        .map_or(0, |p| p.len()),
                     paint(&s["fill"]),
                     paint(&s["stroke"]),
-                    if s["enabled"] == serde_json::Value::Bool(false) { ", off" } else { "" },
+                    if s["enabled"] == serde_json::Value::Bool(false) {
+                        ", off"
+                    } else {
+                        ""
+                    },
                 )
             })
             .collect::<Vec<_>>()
@@ -9601,7 +10731,12 @@ fn a_shape_layer_is_drawn_from_the_window() {
     report.check(
         "Undo says what it would take back",
         "Set one shape",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     // The pen, two points placed and Enter pressed: an open line.
     run(
@@ -9611,7 +10746,11 @@ fn a_shape_layer_is_drawn_from_the_window() {
     report.check(
         "an open shape drawn with the pen comes with a white stroke 4 pixels wide, and no fill",
         "Shape 2 open 2 points, fill none, stroke [1,1,1] at 1, 4 px",
-        shapes_of(&viewer).split("; ").nth(1).unwrap_or_default().to_string(),
+        shapes_of(&viewer)
+            .split("; ")
+            .nth(1)
+            .unwrap_or_default()
+            .to_string(),
     );
     report.check(
         "the page is given the open shape's points on the frame, to draw its outline",
@@ -9626,10 +10765,22 @@ fn a_shape_layer_is_drawn_from_the_window() {
 
     // The panel's own controls, each sending one setting and leaving the rest alone. The
     // picker's #ff0000 arrives linear as 1,0,0.
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke=1,0,0"));
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_width=10"));
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_opacity=50"));
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_opacity=25"));
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&stroke=1,0,0"),
+    );
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&stroke_width=10"),
+    );
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&stroke_opacity=50"),
+    );
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&fill_opacity=25"),
+    );
     report.check(
         "Add stroke, its width and its opacity, and the fill's opacity, each on its own",
         "Shape 1 closed 4 points, fill [0.2158605307340622,0.2158605307340622,0.2158605307340622] at 0.25, \
@@ -9659,11 +10810,16 @@ fn a_shape_layer_is_drawn_from_the_window() {
         "[150,100] then [300,100]",
         format!(
             "{} then {}",
-            shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["base"]["points"][0]["point"],
-            shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["base"]["points"][1]["point"]
+            shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["base"]["points"][0]
+                ["point"],
+            shown_layer(&viewer, "Shape Layer 1")["shapes"][0]["path"]["base"]["points"][1]
+                ["point"]
         ),
     );
-    run(&viewer, &format!("shape.add_remove_key?layer={id}&shape=0&frame=0"));
+    run(
+        &viewer,
+        &format!("shape.add_remove_key?layer={id}&shape=0&frame=0"),
+    );
     report.check(
         "the stopwatch at frame 0 sets the shape's path moving, from the shape it has now",
         "1 key, at frame 0",
@@ -9675,7 +10831,8 @@ fn a_shape_layer_is_drawn_from_the_window() {
             format!(
                 "{} key, at frame {}",
                 keys.len(),
-                keys.first().map_or("none".to_string(), |k| k["frame"].to_string())
+                keys.first()
+                    .map_or("none".to_string(), |k| k["frame"].to_string())
             )
         },
     );
@@ -9691,12 +10848,18 @@ fn a_shape_layer_is_drawn_from_the_window() {
         "a stroke width of 0 is refused, with the reason",
         "Shape \"Shape 1\" cannot be drawn: it needs a stroke width above 0 and at most \
          8192, not 0. Set a value inside the range and send the shapes again.",
-        run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_width=0")),
+        run(
+            &viewer,
+            &format!("shape.set?layer={id}&shape=0&stroke_width=0"),
+        ),
     );
     report.check(
         "a fill opacity on a shape with no fill is refused, with the reason",
         "\"Shape 1\" has no fill to set the opacity of.",
-        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_opacity=50")),
+        run(
+            &viewer,
+            &format!("shape.set?layer={id}&shape=0&fill_opacity=50"),
+        ),
     );
     report.check(
         "a colour that is not three numbers is refused, with the reason",
@@ -9711,7 +10874,10 @@ fn a_shape_layer_is_drawn_from_the_window() {
     report.check(
         "a drawing layer has no shapes, so the shape commands refuse it",
         "\"Cel\" is not a shape layer, so it has no shapes.",
-        run(&viewer, &format!("shape.add?layer={cel}&points=0,0,0,0,0,0;9,9,0,0,0,0")),
+        run(
+            &viewer,
+            &format!("shape.add?layer={cel}&points=0,0,0,0,0,0;9,9,0,0,0,0"),
+        ),
     );
 
     run(&viewer, &format!("shape.delete?layer={id}&shape=0"));
@@ -9806,7 +10972,10 @@ fn a_shape_gradient_is_set_from_the_window() {
     };
 
     run(&viewer, &format!("shape.set?layer={id}&shape=0&fill=1,0,0"));
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=linear"));
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&fill_gradient=linear"),
+    );
     report.check(
         "Linear turns a gradient on across the shape, middle of its left side to middle of \
          its right, from the fill's colour to black",
@@ -9816,7 +10985,12 @@ fn a_shape_gradient_is_set_from_the_window() {
     report.check(
         "Undo says what it would take back",
         "Set one shape",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     run(
         &viewer,
@@ -9827,7 +11001,10 @@ fn a_shape_gradient_is_set_from_the_window() {
         "linear from [100,200] to [300,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
         fill(&viewer),
     );
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=radial"));
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&fill_gradient=radial"),
+    );
     run(&viewer, &format!("shape.set?layer={id}&shape=0&fill=0,1,0"));
     report.check(
         "Radial keeps the points and the stops, and a new flat colour leaves the gradient alone",
@@ -9838,8 +11015,15 @@ fn a_shape_gradient_is_set_from_the_window() {
         &viewer,
         &format!("property.set_base?layer={id}&prop=shape:0:fill_end&value=400,200&frame=0"),
     );
-    report.check("the end point typed in its row moves it, with no key", "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1", fill(&viewer));
-    run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=0"));
+    report.check(
+        "the end point typed in its row moves it, with no key",
+        "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
+        fill(&viewer),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=0"),
+    );
     run(
         &viewer,
         &format!("property.set_base?layer={id}&prop=shape:0:fill_start&value=200,200&frame=10"),
@@ -9854,7 +11038,11 @@ fn a_shape_gradient_is_set_from_the_window() {
         "[150.0,200.0]",
         at(&viewer, 5, "shape:0:fill_start"),
     );
-    report.check("and the unkeyed end, on any frame", "[400.0,200.0]", at(&viewer, 5, "shape:0:fill_end"));
+    report.check(
+        "and the unkeyed end, on any frame",
+        "[400.0,200.0]",
+        at(&viewer, 5, "shape:0:fill_end"),
+    );
     report.check(
         "a key moved onto another is refused, with the reason",
         "This point already has a key at frame 0.",
@@ -9863,7 +11051,10 @@ fn a_shape_gradient_is_set_from_the_window() {
             &format!("keyframe.move?layer={id}&prop=shape:0:fill_start&from=10&to=0"),
         ),
     );
-    run(&viewer, &format!("keyframe.move?layer={id}&prop=shape:0:fill_start&from=10&to=12"));
+    run(
+        &viewer,
+        &format!("keyframe.move?layer={id}&prop=shape:0:fill_start&from=10&to=12"),
+    );
     run(
         &viewer,
         &format!("keyframe.set_interp?layer={id}&prop=shape:0:fill_start&frame=12&mode=hold"),
@@ -9875,8 +11066,14 @@ fn a_shape_gradient_is_set_from_the_window() {
             ["keyframes"]
             .to_string(),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=12"));
-    run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=12"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:fill_start&frame=0"),
+    );
     report.check(
         "both keys taken off, the point stays where the last one held it",
         "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
@@ -9890,17 +11087,26 @@ fn a_shape_gradient_is_set_from_the_window() {
     report.check(
         "a kind that is not a gradient is refused, with the reason",
         "\"conic\" is not a kind of gradient. It is none, linear or radial.",
-        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=conic")),
+        run(
+            &viewer,
+            &format!("shape.set?layer={id}&shape=0&fill_gradient=conic"),
+        ),
     );
     report.check(
         "a stop that is not five numbers is refused, with the reason",
         "A stop is five numbers, offset,r,g,b,opacity. Not \"0,1,0\".",
-        run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_stops=0,1,0;1,0,0,1,1")),
+        run(
+            &viewer,
+            &format!("shape.set?layer={id}&shape=0&fill_stops=0,1,0;1,0,0,1,1"),
+        ),
     );
     report.check(
         "a gradient on a stroke the shape does not have is refused, with the reason",
         "\"Shape 1\" has no stroke to give a gradient.",
-        run(&viewer, &format!("shape.set?layer={id}&shape=0&stroke_gradient=linear")),
+        run(
+            &viewer,
+            &format!("shape.set?layer={id}&shape=0&stroke_gradient=linear"),
+        ),
     );
     report.check(
         "a key on a gradient point that is not there is refused, with the reason",
@@ -9910,29 +11116,40 @@ fn a_shape_gradient_is_set_from_the_window() {
             &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_start&frame=0"),
         ),
     );
-    run(&viewer, &format!("shape.set?layer={id}&shape=0&fill_gradient=none"));
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&fill_gradient=none"),
+    );
     report.check(
         "Flat takes the gradient off and the fill is its own colour again",
         "flat [0,1,0]",
         fill(&viewer),
     );
     run(&viewer, "edit.undo");
-    report.check("and Undo puts it back", "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1", fill(&viewer));
+    report.check(
+        "and Undo puts it back",
+        "radial from [100,200] to [400,200], stops 0 [1,0,0] 1; 0.5 [0,1,0] 0.5; 1 [0,0,1] 1",
+        fill(&viewer),
+    );
 
     write_artifact(
         &report,
         "verification/B-108b_panel_table.md",
         "B-108b: gradients on shapes from the window",
-        &["D-168 decided what a gradient on a shape is and B-108b built it in the core, \
+        &[
+            "D-168 decided what a gradient on a shape is and B-108b built it in the core, \
            checked pixel by pixel in `verification/B-108_shape_gradient_table.md`. This is \
            the window's half: the shape's panel sends `shape.set` with `fill_gradient`, \
            `stroke_gradient`, `fill_stops` and `stroke_stops`, and a gradient's two points \
            are named `shape:<n>:fill_start`, `fill_end`, `stroke_start` and `stroke_end` \
            wherever a property is named, so the diamond, a typed value, a key moved and an \
-           ease reach them by the requests they already send."],
-        &["## What this does not cover\n\nWhat the gradient looks like on the picture and \
+           ease reach them by the requests they already send.",
+        ],
+        &[
+            "## What this does not cover\n\nWhat the gradient looks like on the picture and \
            whether the panel feels right in the hand. That is \
-           `verification/B-108_shape_gradient_playtest.md`, for a person."],
+           `verification/B-108_shape_gradient_playtest.md`, for a person.",
+        ],
     );
     let failed: Vec<&String> = report
         .rows
@@ -9989,7 +11206,9 @@ fn a_shape_is_trimmed_from_the_window() {
     let set = |prop: &str, value: &str, frame: i32| {
         run(
             &viewer,
-            &format!("property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"),
+            &format!(
+                "property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"
+            ),
         )
     };
 
@@ -10003,7 +11222,12 @@ fn a_shape_is_trimmed_from_the_window() {
     report.check(
         "Undo says what it would take back",
         "Set one shape",
-        held(&viewer).document.undo_labels().last().cloned().unwrap_or_default(),
+        held(&viewer)
+            .document
+            .undo_labels()
+            .last()
+            .cloned()
+            .unwrap_or_default(),
     );
     set("trim_end", "50", 0);
     set("trim_offset", "90", 0);
@@ -10012,7 +11236,10 @@ fn a_shape_is_trimmed_from_the_window() {
         "start 0, end 50, offset 90",
         trim(&viewer),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:trim_end&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:trim_end&frame=0"),
+    );
     set("trim_end", "100", 10);
     report.check(
         "the diamond keys the end where it is, and a value on frame 10 is a second key",
@@ -10024,11 +11251,18 @@ fn a_shape_is_trimmed_from_the_window() {
         "75.0",
         at(&viewer, 5, "shape:0:trim_end"),
     );
-    report.check("and the unkeyed offset, on any frame", "90.0", at(&viewer, 5, "shape:0:trim_offset"));
+    report.check(
+        "and the unkeyed offset, on any frame",
+        "90.0",
+        at(&viewer, 5, "shape:0:trim_offset"),
+    );
     report.check(
         "a key moved onto another is refused, with the reason",
         "This number already has a key at frame 0.",
-        run(&viewer, &format!("keyframe.move?layer={id}&prop=shape:0:trim_end&from=10&to=0")),
+        run(
+            &viewer,
+            &format!("keyframe.move?layer={id}&prop=shape:0:trim_end&from=10&to=0"),
+        ),
     );
     report.check(
         "a start below 0 is refused, with the reason",
@@ -10050,7 +11284,10 @@ fn a_shape_is_trimmed_from_the_window() {
     report.check(
         "a key on a trim the shape does not have is refused, with the reason",
         "\"Shape 1\" has no trim.",
-        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:trim_offset&frame=0")),
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={id}&prop=shape:0:trim_offset&frame=0"),
+        ),
     );
     run(&viewer, "edit.undo");
     report.check(
@@ -10063,15 +11300,19 @@ fn a_shape_is_trimmed_from_the_window() {
         &report,
         "verification/B-109b_panel_table.md",
         "B-109b: trim paths from the window",
-        &["D-169 decided what trimming a shape's path is and B-109b built it in the core, \
+        &[
+            "D-169 decided what trimming a shape's path is and B-109b built it in the core, \
            checked pixel by pixel in `verification/B-109_shape_trim_table.md`. This is the \
            window's half: the shape's panel sends `shape.set` with `trim=on` or `trim=off`, \
            and the trim's three numbers are named `shape:<n>:trim_start`, `trim_end` and \
            `trim_offset` wherever a property is named, so the diamond, a typed value, a key \
-           moved and an ease reach them by the requests they already send."],
-        &["## What this does not cover\n\nWhat the trimmed line looks like on the picture and \
+           moved and an ease reach them by the requests they already send.",
+        ],
+        &[
+            "## What this does not cover\n\nWhat the trimmed line looks like on the picture and \
            whether the panel feels right in the hand. That is \
-           `verification/B-109_shape_trim_playtest.md`, for a person."],
+           `verification/B-109_shape_trim_playtest.md`, for a person.",
+        ],
     );
     let failed: Vec<&String> = report
         .rows
@@ -10134,7 +11375,9 @@ fn a_shape_style_is_keyed_from_the_window() {
     let set = |prop: &str, value: &str, frame: i32| {
         run(
             &viewer,
-            &format!("property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"),
+            &format!(
+                "property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"
+            ),
         )
     };
     let shape_set = |what: &str| run(&viewer, &format!("shape.set?layer={id}&shape=0&{what}"));
@@ -10146,7 +11389,10 @@ fn a_shape_style_is_keyed_from_the_window() {
         stroke(&viewer),
     );
     set("stroke_width", "10", 0);
-    run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_width&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_width&frame=0"),
+    );
     set("stroke_width", "30", 10);
     report.check(
         "the width typed, keyed by the diamond, and a value on frame 10 is a second key",
@@ -10158,7 +11404,10 @@ fn a_shape_style_is_keyed_from_the_window() {
         "20.0",
         at(&viewer, 5, "shape:0:stroke_width"),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_color&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_color&frame=0"),
+    );
     set("stroke_color", "0,0,1", 10);
     report.check(
         "the colour is keyed as three numbers together, white at 0 and blue at 10",
@@ -10213,11 +11462,18 @@ fn a_shape_style_is_keyed_from_the_window() {
         stroke(&viewer),
     );
     shape_set("stroke=none");
-    report.check("No stroke takes it away, keys and all", "none", stroke(&viewer));
+    report.check(
+        "No stroke takes it away, keys and all",
+        "none",
+        stroke(&viewer),
+    );
     report.check(
         "a key on a stroke the shape does not have is refused, with the reason",
         "\"Shape 1\" has no stroke.",
-        run(&viewer, &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_width&frame=0")),
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={id}&prop=shape:0:stroke_width&frame=0"),
+        ),
     );
     report.check(
         "nor does a stroke added again bring the old keys back",
@@ -10239,17 +11495,21 @@ fn a_shape_style_is_keyed_from_the_window() {
         &report,
         "verification/B-110b_panel_table.md",
         "B-110b: shape styles over time, and joins and caps, from the window",
-        &["D-170 decided that a shape's colours, opacities and stroke width take keys, and \
+        &[
+            "D-170 decided that a shape's colours, opacities and stroke width take keys, and \
            how a stroke turns its corners and ends its open lines; B-110b built it in the \
            core, checked pixel by pixel in `verification/B-110_shape_style_table.md`. This \
            is the window's half: the five are named `shape:<n>:fill_color`, `fill_opacity`, \
            `stroke_color`, `stroke_opacity` and `stroke_width` wherever a property is named, \
            so the diamond, a typed value, a key moved and an ease reach them by the requests \
            they already send, and the shape's panel sends `shape.set` with `join`, `cap` and \
-           `miter_limit`."],
-        &["## What this does not cover\n\nWhat the corners and the changing colours look \
+           `miter_limit`.",
+        ],
+        &[
+            "## What this does not cover\n\nWhat the corners and the changing colours look \
            like on the picture and whether the panel feels right in the hand. That is \
-           `verification/B-110_shape_style_playtest.md`, for a person."],
+           `verification/B-110_shape_style_playtest.md`, for a person.",
+        ],
     );
     let failed: Vec<&String> = report
         .rows
@@ -10269,10 +11529,9 @@ fn a_camera_rides_a_layer_from_the_window() {
     let viewer = Mutex::new(
         open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
     );
-    let page = std::fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"),
-    )
-    .expect("the page");
+    let page =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"))
+            .expect("the page");
     // The camera as the page is given it, in one line.
     let camera = |viewer: &Mutex<Viewer>| {
         let answer: serde_json::Value =
@@ -10310,7 +11569,10 @@ fn a_camera_rides_a_layer_from_the_window() {
     report.check(
         "a parent that is not in the composition is refused, with the reason",
         "The layer chosen as the camera's parent, nope, is not in this composition.",
-        run(&viewer, "layer.set_parent?target=camera&parent=nope&frame=0"),
+        run(
+            &viewer,
+            "layer.set_parent?target=camera&parent=nope&frame=0",
+        ),
     );
     run(&viewer, "layer.delete?layer=rig&frame=0");
     report.check(
@@ -10336,17 +11598,21 @@ fn a_camera_rides_a_layer_from_the_window() {
         &report,
         "verification/B-111b_panel_table.md",
         "B-111b: a camera that rides a layer, from the window",
-        &["D-171 decided that the camera can ride a layer, as a layer rides its parent; \
+        &[
+            "D-171 decided that the camera can ride a layer, as a layer rides its parent; \
            B-111b built it in the core, checked frame by frame in \
            `verification/B-111_camera_rig_table.md`. This is the window's half: the \
            camera's panel has a Parent list, which sends the request a layer's own Parent \
            list sends, `layer.set_parent`, with `target=camera`. It keeps the camera where \
            it stands on the frame shown, and deleting the layer it rides lets it go where it \
            stands. An audio layer is not offered; the core refuses one, which its table \
-           checks."],
-        &["## What this does not cover\n\nWhether the shot moves as a person expects when \
+           checks.",
+        ],
+        &[
+            "## What this does not cover\n\nWhether the shot moves as a person expects when \
            the layer under it moves, and whether the list feels right in the hand. That is \
-           `verification/B-111_camera_rig_playtest.md`, for a person."],
+           `verification/B-111_camera_rig_playtest.md`, for a person.",
+        ],
     );
     let failed: Vec<&String> = report
         .rows
@@ -10392,7 +11658,10 @@ fn layers_are_precomposed_from_the_window() {
         .as_str()
         .unwrap_or_default()
         .to_string();
-    run(&viewer, &format!("layer.set_parent?layer={grade}&parent={cel}&frame=0"));
+    run(
+        &viewer,
+        &format!("layer.set_parent?layer={grade}&parent={cel}&frame=0"),
+    );
     report.check(
         "Pre-compose on a layer whose child is not chosen is refused, with the reason",
         "\"Grade\" and \"Cel\" are tied by a parent or a matte, so they are pre-composed \
@@ -10405,7 +11674,10 @@ fn layers_are_precomposed_from_the_window() {
         "Pre-compose on both says what happened",
         "Precomp 1 holds the chosen layers now, and one layer shows it here. Double-click \
          that layer to open it. Ctrl+Z puts them back.",
-        run(&viewer, &format!("layer.precompose?layer={cel}&layer={grade}")),
+        run(
+            &viewer,
+            &format!("layer.precompose?layer={cel}&layer={grade}"),
+        ),
     );
     report.check(
         "one layer stands where the two were",
@@ -10418,15 +11690,26 @@ fn layers_are_precomposed_from_the_window() {
         comps(&viewer),
     );
     let layer = shown_layer(&viewer, "Precomp 1");
-    let inner = layer["composition_id"].as_str().unwrap_or("(none)").to_string();
+    let inner = layer["composition_id"]
+        .as_str()
+        .unwrap_or("(none)")
+        .to_string();
     report.check(
         "the page is told its kind and its composition, and it has no drawing",
         "composition, a composition_id, no asset_id",
         format!(
             "{}, {}, {}",
             layer["kind"].as_str().unwrap_or("(no kind)"),
-            if layer.get("composition_id").is_some() { "a composition_id" } else { "no composition_id" },
-            if layer.get("asset_id").is_none() { "no asset_id" } else { "an asset_id" }
+            if layer.get("composition_id").is_some() {
+                "a composition_id"
+            } else {
+                "no composition_id"
+            },
+            if layer.get("asset_id").is_none() {
+                "no asset_id"
+            } else {
+                "an asset_id"
+            }
         ),
     );
     report.check(
@@ -10484,7 +11767,10 @@ fn layers_are_precomposed_from_the_window() {
         "D-273: the name the Pre-compose window sends is the new composition's, trimmed",
         format!("Hair comp; {main_name}, Hair comp"),
         {
-            run(&viewer, &format!("layer.precompose?layer={cel}&layer={grade}&name=%20Hair%20comp%20"));
+            run(
+                &viewer,
+                &format!("layer.precompose?layer={cel}&layer={grade}&name=%20Hair%20comp%20"),
+            );
             format!("{}; {}", names(&viewer), comps(&viewer))
         },
     );
@@ -10493,7 +11779,10 @@ fn layers_are_precomposed_from_the_window() {
         "and a name of only spaces gives the next Precomp number",
         format!("Precomp 1; {main_name}, Precomp 1"),
         {
-            run(&viewer, &format!("layer.precompose?layer={cel}&layer={grade}&name=%20%20"));
+            run(
+                &viewer,
+                &format!("layer.precompose?layer={cel}&layer={grade}&name=%20%20"),
+            );
             format!("{}; {}", names(&viewer), comps(&viewer))
         },
     );
@@ -10544,7 +11833,9 @@ fn a_key_is_dragged_and_typed_in_the_graph() {
         format!("property.set_base?layer={cel}&prop=position&value=100,100"),
         format!("keyframe.add_remove?layer={cel}&prop=position&frame=0"),
         format!("property.set_base?layer={cel}&prop=position&frame=10&value=300,200"),
-        format!("keyframe.set_interp?layer={cel}&prop=position&frame=0&mode=ease&curve=0.4,0,0.6,1"),
+        format!(
+            "keyframe.set_interp?layer={cel}&prop=position&frame=0&mode=ease&curve=0.4,0,0.6,1"
+        ),
         format!("property.set_base?layer={cel}&prop=scale&value=100,100"),
         format!("keyframe.add_remove?layer={cel}&prop=scale&frame=0"),
     ] {
@@ -10614,13 +11905,19 @@ fn a_key_is_dragged_and_typed_in_the_graph() {
     report.check(
         "text that is not a value is refused",
         "position has no key at frame 5, or \"high\" is not a value for it.",
-        run(&viewer, &format!("keyframe.move?by=1&key={cel}|position|5&value=high")),
+        run(
+            &viewer,
+            &format!("keyframe.move?by=1&key={cel}|position|5&value=high"),
+        ),
     );
     report.check(
         "a key dragged onto a frame another key holds is refused by the core, and nothing changes",
         "5: [100,150] ease; 13: [300,270] linear",
         {
-            run(&viewer, &format!("keyframe.move?by=8&key={cel}|position|5&value=0,0"));
+            run(
+                &viewer,
+                &format!("keyframe.move?by=8&key={cel}|position|5&value=0,0"),
+            );
             keys(&viewer, "position")
         },
     );
@@ -10680,7 +11977,10 @@ fn an_effects_setting_is_keyed_from_the_window() {
         .as_str()
         .unwrap_or_default()
         .to_string();
-    run(&viewer, &format!("effect.add?layer={cel}&type=core.exposure"));
+    run(
+        &viewer,
+        &format!("effect.add?layer={cel}&type=core.exposure"),
+    );
     let fx = shown_layer(&viewer, "Cel")["effects"][0]["instance_id"]
         .as_str()
         .unwrap_or_default()
@@ -10772,8 +12072,14 @@ fn an_effects_setting_is_keyed_from_the_window() {
         "0: 1 ease; 12: 3 linear",
         setting(&viewer, 0, "stops"),
     );
-    run(&viewer, &format!("property.set_base?layer={cel}&prop=position&value=100,100"));
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=position&frame=0"));
+    run(
+        &viewer,
+        &format!("property.set_base?layer={cel}&prop=position&value=100,100"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop=position&frame=0"),
+    );
     let before = depth(&viewer);
     run(
         &viewer,
@@ -10834,18 +12140,27 @@ fn an_effects_setting_is_keyed_from_the_window() {
         "a key moved onto a frame another key holds is refused, and nothing changes",
         "0: 1 ease; 6: 2.5 linear; 12: 3 linear",
         {
-            run(&viewer, &format!("keyframe.move?layer={cel}&prop={stops}&from=6&to=12"));
+            run(
+                &viewer,
+                &format!("keyframe.move?layer={cel}&prop={stops}&from=6&to=12"),
+            );
             setting(&viewer, 0, "stops")
         },
     );
 
-    run(&viewer, &format!("effect.add?layer={cel}&type=core.gaussian_blur"));
+    run(
+        &viewer,
+        &format!("effect.add?layer={cel}&type=core.gaussian_blur"),
+    );
     let blur = shown_layer(&viewer, "Cel")["effects"][1]["instance_id"]
         .as_str()
         .unwrap_or_default()
         .to_string();
     let sigma = format!("fx:{blur}:sigma_px");
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop={sigma}&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop={sigma}&frame=0"),
+    );
     let said = run(
         &viewer,
         &format!("property.set_base?layer={cel}&prop={sigma}&frame=4&value=-1"),
@@ -10878,7 +12193,10 @@ fn an_effects_setting_is_keyed_from_the_window() {
         &viewer,
         &format!("effect.set_parameters?layer={cel}&effect={tint}&color=0,0,1&amount=0.5"),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop={color}&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop={color}&frame=0"),
+    );
     run(
         &viewer,
         &format!("property.set_base?layer={cel}&prop={color}&frame=10&value=1,0,0"),
@@ -10897,7 +12215,9 @@ fn an_effects_setting_is_keyed_from_the_window() {
     let before = depth(&viewer);
     run(
         &viewer,
-        &format!("keyframe.add_remove?key={cel}|{stops}|0&key={cel}|{stops}|6&key={cel}|{stops}|12"),
+        &format!(
+            "keyframe.add_remove?key={cel}|{stops}|0&key={cel}|{stops}|6&key={cel}|{stops}|12"
+        ),
     );
     report.check(
         "every chosen key of the setting deleted at once: it is a plain number again",
@@ -10910,11 +12230,16 @@ fn an_effects_setting_is_keyed_from_the_window() {
         depth(&viewer).to_string(),
     );
     let saved = persist::to_json(held(&viewer).document.project(), &Preserved::default());
-    let again = persist::load_str(&saved).map(|l| persist::to_json(l.document.project(), &l.preserved));
+    let again =
+        persist::load_str(&saved).map(|l| persist::to_json(l.document.project(), &l.preserved));
     report.check(
         "what a save would write opens again and saves the same",
         "the same",
-        if again.as_deref().ok() == Some(saved.as_str()) { "the same" } else { "differs" },
+        if again.as_deref().ok() == Some(saved.as_str()) {
+            "the same"
+        } else {
+            "differs"
+        },
     );
 
     write_artifact(
@@ -10957,9 +12282,14 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
                         .collect();
                     format!(" [{}]", e.join(","))
                 });
-                let kind = k["kind"].as_str().map_or(String::new(), |k| format!(" {k}"));
+                let kind = k["kind"]
+                    .as_str()
+                    .map_or(String::new(), |k| format!(" {k}"));
                 let roving = if k["roving"] == true { " roving" } else { "" };
-                format!("{}: {} {}{ease}{kind}{roving}", k["frame"], k["value"], k["interp"])
+                format!(
+                    "{}: {} {}{ease}{kind}{roving}",
+                    k["frame"], k["value"], k["interp"]
+                )
             })
             .collect::<Vec<_>>()
             .join("; ")
@@ -10981,21 +12311,31 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
         answer["values"][&cel][prop].to_string()
     };
 
-    run(&viewer, &format!("property.set_base?layer={cel}&prop=position&value=100,50"));
+    run(
+        &viewer,
+        &format!("property.set_base?layer={cel}&prop=position&value=100,50"),
+    );
     let before = depth(&viewer);
     report.check(
         "Separate Dimensions on a layer at 100, 50",
         "Separate position into X and Y",
         run(&viewer, &format!("property.separate?layer={cel}")),
     );
-    report.check("X position is 100", "plain 100", prop(&viewer, "position_x"));
+    report.check(
+        "X position is 100",
+        "plain 100",
+        prop(&viewer, "position_x"),
+    );
     report.check("Y position is 50", "plain 50", prop(&viewer, "position_y"));
     report.check(
         "as one entry to undo",
         (before + 1).to_string(),
         depth(&viewer).to_string(),
     );
-    run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=position_x&frame=0"));
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={cel}&prop=position_x&frame=0"),
+    );
     run(
         &viewer,
         &format!("property.set_base?layer={cel}&prop=position_x&frame=10&value=300"),
@@ -11019,7 +12359,10 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
     report.check(
         "a key on the whole position is refused while it is apart",
         "This position is separated: change its X or its Y.",
-        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=position&frame=3")),
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={cel}&prop=position&frame=3"),
+        ),
     );
     let before = depth(&viewer);
     run(
@@ -11036,7 +12379,11 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
         "0: 100 linear; 10: 400 linear",
         prop(&viewer, "position_x"),
     );
-    report.check("and Y, which has no keys, is 90", "plain 90", prop(&viewer, "position_y"));
+    report.check(
+        "and Y, which has no keys, is 90",
+        "plain 90",
+        prop(&viewer, "position_y"),
+    );
     report.check(
         "the whole drag is one entry to undo",
         (before + 1).to_string(),
@@ -11064,14 +12411,20 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
 
     // The kinds of key, on rotation: 0 at frame 0, 10 at frame 10, 40 at frame 20.
     for (frame, value) in [(0, 0), (10, 10), (20, 40)] {
-        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=rotation&frame={frame}"));
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={cel}&prop=rotation&frame={frame}"),
+        );
         run(
             &viewer,
             &format!("property.set_base?layer={cel}&prop=rotation&frame={frame}&value={value}"),
         );
     }
     let before = depth(&viewer);
-    run(&viewer, &format!("keyframe.set_kind?kind=auto&key={cel}|rotation|10"));
+    run(
+        &viewer,
+        &format!("keyframe.set_kind?kind=auto&key={cel}|rotation|10"),
+    );
     report.check(
         "Auto bezier on the middle key: 1 a frame in and 3 a frame out become 2 a frame both \
          ways, which is 40 degrees over the 20 frames either side, on handles a third long",
@@ -11083,7 +12436,10 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
         (before + 1).to_string(),
         depth(&viewer).to_string(),
     );
-    run(&viewer, &format!("keyframe.set_kind?kind=bezier&key={cel}|rotation|10"));
+    run(
+        &viewer,
+        &format!("keyframe.set_kind?kind=bezier&key={cel}|rotation|10"),
+    );
     report.check(
         "Bezier puts the key back in the person's hands: the handles stay and the word goes",
         "0: 0 ease [0.3333,0.3333,0.6667,0.3333]; 10: 10 ease [0.3333,0.2222,0.6667,0.6667]; 20: 40 linear",
@@ -11092,13 +12448,22 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
     report.check(
         "a kind that is not one of the three is asked about",
         "Which kind? Say bezier, continuous or auto.",
-        run(&viewer, &format!("keyframe.set_kind?kind=smooth&key={cel}|rotation|10")),
+        run(
+            &viewer,
+            &format!("keyframe.set_kind?kind=smooth&key={cel}|rotation|10"),
+        ),
     );
 
     // Roving, on the joined position: 100 to 400 to 1000 along X, keyed on 0, 10 and 20.
-    run(&viewer, &format!("property.set_base?layer={cel}&prop=position&frame=20&value=1000,90"));
+    run(
+        &viewer,
+        &format!("property.set_base?layer={cel}&prop=position&frame=20&value=1000,90"),
+    );
     let before = depth(&viewer);
-    run(&viewer, &format!("keyframe.set_roving?roving=true&key={cel}|position|10"));
+    run(
+        &viewer,
+        &format!("keyframe.set_roving?roving=true&key={cel}|position|10"),
+    );
     report.check(
         "Rove Across Time on the middle key: a third of the way along the path is a third of \
          the way through the 20 frames, so it goes to frame 7",
@@ -11113,15 +12478,24 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
     report.check(
         "the first key cannot rove",
         "The first and last keyframes cannot rove.",
-        run(&viewer, &format!("keyframe.set_roving?roving=true&key={cel}|position|0")),
+        run(
+            &viewer,
+            &format!("keyframe.set_roving?roving=true&key={cel}|position|0"),
+        ),
     );
-    run(&viewer, &format!("keyframe.set_roving?roving=false&key={cel}|position|7"));
+    run(
+        &viewer,
+        &format!("keyframe.set_roving?roving=false&key={cel}|position|7"),
+    );
     report.check(
         "roving switched off leaves the key on the frame it had reached",
         "0: [100,90] linear; 7: [400,90] linear; 20: [1000,90] linear",
         prop(&viewer, "position"),
     );
-    run(&viewer, &format!("keyframe.set_roving?roving=true&key={cel}|position|7"));
+    run(
+        &viewer,
+        &format!("keyframe.set_roving?roving=true&key={cel}|position|7"),
+    );
     run(&viewer, &format!("property.separate?layer={cel}"));
     report.check(
         "Separate Dimensions while a key roves: X and Y cannot rove (D-69), so the key \
@@ -11130,11 +12504,16 @@ fn a_position_is_separated_and_keys_are_given_kinds_from_the_window() {
         prop(&viewer, "position_x"),
     );
     let saved = persist::to_json(held(&viewer).document.project(), &Preserved::default());
-    let again = persist::load_str(&saved).map(|l| persist::to_json(l.document.project(), &l.preserved));
+    let again =
+        persist::load_str(&saved).map(|l| persist::to_json(l.document.project(), &l.preserved));
     report.check(
         "what a save would write opens again and saves the same",
         "the same",
-        if again.as_deref().ok() == Some(saved.as_str()) { "the same" } else { "differs" },
+        if again.as_deref().ok() == Some(saved.as_str()) {
+            "the same"
+        } else {
+            "differs"
+        },
     );
 
     write_artifact(
@@ -11238,8 +12617,16 @@ fn sound_is_imported_and_levelled_from_the_window() {
         format!(
             "{}, {}, {}",
             asset["kind"].as_str().unwrap_or("(no kind)"),
-            if asset.get("path").is_some() { "a path" } else { "no path" },
-            if asset.get("interpretation").is_none() { "no interpretation" } else { "an interpretation" }
+            if asset.get("path").is_some() {
+                "a path"
+            } else {
+                "no path"
+            },
+            if asset.get("interpretation").is_none() {
+                "no interpretation"
+            } else {
+                "an interpretation"
+            }
         ),
     );
     let asset_id = asset["id"].as_str().unwrap_or_default().to_string();
@@ -11253,22 +12640,35 @@ fn sound_is_imported_and_levelled_from_the_window() {
             format!(
                 "{}, {}",
                 answer.status().as_u16(),
-                if same { "the same bytes" } else { "different bytes" }
+                if same {
+                    "the same bytes"
+                } else {
+                    "different bytes"
+                }
             )
         },
     );
     report.check(
         "`/sound` for a drawing is not answered with its bytes",
         "404",
-        sound(&viewer, Some("asset=no-such-sound")).status().as_u16(),
+        sound(&viewer, Some("asset=no-such-sound"))
+            .status()
+            .as_u16(),
     );
 
     report.check(
         "Make a layer from it",
         "Add layer Sound",
-        run(&viewer, &format!("layer.create?asset={asset_id}&name=Sound")),
+        run(
+            &viewer,
+            &format!("layer.create?asset={asset_id}&name=Sound"),
+        ),
     );
-    report.check("it is at the front", format!("{before}, Sound"), names(&viewer));
+    report.check(
+        "it is at the front",
+        format!("{before}, Sound"),
+        names(&viewer),
+    );
     let layer = shown_layer(&viewer, "Sound");
     report.check(
         "the page is told it is an audio layer: no transform, no blend mode, no effects",
@@ -11276,9 +12676,21 @@ fn sound_is_imported_and_levelled_from_the_window() {
         format!(
             "{}, {}, {}, {}",
             layer["kind"].as_str().unwrap_or("(no kind)"),
-            if layer.get("transform").is_none() { "no transform" } else { "a transform" },
-            if layer.get("blend_mode").is_none() { "no blend_mode" } else { "a blend_mode" },
-            if layer.get("effects").is_none() { "no effects" } else { "effects" }
+            if layer.get("transform").is_none() {
+                "no transform"
+            } else {
+                "a transform"
+            },
+            if layer.get("blend_mode").is_none() {
+                "no blend_mode"
+            } else {
+                "a blend_mode"
+            },
+            if layer.get("effects").is_none() {
+                "no effects"
+            } else {
+                "effects"
+            }
         ),
     );
     let id = layer["id"].as_str().unwrap_or_default().to_string();
@@ -11291,7 +12703,12 @@ fn sound_is_imported_and_levelled_from_the_window() {
     report.check(
         "and the page is given it back",
         "-6.0",
-        format!("{:?}", shown_layer(&viewer, "Sound")["gain_db"].as_f64().unwrap_or(f64::NAN)),
+        format!(
+            "{:?}",
+            shown_layer(&viewer, "Sound")["gain_db"]
+                .as_f64()
+                .unwrap_or(f64::NAN)
+        ),
     );
     report.check(
         "D-640: `/mix` gives the page the core's mix of frames 0 to 2, the level in it",
@@ -11304,13 +12721,22 @@ fn sound_is_imported_and_levelled_from_the_window() {
                 let comp = project.composition(&held.composition).cloned();
                 comp.map(|c| anime_compositor::audio::mix(&project, &held.root, &c, 0, 2).0)
             };
-            let want: Option<Vec<u8>> =
-                core.map(|m| m.iter().flatten().flat_map(|v| (*v as f32).to_le_bytes()).collect());
-            let same = want.as_deref() == Some(answer.body().as_slice()) && answer.body().iter().any(|b| *b != 0);
+            let want: Option<Vec<u8>> = core.map(|m| {
+                m.iter()
+                    .flatten()
+                    .flat_map(|v| (*v as f32).to_le_bytes())
+                    .collect()
+            });
+            let same = want.as_deref() == Some(answer.body().as_slice())
+                && answer.body().iter().any(|b| *b != 0);
             format!(
                 "{}, {}",
                 answer.status().as_u16(),
-                if same { "the core's samples" } else { "different samples" }
+                if same {
+                    "the core's samples"
+                } else {
+                    "different samples"
+                }
             )
         },
     );
@@ -11321,7 +12747,9 @@ fn sound_is_imported_and_levelled_from_the_window() {
         format!(
             "{}; {:?}",
             refused,
-            shown_layer(&viewer, "Sound")["gain_db"].as_f64().unwrap_or(f64::NAN)
+            shown_layer(&viewer, "Sound")["gain_db"]
+                .as_f64()
+                .unwrap_or(f64::NAN)
         ),
     );
     report.check(
@@ -11329,14 +12757,20 @@ fn sound_is_imported_and_levelled_from_the_window() {
         "\"loud\" is not a level. A level is a number of decibels, from -96 to 12.",
         run(&viewer, &format!("layer.set_gain?layer={id}&value=loud")),
     );
-    let cel = shown_layer(&viewer, "Cel")["id"].as_str().unwrap_or_default().to_string();
+    let cel = shown_layer(&viewer, "Cel")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
     let refused = run(&viewer, &format!("layer.set_gain?layer={cel}&value=-3"));
     report.check(
         "A level on a picture layer is refused",
         "\"Cel\" is not an audio layer, so it has no level.",
         refused,
     );
-    let refused = run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
+    let refused = run(
+        &viewer,
+        &format!("layer.set_blend_mode?layer={id}&mode=multiply"),
+    );
     report.check(
         "A blend mode on the audio layer is refused",
         "\"Sound\" is an audio layer, which draws nothing, so there is nothing there to set.",
@@ -11796,7 +13230,11 @@ fn the_session_log_records_what_the_window_draws() {
         "off, 0 rows",
         format!(
             "{}, {} rows{}",
-            if session.lock().unwrap().is_on() { "on" } else { "off" },
+            if session.lock().unwrap().is_on() {
+                "on"
+            } else {
+                "off"
+            },
             rows(&session),
             if source.contains(".manage(Mutex::new(SessionLog::default()))") {
                 ""
@@ -11809,7 +13247,11 @@ fn the_session_log_records_what_the_window_draws() {
     for f in 0..5 {
         draw(Ask::Frame(f), None);
     }
-    report.check("5 frames stepped with the log off", "0 rows", format!("{} rows", rows(&session)));
+    report.check(
+        "5 frames stepped with the log off",
+        "0 rows",
+        format!("{} rows", rows(&session)),
+    );
 
     session.lock().unwrap().switch(true);
     let mut said = vec![draw(Ask::Play(0), Some(PreviewQuality::Draft))];
@@ -11818,7 +13260,11 @@ fn the_session_log_records_what_the_window_draws() {
     }
     let log = session.lock().unwrap();
     let played: Vec<&session_log::Row> = log.rows().iter().collect();
-    report.check("switched on, 10 frames played", "10 rows", format!("{} rows", played.len()));
+    report.check(
+        "switched on, 10 frames played",
+        "10 rows",
+        format!("{} rows", played.len()),
+    );
     report.check(
         "each played row says Draft, playing, reading ahead, no export",
         "10 of 10",
@@ -11838,7 +13284,11 @@ fn the_session_log_records_what_the_window_draws() {
         "10 of 10",
         format!(
             "{} of 10",
-            played.iter().zip(&said).filter(|(r, x)| format!("{:.1}", r.ms) == **x).count()
+            played
+                .iter()
+                .zip(&said)
+                .filter(|(r, x)| format!("{:.1}", r.ms) == **x)
+                .count()
         ),
     );
     report.check(
@@ -11864,7 +13314,11 @@ fn the_session_log_records_what_the_window_draws() {
             last.frame,
             last.quality.label(),
             if last.playing { "playing" } else { "stepped" },
-            if last.read_ahead { "read ahead" } else { "not read ahead" }
+            if last.read_ahead {
+                "read ahead"
+            } else {
+                "not read ahead"
+            }
         ),
     );
 
@@ -11899,7 +13353,11 @@ fn the_session_log_records_what_the_window_draws() {
         format!(
             "{} rows, stopwatch {}",
             rows(&session),
-            if anime_compositor::perf::is_enabled() { "on" } else { "off" }
+            if anime_compositor::perf::is_enabled() {
+                "on"
+            } else {
+                "off"
+            }
         ),
     );
 
@@ -11912,7 +13370,12 @@ fn the_session_log_records_what_the_window_draws() {
             "{} of 4, {}",
             heading
                 .iter()
-                .zip(["Saved: 20", "Operating system: ", "Processor cores: ", "Build: 0.1.0, "])
+                .zip([
+                    "Saved: 20",
+                    "Operating system: ",
+                    "Processor cores: ",
+                    "Build: 0.1.0, "
+                ])
                 .filter(|(line, start)| line.starts_with(start))
                 .count(),
             if heading.iter().all(|l| copy.contains(&format!("- {l}\n"))) {
@@ -11960,7 +13423,15 @@ fn the_session_log_records_what_the_window_draws() {
              `verification/P-19_session_log_playtest.md`.",
         ],
     );
-    let failed: Vec<&String> =
-        report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}\n{:#?}", report.rows);
+    let failed: Vec<&String> = report
+        .rows
+        .iter()
+        .filter(|(_, e, a)| e != a)
+        .map(|(c, _, _)| c)
+        .collect();
+    assert!(
+        failed.is_empty(),
+        "these checks failed: {failed:#?}\n{:#?}",
+        report.rows
+    );
 }

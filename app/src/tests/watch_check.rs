@@ -3,7 +3,10 @@ use super::*;
 
 #[test]
 fn d252_paused_it_waits_then_writes_what_an_unpaused_export_writes() {
-    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().expect("the app crate has a parent directory").to_path_buf();
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("the app crate has a parent directory")
+        .to_path_buf();
     let scratch = repo.join("target/d252_watch");
     let _ = std::fs::remove_dir_all(&scratch);
     let dir = |name: &str| {
@@ -16,20 +19,38 @@ fn d252_paused_it_waits_then_writes_what_an_unpaused_export_writes() {
         // Sixty frames: enough to pause at 40 with frames still to come.
         let held = &mut *viewer.lock().unwrap();
         let composition = held.composition.clone();
-        held.document.apply(Command::SetWorkArea { composition, start_frame: 0, end_frame_exclusive: 60 }).expect("set the work area");
+        held.document
+            .apply(Command::SetWorkArea {
+                composition,
+                start_frame: 0,
+                end_frame_exclusive: 60,
+            })
+            .expect("set the work area");
     }
-    let job = |into: &Path, missing: MissingSource| export_job(&viewer.lock().unwrap(), into, missing, OutputFormat::Png);
+    let job = |into: &Path, missing: MissingSource| {
+        export_job(&viewer.lock().unwrap(), into, missing, OutputFormat::Png)
+    };
     let mut rows: Vec<(String, String, String)> = Vec::new();
-    let mut row = |what: &str, expected: &str, actual: String| rows.push((what.into(), expected.into(), actual));
+    let mut row = |what: &str, expected: &str, actual: String| {
+        rows.push((what.into(), expected.into(), actual))
+    };
 
     // What an export that is never paused writes.
     let (project, root, request) = job(&dir("whole"), MissingSource::RenderTransparent);
     run_export(&project, &root, &request, &AtomicBool::new(false));
     let whole = folder(&scratch.join("whole"));
-    row("an export never paused writes sixty frames", "60", whole.len().to_string());
+    row(
+        "an export never paused writes sixty frames",
+        "60",
+        whole.len().to_string(),
+    );
 
     let export = Mutex::new(Export::default());
-    row("Pause with nothing running", "No export is running.", pause_export(&export));
+    row(
+        "Pause with nothing running",
+        "No export is running.",
+        pause_export(&export),
+    );
 
     // The same export, paused once frame 40 is on the disk.
     let (project, root, request) = job(&dir("paused"), MissingSource::RenderTransparent);
@@ -47,26 +68,53 @@ fn d252_paused_it_waits_then_writes_what_an_unpaused_export_writes() {
     };
     let paused = scratch.join("paused");
     std::thread::scope(|s| {
-        let writer = s.spawn(|| export::export_sequence_watched(&project, &root, &request, &cancel, &done, &watch));
+        let writer = s.spawn(|| {
+            export::export_sequence_watched(&project, &root, &request, &cancel, &done, &watch)
+        });
         while done.load(Ordering::SeqCst) < 41 && !writer.is_finished() {
             std::thread::sleep(Duration::from_millis(1));
         }
-        row("Pause is said", "Pausing after the frame being written. Press Pause again to go on.", pause_export(&export));
+        row(
+            "Pause is said",
+            "Pausing after the frame being written. Press Pause again to go on.",
+            pause_export(&export),
+        );
         std::thread::sleep(Duration::from_secs(1));
         let at_pause = folder(&paused).len();
         row(
             "it waits within a few frames of 40: 41 to 45 frames written",
             "41 to 45",
-            if (41..=45).contains(&at_pause) { "41 to 45".into() } else { at_pause.to_string() },
+            if (41..=45).contains(&at_pause) {
+                "41 to 45".into()
+            } else {
+                at_pause.to_string()
+            },
         );
         std::thread::sleep(Duration::from_secs(5));
-        row("for five seconds the folder does not grow", &format!("{at_pause} files"), format!("{} files", folder(&paused).len()));
+        row(
+            "for five seconds the folder does not grow",
+            &format!("{at_pause} files"),
+            format!("{} files", folder(&paused).len()),
+        );
         let seen = watching(&export);
-        row("the window says it is paused", "true", seen["paused"].to_string());
+        row(
+            "the window says it is paused",
+            "true",
+            seen["paused"].to_string(),
+        );
         row(
             "the strip holds the five frames last written",
-            &format!("{:?}", (at_pause as i64 - 5..at_pause as i64).collect::<Vec<_>>()),
-            format!("{:?}", seen["frames"].as_array().map(|f| f.iter().filter_map(|n| n.as_i64()).collect::<Vec<_>>()).unwrap_or_default()),
+            &format!(
+                "{:?}",
+                (at_pause as i64 - 5..at_pause as i64).collect::<Vec<_>>()
+            ),
+            format!(
+                "{:?}",
+                seen["frames"]
+                    .as_array()
+                    .map(|f| f.iter().filter_map(|n| n.as_i64()).collect::<Vec<_>>())
+                    .unwrap_or_default()
+            ),
         );
         // The picture shown for frame 40 against the file written for frame 40, shrunk the same way.
         let written = folder(&paused).get(40).map(|(name, _)| paused.join(name));
@@ -88,7 +136,11 @@ fn d252_paused_it_waits_then_writes_what_an_unpaused_export_writes() {
         row("Pause again goes on", "Going on.", pause_export(&export));
         writer.join().expect("the export thread");
     });
-    row("after going on, the folder is the never-paused export's", &same(&whole, &whole), same(&folder(&paused), &whole));
+    row(
+        "after going on, the folder is the never-paused export's",
+        &same(&whole, &whole),
+        same(&folder(&paused), &whole),
+    );
 
     // The bar's orange frames: those an export that refuses missing drawings names.
     let (project, root, request) = job(&dir("blocked"), MissingSource::Block);
@@ -98,11 +150,23 @@ fn d252_paused_it_waits_then_writes_what_an_unpaused_export_writes() {
         .iter()
         .find(|d| d.id == DiagnosticId::ExportBlockedMissingMedia)
         .map_or("none".to_string(), |d| d.detail.clone());
-    let missing: Vec<i32> = watching(&export)["missing"].as_array().map(|f| f.iter().filter_map(|n| n.as_i64()).map(|n| n as i32).collect()).unwrap_or_default();
+    let missing: Vec<i32> = watching(&export)["missing"]
+        .as_array()
+        .map(|f| {
+            f.iter()
+                .filter_map(|n| n.as_i64())
+                .map(|n| n as i32)
+                .collect()
+        })
+        .unwrap_or_default();
     row(
         "the frames marked orange are the ones whose drawing is missing",
         &named,
-        if missing.is_empty() { "none".into() } else { format!("Frames {}.", export::ranges(&missing)) },
+        if missing.is_empty() {
+            "none".into()
+        } else {
+            format!("Frames {}.", export::ranges(&missing))
+        },
     );
 
     let passed = rows.iter().filter(|(_, e, a)| e == a).count();
@@ -113,8 +177,19 @@ fn d252_paused_it_waits_then_writes_what_an_unpaused_export_writes() {
         rows.len()
     );
     for (what, expected, actual) in &rows {
-        text.push_str(&format!("| {what} | {expected} | {actual} | {} |\n", if expected == actual { "PASS" } else { "FAIL" }));
+        text.push_str(&format!(
+            "| {what} | {expected} | {actual} | {} |\n",
+            if expected == actual { "PASS" } else { "FAIL" }
+        ));
     }
-    std::fs::write(repo.join("verification/D-252_watch_and_pause_table.md"), text).expect("write the table");
-    assert_eq!(passed, rows.len(), "see verification/D-252_watch_and_pause_table.md");
+    std::fs::write(
+        repo.join("verification/D-252_watch_and_pause_table.md"),
+        text,
+    )
+    .expect("write the table");
+    assert_eq!(
+        passed,
+        rows.len(),
+        "see verification/D-252_watch_and_pause_table.md"
+    );
 }

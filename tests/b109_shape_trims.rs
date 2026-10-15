@@ -178,9 +178,19 @@ fn b109_shape_trims() {
     // Taken off, the trim leaves the file, rather than the old one being kept from the base.
     let mut opened = load("fx_shp_071.json");
     let base = fs::read_to_string(root().join("fx_shp_071.json")).unwrap();
-    let mut shapes = opened.project().compositions[0].layers_in_order().next().unwrap().shapes.clone();
+    let mut shapes = opened.project().compositions[0]
+        .layers_in_order()
+        .next()
+        .unwrap()
+        .shapes
+        .clone();
     shapes[0].trim = None;
-    let layer_id = opened.project().compositions[0].layers_in_order().next().unwrap().id.clone();
+    let layer_id = opened.project().compositions[0]
+        .layers_in_order()
+        .next()
+        .unwrap()
+        .id
+        .clone();
     opened
         .apply(anime_compositor::command::Command::SetShapes {
             composition: Id::new(COMP),
@@ -189,12 +199,14 @@ fn b109_shape_trims() {
         })
         .unwrap();
     let preserved = persist::load_str(&base).unwrap().preserved;
-    let written: J =
-        serde_json::from_str(&persist::to_json(opened.project(), &preserved)).unwrap();
+    let written: J = serde_json::from_str(&persist::to_json(opened.project(), &preserved)).unwrap();
     let shape = &written["compositions"][0]["layers"][0]["shapes"][0];
     t.row(
         "a trim taken off is gone from the saved shape",
-        &format!("trim {}", shape.get("trim").map_or("absent".to_string(), J::to_string)),
+        &format!(
+            "trim {}",
+            shape.get("trim").map_or("absent".to_string(), J::to_string)
+        ),
         shape.get("trim").is_none(),
     );
 
@@ -203,5 +215,8 @@ fn b109_shape_trims() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-109_shape_trim_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-109_shape_trim_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-109_shape_trim_table.md"
+    );
 }

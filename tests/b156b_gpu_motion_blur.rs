@@ -44,34 +44,56 @@ struct Shot {
 fn shots() -> Vec<Shot> {
     let mut files: Vec<String> = fs::read_dir(repo("Fixtures/motion_blur"))
         .expect("read the fixture folder")
-        .map(|e| e.expect("a fixture file").file_name().to_string_lossy().into_owned())
+        .map(|e| {
+            e.expect("a fixture file")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
         .filter(|n| n.starts_with("fx_") && n.ends_with(".json"))
         .collect();
     files.sort();
     let mut shots = Vec::new();
     for file in files {
-        let Ok(loaded) = persist::load(&repo(&format!("Fixtures/motion_blur/{file}"))) else { continue };
+        let Ok(loaded) = persist::load(&repo(&format!("Fixtures/motion_blur/{file}"))) else {
+            continue;
+        };
         let project = loaded.document.project().clone();
         let comp = &project.compositions[0];
-        let (id, frames) = (comp.id.clone(), (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect());
-        shots.push(Shot { name: file.trim_end_matches(".json").into(), project, root: repo("Fixtures/motion_blur"), comp: id, frames });
+        let (id, frames) = (
+            comp.id.clone(),
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect(),
+        );
+        shots.push(Shot {
+            name: file.trim_end_matches(".json").into(),
+            project,
+            root: repo("Fixtures/motion_blur"),
+            comp: id,
+            frames,
+        });
     }
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: serde_json::Value = serde_json::from_str(&text).expect("the reference shot is JSON");
-    j["compositions"][0]["motion_blur"] = json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
-    let layers = j["compositions"][0]["layers"].as_array_mut().expect("layers");
+    j["compositions"][0]["motion_blur"] =
+        json!({"enabled": true, "shutter_angle": 180, "shutter_phase": -90, "samples": 8});
+    let layers = j["compositions"][0]["layers"]
+        .as_array_mut()
+        .expect("layers");
     for l in layers.iter_mut() {
         l["motion_blur"] = true.into();
     }
-    let keys = |a: serde_json::Value, b: serde_json::Value| {
-        json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]})
-    };
+    let keys = |a: serde_json::Value, b: serde_json::Value| json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]});
     layers[1]["transform"]["scale"] = keys(json!([100, 100]), json!([130, 130]));
     layers[2]["transform"]["position"] = keys(json!([0, 0]), json!([600, 120]));
     layers[3]["transform"]["rotation"] = keys(json!(0), json!(40));
     shots.push(Shot {
         name: REFERENCE.into(),
-        project: persist::load_str(&j.to_string()).expect("the reference shot with motion blur").document.project().clone(),
+        project: persist::load_str(&j.to_string())
+            .expect("the reference shot with motion blur")
+            .document
+            .project()
+            .clone(),
         root: repo("Fixtures/reference_shot"),
         comp: Id::new("comp-reference-shot"),
         frames: vec![0, 50, 100, 150, 239],
@@ -86,7 +108,10 @@ const REFERENCE: &str = "the reference shot with motion blur";
 fn blurred_matte(shot: &Shot) -> bool {
     let comp = &shot.project.compositions[0];
     comp.motion_blur.enabled
-        && comp.layers_in_order().filter_map(|l| l.matte.as_ref()).any(|m| comp.layer(&m.layer_id).is_some_and(|l| l.motion_blur))
+        && comp
+            .layers_in_order()
+            .filter_map(|l| l.matte.as_ref())
+            .any(|m| comp.layer(&m.layer_id).is_some_and(|l| l.motion_blur))
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
@@ -94,7 +119,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -121,8 +151,19 @@ fn b156b_gpu_motion_blur() {
             for &frame in &shot.frames {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the CPU: {}", shot.name, d.message));
+                let c = preview::preview_frame_cached(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the CPU: {}", shot.name, d.message)
+                });
                 let (w, h) = (c.width(), c.height());
                 let said = |log: FrameLog| {
                     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
@@ -133,14 +174,30 @@ fn b156b_gpu_motion_blur() {
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{} frame {frame} on the GPU: {}", shot.name, d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    &shot.project,
+                    &shot.comp,
+                    frame,
+                    &shot.root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| {
+                    panic!("{} frame {frame} on the GPU: {}", shot.name, d.message)
+                });
                 let said_gpu = said(log);
                 let on_cpu = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
                 on_card += !on_cpu as usize;
                 let d = distance(&c, &g);
                 let pass = if on_cpu {
-                    let mut ids: Vec<&str> = said_cpu.split(", ").filter(|s| !s.is_empty()).chain([DiagnosticId::GpuPreviewOnCpu.as_str()]).collect();
+                    let mut ids: Vec<&str> = said_cpu
+                        .split(", ")
+                        .filter(|s| !s.is_empty())
+                        .chain([DiagnosticId::GpuPreviewOnCpu.as_str()])
+                        .collect();
                     ids.sort();
                     matte && d.0 == 0 && said_gpu == ids.join(", ")
                 } else {
@@ -176,7 +233,8 @@ fn b156b_gpu_motion_blur() {
             let all = 2 * shot.frames.len();
             checks += 1;
             passed += (on_card == all) as usize;
-            let _ = writeln!(
+            let _ =
+                writeln!(
                 rows,
                 "| {REFERENCE}: frames drawn on the card | {on_card} of {all} | — | — | — | {} |",
                 if on_card == all { "PASS" } else { "FAIL: not every frame" }
@@ -201,7 +259,8 @@ fn b156b_gpu_motion_blur() {
         px[3] = 255;
     }
     for (name, bytes) in [("cpu.png", &c), ("gpu.png", &g), ("difference.png", &diff)] {
-        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes).expect("write a picture");
+        png_out::write_rgba(&pictures.join(name), w, h, OutputDepth::Eight, &[], bytes)
+            .expect("write a picture");
     }
 
     let s = format!(

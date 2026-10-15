@@ -26,7 +26,9 @@ use anime_compositor::{persist, png_out, render, OutputDepth};
 
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
-    comp.layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+    comp.layer(&Id::new("art")).unwrap().effects[0]
+        .effect
+        .clone()
 }
 
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
@@ -37,7 +39,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         if p[3] == 0 && q[3] == 0 {
             continue;
         }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -57,18 +64,38 @@ fn physical(changes: J) -> J {
 
 /// The reference shot with a Soft Physical Glow of `parameters` on its first three layers.
 fn reference(parameters: &J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["effects"] = json!([{"instance_id": format!("b422-{id}"), "type_id": "core.glow", "enabled": true, "parameters": parameters}]);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -76,18 +103,49 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
         .count()
 }
 
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// B-233's framed town: the town (480 by 270) in a composition 160 pixels wider and taller.
@@ -111,7 +169,11 @@ fn framed(effects: J) -> Project {
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).unwrap_or_else(|d| panic!("the framed town opens: {}", d.message)).document.project().clone()
+    persist::load_str(&project.to_string())
+        .unwrap_or_else(|d| panic!("the framed town opens: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 #[test]
@@ -139,7 +201,9 @@ fn b422_glow_tint() {
     t.row(
         "fx_sglow_001.json, a glow from before the tint, is saved with none of the tint's settings",
         &params.to_string(),
-        ["tint", "inner_color", "outer_color", "tint_amount"].iter().all(|k| params.get(*k).is_none()),
+        ["tint", "inner_color", "outer_color", "tint_amount"]
+            .iter()
+            .all(|k| params.get(*k).is_none()),
     );
 
     t.root = effect_table::repo("Fixtures/glow_tint");
@@ -149,8 +213,16 @@ fn b422_glow_tint() {
     t.heading("The file");
     let files: Vec<String> = (1..=22).map(|n| format!("fx_gtint_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
-    t.shape_refused("fx_gtint_002.json", "a tint amount written as a word", &physical(json!({"tint": "core_to_edge", "tint_amount": "full"})).to_string());
-    t.shape_refused("fx_gtint_002.json", "a tint written as a number", &physical(json!({"tint": 2})).to_string());
+    t.shape_refused(
+        "fx_gtint_002.json",
+        "a tint amount written as a word",
+        &physical(json!({"tint": "core_to_edge", "tint_amount": "full"})).to_string(),
+    );
+    t.shape_refused(
+        "fx_gtint_002.json",
+        "a tint written as a number",
+        &physical(json!({"tint": 2})).to_string(),
+    );
     for (file, said) in [
         ("fx_gtint_017.json", "Soft Physical Glow's tint is \"off\", \"one_color\" or \"core_to_edge\", and this is \"duocolor\"."),
         ("fx_gtint_018.json", "Soft Physical Glow's inner colour is written #rrggbb, and this is \"#12345\"."),
@@ -173,26 +245,66 @@ fn b422_glow_tint() {
     t.refused(
         &mut document,
         vec![
-            ("tint \"duocolor\"", set(with(&|e| if let Effect::SoftGlow { tint, .. } = e { *tint = "duocolor".into() }))),
-            ("inner colour \"#12\"", set(with(&|e| if let Effect::SoftGlow { inner_color, .. } = e { *inner_color = "#12".into() }))),
-            ("tint amount 101", set(with(&|e| if let Effect::SoftGlow { tint_amount, .. } = e { *tint_amount = 101.0 }))),
+            (
+                "tint \"duocolor\"",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { tint, .. } = e {
+                        *tint = "duocolor".into()
+                    }
+                })),
+            ),
+            (
+                "inner colour \"#12\"",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { inner_color, .. } = e {
+                        *inner_color = "#12".into()
+                    }
+                })),
+            ),
+            (
+                "tint amount 101",
+                set(with(&|e| {
+                    if let Effect::SoftGlow { tint_amount, .. } = e {
+                        *tint_amount = 101.0
+                    }
+                })),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_gtint_002.json",
         vec![
-            ("one colour, orange, tint amount 60", set(with(&|e| if let Effect::SoftGlow { tint, inner_color, tint_amount, .. } = e {
-                *tint = "one_color".into();
-                *inner_color = "#ff8020".into();
-                *tint_amount = 60.0;
-            }))),
-            ("tint amount keyed 0 to 100 over frames 0 to 4", keys("tint_amount", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "one colour, orange, tint amount 60",
+                set(with(&|e| {
+                    if let Effect::SoftGlow {
+                        tint,
+                        inner_color,
+                        tint_amount,
+                        ..
+                    } = e
+                    {
+                        *tint = "one_color".into();
+                        *inner_color = "#ff8020".into();
+                        *tint_amount = 60.0;
+                    }
+                })),
+            ),
+            (
+                "tint amount keyed 0 to 100 over frames 0 to 4",
+                keys("tint_amount", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_gtint_002.json", 0), ("fx_gtint_003.json", 0), ("fx_gtint_014.json", 0), ("fx_gtint_016.json", 0)]);
+    t.tiles(&[
+        ("fx_gtint_002.json", 0),
+        ("fx_gtint_003.json", 0),
+        ("fx_gtint_014.json", 0),
+        ("fx_gtint_016.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -200,7 +312,11 @@ fn b422_glow_tint() {
     let fixture_root = effect_table::repo("Fixtures/glow_tint");
     for n in 1..=16 {
         let file = format!("fx_gtint_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -222,28 +338,54 @@ fn b422_glow_tint() {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = effect_table::repo("Fixtures/reference_shot");
     for (what, p) in [
-        ("Core to Edge as added (radius 500, white to blue)", physical(json!({"tint": "core_to_edge"}))),
-        ("One Colour orange at 70 %, radius 60, threshold 40 with smooth 50", physical(json!({"tint": "one_color", "inner_color": "#ff8020", "tint_amount": 70, "radius": 60, "threshold": 40, "threshold_smooth": 50}))),
-        ("Core to Edge orange to purple, radius 150, aspect 1.6 at 25 degrees, add, unmult off", physical(json!({"tint": "core_to_edge", "inner_color": "#ff8020", "outer_color": "#8020ff", "radius": 150, "aspect_ratio": 1.6, "aspect_angle": 25, "operation": "add", "unmult": "off"}))),
+        (
+            "Core to Edge as added (radius 500, white to blue)",
+            physical(json!({"tint": "core_to_edge"})),
+        ),
+        (
+            "One Colour orange at 70 %, radius 60, threshold 40 with smooth 50",
+            physical(
+                json!({"tint": "one_color", "inner_color": "#ff8020", "tint_amount": 70, "radius": 60, "threshold": 40, "threshold_smooth": 50}),
+            ),
+        ),
+        (
+            "Core to Edge orange to purple, radius 150, aspect 1.6 at 25 degrees, add, unmult off",
+            physical(
+                json!({"tint": "core_to_edge", "inner_color": "#ff8020", "outer_color": "#8020ff", "radius": 150, "aspect_ratio": 1.6, "aspect_angle": 25, "operation": "add", "unmult": "off"}),
+            ),
+        ),
     ] {
         let project = reference(&p);
-        let untinted = reference(&physical(json!({}))
-            .as_object()
-            .map(|o| {
-                let mut o = o.clone();
-                for (k, v) in p.as_object().unwrap() {
-                    if !["tint", "inner_color", "outer_color", "tint_amount"].contains(&k.as_str()) {
-                        o.insert(k.clone(), v.clone());
+        let untinted = reference(
+            &physical(json!({}))
+                .as_object()
+                .map(|o| {
+                    let mut o = o.clone();
+                    for (k, v) in p.as_object().unwrap() {
+                        if !["tint", "inner_color", "outer_color", "tint_amount"]
+                            .contains(&k.as_str())
+                        {
+                            o.insert(k.clone(), v.clone());
+                        }
                     }
-                }
-                J::Object(o)
-            })
-            .unwrap());
+                    J::Object(o)
+                })
+                .unwrap(),
+        );
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &ref_comp,
+                100,
+                &ref_root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
         let changed = distance(&cpu(&project), &cpu(&untinted)).1;
         t.row(
@@ -268,12 +410,27 @@ fn b422_glow_tint() {
     let dir = effect_table::repo("verification/D-542 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &town(),
+    )
+    .unwrap();
     let (fw, fh) = (w + 160, h + 160);
     let draw = |effects: J| {
         let mut log = FrameLog::new(8);
-        let b = render_frame(&framed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log).expect("the town draws");
-        (b.to_srgb8_straight(), log.finish().iter().map(|d| d.id.as_str().to_string()).collect::<Vec<_>>())
+        let b = render_frame(&framed(effects), &Id::new(MAIN), 0, &dir, 64, &mut log)
+            .expect("the town draws");
+        (
+            b.to_srgb8_straight(),
+            log.finish()
+                .iter()
+                .map(|d| d.id.as_str().to_string())
+                .collect::<Vec<_>>(),
+        )
     };
     let fx = |p: J| json!([{"instance_id": "fx-0-0", "type_id": "core.glow", "enabled": true, "parameters": p}]);
     // The glow 10 pixels out from the town's left edge, in the frame's middle row: its blue
@@ -329,34 +486,74 @@ fn b422_glow_tint_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
     let fx = |id: &str, p: J| json!({"instance_id": id, "type_id": "core.glow", "enabled": true, "parameters": p});
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Soft Physical Glow, radius 60, threshold 40 smooth 50, no tint", Some(physical(json!({"radius": 60, "threshold": 40, "threshold_smooth": 50})))),
-        ("Noise, then the same, Tint Core to Edge", Some(physical(json!({"radius": 60, "threshold": 40, "threshold_smooth": 50, "tint": "core_to_edge"})))),
-        ("Noise, then Soft Physical Glow as added, radius 500, Tint Core to Edge", Some(physical(json!({"tint": "core_to_edge"})))),
+        (
+            "Noise, then Soft Physical Glow, radius 60, threshold 40 smooth 50, no tint",
+            Some(physical(
+                json!({"radius": 60, "threshold": 40, "threshold_smooth": 50}),
+            )),
+        ),
+        (
+            "Noise, then the same, Tint Core to Edge",
+            Some(physical(
+                json!({"radius": 60, "threshold": 40, "threshold_smooth": 50, "tint": "core_to_edge"}),
+            )),
+        ),
+        (
+            "Noise, then Soft Physical Glow as added, radius 500, Tint Core to Edge",
+            Some(physical(json!({"tint": "core_to_edge"}))),
+        ),
     ];
     for (name, e) in shots {
         let stack = |id: &str| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}g"), p.clone()));
             }
             v
         };
-        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+        let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+            .expect("read the reference shot");
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         let layers = &mut j["compositions"][0]["layers"];
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
             layers[i]["effects"] = J::Array(stack(id));
         }
-        let loaded = persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
-        let (project, comp, root) = (loaded.document.project().clone(), Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, false, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let loaded =
+            persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("{name}: {}", d.message));
+        let (project, comp, root) = (
+            loaded.document.project().clone(),
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            false,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B422_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-422_glow_tint_timing_table.md"));
+    let out = std::env::var("B422_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-422_glow_tint_timing_table.md"));
     fs::write(out, s).expect("write the timing table");
 }

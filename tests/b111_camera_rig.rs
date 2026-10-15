@@ -90,7 +90,8 @@ fn largest_difference(buffer: &WorkingBuffer, expected: &J) -> f64 {
 
 /// A fixture's project with its composition changed by `change`, opened from memory.
 fn edited(file: &str, change: impl Fn(&mut serde_json::Map<String, J>)) -> Document {
-    let mut json: J = serde_json::from_str(&fs::read_to_string(root().join(file)).unwrap()).unwrap();
+    let mut json: J =
+        serde_json::from_str(&fs::read_to_string(root().join(file)).unwrap()).unwrap();
     change(json["compositions"][0].as_object_mut().unwrap());
     persist::load_str(&json.to_string())
         .unwrap_or_else(|d| panic!("{file}, changed, opens: {} {}", d.message, d.detail))
@@ -103,10 +104,9 @@ fn pair(v: &J) -> (f64, f64) {
 
 #[test]
 fn b111_camera_rig() {
-    let expected: J = serde_json::from_str(
-        &fs::read_to_string(root().join("expected_camera_rig.json")).unwrap(),
-    )
-    .unwrap();
+    let expected: J =
+        serde_json::from_str(&fs::read_to_string(root().join("expected_camera_rig.json")).unwrap())
+            .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     let pixel_tolerance = expected["pixel_tolerance"].as_f64().unwrap();
     let comp_id = Id::new(COMP);
@@ -143,7 +143,11 @@ fn b111_camera_rig() {
             );
         }
     }
-    let alone = render(&edited("fx_rig_001.json", |c| drop(c.remove("camera"))), 0, 64);
+    let alone = render(
+        &edited("fx_rig_001.json", |c| drop(c.remove("camera"))),
+        0,
+        64,
+    );
     let same = render(&load("fx_rig_001.json"), 0, 64).data() == alone.data();
     t.row(
         "FX-RIG-001 is not merely close: the frame is byte for byte the frame with no camera",
@@ -224,7 +228,10 @@ fn b111_camera_rig() {
                 "warnings {codes:?}; parent kept as {kept:?} and written back as {written_parent}; \
                  largest difference {d:.1e}"
             ),
-            warned && kept == Some(Id::new("gone")) && written_parent == "gone" && d <= pixel_tolerance,
+            warned
+                && kept == Some(Id::new("gone"))
+                && written_parent == "gone"
+                && d <= pixel_tolerance,
         );
     }
 
@@ -266,7 +273,11 @@ fn b111_camera_rig() {
     // Keep place: the camera leaves the null it rides, and then rides it again, and neither
     // moves the picture.
     let mut document = load("fx_rig_003.json");
-    let frames = |d: &Document| (0..3).map(|f| render(d, f, 64).data().to_vec()).collect::<Vec<_>>();
+    let frames = |d: &Document| {
+        (0..3)
+            .map(|f| render(d, f, 64).data().to_vec())
+            .collect::<Vec<_>>()
+    };
     let before = frames(&document);
     let before_project = document.project().clone();
     let off = document
@@ -319,7 +330,11 @@ fn b111_camera_rig() {
         && document.project() == &before_project;
     t.row(
         "and two undos give back the file as it was",
-        if undone { "the same project" } else { "different" },
+        if undone {
+            "the same project"
+        } else {
+            "different"
+        },
         undone,
     );
 
@@ -415,5 +430,8 @@ fn b111_camera_rig() {
         t.passed, t.checks
     ));
     fs::write(repo("verification/B-111_camera_rig_table.md"), &t.out).unwrap();
-    assert_eq!(t.passed, t.checks, "see verification/B-111_camera_rig_table.md");
+    assert_eq!(
+        t.passed, t.checks,
+        "see verification/B-111_camera_rig_table.md"
+    );
 }

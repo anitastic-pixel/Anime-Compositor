@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -56,7 +57,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=23 {
         let file = format!("fx_selc_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -64,7 +69,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::SelectiveColor { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::SelectiveColor { .. })
+                });
             }
         }
         t.row(
@@ -82,9 +89,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -98,7 +114,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::SelectiveColor { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::SelectiveColor { .. })
+                });
                 t.row(
                     &format!("the reference shot, Selective Color {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -112,7 +130,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -124,14 +145,29 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// Covered pixels of `before` and `after` side by side.
 fn pairs<'a>(before: &'a [u8], after: &'a [u8]) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
-    before.chunks_exact(4).zip(after.chunks_exact(4)).filter(|(b, _)| b[3] > 0)
+    before
+        .chunks_exact(4)
+        .zip(after.chunks_exact(4))
+        .filter(|(b, _)| b[3] > 0)
 }
 
 #[test]
@@ -160,8 +196,14 @@ fn b275_selective_color() {
         &saved.to_string(),
         saved.as_object().unwrap().len() == 10
             && saved["method"] == "absolute"
-            && saved["reds"].as_array().is_some_and(|a| a.iter().map(|v| v.as_f64()).eq([40.0, -60.0, 10.0, 20.0].map(Some)))
-            && SELECTIVE_COLOR_FAMILIES.iter().all(|n| saved[n].as_array().is_some_and(|a| a.len() == 4)),
+            && saved["reds"].as_array().is_some_and(|a| {
+                a.iter()
+                    .map(|v| v.as_f64())
+                    .eq([40.0, -60.0, 10.0, 20.0].map(Some))
+            })
+            && SELECTIVE_COLOR_FAMILIES
+                .iter()
+                .all(|n| saved[n].as_array().is_some_and(|a| a.len() == 4)),
     );
     for (file, want) in [
         ("fx_selc_019.json", "reds"),
@@ -171,15 +213,26 @@ fn b275_selective_color() {
         ("fx_selc_023.json", "method"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
-    let rest: String = SELECTIVE_COLOR_FAMILIES[1..].iter().map(|n| format!(r#", "{n}": [0, 0, 0, 0]"#)).collect();
+    let rest: String = SELECTIVE_COLOR_FAMILIES[1..]
+        .iter()
+        .map(|n| format!(r#", "{n}": [0, 0, 0, 0]"#))
+        .collect();
     t.shape_refused(
         "fx_selc_001.json",
         "a Selective Color whose reds are words",
         &format!(r#"{{"method": "relative", "reds": "0, 0, 0, 0"{rest}}}"#),
     );
-    t.shape_refused("fx_selc_001.json", "a Selective Color without its reds", &format!(r#"{{"method": "relative"{rest}}}"#));
+    t.shape_refused(
+        "fx_selc_001.json",
+        "a Selective Color without its reds",
+        &format!(r#"{{"method": "relative"{rest}}}"#),
+    );
     t.shape_refused(
         "fx_selc_001.json",
         "a Selective Color without its method",
@@ -188,16 +241,34 @@ fn b275_selective_color() {
 
     t.heading("Commands");
     let mut document = t.load("fx_selc_001.json").document;
-    let over = changed(&t, "fx_selc_001.json", |e| if let Effect::SelectiveColor { families, .. } = e { families[0][0] = 101.0 });
-    let word = changed(&t, "fx_selc_001.json", |e| if let Effect::SelectiveColor { method, .. } = e { *method = "percentage".into() });
-    let three = changed(&t, "fx_selc_001.json", |e| if let Effect::SelectiveColor { families, .. } = e { families[2] = vec![0.0; 3] });
+    let over = changed(&t, "fx_selc_001.json", |e| {
+        if let Effect::SelectiveColor { families, .. } = e {
+            families[0][0] = 101.0
+        }
+    });
+    let word = changed(&t, "fx_selc_001.json", |e| {
+        if let Effect::SelectiveColor { method, .. } = e {
+            *method = "percentage".into()
+        }
+    });
+    let three = changed(&t, "fx_selc_001.json", |e| {
+        if let Effect::SelectiveColor { families, .. } = e {
+            families[2] = vec![0.0; 3]
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("reds cyan 101", set(over)),
             ("method \"percentage\"", set(word)),
             ("greens of three numbers", set(three)),
-            ("reds keyed to cyan 150", keys("reds", &[(0, &[0.0, 0.0, 0.0, 0.0]), (4, &[150.0, 0.0, 0.0, 0.0])])),
+            (
+                "reds keyed to cyan 150",
+                keys(
+                    "reds",
+                    &[(0, &[0.0, 0.0, 0.0, 0.0]), (4, &[150.0, 0.0, 0.0, 0.0])],
+                ),
+            ),
         ],
     );
     let blue = changed(&t, "fx_selc_001.json", |e| {
@@ -211,7 +282,13 @@ fn b275_selective_color() {
         "fx_selc_001.json",
         vec![
             ("absolute, blues yellow -100", set(blue)),
-            ("reds keyed from 0 to cyan 100", keys("reds", &[(0, &[0.0, 0.0, 0.0, 0.0]), (4, &[100.0, 0.0, 0.0, 0.0])])),
+            (
+                "reds keyed from 0 to cyan 100",
+                keys(
+                    "reds",
+                    &[(0, &[0.0, 0.0, 0.0, 0.0]), (4, &[100.0, 0.0, 0.0, 0.0])],
+                ),
+            ),
         ],
     );
 
@@ -236,19 +313,37 @@ fn b275_selective_color() {
         &[
             ("all nine families, relative", all_nine("relative"), 3),
             ("all nine families, absolute", all_nine("absolute"), 3),
-            ("reds cyan +100, absolute", json!({"method": "absolute", "reds": [100, 0, 0, 0]}), 3),
+            (
+                "reds cyan +100, absolute",
+                json!({"method": "absolute", "reds": [100, 0, 0, 0]}),
+                3,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-396 pictures/`");
     let dir = repo("verification/D-396 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = street(json!({}));
     t.row(
         "as added (relative, every amount 0) changes nothing: the street byte for byte; draws cleanly",
@@ -259,7 +354,9 @@ fn b275_selective_color() {
     // Reds, cyan +100, absolute: only pixels whose red is the largest change, their red falls.
     let (after, said) = street(json!({"method": "absolute", "reds": [100, 0, 0, 0]}));
     write("2_reds_cyan.png", TOWN, &after);
-    let others = pairs(&before, &after).filter(|(b, _)| b[0] < b[1].max(b[2])).all(|(b, a)| b == a);
+    let others = pairs(&before, &after)
+        .filter(|(b, _)| b[0] < b[1].max(b[2]))
+        .all(|(b, a)| b == a);
     let falls = pairs(&before, &after).all(|(b, a)| a[0] <= b[0]);
     let moved = pairs(&before, &after).filter(|(b, a)| a[0] < b[0]).count();
     t.row(
@@ -271,7 +368,9 @@ fn b275_selective_color() {
     // Blues, yellow -100, absolute: only pixels whose blue is the largest change, their blue rises.
     let (after, said) = street(json!({"method": "absolute", "blues": [0, 0, -100, 0]}));
     write("3_blues_bluer.png", TOWN, &after);
-    let others = pairs(&before, &after).filter(|(b, _)| b[2] < b[0].max(b[1])).all(|(b, a)| b == a);
+    let others = pairs(&before, &after)
+        .filter(|(b, _)| b[2] < b[0].max(b[1]))
+        .all(|(b, a)| b == a);
     let rises = pairs(&before, &after).all(|(b, a)| a[2] >= b[2]);
     let moved = pairs(&before, &after).filter(|(b, a)| a[2] > b[2]).count();
     t.row(
@@ -283,7 +382,9 @@ fn b275_selective_color() {
     // Blacks, black -50, relative: shadows lifted; nothing whose largest is at least half moves.
     let (after, said) = street(json!({"blacks": [0, 0, 0, -50]}));
     write("4_blacks_lifted.png", TOWN, &after);
-    let bright = pairs(&before, &after).filter(|(b, _)| b[0].max(b[1]).max(b[2]) >= 128).all(|(b, a)| b == a);
+    let bright = pairs(&before, &after)
+        .filter(|(b, _)| b[0].max(b[1]).max(b[2]) >= 128)
+        .all(|(b, a)| b == a);
     let lifts = pairs(&before, &after).all(|(b, a)| (0..3).all(|c| a[c] >= b[c]));
     let moved = pairs(&before, &after).filter(|(b, a)| a != b).count();
     t.row(
@@ -295,7 +396,9 @@ fn b275_selective_color() {
     // Whites, black +100, absolute: the lights darkened; nothing whose smallest is below half moves.
     let (after, said) = street(json!({"method": "absolute", "whites": [0, 0, 0, 100]}));
     write("5_whites_darker.png", TOWN, &after);
-    let dark = pairs(&before, &after).filter(|(b, _)| b[0].min(b[1]).min(b[2]) <= 127).all(|(b, a)| b == a);
+    let dark = pairs(&before, &after)
+        .filter(|(b, _)| b[0].min(b[1]).min(b[2]) <= 127)
+        .all(|(b, a)| b == a);
     let darkens = pairs(&before, &after).all(|(b, a)| (0..3).all(|c| a[c] <= b[c]));
     let moved = pairs(&before, &after).filter(|(b, a)| a != b).count();
     t.row(
@@ -326,9 +429,15 @@ fn b275_selective_color() {
         ([40, -60, 10, -80], 2..3, [0, 0, 112]),
         ([40, -60, 10, -10], 2..3, [0, 0, 51]),
     ] {
-        let (after, said) = picture(&dir, "photoshop_orange.png", (4, 4), json!([fx("fx-0-0", &json!({"method": "absolute", "reds": reds}))]));
+        let (after, said) = picture(
+            &dir,
+            "photoshop_orange.png",
+            (4, 4),
+            json!([fx("fx-0-0", &json!({"method": "absolute", "reds": reds}))]),
+        );
         let got = &after[..3];
-        let near = channels.clone().all(|c| got[c].abs_diff(want[c]) <= 1) && after.chunks_exact(4).all(|p| p == &after[..4]);
+        let near = channels.clone().all(|c| got[c].abs_diff(want[c]) <= 1)
+            && after.chunks_exact(4).all(|p| p == &after[..4]);
         let names = ["red", "green", "blue"];
         t.row(
             &format!(
@@ -368,22 +477,48 @@ fn b275_selective_color_timing() {
     );
     let shots: [(&str, Option<J>); 3] = [
         ("Noise alone", None),
-        ("Noise, then Selective Color, reds cyan +100, absolute", Some(json!({"method": "absolute", "reds": [100, 0, 0, 0]}))),
-        ("Noise, then Selective Color, all nine families, relative", Some(all_nine("relative"))),
+        (
+            "Noise, then Selective Color, reds cyan +100, absolute",
+            Some(json!({"method": "absolute", "reds": [100, 0, 0, 0]})),
+        ),
+        (
+            "Noise, then Selective Color, all nine families, relative",
+            Some(all_nine("relative")),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B275_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-275_timing_raw.md"));
+    let out = std::env::var("B275_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-275_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

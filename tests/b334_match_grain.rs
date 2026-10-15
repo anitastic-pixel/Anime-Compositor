@@ -15,7 +15,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN};
+use effect_table::{
+    both, distance, median, on_card, reference, repo, time_passes, town, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -57,7 +59,12 @@ fn matched(layer: J, intensity: f64, blending_mode: &str) -> Effect {
 }
 
 fn set_holder(effect: Effect) -> Command {
-    Command::SetEffectParameters { composition: Id::new(MAIN), layer_id: Id::new("holder"), instance_id: Id::new("fx-0-0"), effect }
+    Command::SetEffectParameters {
+        composition: Id::new(MAIN),
+        layer_id: Id::new("holder"),
+        instance_id: Id::new("fx-0-0"),
+        effect,
+    }
 }
 
 fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
@@ -66,35 +73,66 @@ fn keys_holder(setting: &str, values: &[(i32, &[f64])]) -> Command {
         layer_id: Id::new("holder"),
         instance_id: Id::new("fx-0-0"),
         setting: setting.to_string(),
-        keys: values.iter().map(|&(frame, v)| EffectKey { frame, value: v.to_vec(), interp: Interp::Linear }).collect(),
+        keys: values
+            .iter()
+            .map(|&(frame, v)| EffectKey {
+                frame,
+                value: v.to_vec(),
+                interp: Interp::Linear,
+            })
+            .collect(),
     }
 }
 
 fn holder_effect(d: &Document) -> Effect {
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("holder")).unwrap().effects[0].effect.clone()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("holder"))
+        .unwrap()
+        .effects[0]
+        .effect
+        .clone()
 }
 
 /// Each command on the `holder` file is refused with a sentence and leaves it as it was; then
 /// each taken one is taken, and as many undos give back `file`'s frame 0 exactly.
-fn holder_commands(t: &mut Table, file: &str, refused: Vec<(&str, Command)>, taken: Vec<(&str, Command)>) {
+fn holder_commands(
+    t: &mut Table,
+    file: &str,
+    refused: Vec<(&str, Command)>,
+    taken: Vec<(&str, Command)>,
+) {
     let mut document = t.load(file).document;
     let held = format!("{:?}", document.project());
     for (what, command) in refused {
         let why = document.apply(command).err();
         let untouched = format!("{:?}", document.project()) == held;
-        t.row(&format!("{what} is refused with a sentence, and nothing changes"), &why.as_ref().map_or("taken".into(), |d| d.message.clone()), why.is_some() && untouched);
+        t.row(
+            &format!("{what} is refused with a sentence, and nothing changes"),
+            &why.as_ref().map_or("taken".into(), |d| d.message.clone()),
+            why.is_some() && untouched,
+        );
     }
     let n = taken.len();
     for (what, command) in taken {
         let ok = document.apply(command).is_ok();
-        t.row(&format!("{what} is taken"), if ok { "taken" } else { "refused" }, ok);
+        t.row(
+            &format!("{what} is taken"),
+            if ok { "taken" } else { "refused" },
+            ok,
+        );
     }
     let before = t.render(&t.load(file).document, 0, 64);
     for _ in 0..n {
         document.undo();
     }
     let same = t.render(&document, 0, 64).data() == before.data();
-    t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
+    t.row(
+        &format!("undo {n} times: frame 0 is the frame it was"),
+        if same { "byte-identical" } else { "differ" },
+        same,
+    );
 }
 
 /// Add Grain's settings as it is added, and the layer.
@@ -123,18 +161,32 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// A setting keyed linearly through `points`, each a frame and a value.
 fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points.iter().map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"})).collect();
+    let frames: Vec<J> = points
+        .iter()
+        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
+        .collect();
     json!({"base": points[0].1, "keyframes": frames})
 }
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing, are left out with a warning, or are refused, so the
 /// card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -160,9 +212,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)], pick: fn
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -191,7 +252,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)], pick: fn
 /// Add Grain) on it, which a Match Grain reads as `plate`. Drawn, straight 8-bit, with what it
 /// warned of.
 fn picture(dir: &Path, effects: J, plate: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -207,11 +271,26 @@ fn picture(dir: &Path, effects: J, plate: J) -> (Vec<u8>, Vec<String>) {
     hidden["enabled"] = J::from(false);
     hidden["effects"] = plate;
     comp["layers"].as_array_mut().unwrap().push(hidden);
-    comp["layer_order"].as_array_mut().unwrap().push(J::from("plate"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .push(J::from("plate"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -220,7 +299,11 @@ fn spread(a: &[u8], before: &[u8]) -> [f64; 3] {
     let mut s = [0.0; 3];
     let n = (a.len() / 4) as f64;
     for c in 0..3 {
-        let d: Vec<f64> = a.chunks_exact(4).zip(before.chunks_exact(4)).map(|(p, q)| p[c] as f64 - q[c] as f64).collect();
+        let d: Vec<f64> = a
+            .chunks_exact(4)
+            .zip(before.chunks_exact(4))
+            .map(|(p, q)| p[c] as f64 - q[c] as f64)
+            .collect();
         let mean = d.iter().sum::<f64>() / n;
         s[c] = (d.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n).sqrt();
     }
@@ -251,7 +334,9 @@ fn b334_match_grain() {
     t.fixtures("expected_match_grain.json");
 
     t.heading("The file");
-    let files: Vec<String> = (1..=23).map(|n| format!("fx_matchgrain_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=23)
+        .map(|n| format!("fx_matchgrain_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_matchgrain_016.json");
     t.row(
@@ -266,29 +351,62 @@ fn b334_match_grain() {
         let why = holder_effect(&t.load(file).document).why_invalid();
         t.row(&format!("{file} is refused in a sentence"), &why, why == want);
     }
-    for (file, want) in [("fx_matchgrain_021.json", "\"screen\""), ("fx_matchgrain_022.json", "\"yes\"")] {
+    for (file, want) in [
+        ("fx_matchgrain_021.json", "\"screen\""),
+        ("fx_matchgrain_022.json", "\"yes\""),
+    ] {
         let why = holder_effect(&t.load(file).document).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want) && why.starts_with("Match Grain"));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want) && why.starts_with("Match Grain"),
+        );
     }
     let mut no_layer: J = serde_json::from_str(STARTING).unwrap();
-    t.shape_refused("fx_matchgrain_002.json", "a Match Grain with no `layer`", &no_layer.to_string());
+    t.shape_refused(
+        "fx_matchgrain_002.json",
+        "a Match Grain with no `layer`",
+        &no_layer.to_string(),
+    );
     no_layer["layer"] = J::from("steady");
     no_layer.as_object_mut().unwrap().remove("size");
-    t.shape_refused("fx_matchgrain_002.json", "a Match Grain with no `size`", &no_layer.to_string());
+    t.shape_refused(
+        "fx_matchgrain_002.json",
+        "a Match Grain with no `size`",
+        &no_layer.to_string(),
+    );
 
     t.heading("Commands");
     holder_commands(
         &mut t,
         "fx_matchgrain_002.json",
         vec![
-            ("intensity 10.5", set_holder(matched(J::from("steady"), 10.5, "film"))),
-            ("blending mode \"screen\"", set_holder(matched(J::from("steady"), 1.0, "screen"))),
-            ("the noise source a number", set_holder(matched(J::from(4), 1.0, "film"))),
-            ("intensity keyed to 12", keys_holder("intensity", &[(0, &[0.0]), (4, &[12.0])])),
+            (
+                "intensity 10.5",
+                set_holder(matched(J::from("steady"), 10.5, "film")),
+            ),
+            (
+                "blending mode \"screen\"",
+                set_holder(matched(J::from("steady"), 1.0, "screen")),
+            ),
+            (
+                "the noise source a number",
+                set_holder(matched(J::from(4), 1.0, "film")),
+            ),
+            (
+                "intensity keyed to 12",
+                keys_holder("intensity", &[(0, &[0.0]), (4, &[12.0])]),
+            ),
         ],
         vec![
-            ("intensity 3 by Add, the noise source holes", set_holder(matched(J::from("holes"), 3.0, "add"))),
-            ("intensity keyed from 0 to 10", keys_holder("intensity", &[(0, &[0.0]), (4, &[10.0])])),
+            (
+                "intensity 3 by Add, the noise source holes",
+                set_holder(matched(J::from("holes"), 3.0, "add")),
+            ),
+            (
+                "intensity keyed from 0 to 10",
+                keys_holder("intensity", &[(0, &[0.0]), (4, &[10.0])]),
+            ),
         ],
     );
 
@@ -313,8 +431,14 @@ fn b334_match_grain() {
         &mut gpu,
         &[
             ("layer2's grain, as added", json!({"layer": "layer-2"})),
-            ("layer2's grain, intensity 3 by Add, monochromatic", json!({"layer": "layer-2", "intensity": 3, "blending_mode": "add", "monochromatic": "on"})),
-            ("layer2's grain, size 2, softness 0.5, overlay, intensity keyed 0.5 to 5", json!({"layer": "layer-2", "size": 2, "softness": 0.5, "blending_mode": "overlay", "intensity": keyed(&[(0, json!(0.5)), (239, json!(5))])})),
+            (
+                "layer2's grain, intensity 3 by Add, monochromatic",
+                json!({"layer": "layer-2", "intensity": 3, "blending_mode": "add", "monochromatic": "on"}),
+            ),
+            (
+                "layer2's grain, size 2, softness 0.5, overlay, intensity keyed 0.5 to 5",
+                json!({"layer": "layer-2", "size": 2, "softness": 0.5, "blending_mode": "overlay", "intensity": keyed(&[(0, json!(0.5)), (239, json!(5))])}),
+            ),
         ],
         is_match,
     );
@@ -322,19 +446,44 @@ fn b334_match_grain() {
     t.heading("Pictures: the street, in `verification/D-454 pictures/`");
     let dir = repo("verification/D-454 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
-    let light = json!([fx("core.add_grain", "p", &json!({"intensity": 1.5, "random_seed": 3}))]);
-    let heavy = json!([fx("core.add_grain", "p", &json!({"intensity": 5, "random_seed": 3}))]);
+    let light = json!([fx(
+        "core.add_grain",
+        "p",
+        &json!({"intensity": 1.5, "random_seed": 3})
+    )]);
+    let heavy = json!([fx(
+        "core.add_grain",
+        "p",
+        &json!({"intensity": 5, "random_seed": 3})
+    )]);
     let (before, said) = picture(&dir, json!([]), light.clone());
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let one = |p: J| json!([fx("core.match_grain", "fx-0-0", &p)]);
     let (none_named, said) = picture(&dir, one(json!({})), light.clone());
     write("2_no_source.png", &none_named);
     t.row(
         "2_no_source.png, as added (no noise source): the street untouched; draws cleanly",
-        &format!("{said:?}, {} pixels changed", distance(&none_named, &before).1),
+        &format!(
+            "{said:?}, {} pixels changed",
+            distance(&none_named, &before).1
+        ),
         said.is_empty() && distance(&none_named, &before).1 == 0,
     );
     let (lit, said) = picture(&dir, one(json!({"layer": "plate"})), light.clone());
@@ -356,7 +505,10 @@ fn b334_match_grain() {
     t.row(
         "a noise source that is no layer: the street untouched, and the warning says which layer",
         &format!("{said:?}, {} pixels changed", distance(&ghost, &before).1),
-        distance(&ghost, &before).1 == 0 && said.iter().any(|s| s.starts_with(DiagnosticId::EffectLayerMissing.as_str()) && s.contains("ghost")),
+        distance(&ghost, &before).1 == 0
+            && said.iter().any(|s| {
+                s.starts_with(DiagnosticId::EffectLayerMissing.as_str()) && s.contains("ghost")
+            }),
     );
 
     t.finish("D-454_match_grain_table.md");
@@ -387,22 +539,53 @@ fn b334_match_grain_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Match Grain as added (no noise source)", Some(json!({}))),
-        ("Noise, then Match Grain reading layer2", Some(json!({"layer": "layer-2"}))),
-        ("Noise, then Match Grain reading layer2, size 3, softness 0.5, monochromatic", Some(json!({"layer": "layer-2", "size": 3, "softness": 0.5, "monochromatic": "on"}))),
+        (
+            "Noise, then Match Grain as added (no noise source)",
+            Some(json!({})),
+        ),
+        (
+            "Noise, then Match Grain reading layer2",
+            Some(json!({"layer": "layer-2"})),
+        ),
+        (
+            "Noise, then Match Grain reading layer2, size 3, softness 0.5, monochromatic",
+            Some(json!({"layer": "layer-2", "size": 3, "softness": 0.5, "monochromatic": "on"})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.match_grain", &format!("{id}m"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B334_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-334_timing_raw.md"));
+    let out = std::env::var("B334_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-334_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

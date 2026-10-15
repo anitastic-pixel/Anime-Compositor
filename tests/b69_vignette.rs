@@ -12,7 +12,14 @@ use effect_table::{keys, set, Table};
 
 use anime_compositor::effects::Effect;
 
-fn vignette(amount: f64, color: &str, size: f64, roundness: f64, softness: f64, center: [f64; 2]) -> Effect {
+fn vignette(
+    amount: f64,
+    color: &str,
+    size: f64,
+    roundness: f64,
+    softness: f64,
+    center: [f64; 2],
+) -> Effect {
     Effect::Vignette {
         amount,
         color: color.to_string(),
@@ -40,7 +47,11 @@ fn b69_vignette() {
 
     t.heading("How far it reaches");
     let got = vignette(100.0, "#000000", 200.0, 100.0, 100.0, [0.0, 0.0]).bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let start = vignette(70.0, "#6450a0", 80.0, 40.0, 30.0, [40.0, 60.0]);
     let mut draft = start.clone();
     draft.scale_distances(|d| d * 0.5);
@@ -93,8 +104,14 @@ fn b69_vignette() {
             ("roundness -1", ok(&|v| v[2] = -1.0)),
             ("softness 101", ok(&|v| v[3] = 101.0)),
             ("centre 1001, 50", ok(&|v| v[4] = 1001.0)),
-            ("colour \"black\"", set(vignette(50.0, "black", 100.0, 0.0, 50.0, [50.0, 50.0]))),
-            ("size keyed to 250", keys("size", &[(0, &[100.0]), (4, &[250.0])])),
+            (
+                "colour \"black\"",
+                set(vignette(50.0, "black", 100.0, 0.0, 50.0, [50.0, 50.0])),
+            ),
+            (
+                "size keyed to 250",
+                keys("size", &[(0, &[100.0]), (4, &[250.0])]),
+            ),
         ],
     );
     t.taken(

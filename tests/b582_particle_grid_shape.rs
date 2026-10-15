@@ -24,7 +24,9 @@ use serde_json::{json, Value as J};
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
-use anime_compositor::effects::{Effect, PARTICLE_GRID_COLORS, PARTICLE_GRID_LAYERS, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS};
+use anime_compositor::effects::{
+    Effect, PARTICLE_GRID_COLORS, PARTICLE_GRID_LAYERS, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS,
+};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
@@ -32,13 +34,23 @@ use anime_compositor::{particles, persist, png_out, OutputDepth};
 
 /// The pixels that differ between two straight 8-bit pictures.
 fn differing(a: &[u8], b: &[u8]) -> usize {
-    a.chunks_exact(4).zip(b.chunks_exact(4)).filter(|(p, q)| p != q).count()
+    a.chunks_exact(4)
+        .zip(b.chunks_exact(4))
+        .filter(|(p, q)| p != q)
+        .count()
 }
 
 /// Why the `art` layer's effect in `file` is left out.
 fn fault_of(t: &Table, file: &str) -> String {
     let d = t.load(file).document;
-    d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].fault().unwrap_or_default()
+    d.project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .fault()
+        .unwrap_or_default()
 }
 
 /// The points kept in `file` at `frame`, each [j, x, y, z, size, opacity], given what compose
@@ -52,15 +64,39 @@ fn alive(t: &Table, file: &str, frame: i32) -> Vec<[f64; 6]> {
     let instance = &layer.effects[0];
     let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
     let mut e = instance.at(frame).effect;
-    let Effect::ParticleGrid { layers, clock, history, .. } = &mut e else { unreachable!() };
+    let Effect::ParticleGrid {
+        layers,
+        clock,
+        history,
+        ..
+    } = &mut e
+    else {
+        unreachable!()
+    };
     *clock = [(frame - layer.in_frame) as f64, fps];
     if !instance.tracks.is_empty() {
-        *history = Some(Arc::new((layer.in_frame..=frame + 1).map(|f| particles::grid_numbers_row(&instance.at(f).effect)).collect()));
+        *history = Some(Arc::new(
+            (layer.in_frame..=frame + 1)
+                .map(|f| particles::grid_numbers_row(&instance.at(f).effect))
+                .collect(),
+        ));
     }
     let mut log = FrameLog::new(3);
     let maps: Vec<_> = layers
         .iter()
-        .map(|named| compose::layer_map(project, &comp_id, &holder, named.as_str().unwrap(), "stretch", frame, &t.root, PreviewQuality::Full, &mut log))
+        .map(|named| {
+            compose::layer_map(
+                project,
+                &comp_id,
+                &holder,
+                named.as_str().unwrap(),
+                "stretch",
+                frame,
+                &t.root,
+                PreviewQuality::Full,
+                &mut log,
+            )
+        })
         .collect();
     let maps: [_; PARTICLE_GRID_LAYERS.len()] = std::array::from_fn(|k| maps[k].as_ref());
     particles::grid_alive(&e, maps, 16.0, 10.0)
@@ -71,7 +107,10 @@ fn alive(t: &Table, file: &str, frame: i32) -> Vec<[f64; 6]> {
 /// the processor, straight 8-bit, with what it warned of.
 fn picture(effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     let size = (480, 270);
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("1_left.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -96,12 +135,30 @@ fn picture(effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     });
     comp["layers"].as_array_mut().unwrap().push(under);
     comp["layers"].as_array_mut().unwrap().push(word);
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("under"));
-    comp["layer_order"].as_array_mut().unwrap().insert(0, J::from("word"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("under"));
+    comp["layer_order"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, J::from("word"));
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, &repo("verification/D-506 pictures"), 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        &repo("verification/D-506 pictures"),
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -153,18 +210,36 @@ fn b582_particle_grid_shape() {
     t.fixtures("expected_particle_grid_shape.json");
 
     t.heading("The points kept: where each is, its size and its opacity");
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("particles_particle_grid_shape.json")).unwrap()).unwrap();
+    let expected: J = serde_json::from_str(
+        &fs::read_to_string(t.root.join("particles_particle_grid_shape.json")).unwrap(),
+    )
+    .unwrap();
     let tolerance = expected["tolerance"].as_f64().unwrap();
     for (name, case) in expected["cases"].as_object().unwrap() {
         let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
         let file = format!("fx_pgshp_{n:03}.json");
         let frame = case["frame"].as_i64().unwrap() as i32;
-        let mut want: Vec<Vec<f64>> = case["particles"].as_array().unwrap().iter().map(|p| p.as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect()).collect();
+        let mut want: Vec<Vec<f64>> = case["particles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| {
+                p.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect()
+            })
+            .collect();
         let mut got = alive(&t, &file, frame);
         want.sort_by(|a, b| a[0].total_cmp(&b[0]));
         got.sort_by(|a, b| a[0].total_cmp(&b[0]));
         let same_kept = got.iter().zip(&want).all(|(g, w)| g[0] == w[0]);
-        let largest = got.iter().zip(&want).flat_map(|(g, w)| g.iter().zip(w).map(|(a, b)| (a - b).abs())).fold(0.0, f64::max);
+        let largest = got
+            .iter()
+            .zip(&want)
+            .flat_map(|(g, w)| g.iter().zip(w).map(|(a, b)| (a - b).abs()))
+            .fold(0.0, f64::max);
         t.row(
             &format!("{name} frame {frame}: the {} points kept, each its number, place, size and opacity", want.len()),
             &format!("{} kept, the same ones: {same_kept}, largest difference {largest:.1e}", got.len()),
@@ -178,8 +253,15 @@ fn b582_particle_grid_shape() {
     let saved = t.saved_parameters("fx_pgshp_002.json");
     t.row(
         "fx_pgshp_002.json is saved with its 37 settings, the Base Layer and Base Form among them",
-        &format!("{} settings; base form {}, base layer {}", saved.as_object().unwrap().len(), saved["base_form"], saved["base_layer"]),
-        saved.as_object().unwrap().len() == 37 && saved["base_form"] == "layer" && saved["base_layer"] == "ring",
+        &format!(
+            "{} settings; base form {}, base layer {}",
+            saved.as_object().unwrap().len(),
+            saved["base_form"],
+            saved["base_layer"]
+        ),
+        saved.as_object().unwrap().len() == 37
+            && saved["base_form"] == "layer"
+            && saved["base_layer"] == "ring",
     );
     let before = t.saved_parameters("../particle_grid/fx_pgrid_049.json");
     t.row(
@@ -188,17 +270,44 @@ fn b582_particle_grid_shape() {
         before.as_object().unwrap().len() == 36 && before.get("base_layer").is_none(),
     );
     let d = t.load("../particle_grid/fx_pgrid_049.json").document;
-    let read = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].at(0).effect;
-    let Effect::ParticleGrid { layers, .. } = &read else { unreachable!() };
-    t.row("fx_pgrid_049.json reads with no Base Layer named", &format!("{}", layers[3]), layers[3] == "");
-    for (n, want) in [(24, "base form"), (25, "base form"), (26, "base layer"), (27, "particle type")] {
+    let read = d
+        .project()
+        .composition(&Id::new(MAIN))
+        .unwrap()
+        .layer(&Id::new("art"))
+        .unwrap()
+        .effects[0]
+        .at(0)
+        .effect;
+    let Effect::ParticleGrid { layers, .. } = &read else {
+        unreachable!()
+    };
+    t.row(
+        "fx_pgrid_049.json reads with no Base Layer named",
+        &format!("{}", layers[3]),
+        layers[3] == "",
+    );
+    for (n, want) in [
+        (24, "base form"),
+        (25, "base form"),
+        (26, "base layer"),
+        (27, "particle type"),
+    ] {
         let file = format!("fx_pgshp_{n:03}.json");
         let why = fault_of(&t, &file);
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
 
     t.heading("Tiles");
-    t.tiles(&[("fx_pgshp_007.json", 0), ("fx_pgshp_014.json", 12), ("fx_pgshp_019.json", 0)]);
+    t.tiles(&[
+        ("fx_pgshp_007.json", 0),
+        ("fx_pgshp_014.json", 12),
+        ("fx_pgshp_019.json", 0),
+    ]);
 
     t.heading("Pictures (verification/D-712 pictures)");
     let out = repo("verification/D-712 pictures");
@@ -232,10 +341,21 @@ fn b582_particle_grid_shape() {
         ),
     ] {
         let (bytes, said) = picture(json!([fx("pic", &p)]), frame);
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         t.row(
             &format!("{name}.png, frame {frame}: drawn without a warning, the street changed"),
-            &format!("{} pixels changed; warnings {said:?}", differing(&bytes, &street)),
+            &format!(
+                "{} pixels changed; warnings {said:?}",
+                differing(&bytes, &street)
+            ),
             said.is_empty() && differing(&bytes, &street) > 0,
         );
     }
@@ -243,7 +363,12 @@ fn b582_particle_grid_shape() {
     t.heading("On the card (D-618)");
     let mut gpu = Gpu::new().expect("a graphics card");
     let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticleGrid { .. });
-    t.card_fixtures(&mut gpu, "expected_particle_grid_shape.json", &(24..=27).collect::<Vec<_>>(), mine);
+    t.card_fixtures(
+        &mut gpu,
+        "expected_particle_grid_shape.json",
+        &(24..=27).collect::<Vec<_>>(),
+        mine,
+    );
     let shots: Vec<(&str, Project, usize)> = [
         ("Box Strings rippling, added", json!({"base_form": "box_strings", "particles_in_x": 80, "particles_in_y": 40, "size": 3, "displace": 40, "flow_x": 40, "transfer_mode": "add"})),
         ("points on layer-4's shape, coloured by it", json!({"base_form": "layer", "base_layer": "layer-4", "color_map": "layer-4", "form_size_x": 1920, "form_size_y": 1080, "particles_in_x": 192, "particles_in_y": 108, "size": 8})),
@@ -257,10 +382,15 @@ fn b582_particle_grid_shape() {
 
 /// The reference shot (1920 by 1080) with `stack` on its first layer.
 fn reference(stack: J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     j["compositions"][0]["layers"][0]["effects"] = stack;
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// The frame times, B-496's way: the reference shot with Particle Grid on its first layer, frames
@@ -281,14 +411,29 @@ fn b582_particle_grid_shape_timing() {
         std::env::consts::OS,
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
-    let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
+    let (comp, root) = (
+        Id::new("comp-reference-shot"),
+        repo("Fixtures/reference_shot"),
+    );
     let shots: [(&str, Option<J>); 4] = [
         ("no effect", None),
-        ("Box Grid, 100 by 100 points (D-616, for comparison)", Some(json!({"particles_in_x": 100, "particles_in_y": 100, "displace": 40, "flow_x": 40}))),
-        ("Box Strings, 100 strings of 100 points, rippling", Some(json!({"base_form": "box_strings", "particles_in_x": 100, "particles_in_y": 100, "displace": 40, "flow_x": 40}))),
+        (
+            "Box Grid, 100 by 100 points (D-616, for comparison)",
+            Some(
+                json!({"particles_in_x": 100, "particles_in_y": 100, "displace": 40, "flow_x": 40}),
+            ),
+        ),
+        (
+            "Box Strings, 100 strings of 100 points, rippling",
+            Some(
+                json!({"base_form": "box_strings", "particles_in_x": 100, "particles_in_y": 100, "displace": 40, "flow_x": 40}),
+            ),
+        ),
         (
             "Layer, 200 by 100 points on layer-4's shape",
-            Some(json!({"base_form": "layer", "base_layer": "layer-4", "form_size_x": 1920, "form_size_y": 1080, "particles_in_x": 200, "particles_in_y": 100, "size": 6})),
+            Some(
+                json!({"base_form": "layer", "base_layer": "layer-4", "form_size_x": 1920, "form_size_y": 1080, "particles_in_x": 200, "particles_in_y": 100, "size": 6}),
+            ),
         ),
     ];
     for (name, p) in shots {
@@ -298,17 +443,36 @@ fn b582_particle_grid_shape_timing() {
             gpu.forget();
             let t = std::time::Instant::now();
             drop(
-                preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer(), &mut gpu)
-                    .expect("GPU frame"),
+                preview::preview_frame_srgb8(
+                    &project,
+                    &comp,
+                    frame,
+                    &root,
+                    PreviewQuality::Full,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut CelCache::viewer(),
+                    &mut gpu,
+                )
+                .expect("GPU frame"),
             );
             let ms = t.elapsed().as_secs_f64() * 1000.0;
-            assert!(!log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu), "the card refused {name}");
+            assert!(
+                !log.finish()
+                    .iter()
+                    .any(|d| d.id == DiagnosticId::GpuPreviewOnCpu),
+                "the card refused {name}"
+            );
             ms
         };
         card(0);
         let _ = write!(s, "| {name} | card |");
         for frame in [0, 60, 120, 239] {
-            let _ = write!(s, " {:.1} ms |", median((0..3).map(|_| card(frame)).collect()));
+            let _ = write!(
+                s,
+                " {:.1} ms |",
+                median((0..3).map(|_| card(frame)).collect())
+            );
         }
         let _ = write!(s, "\n| {name} | processor |");
         for frame in [0, 60, 120, 239] {
@@ -317,8 +481,17 @@ fn b582_particle_grid_shape_timing() {
                     let mut log = FrameLog::new(3);
                     let t = std::time::Instant::now();
                     drop(
-                        preview::preview_frame_cached(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                            .expect("CPU frame"),
+                        preview::preview_frame_cached(
+                            &project,
+                            &comp,
+                            frame,
+                            &root,
+                            PreviewQuality::Full,
+                            DEFAULT_TILE_SIZE,
+                            &mut log,
+                            &mut CelCache::viewer(),
+                        )
+                        .expect("CPU frame"),
                     );
                     t.elapsed().as_secs_f64() * 1000.0
                 })
@@ -327,6 +500,8 @@ fn b582_particle_grid_shape_timing() {
         }
         s.push('\n');
     }
-    let out = std::env::var("B582_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-582_timing_raw.md"));
+    let out = std::env::var("B582_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-582_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

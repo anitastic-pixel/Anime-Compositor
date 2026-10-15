@@ -21,7 +21,14 @@ use anime_compositor::model::Id;
 use anime_compositor::{persist, png_out, OutputDepth};
 
 /// Extract with its channel, black and white points, black and white softness, and invert.
-fn extract(channel: &str, black: f64, white: f64, black_soft: f64, white_soft: f64, invert: &str) -> Effect {
+fn extract(
+    channel: &str,
+    black: f64,
+    white: f64,
+    black_soft: f64,
+    white_soft: f64,
+    invert: &str,
+) -> Effect {
     Effect::Extract {
         channel: channel.to_string(),
         black_point: black,
@@ -85,9 +92,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -130,13 +148,19 @@ fn b147_extract() {
     t.row(
         "FX-EXTRACT-027: a black point written as a word is a fault in the file's shape, and the \
          file is refused on opening (D-215, as D-164)",
-        &refused.as_ref().map_or("opened".to_string(), |d| format!("{} {}", d.id.as_str(), d.message)),
+        &refused.as_ref().map_or("opened".to_string(), |d| {
+            format!("{} {}", d.id.as_str(), d.message)
+        }),
         refused.is_some_and(|d| d.id.as_str() == "PROJECT_SCHEMA_INVALID"),
     );
 
     t.heading("How far it reaches");
     let got = plain().bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = extract("green", 30.0, 220.0, 10.0, 20.0, "on");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -146,7 +170,14 @@ fn b147_extract() {
     );
 
     t.heading("The file");
-    t.round_trips(&(1..=26).map(|n| format!("fx_extract_{n:03}.json")).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>());
+    t.round_trips(
+        &(1..=26)
+            .map(|n| format!("fx_extract_{n:03}.json"))
+            .collect::<Vec<_>>()
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    );
     t.shape_refused(
         "fx_extract_001.json",
         "no `channel` at all",
@@ -163,24 +194,60 @@ fn b147_extract() {
     t.refused(
         &mut document,
         vec![
-            ("black point -1", set(extract("luminance", -1.0, 255.0, 0.0, 0.0, "off"))),
-            ("white point 256", set(extract("luminance", 0.0, 256.0, 0.0, 0.0, "off"))),
-            ("black softness 256", set(extract("luminance", 0.0, 255.0, 256.0, 0.0, "off"))),
-            ("white softness -1", set(extract("luminance", 0.0, 255.0, 0.0, -1.0, "off"))),
-            ("channel \"luma\"", set(extract("luma", 0.0, 255.0, 0.0, 0.0, "off"))),
-            ("channel \"Red\", written with a capital", set(extract("Red", 0.0, 255.0, 0.0, 0.0, "off"))),
-            ("invert \"yes\"", set(extract("luminance", 0.0, 255.0, 0.0, 0.0, "yes"))),
-            ("black point keyed to 300", keys("black_point", &[(0, &[0.0]), (4, &[300.0])])),
+            (
+                "black point -1",
+                set(extract("luminance", -1.0, 255.0, 0.0, 0.0, "off")),
+            ),
+            (
+                "white point 256",
+                set(extract("luminance", 0.0, 256.0, 0.0, 0.0, "off")),
+            ),
+            (
+                "black softness 256",
+                set(extract("luminance", 0.0, 255.0, 256.0, 0.0, "off")),
+            ),
+            (
+                "white softness -1",
+                set(extract("luminance", 0.0, 255.0, 0.0, -1.0, "off")),
+            ),
+            (
+                "channel \"luma\"",
+                set(extract("luma", 0.0, 255.0, 0.0, 0.0, "off")),
+            ),
+            (
+                "channel \"Red\", written with a capital",
+                set(extract("Red", 0.0, 255.0, 0.0, 0.0, "off")),
+            ),
+            (
+                "invert \"yes\"",
+                set(extract("luminance", 0.0, 255.0, 0.0, 0.0, "yes")),
+            ),
+            (
+                "black point keyed to 300",
+                keys("black_point", &[(0, &[0.0]), (4, &[300.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_extract_001.json",
         vec![
-            ("every number at its bottom,", set(extract("alpha", 0.0, 0.0, 0.0, 0.0, "on"))),
-            ("every number at its top,", set(extract("blue", 255.0, 255.0, 255.0, 255.0, "off"))),
-            ("black point keyed from 0 to 255", keys("black_point", &[(0, &[0.0]), (4, &[255.0])])),
-            ("white softness keyed from 0 to 255", keys("white_softness", &[(0, &[0.0]), (4, &[255.0])])),
+            (
+                "every number at its bottom,",
+                set(extract("alpha", 0.0, 0.0, 0.0, 0.0, "on")),
+            ),
+            (
+                "every number at its top,",
+                set(extract("blue", 255.0, 255.0, 255.0, 255.0, "off")),
+            ),
+            (
+                "black point keyed from 0 to 255",
+                keys("black_point", &[(0, &[0.0]), (4, &[255.0])]),
+            ),
+            (
+                "white softness keyed from 0 to 255",
+                keys("white_softness", &[(0, &[0.0]), (4, &[255.0])]),
+            ),
         ],
     );
 
@@ -197,7 +264,15 @@ fn b147_extract() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     let art = drawing();
     write("drawing.png", &art, 1);
@@ -216,9 +291,19 @@ fn b147_extract() {
         ("star", (130, 36)),
     ];
     let kept = |bytes: &[u8]| -> Vec<&str> {
-        parts.iter().filter(|(_, p)| near(px(bytes, *p), px(&art, *p))).map(|(n, _)| *n).collect()
+        parts
+            .iter()
+            .filter(|(_, p)| near(px(bytes, *p), px(&art, *p)))
+            .map(|(n, _)| *n)
+            .collect()
     };
-    let gone = |bytes: &[u8]| -> Vec<&str> { parts.iter().filter(|(_, p)| px(bytes, *p)[3] == 0).map(|(n, _)| *n).collect() };
+    let gone = |bytes: &[u8]| -> Vec<&str> {
+        parts
+            .iter()
+            .filter(|(_, p)| px(bytes, *p)[3] == 0)
+            .map(|(n, _)| *n)
+            .collect()
+    };
 
     let (before, big, said) = picture(&dir, one(serde_json::json!({})));
     write("before.png", &big, 3);
@@ -228,17 +313,18 @@ fn b147_extract() {
         said.is_empty() && kept(&before).len() == parts.len(),
     );
 
-    let mut sheet = |name: &str, settings: J, says: &str, want_kept: &[&str], want_gone: &[&str]| {
-        let (bytes, big, said) = picture(&dir, one(settings));
-        write(name, &big, 3);
-        let (k, g) = (kept(&bytes), gone(&bytes));
-        t.row(
-            &format!("{name}, {says}; draws cleanly"),
-            &format!("{said:?}, kept {k:?}, gone {g:?}"),
-            said.is_empty() && k == want_kept && g == want_gone,
-        );
-        bytes
-    };
+    let mut sheet =
+        |name: &str, settings: J, says: &str, want_kept: &[&str], want_gone: &[&str]| {
+            let (bytes, big, said) = picture(&dir, one(settings));
+            write(name, &big, 3);
+            let (k, g) = (kept(&bytes), gone(&bytes));
+            t.row(
+                &format!("{name}, {says}; draws cleanly"),
+                &format!("{said:?}, kept {k:?}, gone {g:?}"),
+                said.is_empty() && k == want_kept && g == want_gone,
+            );
+            bytes
+        };
     sheet(
         "paper_gone.png",
         serde_json::json!({ "white_point": 220 }),

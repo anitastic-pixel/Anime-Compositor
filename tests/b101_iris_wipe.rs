@@ -40,7 +40,11 @@ fn b101_iris_wipe() {
 
     t.heading("How far it reaches");
     let got = iris(50.0, MIDDLE, 10000.0, "on").bounds_expansion();
-    t.row("it grows the drawing's bounds by nothing", &got.to_string(), got == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = iris(50.0, MIDDLE, 8.0, "off");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -85,19 +89,34 @@ fn b101_iris_wipe() {
             ("completion 101", set(iris(101.0, MIDDLE, 0.0, "off"))),
             ("feather -1", set(iris(50.0, MIDDLE, -1.0, "off"))),
             ("feather 10001", set(iris(50.0, MIDDLE, 10001.0, "off"))),
-            ("centre 1001, 50", set(iris(50.0, [1001.0, 50.0], 0.0, "off"))),
+            (
+                "centre 1001, 50",
+                set(iris(50.0, [1001.0, 50.0], 0.0, "off")),
+            ),
             ("invert \"yes\"", set(iris(50.0, MIDDLE, 0.0, "yes"))),
             ("invert \"On\"", set(iris(50.0, MIDDLE, 0.0, "On"))),
-            ("completion keyed to 150", keys("completion", &[(0, &[0.0]), (4, &[150.0])])),
+            (
+                "completion keyed to 150",
+                keys("completion", &[(0, &[0.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_iris_001.json",
         vec![
-            ("every number at its bottom,", set(iris(0.0, [-1000.0, -1000.0], 0.0, "on"))),
-            ("every number at its top,", set(iris(100.0, [1000.0, 1000.0], 10000.0, "off"))),
-            ("completion keyed from 0 to 100", keys("completion", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "every number at its bottom,",
+                set(iris(0.0, [-1000.0, -1000.0], 0.0, "on")),
+            ),
+            (
+                "every number at its top,",
+                set(iris(100.0, [1000.0, 1000.0], 10000.0, "off")),
+            ),
+            (
+                "completion keyed from 0 to 100",
+                keys("completion", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 

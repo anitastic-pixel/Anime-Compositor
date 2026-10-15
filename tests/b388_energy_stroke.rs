@@ -17,7 +17,9 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN};
+use effect_table::{
+    both, changed, distance, median, on_card, reference, repo, time_passes, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -31,14 +33,17 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers.
 
-
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=53 {
         let file = format!("fx_energy_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -46,7 +51,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::EnergyStroke { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::EnergyStroke { .. })
+                });
             }
         }
         t.row(
@@ -64,9 +71,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -80,7 +96,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::EnergyStroke { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::EnergyStroke { .. })
+                });
                 t.row(
                     &format!("the reference shot, Energy Stroke {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -93,8 +111,17 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 
 /// `effects` (and `masks`) on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
-fn picture(dir: &Path, asset: &str, size: (usize, usize), masks: J, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+fn picture(
+    dir: &Path,
+    asset: &str,
+    size: (usize, usize),
+    masks: J,
+    effects: J,
+) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -107,18 +134,28 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), masks: J, effects: J) 
     layer["masks"] = masks;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
-
 
 /// The pixel at (x, y) of a picture at the street's size.
 fn at(bytes: &[u8], p: (usize, usize)) -> [u8; 4] {
     let i = (p.1 * TOWN.0 + p.0) * 4;
     [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
 }
-
 
 /// An Energy Stroke with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
@@ -135,7 +172,10 @@ fn fx(id: &str, p: &J) -> J {
 
 /// A closed mask of mode None through `points`, as the fixtures write one.
 fn mask(points: &[[f64; 2]]) -> J {
-    let points: Vec<J> = points.iter().map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]})).collect();
+    let points: Vec<J> = points
+        .iter()
+        .map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]}))
+        .collect();
     json!([{"name": "Mask 1", "enabled": true, "inverted": false, "mode": "none", "opacity": 1.0,
         "feather_px": 0.0, "expansion_px": 0.0, "path": {"base": {"points": points}, "keyframes": []}}])
 }
@@ -188,7 +228,11 @@ fn b388_energy_stroke() {
         ("fx_energy_053.json", "glow colour"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.to_lowercase().contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.to_lowercase().contains(want),
+        );
     }
     t.shape_refused(
         "fx_energy_001.json",
@@ -212,10 +256,26 @@ fn b388_energy_stroke() {
         &mut t,
         &mut gpu,
         &[
-            ("as added (a blue beam across the middle, added)", json!({}), 3),
-            ("orange, intensity 300, diagonal, transparent", json!({"glow_color": "#ff8020", "glow_intensity": 300, "core_start": [10, 10], "core_end": [90, 90], "composite": "transparent"}), 3),
-            ("distortion 20 at scale 80, flicker 60 at speed 40, black", json!({"distortion_amount": 20, "distortion_scale": 80, "flicker_amount": 60, "flicker_speed": 40, "composite": "black"}), 3),
-            ("tapered, End Offset keyed from 0 to 100", json!({"end_size": 0, "end_offset": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 100, "interp": "linear"}]}}), 3),
+            (
+                "as added (a blue beam across the middle, added)",
+                json!({}),
+                3,
+            ),
+            (
+                "orange, intensity 300, diagonal, transparent",
+                json!({"glow_color": "#ff8020", "glow_intensity": 300, "core_start": [10, 10], "core_end": [90, 90], "composite": "transparent"}),
+                3,
+            ),
+            (
+                "distortion 20 at scale 80, flicker 60 at speed 40, black",
+                json!({"distortion_amount": 20, "distortion_scale": 80, "flicker_amount": 60, "flicker_speed": 40, "composite": "black"}),
+                3,
+            ),
+            (
+                "tapered, End Offset keyed from 0 to 100",
+                json!({"end_size": 0, "end_offset": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 100, "interp": "linear"}]}}),
+                3,
+            ),
         ],
     );
 
@@ -227,23 +287,59 @@ fn b388_energy_stroke() {
     let frame = mask(&[[60.0, 40.0], [420.0, 40.0], [420.0, 230.0], [60.0, 230.0]]);
     for (name, masks, p, on) in [
         ("1_as_added", json!([]), json!({}), (240, 135)),
-        ("2_orange_saber", json!([]), json!({"glow_color": "#ff6010", "glow_intensity": 200, "core_size": 6, "glow_spread": 30, "core_start": [15, 80], "core_end": [85, 20]}), (240, 135)),
-        ("3_round_a_mask", frame.clone(), json!({"source": "masks", "glow_color": "#40ff80", "end_offset": 70, "core_size": 5, "glow_spread": 25}), (240, 40)),
-        ("4_wobble", frame, json!({"source": "masks", "distortion_amount": 8, "distortion_scale": 50, "glow_color": "#c040ff", "core_size": 5, "glow_spread": 25}), (240, 135)),
-        ("5_over_black", json!([]), json!({"composite": "black", "glow_spread": 60}), (240, 135)),
+        (
+            "2_orange_saber",
+            json!([]),
+            json!({"glow_color": "#ff6010", "glow_intensity": 200, "core_size": 6, "glow_spread": 30, "core_start": [15, 80], "core_end": [85, 20]}),
+            (240, 135),
+        ),
+        (
+            "3_round_a_mask",
+            frame.clone(),
+            json!({"source": "masks", "glow_color": "#40ff80", "end_offset": 70, "core_size": 5, "glow_spread": 25}),
+            (240, 40),
+        ),
+        (
+            "4_wobble",
+            frame,
+            json!({"source": "masks", "distortion_amount": 8, "distortion_scale": 50, "glow_color": "#c040ff", "core_size": 5, "glow_spread": 25}),
+            (240, 135),
+        ),
+        (
+            "5_over_black",
+            json!([]),
+            json!({"composite": "black", "glow_spread": 60}),
+            (240, 135),
+        ),
     ] {
-        let (bytes, said) = picture(&dir, "1_left.png", (480, 270), masks, json!([fx("pic", &p)]));
-        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        let (bytes, said) = picture(
+            &dir,
+            "1_left.png",
+            (480, 270),
+            masks,
+            json!([fx("pic", &p)]),
+        );
+        png_out::write_rgba(
+            &out.join(format!("{name}.png")),
+            480,
+            270,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
         let lit = at(&bytes, on);
         t.row(
             &format!("{name}.png: drawn without a warning, the street changed, lit at {on:?}"),
-            &format!("{} pixels changed; at {on:?} {lit:?}; warnings {said:?}", distance(&bytes, &street).1),
+            &format!(
+                "{} pixels changed; at {on:?} {lit:?}; warnings {said:?}",
+                distance(&bytes, &street).1
+            ),
             said.is_empty() && distance(&bytes, &street).1 > 0 && lit[3] > 0,
         );
     }
     t.finish("D-508_energy_stroke_table.md");
 }
-
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
 /// that changes every frame on its first three layers, so nothing is kept, then the effect,
@@ -271,22 +367,48 @@ fn b388_energy_stroke_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Energy Stroke as added", Some(json!({}))),
-        ("Noise, then Energy Stroke, orange, intensity 300, spread 120", Some(json!({"glow_color": "#ff8020", "glow_intensity": 300, "glow_spread": 120}))),
-        ("Noise, then Energy Stroke, distortion 20, flicker 60", Some(json!({"distortion_amount": 20, "distortion_scale": 80, "flicker_amount": 60}))),
+        (
+            "Noise, then Energy Stroke, orange, intensity 300, spread 120",
+            Some(json!({"glow_color": "#ff8020", "glow_intensity": 300, "glow_spread": 120})),
+        ),
+        (
+            "Noise, then Energy Stroke, distortion 20, flicker 60",
+            Some(json!({"distortion_amount": 20, "distortion_scale": 80, "flicker_amount": 60})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}u"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B388_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-388_timing_raw.md"));
+    let out = std::env::var("B388_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-388_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

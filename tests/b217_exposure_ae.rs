@@ -51,8 +51,20 @@ fn town(dir: &Path, parameters: Option<J>) -> (Vec<u8>, Vec<String>) {
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -69,7 +81,14 @@ fn b217_exposure_ae() {
 
     t.heading("FX-EXPAE-001 to 016 (document 25)");
     t.fixtures("expected_exposure_ae.json");
-    t.round_trips(&["fx_expae_004.json", "fx_expae_006.json", "fx_expae_010.json", "fx_expae_011.json", "fx_expae_015.json", "fx_expae_016.json"]);
+    t.round_trips(&[
+        "fx_expae_004.json",
+        "fx_expae_006.json",
+        "fx_expae_010.json",
+        "fx_expae_011.json",
+        "fx_expae_015.json",
+        "fx_expae_016.json",
+    ]);
     let saved = t.saved_parameters("fx_expae_001.json");
     t.row(
         "fx_expae_001.json, which writes no offset and no bypass, is saved without them",
@@ -84,17 +103,41 @@ fn b217_exposure_ae() {
     let dir = effect_table::repo("verification/D-335 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &effect_table::town()).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &effect_table::town(),
+    )
+    .unwrap();
     let mut shots = Vec::new();
     for (name, parameters, what) in [
         ("1_none.png", None, "no Exposure"),
-        ("2_exposure.png", Some(json!({"stops": 2.47})), "Exposure 2.47 alone, as before D-335"),
-        ("3_gamma.png", Some(json!({"stops": 2.47, "gamma": 1.69})), "Exposure 2.47 and Gamma Correction 1.69, tutorial 2's ground"),
-        ("4_offset.png", Some(json!({"stops": 0, "offset": -0.1})), "Offset -0.1 alone: the darks go black"),
+        (
+            "2_exposure.png",
+            Some(json!({"stops": 2.47})),
+            "Exposure 2.47 alone, as before D-335",
+        ),
+        (
+            "3_gamma.png",
+            Some(json!({"stops": 2.47, "gamma": 1.69})),
+            "Exposure 2.47 and Gamma Correction 1.69, tutorial 2's ground",
+        ),
+        (
+            "4_offset.png",
+            Some(json!({"stops": 0, "offset": -0.1})),
+            "Offset -0.1 alone: the darks go black",
+        ),
     ] {
         let (bytes, said) = town(&dir, parameters);
         png_out::write_rgba(&dir.join(name), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
-        t.row(&format!("{name}, {what}; draws cleanly"), &format!("{said:?}"), said.is_empty());
+        t.row(
+            &format!("{name}, {what}; draws cleanly"),
+            &format!("{said:?}"),
+            said.is_empty(),
+        );
         shots.push(bytes);
     }
     // A dark window and the road, which the gamma lifts more than the gain alone does.
@@ -104,9 +147,13 @@ fn b217_exposure_ae() {
         "On the road the gamma lifts the grey above Exposure alone, and Offset -0.1 darkens it",
         &format!(
             "red: none {}, Exposure {}, with gamma {}, offset {}",
-            at(&shots[0], road.0, road.1), at(&shots[1], road.0, road.1), at(&shots[2], road.0, road.1), at(&shots[3], road.0, road.1)
+            at(&shots[0], road.0, road.1),
+            at(&shots[1], road.0, road.1),
+            at(&shots[2], road.0, road.1),
+            at(&shots[3], road.0, road.1)
         ),
-        at(&shots[2], road.0, road.1) > at(&shots[1], road.0, road.1) && at(&shots[3], road.0, road.1) < at(&shots[0], road.0, road.1),
+        at(&shots[2], road.0, road.1) > at(&shots[1], road.0, road.1)
+            && at(&shots[3], road.0, road.1) < at(&shots[0], road.0, road.1),
     );
 
     t.finish("D-335_exposure_ae_table.md");

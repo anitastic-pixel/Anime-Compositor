@@ -647,7 +647,10 @@ fn shrink_factor(sigma: f64) -> usize {
 /// mean added (f^2 - 1) / 12; enlarging bilinearly adds f^2 / 6.
 fn small_sigma(sigma: f64, f: usize) -> f64 {
     let f = f as f64;
-    (sigma * sigma - (2.0 * f * f + 1.0) / 12.0 - f * f / 6.0).max(0.0).sqrt() / f
+    (sigma * sigma - (2.0 * f * f + 1.0) / 12.0 - f * f / 6.0)
+        .max(0.0)
+        .sqrt()
+        / f
 }
 
 /// B-164 (D-221): the small blur's weights. Document 21's kernel stops at its radius r, so the
@@ -12189,7 +12192,8 @@ fn flaredirt(@builtin(global_invocation_id) id: vec3<u32>) {
 /// D-545: Lens Dirt's numbers for FX_SHADER's `dirtlit`, the layer `w` by `h` grown by `g` on
 /// every side, the dirt centred on the layer as `soft_glow::Dirt::at` places it.
 fn dirt_k(d: &crate::soft_glow::Dirt, (w, h): (usize, usize), g: usize) -> [f64; 7] {
-    let corner = |n: usize, dn: usize| (g as isize + (n as isize - dn as isize).div_euclid(2)) as f64;
+    let corner =
+        |n: usize, dn: usize| (g as isize + (n as isize - dn as isize).div_euclid(2)) as f64;
     [
         f64::from(d.opacity),
         f64::from(d.inherit),
@@ -12440,7 +12444,10 @@ fn chain_shader() -> String {
     let parts: Vec<&str> = s.split("k[").collect();
     let mut s = parts[0].to_string();
     for (before, part) in parts.iter().zip(&parts[1..]) {
-        let word = before.chars().last().is_some_and(|c| c.is_alphanumeric() || c == '_');
+        let word = before
+            .chars()
+            .last()
+            .is_some_and(|c| c.is_alphanumeric() || c == '_');
         s.push_str(if word { "k[" } else { "k[KO + " });
         s.push_str(part);
     }
@@ -12465,7 +12472,10 @@ fn chain_shader() -> String {
             }
         }
         f.push_str(rest);
-        assert!(!f.contains("texture"), "B-172: {name} reads or writes a texture other than its pixel");
+        assert!(
+            !f.contains("texture"),
+            "B-172: {name} reads or writes a texture other than its pixel"
+        );
         s.replace_range(start..end, &f);
     }
     s + "
@@ -12600,7 +12610,11 @@ fn wraps(layer: &crate::render::LayerDraw) -> Vec<(f64, f64, bool)> {
         .iter()
         .filter(|i| i.enabled && i.is_valid())
         .filter_map(|i| match &i.effect {
-            crate::effects::Effect::LightWrap { width, intensity, blend } => Some((*width, *intensity, blend == "add")),
+            crate::effects::Effect::LightWrap {
+                width,
+                intensity,
+                blend,
+            } => Some((*width, *intensity, blend == "add")),
             _ => None,
         })
         .collect()
@@ -12720,7 +12734,10 @@ struct Stored {
     /// settings stay the same, with the picture after each, so a run whose last effect alone
     /// changes starts again from the one before it.
     /// B-172: none after an effect a run drawn in one pass went on from.
-    applied: Option<(Vec<OnCard>, Vec<Option<(wgpu::TextureView, (usize, usize))>>)>,
+    applied: Option<(
+        Vec<OnCard>,
+        Vec<Option<(wgpu::TextureView, (usize, usize))>>,
+    )>,
     /// B-173 (D-246): the last picture of each run drawn on it before `applied`, with the frame
     /// that last used it, so a run whose settings move from frame to frame is not drawn again
     /// when a frame comes round again, as the CPU's effect cache keeps each frame's.
@@ -12875,45 +12892,45 @@ fn on_cpu(severity: Severity, message: String, detail: String) -> Diagnostic {
 macro_rules! not_fx {
     () => {
         crate::effects::Effect::AutoTone { .. }
-        | crate::effects::Effect::Bloom { .. }
-        | crate::effects::Effect::CardDance { .. }
-        | crate::effects::Effect::Caustics { .. }
-        | crate::effects::Effect::CcRainfall { .. }
-        | crate::effects::Effect::CcWideTime { .. }
-        | crate::effects::Effect::ColorStabilizer { .. }
-        | crate::effects::Effect::Compressor { .. }
-        | crate::effects::Effect::DepthOfField { .. }
-        | crate::effects::Effect::DirectionalBlur { .. }
-        | crate::effects::Effect::Distortion { .. }
-        | crate::effects::Effect::Echo { .. }
-        | crate::effects::Effect::FastZoomBlur { .. }
-        | crate::effects::Effect::ForceMotionBlur { .. }
-        | crate::effects::Effect::GaussianBlur { .. }
-        | crate::effects::Effect::GaussianBlurLegacy { .. }
-        | crate::effects::Effect::Glow { .. }
-        | crate::effects::Effect::InnerOuterKey { .. }
-        | crate::effects::Effect::Kaleidoscope { .. }
-        | crate::effects::Effect::KeyCleaner { .. }
-        | crate::effects::Effect::LightWrap { .. }
-        | crate::effects::Effect::MomentMap { .. }
-        | crate::effects::Effect::NoiseGate { .. }
-        | crate::effects::Effect::PixelMotionBlur { .. }
-        | crate::effects::Effect::PosterizeTime { .. }
-        | crate::effects::Effect::RadialBlur { .. }
-        | crate::effects::Effect::ReduceInterlaceFlicker { .. }
-        | crate::effects::Effect::RefineMatte { .. }
-        | crate::effects::Effect::RollingShutterRepair { .. }
-        | crate::effects::Effect::Shatter { .. }
-        | crate::effects::Effect::SpillSuppressor { .. }
-        | crate::effects::Effect::SpinZoomBlur { .. }
-        | crate::effects::Effect::SpreadTones { .. }
-        | crate::effects::Effect::TextAnimator { .. }
-        | crate::effects::Effect::TimeDifference { .. }
-        | crate::effects::Effect::Timewarp { .. }
-        | crate::effects::Effect::TurbulentNoise { .. }
-        | crate::effects::Effect::Unsupported { .. }
-        | crate::effects::Effect::WarpStabilizer { .. }
-        | crate::effects::Effect::WaveWorld { .. }
+            | crate::effects::Effect::Bloom { .. }
+            | crate::effects::Effect::CardDance { .. }
+            | crate::effects::Effect::Caustics { .. }
+            | crate::effects::Effect::CcRainfall { .. }
+            | crate::effects::Effect::CcWideTime { .. }
+            | crate::effects::Effect::ColorStabilizer { .. }
+            | crate::effects::Effect::Compressor { .. }
+            | crate::effects::Effect::DepthOfField { .. }
+            | crate::effects::Effect::DirectionalBlur { .. }
+            | crate::effects::Effect::Distortion { .. }
+            | crate::effects::Effect::Echo { .. }
+            | crate::effects::Effect::FastZoomBlur { .. }
+            | crate::effects::Effect::ForceMotionBlur { .. }
+            | crate::effects::Effect::GaussianBlur { .. }
+            | crate::effects::Effect::GaussianBlurLegacy { .. }
+            | crate::effects::Effect::Glow { .. }
+            | crate::effects::Effect::InnerOuterKey { .. }
+            | crate::effects::Effect::Kaleidoscope { .. }
+            | crate::effects::Effect::KeyCleaner { .. }
+            | crate::effects::Effect::LightWrap { .. }
+            | crate::effects::Effect::MomentMap { .. }
+            | crate::effects::Effect::NoiseGate { .. }
+            | crate::effects::Effect::PixelMotionBlur { .. }
+            | crate::effects::Effect::PosterizeTime { .. }
+            | crate::effects::Effect::RadialBlur { .. }
+            | crate::effects::Effect::ReduceInterlaceFlicker { .. }
+            | crate::effects::Effect::RefineMatte { .. }
+            | crate::effects::Effect::RollingShutterRepair { .. }
+            | crate::effects::Effect::Shatter { .. }
+            | crate::effects::Effect::SpillSuppressor { .. }
+            | crate::effects::Effect::SpinZoomBlur { .. }
+            | crate::effects::Effect::SpreadTones { .. }
+            | crate::effects::Effect::TextAnimator { .. }
+            | crate::effects::Effect::TimeDifference { .. }
+            | crate::effects::Effect::Timewarp { .. }
+            | crate::effects::Effect::TurbulentNoise { .. }
+            | crate::effects::Effect::Unsupported { .. }
+            | crate::effects::Effect::WarpStabilizer { .. }
+            | crate::effects::Effect::WaveWorld { .. }
     };
 }
 
@@ -12979,11 +12996,20 @@ impl Gpu {
         });
         let layer_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("B-44 layer"),
-            entries: &[entry(0, uniform()), entry(1, texture()), entry(2, texture()), entry(3, storage(false))],
+            entries: &[
+                entry(0, uniform()),
+                entry(1, texture()),
+                entry(2, texture()),
+                entry(3, storage(false)),
+            ],
         });
         let encode_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("B-44 encode"),
-            entries: &[entry(0, uniform()), entry(1, storage(true)), entry(2, storage(false))],
+            entries: &[
+                entry(0, uniform()),
+                entry(1, storage(true)),
+                entry(2, storage(false)),
+            ],
         });
         let unpack_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("B-76 unpack"),
@@ -13004,21 +13030,26 @@ impl Gpu {
                 entry(3, storage(true)),
             ],
         });
-        let pipeline_in = |module: &wgpu::ShaderModule, layout: &wgpu::BindGroupLayout, entry_point: &str| {
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(entry_point),
-                layout: Some(&device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: None,
-                    bind_group_layouts: &[layout],
-                    push_constant_ranges: &[],
-                })),
-                module,
-                entry_point: Some(entry_point),
-                compilation_options: Default::default(),
-                cache: None,
-            })
+        let pipeline_in =
+            |module: &wgpu::ShaderModule, layout: &wgpu::BindGroupLayout, entry_point: &str| {
+                device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some(entry_point),
+                    layout: Some(
+                        &device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                            label: None,
+                            bind_group_layouts: &[layout],
+                            push_constant_ranges: &[],
+                        }),
+                    ),
+                    module,
+                    entry_point: Some(entry_point),
+                    compilation_options: Default::default(),
+                    cache: None,
+                })
+            };
+        let pipeline = |layout: &wgpu::BindGroupLayout, entry_point: &str| {
+            pipeline_in(&module, layout, entry_point)
         };
-        let pipeline = |layout: &wgpu::BindGroupLayout, entry_point: &str| pipeline_in(&module, layout, entry_point);
         let bloom = (!f64.is_empty()).then(|| {
             let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("B-47"),
@@ -13028,9 +13059,23 @@ impl Gpu {
             let pass = |entry_point: &str, bindings: &[u32]| {
                 let entries: Vec<_> = bindings
                     .iter()
-                    .map(|&b| entry(b, [uniform(), texture(), storage_texture(), storage(false), storage(true)][b as usize]))
+                    .map(|&b| {
+                        entry(
+                            b,
+                            [
+                                uniform(),
+                                texture(),
+                                storage_texture(),
+                                storage(false),
+                                storage(true),
+                            ][b as usize],
+                        )
+                    })
                     .collect();
-                let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries: &entries });
+                let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some(entry_point),
+                    entries: &entries,
+                });
                 (pipeline_in(&module, &layout, entry_point), layout)
             };
             BloomPasses {
@@ -13051,9 +13096,28 @@ impl Gpu {
                 source: wgpu::ShaderSource::Wgsl(FX_SHADER.into()),
             });
             let pass = |entry_point: &str, bindings: &[u32]| {
-                let types = [uniform(), texture(), storage_texture(), storage(true), texture(), storage(false), storage(false), storage(false), storage(false), storage(false), texture(), storage(false)];
-                let entries: Vec<_> = bindings.iter().map(|&b| entry(b, types[b as usize])).collect();
-                let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries: &entries });
+                let types = [
+                    uniform(),
+                    texture(),
+                    storage_texture(),
+                    storage(true),
+                    texture(),
+                    storage(false),
+                    storage(false),
+                    storage(false),
+                    storage(false),
+                    storage(false),
+                    texture(),
+                    storage(false),
+                ];
+                let entries: Vec<_> = bindings
+                    .iter()
+                    .map(|&b| entry(b, types[b as usize]))
+                    .collect();
+                let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some(entry_point),
+                    entries: &entries,
+                });
                 (pipeline_in(&module, &layout, entry_point), layout)
             };
             FxPasses {
@@ -13198,25 +13262,52 @@ impl Gpu {
                         label: Some("B-172"),
                         source: wgpu::ShaderSource::Wgsl(chain_shader().into()),
                     });
-                    let entries = [entry(0, uniform()), entry(1, texture()), entry(2, storage_texture()), entry(3, storage(true)), entry(12, storage(true))];
-                    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("chain"), entries: &entries });
+                    let entries = [
+                        entry(0, uniform()),
+                        entry(1, texture()),
+                        entry(2, storage_texture()),
+                        entry(3, storage(true)),
+                        entry(12, storage(true)),
+                    ];
+                    let layout =
+                        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            label: Some("chain"),
+                            entries: &entries,
+                        });
                     (pipeline_in(&module, &layout, "chain"), layout)
                 },
             }
         });
-        let (layer, encode) = (pipeline(&layer_layout, "layer"), pipeline(&encode_layout, "encode"));
+        let (layer, encode) = (
+            pipeline(&layer_layout, "layer"),
+            pipeline(&encode_layout, "encode"),
+        );
         let radial = pipeline(&radial_layout, "radial");
         let moment = pipeline(&layer_layout, "moment");
         let unpack = pipeline(&unpack_layout, "unpack");
         let own = |entry_point: &str, entries: &[wgpu::BindGroupLayoutEntry]| {
-            let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some(entry_point), entries });
+            let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some(entry_point),
+                entries,
+            });
             (pipeline(&layout, entry_point), layout)
         };
-        let take = own("take", &[entry(0, uniform()), entry(1, storage(true)), entry(3, storage_texture())]);
+        let take = own(
+            "take",
+            &[
+                entry(0, uniform()),
+                entry(1, storage(true)),
+                entry(3, storage_texture()),
+            ],
+        );
         let no_matte = device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("B-44 no matte"),
-                size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+                size: wgpu::Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -13233,7 +13324,10 @@ impl Gpu {
             info.driver,
             info.driver_info,
             info.backend,
-            memory.map_or("its memory not reported".into(), |m| format!("{:.1} GB of its own memory", m as f64 / 1e9))
+            memory.map_or("its memory not reported".into(), |m| format!(
+                "{:.1} GB of its own memory",
+                m as f64 / 1e9
+            ))
         );
         Ok(Gpu {
             instance,
@@ -13285,13 +13379,16 @@ impl Gpu {
     /// D-105: what the card may hold when the memory setting is Automatic: half its memory, as
     /// B-44b set it.
     pub fn automatic_budget(&self) -> usize {
-        self.memory.map_or(DEFAULT_BUDGET_BYTES, |m| (m / 2) as usize)
+        self.memory
+            .map_or(DEFAULT_BUDGET_BYTES, |m| (m / 2) as usize)
     }
 
     /// D-105: the most a Custom setting may give the card: 85% of its memory, so the frame's own
     /// buffers, the window and every other program keep the rest.
     pub fn largest_budget(&self) -> usize {
-        self.memory.map_or(DEFAULT_BUDGET_BYTES, |m| (m / 20 * 17) as usize).max(DEFAULT_BUDGET_BYTES)
+        self.memory
+            .map_or(DEFAULT_BUDGET_BYTES, |m| (m / 20 * 17) as usize)
+            .max(DEFAULT_BUDGET_BYTES)
     }
 
     /// How many frames the card has failed since it was opened (B-48): not the ones it refused,
@@ -13303,9 +13400,15 @@ impl Gpu {
     /// Bytes of drawings the card holds now (B-48), and of textures kept for new ones (B-153).
     pub fn held(&self) -> usize {
         let spare = |t: &wgpu::Texture| {
-            (t.width() * t.height()) as usize * if t.format() == wgpu::TextureFormat::Rgba32Float { 16 } else { BYTES_PER_PIXEL }
+            (t.width() * t.height()) as usize
+                * if t.format() == wgpu::TextureFormat::Rgba32Float {
+                    16
+                } else {
+                    BYTES_PER_PIXEL
+                }
         };
-        self.store.iter().map(|s| s.bytes).sum::<usize>() + self.spare.iter().map(spare).sum::<usize>()
+        self.store.iter().map(|s| s.bytes).sum::<usize>()
+            + self.spare.iter().map(spare).sum::<usize>()
     }
 
     /// How many drawings have been sent to the card since it was opened.
@@ -13349,7 +13452,13 @@ impl Gpu {
 
     /// `source` on the card, sending it first if it is not there. The view itself, not a place
     /// in the store, since sending one drawing can evict another this frame has not yet drawn.
-    fn resident(&mut self, uploads: &mut wgpu::CommandEncoder, source: &Arc<WorkingBuffer>, name: Option<Name>, wide: bool) -> wgpu::TextureView {
+    fn resident(
+        &mut self,
+        uploads: &mut wgpu::CommandEncoder,
+        source: &Arc<WorkingBuffer>,
+        name: Option<Name>,
+        wide: bool,
+    ) -> wgpu::TextureView {
         // A drawing the CPU still holds is found by its address; one it has let go of, by the
         // CPU cache's name for it.
         let found = self.store.iter_mut().find(|s| {
@@ -13364,16 +13473,30 @@ impl Gpu {
         }
         // A drawing nothing holds and nothing names can never be asked for again. B-153: its
         // texture is kept, within the budget, for a new drawing of its size.
-        let (gone, kept): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut self.store).into_iter().partition(|s| s.name.is_none() && s.held.strong_count() == 0);
+        let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.store)
+            .into_iter()
+            .partition(|s| s.name.is_none() && s.held.strong_count() == 0);
         self.store = kept;
-        self.spare.extend(gone.into_iter().map(|s| s.view.texture().clone()));
+        self.spare
+            .extend(gone.into_iter().map(|s| s.view.texture().clone()));
         let (width, height) = (source.width(), source.height());
         let per_pixel = if wide { 16 } else { BYTES_PER_PIXEL };
         let bytes = width * height * per_pixel;
-        let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
-        let format = if wide { wgpu::TextureFormat::Rgba32Float } else { wgpu::TextureFormat::Rgba16Float };
-        let spare = self.spare.iter().position(|t| t.size() == size && t.format() == format).map(|i| self.spare.remove(i));
+        let size = wgpu::Extent3d {
+            width: width as u32,
+            height: height as u32,
+            depth_or_array_layers: 1,
+        };
+        let format = if wide {
+            wgpu::TextureFormat::Rgba32Float
+        } else {
+            wgpu::TextureFormat::Rgba16Float
+        };
+        let spare = self
+            .spare
+            .iter()
+            .position(|t| t.size() == size && t.format() == format)
+            .map(|i| self.spare.remove(i));
         // Spare textures first, the oldest first; then drawings, least recently used first,
         // never one this frame draws with. A frame that needs more than the budget still gets
         // every drawing it needs.
@@ -13445,14 +13568,27 @@ impl Gpu {
         uploads.copy_buffer_to_texture(
             wgpu::TexelCopyBufferInfo {
                 buffer: &staging,
-                layout: wgpu::TexelCopyBufferLayout { offset, bytes_per_row: Some(row as u32), rows_per_image: None },
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset,
+                    bytes_per_row: Some(row as u32),
+                    rows_per_image: None,
+                },
             },
             texture.as_image_copy(),
             size,
         );
         self.sent += 1;
         let view = texture.create_view(&Default::default());
-        self.store.push(Stored { held: Arc::downgrade(source), name, view: view.clone(), bytes, used: self.frame, applied: None, before: Vec::new(), wide });
+        self.store.push(Stored {
+            held: Arc::downgrade(source),
+            name,
+            view: view.clone(),
+            bytes,
+            used: self.frame,
+            applied: None,
+            before: Vec::new(),
+            wide,
+        });
         view
     }
 
@@ -13467,8 +13603,13 @@ impl Gpu {
         if !s.open {
             // Only once the frame that last copied from it is done.
             let (tell, told) = std::sync::mpsc::channel();
-            buffer.slice(..).map_async(wgpu::MapMode::Write, move |r| drop(tell.send(r)));
-            let wait = s.after.clone().map_or(wgpu::PollType::Wait, wgpu::PollType::WaitForSubmissionIndex);
+            buffer
+                .slice(..)
+                .map_async(wgpu::MapMode::Write, move |r| drop(tell.send(r)));
+            let wait = s
+                .after
+                .clone()
+                .map_or(wgpu::PollType::Wait, wgpu::PollType::WaitForSubmissionIndex);
             let opened = self.device.poll(wait).is_ok() && told.recv().is_ok_and(|r| r.is_ok());
             if !opened {
                 // Never written again: the next frame makes another.
@@ -13485,13 +13626,25 @@ impl Gpu {
     /// already made of it with the same settings is reused, and so is the kept picture after the
     /// effects a run begins with unchanged; what to dispatch for the rest is added to `steps`, to
     /// run before the layers.
-    fn applied(&mut self, steps: &mut Vec<Step>, source: &Arc<WorkingBuffer>, still: &wgpu::TextureView, effects: &[OnCard]) -> wgpu::TextureView {
-        let stored = self.store.iter().position(|s| s.used == self.frame && &s.view == still);
+    fn applied(
+        &mut self,
+        steps: &mut Vec<Step>,
+        source: &Arc<WorkingBuffer>,
+        still: &wgpu::TextureView,
+        effects: &[OnCard],
+    ) -> wgpu::TextureView {
+        let stored = self
+            .store
+            .iter()
+            .position(|s| s.used == self.frame && &s.view == still);
         let (mut views, mut unchanged) = (Vec::new(), 0);
         if let Some((kept, after)) = stored.and_then(|i| self.store[i].applied.as_ref()) {
             unchanged = kept.iter().zip(effects).take_while(|(a, b)| a == b).count();
             // B-172: back to the last picture kept, when a run drawn in one pass left none.
-            let same = after[..unchanged].iter().rposition(Option::is_some).map_or(0, |i| i + 1);
+            let same = after[..unchanged]
+                .iter()
+                .rposition(Option::is_some)
+                .map_or(0, |i| i + 1);
             views.extend_from_slice(&after[..same]);
         }
         if let Some(Some((last, _))) = views.last().filter(|_| views.len() == effects.len()) {
@@ -13499,20 +13652,38 @@ impl Gpu {
         }
         // B-173: the whole run drawn on it before with these very settings.
         let frame = self.frame;
-        if let Some(b) = stored.and_then(|i| self.store[i].before.iter_mut().find(|b| b.0 == effects)) {
+        if let Some(b) =
+            stored.and_then(|i| self.store[i].before.iter_mut().find(|b| b.0 == effects))
+        {
             b.3 = frame;
             return b.1.clone();
         }
-        let from = views.last().cloned().flatten().unwrap_or((still.clone(), (source.width(), source.height())));
+        let from = views
+            .last()
+            .cloned()
+            .flatten()
+            .unwrap_or((still.clone(), (source.width(), source.height())));
         let done = views.len();
-        self.run(steps, source, from, &effects[done..], unchanged.saturating_sub(done), &mut views);
-        let moved = views.last().cloned().flatten().expect("the last effect's picture").0;
+        self.run(
+            steps,
+            source,
+            from,
+            &effects[done..],
+            unchanged.saturating_sub(done),
+            &mut views,
+        );
+        let moved = views
+            .last()
+            .cloned()
+            .flatten()
+            .expect("the last effect's picture")
+            .0;
         if let Some(i) = stored {
             let s = &mut self.store[i];
             if let Some((old, after)) = s.applied.take() {
                 if let Some(Some((view, size))) = after.last() {
-                    s.before.push((old, view.clone(), *size, frame));                    // Out of the working textures while kept, so the passes do not look it over
-                    // every time they want one.
+                    s.before.push((old, view.clone(), *size, frame)); // Out of the working textures while kept, so the passes do not look it over
+                                                                      // every time they want one.
                     if let Some(working) = &self.working {
                         working.borrow_mut().retain(|(t, _)| t != view.texture());
                     }
@@ -13528,7 +13699,12 @@ impl Gpu {
     /// before are let go of, while all of them together hold more than a quarter of the budget.
     fn forget_before(&mut self, i: usize) {
         let bytes = |(w, h): (usize, usize)| w * h * 16;
-        let mut total: usize = self.store.iter().flat_map(|s| &s.before).map(|b| bytes(b.2)).sum();
+        let mut total: usize = self
+            .store
+            .iter()
+            .flat_map(|s| &s.before)
+            .map(|b| bytes(b.2))
+            .sum();
         while total > self.budget / 4 {
             let oldest = self
                 .store
@@ -13543,8 +13719,16 @@ impl Gpu {
             // Back among the working textures for the next frame's passes, unless another run
             // still shows it.
             let t = view.texture();
-            let shown = self.keeps(t) || self.store.iter().any(|s| s.before.iter().any(|b| b.1.texture() == t));
-            if let Some(working) = self.working.as_ref().filter(|_| !shown && t.usage().contains(wgpu::TextureUsages::STORAGE_BINDING)) {
+            let shown = self.keeps(t)
+                || self
+                    .store
+                    .iter()
+                    .any(|s| s.before.iter().any(|b| b.1.texture() == t));
+            if let Some(working) = self
+                .working
+                .as_ref()
+                .filter(|_| !shown && t.usage().contains(wgpu::TextureUsages::STORAGE_BINDING))
+            {
                 working.borrow_mut().push((t.clone(), self.frame));
             }
             self.count(i);
@@ -13556,10 +13740,17 @@ impl Gpu {
     /// effects.
     fn count(&mut self, i: usize) {
         let s = &mut self.store[i];
-        let kept: usize = s.applied.iter().flat_map(|(_, after)| after.iter().flatten()).map(|(_, (w, h))| w * h * 16).sum();
+        let kept: usize = s
+            .applied
+            .iter()
+            .flat_map(|(_, after)| after.iter().flatten())
+            .map(|(_, (w, h))| w * h * 16)
+            .sum();
         let before: usize = s.before.iter().map(|b| b.2 .0 * b.2 .1 * 16).sum();
         let own = s.view.texture();
-        s.bytes = (own.width() * own.height()) as usize * if s.wide { 16 } else { BYTES_PER_PIXEL } + kept + before;
+        s.bytes = (own.width() * own.height()) as usize * if s.wide { 16 } else { BYTES_PER_PIXEL }
+            + kept
+            + before;
     }
 
     /// `effects` run one after another from `moved`, a drawing `size`, each on what the one before
@@ -13576,7 +13767,9 @@ impl Gpu {
         split: usize,
         views: &mut Vec<Option<(wgpu::TextureView, (usize, usize))>>,
     ) {
-        let one = |e: &OnCard| self.fused && matches!(e.unmixed(), OnCard::Fx(f) if one_pixel(&f.instance.effect));
+        let one = |e: &OnCard| {
+            self.fused && matches!(e.unmixed(), OnCard::Fx(f) if one_pixel(&f.instance.effect))
+        };
         let mut i = 0;
         while i < effects.len() {
             let mut n = effects[i..].iter().take_while(|e| one(e)).count();
@@ -13586,18 +13779,27 @@ impl Gpu {
             if n >= 2 {
                 let staged = RefCell::new(Some(Vec::new()));
                 for effect in &effects[i..i + n] {
-                    let OnCard::Fx(f) = effect.unmixed() else { unreachable!("a run is of colour effects") };
+                    let OnCard::Fx(f) = effect.unmixed() else {
+                        unreachable!("a run is of colour effects")
+                    };
                     let from = staged.borrow().as_ref().map_or(0, Vec::len);
                     self.fx(steps, source, size, &moved, f, &staged);
                     // B-221: its Mix, on what it staged.
                     if let OnCard::Mix(_, mix) = effect {
-                        for stage in &mut staged.borrow_mut().as_mut().expect("a run's stages")[from..] {
+                        for stage in
+                            &mut staged.borrow_mut().as_mut().expect("a run's stages")[from..]
+                        {
                             stage.3 = (mix / 100.0) as f32;
                         }
                     }
                     views.push(None);
                 }
-                moved = self.chain(steps, &moved, size, &staged.into_inner().unwrap_or_default());
+                moved = self.chain(
+                    steps,
+                    &moved,
+                    size,
+                    &staged.into_inner().unwrap_or_default(),
+                );
                 *views.last_mut().expect("the run's last") = Some((moved.clone(), size));
                 i += n;
                 continue;
@@ -13615,10 +13817,24 @@ impl Gpu {
             // B-221 (D-340): what it was given laid back by its Mix, where it was, as `mix_back`.
             if let OnCard::Mix(_, mix) = &effects[i] {
                 let passes = self.fx.as_ref().expect("a Mix only with the passes");
-                let at = FxParams { ox: ((size.0 - given.1 .0) / 2) as i32, oy: ((size.1 - given.1 .1) / 2) as i32, ..Default::default() };
+                let at = FxParams {
+                    ox: ((size.0 - given.1 .0) / 2) as i32,
+                    oy: ((size.1 - given.1 .1) / 2) as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("B-221", size.0, size.1);
                 let tiles = ((size.0 as u32).div_ceil(16), (size.1 as u32).div_ceil(16));
-                self.fx_step(steps, &passes.mix_back, at, Some(&moved), Some(&out), Some(&[mix / 100.0]), Some(&given.0), [None; 4], tiles);
+                self.fx_step(
+                    steps,
+                    &passes.mix_back,
+                    at,
+                    Some(&moved),
+                    Some(&out),
+                    Some(&[mix / 100.0]),
+                    Some(&given.0),
+                    [None; 4],
+                    tiles,
+                );
                 moved = out;
             }
             views.push(Some((moved.clone(), size)));
@@ -13628,7 +13844,13 @@ impl Gpu {
 
     /// B-172: a run of colour effects, `staged` by [`Gpu::fx`], drawn on `still`, a drawing `w` by
     /// `h`, in one pass into a texture of its own, which is returned.
-    fn chain(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), staged: &[Staged]) -> wgpu::TextureView {
+    fn chain(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        staged: &[Staged],
+    ) -> wgpu::TextureView {
         let (pipeline, layout) = &self.fx.as_ref().expect("a run only with the passes").chain;
         let (mut table, mut k) = (Vec::<u32>::new(), Vec::<f64>::new());
         for (which, p, settings, mix) in staged {
@@ -13638,35 +13860,80 @@ impl Gpu {
             k.extend(settings);
         }
         let init = |label, contents: &[u8], usage| {
-            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(label),
+                    contents,
+                    usage,
+                })
         };
-        let run = FxParams { count: staged.len() as u32, ..Default::default() };
-        let numbers = init("B-172 run", bytemuck::bytes_of(&run), wgpu::BufferUsages::UNIFORM);
-        let k = init("B-172 settings", bytemuck::cast_slice(&k), wgpu::BufferUsages::STORAGE);
-        let table = init("B-172 effects", bytemuck::cast_slice(&table), wgpu::BufferUsages::STORAGE);
+        let run = FxParams {
+            count: staged.len() as u32,
+            ..Default::default()
+        };
+        let numbers = init(
+            "B-172 run",
+            bytemuck::bytes_of(&run),
+            wgpu::BufferUsages::UNIFORM,
+        );
+        let k = init(
+            "B-172 settings",
+            bytemuck::cast_slice(&k),
+            wgpu::BufferUsages::STORAGE,
+        );
+        let table = init(
+            "B-172 effects",
+            bytemuck::cast_slice(&table),
+            wgpu::BufferUsages::STORAGE,
+        );
         let out = self.scratch("B-172", w, h);
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(still) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&out) },
-                wgpu::BindGroupEntry { binding: 3, resource: k.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 12, resource: table.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: numbers.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(still),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&out),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: k.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 12,
+                    resource: table.as_entire_binding(),
+                },
             ],
         });
-        steps.push((pipeline.clone(), group, ((w as u32).div_ceil(16), (h as u32).div_ceil(16))));
+        steps.push((
+            pipeline.clone(),
+            group,
+            ((w as u32).div_ceil(16), (h as u32).div_ceil(16)),
+        ));
         out
     }
 
     /// A texture the passes write and the layers read, `width` by `height`. B-153: one an earlier
     /// frame used and nothing kept, cleared first, when there is one.
     fn scratch(&self, label: &str, width: usize, height: usize) -> wgpu::TextureView {
-        let size = wgpu::Extent3d { width: width as u32, height: height as u32, depth_or_array_layers: 1 };
+        let size = wgpu::Extent3d {
+            width: width as u32,
+            height: height as u32,
+            depth_or_array_layers: 1,
+        };
         if let Some(working) = &self.working {
             let mut working = working.borrow_mut();
-            let free = working.iter_mut().find(|(t, used)| *used < self.frame && t.size() == size && !self.keeps(t));
+            let free = working
+                .iter_mut()
+                .find(|(t, used)| *used < self.frame && t.size() == size && !self.keeps(t));
             if let Some((texture, used)) = free {
                 *used = self.frame;
                 self.to_clear.borrow_mut().push(texture.clone());
@@ -13692,38 +13959,87 @@ impl Gpu {
 
     /// B-153: whether `texture` holds an effect's result a drawing keeps for later frames.
     fn keeps(&self, texture: &wgpu::Texture) -> bool {
-        self.store.iter().any(|s| s.applied.as_ref().is_some_and(|(_, after)| after.iter().flatten().any(|(v, _)| v.texture() == texture)))
+        self.store.iter().any(|s| {
+            s.applied.as_ref().is_some_and(|(_, after)| {
+                after.iter().flatten().any(|(v, _)| v.texture() == texture)
+            })
+        })
     }
 
     /// `blurs::radial_blur` of `still`, `width` by `height`, into a texture of its own, which is
     /// returned. What to dispatch is added to `steps`, to run before the layers.
-    fn blur(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (width, height): (usize, usize), r: Radial) -> wgpu::TextureView {
+    fn blur(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        (width, height): (usize, usize),
+        r: Radial,
+    ) -> wgpu::TextureView {
         let moved = self.scratch("B-46 radial", width, height);
-        let turns: Vec<[f32; 2]> = crate::blurs::radial_turns(r.spin, r.amount, r.sweep.map(|s| s.from))
-            .into_iter()
-            .flatten()
-            .map(|(a, b)| [a as f32, b as f32])
-            .collect();
+        let turns: Vec<[f32; 2]> =
+            crate::blurs::radial_turns(r.spin, r.amount, r.sweep.map(|s| s.from))
+                .into_iter()
+                .flatten()
+                .map(|(a, b)| [a as f32, b as f32])
+                .collect();
         let init = |label, contents: &[u8], usage| {
-            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(label),
+                    contents,
+                    usage,
+                })
         };
         let f = |v: f64| (v as f32).to_bits();
         // D-361/D-362: the path is as long whichever way it runs.
         let (weigh, density) = r.sweep.map_or((0, 1.0), |s| (s.weigh as u32, s.density));
-        let settings = [f(r.center.0), f(r.center.1), f(r.amount.abs()), r.spin as u32, r.repeat as u32, weigh, f(density), 0];
-        let settings = init("B-46 settings", bytemuck::cast_slice(&settings), wgpu::BufferUsages::UNIFORM);
-        let turns = init("B-46 turns", bytemuck::cast_slice(&turns), wgpu::BufferUsages::STORAGE);
+        let settings = [
+            f(r.center.0),
+            f(r.center.1),
+            f(r.amount.abs()),
+            r.spin as u32,
+            r.repeat as u32,
+            weigh,
+            f(density),
+            0,
+        ];
+        let settings = init(
+            "B-46 settings",
+            bytemuck::cast_slice(&settings),
+            wgpu::BufferUsages::UNIFORM,
+        );
+        let turns = init(
+            "B-46 turns",
+            bytemuck::cast_slice(&turns),
+            wgpu::BufferUsages::STORAGE,
+        );
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.radial_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: settings.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(still) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&moved) },
-                wgpu::BindGroupEntry { binding: 3, resource: turns.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: settings.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(still),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&moved),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: turns.as_entire_binding(),
+                },
             ],
         });
-        steps.push((self.radial.clone(), group, ((width as u32).div_ceil(16), (height as u32).div_ceil(16))));
+        steps.push((
+            self.radial.clone(),
+            group,
+            ((width as u32).div_ceil(16), (height as u32).div_ceil(16)),
+        ));
         moved
     }
 
@@ -13741,45 +14057,89 @@ impl Gpu {
         weights: Option<&wgpu::Buffer>,
         groups: (u32, u32),
     ) {
-        let numbers = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("B-47 numbers"),
-            contents: bytemuck::bytes_of(&p),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+        let numbers = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-47 numbers"),
+                contents: bytemuck::bytes_of(&p),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
         let mut entries = vec![
-            wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(input) },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: numbers.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(input),
+            },
         ];
         if let Some(o) = output {
-            entries.push(wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(o) });
+            entries.push(wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(o),
+            });
         }
         if let Some(h) = halo {
-            entries.push(wgpu::BindGroupEntry { binding: 3, resource: h.as_entire_binding() });
+            entries.push(wgpu::BindGroupEntry {
+                binding: 3,
+                resource: h.as_entire_binding(),
+            });
         }
         if let Some(w) = weights {
-            entries.push(wgpu::BindGroupEntry { binding: 4, resource: w.as_entire_binding() });
+            entries.push(wgpu::BindGroupEntry {
+                binding: 4,
+                resource: w.as_entire_binding(),
+            });
         }
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout, entries: &entries });
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &entries,
+        });
         steps.push((pipeline.clone(), group, groups));
     }
 
     /// B-47: `bloom::bloom` of `still`, `width` by `height`, into a texture of its own, grown by
     /// the bloom's reach, which is returned with its size. What to dispatch is added to `steps`.
-    fn bloom(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), b: Bloom) -> (wgpu::TextureView, (usize, usize)) {
-        let passes = self.bloom.as_ref().expect("a Bloom is refused without the passes");
+    fn bloom(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        b: Bloom,
+    ) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self
+            .bloom
+            .as_ref()
+            .expect("a Bloom is refused without the passes");
         let grow = crate::bloom::reach(b.radius, b.lines, b.length);
         let (gw, gh) = (w + 2 * grow, h + 2 * grow);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         // The bright pass reads colours and the streak pass end taps, which a Bloom has none
         // of; a buffer cannot be empty.
-        let none = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("B-47 none"),
-            contents: bytemuck::cast_slice(&[0.0f32; 3]),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let none = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-47 none"),
+                contents: bytemuck::cast_slice(&[0.0f32; 3]),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
         let light = self.scratch("B-47 light", w, h);
-        let p = Params { level: crate::bloom::bright_level(b.threshold), ..Default::default() };
-        self.step(steps, &passes.bright, p, still, Some(&light), None, Some(&none), tiles(w, h));
+        let p = Params {
+            level: crate::bloom::bright_level(b.threshold),
+            ..Default::default()
+        };
+        self.step(
+            steps,
+            &passes.bright,
+            p,
+            still,
+            Some(&light),
+            None,
+            Some(&none),
+            tiles(w, h),
+        );
         // Made empty: wgpu clears every buffer it makes.
         let halo = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("B-47 halo"),
@@ -13787,24 +14147,63 @@ impl Gpu {
             usage: wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
-        let add = Params { width: gw as u32, height: gh as u32, ..Default::default() };
+        let add = Params {
+            width: gw as u32,
+            height: gh as u32,
+            ..Default::default()
+        };
         for s in crate::bloom::SCALES {
             let sigma = b.radius / 3.0 * s;
             let r = crate::effects::kernel_radius(sigma);
-            let placed = Params { g: (grow - r) as i32, weight: 0.25, ..add };
+            let placed = Params {
+                g: (grow - r) as i32,
+                weight: 0.25,
+                ..add
+            };
             if r == 0 {
-                self.step(steps, &passes.add, placed, &light, None, Some(&halo), None, tiles(gw, gh));
+                self.step(
+                    steps,
+                    &passes.add,
+                    placed,
+                    &light,
+                    None,
+                    Some(&halo),
+                    None,
+                    tiles(gw, gh),
+                );
                 continue;
             }
             let tall = self.blurred(steps, passes, "B-47", &light, (w, h), sigma, false);
-            self.step(steps, &passes.add, placed, &tall, None, Some(&halo), None, tiles(gw, gh));
+            self.step(
+                steps,
+                &passes.add,
+                placed,
+                &tall,
+                None,
+                Some(&halo),
+                None,
+                tiles(gw, gh),
+            );
         }
         let share = 1.0 / b.lines as f32;
         for j in 0..b.lines {
             let u = crate::blurs::along(b.angle + j as f64 * 180.0 / b.lines as f64);
             if b.length == 0.0 {
-                let p = Params { g: grow as i32, weight: share, ..add };
-                self.step(steps, &passes.add, p, &light, None, Some(&halo), None, tiles(gw, gh));
+                let p = Params {
+                    g: grow as i32,
+                    weight: share,
+                    ..add
+                };
+                self.step(
+                    steps,
+                    &passes.add,
+                    p,
+                    &light,
+                    None,
+                    Some(&halo),
+                    None,
+                    tiles(gw, gh),
+                );
                 continue;
             }
             let wt = crate::bloom::streak_weights(u, b.length);
@@ -13823,22 +14222,70 @@ impl Gpu {
                 width: f.ow as u32,
                 ..Default::default()
             };
-            let p = Params { reach: wt.inner as u32, ..p };
-            self.step(steps, &passes.streak, p, &light, Some(&lines), None, Some(&none), ((count as u32).div_ceil(32), 1));
-            let p = Params { weight: share, width: gw as u32, height: gh as u32, ..p };
-            self.step(steps, &passes.mix, p, &lines, None, Some(&halo), None, tiles(gw, gh));
+            let p = Params {
+                reach: wt.inner as u32,
+                ..p
+            };
+            self.step(
+                steps,
+                &passes.streak,
+                p,
+                &light,
+                Some(&lines),
+                None,
+                Some(&none),
+                ((count as u32).div_ceil(32), 1),
+            );
+            let p = Params {
+                weight: share,
+                width: gw as u32,
+                height: gh as u32,
+                ..p
+            };
+            self.step(
+                steps,
+                &passes.mix,
+                p,
+                &lines,
+                None,
+                Some(&halo),
+                None,
+                tiles(gw, gh),
+            );
         }
         let out = self.scratch("B-47 bloom", gw, gh);
-        let p = Params { g: grow as i32, weight: b.intensity as f32, ..Default::default() };
-        self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
+        let p = Params {
+            g: grow as i32,
+            weight: b.intensity as f32,
+            ..Default::default()
+        };
+        self.step(
+            steps,
+            &passes.combine,
+            p,
+            still,
+            Some(&out),
+            Some(&halo),
+            None,
+            tiles(gw, gh),
+        );
         (out, (gw, gh))
     }
 
     /// B-49: `blurs::directional_blur` of `still`, `width` by `height`, into a texture of its own,
     /// grown by half the length (D-109: or not at all), which is returned with its size. What to
     /// dispatch is added to `steps`.
-    fn directional(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), d: Directional) -> (wgpu::TextureView, (usize, usize)) {
-        let passes = self.bloom.as_ref().expect("a Directional Blur is refused without the passes");
+    fn directional(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        d: Directional,
+    ) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self
+            .bloom
+            .as_ref()
+            .expect("a Directional Blur is refused without the passes");
         let grow = d.grow();
         let (gw, gh) = (w + 2 * grow, h + 2 * grow);
         let u = crate::blurs::along(d.direction);
@@ -13846,12 +14293,22 @@ impl Gpu {
         let f = crate::blurs::line_frame(u, w, h, grow);
         let count = (f.k1 - f.k0 + 1) as usize;
         let lines = self.scratch("B-49 lines", f.ow, count);
-        let ends: Vec<f32> = wt.ends.iter().flat_map(|&(j, w)| [j as f32, w as f32]).collect();
-        let ends = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("B-49 ends"),
-            contents: bytemuck::cast_slice(if ends.is_empty() { &[0.0f32; 2] } else { &ends[..] }),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let ends: Vec<f32> = wt
+            .ends
+            .iter()
+            .flat_map(|&(j, w)| [j as f32, w as f32])
+            .collect();
+        let ends = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-49 ends"),
+                contents: bytemuck::cast_slice(if ends.is_empty() {
+                    &[0.0f32; 2]
+                } else {
+                    &ends[..]
+                }),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
         let p = Params {
             s: f.s,
             a: wt.a,
@@ -13867,23 +14324,63 @@ impl Gpu {
             held: d.repeat as u32,
             ..Default::default()
         };
-        self.step(steps, &passes.streak, p, still, Some(&lines), None, Some(&ends), ((count as u32).div_ceil(32), 1));
+        self.step(
+            steps,
+            &passes.streak,
+            p,
+            still,
+            Some(&lines),
+            None,
+            Some(&ends),
+            ((count as u32).div_ceil(32), 1),
+        );
         let out = self.scratch("B-49 directional", gw, gh);
-        let p = Params { width: gw as u32, height: gh as u32, ..p };
-        self.step(steps, &passes.lay, p, &lines, Some(&out), None, None, ((gw as u32).div_ceil(16), (gh as u32).div_ceil(16)));
+        let p = Params {
+            width: gw as u32,
+            height: gh as u32,
+            ..p
+        };
+        self.step(
+            steps,
+            &passes.lay,
+            p,
+            &lines,
+            Some(&out),
+            None,
+            None,
+            ((gw as u32).div_ceil(16), (gh as u32).div_ceil(16)),
+        );
         (out, (gw, gh))
     }
 
     /// B-50: `effects::blur` of `still`, `width` by `height`, across and then down with Bloom's
     /// `gauss` pass, into a texture grown by the kernel's radius (D-109: or not at all), which is
     /// returned with its size.
-    fn gaussian(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Gaussian) -> (wgpu::TextureView, (usize, usize)) {
-        let passes = self.bloom.as_ref().expect("a Gaussian Blur is refused without the passes");
+    fn gaussian(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        g: Gaussian,
+    ) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self
+            .bloom
+            .as_ref()
+            .expect("a Gaussian Blur is refused without the passes");
         let e = g.grow();
         // B-164: D-235's shortcut blurs transparent edges; held ones stay exact.
         let tall = if g.repeat {
             let taps = crate::effects::reach_weights(g.sigma, g.long);
-            self.gauss(steps, passes, "B-50", still, (w, h), [&taps, &taps], e, true)
+            self.gauss(
+                steps,
+                passes,
+                "B-50",
+                still,
+                (w, h),
+                [&taps, &taps],
+                e,
+                true,
+            )
         } else {
             self.blurred(steps, passes, "B-50", still, (w, h), g.sigma, g.long)
         };
@@ -13894,22 +14391,59 @@ impl Gpu {
     /// by `e` (the kernel's radius; D-109: none with `held`), which is returned. B-223: `taps`
     /// across and down, of one length, as `effects::blur_axes` takes them.
     #[allow(clippy::too_many_arguments)]
-    fn gauss(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), taps: [&[f32]; 2], e: usize, held: bool) -> wgpu::TextureView {
+    fn gauss(
+        &self,
+        steps: &mut Vec<Step>,
+        passes: &BloomPasses,
+        label: &str,
+        input: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        taps: [&[f32]; 2],
+        e: usize,
+        held: bool,
+    ) -> wgpu::TextureView {
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let weights = |taps: &[f32]| {
-            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{label} weights")),
-                contents: bytemuck::cast_slice(taps),
-                usage: wgpu::BufferUsages::STORAGE,
-            })
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(&format!("{label} weights")),
+                    contents: bytemuck::cast_slice(taps),
+                    usage: wgpu::BufferUsages::STORAGE,
+                })
         };
         let first = weights(taps[0]);
         let second = (taps[1] != taps[0]).then(|| weights(taps[1]));
-        let (wide, tall) = (self.scratch(&format!("{label} wide"), w + 2 * e, h), self.scratch(&format!("{label} tall"), w + 2 * e, h + 2 * e));
-        let across = Params { count: (taps[0].len() / 2) as u32, axis: 0, held: held as u32, ..Default::default() };
-        self.step(steps, &passes.gauss, across, input, Some(&wide), None, Some(&first), tiles(w + 2 * e, h));
+        let (wide, tall) = (
+            self.scratch(&format!("{label} wide"), w + 2 * e, h),
+            self.scratch(&format!("{label} tall"), w + 2 * e, h + 2 * e),
+        );
+        let across = Params {
+            count: (taps[0].len() / 2) as u32,
+            axis: 0,
+            held: held as u32,
+            ..Default::default()
+        };
+        self.step(
+            steps,
+            &passes.gauss,
+            across,
+            input,
+            Some(&wide),
+            None,
+            Some(&first),
+            tiles(w + 2 * e, h),
+        );
         let down = Params { axis: 1, ..across };
-        self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(second.as_ref().unwrap_or(&first)), tiles(w + 2 * e, h + 2 * e));
+        self.step(
+            steps,
+            &passes.gauss,
+            down,
+            &wide,
+            Some(&tall),
+            None,
+            Some(second.as_ref().unwrap_or(&first)),
+            tiles(w + 2 * e, h + 2 * e),
+        );
         tall
     }
 
@@ -13919,7 +14453,11 @@ impl Gpu {
             &self.queue,
             &wgpu::TextureDescriptor {
                 label: Some("B-223 map"),
-                size: wgpu::Extent3d { width: picture.width() as u32, height: picture.height() as u32, depth_or_array_layers: 1 },
+                size: wgpu::Extent3d {
+                    width: picture.width() as u32,
+                    height: picture.height() as u32,
+                    depth_or_array_layers: 1,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -13938,12 +14476,30 @@ impl Gpu {
     /// blur is worked on the picture shrunk by [`shrink_factor`] and enlarged back, which stays
     /// within 1 level of the exact blur.
     #[allow(clippy::too_many_arguments)]
-    fn blurred(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), sigma: f64, long: bool) -> wgpu::TextureView {
+    fn blurred(
+        &self,
+        steps: &mut Vec<Step>,
+        passes: &BloomPasses,
+        label: &str,
+        input: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        sigma: f64,
+        long: bool,
+    ) -> wgpu::TextureView {
         let r = crate::effects::reach_radius(sigma, long);
         let f = shrink_factor(sigma);
         if f == 1 {
             let taps = crate::effects::reach_weights(sigma, long);
-            return self.gauss(steps, passes, label, input, (w, h), [&taps, &taps], r, false);
+            return self.gauss(
+                steps,
+                passes,
+                label,
+                input,
+                (w, h),
+                [&taps, &taps],
+                r,
+                false,
+            );
         }
         self.shrunk.set(self.shrunk.get() + 1);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
@@ -13954,12 +14510,48 @@ impl Gpu {
         let m = (r.div_ceil(f) + 1).saturating_sub(rs);
         let (sw, sh) = (w.div_ceil(f) + 2 * m, h.div_ceil(f) + 2 * m);
         let small = self.scratch(&format!("{label} small"), sw, sh);
-        let p = Params { n: f as u32, g: m as i32, ..Default::default() };
-        self.step(steps, &passes.shrink, p, input, Some(&small), None, None, tiles(sw, sh));
-        let blurred = self.gauss(steps, passes, &format!("{label} small"), &small, (sw, sh), [&taps, &taps], rs, false);
+        let p = Params {
+            n: f as u32,
+            g: m as i32,
+            ..Default::default()
+        };
+        self.step(
+            steps,
+            &passes.shrink,
+            p,
+            input,
+            Some(&small),
+            None,
+            None,
+            tiles(sw, sh),
+        );
+        let blurred = self.gauss(
+            steps,
+            passes,
+            &format!("{label} small"),
+            &small,
+            (sw, sh),
+            [&taps, &taps],
+            rs,
+            false,
+        );
         let out = self.scratch(&format!("{label} tall"), w + 2 * r, h + 2 * r);
-        let p = Params { n: f as u32, g: r as i32, count: (rs + m) as u32, ..Default::default() };
-        self.step(steps, &passes.enlarge, p, &blurred, Some(&out), None, None, tiles(w + 2 * r, h + 2 * r));
+        let p = Params {
+            n: f as u32,
+            g: r as i32,
+            count: (rs + m) as u32,
+            ..Default::default()
+        };
+        self.step(
+            steps,
+            &passes.enlarge,
+            p,
+            &blurred,
+            Some(&out),
+            None,
+            None,
+            tiles(w + 2 * r, h + 2 * r),
+        );
         out
     }
 
@@ -13980,20 +14572,51 @@ impl Gpu {
         groups: (u32, u32),
     ) {
         let init = |label, contents: &[u8], usage| {
-            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(label),
+                    contents,
+                    usage,
+                })
         };
-        let numbers = init("B-65 numbers", bytemuck::bytes_of(&p), wgpu::BufferUsages::UNIFORM);
-        let k = k.map(|k| init("B-65 settings", bytemuck::cast_slice(k), wgpu::BufferUsages::STORAGE));
-        let mut entries = vec![wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() }];
+        let numbers = init(
+            "B-65 numbers",
+            bytemuck::bytes_of(&p),
+            wgpu::BufferUsages::UNIFORM,
+        );
+        let k = k.map(|k| {
+            init(
+                "B-65 settings",
+                bytemuck::cast_slice(k),
+                wgpu::BufferUsages::STORAGE,
+            )
+        });
+        let mut entries = vec![wgpu::BindGroupEntry {
+            binding: 0,
+            resource: numbers.as_entire_binding(),
+        }];
         let textures = [(1, input), (2, output), (4, other)];
         entries.extend(textures.iter().filter_map(|&(binding, t)| {
-            t.map(|t| wgpu::BindGroupEntry { binding, resource: wgpu::BindingResource::TextureView(t) })
+            t.map(|t| wgpu::BindGroupEntry {
+                binding,
+                resource: wgpu::BindingResource::TextureView(t),
+            })
         }));
-        entries.extend(k.as_ref().map(|k| wgpu::BindGroupEntry { binding: 3, resource: k.as_entire_binding() }));
+        entries.extend(k.as_ref().map(|k| wgpu::BindGroupEntry {
+            binding: 3,
+            resource: k.as_entire_binding(),
+        }));
         entries.extend((5..).zip(work).filter_map(|(binding, b)| {
-            b.map(|b| wgpu::BindGroupEntry { binding, resource: b.as_entire_binding() })
+            b.map(|b| wgpu::BindGroupEntry {
+                binding,
+                resource: b.as_entire_binding(),
+            })
         }));
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor { label: None, layout, entries: &entries });
+        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &entries,
+        });
         steps.push((pipeline.clone(), group, groups));
     }
 
@@ -14011,7 +14634,10 @@ impl Gpu {
         staged: &RefCell<Option<Vec<Staged>>>,
     ) -> (wgpu::TextureView, (usize, usize)) {
         use crate::effects::Effect as E;
-        let passes = self.fx.as_ref().expect("the batch of ten is refused without the passes");
+        let passes = self
+            .fx
+            .as_ref()
+            .expect("the batch of ten is refused without the passes");
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let none = [None; 4];
         let blend = |b: &str| match b {
@@ -14024,7 +14650,21 @@ impl Gpu {
         };
         let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
         // D-413: a blending mode as the shader's `laid` takes it.
-        let laid = |b: &str| ["none", "normal", "multiply", "screen", "add", "overlay", "soft_light", "stencil_alpha"].iter().position(|m| *m == b).unwrap_or(1) as f64;
+        let laid = |b: &str| {
+            [
+                "none",
+                "normal",
+                "multiply",
+                "screen",
+                "add",
+                "overlay",
+                "soft_light",
+                "stencil_alpha",
+            ]
+            .iter()
+            .position(|m| *m == b)
+            .unwrap_or(1) as f64
+        };
         let buffer = |bytes: usize| {
             self.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("B-65 work"),
@@ -14034,19 +14674,51 @@ impl Gpu {
             })
         };
         // A pass the size of the drawing, on `still`. B-172: in a run, only noted for its one pass.
-        let same = |steps: &mut Vec<Step>, pass: &Pass, p: FxParams, k: &[f64], other: Option<&wgpu::TextureView>| {
+        let same = |steps: &mut Vec<Step>,
+                    pass: &Pass,
+                    p: FxParams,
+                    k: &[f64],
+                    other: Option<&wgpu::TextureView>| {
             if let Some(run) = staged.borrow_mut().as_mut() {
-                let which = [&passes.grade, &passes.tone].iter().position(|q| std::ptr::eq(*q, pass)).filter(|_| other.is_none());
-                run.push((which.expect("B-172: a run holds only colour effects of their own pixel") as u32, p, k.to_vec(), 1.0));
+                let which = [&passes.grade, &passes.tone]
+                    .iter()
+                    .position(|q| std::ptr::eq(*q, pass))
+                    .filter(|_| other.is_none());
+                run.push((
+                    which.expect("B-172: a run holds only colour effects of their own pixel")
+                        as u32,
+                    p,
+                    k.to_vec(),
+                    1.0,
+                ));
                 return (still.clone(), (w, h));
             }
             let out = self.scratch("B-65", w, h);
-            self.fx_step(steps, pass, p, Some(still), Some(&out), Some(k), other, none, tiles(w, h));
+            self.fx_step(
+                steps,
+                pass,
+                p,
+                Some(still),
+                Some(&out),
+                Some(k),
+                other,
+                none,
+                tiles(w, h),
+            );
             (out, (w, h))
         };
         // The drawing's covering blurred at `sigma`, as `effects::blur`, and the blur's radius.
         let covering = |steps: &mut Vec<Step>, input: &wgpu::TextureView, size, sigma: f64| {
-            let (view, _) = self.gaussian(steps, input, size, Gaussian { sigma, repeat: false, long: false });
+            let (view, _) = self.gaussian(
+                steps,
+                input,
+                size,
+                Gaussian {
+                    sigma,
+                    repeat: false,
+                    long: false,
+                },
+            );
             (view, crate::effects::kernel_radius(sigma))
         };
         // D-358's Bilateral Blur on `still`, its two passes. B-237: Radius below 1 or Threshold 0
@@ -14058,12 +14730,27 @@ impl Gpu {
             } else {
                 let s = radius / 2.0;
                 let mut k = vec![1.0 / (2.0 * threshold * threshold), 1.0 / (2.0 * s * s)];
-                k.extend(crate::layer_fx::disc_runs(radius).iter().map(|&(_, hw)| hw as f64));
+                k.extend(
+                    crate::layer_fx::disc_runs(radius)
+                        .iter()
+                        .map(|&(_, hw)| hw as f64),
+                );
                 (radius.floor() as i32, k)
             };
-            let p = FxParams { r, n: 2, flag: colorize as u32, ..Default::default() };
+            let p = FxParams {
+                r,
+                n: 2,
+                flag: colorize as u32,
+                ..Default::default()
+            };
             let (levels, _) = same(steps, &passes.bilat, p, &k, Some(still));
-            same(steps, &passes.bilat, FxParams { mode: 1, ..p }, &k, Some(&levels))
+            same(
+                steps,
+                &passes.bilat,
+                FxParams { mode: 1, ..p },
+                &k,
+                Some(&levels),
+            )
         };
         let (ox, oy) = f.origin;
         // D-144's Mosaic on `still`, blocks `size` wide from the drawing's corner, or (D-449)
@@ -14089,10 +14776,33 @@ impl Gpu {
             let mut k = vec![nc as f64, nr as f64];
             k.extend(cs.into_iter().chain(rs).chain(col_of).chain(row_of));
             let means = buffer(16 * nc * nr);
-            self.fx_step(steps, &passes.blocks, FxParams::default(), Some(still), None, Some(&k), None, [Some(&means), None, None, None], tiles(nc, nr));
+            self.fx_step(
+                steps,
+                &passes.blocks,
+                FxParams::default(),
+                Some(still),
+                None,
+                Some(&k),
+                None,
+                [Some(&means), None, None, None],
+                tiles(nc, nr),
+            );
             let out = self.scratch("B-107 mosaic", w, h);
-            let p = FxParams { mode: bilinear as u32, ..Default::default() };
-            self.fx_step(steps, &passes.tiles, p, Some(still), Some(&out), Some(&k), None, [Some(&means), None, None, None], tiles(w, h));
+            let p = FxParams {
+                mode: bilinear as u32,
+                ..Default::default()
+            };
+            self.fx_step(
+                steps,
+                &passes.tiles,
+                p,
+                Some(still),
+                Some(&out),
+                Some(&k),
+                None,
+                [Some(&means), None, None, None],
+                tiles(w, h),
+            );
             out
         };
         let turned = drawn_as(&f.instance.effect);
@@ -17506,33 +18216,69 @@ impl Gpu {
     /// B-51: `glow::glow` of `still`, `width` by `height`: the light in Bloom's bright pass, blurred
     /// in its gauss pass, and laid on the drawing by its combine pass, into a texture grown by the
     /// blur's radius, which is returned with its size.
-    fn glow(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Glow) -> (wgpu::TextureView, (usize, usize)) {
-        let passes = self.bloom.as_ref().expect("a Glow is refused without the passes");
-        let (sigma, long) = crate::effects::glow_reach(g.radius, if g.after_effects { "after_effects" } else { "classic" });
+    fn glow(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        (w, h): (usize, usize),
+        g: Glow,
+    ) -> (wgpu::TextureView, (usize, usize)) {
+        let passes = self
+            .bloom
+            .as_ref()
+            .expect("a Glow is refused without the passes");
+        let (sigma, long) = crate::effects::glow_reach(
+            g.radius,
+            if g.after_effects {
+                "after_effects"
+            } else {
+                "classic"
+            },
+        );
         let r = crate::effects::reach_radius(sigma, long);
         let (gw, gh) = (w + 2 * r, h + 2 * r);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let init = |label, contents: &[f32]| {
-            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents: bytemuck::cast_slice(contents),
-                usage: wgpu::BufferUsages::STORAGE,
-            })
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(label),
+                    contents: bytemuck::cast_slice(contents),
+                    usage: wgpu::BufferUsages::STORAGE,
+                })
         };
         // The colours, then the tint in linear light, as the bright pass reads them.
-        let mut colours: Vec<f32> = g.targets[..g.count].iter().flatten().map(|&v| v as f32).collect();
-        colours.extend(g.tint.map_or([0.0; 3], |t| t.map(|v| crate::color::srgb_to_linear(v as f32 / 255.0))));
+        let mut colours: Vec<f32> = g.targets[..g.count]
+            .iter()
+            .flatten()
+            .map(|&v| v as f32)
+            .collect();
+        colours.extend(g.tint.map_or([0.0; 3], |t| {
+            t.map(|v| crate::color::srgb_to_linear(v as f32 / 255.0))
+        }));
         let light = self.scratch("B-51 light", w, h);
         let p = Params {
             // 256 lets nothing through: a Glow on chosen colours has no brightness test.
-            level: if g.bright { crate::bloom::bright_level(g.threshold) } else { 256 },
+            level: if g.bright {
+                crate::bloom::bright_level(g.threshold)
+            } else {
+                256
+            },
             count: if g.bright { 0 } else { g.count as u32 },
             // The levels are whole numbers, so within a tolerance is within its whole part.
             tolerance: g.tolerance as u32,
             tinted: g.tint.is_some() as u32,
             ..Default::default()
         };
-        self.step(steps, &passes.bright, p, still, Some(&light), None, Some(&init("B-51 colours", &colours)), tiles(w, h));
+        self.step(
+            steps,
+            &passes.bright,
+            p,
+            still,
+            Some(&light),
+            None,
+            Some(&init("B-51 colours", &colours)),
+            tiles(w, h),
+        );
         // Made empty: wgpu clears every buffer it makes.
         let halo = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("B-51 halo"),
@@ -17540,27 +18286,75 @@ impl Gpu {
             usage: wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
-        let add = Params { width: gw as u32, height: gh as u32, weight: 1.0, ..Default::default() };
+        let add = Params {
+            width: gw as u32,
+            height: gh as u32,
+            weight: 1.0,
+            ..Default::default()
+        };
         if r == 0 {
-            self.step(steps, &passes.add, add, &light, None, Some(&halo), None, tiles(gw, gh));
+            self.step(
+                steps,
+                &passes.add,
+                add,
+                &light,
+                None,
+                Some(&halo),
+                None,
+                tiles(gw, gh),
+            );
         } else {
             let tall = self.blurred(steps, passes, "B-51", &light, (w, h), sigma, long);
-            self.step(steps, &passes.add, add, &tall, None, Some(&halo), None, tiles(gw, gh));
+            self.step(
+                steps,
+                &passes.add,
+                add,
+                &tall,
+                None,
+                Some(&halo),
+                None,
+                tiles(gw, gh),
+            );
         }
         let out = self.scratch("B-51 glow", gw, gh);
         // D-331: After Effects' colour at the intensity, the covering over t + 16 (1 - t).
         let t = g.threshold / 100.0;
         let cover = 1.0 / (t + 16.0 * (1.0 - t));
-        let p = Params { g: r as i32, weight: g.intensity as f32, screen: g.screen as u32, held: g.after_effects as u32, cover: cover as f32, ..Default::default() };
-        self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
+        let p = Params {
+            g: r as i32,
+            weight: g.intensity as f32,
+            screen: g.screen as u32,
+            held: g.after_effects as u32,
+            cover: cover as f32,
+            ..Default::default()
+        };
+        self.step(
+            steps,
+            &passes.combine,
+            p,
+            still,
+            Some(&out),
+            Some(&halo),
+            None,
+            tiles(gw, gh),
+        );
         (out, (gw, gh))
     }
 
     fn target(&mut self, width: usize, height: usize) -> &Target {
-        if self.target.as_ref().is_none_or(|t| (t.width, t.height) != (width, height)) {
+        if self
+            .target
+            .as_ref()
+            .is_none_or(|t| (t.width, t.height) != (width, height))
+        {
             let n = (width * height) as u64;
             let buffer = |label, size, usage| {
-                self.device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size, usage, mapped_at_creation: false })
+                self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some(label),
+                    size,
+                    usage,
+                    mapped_at_creation: false,
+                })
             };
             use wgpu::BufferUsages as U;
             self.target = Some(Target {
@@ -17569,11 +18363,13 @@ impl Gpu {
                 sum: buffer("B-44 sum", n * 16, U::STORAGE | U::COPY_DST),
                 bytes: buffer("B-44 bytes", n * 4, U::STORAGE | U::COPY_SRC | U::COPY_DST),
                 readback: buffer("B-44 readback", n * 4, U::MAP_READ | U::COPY_DST),
-                size: self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-44 size"),
-                    contents: bytemuck::cast_slice(&[width as u32, height as u32, 0, 0]),
-                    usage: U::UNIFORM,
-                }),
+                size: self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-44 size"),
+                        contents: bytemuck::cast_slice(&[width as u32, height as u32, 0, 0]),
+                        usage: U::UNIFORM,
+                    }),
             });
         }
         self.target.as_ref().expect("made above")
@@ -17591,7 +18387,12 @@ impl Gpu {
         }
         // B-156 (D-225): an adjustment layer whose every effect the card draws on the frame.
         let frame = (plan.width, plan.height);
-        if plan.layers.iter().filter_map(|l| l.adjust.as_ref()).any(|s| self.fx.is_none() || crate::compose::adjust_run(s, frame).is_none()) {
+        if plan
+            .layers
+            .iter()
+            .filter_map(|l| l.adjust.as_ref())
+            .any(|s| self.fx.is_none() || crate::compose::adjust_run(s, frame).is_none())
+        {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.".into(),
@@ -17600,7 +18401,12 @@ impl Gpu {
         }
         // D-301: the four modes after add are the CPU's.
         // ponytail: a frame with one draws on the CPU; give the layer shader them if it is slow.
-        if plan.layers.iter().any(|l| !matches!(l.blend, BlendMode::Normal | BlendMode::Multiply | BlendMode::Screen | BlendMode::Add)) {
+        if plan.layers.iter().any(|l| {
+            !matches!(
+                l.blend,
+                BlendMode::Normal | BlendMode::Multiply | BlendMode::Screen | BlendMode::Add
+            )
+        }) {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: a layer has a blend mode the GPU does not draw.".into(),
@@ -17608,7 +18414,11 @@ impl Gpu {
             ));
         }
         // D-297: an adjustment layer in a blend mode other than normal is the CPU's.
-        if plan.layers.iter().any(|l| l.adjust.is_some() && l.blend != crate::model::BlendMode::Normal) {
+        if plan
+            .layers
+            .iter()
+            .any(|l| l.adjust.is_some() && l.blend != crate::model::BlendMode::Normal)
+        {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: its adjustment layer has a blend mode other than normal.".into(),
@@ -17619,14 +18429,24 @@ impl Gpu {
         // CPU, and the card lays it like any drawing. B-153b: but sending that new picture costs
         // the card more than the CPU takes to draw the frame whole, so it does so unless the card
         // has an effect of its own to draw (D-218).
-        if plan.layers.iter().any(|l| l.motion_blur || l.mixed) && !plan.layers.iter().any(|l| !l.on_card.is_empty() || !wraps(l).is_empty() || l.adjust.is_some()) {
+        if plan.layers.iter().any(|l| l.motion_blur || l.mixed)
+            && !plan
+                .layers
+                .iter()
+                .any(|l| !l.on_card.is_empty() || !wraps(l).is_empty() || l.adjust.is_some())
+        {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: it has motion blur or frame blending and no effect for the GPU, which the CPU draws faster.".into(),
                 "B-153b hands a blurred or mixed frame (D-218) with no card effect to the CPU whole; measured faster there.".into(),
             ));
         }
-        if plan.layers.iter().flat_map(|l| &l.wrap).any(|i| i.enabled && i.is_valid() && i.mix < 100.0) {
+        if plan
+            .layers
+            .iter()
+            .flat_map(|l| &l.wrap)
+            .any(|i| i.enabled && i.is_valid() && i.mix < 100.0)
+        {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: it has a Light Wrap with a Mix below 100, which the GPU does not draw yet.".into(),
@@ -17634,7 +18454,12 @@ impl Gpu {
             ));
         }
         // B-76: a Light Wrap blurs the frame beneath, grown by the blur's radius.
-        let radii: Vec<usize> = plan.layers.iter().flat_map(wraps).map(|(width, _, _)| crate::effects::kernel_radius(width / 3.0)).collect();
+        let radii: Vec<usize> = plan
+            .layers
+            .iter()
+            .flat_map(wraps)
+            .map(|(width, _, _)| crate::effects::kernel_radius(width / 3.0))
+            .collect();
         if let Some(&r) = radii.iter().max() {
             if self.bloom.is_none() || self.fx.is_none() {
                 return Some(on_cpu(
@@ -17662,8 +18487,16 @@ impl Gpu {
             // B-155: each effect of a run on the drawing the ones before it grew. B-156: an
             // adjustment layer's on the frame.
             let (run, (mut w, mut h)) = match &l.adjust {
-                Some(stack) => (std::borrow::Cow::Owned(crate::compose::adjust_run(stack, frame).unwrap_or_default()), frame),
-                None => (std::borrow::Cow::Borrowed(&l.on_card[..]), (l.source.width(), l.source.height())),
+                Some(stack) => (
+                    std::borrow::Cow::Owned(
+                        crate::compose::adjust_run(stack, frame).unwrap_or_default(),
+                    ),
+                    frame,
+                ),
+                None => (
+                    std::borrow::Cow::Borrowed(&l.on_card[..]),
+                    (l.source.width(), l.source.height()),
+                ),
             };
             for card in run.iter() {
                 let halo = |g: usize| ((w + 2 * g) * (h + 2 * g) * 16) as u64;
@@ -17672,7 +18505,9 @@ impl Gpu {
                         let g = crate::bloom::reach(b.radius, b.lines, b.length);
                         ("a Bloom".to_string(), (g, g), halo(g))
                     }
-                    OnCard::Directional(d) => ("a Directional Blur".into(), (d.grow(), d.grow()), 0),
+                    OnCard::Directional(d) => {
+                        ("a Directional Blur".into(), (d.grow(), d.grow()), 0)
+                    }
                     OnCard::Gaussian(g) => ("a Gaussian Blur".into(), (g.grow(), g.grow()), 0),
                     OnCard::Glow(g) => {
                         let g = crate::effects::kernel_radius(g.radius / 3.0);
@@ -17680,37 +18515,57 @@ impl Gpu {
                     }
                     OnCard::Fx(f) => {
                         let bytes = match &f.instance.effect {
-                            crate::effects::Effect::LensBlur { .. } | crate::effects::Effect::DepthOfField { .. } => ((w + 1) * h * 32) as u64,
+                            crate::effects::Effect::LensBlur { .. }
+                            | crate::effects::Effect::DepthOfField { .. } => {
+                                ((w + 1) * h * 32) as u64
+                            }
                             crate::effects::Effect::Outline { width, .. } => {
                                 let n = width.ceil() as usize;
                                 ((w + 2 * n) * (h + 2 * n) * 4) as u64
                             }
-                            crate::effects::Effect::DistanceGradation { .. } => dist_bytes(w, h) as u64,
+                            crate::effects::Effect::DistanceGradation { .. } => {
+                                dist_bytes(w, h) as u64
+                            }
                             // B-107: a Simple Choker's band as Outline's, and a spread's running totals.
                             crate::effects::Effect::SimpleChoker { choke } => {
-                                let g = if *choke < 0.0 { (-choke).floor() as usize } else { 0 };
+                                let g = if *choke < 0.0 {
+                                    (-choke).floor() as usize
+                                } else {
+                                    0
+                                };
                                 let sums = if *choke < 0.0 { (w + 1) * h * 32 } else { 0 };
                                 ((w + 2 * g) * (h + 2 * g) * 4).max(sums) as u64
                             }
                             // D-352: a Matte Choker's running totals.
                             crate::effects::Effect::MatteChoker { .. } => ((w + 1) * h * 32) as u64,
                             // Each block's mean.
-                            crate::effects::Effect::Mosaic { size } => (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64,
+                            crate::effects::Effect::Mosaic { size } => {
+                                (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64
+                            }
                             // B-123: a Color Lookup's table rides with its settings; Kira-kira keeps
                             // its light in a buffer the size of the grown drawing, and its stars, at
                             // most one a cell, with its settings.
-                            crate::effects::Effect::ColorLookup { table: Some(t), .. } => ((8 + 3 * t.0.entries()) * 8) as u64,
-                            crate::effects::Effect::ArbitraryMap { table: Some(_), .. } => ((8 + 3 * 256) * 8) as u64,
+                            crate::effects::Effect::ColorLookup { table: Some(t), .. } => {
+                                ((8 + 3 * t.0.entries()) * 8) as u64
+                            }
+                            crate::effects::Effect::ArbitraryMap { table: Some(_), .. } => {
+                                ((8 + 3 * 256) * 8) as u64
+                            }
                             // D-397: a Color Grade's look the same, with its intensity.
-                            crate::effects::Effect::ColorGrade { table: Some(t), .. } => ((9 + 3 * t.0.entries()) * 8) as u64,
+                            crate::effects::Effect::ColorGrade { table: Some(t), .. } => {
+                                ((9 + 3 * t.0.entries()) * 8) as u64
+                            }
                             crate::effects::Effect::KiraKira { spacing, .. } => {
                                 let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
-                                (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64
+                                (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64)
+                                    .max((19.0 + 4.0 * cells) * 8.0)
+                                    as u64
                             }
                             // D-551: CC Ball Action's two balls a pixel, and its balls, at most one
                             // a cell, with its settings.
                             crate::effects::Effect::CcBallAction { grid_spacing, .. } => {
-                                let cells = (w as f64 / grid_spacing.max(1.0)) * (h as f64 / grid_spacing.max(1.0));
+                                let cells = (w as f64 / grid_spacing.max(1.0))
+                                    * (h as f64 / grid_spacing.max(1.0));
                                 ((2 * w * h * 4) as f64).max((6.0 + 6.0 * cells) * 8.0) as u64
                             }
                             // D-610: Particle Space's sprites, ten numbers each and a place in a
@@ -17728,20 +18583,39 @@ impl Gpu {
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let r = values[4].clamp(0.0, 100.0) * 1.5 * h as f64 / 40.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0) * 8.0) as u64
+                                ((7.0
+                                    + n * (crate::particles::STRIDE as f64 + reach)
+                                    + tiles
+                                    + 1.0)
+                                    * 8.0) as u64
                             }
                             // D-672: Drizzle's live drops at most (the fastest rate times the
                             // in point's longevity), eleven numbers each and a place in a tile's list
                             // or several, its tiles' starts and the light.
-                            crate::effects::Effect::Drizzle { values, history, .. } => {
-                                let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
+                            crate::effects::Effect::Drizzle {
+                                values, history, ..
+                            } => {
+                                let most = |i: usize| {
+                                    history.as_deref().map_or(values[i], |hs| {
+                                        hs.iter().fold(values[i], |m, v| m.max(v[i]))
+                                    })
+                                };
                                 let rate = most(0).clamp(0.0, 1000.0);
-                                let life = history.as_deref().and_then(|hs| hs.first()).map_or(values[1], |v| v[1]).clamp(0.0, 100.0);
+                                let life = history
+                                    .as_deref()
+                                    .and_then(|hs| hs.first())
+                                    .map_or(values[1], |v| v[1])
+                                    .clamp(0.0, 100.0);
                                 let n = (rate * life).ceil() + 2.0;
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let r = most(5).clamp(0.0, 1000.0) / 100.0 * h as f64 / 4.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                                ((7.0
+                                    + n * (crate::particles::STRIDE as f64 + reach)
+                                    + tiles
+                                    + 1.0
+                                    + 15.0)
+                                    * 8.0) as u64
                             }
                             // D-612: Particle Plane's the same.
                             crate::effects::Effect::ParticlePlane { values, .. } => {
@@ -17755,8 +18629,16 @@ impl Gpu {
                             // ponytail: one bounce a second assumed; a floor bouncing them faster
                             // can run above it.
                             crate::effects::Effect::ParticleEmitter { values, words, .. } => {
-                                let thrown = if words[6] == "off" { 0.0 } else { values[45].max(values[46]) * values[47] };
-                                let alive = values[0] * values[15] * (1.0 + values[16] / 100.0) * (1.0 + thrown) + 1.0;
+                                let thrown = if words[6] == "off" {
+                                    0.0
+                                } else {
+                                    values[45].max(values[46]) * values[47]
+                                };
+                                let alive = values[0]
+                                    * values[15]
+                                    * (1.0 + values[16] / 100.0)
+                                    * (1.0 + thrown)
+                                    + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
                             // D-619: Particle Playground's, a sprite for each particle the Cannon
@@ -17764,14 +18646,25 @@ impl Gpu {
                             // layer, and its two maps side by side (counted as sprites).
                             // ponytail: the Particle Exploder's children are not counted; a frame
                             // with many bursts can run above it.
-                            crate::effects::Effect::ParticlePlayground { values, clock, maps, .. } => {
-                                let shot = values[1] * (clock[0].max(0.0) / clock[1].max(1.0) + 1.0);
+                            crate::effects::Effect::ParticlePlayground {
+                                values,
+                                clock,
+                                maps,
+                                ..
+                            } => {
+                                let shot =
+                                    values[1] * (clock[0].max(0.0) / clock[1].max(1.0) + 1.0);
                                 let grid = values[9] * values[10];
                                 let side = (2.0 * values[12]).max(1.0);
-                                let px = |m: &Option<crate::layer_map::Map>| m.as_ref().map_or(0.0, |m| (m.0.width() * m.0.height()) as f64);
+                                let px = |m: &Option<crate::layer_map::Map>| {
+                                    m.as_ref()
+                                        .map_or(0.0, |m| (m.0.width() * m.0.height()) as f64)
+                                };
                                 let pieces = px(&maps[0]) / (side * side);
                                 let n = shot + grid + pieces + 1.0;
-                                ((7.0 + 14.0 * n + (w * h) as f64 / 256.0 + 1.0) * 8.0 + 16.0 * (px(&maps[0]) + px(&maps[1]))) as u64
+                                ((7.0 + 14.0 * n + (w * h) as f64 / 256.0 + 1.0) * 8.0
+                                    + 16.0 * (px(&maps[0]) + px(&maps[1])))
+                                    as u64
                             }
                             // D-618: Particle Grid's, a sprite for each point of its grid.
                             crate::effects::Effect::ParticleGrid { values, .. } => {
@@ -17781,26 +18674,52 @@ impl Gpu {
                             // D-673: Hair's strands, eleven numbers each and a place in a tile's
                             // list or several, its tiles' starts and the shared numbers.
                             crate::effects::Effect::Hair { values, .. } => {
-                                let n = (values[3].clamp(0.0, 1000.0) / 100.0 * 4000.0 * w as f64 / (h as f64).max(1.0)).floor();
+                                let n = (values[3].clamp(0.0, 1000.0) / 100.0 * 4000.0 * w as f64
+                                    / (h as f64).max(1.0))
+                                .floor();
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
-                                let r = values[0].clamp(0.0, 1000.0) / 100.0 * h as f64 / 10.0 * (1.0 + values[2].clamp(-500.0, 500.0).abs() / 100.0)
+                                let r = values[0].clamp(0.0, 1000.0) / 100.0 * h as f64 / 10.0
+                                    * (1.0 + values[2].clamp(-500.0, 500.0).abs() / 100.0)
                                     + values[1].clamp(0.0, 100.0) * h as f64 / 2160.0
                                     + 1.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                                ((7.0
+                                    + n * (crate::particles::STRIDE as f64 + reach)
+                                    + tiles
+                                    + 1.0
+                                    + 15.0)
+                                    * 8.0) as u64
                             }
                             // D-674: Mercury's live drops at most (the fastest rate times the
                             // in point's longevity), eleven numbers each and a place in a tile's list
                             // or several, its tiles' starts and the light.
-                            crate::effects::Effect::Mercury { values, history, .. } => {
-                                let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
+                            crate::effects::Effect::Mercury {
+                                values, history, ..
+                            } => {
+                                let most = |i: usize| {
+                                    history.as_deref().map_or(values[i], |hs| {
+                                        hs.iter().fold(values[i], |m, v| m.max(v[i]))
+                                    })
+                                };
                                 let rate = most(0).clamp(0.0, 1000.0);
-                                let life = history.as_deref().and_then(|hs| hs.first()).map_or(values[1], |v| v[1]).clamp(0.0, 100.0);
+                                let life = history
+                                    .as_deref()
+                                    .and_then(|hs| hs.first())
+                                    .map_or(values[1], |v| v[1])
+                                    .clamp(0.0, 100.0);
                                 let n = (rate * life).ceil() + 2.0;
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
-                                let r = most(12).max(most(13)).clamp(0.0, 1000.0) / 100.0 * h as f64 / 20.0 * (1.0 + values[11].clamp(0.0, 400.0) / 100.0);
+                                let r = most(12).max(most(13)).clamp(0.0, 1000.0) / 100.0
+                                    * h as f64
+                                    / 20.0
+                                    * (1.0 + values[11].clamp(0.0, 400.0) / 100.0);
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                                ((7.0
+                                    + n * (crate::particles::STRIDE as f64 + reach)
+                                    + tiles
+                                    + 1.0
+                                    + 15.0)
+                                    * 8.0) as u64
                             }
                             // D-675: Polygon Shards' shards, a cell or two each, ten and sixteen
                             // numbers each and a place in a tile's list or several, its tiles'
@@ -17809,7 +18728,11 @@ impl Gpu {
                             // this allows; count them from the list if the card runs short.
                             crate::effects::Effect::PolygonShards { values, words, .. } => {
                                 let s = values[7].clamp(2.0, 1000.0);
-                                let per = if words[0].ends_with("polygon") { 2.0 } else { 1.0 };
+                                let per = if words[0].ends_with("polygon") {
+                                    2.0
+                                } else {
+                                    1.0
+                                };
                                 let n = (w as f64 / s).ceil() * (h as f64 / s).ceil() * per;
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let reach = ((2.0 * s + 8.0) / 16.0 + 2.0).powi(2).min(tiles);
@@ -17818,15 +18741,28 @@ impl Gpu {
                             // D-678: Foam's bubbles at most (the fastest rate over the longest
                             // life), eleven numbers each and a place in a tile's list or several, its
                             // tiles' starts and the shared numbers.
-                            crate::effects::Effect::Foam { values, history, .. } => {
-                                let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
+                            crate::effects::Effect::Foam {
+                                values, history, ..
+                            } => {
+                                let most = |i: usize| {
+                                    history.as_deref().map_or(values[i], |hs| {
+                                        hs.iter().fold(values[i], |m, v| m.max(v[i]))
+                                    })
+                                };
                                 let rate = 30.0 * most(5).clamp(0.0, 100.0);
                                 let secs = most(8).clamp(1.0, 3000.0) / 30.0 + 1.0;
                                 let n = (rate * secs).ceil() + 2.0;
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
-                                let r = most(6).clamp(0.0, 10.0) * 2.0 * h as f64 / 40.0 * most(21).clamp(0.05, 50.0) * 2.0;
+                                let r = most(6).clamp(0.0, 10.0) * 2.0 * h as f64 / 40.0
+                                    * most(21).clamp(0.05, 50.0)
+                                    * 2.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 12.0) * 8.0) as u64
+                                ((7.0
+                                    + n * (crate::particles::STRIDE as f64 + reach)
+                                    + tiles
+                                    + 1.0
+                                    + 12.0)
+                                    * 8.0) as u64
                             }
                             // D-676: Scatterize's dots, one a pixel, three numbers each and a
                             // place in up to four tiles' lists, and its tiles' starts.
@@ -17846,24 +18782,43 @@ impl Gpu {
                                 let r = values[4].clamp(0.0, 1000.0) / 100.0 * g / 4.0 * near + 1.0;
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0) * 8.0) as u64
+                                ((7.0
+                                    + n * (crate::particles::STRIDE as f64 + reach)
+                                    + tiles
+                                    + 1.0)
+                                    * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
-                            crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
+                            crate::effects::Effect::CellPattern { size, .. } => {
+                                ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0))
+                                    * 8.0) as u64
+                            }
                             // B-223: a Compound Blur's sigma for each pixel.
                             crate::effects::Effect::CompoundBlur { .. } => (w * h * 8) as u64,
                             // D-407: an Upscale's taps, seven numbers for each grown column and row.
-                            crate::effects::Effect::DetailUpscale { .. } => ((1 + 7 * (w + 2 * f.grow.0 + h + 2 * f.grow.1)) * 8) as u64,
+                            crate::effects::Effect::DetailUpscale { .. } => {
+                                ((1 + 7 * (w + 2 * f.grow.0 + h + 2 * f.grow.1)) * 8) as u64
+                            }
                             // B-226: Line Smooth's mixes, eight a pixel; Block Dissolve's blocks, or
                             // its columns' running sums, with its settings.
                             crate::effects::Effect::LineSmooth { .. } => (w * h * 32) as u64,
-                            crate::effects::Effect::BlockDissolve { block_width, block_height, feather, .. } => {
+                            crate::effects::Effect::BlockDissolve {
+                                block_width,
+                                block_height,
+                                feather,
+                                ..
+                            } => {
                                 let rows = (h as f64 + feather) / block_height + 3.0;
-                                (8.0 * ((w as f64 + w as f64 / block_width + 3.0) * rows + (w + h + 7) as f64)) as u64
+                                (8.0 * ((w as f64 + w as f64 / block_width + 3.0) * rows
+                                    + (w + h + 7) as f64)) as u64
                             }
                             _ => 0,
                         };
-                        (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)
+                        (
+                            format!("the effect {}", f.instance.effect.name()),
+                            f.grow,
+                            bytes,
+                        )
                     }
                     OnCard::Radial(_) | OnCard::Mix(..) => continue,
                 };
@@ -17879,12 +18834,21 @@ impl Gpu {
                 // B-223: a Channel Blur's colour can reach further than its alpha, which it grows by.
                 let reach = match card.unmixed() {
                     OnCard::Fx(f) => match &f.instance.effect {
-                        crate::effects::Effect::ChannelBlur { red_blurriness: r, green_blurriness: g, blue_blurriness: b, edges, units, .. } if edges != "repeat" => {
-                            [r, g, b].map(|s| {
+                        crate::effects::Effect::ChannelBlur {
+                            red_blurriness: r,
+                            green_blurriness: g,
+                            blue_blurriness: b,
+                            edges,
+                            units,
+                            ..
+                        } if edges != "repeat" => [r, g, b]
+                            .map(|s| {
                                 let (sigma, long) = crate::effects::blur_reach(*s, units);
                                 crate::effects::reach_radius(sigma, long)
-                            }).into_iter().max().unwrap_or(0)
-                        }
+                            })
+                            .into_iter()
+                            .max()
+                            .unwrap_or(0),
                         _ => 0,
                     },
                     _ => 0,
@@ -17911,14 +18875,18 @@ impl Gpu {
             .flat_map(|l| std::iter::once(&l.source).chain(l.matte.as_ref().map(|m| &m.source)))
             .find(|s| {
                 let sending = (s.width() * BYTES_PER_PIXEL).next_multiple_of(256) * s.height();
-                s.width() > most || s.height() > most || sending as u64 > self.limits.max_buffer_size
+                s.width() > most
+                    || s.height() > most
+                    || sending as u64 > self.limits.max_buffer_size
             })
             .map(|s| format!("a drawing is {} by {}", s.width(), s.height()))
             .or_else(|| {
                 (frame_bytes > self.limits.max_storage_buffer_binding_size as u64
                     || frame_bytes > self.limits.max_buffer_size
-                    || plan.width.div_ceil(16) > self.limits.max_compute_workgroups_per_dimension as usize
-                    || plan.height.div_ceil(16) > self.limits.max_compute_workgroups_per_dimension as usize)
+                    || plan.width.div_ceil(16)
+                        > self.limits.max_compute_workgroups_per_dimension as usize
+                    || plan.height.div_ceil(16)
+                        > self.limits.max_compute_workgroups_per_dimension as usize)
                     .then(|| format!("the picture is {} by {}", plan.width, plan.height))
             })?;
         Some(on_cpu(
@@ -17947,34 +18915,73 @@ impl Gpu {
     /// B-45: [`Gpu::draw`], with the picture left on the card for [`Gpu::show`].
     /// One layer laid onto `onto`, a frame of `sum`'s size: `numbers` as the shader's `Layer`,
     /// its drawing and its matte's. Added to `steps`.
-    fn lay(&self, steps: &mut Vec<Step>, numbers: [u32; 20], source: &wgpu::TextureView, matte: Option<&wgpu::TextureView>, onto: &wgpu::Buffer) {
+    fn lay(
+        &self,
+        steps: &mut Vec<Step>,
+        numbers: [u32; 20],
+        source: &wgpu::TextureView,
+        matte: Option<&wgpu::TextureView>,
+        onto: &wgpu::Buffer,
+    ) {
         self.lay_with(&self.layer, steps, numbers, source, matte, onto);
     }
 
     /// [`Gpu::lay`] through `pipeline`, which reads the same numbers.
-    fn lay_with(&self, pipeline: &wgpu::ComputePipeline, steps: &mut Vec<Step>, numbers: [u32; 20], source: &wgpu::TextureView, matte: Option<&wgpu::TextureView>, onto: &wgpu::Buffer) {
-        let uniform = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("B-44 layer"),
-            contents: bytemuck::cast_slice(&numbers),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
+    fn lay_with(
+        &self,
+        pipeline: &wgpu::ComputePipeline,
+        steps: &mut Vec<Step>,
+        numbers: [u32; 20],
+        source: &wgpu::TextureView,
+        matte: Option<&wgpu::TextureView>,
+        onto: &wgpu::Buffer,
+    ) {
+        let uniform = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("B-44 layer"),
+                contents: bytemuck::cast_slice(&numbers),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.layer_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(source) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(matte.unwrap_or(&self.no_matte)) },
-                wgpu::BindGroupEntry { binding: 3, resource: onto.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(source),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(matte.unwrap_or(&self.no_matte)),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: onto.as_entire_binding(),
+                },
             ],
         });
-        steps.push((pipeline.clone(), group, (numbers[14].div_ceil(16), numbers[15].div_ceil(16))));
+        steps.push((
+            pipeline.clone(),
+            group,
+            (numbers[14].div_ceil(16), numbers[15].div_ceil(16)),
+        ));
     }
 
     /// B-156b (D-226), render::average: a motion-blurred layer's moments added up on the card, each
     /// at one over their number, as a texture the frame's size that is then laid through the
     /// identity. A moment behind the camera counts and adds nothing, as on the CPU.
-    fn averaged(&self, steps: &mut Vec<Step>, layer: &crate::render::LayerDraw, source: &wgpu::TextureView, (width, height): (usize, usize)) -> wgpu::TextureView {
+    fn averaged(
+        &self,
+        steps: &mut Vec<Step>,
+        layer: &crate::render::LayerDraw,
+        source: &wgpu::TextureView,
+        (width, height): (usize, usize),
+    ) -> wgpu::TextureView {
         let sum = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("B-156b moments"),
             size: (width * height * 16) as u64,
@@ -17987,9 +18994,20 @@ impl Gpu {
         for m in layer.moments.iter().flatten() {
             let Some(inverse) = m.invert() else { continue };
             // Outside the drawing grown by a pixel a moment samples only zero.
-            let corners = [m.apply(-1.0, -1.0), m.apply(sw + 1.0, -1.0), m.apply(-1.0, sh + 1.0), m.apply(sw + 1.0, sh + 1.0)];
-            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| (m.0.min(c.0), m.1.min(c.1)));
-            let high = corners.iter().fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| (m.0.max(c.0), m.1.max(c.1)));
+            let corners = [
+                m.apply(-1.0, -1.0),
+                m.apply(sw + 1.0, -1.0),
+                m.apply(-1.0, sh + 1.0),
+                m.apply(sw + 1.0, sh + 1.0),
+            ];
+            let low = corners.iter().fold((f64::INFINITY, f64::INFINITY), |m, c| {
+                (m.0.min(c.0), m.1.min(c.1))
+            });
+            let high = corners
+                .iter()
+                .fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |m, c| {
+                    (m.0.max(c.0), m.1.max(c.1))
+                });
             let (x0, y0, x1, y1) = if [low.0, low.1, high.0, high.1].iter().all(|v| v.is_finite()) {
                 (
                     low.0.floor().clamp(0.0, width as f64) as u32,
@@ -18005,9 +19023,22 @@ impl Gpu {
             }
             let s0 = inverse.apply(x0 as f64 + 0.5, y0 as f64 + 0.5);
             let numbers = [
-                f(s0.0), f(s0.1), f(inverse.a), f(inverse.b), f(inverse.c), f(inverse.d),
-                0, 0, 0, 0, 0, 0,
-                x0, y0, x1 - x0, y1 - y0,
+                f(s0.0),
+                f(s0.1),
+                f(inverse.a),
+                f(inverse.b),
+                f(inverse.c),
+                f(inverse.d),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                x0,
+                y0,
+                x1 - x0,
+                y1 - y0,
                 width as u32,
                 0,
                 0,
@@ -18021,12 +19052,25 @@ impl Gpu {
             label: None,
             layout: &self.take.1,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: target.size.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: sum.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&averaged) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: target.size.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: sum.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&averaged),
+                },
             ],
         });
-        steps.push((self.take.0.clone(), group, ((width as u32).div_ceil(16), (height as u32).div_ceil(16))));
+        steps.push((
+            self.take.0.clone(),
+            group,
+            ((width as u32).div_ceil(16), (height as u32).div_ceil(16)),
+        ));
         averaged
     }
 
@@ -18087,7 +19131,11 @@ impl Gpu {
                 // of the four modes, so only the box is dispatched. A box that cannot be
                 // computed is the whole frame, as it is in `render_tile`.
                 // B-156b: a motion-blurred layer's average is the frame's size.
-                let (l, t, r, b) = if layer.moments.is_empty() { bounds(layer) } else { (0.0, 0.0, width as f64, height as f64) };
+                let (l, t, r, b) = if layer.moments.is_empty() {
+                    bounds(layer)
+                } else {
+                    (0.0, 0.0, width as f64, height as f64)
+                };
                 let (x0, y0, x1, y1) = if [l, t, r, b].iter().all(|v| v.is_finite()) {
                     (
                         l.floor().clamp(0.0, width as f64) as u32,
@@ -18114,12 +19162,28 @@ impl Gpu {
                     BlendMode::Screen => 2,
                     BlendMode::Add => 3,
                     // D-301: refused above.
-                    BlendMode::Overlay | BlendMode::SoftLight | BlendMode::StencilAlpha | BlendMode::StencilLuma => 0,
+                    BlendMode::Overlay
+                    | BlendMode::SoftLight
+                    | BlendMode::StencilAlpha
+                    | BlendMode::StencilLuma => 0,
                 };
                 let mut numbers = [
-                    f(s0.0), f(s0.1), f(inverse.a), f(inverse.b), f(inverse.c), f(inverse.d),
-                    f(m.0), f(m.1), f(m.2), f(m.3), f(m.4), f(m.5),
-                    x0, y0, x1 - x0, y1 - y0,
+                    f(s0.0),
+                    f(s0.1),
+                    f(inverse.a),
+                    f(inverse.b),
+                    f(inverse.c),
+                    f(inverse.d),
+                    f(m.0),
+                    f(m.1),
+                    f(m.2),
+                    f(m.3),
+                    f(m.4),
+                    f(m.5),
+                    x0,
+                    y0,
+                    x1 - x0,
+                    y1 - y0,
                     width as u32,
                     blend,
                     matte.is_some() as u32,
@@ -18129,27 +19193,47 @@ impl Gpu {
                 // B-156 (D-225), render::adjust_frame: the frame laid so far through the layer's
                 // stack, then mixed back by what the layer's shape, opacity and matte cover.
                 if let Some(stack) = &layer.adjust {
-                    let run = crate::compose::adjust_run(stack, (width, height)).expect("refused when the CPU runs it");
+                    let run = crate::compose::adjust_run(stack, (width, height))
+                        .expect("refused when the CPU runs it");
                     let taken = self.scratch("B-156 frame", width, height);
                     let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                         label: None,
                         layout: &self.take.1,
                         entries: &[
-                            wgpu::BindGroupEntry { binding: 0, resource: size.as_entire_binding() },
-                            wgpu::BindGroupEntry { binding: 1, resource: sum.as_entire_binding() },
-                            wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&taken) },
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: size.as_entire_binding(),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 1,
+                                resource: sum.as_entire_binding(),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 3,
+                                resource: wgpu::BindingResource::TextureView(&taken),
+                            },
                         ],
                     });
                     steps.push((self.take.0.clone(), group, tiles));
                     // Only Paraffin and Kira-kira read the drawing on the CPU, and they stay there.
                     let mut views = Vec::new();
-                    self.run(&mut steps, &layer.source, (taken.clone(), (width, height)), &run, 0, &mut views);
-                    let (effected, (ew, eh)) = views.pop().flatten().unwrap_or((taken, (width, height)));
+                    self.run(
+                        &mut steps,
+                        &layer.source,
+                        (taken.clone(), (width, height)),
+                        &run,
+                        0,
+                        &mut views,
+                    );
+                    let (effected, (ew, eh)) =
+                        views.pop().flatten().unwrap_or((taken, (width, height)));
                     // Its shape is the composition's size, opaque, unless a mask cut it: that one is
                     // kept on the card, and only the cut ones are sent each frame. Both wide, so the
                     // cover is the CPU's to the bit.
                     let shape = if layer.source.data().par_iter().all(|v| *v == 1.0) {
-                        if self.ones.as_ref().is_none_or(|o| (o.width(), o.height()) != (layer.source.width(), layer.source.height())) {
+                        if self.ones.as_ref().is_none_or(|o| {
+                            (o.width(), o.height()) != (layer.source.width(), layer.source.height())
+                        }) {
                             self.ones = Some(layer.source.clone());
                         }
                         self.ones.clone().expect("kept above")
@@ -18157,9 +19241,25 @@ impl Gpu {
                         layer.source.clone()
                     };
                     let shape = self.resident(&mut uploads, &shape, None, true);
-                    let matte_view = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source), true));
+                    let matte_view = matte.map(|(m, _)| {
+                        self.resident(&mut uploads, &m.source, cache.name_of(&m.source), true)
+                    });
                     let m = matte.map_or([0.0; 6], |(_, i)| [i.a, i.b, i.c, i.d, i.tx, i.ty]);
-                    let k = [inverse.a, inverse.b, inverse.c, inverse.d, inverse.tx, inverse.ty, m[0], m[1], m[2], m[3], m[4], m[5], layer.opacity as f64];
+                    let k = [
+                        inverse.a,
+                        inverse.b,
+                        inverse.c,
+                        inverse.d,
+                        inverse.tx,
+                        inverse.ty,
+                        m[0],
+                        m[1],
+                        m[2],
+                        m[3],
+                        m[4],
+                        m[5],
+                        layer.opacity as f64,
+                    ];
                     // Every effect grows the frame alike on both sides.
                     let p = FxParams {
                         flag: matte.is_some() as u32,
@@ -18169,22 +19269,50 @@ impl Gpu {
                         ..Default::default()
                     };
                     let init = |label, contents: &[u8], usage| {
-                        self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
+                        self.device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: Some(label),
+                                contents,
+                                usage,
+                            })
                     };
-                    let numbers = init("B-156 numbers", bytemuck::bytes_of(&p), wgpu::BufferUsages::UNIFORM);
-                    let k = init("B-156 cover", bytemuck::cast_slice(&k), wgpu::BufferUsages::STORAGE);
-                    let passes = self.fx.as_ref().expect("an adjustment layer is refused without the passes");
-                    let texture = |binding, view| wgpu::BindGroupEntry { binding, resource: wgpu::BindingResource::TextureView(view) };
+                    let numbers = init(
+                        "B-156 numbers",
+                        bytemuck::bytes_of(&p),
+                        wgpu::BufferUsages::UNIFORM,
+                    );
+                    let k = init(
+                        "B-156 cover",
+                        bytemuck::cast_slice(&k),
+                        wgpu::BufferUsages::STORAGE,
+                    );
+                    let passes = self
+                        .fx
+                        .as_ref()
+                        .expect("an adjustment layer is refused without the passes");
+                    let texture = |binding, view| wgpu::BindGroupEntry {
+                        binding,
+                        resource: wgpu::BindingResource::TextureView(view),
+                    };
                     let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                         label: None,
                         layout: &passes.adjust.1,
                         entries: &[
-                            wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: numbers.as_entire_binding(),
+                            },
                             texture(1, &shape),
-                            wgpu::BindGroupEntry { binding: 3, resource: k.as_entire_binding() },
+                            wgpu::BindGroupEntry {
+                                binding: 3,
+                                resource: k.as_entire_binding(),
+                            },
                             texture(4, matte_view.as_ref().unwrap_or(&self.no_matte)),
                             texture(10, &effected),
-                            wgpu::BindGroupEntry { binding: 11, resource: sum.as_entire_binding() },
+                            wgpu::BindGroupEntry {
+                                binding: 11,
+                                resource: sum.as_entire_binding(),
+                            },
                         ],
                     });
                     steps.push((passes.adjust.0.clone(), group, tiles));
@@ -18194,15 +19322,27 @@ impl Gpu {
                 // B-156: under an adjustment layer every drawing is sent whole, not in half
                 // precision: Posterize, Threshold, a wipe's cut and the like turn the smallest
                 // difference in the frame beneath into a large one (D-225).
-                let wide = plan.layers.iter().any(|l| l.adjust.is_some()) || !wraps.is_empty() || matches!(layer.on_card.first().map(OnCard::unmixed), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
-                let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
+                let wide = plan.layers.iter().any(|l| l.adjust.is_some())
+                    || !wraps.is_empty()
+                    || matches!(
+                        layer.on_card.first().map(OnCard::unmixed),
+                        Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_))
+                    );
+                let mut source = self.resident(
+                    &mut uploads,
+                    &layer.source,
+                    cache.name_of(&layer.source),
+                    wide,
+                );
                 if !layer.moments.is_empty() {
                     source = self.averaged(&mut steps, layer, &source, (width, height));
                 }
                 if !layer.on_card.is_empty() {
                     source = self.applied(&mut steps, &layer.source, &source, &layer.on_card);
                 }
-                let matte = matte.map(|(m, _)| self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false));
+                let matte = matte.map(|(m, _)| {
+                    self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false)
+                });
                 if wraps.is_empty() {
                     self.lay(&mut steps, numbers, &source, matte.as_ref(), &sum);
                     continue;
@@ -18225,11 +19365,26 @@ impl Gpu {
                     label: None,
                     layout: &self.unpack_layout,
                     entries: &[
-                        wgpu::BindGroupEntry { binding: 0, resource: size.as_entire_binding() },
-                        wgpu::BindGroupEntry { binding: 1, resource: sum.as_entire_binding() },
-                        wgpu::BindGroupEntry { binding: 2, resource: placed.as_entire_binding() },
-                        wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&drawn) },
-                        wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(&light) },
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: size.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: sum.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: placed.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 3,
+                            resource: wgpu::BindingResource::TextureView(&drawn),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 4,
+                            resource: wgpu::BindingResource::TextureView(&light),
+                        },
                     ],
                 });
                 steps.push((self.unpack.clone(), group, tiles));
@@ -18239,18 +19394,62 @@ impl Gpu {
                     }
                     let sigma = w / 3.0;
                     let r = crate::effects::kernel_radius(sigma);
-                    let blurred = if r == 0 { light.clone() } else { self.gaussian(&mut steps, &light, (width, height), Gaussian { sigma, repeat: false, long: false }).0 };
+                    let blurred = if r == 0 {
+                        light.clone()
+                    } else {
+                        self.gaussian(
+                            &mut steps,
+                            &light,
+                            (width, height),
+                            Gaussian {
+                                sigma,
+                                repeat: false,
+                                long: false,
+                            },
+                        )
+                        .0
+                    };
                     let out = self.scratch("B-76 wrapped", width, height);
-                    let p = FxParams { r: r as i32, flag: add as u32, ..Default::default() };
-                    let passes = self.fx.as_ref().expect("a Light Wrap is refused without the passes");
-                    self.fx_step(&mut steps, &passes.wrap, p, Some(&drawn), Some(&out), Some(&[intensity / 100.0]), Some(&blurred), [None; 4], tiles);
+                    let p = FxParams {
+                        r: r as i32,
+                        flag: add as u32,
+                        ..Default::default()
+                    };
+                    let passes = self
+                        .fx
+                        .as_ref()
+                        .expect("a Light Wrap is refused without the passes");
+                    self.fx_step(
+                        &mut steps,
+                        &passes.wrap,
+                        p,
+                        Some(&drawn),
+                        Some(&out),
+                        Some(&[intensity / 100.0]),
+                        Some(&blurred),
+                        [None; 4],
+                        tiles,
+                    );
                     drawn = out;
                 }
                 let f = |v: f32| v.to_bits();
                 let placed = [
-                    f(x0 as f32 + 0.5), f(y0 as f32 + 0.5), f(1.0), f(0.0), f(0.0), f(1.0),
-                    0, 0, 0, 0, 0, 0,
-                    x0, y0, x1 - x0, y1 - y0,
+                    f(x0 as f32 + 0.5),
+                    f(y0 as f32 + 0.5),
+                    f(1.0),
+                    f(0.0),
+                    f(0.0),
+                    f(1.0),
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    x0,
+                    y0,
+                    x1 - x0,
+                    y1 - y0,
                     width as u32,
                     blend,
                     0,
@@ -18266,9 +19465,18 @@ impl Gpu {
                 label: None,
                 layout: &self.encode_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: target.size.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: target.sum.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: target.bytes.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: target.size.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: target.sum.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: target.bytes.as_entire_binding(),
+                    },
                 ],
             });
 
@@ -18290,18 +19498,28 @@ impl Gpu {
                 }
                 pass.set_pipeline(&self.encode);
                 pass.set_bind_group(0, &encode_group, &[]);
-                pass.dispatch_workgroups((width as u32).div_ceil(16), (height as u32).div_ceil(16), 1);
+                pass.dispatch_workgroups(
+                    (width as u32).div_ceil(16),
+                    (height as u32).div_ceil(16),
+                    1,
+                );
             }
             // The drawings arrive before the frame that draws with them: one queue, in order.
             if std::mem::take(&mut self.sending.open) {
-                self.sending.buffer.as_ref().expect("open only while there").unmap();
+                self.sending
+                    .buffer
+                    .as_ref()
+                    .expect("open only while there")
+                    .unmap();
             }
             self.sending.after = Some(self.queue.submit([uploads.finish(), encoder.finish()]));
             // Working textures neither this frame nor the one before used, and no drawing keeps,
             // are let go: an effect redrawn each frame frees last frame's result only as it
             // keeps this one.
             if let Some(working) = &self.working {
-                working.borrow_mut().retain(|(t, used)| *used + 1 >= self.frame || self.keeps(t));
+                working
+                    .borrow_mut()
+                    .retain(|(t, used)| *used + 1 >= self.frame || self.keeps(t));
             }
             // Audit P9: a Curl Noise field neither frame used goes back to the working textures.
             self.fields.borrow_mut().retain(|(_, view, used)| {
@@ -18326,13 +19544,23 @@ impl Gpu {
     fn read_back(&self) -> Result<Vec<u8>, String> {
         let target = self.target.as_ref().expect("drawn before it is read");
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        encoder.copy_buffer_to_buffer(&target.bytes, 0, &target.readback, 0, (target.width * target.height * 4) as u64);
+        encoder.copy_buffer_to_buffer(
+            &target.bytes,
+            0,
+            &target.readback,
+            0,
+            (target.width * target.height * 4) as u64,
+        );
         self.queue.submit([encoder.finish()]);
         let slice = target.readback.slice(..);
         let (tell, told) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |r| drop(tell.send(r)));
-        self.device.poll(wgpu::PollType::Wait).map_err(|e| e.to_string())?;
-        told.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        self.device
+            .poll(wgpu::PollType::Wait)
+            .map_err(|e| e.to_string())?;
+        told.recv()
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
         let pixels = slice.get_mapped_range().to_vec();
         target.readback.unmap();
         Ok(pixels)
@@ -18377,14 +19605,24 @@ impl Gpu {
         &mut self,
         window: &(impl wgpu::rwh::HasWindowHandle + wgpu::rwh::HasDisplayHandle),
     ) -> Result<(), String> {
-        let target = unsafe { wgpu::SurfaceTargetUnsafe::from_window(window) }.map_err(|e| e.to_string())?;
-        let surface = unsafe { self.instance.create_surface_unsafe(target) }.map_err(|e| e.to_string())?;
+        let target =
+            unsafe { wgpu::SurfaceTargetUnsafe::from_window(window) }.map_err(|e| e.to_string())?;
+        let surface =
+            unsafe { self.instance.create_surface_unsafe(target) }.map_err(|e| e.to_string())?;
         let caps = surface.get_capabilities(&self.adapter);
         // Plain eight-bit, not sRGB: the page's colour numbers go to the screen as they are.
-        let format = [wgpu::TextureFormat::Bgra8Unorm, wgpu::TextureFormat::Rgba8Unorm]
-            .into_iter()
-            .find(|f| caps.formats.contains(f))
-            .ok_or_else(|| format!("{} cannot paint this window in eight-bit colour", self.about))?;
+        let format = [
+            wgpu::TextureFormat::Bgra8Unorm,
+            wgpu::TextureFormat::Rgba8Unorm,
+        ]
+        .into_iter()
+        .find(|f| caps.formats.contains(f))
+        .ok_or_else(|| {
+            format!(
+                "{} cannot paint this window in eight-bit colour",
+                self.about
+            )
+        })?;
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
@@ -18395,47 +19633,82 @@ impl Gpu {
             alpha_mode: caps.alpha_modes[0],
             view_formats: vec![],
         };
-        let module = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("B-45"),
-            source: wgpu::ShaderSource::Wgsl(SCREEN_SHADER.into()),
-        });
-        let fragment = |binding, ty| wgpu::BindGroupLayoutEntry { visibility: wgpu::ShaderStages::FRAGMENT, ..entry(binding, ty) };
-        let layout = self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("B-45 screen"),
-            entries: &[fragment(0, uniform()), fragment(1, storage(true)), fragment(2, storage(true))],
-        });
-        let pipeline = self.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("B-45 screen"),
-            layout: Some(&self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: None,
-                bind_group_layouts: &[&layout],
-                push_constant_ranges: &[],
-            })),
-            vertex: wgpu::VertexState { module: &module, entry_point: Some("corner"), compilation_options: Default::default(), buffers: &[] },
-            fragment: Some(wgpu::FragmentState {
-                module: &module,
-                entry_point: Some("paint"),
-                compilation_options: Default::default(),
-                targets: &[Some(format.into())],
-            }),
-            primitive: Default::default(),
-            depth_stencil: None,
-            multisample: Default::default(),
-            multiview: None,
-            cache: None,
-        });
+        let module = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("B-45"),
+                source: wgpu::ShaderSource::Wgsl(SCREEN_SHADER.into()),
+            });
+        let fragment = |binding, ty| wgpu::BindGroupLayoutEntry {
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ..entry(binding, ty)
+        };
+        let layout = self
+            .device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("B-45 screen"),
+                entries: &[
+                    fragment(0, uniform()),
+                    fragment(1, storage(true)),
+                    fragment(2, storage(true)),
+                ],
+            });
+        let pipeline = self
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("B-45 screen"),
+                layout: Some(&self.device.create_pipeline_layout(
+                    &wgpu::PipelineLayoutDescriptor {
+                        label: None,
+                        bind_group_layouts: &[&layout],
+                        push_constant_ranges: &[],
+                    },
+                )),
+                vertex: wgpu::VertexState {
+                    module: &module,
+                    entry_point: Some("corner"),
+                    compilation_options: Default::default(),
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &module,
+                    entry_point: Some("paint"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(format.into())],
+                }),
+                primitive: Default::default(),
+                depth_stencil: None,
+                multisample: Default::default(),
+                multiview: None,
+                cache: None,
+            });
         // The page is a child window covering the whole of this one. Windows leaves a parent's
         // pixels out wherever a child is unless this is cleared, and wry's own example of a
         // card painting under a see-through page clears it too.
         #[cfg(windows)]
-        if let Some(wgpu::rwh::RawWindowHandle::Win32(h)) = window.window_handle().ok().map(|w| w.as_raw()) {
+        if let Some(wgpu::rwh::RawWindowHandle::Win32(h)) =
+            window.window_handle().ok().map(|w| w.as_raw())
+        {
             use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, SetWindowLongPtrW, GWL_STYLE, WS_CLIPCHILDREN};
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GetWindowLongPtrW, SetWindowLongPtrW, GWL_STYLE, WS_CLIPCHILDREN,
+            };
             let hwnd = HWND(h.hwnd.get() as *mut _);
             // SAFETY: the handle is the live window the caller vouched for; only its style changes.
-            unsafe { SetWindowLongPtrW(hwnd, GWL_STYLE, GetWindowLongPtrW(hwnd, GWL_STYLE) & !(WS_CLIPCHILDREN.0 as isize)) };
+            unsafe {
+                SetWindowLongPtrW(
+                    hwnd,
+                    GWL_STYLE,
+                    GetWindowLongPtrW(hwnd, GWL_STYLE) & !(WS_CLIPCHILDREN.0 as isize),
+                )
+            };
         }
-        self.screen = Some(Screen { surface, config, pipeline, layout });
+        self.screen = Some(Screen {
+            surface,
+            config,
+            pipeline,
+            layout,
+        });
         Ok(())
     }
 
@@ -18450,7 +19723,12 @@ impl Gpu {
     }
 
     /// B-45: paint the window, `size` pixels, with the last picture drawn or held.
-    pub fn show(&mut self, size: (u32, u32), paints: &[Paint], alpha_only: bool) -> Result<(), String> {
+    pub fn show(
+        &mut self,
+        size: (u32, u32),
+        paints: &[Paint],
+        alpha_only: bool,
+    ) -> Result<(), String> {
         let (Some(screen), Some(target)) = (self.screen.as_mut(), self.target.as_ref()) else {
             return Ok(());
         };
@@ -18467,28 +19745,49 @@ impl Gpu {
                 // The window changed under it: once more, freshly set up.
                 Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
                     screen.surface.configure(&self.device, &screen.config);
-                    screen.surface.get_current_texture().map_err(|e| e.to_string())?
+                    screen
+                        .surface
+                        .get_current_texture()
+                        .map_err(|e| e.to_string())?
                 }
                 Err(e) => return Err(e.to_string()),
             };
             self.device.push_error_scope(wgpu::ErrorFilter::Validation);
-            let numbers = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("B-45 screen"),
-                contents: bytemuck::cast_slice(&[paints.len() as u32, target.width as u32, target.height as u32, alpha_only as u32]),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
-            let list = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("B-45 paints"),
-                contents: bytemuck::cast_slice(paints),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
+            let numbers = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-45 screen"),
+                    contents: bytemuck::cast_slice(&[
+                        paints.len() as u32,
+                        target.width as u32,
+                        target.height as u32,
+                        alpha_only as u32,
+                    ]),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+            let list = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-45 paints"),
+                    contents: bytemuck::cast_slice(paints),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
             let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: None,
                 layout: &screen.layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: numbers.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: list.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: target.bytes.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: numbers.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: list.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: target.bytes.as_entire_binding(),
+                    },
                 ],
             });
             let view = frame.texture.create_view(&Default::default());
@@ -18500,7 +19799,10 @@ impl Gpu {
                         view: &view,
                         depth_slice: None,
                         resolve_target: None,
-                        ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::BLACK), store: wgpu::StoreOp::Store },
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                            store: wgpu::StoreOp::Store,
+                        },
                     })],
                     ..Default::default()
                 });
@@ -18526,13 +19828,24 @@ mod stride {
     fn the_card_reads_sprites_by_the_processors_stride() {
         let s = super::FX_SHADER;
         let line = format!("const SPRITE_STRIDE: u32 = {}u;", crate::particles::STRIDE);
-        assert!(s.contains(&line), "the shader's sprite stride is not {line}");
-        assert_eq!(crate::particles::HEAD, 7, "the shader reads sprites from 7u");
+        assert!(
+            s.contains(&line),
+            "the shader's sprite stride is not {line}"
+        );
+        assert_eq!(
+            crate::particles::HEAD,
+            7,
+            "the shader reads sprites from 7u"
+        );
         for (i, _) in s.match_indices("7u + ") {
             let rest = &s[i + 5..];
             let n = rest.chars().take_while(|c| c.is_ascii_digit()).count();
             let read = rest[n..].starts_with("u * n;") || rest[n..].starts_with("u * u32(k[");
-            assert!(n == 0 || !read, "a sprite read by a written number: {}", &rest[..40]);
+            assert!(
+                n == 0 || !read,
+                "a sprite read by a written number: {}",
+                &rest[..40]
+            );
         }
     }
 }

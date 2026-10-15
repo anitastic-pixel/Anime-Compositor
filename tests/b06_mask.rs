@@ -985,7 +985,10 @@ fn write_report(report: &Report) {
 /// rather than at the few a regular polygon has.
 fn generated_outline(outline: u32) -> Vec<mask::MaskPoint> {
     let corners = 3 + (outline % 10) as usize;
-    let (cx, cy) = (20.0 + (outline % 5) as f64 * 4.0, 18.0 + (outline % 3) as f64 * 5.0);
+    let (cx, cy) = (
+        20.0 + (outline % 5) as f64 * 4.0,
+        18.0 + (outline % 3) as f64 * 5.0,
+    );
     (0..corners)
         .map(|i| {
             let turn = std::f64::consts::TAU * i as f64 / corners as f64 + outline as f64 * 0.37;
@@ -1082,8 +1085,12 @@ fn expanded_coverage_independent(
             let (sx, sy) = (x as f64 + dx, y as f64 + dy);
             let mut nearest = f64::INFINITY;
             for i in 0..n {
-                nearest =
-                    nearest.min(distance_by_perpendicular(vertices[i], vertices[(i + 1) % n], sx, sy));
+                nearest = nearest.min(distance_by_perpendicular(
+                    vertices[i],
+                    vertices[(i + 1) % n],
+                    sx,
+                    sy,
+                ));
             }
             let signed = if inside_by_winding(vertices, sx, sy) {
                 nearest
@@ -1155,7 +1162,11 @@ fn expansion_is_the_same_field_either_way(report: &mut Report) {
         "0.000000",
         format!("{worst:.6}"),
     );
-    assert_eq!(compared, 2 * 12 * w * h, "every outline was compared both ways");
+    assert_eq!(
+        compared,
+        2 * 12 * w * h,
+        "every outline was compared both ways"
+    );
 }
 
 #[test]

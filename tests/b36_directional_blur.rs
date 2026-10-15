@@ -13,7 +13,11 @@ use effect_table::{keys, set, Table};
 use anime_compositor::effects::Effect;
 
 fn dirblur(direction: f64, length: f64) -> Effect {
-    Effect::DirectionalBlur { direction, length, edges: "transparent".into() }
+    Effect::DirectionalBlur {
+        direction,
+        length,
+        edges: "transparent".into(),
+    }
 }
 
 #[test]

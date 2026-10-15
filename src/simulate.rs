@@ -6,7 +6,10 @@
 //! No state is carried from frame to frame (document 20): every frame is worked from the layer's
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
-use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS, FOAM_SETTINGS, SCATTERIZE_SETTINGS, STAR_BURST_SETTINGS};
+use crate::effects::{
+    Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, FOAM_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS,
+    POLYGON_SHARDS_SETTINGS, SCATTERIZE_SETTINGS, STAR_BURST_SETTINGS,
+};
 use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -23,7 +26,12 @@ fn bubble_sums(now: &[f64; 6], [u, fps]: [f64; 2], history: Option<&[[f64; 6]]>)
     match history {
         Some(h) => {
             let n = (u as usize).min(h.len().saturating_sub(1));
-            let sum = |k| (0..n).map(|j| (held(&h[j], k) + held(&h[j + 1], k)) / 2.0).sum::<f64>() / fps;
+            let sum = |k| {
+                (0..n)
+                    .map(|j| (held(&h[j], k) + held(&h[j + 1], k)) / 2.0)
+                    .sum::<f64>()
+                    / fps
+            };
             (sum(1), sum(3))
         }
         None => (held(now, 1) * u / fps, held(now, 3) * u / fps),
@@ -34,8 +42,17 @@ fn bubble_sums(now: &[f64; 6], [u, fps]: [f64; 2], history: Option<&[[f64; 6]]>)
 /// binning reads: the head left at zero, then `STRIDE` numbers a bubble, `[3, x, y, radius, 0 ..]`,
 /// in the drawing's own pixels. `w` and `h` the drawing's size.
 pub(crate) fn bubble_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
-    let Effect::Bubbles { values, clock, history, .. } = e else { unreachable!("Bubbles of another effect") };
-    let v: [f64; 6] = std::array::from_fn(|k| values[k].clamp(BUBBLES_SETTINGS[k].1, BUBBLES_SETTINGS[k].2));
+    let Effect::Bubbles {
+        values,
+        clock,
+        history,
+        ..
+    } = e
+    else {
+        unreachable!("Bubbles of another effect")
+    };
+    let v: [f64; 6] =
+        std::array::from_fn(|k| values[k].clamp(BUBBLES_SETTINGS[k].1, BUBBLES_SETTINGS[k].2));
     let (s, f) = bubble_sums(&v, *clock, history.as_deref().map(|h| h.as_slice()));
     let base = crate::grade::mix(v[5].floor() as u64);
     let mut k = vec![0.0; HEAD];
@@ -49,7 +66,8 @@ pub(crate) fn bubble_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         let q = u(1) + (0.5 + u(3)) * s * (h / 4.0) / r;
         let y = h + rho - (q - q.floor()) * r;
         let phi = u(4) + (0.75 + u(5) / 2.0) * f;
-        let x = u(0) * (w + 2.0 * rho) - rho + v[2] / 10.0 * rho * (2.0 * std::f64::consts::PI * phi).sin();
+        let x = u(0) * (w + 2.0 * rho) - rho
+            + v[2] / 10.0 * rho * (2.0 * std::f64::consts::PI * phi).sin();
         k.extend([3.0, x, y, rho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     }
     k
@@ -58,7 +76,14 @@ pub(crate) fn bubble_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
 /// D-671: one bubble's colour at the own pixel centre (x, y), with its cover, or None where it
 /// does not reach. `read` the bilinear read of the drawing at an own point; `sign` -1 for
 /// Inverse, 1 for World; `shading` the word's place in [`crate::effects::BUBBLES_WORDS`].
-fn bubble_at(s: &[f64], x: f64, y: f64, sign: f64, shading: usize, read: &impl Fn(f64, f64) -> [f64; 4]) -> Option<([f64; 4], f64)> {
+fn bubble_at(
+    s: &[f64],
+    x: f64,
+    y: f64,
+    sign: f64,
+    shading: usize,
+    read: &impl Fn(f64, f64) -> [f64; 4],
+) -> Option<([f64; 4], f64)> {
     let (bx, by, rho) = (s[1], s[2], s[3]);
     let (dx, dy) = (x - bx, y - by);
     let d = dx.hypot(dy);
@@ -66,13 +91,22 @@ fn bubble_at(s: &[f64], x: f64, y: f64, sign: f64, shading: usize, read: &impl F
     if cover == 0.0 {
         return None;
     }
-    let (ex, ey) = if d > rho { (dx / d, dy / d) } else { (dx / rho, dy / rho) };
+    let (ex, ey) = if d > rho {
+        (dx / d, dy / d)
+    } else {
+        (dx / rho, dy / rho)
+    };
     let t2 = (ex * ex + ey * ey).min(1.0);
     let k = 2.0 * rho / (1.0 + (1.0 - t2).sqrt());
     let c = read(bx + sign * k * ex, by + sign * k * ey);
     let b = match shading {
         1 => c.map(|v| v * (1.0 - t2) + t2),
-        2 => [c[0] * (1.0 - t2), c[1] * (1.0 - t2), c[2] * (1.0 - t2), c[3] * (1.0 - t2) + t2],
+        2 => [
+            c[0] * (1.0 - t2),
+            c[1] * (1.0 - t2),
+            c[2] * (1.0 - t2),
+            c[3] * (1.0 - t2) + t2,
+        ],
         3 => c.map(|v| v * t2),
         4 => c.map(|v| v * (1.0 - t2)),
         _ => c,
@@ -87,7 +121,9 @@ fn bubble_at(s: &[f64], x: f64, y: f64, sign: f64, shading: usize, read: &impl F
 // ponytail: processor tiles hold every bubble that reaches them, so many large bubbles make a
 // pixel try them all; that is the rule (each lays over the last), so no cheaper cut exists.
 pub(crate) fn bubbles(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
-    let Effect::Bubbles { words, .. } = e else { unreachable!("Bubbles of another effect") };
+    let Effect::Bubbles { words, .. } = e else {
+        unreachable!("Bubbles of another effect")
+    };
     let (bw, bh) = (source.width(), source.height());
     let (w0, h0) = (bw.saturating_sub(2 * ox), bh.saturating_sub(2 * oy));
     if w0 == 0 || h0 == 0 {
@@ -95,36 +131,57 @@ pub(crate) fn bubbles(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
     }
     let k = bubble_list(e, w0 as f64, h0 as f64);
     let sign = if words[0] == "world" { 1.0 } else { -1.0 };
-    let shading = crate::effects::BUBBLES_WORDS[1].1.iter().position(|w| *w == words[1]).unwrap_or(3);
+    let shading = crate::effects::BUBBLES_WORDS[1]
+        .1
+        .iter()
+        .position(|w| *w == words[1])
+        .unwrap_or(3);
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let drawing = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (fx, fy) = (
+            (x - 0.5).clamp(0.0, (w0 - 1) as f64),
+            (y - 0.5).clamp(0.0, (h0 - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
     let tw = bw.div_ceil(TILE);
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let t = ty * tw + bx / TILE;
-                let x = bx as f64 - ox as f64 + 0.5;
-                let mut o = [0.0f64; 4];
-                for &n in &list[starts[t]..starts[t + 1]] {
-                    if let Some((b, cover)) = bubble_at(&k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE], x, y, sign, shading, &read) {
-                        o = [0, 1, 2, 3].map(|c| b[c] * cover + o[c] * (1.0 - b[3] * cover));
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let t = ty * tw + bx / TILE;
+                    let x = bx as f64 - ox as f64 + 0.5;
+                    let mut o = [0.0f64; 4];
+                    for &n in &list[starts[t]..starts[t + 1]] {
+                        if let Some((b, cover)) = bubble_at(
+                            &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE],
+                            x,
+                            y,
+                            sign,
+                            shading,
+                            &read,
+                        ) {
+                            o = [0, 1, 2, 3].map(|c| b[c] * cover + o[c] * (1.0 - b[3] * cover));
+                        }
+                    }
+                    for (v, o) in px.iter_mut().zip(o) {
+                        *v = o as f32;
                     }
                 }
-                for (v, o) in px.iter_mut().zip(o) {
-                    *v = o as f32;
-                }
             }
-        }
-    });
+        });
 }
 
 /// D-672: Drizzle's settings held inside their ranges.
@@ -162,7 +219,15 @@ fn count_at(c: &[f64], t: f64) -> f64 {
 /// ..]`, its place, its ripple's radius and its height, in the drawing's own pixels. `w` and `h`
 /// the drawing's size. The longevity is the in point's (CycoreFX's "cannot be animated").
 pub(crate) fn drizzle_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
-    let Effect::Drizzle { values, clock: [u, fps], history, .. } = e else { unreachable!("Drizzle of another effect") };
+    let Effect::Drizzle {
+        values,
+        clock: [u, fps],
+        history,
+        ..
+    } = e
+    else {
+        unreachable!("Drizzle of another effect")
+    };
     let history = history.as_deref().map(|h| h.as_slice());
     let v = drizzle_held(values);
     let life = drizzle_held(history.map_or(values, |h| &h[0]))[1];
@@ -170,7 +235,9 @@ pub(crate) fn drizzle_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
     if *u < 0.0 || *fps <= 0.0 || life == 0.0 {
         return k;
     }
-    let c = birth_counts(*u as usize, *fps, |m| drizzle_held(history.map_or(values, |h| &h[m.min(h.len() - 1)]))[0]);
+    let c = birth_counts(*u as usize, *fps, |m| {
+        drizzle_held(history.map_or(values, |h| &h[m.min(h.len() - 1)]))[0]
+    });
     let (lo, hi) = (count_at(&c, u - life * fps), c[c.len() - 1]);
     let base = crate::grade::mix(0);
     let mut m = 0;
@@ -187,7 +254,19 @@ pub(crate) fn drizzle_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         }
         let a = v[4] / 100.0 * (h / 50.0) * 4.0 * s * (1.0 - s);
         let at = |n| (crate::grade::unit(base, j, 0, 0, n) + 1.0) / 2.0;
-        k.extend([3.0, at(0) * w, at(1) * h, r, a, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        k.extend([
+            3.0,
+            at(0) * w,
+            at(1) * h,
+            r,
+            a,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ]);
     }
     k
 }
@@ -198,12 +277,24 @@ pub(crate) fn drizzle_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
 /// the drawing's own pixels and its height, or the distant light's direction times 100 and its
 /// height. `w` and `h` the drawing's size.
 pub(crate) fn drizzle_light(e: &Effect, w: f64, h: f64) -> [f64; 15] {
-    let Effect::Drizzle { values, words, light_color, .. } = e else { unreachable!("Drizzle of another effect") };
+    let Effect::Drizzle {
+        values,
+        words,
+        light_color,
+        ..
+    } = e
+    else {
+        unreachable!("Drizzle of another effect")
+    };
     let v = drizzle_held(values);
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let (ux, uy) = crate::blurs::along(v[10]);
     let point = words[0] == "point";
-    let (lx, ly) = if point { (v[8] / 100.0 * w, v[9] / 100.0 * h) } else { (100.0 * ux, 100.0 * uy) };
+    let (lx, ly) = if point {
+        (v[8] / 100.0 * w, v[9] / 100.0 * h)
+    } else {
+        (100.0 * ux, 100.0 * uy)
+    };
     [
         1.0 + v[2] / 360.0,
         v[3] / 100.0 * (h / 50.0),
@@ -236,63 +327,95 @@ pub(crate) fn drizzle(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
         return;
     }
     let k = drizzle_list(e, w0 as f64, h0 as f64);
-    let [n, kd, lr, lg, lb, inten, amb, dif, spc, metal, rough, point, lx, ly, lz] = drizzle_light(e, w0 as f64, h0 as f64);
+    let [n, kd, lr, lg, lb, inten, amb, dif, spc, metal, rough, point, lx, ly, lz] =
+        drizzle_light(e, w0 as f64, h0 as f64);
     let lc = [lr, lg, lb];
     let tau = 2.0 * std::f64::consts::PI * n;
     let unit = |v: [f64; 3]| {
         let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+        if l > 0.0 {
+            v.map(|c| c / l)
+        } else {
+            [0.0; 3]
+        }
     };
     let distant = unit([lx, ly, lz]);
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let still = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64), (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64));
+        let (fx, fy) = (
+            (x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64),
+            (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(bw - 1), (y0 + 1).min(bh - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| still[(y * bw + x) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
     let tw = bw.div_ceil(TILE);
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let t = ty * tw + bx / TILE;
-                let x = bx as f64 - ox as f64 + 0.5;
-                let (mut zx, mut zy) = (0.0, 0.0);
-                for &i in &list[starts[t]..starts[t + 1]] {
-                    let s = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
-                    let (dx, dy, r) = (x - s[1], y - s[2], s[3]);
-                    let d2 = dx * dx + dy * dy;
-                    if d2 >= r * r {
-                        continue;
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let t = ty * tw + bx / TILE;
+                    let x = bx as f64 - ox as f64 + 0.5;
+                    let (mut zx, mut zy) = (0.0, 0.0);
+                    for &i in &list[starts[t]..starts[t + 1]] {
+                        let s = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
+                        let (dx, dy, r) = (x - s[1], y - s[2], s[3]);
+                        let d2 = dx * dx + dy * dy;
+                        if d2 >= r * r {
+                            continue;
+                        }
+                        let q = d2.sqrt() / r;
+                        let one = 1.0 - q * q;
+                        let ph = tau * q;
+                        let sq = if q == 0.0 {
+                            tau * tau
+                        } else {
+                            tau * ph.sin() / q
+                        };
+                        let g = s[4] * (-4.0 * one * ph.cos() - one * one * sq);
+                        zx += g * dx / (r * r);
+                        zy += g * dy / (r * r);
                     }
-                    let q = d2.sqrt() / r;
-                    let one = 1.0 - q * q;
-                    let ph = tau * q;
-                    let sq = if q == 0.0 { tau * tau } else { tau * ph.sin() / q };
-                    let g = s[4] * (-4.0 * one * ph.cos() - one * one * sq);
-                    zx += g * dx / (r * r);
-                    zy += g * dy / (r * r);
+                    let c = read(x - kd * zx, y - kd * zy);
+                    let al = c[3];
+                    let col = if al > 0.0 {
+                        [c[0] / al, c[1] / al, c[2] / al]
+                    } else {
+                        [0.0; 3]
+                    };
+                    let nn = unit([-zx, -zy, 1.0]);
+                    let l = if point == 1.0 {
+                        unit([lx - x, ly - y, lz])
+                    } else {
+                        distant
+                    };
+                    let nl = nn[0] * l[0] + nn[1] * l[1] + nn[2] * l[2];
+                    let rz = 2.0 * nl * nn[2] - l[2];
+                    let shine = if nl > 0.0 && rz > 0.0 {
+                        rz.powf(1.0 / rough)
+                    } else {
+                        0.0
+                    };
+                    for ch in 0..3 {
+                        let lit = col[ch] * (amb + dif * inten * lc[ch] * nl.max(0.0))
+                            + spc * inten * (lc[ch] + (col[ch] - lc[ch]) * metal) * shine;
+                        px[ch] = (lit * al) as f32;
+                    }
+                    px[3] = al as f32;
                 }
-                let c = read(x - kd * zx, y - kd * zy);
-                let al = c[3];
-                let col = if al > 0.0 { [c[0] / al, c[1] / al, c[2] / al] } else { [0.0; 3] };
-                let nn = unit([-zx, -zy, 1.0]);
-                let l = if point == 1.0 { unit([lx - x, ly - y, lz]) } else { distant };
-                let nl = nn[0] * l[0] + nn[1] * l[1] + nn[2] * l[2];
-                let rz = 2.0 * nl * nn[2] - l[2];
-                let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / rough) } else { 0.0 };
-                for ch in 0..3 {
-                    let lit = col[ch] * (amb + dif * inten * lc[ch] * nl.max(0.0)) + spc * inten * (lc[ch] + (col[ch] - lc[ch]) * metal) * shine;
-                    px[ch] = (lit * al) as f32;
-                }
-                px[3] = al as f32;
             }
-        }
-    });
+        });
 }
 
 /// D-673: Hair's settings held inside their ranges.
@@ -307,7 +430,9 @@ fn hair_held(v: &[f64; 13]) -> [f64; 13] {
 /// in the drawing's own pixels. `w` and `h` the drawing's size. Whether a strand grows is left to
 /// the drawing, which reads the layer at its root.
 pub(crate) fn hair_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
-    let Effect::Hair { values, words, .. } = e else { unreachable!("Hair of another effect") };
+    let Effect::Hair { values, words, .. } = e else {
+        unreachable!("Hair of another effect")
+    };
     let v = hair_held(values);
     let mut k = vec![0.0; HEAD];
     let big = v[0] / 100.0 * h / 10.0;
@@ -319,13 +444,29 @@ pub(crate) fn hair_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
     let base = crate::grade::mix(0);
     k.reserve(STRIDE * n.max(0) as usize);
     for j in 0..n {
-        let u: [f64; 6] = std::array::from_fn(|c| (crate::grade::unit(base, j, 0, 0, c as u64) + 1.0) / 2.0);
-        let (p, th) = (2.0 * std::f64::consts::PI * u[3], std::f64::consts::PI / 3.0 * u[4]);
+        let u: [f64; 6] =
+            std::array::from_fn(|c| (crate::grade::unit(base, j, 0, 0, c as u64) + 1.0) / 2.0);
+        let (p, th) = (
+            2.0 * std::f64::consts::PI * u[3],
+            std::f64::consts::PI / 3.0 * u[4],
+        );
         let d = [th.sin() * p.cos(), th.sin() * p.sin(), th.cos()];
         let len = big * (0.6 + 0.4 * u[5]);
         let b = v[2] / 100.0 * if words[0] == "on" { len / big } else { 1.0 };
         let reach = len * (d[0].hypot(d[1]) + b.abs()) + t / 2.0 + 1.0;
-        k.extend([3.0, u[0] * w, u[1] * h, reach, d[0], d[1], d[2], len, b, u[2], 0.0]);
+        k.extend([
+            3.0,
+            u[0] * w,
+            u[1] * h,
+            reach,
+            d[0],
+            d[1],
+            d[2],
+            len,
+            b,
+            u[2],
+            0.0,
+        ]);
     }
     k
 }
@@ -335,12 +476,33 @@ pub(crate) fn hair_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
 /// light's intensity, the light's direction (towards it, unit length), ambient, diffuse,
 /// specular, roughness and metal. `h` the drawing's height.
 pub(crate) fn hair_light(e: &Effect, h: f64) -> [f64; 15] {
-    let Effect::Hair { values, hair_color, .. } = e else { unreachable!("Hair of another effect") };
+    let Effect::Hair {
+        values, hair_color, ..
+    } = e
+    else {
+        unreachable!("Hair of another effect")
+    };
     let v = hair_held(values);
     let hc = crate::effects::encoded(hair_color).map(crate::grade::to_linear);
     let (ux, uy) = crate::blurs::along(v[7]);
     let l = (ux * ux + uy * uy + 1.0).sqrt();
-    [hc[0], hc[1], hc[2], v[4] / 100.0, v[5] / 100.0, v[1] * h / 1080.0, v[6] / 100.0, ux / l, uy / l, 1.0 / l, v[8] / 100.0, v[9] / 100.0, v[10] / 100.0, v[11], v[12] / 100.0]
+    [
+        hc[0],
+        hc[1],
+        hc[2],
+        v[4] / 100.0,
+        v[5] / 100.0,
+        v[1] * h / 1080.0,
+        v[6] / 100.0,
+        ux / l,
+        uy / l,
+        1.0 / l,
+        v[8] / 100.0,
+        v[9] / 100.0,
+        v[10] / 100.0,
+        v[11],
+        v[12] / 100.0,
+    ]
 }
 
 /// D-673: Hair, after CycoreFX's CC Hair (document 21): strands grown where the layer is opaque,
@@ -359,17 +521,24 @@ pub(crate) fn hair(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usi
     if k.len() == HEAD {
         return;
     }
-    let [hr, hg, hb, inh, op, t, inten, lx, ly, lz, amb, dif, spc, rough, metal] = hair_light(e, h0 as f64);
+    let [hr, hg, hb, inh, op, t, inten, lx, ly, lz, amb, dif, spc, rough, metal] =
+        hair_light(e, h0 as f64);
     let hc = [hr, hg, hb];
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let still = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64), (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64));
+        let (fx, fy) = (
+            (x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64),
+            (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(bw - 1), (y0 + 1).min(bh - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| still[(y * bw + x) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
     // Each strand worked once: its colour, when it grows (the picture's straight colour at its
     // root mixed in), and its nine points.
@@ -381,58 +550,77 @@ pub(crate) fn hair(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usi
                 let col = std::array::from_fn(|ch| hc[ch] * (1.0 - inh) + c[ch] / c[3] * inh);
                 let pts = std::array::from_fn(|i| {
                     let q = i as f64 / 8.0;
-                    [s[1] + s[7] * s[4] * q, s[2] + s[7] * (s[5] * q + s[8] * q * q)]
+                    [
+                        s[1] + s[7] * s[4] * q,
+                        s[2] + s[7] * (s[5] * q + s[8] * q * q),
+                    ]
                 });
                 (col, pts)
             })
         })
         .collect();
     let tw = bw.div_ceil(TILE);
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let tt = ty * tw + bx / TILE;
-                let x = bx as f64 - ox as f64 + 0.5;
-                let mut o = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
-                for &i in &list[starts[tt]..starts[tt + 1]] {
-                    let Some((col, p)) = &strands[i] else { continue };
-                    let (mut best, mut at) = (0.0, 0.0);
-                    for n in 0..8 {
-                        let (ax, ay, ex, ey) = (p[n][0], p[n][1], p[n + 1][0] - p[n][0], p[n + 1][1] - p[n][1]);
-                        let ee = ex * ex + ey * ey;
-                        let s = if ee == 0.0 { 0.0 } else { (((x - ax) * ex + (y - ay) * ey) / ee).clamp(0.0, 1.0) };
-                        let e = (x - (ax + s * ex)).hypot(y - (ay + s * ey));
-                        let along = (n as f64 + s) / 8.0;
-                        let cov = (t / 2.0 * (1.0 - 0.75 * along) - e + 0.5).clamp(0.0, 1.0);
-                        if cov > best {
-                            (best, at) = (cov, along);
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let tt = ty * tw + bx / TILE;
+                    let x = bx as f64 - ox as f64 + 0.5;
+                    let mut o = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+                    for &i in &list[starts[tt]..starts[tt + 1]] {
+                        let Some((col, p)) = &strands[i] else {
+                            continue;
+                        };
+                        let (mut best, mut at) = (0.0, 0.0);
+                        for n in 0..8 {
+                            let (ax, ay, ex, ey) = (
+                                p[n][0],
+                                p[n][1],
+                                p[n + 1][0] - p[n][0],
+                                p[n + 1][1] - p[n][1],
+                            );
+                            let ee = ex * ex + ey * ey;
+                            let s = if ee == 0.0 {
+                                0.0
+                            } else {
+                                (((x - ax) * ex + (y - ay) * ey) / ee).clamp(0.0, 1.0)
+                            };
+                            let e = (x - (ax + s * ex)).hypot(y - (ay + s * ey));
+                            let along = (n as f64 + s) / 8.0;
+                            let cov = (t / 2.0 * (1.0 - 0.75 * along) - e + 0.5).clamp(0.0, 1.0);
+                            if cov > best {
+                                (best, at) = (cov, along);
+                            }
                         }
+                        if best == 0.0 {
+                            continue;
+                        }
+                        let sp = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
+                        let dv = [sp[4], sp[5] + 2.0 * sp[8] * at, sp[6]];
+                        let dl = (dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2]).sqrt();
+                        let dv = dv.map(|c| c / dl);
+                        let a = dv[0] * lx + dv[1] * ly + dv[2] * lz;
+                        let kd = (1.0 - a * a).max(0.0).sqrt();
+                        let br = kd * (1.0 - dv[2] * dv[2]).max(0.0).sqrt() - a * dv[2];
+                        let ks = if br > 0.0 { br.powf(1.0 / rough) } else { 0.0 };
+                        let al = best * op;
+                        for ch in 0..3 {
+                            let lit = col[ch] * (amb + dif * inten * kd)
+                                + spc * inten * (1.0 + (col[ch] - 1.0) * metal) * ks;
+                            o[ch] = lit * al + o[ch] * (1.0 - al);
+                        }
+                        o[3] = al + o[3] * (1.0 - al);
                     }
-                    if best == 0.0 {
-                        continue;
+                    for c in 0..4 {
+                        px[c] = o[c] as f32;
                     }
-                    let sp = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
-                    let dv = [sp[4], sp[5] + 2.0 * sp[8] * at, sp[6]];
-                    let dl = (dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2]).sqrt();
-                    let dv = dv.map(|c| c / dl);
-                    let a = dv[0] * lx + dv[1] * ly + dv[2] * lz;
-                    let kd = (1.0 - a * a).max(0.0).sqrt();
-                    let br = kd * (1.0 - dv[2] * dv[2]).max(0.0).sqrt() - a * dv[2];
-                    let ks = if br > 0.0 { br.powf(1.0 / rough) } else { 0.0 };
-                    let al = best * op;
-                    for ch in 0..3 {
-                        let lit = col[ch] * (amb + dif * inten * kd) + spc * inten * (1.0 + (col[ch] - 1.0) * metal) * ks;
-                        o[ch] = lit * al + o[ch] * (1.0 - al);
-                    }
-                    o[3] = al + o[3] * (1.0 - al);
-                }
-                for c in 0..4 {
-                    px[c] = o[c] as f32;
                 }
             }
-        }
-    });
+        });
 }
 
 /// D-674: Mercury's settings held inside their ranges.
@@ -459,7 +647,16 @@ fn mercury_share(word: &str, s: f64) -> f64 {
 /// point's, the influence this frame's. Whether a drop lives, and its colour, are left to the
 /// drawing, which reads the layer at its birthplace.
 pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
-    let Effect::Mercury { values, words, clock: [u, fps], history, .. } = e else { unreachable!("Mercury of another effect") };
+    let Effect::Mercury {
+        values,
+        words,
+        clock: [u, fps],
+        history,
+        ..
+    } = e
+    else {
+        unreachable!("Mercury of another effect")
+    };
     let history = history.as_deref().map(|h| h.as_slice());
     let at_frame = |m: usize| mercury_held(history.map_or(values, |h| &h[m.min(h.len() - 1)]));
     let life = at_frame(0)[1];
@@ -489,8 +686,16 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         let y0 = py + ry * at(0).sqrt() * (tau * at(1)).sin();
         let sp = v[7] / 100.0 * h * (1.0 - v[8] / 100.0 * at(3));
         let kr = v[10] / 100.0;
-        let f1 = if kr == 0.0 { a } else { -(-kr * a).exp_m1() / kr };
-        let f2 = if kr == 0.0 { a * a / 2.0 } else { (a - f1) / kr };
+        let f1 = if kr == 0.0 {
+            a
+        } else {
+            -(-kr * a).exp_m1() / kr
+        };
+        let f2 = if kr == 0.0 {
+            a * a / 2.0
+        } else {
+            (a - f1) / kr
+        };
         let g = v[9] / 100.0 * h * f2;
         let (ox, oy) = (x0 - px, y0 - py);
         let (x, y) = match words[0].as_str() {
@@ -506,17 +711,34 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
                     "direction" => crate::blurs::along(v[6] + (at(4) - 0.5) * 90.0 * v[8] / 100.0),
                     _ => {
                         let n = ox.hypot(oy);
-                        if n > 0.0 { (-oy / n, ox / n) } else { crate::blurs::along(v[6]) }
+                        if n > 0.0 {
+                            (-oy / n, ox / n)
+                        } else {
+                            crate::blurs::along(v[6])
+                        }
                     }
                 };
                 (x0 + sp * dx * f1, y0 + sp * dy * f1 + g)
             }
         };
-        let r = h / 20.0 * (v[12] / 100.0 + (v[13] - v[12]) / 100.0 * s) * mercury_share(&words[1], s);
+        let r =
+            h / 20.0 * (v[12] / 100.0 + (v[13] - v[12]) / 100.0 * s) * mercury_share(&words[1], s);
         if r <= 0.0 {
             continue;
         }
-        k.extend([3.0, x, y, r * (1.0 + big_a), r, x0, y0, at(2), 0.0, 0.0, 0.0]);
+        k.extend([
+            3.0,
+            x,
+            y,
+            r * (1.0 + big_a),
+            r,
+            x0,
+            y0,
+            at(2),
+            0.0,
+            0.0,
+            0.0,
+        ]);
     }
     k
 }
@@ -527,15 +749,43 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
 /// point light's place in the drawing's own pixels and its height, or the distant light's
 /// direction times 100 and its height. `w` and `h` the drawing's size.
 pub(crate) fn mercury_light(e: &Effect, w: f64, h: f64) -> [f64; 15] {
-    let Effect::Mercury { values, words, light_color, .. } = e else { unreachable!("Mercury of another effect") };
+    let Effect::Mercury {
+        values,
+        words,
+        light_color,
+        ..
+    } = e
+    else {
+        unreachable!("Mercury of another effect")
+    };
     let v = mercury_held(values);
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let (ux, uy) = crate::blurs::along(v[18]);
     let point = words[2] == "point";
-    let (lx, ly) = if point { (v[16] / 100.0 * w, v[17] / 100.0 * h) } else { (100.0 * ux, 100.0 * uy) };
+    let (lx, ly) = if point {
+        (v[16] / 100.0 * w, v[17] / 100.0 * h)
+    } else {
+        (100.0 * ux, 100.0 * uy)
+    };
     let a = v[11] / 100.0;
     let edge = 1.0 - 1.0 / ((1.0 + a) * (1.0 + a));
-    [a, edge * edge, lc[0], lc[1], lc[2], v[14] / 100.0, v[19] / 100.0, v[20] / 100.0, v[21] / 100.0, v[23] / 100.0, v[22], point as u8 as f64, lx, ly, v[15]]
+    [
+        a,
+        edge * edge,
+        lc[0],
+        lc[1],
+        lc[2],
+        v[14] / 100.0,
+        v[19] / 100.0,
+        v[20] / 100.0,
+        v[21] / 100.0,
+        v[23] / 100.0,
+        v[22],
+        point as u8 as f64,
+        lx,
+        ly,
+        v[15],
+    ]
 }
 
 /// D-674: Mercury, after CycoreFX's CC Mr. Mercury (document 21): the layer turned into drops of
@@ -551,22 +801,33 @@ pub(crate) fn mercury(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
         return;
     }
     let k = mercury_list(e, w0 as f64, h0 as f64);
-    let [_, edge, lr, lg, lb, inten, amb, dif, spc, metal, rough, point, lx, ly, lz] = mercury_light(e, w0 as f64, h0 as f64);
+    let [_, edge, lr, lg, lb, inten, amb, dif, spc, metal, rough, point, lx, ly, lz] =
+        mercury_light(e, w0 as f64, h0 as f64);
     let lc = [lr, lg, lb];
     let unit = |v: [f64; 3]| {
         let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+        if l > 0.0 {
+            v.map(|c| c / l)
+        } else {
+            [0.0; 3]
+        }
     };
     let distant = unit([lx, ly, lz]);
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let still = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64), (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64));
+        let (fx, fy) = (
+            (x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64),
+            (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(bw - 1), (y0 + 1).min(bh - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| still[(y * bw + x) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
     // Each drop's straight colour where it was born, when it lives there.
     let cols: Vec<Option<[f64; 3]>> = k[HEAD..]
@@ -577,61 +838,78 @@ pub(crate) fn mercury(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
         })
         .collect();
     let tw = bw.div_ceil(TILE);
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let t = ty * tw + bx / TILE;
-                let x = bx as f64 - ox as f64 + 0.5;
-                let (mut f, mut fx, mut fy, mut wt, mut cs) = (0.0, 0.0, 0.0, 0.0, [0.0; 3]);
-                for &i in &list[starts[t]..starts[t + 1]] {
-                    let Some(col) = cols[i] else { continue };
-                    let s = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
-                    let (dx, dy, rho) = (x - s[1], y - s[2], s[3]);
-                    let q2 = (dx * dx + dy * dy) / (rho * rho);
-                    if q2 >= 1.0 {
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let t = ty * tw + bx / TILE;
+                    let x = bx as f64 - ox as f64 + 0.5;
+                    let (mut f, mut fx, mut fy, mut wt, mut cs) = (0.0, 0.0, 0.0, 0.0, [0.0; 3]);
+                    for &i in &list[starts[t]..starts[t + 1]] {
+                        let Some(col) = cols[i] else { continue };
+                        let s = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
+                        let (dx, dy, rho) = (x - s[1], y - s[2], s[3]);
+                        let q2 = (dx * dx + dy * dy) / (rho * rho);
+                        if q2 >= 1.0 {
+                            continue;
+                        }
+                        let one = 1.0 - q2;
+                        let ff = one * one;
+                        f += ff;
+                        fx += -4.0 * one * dx / (rho * rho);
+                        fy += -4.0 * one * dy / (rho * rho);
+                        wt += ff * rho;
+                        for ch in 0..3 {
+                            cs[ch] += ff * col[ch];
+                        }
+                    }
+                    let gl = fx.hypot(fy);
+                    let cov = if f <= 0.0 {
+                        0.0
+                    } else if gl > 0.0 {
+                        ((f - edge) / gl + 0.5).clamp(0.0, 1.0)
+                    } else if f > edge {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    if cov == 0.0 {
+                        px.fill(0.0);
                         continue;
                     }
-                    let one = 1.0 - q2;
-                    let ff = one * one;
-                    f += ff;
-                    fx += -4.0 * one * dx / (rho * rho);
-                    fy += -4.0 * one * dy / (rho * rho);
-                    wt += ff * rho;
+                    let col = cs.map(|c| c / f);
+                    let cc = wt / f;
+                    let nv = [-cc * fx, -cc * fy, 2.0 * (f - edge).max(0.0).sqrt()];
+                    let nn = if nv.iter().any(|&c| c != 0.0) {
+                        unit(nv)
+                    } else {
+                        [0.0, 0.0, 1.0]
+                    };
+                    let l = if point == 1.0 {
+                        unit([lx - x, ly - y, lz])
+                    } else {
+                        distant
+                    };
+                    let nl = nn[0] * l[0] + nn[1] * l[1] + nn[2] * l[2];
+                    let rz = 2.0 * nl * nn[2] - l[2];
+                    let shine = if nl > 0.0 && rz > 0.0 {
+                        rz.powf(1.0 / rough)
+                    } else {
+                        0.0
+                    };
                     for ch in 0..3 {
-                        cs[ch] += ff * col[ch];
+                        let lit = col[ch] * (amb + dif * inten * lc[ch] * nl.max(0.0))
+                            + spc * inten * (lc[ch] + (col[ch] - lc[ch]) * metal) * shine;
+                        px[ch] = (lit * cov) as f32;
                     }
+                    px[3] = cov as f32;
                 }
-                let gl = fx.hypot(fy);
-                let cov = if f <= 0.0 {
-                    0.0
-                } else if gl > 0.0 {
-                    ((f - edge) / gl + 0.5).clamp(0.0, 1.0)
-                } else if f > edge {
-                    1.0
-                } else {
-                    0.0
-                };
-                if cov == 0.0 {
-                    px.fill(0.0);
-                    continue;
-                }
-                let col = cs.map(|c| c / f);
-                let cc = wt / f;
-                let nv = [-cc * fx, -cc * fy, 2.0 * (f - edge).max(0.0).sqrt()];
-                let nn = if nv.iter().any(|&c| c != 0.0) { unit(nv) } else { [0.0, 0.0, 1.0] };
-                let l = if point == 1.0 { unit([lx - x, ly - y, lz]) } else { distant };
-                let nl = nn[0] * l[0] + nn[1] * l[1] + nn[2] * l[2];
-                let rz = 2.0 * nl * nn[2] - l[2];
-                let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / rough) } else { 0.0 };
-                for ch in 0..3 {
-                    let lit = col[ch] * (amb + dif * inten * lc[ch] * nl.max(0.0)) + spc * inten * (lc[ch] + (col[ch] - lc[ch]) * metal) * shine;
-                    px[ch] = (lit * cov) as f32;
-                }
-                px[3] = cov as f32;
             }
-        }
-    });
+        });
 }
 
 /// D-675: Polygon Shards' settings held inside their ranges.
@@ -651,15 +929,38 @@ fn shards_held(v: &[f64; 9]) -> [f64; 9] {
 /// frame's.
 // ponytail: a cell or two a shard, so a grid spacing of 2 on a large layer is millions of shards;
 // draw only the shards that move if small spacings grow slow.
-pub(crate) fn shards_list(e: &Effect, drawing: &[f32], bw: usize, (ox, oy): (usize, usize), w: usize, h: usize) -> Option<(Vec<f64>, Vec<f64>, [f64; 7])> {
-    let Effect::PolygonShards { values, words, clock: [u, fps], view } = e else { unreachable!("Polygon Shards of another effect") };
+pub(crate) fn shards_list(
+    e: &Effect,
+    drawing: &[f32],
+    bw: usize,
+    (ox, oy): (usize, usize),
+    w: usize,
+    h: usize,
+) -> Option<(Vec<f64>, Vec<f64>, [f64; 7])> {
+    let Effect::PolygonShards {
+        values,
+        words,
+        clock: [u, fps],
+        view,
+    } = e
+    else {
+        unreachable!("Polygon Shards of another effect")
+    };
     let v = shards_held(values);
     let t = u / fps - v[8];
     if *fps <= 0.0 || !(t > 0.0) {
         return None;
     }
     let (wf, hf, s) = (w as f64, h as f64, v[7]);
-    let (ax, ay, al) = if view[0] != 0.0 { (view[1], view[2], view[3]) } else { (wf / 2.0, hf / 2.0, wf / 2.0 * (1.0 / 19.8f64.to_radians().tan())) };
+    let (ax, ay, al) = if view[0] != 0.0 {
+        (view[1], view[2], view[3])
+    } else {
+        (
+            wf / 2.0,
+            hf / 2.0,
+            wf / 2.0 * (1.0 / 19.8f64.to_radians().tan()),
+        )
+    };
     let (cols, rows) = ((wf / s).ceil() as usize, (hf / s).ceil() as usize);
     let tri = words[0] == "polygon" || words[0] == "textured_polygon";
     let textured = words[0].starts_with("textured");
@@ -676,22 +977,36 @@ pub(crate) fn shards_list(e: &Effect, drawing: &[f32], bw: usize, (ox, oy): (usi
         let (x0, y0) = (s * (n % cols) as f64, s * (n / cols) as f64);
         for part in if tri { 0..2 } else { 2..3 } {
             let kk = if tri { 2 * n + part } else { n };
-            let (cx, cy) = [(x0 + 2.0 * s / 3.0, y0 + s / 3.0), (x0 + s / 3.0, y0 + 2.0 * s / 3.0), (x0 + s / 2.0, y0 + s / 2.0)][part];
+            let (cx, cy) = [
+                (x0 + 2.0 * s / 3.0, y0 + s / 3.0),
+                (x0 + s / 3.0, y0 + 2.0 * s / 3.0),
+                (x0 + s / 2.0, y0 + s / 2.0),
+            ][part];
             // A triangle's last corner repeated, so the three kinds are four corners each.
             let corners = [
                 [(x0, y0), (x0 + s, y0), (x0 + s, y0 + s), (x0 + s, y0 + s)],
                 [(x0, y0), (x0 + s, y0 + s), (x0, y0 + s), (x0, y0 + s)],
                 [(x0, y0), (x0 + s, y0), (x0 + s, y0 + s), (x0, y0 + s)],
             ][part];
-            let uq: [f64; 7] = std::array::from_fn(|q| (crate::grade::unit(base, kk as i64, 0, 0, q as u64) + 1.0) / 2.0);
+            let uq: [f64; 7] = std::array::from_fn(|q| {
+                (crate::grade::unit(base, kk as i64, 0, 0, q as u64) + 1.0) / 2.0
+            });
             let (dx, dy) = (cx - fx, cy - fy);
             let dist = dx.hypot(dy);
-            let theta = if dist > 0.0 { dy.atan2(dx) } else { 2.0 * pi * uq[0] } + (uq[1] - 0.5) * pi * dr;
+            let theta = if dist > 0.0 {
+                dy.atan2(dx)
+            } else {
+                2.0 * pi * uq[0]
+            } + (uq[1] - 0.5) * pi * dr;
             let phi = (45.0 + (uq[2] - 0.5) * 90.0 * dr).to_radians();
             let way = [phi.cos() * theta.cos(), phi.cos() * theta.sin(), -phi.sin()];
             let sp = v[0] / 100.0 * (hf / 4.0) * (hf / (hf + dist)) * (1.0 - sr * uq[3]);
             let g = v[1] * hf;
-            let p = [cx + sp * way[0] * t, cy + sp * way[1] * t + g * t * t / 2.0, sp * way[2] * t];
+            let p = [
+                cx + sp * way[0] * t,
+                cy + sp * way[1] * t + g * t * t / 2.0,
+                sp * way[2] * t,
+            ];
             let z = 2.0 * uq[4] - 1.0;
             let psi = 2.0 * pi * uq[5];
             let rr = (1.0 - z * z).max(0.0).sqrt();
@@ -704,7 +1019,10 @@ pub(crate) fn shards_list(e: &Effect, drawing: &[f32], bw: usize, (ox, oy): (usi
                 [y * x * c1 + z * si, co + y * y * c1, y * z * c1 - x * si],
                 [z * x * c1 - y * si, z * y * c1 + x * si, co + z * z * c1],
             ];
-            if corners.iter().any(|&(px, py)| al + (p[2] + m[2][0] * (px - cx) + m[2][1] * (py - cy)) <= 1.0) {
+            if corners
+                .iter()
+                .any(|&(px, py)| al + (p[2] + m[2][0] * (px - cx) + m[2][1] * (py - cy)) <= 1.0)
+            {
                 continue;
             }
             let see = |a: f64, b: f64| {
@@ -729,7 +1047,11 @@ pub(crate) fn shards_list(e: &Effect, drawing: &[f32], bw: usize, (ox, oy): (usi
                 for yy in y0 as usize..h.min((y0 + s) as usize + 1) {
                     for xx in x0 as usize..w.min((x0 + s) as usize + 1) {
                         let (a, b) = (xx as f64 + 0.5 - x0, yy as f64 + 0.5 - y0);
-                        if !(0.0..=s).contains(&a) || !(0.0..=s).contains(&b) || (part == 0 && !(b < a)) || (part == 1 && !(b >= a)) {
+                        if !(0.0..=s).contains(&a)
+                            || !(0.0..=s).contains(&b)
+                            || (part == 0 && !(b < a))
+                            || (part == 1 && !(b >= a))
+                        {
                             continue;
                         }
                         let c = pixel(xx, yy);
@@ -739,18 +1061,43 @@ pub(crate) fn shards_list(e: &Effect, drawing: &[f32], bw: usize, (ox, oy): (usi
                         count += 1;
                     }
                 }
-                if count > 0 { acc.map(|a| a / count as f64) } else { [0.0; 4] }
+                if count > 0 {
+                    acc.map(|a| a / count as f64)
+                } else {
+                    [0.0; 4]
+                }
             };
             let mut block = [0.0; 16];
             block[..3].copy_from_slice(&p);
             block[3..12].copy_from_slice(&m.concat());
             block[12..].copy_from_slice(&[cx, cy, x0, y0]);
-            shards.push((p[2], kk, [3.0, sx, sy, reach, part as f64, colour[0], colour[1], colour[2], colour[3], 0.0, 0.0], block));
+            shards.push((
+                p[2],
+                kk,
+                [
+                    3.0,
+                    sx,
+                    sy,
+                    reach,
+                    part as f64,
+                    colour[0],
+                    colour[1],
+                    colour[2],
+                    colour[3],
+                    0.0,
+                    0.0,
+                ],
+                block,
+            ));
         }
     }
     if words[1] == "on" {
         // Far to near, then by number; partial_cmp so that 0 and -0 are one place.
-        shards.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1)));
+        shards.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.1.cmp(&b.1))
+        });
     }
     let mut k = vec![0.0; HEAD];
     k[2] = wf;
@@ -776,66 +1123,88 @@ pub(crate) fn polygon_shards(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (
     if w0 == 0 || h0 == 0 {
         return;
     }
-    let Some((k, blocks, [ax, ay, al, wf, hf, s, textured])) = shards_list(e, source.data(), bw, (ox, oy), w0, h0) else { return };
+    let Some((k, blocks, [ax, ay, al, wf, hf, s, textured])) =
+        shards_list(e, source.data(), bw, (ox, oy), w0, h0)
+    else {
+        return;
+    };
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let drawing = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (fx, fy) = (
+            (x - 0.5).clamp(0.0, (w0 - 1) as f64),
+            (y - 0.5).clamp(0.0, (h0 - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
     let r2 = std::f64::consts::SQRT_2;
     let tw = bw.div_ceil(TILE);
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let t = ty * tw + bx / TILE;
-                let x = bx as f64 - ox as f64 + 0.5;
-                let (rx, ry) = (x - ax, y - ay);
-                let rl = (rx * rx + ry * ry + al * al).sqrt();
-                let mut o = [0.0f64; 4];
-                for &n in &list[starts[t]..starts[t + 1]] {
-                    let sp = &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE];
-                    let b = &blocks[16 * n..16 * n + 16];
-                    let (p, m) = (&b[..3], &b[3..12]);
-                    let den = m[2] * rx + m[5] * ry + m[8] * al;
-                    if !(den.abs() > 1e-9 * rl) {
-                        continue;
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let t = ty * tw + bx / TILE;
+                    let x = bx as f64 - ox as f64 + 0.5;
+                    let (rx, ry) = (x - ax, y - ay);
+                    let rl = (rx * rx + ry * ry + al * al).sqrt();
+                    let mut o = [0.0f64; 4];
+                    for &n in &list[starts[t]..starts[t + 1]] {
+                        let sp = &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE];
+                        let b = &blocks[16 * n..16 * n + 16];
+                        let (p, m) = (&b[..3], &b[3..12]);
+                        let den = m[2] * rx + m[5] * ry + m[8] * al;
+                        if !(den.abs() > 1e-9 * rl) {
+                            continue;
+                        }
+                        let lam =
+                            (m[2] * (p[0] - ax) + m[5] * (p[1] - ay) + m[8] * (p[2] + al)) / den;
+                        if !(lam > 0.0) {
+                            continue;
+                        }
+                        let q = [ax + lam * rx, ay + lam * ry, -al + lam * al];
+                        let d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+                        let (x0, y0) = (
+                            b[12] + (m[0] * d[0] + m[3] * d[1] + m[6] * d[2]),
+                            b[13] + (m[1] * d[0] + m[4] * d[1] + m[7] * d[2]),
+                        );
+                        let (a, bb) = (x0 - b[14], y0 - b[15]);
+                        let inside = match sp[4] as u8 {
+                            0 => bb.min(s - a).min((a - bb) / r2),
+                            1 => a.min(s - bb).min((bb - a) / r2),
+                            _ => a.min(bb).min(s - a).min(s - bb),
+                        }
+                        .min(x0)
+                        .min(y0)
+                        .min(wf - x0)
+                        .min(hf - y0);
+                        let cov = (inside * al / (al + q[2]) + 0.5).clamp(0.0, 1.0);
+                        if cov == 0.0 {
+                            continue;
+                        }
+                        let col = if textured == 1.0 {
+                            read(x0, y0)
+                        } else {
+                            [sp[5], sp[6], sp[7], sp[8]]
+                        };
+                        o = [0, 1, 2, 3].map(|c| col[c] * cov + o[c] * (1.0 - col[3] * cov));
                     }
-                    let lam = (m[2] * (p[0] - ax) + m[5] * (p[1] - ay) + m[8] * (p[2] + al)) / den;
-                    if !(lam > 0.0) {
-                        continue;
+                    for (v, o) in px.iter_mut().zip(o) {
+                        *v = o as f32;
                     }
-                    let q = [ax + lam * rx, ay + lam * ry, -al + lam * al];
-                    let d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
-                    let (x0, y0) = (b[12] + (m[0] * d[0] + m[3] * d[1] + m[6] * d[2]), b[13] + (m[1] * d[0] + m[4] * d[1] + m[7] * d[2]));
-                    let (a, bb) = (x0 - b[14], y0 - b[15]);
-                    let inside = match sp[4] as u8 {
-                        0 => bb.min(s - a).min((a - bb) / r2),
-                        1 => a.min(s - bb).min((bb - a) / r2),
-                        _ => a.min(bb).min(s - a).min(s - bb),
-                    }
-                    .min(x0)
-                    .min(y0)
-                    .min(wf - x0)
-                    .min(hf - y0);
-                    let cov = (inside * al / (al + q[2]) + 0.5).clamp(0.0, 1.0);
-                    if cov == 0.0 {
-                        continue;
-                    }
-                    let col = if textured == 1.0 { read(x0, y0) } else { [sp[5], sp[6], sp[7], sp[8]] };
-                    o = [0, 1, 2, 3].map(|c| col[c] * cov + o[c] * (1.0 - col[3] * cov));
-                }
-                for (v, o) in px.iter_mut().zip(o) {
-                    *v = o as f32;
                 }
             }
-        }
-    });
+        });
 }
 
 /// D-678: Foam's settings held inside their ranges.
@@ -891,7 +1260,9 @@ fn foam_gone(alive: &[Foamed], t: f64, v: &[f64; 26], w: f64, h: f64) -> (Vec<us
         let r = b.radius(t, v[9]);
         if t - b.b >= b.life {
             pops.push(i);
-        } else if (b.x - w / 2.0).abs() - r > v[22] * w / 2.0 || (b.y - h / 2.0).abs() - r > v[22] * h / 2.0 {
+        } else if (b.x - w / 2.0).abs() - r > v[22] * w / 2.0
+            || (b.y - h / 2.0).abs() - r > v[22] * h / 2.0
+        {
             leaves.push(i);
         }
     }
@@ -903,7 +1274,15 @@ fn foam_gone(alive: &[Foamed], t: f64, v: &[f64; 26], w: f64, h: f64) -> (Vec<us
 // ponytail: O(frames since the in point x bubbles x neighbours) a frame, the neighbours found
 // in a grid; keep the bubbles between frames if long shots grow slow.
 fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
-    let Effect::Foam { values, words, clock: [u, fps], history } = e else { unreachable!("Foam of another effect") };
+    let Effect::Foam {
+        values,
+        words,
+        clock: [u, fps],
+        history,
+    } = e
+    else {
+        unreachable!("Foam of another effect")
+    };
     let history = history.as_deref().map(|h| h.as_slice());
     let at_frame = |i: usize| foam_held(history.map_or(values, |h| &h[i.min(h.len() - 1)]));
     let now = foam_held(values);
@@ -914,7 +1293,11 @@ fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
         _ => 1,
     };
     let (fps, uf) = (*fps, *u);
-    let steps = if fps > 0.0 && uf > 0.0 { uf as usize * q } else { 0 };
+    let steps = if fps > 0.0 && uf > 0.0 {
+        uf as usize * q
+    } else {
+        0
+    };
     let dt = 1.0 / (fps * q as f64);
     let base = crate::grade::mix(now[25].floor() as u64);
     let mut alive: Vec<Foamed> = Vec::new();
@@ -954,7 +1337,9 @@ fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
         let (px, py, a, b) = foam_producer(&v, on, w, h);
         let (co, si) = (v[4].to_radians().cos(), v[4].to_radians().sin());
         while born as f64 + 0.5 <= total {
-            let uq: [f64; 7] = std::array::from_fn(|n| (crate::grade::unit(base, born, n as i64, 0, 0) + 1.0) / 2.0);
+            let uq: [f64; 7] = std::array::from_fn(|n| {
+                (crate::grade::unit(base, born, n as i64, 0, 0) + 1.0) / 2.0
+            });
             let (rho, psi) = (uq[0].sqrt(), 2.0 * std::f64::consts::PI * uq[1]);
             let (lx, ly) = (rho * psi.cos() * a, rho * psi.sin() * b);
             let (sx, sy) = foam_way(v[12]);
@@ -966,7 +1351,11 @@ fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
                 vx: sp * sx,
                 vy: sp * sy,
                 r: (v[6] * (h / 40.0) * (1.0 + v[7] * (2.0 * uq[2] - 1.0))).max(0.0),
-                life: if v[10] > 0.0 { v[8] / 30.0 * uq[3].powf(1.0 / v[10]) } else { 0.0 },
+                life: if v[10] > 0.0 {
+                    v[8] / 30.0 * uq[3].powf(1.0 / v[10])
+                } else {
+                    0.0
+                },
                 u: uq,
             });
             born += 1;
@@ -981,16 +1370,27 @@ fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
         // reference sums every other bubble.
         let radii: Vec<f64> = alive.iter().map(|b| b.radius(t, g)).collect();
         let cell = 3.0 * (1.0 + 1e-9) * radii.iter().fold(0.0f64, |m, &r| m.max(r));
-        let key = |b: &Foamed| ((b.x / cell).floor().clamp(-1e15, 1e15) as i64, (b.y / cell).floor().clamp(-1e15, 1e15) as i64);
-        let mut grid: Vec<((i64, i64), usize)> = if cell > 0.0 { alive.iter().enumerate().map(|(i, b)| (key(b), i)).collect() } else { Vec::new() };
+        let key = |b: &Foamed| {
+            (
+                (b.x / cell).floor().clamp(-1e15, 1e15) as i64,
+                (b.y / cell).floor().clamp(-1e15, 1e15) as i64,
+            )
+        };
+        let mut grid: Vec<((i64, i64), usize)> = if cell > 0.0 {
+            alive.iter().enumerate().map(|(i, b)| (key(b), i)).collect()
+        } else {
+            Vec::new()
+        };
         grid.sort_unstable();
         let acc: Vec<(f64, f64)> = (0..alive.len())
             .into_par_iter()
             .map(|i| {
                 let bi = &alive[i];
                 let ri = radii[i];
-                let mut ax = wind * wx + tu * crate::grade::value(base, 300, bi.x / l, bi.y / l, t, false, 0);
-                let mut ay = wind * wy + tu * crate::grade::value(base, 301, bi.x / l, bi.y / l, t, false, 0);
+                let mut ax = wind * wx
+                    + tu * crate::grade::value(base, 300, bi.x / l, bi.y / l, t, false, 0);
+                let mut ay = wind * wy
+                    + tu * crate::grade::value(base, 301, bi.x / l, bi.y / l, t, false, 0);
                 let (mut ws, mut vsx, mut vsy) = (0.0, 0.0, 0.0);
                 let mut near = Vec::new();
                 if cell > 0.0 {
@@ -998,7 +1398,12 @@ fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
                     for gx in cx - 1..=cx + 1 {
                         for gy in cy - 1..=cy + 1 {
                             let lo = grid.partition_point(|e| e.0 < (gx, gy));
-                            near.extend(grid[lo..].iter().take_while(|e| e.0 == (gx, gy)).map(|e| e.1));
+                            near.extend(
+                                grid[lo..]
+                                    .iter()
+                                    .take_while(|e| e.0 == (gx, gy))
+                                    .map(|e| e.1),
+                            );
                         }
                     }
                     near.sort_unstable();
@@ -1061,7 +1466,9 @@ fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
 /// and convergence, the producer's centre and half sizes on screen and its turn's cosine and
 /// sine. `w` and `h` the drawing's size.
 pub(crate) fn foam_list(e: &Effect, w: f64, h: f64) -> (Vec<f64>, [f64; 12]) {
-    let Effect::Foam { values, words, .. } = e else { unreachable!("Foam of another effect") };
+    let Effect::Foam { values, words, .. } = e else {
+        unreachable!("Foam of another effect")
+    };
     let (alive, tt) = foam_simulate(e, w, h);
     let v = foam_held(values);
     let z = v[21];
@@ -1080,7 +1487,19 @@ pub(crate) fn foam_list(e: &Effect, w: f64, h: f64) -> (Vec<f64>, [f64; 12]) {
             _ => 0.0,
         };
         let al = th + 2.0 * std::f64::consts::PI * (b.u[4] + (0.5 + b.u[6]) * age);
-        k.extend([3.0, cx + z * (b.x - cx), cy + z * (b.y - cy), r * (1.0 + o), r, th.cos(), th.sin(), (2.0 * al).cos(), (2.0 * al).sin(), 0.0, 0.0]);
+        k.extend([
+            3.0,
+            cx + z * (b.x - cx),
+            cy + z * (b.y - cy),
+            r * (1.0 + o),
+            r,
+            th.cos(),
+            th.sin(),
+            (2.0 * al).cos(),
+            (2.0 * al).sin(),
+            0.0,
+            0.0,
+        ]);
     }
     let rendered = words[0] == "rendered";
     if rendered && words[2] == "solid_old_on_top" {
@@ -1092,7 +1511,11 @@ pub(crate) fn foam_list(e: &Effect, w: f64, h: f64) -> (Vec<f64>, [f64; 12]) {
     }
     let (px, py, a, b) = foam_producer(&v, words[1] == "on", w, h);
     let po = v[4].to_radians();
-    let texture = crate::effects::FOAM_WORDS[3].1.iter().position(|t| *t == words[3]).unwrap_or(0);
+    let texture = crate::effects::FOAM_WORDS[3]
+        .1
+        .iter()
+        .position(|t| *t == words[3])
+        .unwrap_or(0);
     let shared = [
         rendered as u8 as f64,
         (words[2] != "transparent") as u8 as f64,
@@ -1113,7 +1536,17 @@ pub(crate) fn foam_list(e: &Effect, w: f64, h: f64) -> (Vec<f64>, [f64; 12]) {
 /// D-678: one rendered bubble's colour, premultiplied, at the offset (dx, dy) from its centre
 /// on screen `(sx, sy)`, `rw` its radius that way and `e` the offset's length, by the texture's
 /// place `tex`, with the reflection; `read` the bilinear read of the drawing at an own point.
-fn foam_colour(s: &[f64], dx: f64, dy: f64, e: f64, rw: f64, sh: &[f64; 12], w: f64, h: f64, read: &impl Fn(f64, f64) -> [f64; 4]) -> [f64; 4] {
+fn foam_colour(
+    s: &[f64],
+    dx: f64,
+    dy: f64,
+    e: f64,
+    rw: f64,
+    sh: &[f64; 12],
+    w: f64,
+    h: f64,
+    read: &impl Fn(f64, f64) -> [f64; 4],
+) -> [f64; 4] {
     let (cth, sth) = (s[5], s[6]);
     let qq = e / rw;
     let cut = qq.max(1.0);
@@ -1123,12 +1556,19 @@ fn foam_colour(s: &[f64], dx: f64, dy: f64, e: f64, rw: f64, sh: &[f64; 12], w: 
     let mut col = if sh[2] == 4.0 {
         read((ux + 1.0) * w / 2.0, (uy + 1.0) * h / 2.0)
     } else {
-        let hl = (1.0 - ((ux + 0.35).powf(2.0) + (uy + 0.35).powf(2.0)) / 0.0625).max(0.0).powf(2.0);
+        let hl = (1.0 - ((ux + 0.35).powf(2.0) + (uy + 0.35).powf(2.0)) / 0.0625)
+            .max(0.0)
+            .powf(2.0);
         let (a, s) = match sh[2] as u8 {
-            0 => (0.12 + 0.68 * qq.powf(4.0), [0.85 + 0.15 * qq * qq, 0.92, 1.0 - 0.15 * qq * qq]),
+            0 => (
+                0.12 + 0.68 * qq.powf(4.0),
+                [0.85 + 0.15 * qq * qq, 0.92, 1.0 - 0.15 * qq * qq],
+            ),
             1 => (0.45 + 0.45 * qq * qq, [0.95, 0.95, 0.93]),
             2 => {
-                let lit = 0.5 + 0.5 * (-0.4 * ux - 0.4 * uy + 0.824 * (1.0 - qq * qq).max(0.0).sqrt()).max(0.0);
+                let lit = 0.5
+                    + 0.5
+                        * (-0.4 * ux - 0.4 * uy + 0.824 * (1.0 - qq * qq).max(0.0).sqrt()).max(0.0);
                 (0.95, [1.0 * lit, 0.45 * lit, 0.7 * lit])
             }
             _ => (0.3 + 0.45 * qq.powf(3.0), [0.72, 0.68, 0.58]),
@@ -1165,57 +1605,87 @@ pub(crate) fn foam(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usi
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let drawing = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (fx, fy) = (
+            (x - 0.5).clamp(0.0, (w0 - 1) as f64),
+            (y - 0.5).clamp(0.0, (h0 - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
-    let over = |o: [f64; 4], c: [f64; 4], cov: f64| -> [f64; 4] { std::array::from_fn(|q| c[q] * cov + o[q] * (1.0 - c[3] * cov)) };
+    let over = |o: [f64; 4], c: [f64; 4], cov: f64| -> [f64; 4] {
+        std::array::from_fn(|q| c[q] * cov + o[q] * (1.0 - c[3] * cov))
+    };
     let tw = bw.div_ceil(TILE);
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let t = ty * tw + bx / TILE;
-                let x = bx as f64 - ox as f64 + 0.5;
-                let mut acc = [0.0f64; 4];
-                if sh[0] == 0.0 {
-                    let (lx, ly) = ((x - sh[6]) * sh[10] + (y - sh[7]) * sh[11], -(x - sh[6]) * sh[11] + (y - sh[7]) * sh[10]);
-                    let kk = ((lx / sh[8]).powf(2.0) + (ly / sh[9]).powf(2.0)).sqrt();
-                    let g2 = ((lx / (sh[8] * sh[8])).powf(2.0) + (ly / (sh[9] * sh[9])).powf(2.0)).sqrt();
-                    if g2 > 0.0 {
-                        acc = over(acc, [1.0, 0.15, 0.1, 1.0], (1.0 - ((kk * kk - kk) / g2).abs()).clamp(0.0, 1.0));
-                    }
-                }
-                for &n in &list[starts[t]..starts[t + 1]] {
-                    let s = &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE];
-                    let (dx, dy) = (x - s[1], y - s[2]);
-                    let e2 = dx * dx + dy * dy;
-                    let e = e2.sqrt();
-                    let rw = if e2 > 0.0 { s[4] * (1.0 + sh[3] * (s[7] * (dx * dx - dy * dy) + s[8] * 2.0 * dx * dy) / e2) } else { s[4] };
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let t = ty * tw + bx / TILE;
+                    let x = bx as f64 - ox as f64 + 0.5;
+                    let mut acc = [0.0f64; 4];
                     if sh[0] == 0.0 {
-                        let cov = (1.0 - (e - rw).abs()).clamp(0.0, 1.0);
-                        if cov > 0.0 {
-                            acc = over(acc, [0.2, 0.5, 1.0, 1.0], cov);
+                        let (lx, ly) = (
+                            (x - sh[6]) * sh[10] + (y - sh[7]) * sh[11],
+                            -(x - sh[6]) * sh[11] + (y - sh[7]) * sh[10],
+                        );
+                        let kk = ((lx / sh[8]).powf(2.0) + (ly / sh[9]).powf(2.0)).sqrt();
+                        let g2 = ((lx / (sh[8] * sh[8])).powf(2.0)
+                            + (ly / (sh[9] * sh[9])).powf(2.0))
+                        .sqrt();
+                        if g2 > 0.0 {
+                            acc = over(
+                                acc,
+                                [1.0, 0.15, 0.1, 1.0],
+                                (1.0 - ((kk * kk - kk) / g2).abs()).clamp(0.0, 1.0),
+                            );
                         }
-                        continue;
                     }
-                    let cov = (rw - e + 0.5).clamp(0.0, 1.0);
-                    // A wobble of 1 can squash a bubble to nothing one way; nothing is drawn there.
-                    if cov == 0.0 || !(rw > 0.0) {
-                        continue;
+                    for &n in &list[starts[t]..starts[t + 1]] {
+                        let s = &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE];
+                        let (dx, dy) = (x - s[1], y - s[2]);
+                        let e2 = dx * dx + dy * dy;
+                        let e = e2.sqrt();
+                        let rw = if e2 > 0.0 {
+                            s[4] * (1.0
+                                + sh[3] * (s[7] * (dx * dx - dy * dy) + s[8] * 2.0 * dx * dy) / e2)
+                        } else {
+                            s[4]
+                        };
+                        if sh[0] == 0.0 {
+                            let cov = (1.0 - (e - rw).abs()).clamp(0.0, 1.0);
+                            if cov > 0.0 {
+                                acc = over(acc, [0.2, 0.5, 1.0, 1.0], cov);
+                            }
+                            continue;
+                        }
+                        let cov = (rw - e + 0.5).clamp(0.0, 1.0);
+                        // A wobble of 1 can squash a bubble to nothing one way; nothing is drawn there.
+                        if cov == 0.0 || !(rw > 0.0) {
+                            continue;
+                        }
+                        let col = foam_colour(s, dx, dy, e, rw, &sh, w, h, &read);
+                        acc = if sh[1] == 0.0 {
+                            std::array::from_fn(|q| acc[q] + col[q] * cov - acc[q] * col[q] * cov)
+                        } else {
+                            over(acc, col, cov)
+                        };
                     }
-                    let col = foam_colour(s, dx, dy, e, rw, &sh, w, h, &read);
-                    acc = if sh[1] == 0.0 { std::array::from_fn(|q| acc[q] + col[q] * cov - acc[q] * col[q] * cov) } else { over(acc, col, cov) };
-                }
-                for (v, o) in px.iter_mut().zip(acc) {
-                    *v = o as f32;
+                    for (v, o) in px.iter_mut().zip(acc) {
+                        *v = o as f32;
+                    }
                 }
             }
-        }
-    });
+        });
 }
 
 /// D-676: Scatterize's dots on a drawing `w` by `h`, one for every pixel, farthest first: each
@@ -1223,8 +1693,12 @@ pub(crate) fn foam(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usi
 /// own pixels. Which dots show is left to the drawing (a clear pixel's dot changes nothing in any
 /// mode), so the card's list needs only the settings.
 fn scatter_dots(e: &Effect, w: usize, h: usize) -> Vec<(f64, f64, usize)> {
-    let Effect::Scatterize { values, .. } = e else { unreachable!("Scatterize of another effect") };
-    let v: [f64; 3] = std::array::from_fn(|k| values[k].clamp(SCATTERIZE_SETTINGS[k].1, SCATTERIZE_SETTINGS[k].2));
+    let Effect::Scatterize { values, .. } = e else {
+        unreachable!("Scatterize of another effect")
+    };
+    let v: [f64; 3] = std::array::from_fn(|k| {
+        values[k].clamp(SCATTERIZE_SETTINGS[k].1, SCATTERIZE_SETTINGS[k].2)
+    });
     let (wf, hf) = (w as f64, h as f64);
     let big = v[0] * hf / 1080.0;
     let base = crate::grade::mix(0);
@@ -1250,7 +1724,10 @@ fn scatter_dots(e: &Effect, w: usize, h: usize) -> Vec<(f64, f64, usize)> {
 /// D-676: the first and last pixel, across or down a drawing `size` long, whose centre can be
 /// within 1 of `p`, or None when none of the drawing's are.
 fn scatter_reach(p: f64, size: usize) -> Option<(usize, usize)> {
-    let (a, b) = ((p - 1.5).floor().max(0.0), ((p + 0.5).floor() + 1.0).min(size as f64 - 1.0));
+    let (a, b) = (
+        (p - 1.5).floor().max(0.0),
+        ((p + 0.5).floor() + 1.0).min(size as f64 - 1.0),
+    );
     (a <= b).then_some((a as usize, b as usize))
 }
 
@@ -1259,27 +1736,51 @@ fn scatter_reach(p: f64, size: usize) -> Option<(usize, usize)> {
 fn scatter_lay(s: [f64; 4], d: [f64; 4], mode: usize) -> [f64; 4] {
     match mode {
         1 => [0, 1, 2, 3].map(|c| s[c] + d[c] - s[c] * d[c]),
-        2 => [s[0] + d[0], s[1] + d[1], s[2] + d[2], s[3] + d[3] * (1.0 - s[3])],
-        3 => [s[0] + d[0], s[1] + d[1], s[2] + d[2], (s[3] + d[3]).min(1.0)],
+        2 => [
+            s[0] + d[0],
+            s[1] + d[1],
+            s[2] + d[2],
+            s[3] + d[3] * (1.0 - s[3]),
+        ],
+        3 => [
+            s[0] + d[0],
+            s[1] + d[1],
+            s[2] + d[2],
+            (s[3] + d[3]).min(1.0),
+        ],
         _ => [0, 1, 2, 3].map(|c| s[c] + d[c] * (1.0 - s[3])),
     }
 }
 
 fn scatter_mode(e: &Effect) -> usize {
-    let Effect::Scatterize { words, .. } = e else { unreachable!("Scatterize of another effect") };
-    crate::effects::SCATTERIZE_WORDS[0].1.iter().position(|w| *w == words[0]).unwrap_or(0)
+    let Effect::Scatterize { words, .. } = e else {
+        unreachable!("Scatterize of another effect")
+    };
+    crate::effects::SCATTERIZE_WORDS[0]
+        .1
+        .iter()
+        .position(|w| *w == words[0])
+        .unwrap_or(0)
 }
 
 /// D-676: the card's list for Scatterize on a drawing `w0` by `h0` at `(ox, oy)` in a buffer
 /// `bw` by `bh`: k[1] the transfer mode, k[2] and k[3] the drawing's size, k[6] the count; the
 /// dots from 7, three each, `[x, y, n]`, farthest first; then each 16 by 16 tile's start and the
 /// lists, every dot in each tile it can cover, in order.
-pub(crate) fn scatterize_list(e: &Effect, (w0, h0): (usize, usize), (ox, oy): (usize, usize), (bw, bh): (usize, usize)) -> Vec<f64> {
+pub(crate) fn scatterize_list(
+    e: &Effect,
+    (w0, h0): (usize, usize),
+    (ox, oy): (usize, usize),
+    (bw, bh): (usize, usize),
+) -> Vec<f64> {
     let dots = scatter_dots(e, w0, h0);
     let (tw, th) = (bw.div_ceil(TILE), bh.div_ceil(TILE));
     let tiles = |&(x, y, _): &(f64, f64, usize)| {
         let ((x0, x1), (y0, y1)) = (scatter_reach(x, w0)?, scatter_reach(y, h0)?);
-        Some(((x0 + ox) / TILE..=(x1 + ox) / TILE, (y0 + oy) / TILE..=(y1 + oy) / TILE))
+        Some((
+            (x0 + ox) / TILE..=(x1 + ox) / TILE,
+            (y0 + oy) / TILE..=(y1 + oy) / TILE,
+        ))
     };
     let mut starts = vec![0usize; tw * th + 1];
     for (cols, rows) in dots.iter().filter_map(tiles) {
@@ -1333,7 +1834,9 @@ pub(crate) fn scatterize(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usiz
         if col[3] <= 0.0 {
             continue;
         }
-        let (Some((x0, x1)), Some((y0, y1))) = (scatter_reach(x, w0), scatter_reach(y, h0)) else { continue };
+        let (Some((x0, x1)), Some((y0, y1))) = (scatter_reach(x, w0), scatter_reach(y, h0)) else {
+            continue;
+        };
         for py in y0..=y1 {
             for px in x0..=x1 {
                 let c = (1.0 - (px as f64 + 0.5 - x).hypot(py as f64 + 0.5 - y)).clamp(0.0, 1.0);
@@ -1362,7 +1865,10 @@ fn star_sum(now: &[f64; 6], [u, fps]: [f64; 2], history: Option<&[[f64; 6]]>) ->
     match history {
         Some(h) => {
             let n = (u as usize).min(h.len().saturating_sub(1));
-            (0..n).map(|j| (held(&h[j]) + held(&h[j + 1])) / 2.0).sum::<f64>() / fps
+            (0..n)
+                .map(|j| (held(&h[j]) + held(&h[j + 1])) / 2.0)
+                .sum::<f64>()
+                / fps
         }
         None => held(now) * u / fps,
     }
@@ -1375,13 +1881,27 @@ fn star_sum(now: &[f64; 6], [u, fps]: [f64; 2], history: Option<&[[f64; 6]]>) ->
 /// opacity, in the drawing's own pixels. A star whose grid point is clear changes nothing, so
 /// the list needs only the settings and the card reads the colours itself.
 pub(crate) fn star_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
-    let Effect::StarBurst { values, clock, view, history } = e else { unreachable!("Star Burst of another effect") };
-    let v: [f64; 6] = std::array::from_fn(|k| values[k].clamp(STAR_BURST_SETTINGS[k].1, STAR_BURST_SETTINGS[k].2));
+    let Effect::StarBurst {
+        values,
+        clock,
+        view,
+        history,
+    } = e
+    else {
+        unreachable!("Star Burst of another effect")
+    };
+    let v: [f64; 6] = std::array::from_fn(|k| {
+        values[k].clamp(STAR_BURST_SETTINGS[k].1, STAR_BURST_SETTINGS[k].2)
+    });
     let t = h * (star_sum(&v, *clock, history.as_deref().map(|h| h.as_slice())) + v[2]);
     let g = v[3] * h / 270.0;
     let (cols, rows) = ((w / g).ceil() as i64, (h / g).ceil() as i64);
     let (s, f) = (v[0] / 100.0, 1.5 * h);
-    let (ax, ay, a) = if view[0] == 1.0 { (view[1], view[2], view[3]) } else { (w / 2.0, h / 2.0, f) };
+    let (ax, ay, a) = if view[0] == 1.0 {
+        (view[1], view[2], view[3])
+    } else {
+        (w / 2.0, h / 2.0, f)
+    };
     let base = crate::grade::mix(0);
     // ponytail: a star every grid point, about half a million at Grid Spacing 0.5 on 1920 by
     // 1080 and growing as the square of the picture; cull stars off the picture here if a fine
@@ -1390,7 +1910,10 @@ pub(crate) fn star_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         .into_par_iter()
         .filter_map(|n| {
             let (i, j) = (n % cols, n / cols);
-            let (gx, gy) = (w / 2.0 + (i as f64 - (cols - 1) as f64 / 2.0) * g, h / 2.0 + (j as f64 - (rows - 1) as f64 / 2.0) * g);
+            let (gx, gy) = (
+                w / 2.0 + (i as f64 - (cols - 1) as f64 / 2.0) * g,
+                h / 2.0 + (j as f64 - (rows - 1) as f64 / 2.0) * g,
+            );
             let u = |k| (crate::grade::unit(base, i, j, 0, k) + 1.0) / 2.0;
             let (x, y) = (gx + s * g * (u(0) - 0.5), gy + s * g * (u(1) - 0.5));
             let z0 = s * (3.0 * f * u(2) - 0.9 * f);
@@ -1400,8 +1923,28 @@ pub(crate) fn star_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
             }
             let k = a / (a + z);
             let r = v[4] / 100.0 * g / 4.0 * k;
-            let (r, op) = if r < 0.7 { (0.7, (r / 0.7) * (r / 0.7)) } else { (r, 1.0) };
-            Some((z, n, [3.0, ax + (x - ax) * k, ay + (y - ay) * k, r, gx, gy, op, 0.0, 0.0, 0.0, 0.0]))
+            let (r, op) = if r < 0.7 {
+                (0.7, (r / 0.7) * (r / 0.7))
+            } else {
+                (r, 1.0)
+            };
+            Some((
+                z,
+                n,
+                [
+                    3.0,
+                    ax + (x - ax) * k,
+                    ay + (y - ay) * k,
+                    r,
+                    gx,
+                    gy,
+                    op,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
+            ))
         })
         .collect();
     drawn.par_sort_unstable_by(|p, q| q.0.total_cmp(&p.0).then(p.1.cmp(&q.1)));
@@ -1428,36 +1971,49 @@ pub(crate) fn star_burst(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usiz
     let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
     let drawing = source.data().to_vec();
     let read = |x: f64, y: f64| -> [f64; 4] {
-        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (fx, fy) = (
+            (x - 0.5).clamp(0.0, (w0 - 1) as f64),
+            (y - 0.5).clamp(0.0, (h0 - 1) as f64),
+        );
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
         let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
         let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
-        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+        [0, 1, 2, 3].map(|c| {
+            (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty)
+                + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty
+        })
     };
-    let colour: Vec<[f64; 4]> = k[HEAD..].par_chunks_exact(STRIDE).map(|s| read(s[4], s[5]).map(|c| c * s[6])).collect();
+    let colour: Vec<[f64; 4]> = k[HEAD..]
+        .par_chunks_exact(STRIDE)
+        .map(|s| read(s[4], s[5]).map(|c| c * s[6]))
+        .collect();
     let (m, tw) = (k[0], bw.div_ceil(TILE));
-    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
-        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
-            let by = ty * TILE + row;
-            let y = by as f64 - oy as f64 + 0.5;
-            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
-                let mut o = [0.0f64; 4];
-                if (ox..ox + w0).contains(&bx) && (oy..oy + h0).contains(&by) {
-                    let (t, x) = (ty * tw + bx / TILE, bx as f64 - ox as f64 + 0.5);
-                    for &n in &list[starts[t]..starts[t + 1]] {
-                        let s = &k[HEAD + STRIDE * n..][..STRIDE];
-                        let cv = (s[3] - (x - s[1]).hypot(y - s[2]) + 0.5).clamp(0.0, 1.0);
-                        if cv > 0.0 {
-                            let c = colour[n];
-                            o = [0, 1, 2, 3].map(|i| c[i] * cv + o[i] * (1.0 - c[3] * cv));
+    source
+        .data_mut()
+        .par_chunks_mut(bw * 4 * TILE)
+        .enumerate()
+        .for_each(|(ty, band)| {
+            for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+                let by = ty * TILE + row;
+                let y = by as f64 - oy as f64 + 0.5;
+                for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                    let mut o = [0.0f64; 4];
+                    if (ox..ox + w0).contains(&bx) && (oy..oy + h0).contains(&by) {
+                        let (t, x) = (ty * tw + bx / TILE, bx as f64 - ox as f64 + 0.5);
+                        for &n in &list[starts[t]..starts[t + 1]] {
+                            let s = &k[HEAD + STRIDE * n..][..STRIDE];
+                            let cv = (s[3] - (x - s[1]).hypot(y - s[2]) + 0.5).clamp(0.0, 1.0);
+                            if cv > 0.0 {
+                                let c = colour[n];
+                                o = [0, 1, 2, 3].map(|i| c[i] * cv + o[i] * (1.0 - c[3] * cv));
+                            }
                         }
                     }
-                }
-                for (v, o) in px.iter_mut().zip(o) {
-                    *v = (o * (1.0 - m) + *v as f64 * m) as f32;
+                    for (v, o) in px.iter_mut().zip(o) {
+                        *v = (o * (1.0 - m) + *v as f64 * m) as f32;
+                    }
                 }
             }
-        }
-    });
+        });
 }

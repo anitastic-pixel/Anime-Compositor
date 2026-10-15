@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -50,7 +51,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=34 {
         let file = format!("fx_grade3_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -58,10 +63,16 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ColorGrade { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ColorGrade { .. })
+                });
             }
         }
-        let want = if n == 19 { card == 2 } else { (card == 0) == none.contains(&n) };
+        let want = if n == 19 {
+            card == 2
+        } else {
+            (card == 0) == none.contains(&n)
+        };
         t.row(
             &format!("{file}, frames 0 to 4 at Full and Draft"),
             &format!("largest difference {largest} of 255; on the card in {card} of 10 frames; refused by the card: {refused}; the same warnings: {agree}"),
@@ -77,9 +88,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -93,7 +113,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ColorGrade { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ColorGrade { .. })
+                });
                 t.row(
                     &format!("the reference shot, Color Grade {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -106,7 +128,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J)]) {
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -118,14 +143,28 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The covered pixels that are grey, their three channels equal.
 fn greys(p: &[u8]) -> usize {
-    p.chunks_exact(4).filter(|q| q[3] > 0 && q[0] == q[1] && q[1] == q[2]).count()
+    p.chunks_exact(4)
+        .filter(|q| q[3] > 0 && q[0] == q[1] && q[1] == q[2])
+        .count()
 }
 
 /// The covered pixels.
@@ -135,7 +174,9 @@ fn covered(p: &[u8]) -> usize {
 
 /// The covered pixels of a mask that are neither black nor white: the key's soft edge.
 fn soft(p: &[u8]) -> usize {
-    p.chunks_exact(4).filter(|q| q[3] > 0 && q[0] > 0 && q[0] < 255).count()
+    p.chunks_exact(4)
+        .filter(|q| q[3] > 0 && q[0] > 0 && q[0] < 255)
+        .count()
 }
 
 #[test]
@@ -190,19 +231,36 @@ fn b450_color_grade_3() {
         ("fx_grade3_034.json", "secondary highlight lightness"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+        t.row(
+            &format!("{file} is refused in a sentence naming {want}"),
+            &why,
+            why.contains(want),
+        );
     }
     let mut word = fx("x", &json!({}))["parameters"].clone();
     word["secondary_wheels"] = J::from(3);
-    t.shape_refused("fx_grade3_001.json", "a Color Grade whose secondary wheels is a number", &word.to_string());
+    t.shape_refused(
+        "fx_grade3_001.json",
+        "a Color Grade whose secondary wheels is a number",
+        &word.to_string(),
+    );
     let mut flat = fx("x", &json!({}))["parameters"].clone();
     flat["hue_luma"] = json!([0, 50]);
-    t.shape_refused("fx_grade3_001.json", "a Color Grade whose hue versus luma is numbers, not points", &flat.to_string());
+    t.shape_refused(
+        "fx_grade3_001.json",
+        "a Color Grade whose hue versus luma is numbers, not points",
+        &flat.to_string(),
+    );
 
     t.heading("How far it reaches");
     let mut draft = changed(&t, "fx_grade3_021.json", |_| {});
     draft.scale_distances(|d| d * 0.5);
-    let at = |name: &str| COLOR_GRADE_SETTINGS.iter().position(|s| s.0 == name).unwrap();
+    let at = |name: &str| {
+        COLOR_GRADE_SETTINGS
+            .iter()
+            .position(|s| s.0 == name)
+            .unwrap()
+    };
     let halved = matches!(&draft, Effect::ColorGrade { values, .. }
         if values[at("key_denoise")] == 6.0 && values[at("key_blur")] == 4.0 && values[at("secondary_shadow_wheel_amount")] == 20.0);
     t.row(
@@ -210,7 +268,11 @@ fn b450_color_grade_3() {
         &format!("key denoise {}, key blur {}", if let Effect::ColorGrade { values, .. } = &draft { values[at("key_denoise")] } else { -1.0 }, if let Effect::ColorGrade { values, .. } = &draft { values[at("key_blur")] } else { -1.0 }),
         halved,
     );
-    t.row("it grows the drawing's bounds by nothing", &draft.bounds_expansion().to_string(), draft.bounds_expansion() == 0);
+    t.row(
+        "it grows the drawing's bounds by nothing",
+        &draft.bounds_expansion().to_string(),
+        draft.bounds_expansion() == 0,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_grade3_001.json").document;
@@ -220,7 +282,10 @@ fn b450_color_grade_3() {
         }
     });
     let two = changed(&t, "fx_grade3_001.json", |e| {
-        if let Effect::ColorGrade { secondary_wheels, .. } = e {
+        if let Effect::ColorGrade {
+            secondary_wheels, ..
+        } = e
+        {
             *secondary_wheels = "two".into();
         }
     });
@@ -234,12 +299,24 @@ fn b450_color_grade_3() {
         vec![
             ("hue versus hue with a shift of 181", set(shift)),
             ("secondary wheels \"two\"", set(two)),
-            ("luma versus saturation with its lumas falling", set(falling)),
-            ("key blur keyed to 101", keys("key_blur", &[(0, &[0.0]), (4, &[101.0])])),
+            (
+                "luma versus saturation with its lumas falling",
+                set(falling),
+            ),
+            (
+                "key blur keyed to 101",
+                keys("key_blur", &[(0, &[0.0]), (4, &[101.0])]),
+            ),
         ],
     );
     let graded = changed(&t, "fx_grade3_001.json", |e| {
-        if let Effect::ColorGrade { values, more_curves, secondary_wheels, .. } = e {
+        if let Effect::ColorGrade {
+            values,
+            more_curves,
+            secondary_wheels,
+            ..
+        } = e
+        {
             more_curves[1] = vec![vec![0.0, -20.0], vec![180.0, 20.0]];
             more_curves[3] = vec![vec![0.0, 100.0], vec![100.0, 60.0]];
             *secondary_wheels = "three".into();
@@ -250,8 +327,14 @@ fn b450_color_grade_3() {
         &mut document,
         "fx_grade3_001.json",
         vec![
-            ("hue versus luma, saturation versus saturation and three secondary wheels", set(graded)),
-            ("key denoise keyed from 0 to 40", keys("key_denoise", &[(0, &[0.0]), (4, &[40.0])])),
+            (
+                "hue versus luma, saturation versus saturation and three secondary wheels",
+                set(graded),
+            ),
+            (
+                "key denoise keyed from 0 to 40",
+                keys("key_denoise", &[(0, &[0.0]), (4, &[40.0])]),
+            ),
         ],
     );
 
@@ -272,7 +355,10 @@ fn b450_color_grade_3() {
     // As added (001), flat curves (004), unused wheels (014), a key denoised or blurred (015
     // to 018, 020, 021: the processor's, D-571) and refused (023 to 034) leave nothing for the
     // card.
-    let none: Vec<u32> = [1, 4, 14, 15, 16, 17, 18, 20, 21].into_iter().chain(23..=34).collect();
+    let none: Vec<u32> = [1, 4, 14, 15, 16, 17, 18, 20, 21]
+        .into_iter()
+        .chain(23..=34)
+        .collect();
     card_fixtures(&mut t, &mut gpu, &none);
     card_reference(
         &mut t,
@@ -295,12 +381,26 @@ fn b450_color_grade_3() {
     t.heading("Pictures: in `verification/D-571 pictures/`");
     let dir = repo("verification/D-571 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let one = |p: J| json!([fx("fx-0-0", &p)]);
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (same, said) = picture(&dir, one(json!({})));
     t.row(
         "Color Grade as added, the new settings written, changes nothing: the street byte for byte; draws cleanly",
@@ -318,10 +418,19 @@ fn b450_color_grade_3() {
         write(file, &after);
         t.row(&format!("{file}, {what}: the street changed; draws cleanly"), &format!("{said:?}, {} pixels changed", distance(&after, &before).1), said.is_empty() && after != before);
     }
-    let key = json!({"key_hue": 0, "key_hue_range": 20, "key_hue_softness": 15, "key_view": "mask"});
+    let key =
+        json!({"key_hue": 0, "key_hue_range": 20, "key_hue_softness": 15, "key_view": "mask"});
     let (rough, said) = picture(&dir, one(key.clone()));
     write("7_key_mask.png", &rough);
-    t.row("7_key_mask.png, the reds keyed, shown as the mask: every pixel grey; draws cleanly", &format!("{said:?}, grey pixels {} of {}", greys(&rough), covered(&rough)), said.is_empty() && greys(&rough) == covered(&rough));
+    t.row(
+        "7_key_mask.png, the reds keyed, shown as the mask: every pixel grey; draws cleanly",
+        &format!(
+            "{said:?}, grey pixels {} of {}",
+            greys(&rough),
+            covered(&rough)
+        ),
+        said.is_empty() && greys(&rough) == covered(&rough),
+    );
     let mut denoised = key.clone();
     denoised["key_denoise"] = J::from(30);
     let (clean, said) = picture(&dir, one(denoised));
@@ -382,17 +491,37 @@ fn b450_color_grade_3_timing() {
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B450_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-450_timing_raw.md"));
+    let out = std::env::var("B450_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-450_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

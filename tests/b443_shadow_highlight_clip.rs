@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, changed, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table,
+    MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -47,7 +48,11 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
     for n in 1..=21 {
         let file = format!("fx_shclip_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -55,7 +60,9 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ShadowHighlight { .. }));
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::ShadowHighlight { .. })
+                });
             }
         }
         t.row(
@@ -73,9 +80,18 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p, want) in settings {
@@ -89,7 +105,9 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ShadowHighlight { .. }));
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| {
+                    matches!(e, Effect::ShadowHighlight { .. })
+                });
                 t.row(
                     &format!("the reference shot, Shadow/Highlight {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
@@ -103,7 +121,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
 /// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
 /// 8-bit, with what it warned of.
 fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from(asset);
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(size.0);
@@ -115,8 +136,20 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
@@ -166,26 +199,58 @@ fn b443_shadow_highlight_clip() {
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         let want = want.replace('_', " ");
-        t.row(&format!("{file} is refused in a sentence naming its {want}"), &why, why.contains(&want));
+        t.row(
+            &format!("{file} is refused in a sentence naming its {want}"),
+            &why,
+            why.contains(&want),
+        );
     }
     let rest = r#""shadow_amount": 50, "highlight_amount": 0, "shadow_tonal_width": 50, "shadow_radius": 30, "highlight_tonal_width": 50, "highlight_radius": 30, "color_correction": 20"#;
-    t.shape_refused("fx_shclip_002.json", "a Shadow/Highlight whose midtone contrast is a word", &format!(r#"{{{rest}, "midtone_contrast": "more", "black_clip": 0, "white_clip": 0}}"#));
-    t.shape_refused("fx_shclip_002.json", "a Shadow/Highlight whose black clip is a word", &format!(r#"{{{rest}, "midtone_contrast": 0, "black_clip": "some", "white_clip": 0}}"#));
+    t.shape_refused(
+        "fx_shclip_002.json",
+        "a Shadow/Highlight whose midtone contrast is a word",
+        &format!(r#"{{{rest}, "midtone_contrast": "more", "black_clip": 0, "white_clip": 0}}"#),
+    );
+    t.shape_refused(
+        "fx_shclip_002.json",
+        "a Shadow/Highlight whose black clip is a word",
+        &format!(r#"{{{rest}, "midtone_contrast": 0, "black_clip": "some", "white_clip": 0}}"#),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_shclip_002.json").document;
-    let over = changed(&t, "fx_shclip_002.json", |e| if let Effect::ShadowHighlight { midtone_contrast, .. } = e { *midtone_contrast = 101.0 });
-    let wide = changed(&t, "fx_shclip_002.json", |e| if let Effect::ShadowHighlight { white_clip, .. } = e { *white_clip = 51.0 });
+    let over = changed(&t, "fx_shclip_002.json", |e| {
+        if let Effect::ShadowHighlight {
+            midtone_contrast, ..
+        } = e
+        {
+            *midtone_contrast = 101.0
+        }
+    });
+    let wide = changed(&t, "fx_shclip_002.json", |e| {
+        if let Effect::ShadowHighlight { white_clip, .. } = e {
+            *white_clip = 51.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("midtone contrast 101", set(over)),
             ("white clip 51", set(wide)),
-            ("black clip keyed to -5", keys("black_clip", &[(0, &[0.0]), (4, &[-5.0])])),
+            (
+                "black clip keyed to -5",
+                keys("black_clip", &[(0, &[0.0]), (4, &[-5.0])]),
+            ),
         ],
     );
     let both_ends = changed(&t, "fx_shclip_002.json", |e| {
-        if let Effect::ShadowHighlight { midtone_contrast, black_clip, white_clip, .. } = e {
+        if let Effect::ShadowHighlight {
+            midtone_contrast,
+            black_clip,
+            white_clip,
+            ..
+        } = e
+        {
             *midtone_contrast = 30.0;
             *black_clip = 5.0;
             *white_clip = 5.0;
@@ -196,7 +261,10 @@ fn b443_shadow_highlight_clip() {
         "fx_shclip_002.json",
         vec![
             ("midtone contrast 30, both clips 5", set(both_ends)),
-            ("midtone contrast keyed from -100 to 100", keys("midtone_contrast", &[(0, &[-100.0]), (4, &[100.0])])),
+            (
+                "midtone contrast keyed from -100 to 100",
+                keys("midtone_contrast", &[(0, &[-100.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
@@ -220,24 +288,54 @@ fn b443_shadow_highlight_clip() {
         &mut t,
         &mut gpu,
         &[
-            ("as added with midtone contrast 60", json!({"midtone_contrast": 60}), 3),
-            ("shadow 0, midtone contrast -80", json!({"shadow_amount": 0, "midtone_contrast": -80}), 3),
-            ("black clip 2 and white clip 2, on the processor", json!({"black_clip": 2, "white_clip": 2}), 0),
+            (
+                "as added with midtone contrast 60",
+                json!({"midtone_contrast": 60}),
+                3,
+            ),
+            (
+                "shadow 0, midtone contrast -80",
+                json!({"shadow_amount": 0, "midtone_contrast": -80}),
+                3,
+            ),
+            (
+                "black clip 2 and white clip 2, on the processor",
+                json!({"black_clip": 2, "white_clip": 2}),
+                0,
+            ),
         ],
     );
 
     t.heading("Pictures: in `verification/D-563 pictures/`");
     let dir = repo("verification/D-563 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, size: (usize, usize), bytes: &[u8]| png_out::write_rgba(&dir.join(name), size.0, size.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, size: (usize, usize), bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            size.0,
+            size.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", TOWN, &town());
     let street = |p: J| picture(&dir, "town.png", TOWN, json!([fx("fx-0-0", &p)]));
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", TOWN, &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let (added, said) = street(json!({}));
     write("2_as_added.png", TOWN, &added);
-    t.row("2_as_added.png, Shadow/Highlight as added (the three new settings 0); draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "2_as_added.png, Shadow/Highlight as added (the three new settings 0); draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let luma = |p: &[u8]| 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
     let spread = |v: &[u8]| {
         let l: Vec<f64> = v.chunks_exact(4).filter(|p| p[3] > 0).map(luma).collect();
@@ -259,16 +357,30 @@ fn b443_shadow_highlight_clip() {
     write("5_clips_5.png", TOWN, &clipped);
     // The clips stretch the lightness to the street's own darkest and lightest in use, so the
     // darks fall below the as-added darkest and the lights reach white.
-    let floor = added.chunks_exact(4).filter(|p| p[3] > 0).map(luma).fold(f64::INFINITY, f64::min);
-    let dark = |v: &[u8]| v.chunks_exact(4).filter(|p| p[3] > 0 && luma(p) <= floor).count();
-    let white = |v: &[u8]| v.chunks_exact(4).filter(|p| p[3] > 0 && p[..3] == [255, 255, 255]).count();
+    let floor = added
+        .chunks_exact(4)
+        .filter(|p| p[3] > 0)
+        .map(luma)
+        .fold(f64::INFINITY, f64::min);
+    let dark = |v: &[u8]| {
+        v.chunks_exact(4)
+            .filter(|p| p[3] > 0 && luma(p) <= floor)
+            .count()
+    };
+    let white = |v: &[u8]| {
+        v.chunks_exact(4)
+            .filter(|p| p[3] > 0 && p[..3] == [255, 255, 255])
+            .count()
+    };
     t.row(
         "5_clips_5.png, as added with both clips 5: more of the street at or below the as-added darkest and more white than as added; draws cleanly",
         &format!("{said:?}, pixels at or below the as-added darkest {} against {}, white {} against {}", dark(&clipped), dark(&added), white(&clipped), white(&added)),
         said.is_empty() && dark(&clipped) > dark(&added) && white(&clipped) > white(&added),
     );
 
-    let (alone, said) = street(json!({"shadow_amount": 0, "midtone_contrast": 50, "black_clip": 1, "white_clip": 1}));
+    let (alone, said) = street(
+        json!({"shadow_amount": 0, "midtone_contrast": 50, "black_clip": 1, "white_clip": 1}),
+    );
     write("6_no_lift.png", TOWN, &alone);
     t.row(
         "6_no_lift.png, both amounts 0, midtone contrast 50, both clips 1: the new settings work without the lift; draws cleanly",
@@ -305,22 +417,48 @@ fn b443_shadow_highlight_clip_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Shadow/Highlight as added", Some(json!({}))),
-        ("Noise, then Shadow/Highlight as added with midtone contrast 60", Some(json!({"midtone_contrast": 60}))),
-        ("Noise, then Shadow/Highlight as added with both clips 1 (on the processor)", Some(json!({"black_clip": 1, "white_clip": 1}))),
+        (
+            "Noise, then Shadow/Highlight as added with midtone contrast 60",
+            Some(json!({"midtone_contrast": 60})),
+        ),
+        (
+            "Noise, then Shadow/Highlight as added with both clips 1 (on the processor)",
+            Some(json!({"black_clip": 1, "white_clip": 1})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B443_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-443_timing_raw.md"));
+    let out = std::env::var("B443_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-443_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

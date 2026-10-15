@@ -75,7 +75,10 @@ fn drawing() -> Vec<u8> {
 /// same enlarged three times.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     let mut project: J = serde_json::from_str(
-        &fs::read_to_string(effect_table::repo("Fixtures/four_color_gradient/fx_4cg_001.json")).unwrap(),
+        &fs::read_to_string(effect_table::repo(
+            "Fixtures/four_color_gradient/fx_4cg_001.json",
+        ))
+        .unwrap(),
     )
     .unwrap();
     project["assets"][0]["path"] = J::from("drawing.png");
@@ -89,9 +92,20 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), 0, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     let bytes = frame.to_srgb8_straight();
     let big: Vec<u8> = (0..PLATE.1 * 3)
         .flat_map(|y| (0..PLATE.0 * 3).map(move |x| (x, y)))
@@ -156,7 +170,11 @@ fn b143_four_color_gradient() {
 
     t.heading("How far it reaches");
     let got = plain(100.0, 100.0, "normal").bounds_expansion();
-    t.row("it never grows the layer: it declares no growth", &got.to_string(), got == 0);
+    t.row(
+        "it never grows the layer: it declares no growth",
+        &got.to_string(),
+        got == 0,
+    );
     let mut draft = plain(60.0, 80.0, "multiply");
     draft.scale_distances(|d| d * 0.5);
     t.row(
@@ -166,7 +184,10 @@ fn b143_four_color_gradient() {
     );
 
     t.heading("The file");
-    let files: Vec<String> = (1..=26).filter(|&n| n != 10).map(|n| format!("fx_4cg_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=26)
+        .filter(|&n| n != 10)
+        .map(|n| format!("fx_4cg_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let params = t.saved_parameters("fx_4cg_010.json");
     t.row(
@@ -216,10 +237,22 @@ fn b143_four_color_gradient() {
             ("point 4 1001 down", set(moved(3, [90.0, 1001.0]))),
             ("colour 2 \"#12345\"", set(painted(1, "#12345"))),
             ("colour 4 \"blue\"", set(painted(3, "blue"))),
-            ("blending mode \"darken\"", set(plain(100.0, 100.0, "darken"))),
-            ("blending mode \"Normal\", written with a capital", set(plain(100.0, 100.0, "Normal"))),
-            ("opacity keyed to 101", keys("opacity", &[(0, &[100.0]), (4, &[101.0])])),
-            ("blend keyed to 0", keys("blend", &[(0, &[100.0]), (4, &[0.0])])),
+            (
+                "blending mode \"darken\"",
+                set(plain(100.0, 100.0, "darken")),
+            ),
+            (
+                "blending mode \"Normal\", written with a capital",
+                set(plain(100.0, 100.0, "Normal")),
+            ),
+            (
+                "opacity keyed to 101",
+                keys("opacity", &[(0, &[100.0]), (4, &[101.0])]),
+            ),
+            (
+                "blend keyed to 0",
+                keys("blend", &[(0, &[100.0]), (4, &[0.0])]),
+            ),
         ],
     );
     t.taken(
@@ -232,22 +265,47 @@ fn b143_four_color_gradient() {
             ),
             (
                 "every number at its top,",
-                set(gradient([[1000.0; 2]; 4], ["#FFFFFF"; 4], 1000.0, 100.0, "screen")),
+                set(gradient(
+                    [[1000.0; 2]; 4],
+                    ["#FFFFFF"; 4],
+                    1000.0,
+                    100.0,
+                    "screen",
+                )),
             ),
-            ("blend keyed from 1 to 1000", keys("blend", &[(0, &[1.0]), (4, &[1000.0])])),
-            ("point 2 keyed from (90, 10) to (10, 90)", keys("point_2", &[(0, &[90.0, 10.0]), (4, &[10.0, 90.0])])),
+            (
+                "blend keyed from 1 to 1000",
+                keys("blend", &[(0, &[1.0]), (4, &[1000.0])]),
+            ),
+            (
+                "point 2 keyed from (90, 10) to (10, 90)",
+                keys("point_2", &[(0, &[90.0, 10.0]), (4, &[10.0, 90.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_4cg_001.json", 0), ("fx_4cg_002.json", 0), ("fx_4cg_007.json", 0), ("fx_4cg_013.json", 2)]);
+    t.tiles(&[
+        ("fx_4cg_001.json", 0),
+        ("fx_4cg_002.json", 0),
+        ("fx_4cg_007.json", 0),
+        ("fx_4cg_013.json", 2),
+    ]);
 
     t.heading("Pictures: a made-up cel, in `verification/B-143 pictures/`, three times enlarged");
     let dir = effect_table::repo("verification/B-143 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = PLATE;
     let write = |name: &str, bytes: &[u8], scale: usize| {
-        png_out::write_rgba(&dir.join(name), w * scale, h * scale, OutputDepth::Eight, &[], bytes).unwrap()
+        png_out::write_rgba(
+            &dir.join(name),
+            w * scale,
+            h * scale,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
     };
     write("drawing.png", &drawing(), 1);
     let px = |bytes: &[u8], (x, y): (usize, usize)| {
@@ -257,13 +315,18 @@ fn b143_four_color_gradient() {
     let every = || (0..h).flat_map(move |y| (0..w).map(move |x| (x, y)));
     let (before, big, said) = picture(&dir, stack(&[]));
     write("before.png", &big, 3);
-    t.row("before.png, the drawing with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "before.png, the drawing with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
 
     // Every pixel keeps its covering: the empty ones stay empty and the card's edge stays where it is.
     let kept = |after: &[u8]| every().all(|p| px(after, p)[3] == px(&before, p)[3]);
     let shown = || every().filter(|&p| px(&before, p)[3] > 0);
     // Within `d` of a colour, the covering aside.
-    let close = |p: [u8; 4], c: [u8; 3], d: u8| p[..3].iter().zip(c).all(|(&u, v)| u.abs_diff(v) <= d);
+    let close =
+        |p: [u8; 4], c: [u8; 3], d: u8| p[..3].iter().zip(c).all(|(&u, v)| u.abs_diff(v) <= d);
 
     let (start, big, said) = picture(&dir, stack(&[&plain(100.0, 100.0, "normal")]));
     write("as_it_starts.png", &big, 3);
@@ -283,7 +346,12 @@ fn b143_four_color_gradient() {
 
     let (hard, big, said) = picture(&dir, stack(&[&plain(1.0, 100.0, "normal")]));
     write("blend_1.png", &big, 3);
-    let quarters = [((40, 30), [255, 255, 0]), ((120, 30), [0, 255, 0]), ((40, 70), [255, 0, 255]), ((120, 70), [0, 0, 255])];
+    let quarters = [
+        ((40, 30), [255, 255, 0]),
+        ((120, 30), [0, 255, 0]),
+        ((40, 70), [255, 0, 255]),
+        ((120, 70), [0, 0, 255]),
+    ];
     t.row(
         "blend_1.png, blend 1: four flat patches, each point's own colour, yellow, green, magenta and blue, \
          to within 1 in each quarter; draws cleanly",
@@ -294,10 +362,13 @@ fn b143_four_color_gradient() {
     let (even, big, said) = picture(&dir, stack(&[&plain(1000.0, 100.0, "normal")]));
     write("blend_1000.png", &big, 3);
     let range = |bytes: &[u8]| {
-        (0..3).map(|c| {
-            let v: Vec<u8> = shown().map(|p| px(bytes, p)[c]).collect();
-            v.iter().max().unwrap() - v.iter().min().unwrap()
-        }).max().unwrap()
+        (0..3)
+            .map(|c| {
+                let v: Vec<u8> = shown().map(|p| px(bytes, p)[c]).collect();
+                v.iter().max().unwrap() - v.iter().min().unwrap()
+            })
+            .max()
+            .unwrap()
     };
     t.row(
         "blend_1000.png, blend 1000: the four mixed nearly evenly, every channel across the card spanning \
@@ -317,9 +388,27 @@ fn b143_four_color_gradient() {
     );
 
     for (file, what, mode, opacity, darker) in [
-        ("multiply.png", "multiply: tinted and darkened, the lines kept dark, no pixel lighter than the drawing", "multiply", 100.0, true),
-        ("screen.png", "screen: lightened, no pixel darker than the drawing", "screen", 100.0, false),
-        ("add_30.png", "add at opacity 30: lightened, no pixel darker than the drawing", "add", 30.0, false),
+        (
+            "multiply.png",
+            "multiply: tinted and darkened, the lines kept dark, no pixel lighter than the drawing",
+            "multiply",
+            100.0,
+            true,
+        ),
+        (
+            "screen.png",
+            "screen: lightened, no pixel darker than the drawing",
+            "screen",
+            100.0,
+            false,
+        ),
+        (
+            "add_30.png",
+            "add at opacity 30: lightened, no pixel darker than the drawing",
+            "add",
+            30.0,
+            false,
+        ),
     ] {
         let (after, big, said) = picture(&dir, stack(&[&plain(100.0, opacity, mode)]));
         write(file, &big, 3);
@@ -328,7 +417,11 @@ fn b143_four_color_gradient() {
             .filter(|&p| {
                 (0..3).any(|c| {
                     let step = i32::from(px(&after, p)[c]) - i32::from(px(&before, p)[c]);
-                    if darker { step > 1 } else { step < -1 }
+                    if darker {
+                        step > 1
+                    } else {
+                        step < -1
+                    }
                 })
             })
             .count();
@@ -339,7 +432,16 @@ fn b143_four_color_gradient() {
         );
     }
 
-    let (middle, big, said) = picture(&dir, stack(&[&gradient([[50.0, 50.0], CORNERS[1], CORNERS[2], CORNERS[3]], AE, 100.0, 100.0, "normal")]));
+    let (middle, big, said) = picture(
+        &dir,
+        stack(&[&gradient(
+            [[50.0, 50.0], CORNERS[1], CORNERS[2], CORNERS[3]],
+            AE,
+            100.0,
+            100.0,
+            "normal",
+        )]),
+    );
     write("point_1_middle.png", &big, 3);
     t.row(
         "point_1_middle.png, point 1 moved to the middle: yellow in the middle of the head, at 80, 50; draws cleanly",
@@ -347,7 +449,13 @@ fn b143_four_color_gradient() {
         said.is_empty() && kept(&middle) && close(px(&middle, (80, 50)), [255, 255, 0], 12),
     );
 
-    let sunset = gradient([[20.0, 0.0], [80.0, 0.0], [20.0, 100.0], [80.0, 100.0]], ["#ffd060", "#ff6040", "#6040a0", "#203070"], 100.0, 100.0, "multiply");
+    let sunset = gradient(
+        [[20.0, 0.0], [80.0, 0.0], [20.0, 100.0], [80.0, 100.0]],
+        ["#ffd060", "#ff6040", "#6040a0", "#203070"],
+        100.0,
+        100.0,
+        "multiply",
+    );
     let (dusk, big, said) = picture(&dir, stack(&[&sunset]));
     write("sunset_multiply.png", &big, 3);
     let (top, bottom) = (px(&dusk, (80, 14)), px(&dusk, (80, 86)));

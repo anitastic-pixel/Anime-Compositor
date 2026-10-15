@@ -468,8 +468,12 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
     if columns.is_empty() {
         refuse!(DiagnosticId::TimesheetNoCells, {});
     }
-    let mut text = read_text(table, 3.0, "dialogue", "Dialogue", dialogue, duration, &mut notes);
-    text.extend(read_text(table, 5.0, "camera", "Camera", camera, duration, &mut notes));
+    let mut text = read_text(
+        table, 3.0, "dialogue", "Dialogue", dialogue, duration, &mut notes,
+    );
+    text.extend(read_text(
+        table, 5.0, "camera", "Camera", camera, duration, &mut notes,
+    ));
 
     // The most common size among every drawing of every column, the first seen on a tie.
     let mut sizes: Vec<((u32, u32), usize)> = Vec::new();
@@ -560,7 +564,8 @@ fn read_text(
                 said.insert(f, values);
             }
         }
-        let (mut entries, mut orphan, mut not_text) = (Vec::<SheetTextEntry>::new(), Vec::new(), Vec::new());
+        let (mut entries, mut orphan, mut not_text) =
+            (Vec::<SheetTextEntry>::new(), Vec::new(), Vec::new());
         for (f, values) in said {
             let strings: Option<Vec<String>> = values
                 .as_ref()

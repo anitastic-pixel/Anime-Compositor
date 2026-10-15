@@ -90,17 +90,32 @@ fn b56_hue_saturation() {
             ("saturation -101", set(hs(0.0, -101.0, 0.0))),
             ("lightness 101", set(hs(0.0, 0.0, 101.0))),
             ("lightness -101", set(hs(0.0, 0.0, -101.0))),
-            ("hue keyed to 200", keys("hue", &[(0, &[0.0]), (4, &[200.0])])),
+            (
+                "hue keyed to 200",
+                keys("hue", &[(0, &[0.0]), (4, &[200.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_huesat_001.json",
         vec![
-            ("hue 180, saturation and lightness 100, the tops of the ranges,", set(hs(180.0, 100.0, 100.0))),
-            ("hue -180, saturation and lightness -100, the bottoms,", set(hs(-180.0, -100.0, -100.0))),
-            ("hue keyed from -180 to 180", keys("hue", &[(0, &[-180.0]), (4, &[180.0])])),
-            ("lightness keyed from 0 to 50", keys("lightness", &[(0, &[0.0]), (4, &[50.0])])),
+            (
+                "hue 180, saturation and lightness 100, the tops of the ranges,",
+                set(hs(180.0, 100.0, 100.0)),
+            ),
+            (
+                "hue -180, saturation and lightness -100, the bottoms,",
+                set(hs(-180.0, -100.0, -100.0)),
+            ),
+            (
+                "hue keyed from -180 to 180",
+                keys("hue", &[(0, &[-180.0]), (4, &[180.0])]),
+            ),
+            (
+                "lightness keyed from 0 to 50",
+                keys("lightness", &[(0, &[0.0]), (4, &[50.0])]),
+            ),
         ],
     );
 

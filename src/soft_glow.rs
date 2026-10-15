@@ -74,7 +74,10 @@ impl Dirt {
     /// the picture centred on the layer, mirrored back into itself outside it when it repeats
     /// (period twice its size, the edge pixel twice), clear there when not.
     pub fn at(&self, x: isize, y: isize, w: usize, h: usize) -> [f32; 3] {
-        let (dw, dh) = (self.picture.width() as isize, self.picture.height() as isize);
+        let (dw, dh) = (
+            self.picture.width() as isize,
+            self.picture.height() as isize,
+        );
         let place = |s: isize, n: isize| {
             if self.repeat {
                 let m = s.rem_euclid(2 * n);
@@ -83,7 +86,10 @@ impl Dirt {
                 (0..n).contains(&s).then_some(s)
             }
         };
-        match (place(x - (w as isize - dw).div_euclid(2), dw), place(y - (h as isize - dh).div_euclid(2), dh)) {
+        match (
+            place(x - (w as isize - dw).div_euclid(2), dw),
+            place(y - (h as isize - dh).div_euclid(2), dh),
+        ) {
             (Some(sx), Some(sy)) => {
                 let (d, i) = (self.picture.data(), (sy * dw + sx) as usize * 4);
                 [d[i], d[i + 1], d[i + 2]]
@@ -99,7 +105,11 @@ impl Dirt {
         let y = y709(g);
         std::array::from_fn(|c| {
             let m = (((1.0 - self.inherit) * y + self.inherit * g[c]) * self.gain).clamp(0.0, 1.0);
-            let m = if self.power == 1.0 { m } else { m.powf(self.power) };
+            let m = if self.power == 1.0 {
+                m
+            } else {
+                m.powf(self.power)
+            };
             g[c] + self.opacity * m * d[c]
         })
     }
@@ -126,7 +136,11 @@ pub(crate) fn sizes(spectral: &str, red: f64, green: f64, blue: f64) -> Option<[
 
 /// How far the layer grows: the largest chain's reach (no silent crop).
 pub(crate) fn grow(radius: f64, aspect: f64, angle: f64, spectral: Option<[f64; 3]>) -> usize {
-    chains(radius, spectral).into_iter().map(|(r, _)| plan(r, aspect, angle).grow).max().unwrap_or(0)
+    chains(radius, spectral)
+        .into_iter()
+        .map(|(r, _)| plan(r, aspect, angle).grow)
+        .max()
+        .unwrap_or(0)
 }
 
 /// D-542: the inner and outer colours (linear), one colour for every level when `one`, and Tint
@@ -141,8 +155,14 @@ pub(crate) struct Tint {
 impl Tint {
     /// The settings' words as a tint, `None` when off; the colours made linear.
     pub(crate) fn of(tint: &str, inner: &str, outer: &str, amount: f64) -> Option<Tint> {
-        let linear = |c: &str| crate::effects::encoded(c).map(|v| crate::grade::to_linear(v) as f32);
-        (tint != "off").then(|| Tint { inner: linear(inner), outer: linear(outer), one: tint == "one_color", amount: (amount / 100.0) as f32 })
+        let linear =
+            |c: &str| crate::effects::encoded(c).map(|v| crate::grade::to_linear(v) as f32);
+        (tint != "off").then(|| Tint {
+            inner: linear(inner),
+            outer: linear(outer),
+            one: tint == "one_color",
+            amount: (amount / 100.0) as f32,
+        })
     }
 
     /// Level k's colour (k = 0 the widest): the inner mixed towards the outer by
@@ -152,8 +172,14 @@ impl Tint {
             return self.inner;
         }
         let span = (2.0 * radius / 3.0).log2();
-        let t = if span > 0.0 { (1.0 - k as f64 / span).clamp(0.0, 1.0) } else { 0.0 };
-        std::array::from_fn(|c| (self.inner[c] as f64 + t * (self.outer[c] - self.inner[c]) as f64) as f32)
+        let t = if span > 0.0 {
+            (1.0 - k as f64 / span).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        std::array::from_fn(|c| {
+            (self.inner[c] as f64 + t * (self.outer[c] - self.inner[c]) as f64) as f32
+        })
     }
 }
 
@@ -175,7 +201,11 @@ fn cell(sigma: f64) -> usize {
 
 /// Document 21's normalised taps for a variance (one tap at 0).
 fn taps(var: f64) -> Vec<f32> {
-    if var > 0.0 { crate::effects::reach_weights(var.sqrt(), false) } else { vec![1.0] }
+    if var > 0.0 {
+        crate::effects::reach_weights(var.sqrt(), false)
+    } else {
+        vec![1.0]
+    }
 }
 
 /// The levels for a Radius, Aspect Ratio and Angle. sigma_k = Radius / 3 / 2^k while the level
@@ -206,16 +236,32 @@ pub(crate) fn plan(radius: f64, aspect: f64, angle: f64) -> Plan {
             let b = (su * su - sv * sv) * co * si;
             let c = su * su * si * si + sv * sv * co * co;
             let first_y = c < a;
-            let (rest, second, mu) = if first_y { (c - b * b / a, a, b / a) } else { (a - b * b / c, c, b / c) };
+            let (rest, second, mu) = if first_y {
+                (c - b * b / a, a, b / a)
+            } else {
+                (a - b * b / c, c, b / c)
+            };
             let (first, second) = (taps(rest.max(0.0)), taps(second));
             let (r1, r2) = (first.len() / 2, second.len() / 2);
             let aside = r1 + (mu.abs() * r2 as f64).ceil() as usize + usize::from(mu != 0.0);
             let reach = if first_y { (r2, aside) } else { (aside, r2) };
             grow = grow.max(d * (reach.0.max(reach.1) + 2));
-            Level { weight: (f / total.max(1.0)) as f32, d, first, first_y, second, mu, reach }
+            Level {
+                weight: (f / total.max(1.0)) as f32,
+                d,
+                first,
+                first_y,
+                second,
+                mu,
+                reach,
+            }
         })
         .collect();
-    Plan { own: (1.0 - total).max(0.0) as f32, levels, grow }
+    Plan {
+        own: (1.0 - total).max(0.0) as f32,
+        levels,
+        grow,
+    }
 }
 
 /// Stage 1: the light that glows from one premultiplied pixel. Threshold Mode chroma tests each
@@ -227,7 +273,10 @@ pub(crate) fn light(px: &[f32], s: &Settings) -> [f32; 3] {
     if t == 0.0 {
         return rgb;
     }
-    let (hi, lo) = (rgb[0].max(rgb[1]).max(rgb[2]), rgb[0].min(rgb[1]).min(rgb[2]));
+    let (hi, lo) = (
+        rgb[0].max(rgb[1]).max(rgb[2]),
+        rgb[0].min(rgb[1]).min(rgb[2]),
+    );
     let sat = if hi > 0.0 { (hi - lo) / hi } else { 0.0 };
     let tested = if s.luminance {
         [0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; 3]
@@ -246,7 +295,11 @@ pub(crate) fn light(px: &[f32], s: &Settings) -> [f32; 3] {
             v
         };
         let w = if m == 0.0 {
-            if v >= t { 1.0 } else { 0.0 }
+            if v >= t {
+                1.0
+            } else {
+                0.0
+            }
         } else {
             ((v - t * (1.0 - m)) / (t * m)).clamp(0.0, 1.0)
         };
@@ -266,7 +319,12 @@ pub(crate) fn steps(taps: &[f32], mu: f64) -> Vec<(isize, isize, f32, f32)> {
             let off = mu * t as f64;
             let lo = off.floor();
             let fr = off - lo;
-            (t, lo as isize, (w as f64 * (1.0 - fr)) as f32, (w as f64 * fr) as f32)
+            (
+                t,
+                lo as isize,
+                (w as f64 * (1.0 - fr)) as f32,
+                (w as f64 * fr) as f32,
+            )
         })
         .collect()
 }
@@ -284,22 +342,28 @@ fn pass(src: &[f32], pw: usize, taps: &[f32], down: bool, mu: f64) -> Vec<f32> {
         [src[i], src[i + 1], src[i + 2]]
     };
     let mut out = vec![0.0f32; src.len()];
-    out.par_chunks_exact_mut(pw * 3).enumerate().for_each(|(j, row)| {
-        for (i, o) in row.chunks_exact_mut(3).enumerate() {
-            let (i, j) = (i as isize, j as isize);
-            let mut acc = [0.0f32; 3];
-            for &(t, lo, w0, w1) in &steps {
-                let (p, q) = if down { (at(i + lo, j + t), at(i + lo + 1, j + t)) } else { (at(i + t, j + lo), at(i + t, j + lo + 1)) };
-                for c in 0..3 {
-                    acc[c] += w0 * p[c];
-                    if w1 != 0.0 {
-                        acc[c] += w1 * q[c];
+    out.par_chunks_exact_mut(pw * 3)
+        .enumerate()
+        .for_each(|(j, row)| {
+            for (i, o) in row.chunks_exact_mut(3).enumerate() {
+                let (i, j) = (i as isize, j as isize);
+                let mut acc = [0.0f32; 3];
+                for &(t, lo, w0, w1) in &steps {
+                    let (p, q) = if down {
+                        (at(i + lo, j + t), at(i + lo + 1, j + t))
+                    } else {
+                        (at(i + t, j + lo), at(i + t, j + lo + 1))
+                    };
+                    for c in 0..3 {
+                        acc[c] += w0 * p[c];
+                        if w1 != 0.0 {
+                            acc[c] += w1 * q[c];
+                        }
                     }
                 }
+                o.copy_from_slice(&acc);
             }
-            o.copy_from_slice(&acc);
-        }
-    });
+        });
     out
 }
 
@@ -314,21 +378,24 @@ pub(crate) fn spread(lit: &[f32], w: usize, h: usize, lv: &Level) -> Vec<f32> {
     let pw = nw + 2 * rx;
     let mut plane = vec![0.0f32; pw * (nh + 2 * ry) * 3];
     let area = (d * d) as f64;
-    plane[ry * pw * 3..(ry + nh) * pw * 3].par_chunks_exact_mut(pw * 3).enumerate().for_each(|(j, row)| {
-        for i in 0..nw {
-            let mut sum = [0.0f64; 3];
-            for y in j * d..((j + 1) * d).min(h) {
-                for x in i * d..((i + 1) * d).min(w) {
-                    for c in 0..3 {
-                        sum[c] += lit[(y * w + x) * 3 + c] as f64;
+    plane[ry * pw * 3..(ry + nh) * pw * 3]
+        .par_chunks_exact_mut(pw * 3)
+        .enumerate()
+        .for_each(|(j, row)| {
+            for i in 0..nw {
+                let mut sum = [0.0f64; 3];
+                for y in j * d..((j + 1) * d).min(h) {
+                    for x in i * d..((i + 1) * d).min(w) {
+                        for c in 0..3 {
+                            sum[c] += lit[(y * w + x) * 3 + c] as f64;
+                        }
                     }
                 }
+                for c in 0..3 {
+                    row[(rx + i) * 3 + c] = (sum[c] / area) as f32;
+                }
             }
-            for c in 0..3 {
-                row[(rx + i) * 3 + c] = (sum[c] / area) as f32;
-            }
-        }
-    });
+        });
     let first = pass(&plane, pw, &lv.first, lv.first_y, 0.0);
     pass(&first, pw, &lv.second, !lv.first_y, lv.mu)
 }
@@ -346,7 +413,11 @@ pub(crate) fn finish(g: [f32; 3], p: [f32; 4], s: &Settings, dirt: [f32; 3]) -> 
     if s.screen {
         g = g.map(|v| v.min(1.0));
     }
-    let ga = if s.unmult { g[0].max(g[1]).max(g[2]).min(1.0) } else { 1.0 };
+    let ga = if s.unmult {
+        g[0].max(g[1]).max(g[2]).min(1.0)
+    } else {
+        1.0
+    };
     let mut out = [0.0; 4];
     for c in 0..3 {
         let v = g[c] + o * p[c];
@@ -364,95 +435,128 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
         return 0;
     }
     let g = grow(s.radius, s.aspect, s.angle, s.spectral);
-    let lit: Vec<f32> = source.data().par_chunks_exact(4).flat_map_iter(|px| light(px, s)).collect();
+    let lit: Vec<f32> = source
+        .data()
+        .par_chunks_exact(4)
+        .flat_map_iter(|px| light(px, s))
+        .collect();
     // D-543: one chain of levels, or one a channel at its own radius, each with its colours.
     // ponytail: each spectral chain spreads all three channels and keeps one, three times the
     // work; spread one channel when untinted if Spectral's speed matters.
-    let chains: Vec<(Plan, Vec<Vec<f32>>, Vec<[f32; 3]>, Option<usize>)> = chains(s.radius, s.spectral)
-        .into_iter()
-        .map(|(radius, channel)| {
-            let plan = plan(radius, s.aspect, s.angle);
-            let planes = plan.levels.iter().map(|lv| spread(&lit, w, h, lv)).collect();
-            let colours = match &s.tint {
-                Some(t) => (0..plan.levels.len()).map(|k| t.colour(radius, k)).collect(),
-                None => Vec::new(),
-            };
-            (plan, planes, colours, channel)
-        })
-        .collect();
+    let chains: Vec<(Plan, Vec<Vec<f32>>, Vec<[f32; 3]>, Option<usize>)> =
+        chains(s.radius, s.spectral)
+            .into_iter()
+            .map(|(radius, channel)| {
+                let plan = plan(radius, s.aspect, s.angle);
+                let planes = plan
+                    .levels
+                    .iter()
+                    .map(|lv| spread(&lit, w, h, lv))
+                    .collect();
+                let colours = match &s.tint {
+                    Some(t) => (0..plan.levels.len())
+                        .map(|k| t.colour(radius, k))
+                        .collect(),
+                    None => Vec::new(),
+                };
+                (plan, planes, colours, channel)
+            })
+            .collect();
     let (ow, oh) = (w + 2 * g, h + 2 * g);
     let mut out = WorkingBuffer::transparent(ow, oh);
     let src = source.data();
-    out.data_mut().par_chunks_exact_mut(ow * 4).enumerate().for_each(|(row, line)| {
-        let y = row as isize - g as isize;
-        for (col, o) in line.chunks_exact_mut(4).enumerate() {
-            let x = col as isize - g as isize;
-            let inside = x >= 0 && y >= 0 && x < w as isize && y < h as isize;
-            let i = if inside { y as usize * w + x as usize } else { 0 };
-            let mut glow = [0.0f32; 3];
-            for (plan, planes, colours, channel) in &chains {
-                let mut sum = [0.0f32; 3];
-                if inside && plan.own > 0.0 {
-                    // D-542: the light's own share is the core, in the inner colour.
-                    let l = [lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]];
-                    let l = match &s.tint {
-                        Some(t) => tinted(l, t.inner, t.amount),
-                        None => l,
-                    };
-                    for c in 0..3 {
-                        sum[c] += plan.own * l[c];
-                    }
-                }
-                for (k, (lv, plane)) in plan.levels.iter().zip(planes).enumerate() {
-                    // D-542: tinted, a level is read unweighted, tinted, then weighed; untinted, the
-                    // sum of D-353 exactly.
-                    let mut read = [0.0f32; 3];
-                    let (into, scale) = if s.tint.is_some() { (&mut read, 1.0) } else { (&mut sum, lv.weight) };
-                    let d = lv.d as f32;
-                    let (pw, ph) = (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1);
-                    let (u, v) = ((x as f32 + 0.5) / d - 0.5, (y as f32 + 0.5) / d - 0.5);
-                    let (u0, v0) = (u.floor(), v.floor());
-                    let (fu, fv) = (u - u0, v - v0);
-                    for (dj, wj) in [(0, 1.0 - fv), (1, fv)] {
-                        let cy = v0 as isize + dj + lv.reach.1 as isize;
-                        if wj == 0.0 || cy < 0 || cy >= ph as isize {
-                            continue;
+    out.data_mut()
+        .par_chunks_exact_mut(ow * 4)
+        .enumerate()
+        .for_each(|(row, line)| {
+            let y = row as isize - g as isize;
+            for (col, o) in line.chunks_exact_mut(4).enumerate() {
+                let x = col as isize - g as isize;
+                let inside = x >= 0 && y >= 0 && x < w as isize && y < h as isize;
+                let i = if inside {
+                    y as usize * w + x as usize
+                } else {
+                    0
+                };
+                let mut glow = [0.0f32; 3];
+                for (plan, planes, colours, channel) in &chains {
+                    let mut sum = [0.0f32; 3];
+                    if inside && plan.own > 0.0 {
+                        // D-542: the light's own share is the core, in the inner colour.
+                        let l = [lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]];
+                        let l = match &s.tint {
+                            Some(t) => tinted(l, t.inner, t.amount),
+                            None => l,
+                        };
+                        for c in 0..3 {
+                            sum[c] += plan.own * l[c];
                         }
-                        for (di, wi) in [(0, 1.0 - fu), (1, fu)] {
-                            let cx = u0 as isize + di + lv.reach.0 as isize;
-                            if wi == 0.0 || cx < 0 || cx >= pw as isize {
+                    }
+                    for (k, (lv, plane)) in plan.levels.iter().zip(planes).enumerate() {
+                        // D-542: tinted, a level is read unweighted, tinted, then weighed; untinted, the
+                        // sum of D-353 exactly.
+                        let mut read = [0.0f32; 3];
+                        let (into, scale) = if s.tint.is_some() {
+                            (&mut read, 1.0)
+                        } else {
+                            (&mut sum, lv.weight)
+                        };
+                        let d = lv.d as f32;
+                        let (pw, ph) = (
+                            w.div_ceil(lv.d) + 2 * lv.reach.0,
+                            h.div_ceil(lv.d) + 2 * lv.reach.1,
+                        );
+                        let (u, v) = ((x as f32 + 0.5) / d - 0.5, (y as f32 + 0.5) / d - 0.5);
+                        let (u0, v0) = (u.floor(), v.floor());
+                        let (fu, fv) = (u - u0, v - v0);
+                        for (dj, wj) in [(0, 1.0 - fv), (1, fv)] {
+                            let cy = v0 as isize + dj + lv.reach.1 as isize;
+                            if wj == 0.0 || cy < 0 || cy >= ph as isize {
                                 continue;
                             }
-                            let at = (cy as usize * pw + cx as usize) * 3;
-                            let wt = scale * wj * wi;
+                            for (di, wi) in [(0, 1.0 - fu), (1, fu)] {
+                                let cx = u0 as isize + di + lv.reach.0 as isize;
+                                if wi == 0.0 || cx < 0 || cx >= pw as isize {
+                                    continue;
+                                }
+                                let at = (cy as usize * pw + cx as usize) * 3;
+                                let wt = scale * wj * wi;
+                                for c in 0..3 {
+                                    into[c] += wt * plane[at + c];
+                                }
+                            }
+                        }
+                        if let Some(t) = &s.tint {
+                            let p = tinted(read, colours[k], t.amount);
                             for c in 0..3 {
-                                into[c] += wt * plane[at + c];
+                                sum[c] += lv.weight * p[c];
                             }
                         }
                     }
-                    if let Some(t) = &s.tint {
-                        let p = tinted(read, colours[k], t.amount);
-                        for c in 0..3 {
-                            sum[c] += lv.weight * p[c];
-                        }
+                    match channel {
+                        None => glow = sum,
+                        Some(c) => glow[*c] = sum[*c],
                     }
                 }
-                match channel {
-                    None => glow = sum,
-                    Some(c) => glow[*c] = sum[*c],
+                if let Some(colour) = s.halation {
+                    // D-544: only where the light spreads onto something darker than itself.
+                    let here = if inside {
+                        y709([lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]])
+                    } else {
+                        0.0
+                    };
+                    let h = (y709(glow) - here).max(0.0);
+                    glow = colour.map(|c| c * h);
                 }
+                let p = if inside {
+                    [src[i * 4], src[i * 4 + 1], src[i * 4 + 2], src[i * 4 + 3]]
+                } else {
+                    [0.0; 4]
+                };
+                let dirt = s.dirt.as_ref().map_or([0.0; 3], |d| d.at(x, y, w, h));
+                o.copy_from_slice(&finish(glow, p, s, dirt));
             }
-            if let Some(colour) = s.halation {
-                // D-544: only where the light spreads onto something darker than itself.
-                let here = if inside { y709([lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]]) } else { 0.0 };
-                let h = (y709(glow) - here).max(0.0);
-                glow = colour.map(|c| c * h);
-            }
-            let p = if inside { [src[i * 4], src[i * 4 + 1], src[i * 4 + 2], src[i * 4 + 3]] } else { [0.0; 4] };
-            let dirt = s.dirt.as_ref().map_or([0.0; 3], |d| d.at(x, y, w, h));
-            o.copy_from_slice(&finish(glow, p, s, dirt));
-        }
-    });
+        });
     *source = out;
     g
 }

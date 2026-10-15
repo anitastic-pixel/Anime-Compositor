@@ -59,7 +59,9 @@ fn night() -> Vec<u8> {
     let mut dashes = Vec::new();
     let mut r: u64 = 3;
     let mut next = |n: u64| {
-        r = r.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        r = r
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (r >> 33) % n
     };
     for _ in 0..60 {
@@ -77,14 +79,23 @@ fn night() -> Vec<u8> {
         for x in 0..w {
             let (fx, fy) = (x as f64 + 0.5, y as f64 + 0.5);
             let oval = |x0: f64, y0: f64, x1: f64, y1: f64| {
-                ((fx - (x0 + x1) / 2.0) / ((x1 - x0) / 2.0)).powi(2) + ((fy - (y0 + y1) / 2.0) / ((y1 - y0) / 2.0)).powi(2) <= 1.0
+                ((fx - (x0 + x1) / 2.0) / ((x1 - x0) / 2.0)).powi(2)
+                    + ((fy - (y0 + y1) / 2.0) / ((y1 - y0) / 2.0)).powi(2)
+                    <= 1.0
             };
             let t = y as f64 / h as f64;
-            let mut c = [(20.0 + 40.0 * t) as u8, (24.0 + 20.0 * t) as u8, (70.0 + 40.0 * t) as u8];
+            let mut c = [
+                (20.0 + 40.0 * t) as u8,
+                (24.0 + 20.0 * t) as u8,
+                (70.0 + 40.0 * t) as u8,
+            ];
             if y >= 200 {
                 c = [16, 30, 70];
             }
-            if dashes.iter().any(|&(dx, dy, l)| y == dy && (dx..=dx + l).contains(&x)) {
+            if dashes
+                .iter()
+                .any(|&(dx, dy, l)| y == dy && (dx..=dx + l).contains(&x))
+            {
                 c = [255, 255, 255];
             }
             if oval(340.0, 30.0, 380.0, 70.0) {
@@ -103,7 +114,9 @@ fn night() -> Vec<u8> {
                 if oval(ex + 5.0, 120.0, ex + 21.0, 146.0) {
                     c = [90, 60, 150];
                 }
-                if oval(ex + 4.0, 114.0, ex + 12.0, 122.0) || oval(ex + 16.0, 138.0, ex + 20.0, 142.0) {
+                if oval(ex + 4.0, 114.0, ex + 12.0, 122.0)
+                    || oval(ex + 16.0, 138.0, ex + 20.0, 142.0)
+                {
                     c = [255, 255, 255];
                 }
             }
@@ -152,9 +165,20 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(effect_table::MAIN), frame, dir, 64, &mut log)
-        .expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(effect_table::MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -174,8 +198,16 @@ fn b122_kira_kira() {
 
     t.heading("How far it reaches");
     for (what, e, want) in [
-        ("as added, size 40, grows the drawing's bounds by 40", with(3, 40.0), 40),
-        ("size 12.5 grows them by 13, the size rounded up", with(3, 12.5), 13),
+        (
+            "as added, size 40, grows the drawing's bounds by 40",
+            with(3, 40.0),
+            40,
+        ),
+        (
+            "size 12.5 grows them by 13, the size rounded up",
+            with(3, 12.5),
+            13,
+        ),
         ("size 0 grows them by nothing", with(3, 0.0), 0),
         ("density 0 grows them by nothing", with(2, 0.0), 0),
         ("opacity 0 grows them by nothing", with(8, 0.0), 0),
@@ -247,7 +279,10 @@ fn b122_kira_kira() {
             ("opacity 101", set(with(8, 101.0))),
             ("shape \"circle\"", set(kira(START, "circle", "#ffffff"))),
             ("colour \"#12345\"", set(kira(START, "star", "#12345"))),
-            ("twinkle keyed to 150", keys("twinkle", &[(0, &[100.0]), (4, &[150.0])])),
+            (
+                "twinkle keyed to 150",
+                keys("twinkle", &[(0, &[100.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
@@ -256,35 +291,102 @@ fn b122_kira_kira() {
         vec![
             (
                 "every number at its bottom, a cross,",
-                set(kira([0.0, 2.0, 0.0, 0.0, -3600.0, 0.0, 1.0, 0.0, 0.0], "cross", "#000000")),
+                set(kira(
+                    [0.0, 2.0, 0.0, 0.0, -3600.0, 0.0, 1.0, 0.0, 0.0],
+                    "cross",
+                    "#000000",
+                )),
             ),
             (
                 "every number at its top,",
-                set(kira([100.0, 1000.0, 100.0, 1000.0, 3600.0, 100.0, 1000.0, 100000.0, 100.0], "star", "#ffffff")),
+                set(kira(
+                    [
+                        100.0, 1000.0, 100.0, 1000.0, 3600.0, 100.0, 1000.0, 100000.0, 100.0,
+                    ],
+                    "star",
+                    "#ffffff",
+                )),
             ),
-            ("period keyed from 1 to 1000", keys("period", &[(0, &[1.0]), (4, &[1000.0])])),
+            (
+                "period keyed from 1 to 1000",
+                keys("period", &[(0, &[1.0]), (4, &[1000.0])]),
+            ),
         ],
     );
 
-    t.heading("Pictures: a night scene at a quarter of 1920 by 1080, in `verification/B-122 pictures/`");
+    t.heading(
+        "Pictures: a night scene at a quarter of 1920 by 1080, in `verification/B-122 pictures/`",
+    );
     let dir = effect_table::repo("verification/B-122 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = NIGHT;
-    png_out::write_rgba(&dir.join("night.png"), w, h, OutputDepth::Eight, &[], &night()).unwrap();
+    png_out::write_rgba(
+        &dir.join("night.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &night(),
+    )
+    .unwrap();
     let (before, said) = picture(&dir, J::Array(vec![]), 0);
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the scene with no effect, draws cleanly", &format!("{said:?}"), said.is_empty());
+    png_out::write_rgba(
+        &dir.join("before.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &before,
+    )
+    .unwrap();
+    t.row(
+        "before.png, the scene with no effect, draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     // A quarter-size picture takes a quarter of every distance, as a quarter-size draft does.
-    let quarter = |n: [f64; 9]| [n[0], n[1] / 4.0, n[2], n[3] / 4.0, n[4], n[5], n[6], n[7], n[8]];
+    let quarter = |n: [f64; 9]| {
+        [
+            n[0],
+            n[1] / 4.0,
+            n[2],
+            n[3] / 4.0,
+            n[4],
+            n[5],
+            n[6],
+            n[7],
+            n[8],
+        ]
+    };
     let (moon, cheek, collar, sky) = ((360, 50), (130, 175), (130, 240), (20, 20));
     let (glint, small_glint) = ((106, 118), (160, 140));
     let mut shots: Vec<(String, Vec<u8>)> = Vec::new();
     for (name, n, shape, color, frame, what, lit) in [
-        ("as_added_frame_0", START, "star", "#ffffff", 0, "as it is added, at frame 0", vec![]),
-        ("as_added_frame_12", START, "star", "#ffffff", 12, "as it is added, at frame 12, half a twinkle on", vec![]),
+        (
+            "as_added_frame_0",
+            START,
+            "star",
+            "#ffffff",
+            0,
+            "as it is added, at frame 0",
+            vec![],
+        ),
+        (
+            "as_added_frame_12",
+            START,
+            "star",
+            "#ffffff",
+            12,
+            "as it is added, at frame 12, half a twinkle on",
+            vec![],
+        ),
         (
             "density_100",
-            { let mut n = START; n[2] = 100.0; n },
+            {
+                let mut n = START;
+                n[2] = 100.0;
+                n
+            },
             "star",
             "#ffffff",
             0,
@@ -293,7 +395,11 @@ fn b122_kira_kira() {
         ),
         (
             "small_and_close",
-            { let mut n = START; (n[1], n[3]) = (32.0, 24.0); n },
+            {
+                let mut n = START;
+                (n[1], n[3]) = (32.0, 24.0);
+                n
+            },
             "star",
             "#ffffff",
             0,
@@ -302,7 +408,11 @@ fn b122_kira_kira() {
         ),
         (
             "warm_cross",
-            { let mut n = START; n[4] = 45.0; n },
+            {
+                let mut n = START;
+                n[4] = 45.0;
+                n
+            },
             "cross",
             "#ffe0a0",
             0,
@@ -317,12 +427,25 @@ fn b122_kira_kira() {
                 "angle": q[4], "twinkle": q[5], "period": q[6], "seed": q[7], "opacity": q[8], "color": color},
         }]);
         let (bytes, said) = picture(&dir, effects, frame);
-        png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
-        let at = |b: &[u8], (x, y): (usize, usize)| b[(y * w + x) * 4..(y * w + x) * 4 + 4].to_vec();
+        png_out::write_rgba(
+            &dir.join(format!("{name}.png")),
+            w,
+            h,
+            OutputDepth::Eight,
+            &[],
+            &bytes,
+        )
+        .unwrap();
+        let at =
+            |b: &[u8], (x, y): (usize, usize)| b[(y * w + x) * 4..(y * w + x) * 4 + 4].to_vec();
         let moved = |p| at(&bytes, p) != at(&before, p);
         // A white glint's own pixels stay white; its star shows on the pixels round it.
-        let near = |(px, py): (usize, usize)| (py - 10..py + 10).any(|y| (px - 10..px + 10).any(|x| moved((x, y))));
-        let changed = (0..w * h).filter(|&i| bytes[i * 4..i * 4 + 4] != before[i * 4..i * 4 + 4]).count();
+        let near = |(px, py): (usize, usize)| {
+            (py - 10..py + 10).any(|y| (px - 10..px + 10).any(|x| moved((x, y))))
+        };
+        let changed = (0..w * h)
+            .filter(|&i| bytes[i * 4..i * 4 + 4] != before[i * 4..i * 4 + 4])
+            .count();
         let kept = [moon, cheek, collar, sky];
         t.row(
             &format!(
@@ -345,7 +468,11 @@ fn b122_kira_kira() {
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_kira_001.json", 4), ("fx_kira_007.json", 0), ("fx_kira_021.json", 0)]);
+    t.tiles(&[
+        ("fx_kira_001.json", 4),
+        ("fx_kira_007.json", 0),
+        ("fx_kira_021.json", 0),
+    ]);
 
     t.finish("B-122_kira_kira_table.md");
 }

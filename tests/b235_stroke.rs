@@ -79,8 +79,20 @@ fn picture(dir: &Path, parameters: &J, frame: i32) -> (Vec<u8>, Vec<String>) {
     });
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let drawn = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let drawn = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        frame,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (drawn.to_srgb8_straight(), said)
 }
 
@@ -88,7 +100,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -96,9 +113,24 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
 }
 
 /// The Path Strokes the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+fn on_card(
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> usize {
     let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    let plan = compose::plan_frame_for_card(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        &mut log,
+        &mut CelCache::viewer(),
+    )
+    .expect("plan the frame");
     plan.layers
         .iter()
         .flat_map(|l| &l.on_card)
@@ -108,24 +140,56 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
 
 /// The processor and the card, each drawing the frame the page receives: the largest
 /// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+fn both(
+    gpu: &mut Gpu,
+    project: &Project,
+    comp: &Id,
+    root: &Path,
+    frame: i32,
+    quality: PreviewQuality,
+) -> ((u8, usize), bool, String, String) {
     let mut cache = CelCache::viewer();
     let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let c = preview::preview_frame_cached(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
     let said_cpu = said(log);
     let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let (g, ..) = preview::preview_frame_srgb8(
+        project,
+        comp,
+        frame,
+        root,
+        quality,
+        DEFAULT_TILE_SIZE,
+        &mut log,
+        &mut cache,
+        gpu,
+    )
+    .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let said_gpu = said(log);
     let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+    (
+        distance(&c.to_srgb8_straight(), &g),
+        refused,
+        said_cpu,
+        said_gpu,
+    )
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers, each with three
 /// circle masks of mode None to draw along.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
@@ -138,7 +202,11 @@ fn reference(stack: impl Fn(&str) -> J) -> Project {
         layers[i]["masks"] = J::Array(masks);
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// Path Stroke's parameters: the effect's defaults as added with `changes` laid over them.
@@ -185,10 +253,21 @@ fn b235_stroke() {
     let files: Vec<String> = (1..=46).map(|n| format!("fx_stroke_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let effect_of = |d: &anime_compositor::command::Document| {
-        d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        d.project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .clone()
     };
     let saved = t.saved_parameters("fx_stroke_001.json");
-    t.row("the paths compose finds are not saved", &saved.to_string(), saved.get("paths").is_none());
+    t.row(
+        "the paths compose finds are not saved",
+        &saved.to_string(),
+        saved.get("paths").is_none(),
+    );
     for (file, said) in [
         ("fx_stroke_042.json", "Path Stroke's colour is written #rrggbb, and this is \"#12345\"."),
         ("fx_stroke_043.json", "Path Stroke's paint style is \"on_original\", \"on_transparent\" or \"reveal\", and this is \"paint\"."),
@@ -207,22 +286,59 @@ fn b235_stroke() {
     t.refused(
         &mut document,
         vec![
-            ("brush size 201", set(with(&base, |e| if let Effect::Stroke { brush_size, .. } = e { *brush_size = 201.0 }))),
-            ("paint style \"Reveal\"", set(with(&base, |e| if let Effect::Stroke { paint_style, .. } = e { *paint_style = "Reveal".into() }))),
-            ("End keyed to 120", keys("end", &[(0, &[0.0]), (4, &[120.0])])),
+            (
+                "brush size 201",
+                set(with(&base, |e| {
+                    if let Effect::Stroke { brush_size, .. } = e {
+                        *brush_size = 201.0
+                    }
+                })),
+            ),
+            (
+                "paint style \"Reveal\"",
+                set(with(&base, |e| {
+                    if let Effect::Stroke { paint_style, .. } = e {
+                        *paint_style = "Reveal".into()
+                    }
+                })),
+            ),
+            (
+                "End keyed to 120",
+                keys("end", &[(0, &[0.0]), (4, &[120.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_stroke_001.json",
         vec![
-            ("End 60, On Transparent,", set(with(&base, |e| if let Effect::Stroke { end, paint_style, .. } = e { *end = 60.0; *paint_style = "on_transparent".into() }))),
-            ("End keyed from 0 to 100,", keys("end", &[(0, &[0.0]), (4, &[100.0])])),
+            (
+                "End 60, On Transparent,",
+                set(with(&base, |e| {
+                    if let Effect::Stroke {
+                        end, paint_style, ..
+                    } = e
+                    {
+                        *end = 60.0;
+                        *paint_style = "on_transparent".into()
+                    }
+                })),
+            ),
+            (
+                "End keyed from 0 to 100,",
+                keys("end", &[(0, &[0.0]), (4, &[100.0])]),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_stroke_001.json", 0), ("fx_stroke_006.json", 0), ("fx_stroke_020.json", 2), ("fx_stroke_022.json", 0), ("fx_stroke_027.json", 0)]);
+    t.tiles(&[
+        ("fx_stroke_001.json", 0),
+        ("fx_stroke_006.json", 0),
+        ("fx_stroke_020.json", 2),
+        ("fx_stroke_022.json", 0),
+        ("fx_stroke_027.json", 0),
+    ]);
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
@@ -230,7 +346,11 @@ fn b235_stroke() {
     let fixture_root = effect_table::repo("Fixtures/stroke");
     for n in 1..=34 {
         let file = format!("fx_stroke_{n:03}.json");
-        let project = persist::load(&fixture_root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&fixture_root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -252,17 +372,46 @@ fn b235_stroke() {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = effect_table::repo("Fixtures/reference_shot");
     for (what, p) in [
-        ("as added (mask 1, white, Brush Size 2)", stroke_of(json!({}))),
-        ("All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0", stroke_of(json!({"all_masks": "on", "stroke_sequentially": "on", "end": 70, "color": "#ff8800", "brush_size": 24, "brush_hardness": 30, "spacing": 0}))),
-        ("mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent", stroke_of(json!({"mask": 2, "start": 20, "end": 90, "brush_size": 40, "spacing": 100, "paint_style": "on_transparent"}))),
-        ("All Masks, Brush Size 60, Hardness 0, Reveal Original Image", stroke_of(json!({"all_masks": "on", "brush_size": 60, "brush_hardness": 0, "paint_style": "reveal"}))),
+        (
+            "as added (mask 1, white, Brush Size 2)",
+            stroke_of(json!({})),
+        ),
+        (
+            "All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0",
+            stroke_of(
+                json!({"all_masks": "on", "stroke_sequentially": "on", "end": 70, "color": "#ff8800", "brush_size": 24, "brush_hardness": 30, "spacing": 0}),
+            ),
+        ),
+        (
+            "mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent",
+            stroke_of(
+                json!({"mask": 2, "start": 20, "end": 90, "brush_size": 40, "spacing": 100, "paint_style": "on_transparent"}),
+            ),
+        ),
+        (
+            "All Masks, Brush Size 60, Hardness 0, Reveal Original Image",
+            stroke_of(
+                json!({"all_masks": "on", "brush_size": 60, "brush_hardness": 0, "paint_style": "reveal"}),
+            ),
+        ),
     ] {
-        let project = reference(|id| json!([{"instance_id": format!("b235-{id}"), "type_id": "core.stroke", "enabled": true, "parameters": p.clone()}]));
+        let project = reference(
+            |id| json!([{"instance_id": format!("b235-{id}"), "type_id": "core.stroke", "enabled": true, "parameters": p.clone()}]),
+        );
         let cpu = |project: &Project| {
             let mut log = FrameLog::new(3);
-            preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-                .expect("the reference shot draws")
-                .to_srgb8_straight()
+            preview::preview_frame_cached(
+                project,
+                &ref_comp,
+                100,
+                &ref_root,
+                PreviewQuality::Full,
+                DEFAULT_TILE_SIZE,
+                &mut log,
+                &mut CelCache::viewer(),
+            )
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
         };
         let changed = distance(&cpu(&project), &cpu(&reference(|_| json!([])))).1;
         t.row(
@@ -288,12 +437,27 @@ fn b235_stroke() {
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = TOWN;
     let street = town();
-    png_out::write_rgba(&dir.join("town.png"), w, h, OutputDepth::Eight, &[], &street).unwrap();
+    png_out::write_rgba(
+        &dir.join("town.png"),
+        w,
+        h,
+        OutputDepth::Eight,
+        &[],
+        &street,
+    )
+    .unwrap();
     let ((cx, cy), r) = CIRCLE;
     // Pixels changed, and how many of them are further from the circle than the brush reaches.
     let changed = |b: &[u8], reach: f64| {
-        let all: Vec<usize> = (0..w * h).filter(|&i| b[i * 4..][..4] != street[i * 4..][..4]).collect();
-        let off = all.iter().filter(|&&i| (((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) - r).abs() > reach).count();
+        let all: Vec<usize> = (0..w * h)
+            .filter(|&i| b[i * 4..][..4] != street[i * 4..][..4])
+            .collect();
+        let off = all
+            .iter()
+            .filter(|&&i| {
+                (((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) - r).abs() > reach
+            })
+            .count();
         (all.len(), off)
     };
     let stroke = |start: J, end: J, size: f64, hardness: f64, spacing: f64, style: &str| {
@@ -350,7 +514,8 @@ fn b235_stroke_timing() {
 
     let cpu = std::env::var("B235_CPU").is_ok();
     let mut gpu = Gpu::new().expect("a usable card");
-    let mut s = format!(
+    let mut s =
+        format!(
         "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: {}\n\n\
          | Shot | Quality | First | Again |\n|---|---|---:|---:|\n",
         gpu.about(),
@@ -362,22 +527,55 @@ fn b235_stroke_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Path Stroke as added (mask 1, Brush Size 2)", Some(stroke_of(json!({})))),
-        ("Noise, then Path Stroke, All Masks, Brush Size 24, Spacing 0", Some(stroke_of(json!({"all_masks": "on", "brush_size": 24, "spacing": 0})))),
-        ("Noise, then Path Stroke, All Masks, Brush Size 60, Hardness 0, Spacing 100", Some(stroke_of(json!({"all_masks": "on", "brush_size": 60, "brush_hardness": 0, "spacing": 100})))),
+        (
+            "Noise, then Path Stroke as added (mask 1, Brush Size 2)",
+            Some(stroke_of(json!({}))),
+        ),
+        (
+            "Noise, then Path Stroke, All Masks, Brush Size 24, Spacing 0",
+            Some(stroke_of(
+                json!({"all_masks": "on", "brush_size": 24, "spacing": 0}),
+            )),
+        ),
+        (
+            "Noise, then Path Stroke, All Masks, Brush Size 60, Hardness 0, Spacing 100",
+            Some(stroke_of(
+                json!({"all_masks": "on", "brush_size": 60, "brush_hardness": 0, "spacing": 100}),
+            )),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true, "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(json!({"instance_id": format!("{id}s"), "type_id": "core.stroke", "enabled": true, "parameters": p.clone()}));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, 8, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            effect_table::repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            8,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B235_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-235_timing_raw.md"));
+    let out = std::env::var("B235_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-235_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

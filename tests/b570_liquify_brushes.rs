@@ -32,7 +32,10 @@ fn mine(e: &Effect) -> bool {
 
 /// A rectangle from (x0, y0) to (x1, y1), corner points only.
 fn rect([x0, y0, x1, y1]: [f64; 4]) -> J {
-    let points: Vec<J> = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].iter().map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]})).collect();
+    let points: Vec<J> = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+        .iter()
+        .map(|p| json!({"point": p, "in": [0, 0], "out": [0, 0]}))
+        .collect();
     json!({ "points": points })
 }
 
@@ -60,7 +63,15 @@ fn fx(id: &str, p: &J) -> J {
 /// One earlier stroke: tool number, brush size, pressure, jitter 70, no clone offset, Revert,
 /// then the points.
 fn earlier(tool: u32, size: u32, pressure: u32, points: &[f64]) -> J {
-    let mut e = vec![tool as f64, size as f64, pressure as f64, 70.0, 0.0, 0.0, 0.0];
+    let mut e = vec![
+        tool as f64,
+        size as f64,
+        pressure as f64,
+        70.0,
+        0.0,
+        0.0,
+        0.0,
+    ];
     e.extend_from_slice(points);
     json!(e)
 }
@@ -68,20 +79,28 @@ fn earlier(tool: u32, size: u32, pressure: u32, points: &[f64]) -> J {
 /// The reference shot (1920 by 1080) with a box mask (mode None) about its middle and `stack`
 /// on its first three layers.
 fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let text = fs::read_to_string(repo("verification/B-08a_project.json"))
+        .expect("read the reference shot");
     let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
     let layers = &mut j["compositions"][0]["layers"];
     for (i, id) in ["a", "b", "c"].iter().enumerate() {
         layers[i]["masks"] = masks(&[[860.0, 440.0, 1060.0, 640.0]]);
         layers[i]["effects"] = stack(id);
     }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+    persist::load_str(&j.to_string())
+        .unwrap_or_else(|d| panic!("the reference shot: {}", d.message))
+        .document
+        .project()
+        .clone()
 }
 
 /// `effects` on the street (in `dir`), drawn on the processor at frame 0, straight 8-bit, with
 /// what it warned of. The layer carries `rects` as masks that cut nothing.
 fn picture(dir: &Path, rects: &[[f64; 4]], effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -94,14 +113,29 @@ fn picture(dir: &Path, rects: &[[f64; 4]], effects: J) -> (Vec<u8>, Vec<String>)
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The pixels that differ between two straight 8-bit pictures.
 fn differing(a: &[u8], b: &[u8]) -> usize {
-    a.chunks_exact(4).zip(b.chunks_exact(4)).filter(|(p, q)| p != q).count()
+    a.chunks_exact(4)
+        .zip(b.chunks_exact(4))
+        .filter(|(p, q)| p != q)
+        .count()
 }
 
 #[test]
@@ -123,7 +157,9 @@ fn b570_liquify_brushes() {
     t.fixtures("expected_liquify_brushes.json");
 
     t.heading("The file");
-    let files: Vec<String> = (1..=28).map(|n| format!("fx_liquify_brushes_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=28)
+        .map(|n| format!("fx_liquify_brushes_{n:03}.json"))
+        .collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let old = Table::new("liquify", "");
     let saved = old.saved_parameters("fx_liquify_002.json");
@@ -136,7 +172,9 @@ fn b570_liquify_brushes() {
     t.row(
         "fx_liquify_brushes_013.json is saved with its earlier stroke as a list of lists",
         &saved["strokes"].to_string(),
-        saved["strokes"].as_array().is_some_and(|a| a.len() == 1 && a[0].as_array().is_some_and(|e| e.len() == 11)),
+        saved["strokes"]
+            .as_array()
+            .is_some_and(|a| a.len() == 1 && a[0].as_array().is_some_and(|e| e.len() == 11)),
     );
     for (file, want) in [
         ("fx_liquify_brushes_018.json", "tool"),
@@ -152,26 +190,78 @@ fn b570_liquify_brushes() {
         ("fx_liquify_brushes_028.json", "reconstruction mode number"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
-        let ok = why.contains("Liquify") && why.to_lowercase().replace('_', " ").contains(&want.replace('_', " "));
-        t.row(&format!("{file} is refused in a sentence naming Liquify and its {}", want.replace('_', " ")), &why, ok);
+        let ok = why.contains("Liquify")
+            && why
+                .to_lowercase()
+                .replace('_', " ")
+                .contains(&want.replace('_', " "));
+        t.row(
+            &format!(
+                "{file} is refused in a sentence naming Liquify and its {}",
+                want.replace('_', " ")
+            ),
+            &why,
+            ok,
+        );
     }
-    let full = fx("x", &json!({"strokes": [[0, 8, 50, 70, 0, 0, 0, 25, 50, 75, 50]]}))["parameters"].to_string();
-    t.shape_refused("fx_liquify_brushes_001.json", "a Liquify whose earlier strokes are one flat list", &full.replace("[[0,8,50,70,0,0,0,25,50,75,50]]", "[0,8,50,70,0,0,0,25,50,75,50]"));
-    t.shape_refused("fx_liquify_brushes_001.json", "a Liquify whose earlier stroke holds a word", &full.replace("[[0,8,", "[[\"warp\",8,"));
-    t.shape_refused("fx_liquify_brushes_001.json", "a Liquify whose clone offset is one number", &full.replace("\"distortion_mesh_offset\":[0,0]", "\"distortion_mesh_offset\":[0,0],\"clone_offset\":[3]"));
+    let full = fx(
+        "x",
+        &json!({"strokes": [[0, 8, 50, 70, 0, 0, 0, 25, 50, 75, 50]]}),
+    )["parameters"]
+        .to_string();
+    t.shape_refused(
+        "fx_liquify_brushes_001.json",
+        "a Liquify whose earlier strokes are one flat list",
+        &full.replace(
+            "[[0,8,50,70,0,0,0,25,50,75,50]]",
+            "[0,8,50,70,0,0,0,25,50,75,50]",
+        ),
+    );
+    t.shape_refused(
+        "fx_liquify_brushes_001.json",
+        "a Liquify whose earlier stroke holds a word",
+        &full.replace("[[0,8,", "[[\"warp\",8,"),
+    );
+    t.shape_refused(
+        "fx_liquify_brushes_001.json",
+        "a Liquify whose clone offset is one number",
+        &full.replace(
+            "\"distortion_mesh_offset\":[0,0]",
+            "\"distortion_mesh_offset\":[0,0],\"clone_offset\":[3]",
+        ),
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_liquify_brushes_013.json").document;
-    let bad_tool = changed(&t, "fx_liquify_brushes_013.json", |e| if let Effect::Liquify { tool, .. } = e { *tool = "freeze".into() });
-    let bad_mode = changed(&t, "fx_liquify_brushes_013.json", |e| if let Effect::Liquify { reconstruction_mode, .. } = e { *reconstruction_mode = "smooth".into() });
-    let bad_stroke = changed(&t, "fx_liquify_brushes_013.json", |e| if let Effect::Liquify { strokes, .. } = e { strokes[0][0] = 12.0 });
+    let bad_tool = changed(&t, "fx_liquify_brushes_013.json", |e| {
+        if let Effect::Liquify { tool, .. } = e {
+            *tool = "freeze".into()
+        }
+    });
+    let bad_mode = changed(&t, "fx_liquify_brushes_013.json", |e| {
+        if let Effect::Liquify {
+            reconstruction_mode,
+            ..
+        } = e
+        {
+            *reconstruction_mode = "smooth".into()
+        }
+    });
+    let bad_stroke = changed(&t, "fx_liquify_brushes_013.json", |e| {
+        if let Effect::Liquify { strokes, .. } = e {
+            strokes[0][0] = 12.0
+        }
+    });
     t.refused(
         &mut document,
         vec![
             ("tool freeze (Freeze Area is freeze_area)", set(bad_tool)),
             ("reconstruction mode smooth", set(bad_mode)),
             ("an earlier stroke with tool number 12", set(bad_stroke)),
-            ("turbulent jitter keyed to end at 0", keys("turbulent_jitter", &[(0, &[70.0]), (4, &[0.0])])),
+            (
+                "turbulent jitter keyed to end at 0",
+                keys("turbulent_jitter", &[(0, &[70.0]), (4, &[0.0])]),
+            ),
         ],
     );
     let more = changed(&t, "fx_liquify_brushes_013.json", |e| {
@@ -184,8 +274,14 @@ fn b570_liquify_brushes() {
         &mut document,
         "fx_liquify_brushes_013.json",
         vec![
-            ("a Freeze Area dab added as an earlier stroke, the last stroke Bloat", set(more)),
-            ("clone offset keyed from (0, 0) to (5, -5)", keys("clone_offset", &[(0, &[0.0, 0.0]), (4, &[5.0, -5.0])])),
+            (
+                "a Freeze Area dab added as an earlier stroke, the last stroke Bloat",
+                set(more),
+            ),
+            (
+                "clone offset keyed from (0, 0) to (5, -5)",
+                keys("clone_offset", &[(0, &[0.0, 0.0]), (4, &[5.0, -5.0])]),
+            ),
         ],
     );
 
@@ -201,7 +297,12 @@ fn b570_liquify_brushes() {
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
     // The missing mask (017) and the refused (018 to 028) leave nothing to the card.
-    t.card_fixtures(&mut gpu, "expected_liquify_brushes.json", &(17..=28).collect::<Vec<_>>(), mine);
+    t.card_fixtures(
+        &mut gpu,
+        "expected_liquify_brushes.json",
+        &(17..=28).collect::<Vec<_>>(),
+        mine,
+    );
     let shots: Vec<(&str, Project, usize)> = [
         ("Liquify Turbulence, brush 300, stroked across the middle", json!({"tool": "turbulence", "brush_size": 300, "stroke": [25, 50, 75, 50]})),
         (
@@ -222,11 +323,25 @@ fn b570_liquify_brushes() {
     t.heading("Pictures: in `verification/D-700 pictures/`");
     let dir = repo("verification/D-700 pictures");
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, &[], json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     let box_ = [[180.0, 95.0, 300.0, 175.0]];
     let street = |p: J| picture(&dir, &box_, json!([fx("fx-0-0", &p)]));
     let across = json!({"brush_size": 120, "stroke": [20, 50, 80, 50]});
@@ -244,18 +359,28 @@ fn b570_liquify_brushes() {
     for (name, says, p, against) in rows.drain(..) {
         let (bytes, said) = street(p);
         write(name, &bytes);
-        let other = if against == "2_warp.png" { &pushed } else { &before };
+        let other = if against == "2_warp.png" {
+            &pushed
+        } else {
+            &before
+        };
         let n = differing(&bytes, other);
-        t.row(&format!("{name}, {says}; differs from {against}; draws cleanly"), &format!("{said:?}, {n} pixels differ from {against}"), said.is_empty() && n > TOWN.0 * TOWN.1 / 200);
+        t.row(
+            &format!("{name}, {says}; differs from {against}; draws cleanly"),
+            &format!("{said:?}, {n} pixels differ from {against}"),
+            said.is_empty() && n > TOWN.0 * TOWN.1 / 200,
+        );
     }
-    let (frozen, _) = street(json!({"brush_size": 120, "stroke": [20, 50, 80, 50], "freeze_area_mask": 1}));
+    let (frozen, _) =
+        street(json!({"brush_size": 120, "stroke": [20, 50, 80, 50], "freeze_area_mask": 1}));
     let middle = (TOWN.1 / 2 * TOWN.0 + TOWN.0 / 2) * 4;
     t.row(
         "8_freeze_mask.png: the pixel at the middle of the box is the street's, where 2_warp.png moved it",
         &format!("street {:?}, frozen {:?}, pushed {:?}", &before[middle..middle + 4], &frozen[middle..middle + 4], &pushed[middle..middle + 4]),
         frozen[middle..middle + 4] == before[middle..middle + 4] && pushed[middle..middle + 4] != before[middle..middle + 4],
     );
-    let (missing, said) = street(json!({"brush_size": 120, "stroke": [20, 50, 80, 50], "freeze_area_mask": 2}));
+    let (missing, said) =
+        street(json!({"brush_size": 120, "stroke": [20, 50, 80, 50], "freeze_area_mask": 2}));
     t.row(
         "Freeze Area Mask 2 of one: the street as it is, and EFFECT_PATH_MISSING said",
         &format!("{said:?}"),
@@ -290,27 +415,55 @@ fn b570_liquify_brushes_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Liquify Turbulence, brush 300, stroked across the middle", Some(json!({"tool": "turbulence", "brush_size": 300, "stroke": [25, 50, 75, 50]}))),
-        ("Noise, then Liquify Warp with a freeze area mask", Some(json!({"brush_size": 300, "stroke": [25, 50, 75, 50], "freeze_area_mask": 1}))),
+        (
+            "Noise, then Liquify Turbulence, brush 300, stroked across the middle",
+            Some(json!({"tool": "turbulence", "brush_size": 300, "stroke": [25, 50, 75, 50]})),
+        ),
+        (
+            "Noise, then Liquify Warp with a freeze area mask",
+            Some(json!({"brush_size": 300, "stroke": [25, 50, 75, 50], "freeze_area_mask": 1})),
+        ),
         (
             "Noise, then Liquify Twirl, Reflection and Clone, then Reconstruction (Amplitwist)",
-            Some(json!({"tool": "reconstruction", "reconstruction_mode": "amplitwist", "brush_size": 200, "brush_pressure": 100, "stroke": [45, 40, 60, 40],
-                "strokes": [earlier(1, 600, 100, &[50.0, 50.0]), earlier(7, 300, 100, &[30.0, 60.0, 70.0, 60.0]), [8, 200, 100, 70, 0, 80, 0, 50, 30]]})),
+            Some(
+                json!({"tool": "reconstruction", "reconstruction_mode": "amplitwist", "brush_size": 200, "brush_pressure": 100, "stroke": [45, 40, 60, 40],
+                "strokes": [earlier(1, 600, 100, &[50.0, 50.0]), earlier(7, 300, 100, &[30.0, 60.0, 70.0, 60.0]), [8, 200, 100, 70, 0, 80, 0, 50, 30]]}),
+            ),
         ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
-                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            let mut v = vec![
+                json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}}),
+            ];
             if let Some(p) = &e {
                 v.push(fx(&format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B570_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-570_timing_raw.md"));
+    let out = std::env::var("B570_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-570_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

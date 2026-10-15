@@ -73,16 +73,28 @@ fn b74_offset() {
             ("shift 100001, 0", set(offset(100001.0, 0.0))),
             ("shift 0, -100001", set(offset(0.0, -100001.0))),
             ("shift 100000.5, 0", set(offset(100000.5, 0.0))),
-            ("shift keyed to 150000, 0", keys("shift", &[(0, &[0.0, 0.0]), (4, &[150000.0, 0.0])])),
+            (
+                "shift keyed to 150000, 0",
+                keys("shift", &[(0, &[0.0, 0.0]), (4, &[150000.0, 0.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_offset_001.json",
         vec![
-            ("shift 100000, -100000, the most,", set(offset(100000.0, -100000.0))),
-            ("shift -2.25, 1.75, parts of a pixel,", set(offset(-2.25, 1.75))),
-            ("shift keyed from 0, 0 to 8, 4", keys("shift", &[(0, &[0.0, 0.0]), (4, &[8.0, 4.0])])),
+            (
+                "shift 100000, -100000, the most,",
+                set(offset(100000.0, -100000.0)),
+            ),
+            (
+                "shift -2.25, 1.75, parts of a pixel,",
+                set(offset(-2.25, 1.75)),
+            ),
+            (
+                "shift keyed from 0, 0 to 8, 4",
+                keys("shift", &[(0, &[0.0, 0.0]), (4, &[8.0, 4.0])]),
+            ),
         ],
     );
 

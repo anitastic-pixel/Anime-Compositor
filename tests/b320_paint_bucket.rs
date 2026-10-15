@@ -15,7 +15,8 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, time_passes, town, Table, MAIN,
+    TOWN,
 };
 use serde_json::{json, Value as J};
 
@@ -30,8 +31,13 @@ use anime_compositor::{persist, png_out, OutputDepth};
 
 /// A Paint Bucket: the point, [tolerance, spread radius, stroke width, feather softness,
 /// opacity], [selector, view threshold, stroke, invert fill, colour, blending mode].
-fn bucket(fill_point: [f64; 2], [tolerance, spread_radius, stroke_width, feather_softness, opacity]: [f64; 5], words: [&str; 6]) -> Effect {
-    let [fill_selector, view_threshold, stroke, invert_fill, color, blending_mode] = words.map(str::to_string);
+fn bucket(
+    fill_point: [f64; 2],
+    [tolerance, spread_radius, stroke_width, feather_softness, opacity]: [f64; 5],
+    words: [&str; 6],
+) -> Effect {
+    let [fill_selector, view_threshold, stroke, invert_fill, color, blending_mode] =
+        words.map(str::to_string);
     Effect::PaintBucket {
         fill_point,
         fill_selector,
@@ -51,7 +57,14 @@ fn bucket(fill_point: [f64; 2], [tolerance, spread_radius, stroke_width, feather
 const ADDED: [f64; 5] = [10.0, 3.0, 3.0, 10.0, 100.0];
 
 fn words<'a>(change: &[(usize, &'a str)]) -> [&'a str; 6] {
-    let mut w = ["color_and_alpha", "off", "antialias", "off", "#ff0000", "normal"];
+    let mut w = [
+        "color_and_alpha",
+        "off",
+        "antialias",
+        "off",
+        "#ff0000",
+        "normal",
+    ];
     for &(i, v) in change {
         w[i] = v;
     }
@@ -62,9 +75,11 @@ fn words<'a>(change: &[(usize, &'a str)]) -> [&'a str; 6] {
 /// out is the one a new one takes, since the file holds them all.
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
-        "core.paint_bucket" => json!({"fill_point": [50, 50], "fill_selector": "color_and_alpha", "tolerance": 10, "view_threshold": "off",
+        "core.paint_bucket" => {
+            json!({"fill_point": [50, 50], "fill_selector": "color_and_alpha", "tolerance": 10, "view_threshold": "off",
             "stroke": "antialias", "invert_fill": "off", "spread_radius": 3, "stroke_width": 3, "feather_softness": 10, "color": "#ff0000",
-            "opacity": 100, "blending_mode": "normal"}),
+            "opacity": 100, "blending_mode": "normal"})
+        }
         _ => json!({}),
     };
     for (k, v) in p.as_object().unwrap() {
@@ -75,11 +90,22 @@ fn fx(type_id: &str, id: &str, p: &J) -> J {
 
 /// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
 /// files numbered in `none` change nothing or are left out with a warning, so the card is not asked.
-fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u32], pick: fn(&Effect) -> bool) {
+fn card_fixtures(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    stem: &str,
+    count: u32,
+    none: &[u32],
+    pick: fn(&Effect) -> bool,
+) {
     let comp = Id::new(MAIN);
     for n in 1..=count {
         let file = format!("{stem}_{n:03}.json");
-        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let project = persist::load(&t.root.join(&file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in 0..5 {
@@ -100,14 +126,30 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32, none: &[u
 
 /// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
 /// and Draft, on the card against the processor.
-fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, settings: &[(&str, J)], pick: fn(&Effect) -> bool) {
+fn card_reference(
+    t: &mut Table,
+    gpu: &mut Gpu,
+    name: &str,
+    type_id: &str,
+    settings: &[(&str, J)],
+    pick: fn(&Effect) -> bool,
+) {
     let ref_comp = Id::new("comp-reference-shot");
     let ref_root = repo("Fixtures/reference_shot");
     let cpu = |project: &Project| {
         let mut log = FrameLog::new(3);
-        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
-            .expect("the reference shot draws")
-            .to_srgb8_straight()
+        preview::preview_frame_cached(
+            project,
+            &ref_comp,
+            100,
+            &ref_root,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut log,
+            &mut CelCache::viewer(),
+        )
+        .expect("the reference shot draws")
+        .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
     for (what, p) in settings {
@@ -134,7 +176,10 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, name: &str, type_id: &str, setti
 
 /// `effects` on the street, drawn, straight 8-bit, with what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
-    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    let mut project: J = serde_json::from_str(
+        &fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap(),
+    )
+    .unwrap();
     project["assets"][0]["path"] = J::from("town.png");
     let comp = &mut project["compositions"][0];
     comp["width"] = J::from(TOWN.0);
@@ -146,30 +191,67 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     layer["effects"] = effects;
     let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
     let mut log = FrameLog::new(3);
-    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
-    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    let frame = render_frame(
+        loaded.document.project(),
+        &Id::new(MAIN),
+        0,
+        dir,
+        64,
+        &mut log,
+    )
+    .expect("the picture draws");
+    let said = log
+        .finish()
+        .iter()
+        .map(|d| format!("{} {}", d.id.as_str(), d.message))
+        .collect();
     (frame.to_srgb8_straight(), said)
 }
 
 /// The street drawn plain and with each of `shots` of `type_id`, written as numbered pictures
 /// into `verification/{d} pictures/`; a row each that it draws cleanly and changes what it says
 /// it changes.
-fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)]) {
-    t.heading(&format!("Pictures: the street, in `verification/{d} pictures/`"));
+fn street(
+    t: &mut Table,
+    d: &str,
+    type_id: &str,
+    shots: &[(&str, J, &str, fn(&[u8], &[u8]) -> bool)],
+) {
+    t.heading(&format!(
+        "Pictures: the street, in `verification/{d} pictures/`"
+    ));
     let dir = repo(&format!("verification/{d} pictures"));
     fs::create_dir_all(&dir).unwrap();
-    let write = |name: &str, bytes: &[u8]| png_out::write_rgba(&dir.join(name), TOWN.0, TOWN.1, OutputDepth::Eight, &[], bytes).unwrap();
+    let write = |name: &str, bytes: &[u8]| {
+        png_out::write_rgba(
+            &dir.join(name),
+            TOWN.0,
+            TOWN.1,
+            OutputDepth::Eight,
+            &[],
+            bytes,
+        )
+        .unwrap()
+    };
     write("town.png", &town());
     let (before, said) = picture(&dir, json!([]));
     write("1_before.png", &before);
-    t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row(
+        "1_before.png, the street with no effect; draws cleanly",
+        &format!("{said:?}"),
+        said.is_empty(),
+    );
     for (i, (name, p, what, check)) in shots.iter().enumerate() {
         let file = format!("{}_{name}.png", i + 2);
         let (bytes, said) = picture(&dir, json!([fx(type_id, "fx-0-0", p)]));
         write(&file, &bytes);
         t.row(
             &format!("{file}, {what}; draws cleanly"),
-            &format!("{said:?}, {} pixels changed of {}", distance(&bytes, &before).1, TOWN.0 * TOWN.1),
+            &format!(
+                "{said:?}, {} pixels changed of {}",
+                distance(&bytes, &before).1,
+                TOWN.0 * TOWN.1
+            ),
             said.is_empty() && check(&bytes, &before),
         );
     }
@@ -178,8 +260,20 @@ fn street(t: &mut Table, d: &str, type_id: &str, shots: &[(&str, J, &str, fn(&[u
 fn why(t: &mut Table, cases: &[(&str, &str)]) {
     for (file, want) in cases {
         let doc = t.load(file).document;
-        let why = doc.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
-        t.row(&format!("{file} is refused in a sentence"), &why, why == *want);
+        let why = doc
+            .project()
+            .composition(&Id::new(MAIN))
+            .unwrap()
+            .layer(&Id::new("art"))
+            .unwrap()
+            .effects[0]
+            .effect
+            .why_invalid();
+        t.row(
+            &format!("{file} is refused in a sentence"),
+            &why,
+            why == *want,
+        );
     }
 }
 
@@ -201,7 +295,10 @@ fn in_part(a: &[u8], b: &[u8]) -> bool {
 
 /// Every pixel opaque and either white or black, both showing.
 fn two_tone(a: &[u8], _: &[u8]) -> bool {
-    let white = a.chunks_exact(4).filter(|p| *p == [255, 255, 255, 255]).count();
+    let white = a
+        .chunks_exact(4)
+        .filter(|p| *p == [255, 255, 255, 255])
+        .count();
     let black = a.chunks_exact(4).filter(|p| *p == [0, 0, 0, 255]).count();
     white > 0 && black > 0 && white + black == a.len() / 4
 }
@@ -232,10 +329,18 @@ fn b320_paint_bucket() {
     t.row(
         "fx_paintbucket_018.json is saved with its words and numbers as written",
         &saved.to_string(),
-        saved["fill_point"] == json!([50, 50]) && saved["fill_selector"] == "color_and_alpha" && saved["tolerance"] == 10
-            && saved["view_threshold"] == "off" && saved["stroke"] == "antialias" && saved["invert_fill"] == "off"
-            && saved["spread_radius"] == 3 && saved["stroke_width"] == 3 && saved["feather_softness"] == 10
-            && saved["color"] == "#3080ff" && saved["opacity"] == 100 && saved["blending_mode"] == "multiply",
+        saved["fill_point"] == json!([50, 50])
+            && saved["fill_selector"] == "color_and_alpha"
+            && saved["tolerance"] == 10
+            && saved["view_threshold"] == "off"
+            && saved["stroke"] == "antialias"
+            && saved["invert_fill"] == "off"
+            && saved["spread_radius"] == 3
+            && saved["stroke_width"] == 3
+            && saved["feather_softness"] == 10
+            && saved["color"] == "#3080ff"
+            && saved["opacity"] == 100
+            && saved["blending_mode"] == "multiply",
     );
     why(
         &mut t,
@@ -264,14 +369,46 @@ fn b320_paint_bucket() {
     t.refused(
         &mut document,
         vec![
-            ("fill point 1001, 50", set(bucket([1001.0, 50.0], ADDED, words(&[])))),
-            ("tolerance 101", set(bucket([50.0, 50.0], [101.0, 3.0, 3.0, 10.0, 100.0], words(&[])))),
-            ("spread radius -1", set(bucket([50.0, 50.0], [10.0, -1.0, 3.0, 10.0, 100.0], words(&[])))),
-            ("fill selector \"luma\"", set(bucket([50.0, 50.0], ADDED, words(&[(0, "luma")])))),
-            ("stroke \"glow\"", set(bucket([50.0, 50.0], ADDED, words(&[(2, "glow")])))),
-            ("blending mode \"darken\"", set(bucket([50.0, 50.0], ADDED, words(&[(5, "darken")])))),
-            ("colour \"red\"", set(bucket([50.0, 50.0], ADDED, words(&[(4, "red")])))),
-            ("tolerance keyed to 101", keys("tolerance", &[(0, &[10.0]), (4, &[101.0])])),
+            (
+                "fill point 1001, 50",
+                set(bucket([1001.0, 50.0], ADDED, words(&[]))),
+            ),
+            (
+                "tolerance 101",
+                set(bucket(
+                    [50.0, 50.0],
+                    [101.0, 3.0, 3.0, 10.0, 100.0],
+                    words(&[]),
+                )),
+            ),
+            (
+                "spread radius -1",
+                set(bucket(
+                    [50.0, 50.0],
+                    [10.0, -1.0, 3.0, 10.0, 100.0],
+                    words(&[]),
+                )),
+            ),
+            (
+                "fill selector \"luma\"",
+                set(bucket([50.0, 50.0], ADDED, words(&[(0, "luma")]))),
+            ),
+            (
+                "stroke \"glow\"",
+                set(bucket([50.0, 50.0], ADDED, words(&[(2, "glow")]))),
+            ),
+            (
+                "blending mode \"darken\"",
+                set(bucket([50.0, 50.0], ADDED, words(&[(5, "darken")]))),
+            ),
+            (
+                "colour \"red\"",
+                set(bucket([50.0, 50.0], ADDED, words(&[(4, "red")]))),
+            ),
+            (
+                "tolerance keyed to 101",
+                keys("tolerance", &[(0, &[10.0]), (4, &[101.0])]),
+            ),
         ],
     );
     t.taken(
@@ -280,10 +417,25 @@ fn b320_paint_bucket() {
         vec![
             (
                 "point 15.625, 55, Straight Color, tolerance 20, Stroke width 2, blue, screen",
-                set(bucket([15.625, 55.0], [20.0, 3.0, 2.0, 10.0, 100.0], words(&[(0, "straight_color"), (2, "stroke"), (4, "#3080ff"), (5, "screen")]))),
+                set(bucket(
+                    [15.625, 55.0],
+                    [20.0, 3.0, 2.0, 10.0, 100.0],
+                    words(&[
+                        (0, "straight_color"),
+                        (2, "stroke"),
+                        (4, "#3080ff"),
+                        (5, "screen"),
+                    ]),
+                )),
             ),
-            ("fill point keyed from 50, 50 to 25, 50", keys("fill_point", &[(0, &[50.0, 50.0]), (4, &[25.0, 50.0])])),
-            ("feather softness keyed from 0 to 6", keys("feather_softness", &[(0, &[0.0]), (4, &[6.0])])),
+            (
+                "fill point keyed from 50, 50 to 25, 50",
+                keys("fill_point", &[(0, &[50.0, 50.0]), (4, &[25.0, 50.0])]),
+            ),
+            (
+                "feather softness keyed from 0 to 6",
+                keys("feather_softness", &[(0, &[0.0]), (4, &[6.0])]),
+            ),
         ],
     );
 
@@ -310,11 +462,26 @@ fn b320_paint_bucket() {
         "core.paint_bucket",
         &[
             ("as added (the middle)", json!({})),
-            ("point 30, 40, Straight Color, tolerance 30, Feather 8, blue, multiply", json!({"fill_point": [30, 40], "fill_selector": "straight_color", "tolerance": 30, "stroke": "feather", "feather_softness": 8, "color": "#3080ff", "blending_mode": "multiply"})),
-            ("Transparency at the corner, tolerance 50, Spread 6", json!({"fill_point": [1, 1], "fill_selector": "transparency", "tolerance": 50, "stroke": "spread", "spread_radius": 6})),
-            ("Alpha Channel, Invert Fill, Fill Only, opacity 60", json!({"fill_selector": "alpha_channel", "invert_fill": "on", "blending_mode": "fill_only", "opacity": 60})),
-            ("Opacity, Stroke width 4, View Threshold", json!({"fill_selector": "opacity", "stroke": "stroke", "stroke_width": 4, "view_threshold": "on"})),
-            ("Choke 5, tolerance 40, soft light", json!({"stroke": "choke", "spread_radius": 5, "tolerance": 40, "blending_mode": "soft_light"})),
+            (
+                "point 30, 40, Straight Color, tolerance 30, Feather 8, blue, multiply",
+                json!({"fill_point": [30, 40], "fill_selector": "straight_color", "tolerance": 30, "stroke": "feather", "feather_softness": 8, "color": "#3080ff", "blending_mode": "multiply"}),
+            ),
+            (
+                "Transparency at the corner, tolerance 50, Spread 6",
+                json!({"fill_point": [1, 1], "fill_selector": "transparency", "tolerance": 50, "stroke": "spread", "spread_radius": 6}),
+            ),
+            (
+                "Alpha Channel, Invert Fill, Fill Only, opacity 60",
+                json!({"fill_selector": "alpha_channel", "invert_fill": "on", "blending_mode": "fill_only", "opacity": 60}),
+            ),
+            (
+                "Opacity, Stroke width 4, View Threshold",
+                json!({"fill_selector": "opacity", "stroke": "stroke", "stroke_width": 4, "view_threshold": "on"}),
+            ),
+            (
+                "Choke 5, tolerance 40, soft light",
+                json!({"stroke": "choke", "spread_radius": 5, "tolerance": 40, "blending_mode": "soft_light"}),
+            ),
         ],
         is_bucket,
     );
@@ -370,21 +537,49 @@ fn b320_paint_bucket_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Paint Bucket as added", Some(json!({}))),
-        ("Noise, then Paint Bucket, tolerance 30, Feather 20", Some(json!({"tolerance": 30, "stroke": "feather", "feather_softness": 20}))),
-        ("Noise, then Paint Bucket, Alpha Channel, Choke 40", Some(json!({"fill_selector": "alpha_channel", "stroke": "choke", "spread_radius": 40}))),
+        (
+            "Noise, then Paint Bucket, tolerance 30, Feather 20",
+            Some(json!({"tolerance": 30, "stroke": "feather", "feather_softness": 20})),
+        ),
+        (
+            "Noise, then Paint Bucket, Alpha Channel, Choke 40",
+            Some(json!({"fill_selector": "alpha_channel", "stroke": "choke", "spread_radius": 40})),
+        ),
     ];
     for (name, e) in shots {
         let project = reference(|id| {
-            let mut v = vec![fx("core.noise", &format!("{id}n"), &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}))];
+            let mut v = vec![fx(
+                "core.noise",
+                &format!("{id}n"),
+                &json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+            )];
             if let Some(p) = &e {
                 v.push(fx("core.paint_bucket", &format!("{id}c"), p));
             }
             J::Array(v)
         });
-        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
-        let (first, times) = time_passes(&mut gpu, cpu, passes, &project, &comp, &root, PreviewQuality::Full);
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let (comp, root) = (
+            Id::new("comp-reference-shot"),
+            repo("Fixtures/reference_shot"),
+        );
+        let (first, times) = time_passes(
+            &mut gpu,
+            cpu,
+            passes,
+            &project,
+            &comp,
+            &root,
+            PreviewQuality::Full,
+        );
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B320_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-320_timing_raw.md"));
+    let out = std::env::var("B320_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| repo("verification/B-320_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }

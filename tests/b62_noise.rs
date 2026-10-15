@@ -55,8 +55,16 @@ fn b62_noise() {
 
     t.heading("The grain's frame");
     for (file, want, what) in [
-        ("fx_noise_001.json", 3, "animated, the grain at frame 3 is frame 3's"),
-        ("fx_noise_002.json", 0, "not animated, the grain at frame 3 is frame 0's"),
+        (
+            "fx_noise_001.json",
+            3,
+            "animated, the grain at frame 3 is frame 3's",
+        ),
+        (
+            "fx_noise_002.json",
+            0,
+            "not animated, the grain at frame 3 is frame 0's",
+        ),
     ] {
         let doc = t.load(file).document;
         let comp = doc.project().composition(&Id::new("comp-main")).unwrap();
@@ -104,16 +112,28 @@ fn b62_noise() {
             ("seed 100001", set(noise(10.0, "mono", 100001.0, "on"))),
             ("mode \"Mono\"", set(noise(10.0, "Mono", 0.0, "on"))),
             ("animate \"yes\"", set(noise(10.0, "mono", 0.0, "yes"))),
-            ("amount keyed to 150", keys("amount", &[(0, &[10.0]), (4, &[150.0])])),
+            (
+                "amount keyed to 150",
+                keys("amount", &[(0, &[10.0]), (4, &[150.0])]),
+            ),
         ],
     );
     t.taken(
         &mut document,
         "fx_noise_001.json",
         vec![
-            ("amount 100 and seed 100000, the tops, in colour and still,", set(noise(100.0, "color", 100000.0, "off"))),
-            ("amount 0 and seed 0, the bottoms,", set(noise(0.0, "mono", 0.0, "on"))),
-            ("seed keyed from 0 to 3.5", keys("seed", &[(0, &[0.0]), (4, &[3.5])])),
+            (
+                "amount 100 and seed 100000, the tops, in colour and still,",
+                set(noise(100.0, "color", 100000.0, "off")),
+            ),
+            (
+                "amount 0 and seed 0, the bottoms,",
+                set(noise(0.0, "mono", 0.0, "on")),
+            ),
+            (
+                "seed keyed from 0 to 3.5",
+                keys("seed", &[(0, &[0.0]), (4, &[3.5])]),
+            ),
         ],
     );
 

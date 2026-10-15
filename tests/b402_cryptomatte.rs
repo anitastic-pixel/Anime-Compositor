@@ -35,7 +35,13 @@ fn set(effect: Effect) -> Command {
 fn effect_of(d: &Document) -> Effect {
     let comp = d.project().composition(&Id::new(MAIN)).unwrap();
     let layer = comp.layer(&Id::new("scene")).unwrap();
-    layer.effects.iter().find(|i| i.instance_id.as_str() == "fx-1").unwrap().effect.clone()
+    layer
+        .effects
+        .iter()
+        .find(|i| i.instance_id.as_str() == "fx-1")
+        .unwrap()
+        .effect
+        .clone()
 }
 
 /// A one-layer composition `w` by `h` of the still `path`, carrying `effects`.
@@ -58,7 +64,11 @@ fn still(path: &str, (w, h): (usize, usize), frames: u32, effects: J) -> Project
                 "exposure_spans": [], "mask": null, "matte": null, "blend_mode": "normal", "effects": effects}]
         }]
     });
-    persist::load_str(&project.to_string()).expect("the project reads").document.project().clone()
+    persist::load_str(&project.to_string())
+        .expect("the project reads")
+        .document
+        .project()
+        .clone()
 }
 
 /// The playtest's sample (`sample/balls.exr`, 320 by 180).
@@ -71,7 +81,11 @@ fn fx(id: &str, type_id: &str, p: J) -> J {
 }
 
 fn crypto(layer: &str, selection: &str, output: &str) -> J {
-    fx("fx-1", "core.cryptomatte", json!({"layer": layer, "selection": selection, "output": output}))
+    fx(
+        "fx-1",
+        "core.cryptomatte",
+        json!({"layer": layer, "selection": selection, "output": output}),
+    )
 }
 
 fn blur() -> J {
@@ -82,7 +96,12 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        let d = p
+            .iter()
+            .zip(q)
+            .map(|(x, y)| x.abs_diff(*y))
+            .max()
+            .unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
@@ -107,7 +126,11 @@ fn b402_cryptomatte() {
 
     t.heading("The name hash");
     let id = exr_io::crypto_id("torus").to_bits();
-    t.row("\"torus\" hashes to 4053562365, the specification's own example", &id.to_string(), id == 4_053_562_365);
+    t.row(
+        "\"torus\" hashes to 4053562365, the specification's own example",
+        &id.to_string(),
+        id == 4_053_562_365,
+    );
 
     t.heading("The file");
     let files: Vec<String> = (1..=23).map(|n| format!("fx_crypto_{n:03}.json")).collect();
@@ -121,8 +144,13 @@ fn b402_cryptomatte() {
         );
     }
     let why = effect_of(&t.load("fx_crypto_023.json").document).why_invalid();
-    let said23 = "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"preview\".";
-    t.row("fx_crypto_023.json is refused in a sentence naming it", &why, why == said23);
+    let said23 =
+        "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"preview\".";
+    t.row(
+        "fx_crypto_023.json is refused in a sentence naming it",
+        &why,
+        why == said23,
+    );
 
     t.heading("Commands");
     let mut document = t.load("fx_crypto_004.json").document;
@@ -132,28 +160,59 @@ fn b402_cryptomatte() {
         f(&mut e);
         e
     };
-    let refused = document.apply(set(with(&|e| if let Effect::Cryptomatte { output, .. } = e { *output = "preview".into() }))).err();
+    let refused = document
+        .apply(set(with(&|e| {
+            if let Effect::Cryptomatte { output, .. } = e {
+                *output = "preview".into()
+            }
+        })))
+        .err();
     let untouched = effect_of(&document) == base;
     t.row(
         "output \"preview\" is refused with a sentence, and nothing changes",
-        &refused.as_ref().map_or("taken".to_string(), |d| d.message.clone()),
+        &refused
+            .as_ref()
+            .map_or("taken".to_string(), |d| d.message.clone()),
         refused.is_some() && untouched,
     );
     t.taken(
         &mut document,
         "fx_crypto_004.json",
         vec![
-            ("CryptoMaterial, steel, keyed,", set(with(&|e| if let Effect::Cryptomatte { layer, selection, output, .. } = e {
-                *layer = "CryptoMaterial".into();
-                *selection = "steel".into();
-                *output = "keyed".into();
-            }))),
-            ("the colours,", set(with(&|e| if let Effect::Cryptomatte { output, .. } = e { *output = "colors".into() }))),
+            (
+                "CryptoMaterial, steel, keyed,",
+                set(with(&|e| {
+                    if let Effect::Cryptomatte {
+                        layer,
+                        selection,
+                        output,
+                        ..
+                    } = e
+                    {
+                        *layer = "CryptoMaterial".into();
+                        *selection = "steel".into();
+                        *output = "keyed".into();
+                    }
+                })),
+            ),
+            (
+                "the colours,",
+                set(with(&|e| {
+                    if let Effect::Cryptomatte { output, .. } = e {
+                        *output = "colors".into()
+                    }
+                })),
+            ),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_crypto_002.json", 0), ("fx_crypto_006.json", 0), ("fx_crypto_012.json", 0), ("fx_crypto_019.json", 0)]);
+    t.tiles(&[
+        ("fx_crypto_002.json", 0),
+        ("fx_crypto_006.json", 0),
+        ("fx_crypto_012.json", 0),
+        ("fx_crypto_019.json", 0),
+    ]);
 
     let root = effect_table::repo("Fixtures/cryptomatte");
     let draw = |p: &Project| {
@@ -167,16 +226,38 @@ fn b402_cryptomatte() {
     let mut shots: Vec<(String, Project, bool)> = Vec::new();
     for n in 1..=22 {
         let file = format!("fx_crypto_{n:03}.json");
-        shots.push((file.clone(), t.load(&file).document.project().clone(), false));
+        shots.push((
+            file.clone(),
+            t.load(&file).document.project().clone(),
+            false,
+        ));
     }
     let settings: [(&str, J); 7] = [
         ("Colors, the first layer", json!([crypto("", "", "colors")])),
-        ("Colors of CryptoObject, the floor picked", json!([crypto("CryptoObject", "floor", "colors")])),
-        ("Matte of the yellow ball", json!([crypto("CryptoObject", "yellow ball", "matte")])),
-        ("Keyed on the red and blue balls", json!([crypto("CryptoObject", "red ball, blue ball", "keyed")])),
-        ("Keyed on the material paint", json!([crypto("CryptoMaterial", "paint", "keyed")])),
-        ("Keyed on the sky, after a Gaussian Blur of 6", json!([blur(), crypto("CryptoObject", "sky", "keyed")])),
-        ("Matte of gold and tile, the layer named in lower case", json!([crypto("cryptomaterial", "gold, tile", "matte")])),
+        (
+            "Colors of CryptoObject, the floor picked",
+            json!([crypto("CryptoObject", "floor", "colors")]),
+        ),
+        (
+            "Matte of the yellow ball",
+            json!([crypto("CryptoObject", "yellow ball", "matte")]),
+        ),
+        (
+            "Keyed on the red and blue balls",
+            json!([crypto("CryptoObject", "red ball, blue ball", "keyed")]),
+        ),
+        (
+            "Keyed on the material paint",
+            json!([crypto("CryptoMaterial", "paint", "keyed")]),
+        ),
+        (
+            "Keyed on the sky, after a Gaussian Blur of 6",
+            json!([blur(), crypto("CryptoObject", "sky", "keyed")]),
+        ),
+        (
+            "Matte of gold and tile, the layer named in lower case",
+            json!([crypto("cryptomaterial", "gold, tile", "matte")]),
+        ),
     ];
     for (name, effects) in settings {
         shots.push((format!("the sample, {name}"), sample(effects), true));
@@ -184,21 +265,50 @@ fn b402_cryptomatte() {
     let mut worst = 0u8;
     for (name, project, is_sample) in &shots {
         let comp = &project.compositions[0];
-        let frames: Vec<i32> = (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
+        let frames: Vec<i32> =
+            (comp.start_frame..comp.start_frame + comp.duration_frames as i32).collect();
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for &frame in frames.iter().filter(|&&f| f == 0 || f == 4) {
                 let mut cache = CelCache::viewer();
                 let mut log = FrameLog::new(3);
-                let c = preview::preview_frame_cached(project, &comp.id, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
+                let c = preview::preview_frame_cached(
+                    project,
+                    &comp.id,
+                    frame,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the CPU: {}", d.message));
                 let said_cpu = said(log);
                 let c = c.to_srgb8_straight();
                 let mut log = FrameLog::new(3);
-                let (g, ..) = preview::preview_frame_srgb8(project, &comp.id, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
-                    .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
+                let (g, ..) = preview::preview_frame_srgb8(
+                    project,
+                    &comp.id,
+                    frame,
+                    &root,
+                    quality,
+                    DEFAULT_TILE_SIZE,
+                    &mut log,
+                    &mut cache,
+                    &mut gpu,
+                )
+                .unwrap_or_else(|d| panic!("{name} frame {frame} on the GPU: {}", d.message));
                 let said_gpu = said(log);
                 let mut log = FrameLog::new(3);
-                let plan = compose::plan_frame_for_card(project, &comp.id, frame, &root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+                let plan = compose::plan_frame_for_card(
+                    project,
+                    &comp.id,
+                    frame,
+                    &root,
+                    quality,
+                    &mut log,
+                    &mut CelCache::viewer(),
+                )
+                .expect("plan the frame");
                 let on_card: usize = plan.layers.iter().map(|l| l.on_card.len()).sum();
                 let effects = comp.layer(&Id::new("scene")).map_or(0, |l| l.effects.len());
                 let d = distance(&c, &g);
@@ -212,7 +322,11 @@ fn b402_cryptomatte() {
             }
         }
     }
-    t.row("the largest difference over every frame above", &format!("{worst} level(s)"), worst <= 1);
+    t.row(
+        "the largest difference over every frame above",
+        &format!("{worst} level(s)"),
+        worst <= 1,
+    );
 
     t.heading("Pictures: the sample render, in `verification/D-522 pictures/`");
     let dir = effect_table::repo("verification/D-522 pictures");
@@ -228,8 +342,20 @@ fn b402_cryptomatte() {
     ];
     for (file, what, effects) in shots {
         let (b, s) = draw(&sample(effects));
-        png_out::write_rgba(&dir.join(format!("{file}.png")), 320, 180, OutputDepth::Eight, &[], &b.to_srgb8_straight()).unwrap();
-        t.row(&format!("{file}.png, {what}"), &format!("warnings {s:?}"), s.is_empty());
+        png_out::write_rgba(
+            &dir.join(format!("{file}.png")),
+            320,
+            180,
+            OutputDepth::Eight,
+            &[],
+            &b.to_srgb8_straight(),
+        )
+        .unwrap();
+        t.row(
+            &format!("{file}.png, {what}"),
+            &format!("warnings {s:?}"),
+            s.is_empty(),
+        );
     }
 
     t.finish("D-522_cryptomatte_table.md");
@@ -250,9 +376,13 @@ fn b402_cryptomatte_timing() {
     let (w, h) = (1920usize, 1080usize);
     let dir = std::env::temp_dir().join("b402_timing");
     fs::create_dir_all(&dir).unwrap();
-    let plane = |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
-    let half = |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
-    let ids: Vec<f32> = (0..6).map(|i| exr_io::crypto_id(&format!("object {i}"))).collect();
+    let plane =
+        |f: &dyn Fn(usize, usize) -> f32| (0..w * h).map(|i| f(i % w, i / w)).collect::<Vec<f32>>();
+    let half =
+        |v: Vec<f32>| FlatSamples::F16(v.into_iter().map(exr::prelude::f16::from_f32).collect());
+    let ids: Vec<f32> = (0..6)
+        .map(|i| exr_io::crypto_id(&format!("object {i}")))
+        .collect();
     // Each pixel: its block's object at 0.7, the next one at 0.3.
     let block = |x: usize, y: usize| (x / 240 + y / 270) % 6;
     let channels = AnyChannels::sort(
@@ -261,9 +391,15 @@ fn b402_cryptomatte_timing() {
             AnyChannel::new("G", half(plane(&|_, y| y as f32 / h as f32))),
             AnyChannel::new("B", half(plane(&|_, _| 0.3))),
             AnyChannel::new("A", half(plane(&|_, _| 1.0))),
-            AnyChannel::new("CryptoObject00.r", FlatSamples::F32(plane(&|x, y| ids[block(x, y)]))),
+            AnyChannel::new(
+                "CryptoObject00.r",
+                FlatSamples::F32(plane(&|x, y| ids[block(x, y)])),
+            ),
             AnyChannel::new("CryptoObject00.g", FlatSamples::F32(plane(&|_, _| 0.7))),
-            AnyChannel::new("CryptoObject00.b", FlatSamples::F32(plane(&|x, y| ids[(block(x, y) + 1) % 6]))),
+            AnyChannel::new(
+                "CryptoObject00.b",
+                FlatSamples::F32(plane(&|x, y| ids[(block(x, y) + 1) % 6])),
+            ),
             AnyChannel::new("CryptoObject00.a", FlatSamples::F32(plane(&|_, _| 0.3))),
             AnyChannel::new("CryptoObject01.r", FlatSamples::F32(plane(&|_, _| 0.0))),
             AnyChannel::new("CryptoObject01.g", FlatSamples::F32(plane(&|_, _| 0.0))),
@@ -272,7 +408,10 @@ fn b402_cryptomatte_timing() {
         ]
         .into(),
     );
-    Image::from_channels((w, h), channels).write().to_file(dir.join("crypto.exr")).expect("write the timing EXR");
+    Image::from_channels((w, h), channels)
+        .write()
+        .to_file(dir.join("crypto.exr"))
+        .expect("write the timing EXR");
 
     let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
@@ -282,14 +421,31 @@ fn b402_cryptomatte_timing() {
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
-        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
     );
-    let noise = fx("fx-2", "core.noise", json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}));
+    let noise = fx(
+        "fx-2",
+        "core.noise",
+        json!({"amount": 12, "mode": "color", "seed": 7, "animate": "on"}),
+    );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Cryptomatte, Colors, then Noise", Some(crypto("CryptoObject", "", "colors"))),
-        ("Cryptomatte, Matte of two objects, then Noise", Some(crypto("CryptoObject", "object 2, object 3", "matte"))),
-        ("Cryptomatte, Keyed on two objects, then Noise", Some(crypto("CryptoObject", "object 2, object 3", "keyed"))),
+        (
+            "Cryptomatte, Colors, then Noise",
+            Some(crypto("CryptoObject", "", "colors")),
+        ),
+        (
+            "Cryptomatte, Matte of two objects, then Noise",
+            Some(crypto("CryptoObject", "object 2, object 3", "matte")),
+        ),
+        (
+            "Cryptomatte, Keyed on two objects, then Noise",
+            Some(crypto("CryptoObject", "object 2, object 3", "keyed")),
+        ),
     ];
     for (name, e) in shots {
         let effects: Vec<J> = e.into_iter().chain([noise.clone()]).collect();
@@ -301,14 +457,41 @@ fn b402_cryptomatte_timing() {
             for frame in (0..240).step_by(8) {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&project, &Id::new(MAIN), frame, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                drop(
+                    preview::preview_frame_srgb8(
+                        &project,
+                        &Id::new(MAIN),
+                        frame,
+                        &dir,
+                        PreviewQuality::Full,
+                        DEFAULT_TILE_SIZE,
+                        &mut log,
+                        &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("GPU frame"),
+                );
                 let ms = t.elapsed().as_secs_f64() * 1000.0;
-                assert!(log.finish().is_empty(), "{name}: the frame draws without a warning");
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
+                assert!(
+                    log.finish().is_empty(),
+                    "{name}: the frame draws without a warning"
+                );
+                if pass > 0 {
+                    times.push(ms)
+                } else {
+                    first.push(ms)
+                }
             }
         }
-        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+        let _ = writeln!(
+            s,
+            "| {name} | Full | {:.1} | {:.1} |",
+            median(first),
+            median(times)
+        );
     }
-    let out = std::env::var("B402_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-402_timing_raw.md"));
+    let out = std::env::var("B402_OUT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| effect_table::repo("verification/B-402_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }
