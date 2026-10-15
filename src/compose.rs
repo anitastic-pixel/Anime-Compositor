@@ -1782,6 +1782,43 @@ fn mixed(card: render::OnCard, instance: &crate::effects::EffectInstance) -> ren
     }
 }
 
+/// B-155 (D-224): whether `effect` can only begin the card's run: it looks at the drawing it is
+/// given before the card is asked (Bloom, Glow, Paraffin, Kira-kira, CC Ball Action, the particle
+/// effects), or chooses by exact comparisons or 8-bit rounding of the CPU's drawing (see
+/// `resolve_rest`'s B-155 note).
+fn begins_run(effect: &crate::effects::Effect) -> bool {
+    use crate::effects::Effect as E;
+    matches!(
+        effect,
+        E::Bloom { .. }
+            | E::Glow { .. }
+            | E::Paraffin { .. }
+            | E::KiraKira { .. }
+            | E::CcBallAction { .. }
+            | E::ParticleSpace { .. }
+            | E::PolygonShards { .. }
+            | E::ParticlePlane { .. }
+            | E::ParticleEmitter { .. }
+            | E::ParticleGrid { .. }
+            | E::ParticlePlayground { .. }
+            | E::HsvKey { .. }
+            | E::ColorKey { .. }
+            | E::SelectColor { .. }
+            | E::LineRecolor { .. }
+            | E::SelectiveColorBlur { .. }
+            | E::LineSmooth { .. }
+            | E::LineWidth { .. }
+            | E::PaintBucket { .. }
+    ) || matches!(effect, E::LightningBolt { obstacle, .. } if *obstacle != 0.0)
+}
+
+/// Whether the card is handed `instance`, at Full, on a drawing of `pixels` pixels (`card_can`),
+/// for the app's test that every effect the card is handed is one it draws (`gpu::fx_draws`).
+#[doc(hidden)]
+pub fn card_takes(instance: &crate::effects::EffectInstance, pixels: usize) -> bool {
+    card_can(instance, 1.0, pixels)
+}
+
 /// B-156 (D-225): an adjustment layer's stack as the card runs it on the frame beneath, `size`,
 /// from its corner; or `None` when the CPU must run it, for an effect the card cannot draw, one
 /// that looks at its drawing before the card is asked (Bloom, Glow, Paraffin, Kira-kira, CC Ball Action), which
@@ -1799,28 +1836,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
         // (D-344): so does a Lightning Bolt with an Alpha Obstacle, which reads the covering.
         // B-226 (D-346): so do Line Smooth and Line Width, which decide by exact comparisons;
         // D-440, so does a Paint Bucket.
-        let first = matches!(
-            instance.effect,
-            E::Bloom { .. }
-                | E::Glow { .. }
-                | E::Paraffin { .. }
-                | E::KiraKira { .. }
-                | E::CcBallAction { .. }
-                | E::ParticleSpace { .. }
-                | E::PolygonShards { .. }
-                | E::ParticlePlane { .. }
-                | E::ParticleEmitter { .. }
-                | E::ParticleGrid { .. }
-                | E::ParticlePlayground { .. }
-                | E::HsvKey { .. }
-                | E::ColorKey { .. }
-                | E::SelectColor { .. }
-                | E::LineRecolor { .. }
-                | E::SelectiveColorBlur { .. }
-                | E::LineSmooth { .. }
-                | E::LineWidth { .. }
-                | E::PaintBucket { .. }
-        ) || matches!(instance.effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0);
+        let first = begins_run(&instance.effect);
         let grown = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
         if first || !card_can(instance, 1.0, grown.0 * grown.1) {
             return None;
@@ -3560,29 +3576,7 @@ fn resolve_rest(
             break;
         }
         chain.push(i);
-        if matches!(
-            effects[i].effect,
-            E::Bloom { .. }
-                | E::Glow { .. }
-                | E::Paraffin { .. }
-                | E::KiraKira { .. }
-                | E::CcBallAction { .. }
-                | E::ParticleSpace { .. }
-                | E::PolygonShards { .. }
-                | E::ParticlePlane { .. }
-                | E::ParticleEmitter { .. }
-                | E::ParticleGrid { .. }
-                | E::ParticlePlayground { .. }
-                | E::HsvKey { .. }
-                | E::ColorKey { .. }
-                | E::SelectColor { .. }
-                | E::LineRecolor { .. }
-                | E::SelectiveColorBlur { .. }
-                | E::LineSmooth { .. }
-                | E::LineWidth { .. }
-                | E::PaintBucket { .. }
-        ) || matches!(effects[i].effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0)
-        {
+        if begins_run(&effects[i].effect) {
             break;
         }
     }

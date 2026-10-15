@@ -40484,6 +40484,55 @@ mod keyed_settings {
         println!("{} effects, {} settings keyed, saved and opened again", ids.len(), keyed.len());
     }
 
+    /// Every effect, as it is added, that compose hands the card (`compose::card_takes`) is one the
+    /// card draws: by its own blur, Bloom and Glow passes, or by `gpu::fx`, which stops the app on
+    /// any other. Read from the core's own list, so one added later is here too.
+    #[test]
+    fn every_effect_the_card_is_handed_is_one_it_draws() {
+        use anime_compositor::compose;
+        use anime_compositor::effects::Effect as E;
+        let ids: Vec<&str> = include_str!("../../src/effects.rs")
+            .lines()
+            .filter_map(|l| l.strip_prefix("pub const ")?.split_once(": &str = \"")?.1.strip_suffix("\";"))
+            .filter(|id| id.starts_with("core.") && new_effect(id).is_some())
+            .collect();
+        assert!(ids.len() > 90, "the effect list was not found: {ids:?}");
+        let mut taken = 0;
+        let mut not_drawn = Vec::new();
+        for id in &ids {
+            let instance = EffectInstance::new(Id::new("fx-1"), new_effect(id).expect("an effect"));
+            // Compose reads a Depth of Field's depth from the layer's pass before the card is
+            // handed it, as its Lens Blur; one without changes nothing and is left out
+            // (`compose::card_effect`). b403 draws one with its depth on the card.
+            if matches!(instance.effect, E::DepthOfField { channels: None, .. }) {
+                continue;
+            }
+            // A small drawing, so a Fractal's work does not keep it off the card (D-416).
+            if !compose::card_takes(&instance, 64 * 64) {
+                continue;
+            }
+            taken += 1;
+            // `compose::card_effect` hands these to the card's own passes, not to `fx`.
+            let own = matches!(
+                instance.effect,
+                E::RadialBlur { .. }
+                    | E::SpinZoomBlur { .. }
+                    | E::FastZoomBlur { .. }
+                    | E::DirectionalBlur { .. }
+                    | E::GaussianBlur { .. }
+                    | E::GaussianBlurLegacy { .. }
+                    | E::Bloom { .. }
+                    | E::Glow { .. }
+            );
+            if !own && !anime_compositor::gpu::fx_draws(&instance.effect) {
+                not_drawn.push(*id);
+            }
+        }
+        assert!(not_drawn.is_empty(), "the card is handed these but does not draw them: {not_drawn:?}");
+        assert!(taken > 100, "only {taken} of {} effects went to the card", ids.len());
+        println!("{} effects, {taken} handed to the card, each one it draws", ids.len());
+    }
+
     /// D-407: Fit to Comp Width and Height work out the Upscale's scale once, as the owner chose
     /// (one-time buttons): afterwards the layer is as wide, or as tall, as the composition, the
     /// scale is an ordinary number Ctrl+Z takes back, and with keys on Scale the fit is a key.

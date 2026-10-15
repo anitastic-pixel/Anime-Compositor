@@ -12868,6 +12868,73 @@ fn on_cpu(severity: Severity, message: String, detail: String) -> Diagnostic {
     Diagnostic::new(DiagnosticId::GpuPreviewOnCpu, severity, message, detail)
 }
 
+/// The effects `Gpu::fx` never draws: those the card's own passes draw (Radial, Spin & Zoom,
+/// Fast Zoom, Directional and Gaussian Blur, Bloom, Glow), those drawn as another (`drawn_as`)
+/// and those compose never hands the card. Named, not left to a `_`, so a new effect is either
+/// drawn by `fx` or put here before this builds.
+macro_rules! not_fx {
+    () => {
+        crate::effects::Effect::AutoTone { .. }
+        | crate::effects::Effect::Bloom { .. }
+        | crate::effects::Effect::CardDance { .. }
+        | crate::effects::Effect::Caustics { .. }
+        | crate::effects::Effect::CcRainfall { .. }
+        | crate::effects::Effect::CcWideTime { .. }
+        | crate::effects::Effect::ColorStabilizer { .. }
+        | crate::effects::Effect::Compressor { .. }
+        | crate::effects::Effect::DepthOfField { .. }
+        | crate::effects::Effect::DirectionalBlur { .. }
+        | crate::effects::Effect::Distortion { .. }
+        | crate::effects::Effect::Echo { .. }
+        | crate::effects::Effect::FastZoomBlur { .. }
+        | crate::effects::Effect::ForceMotionBlur { .. }
+        | crate::effects::Effect::GaussianBlur { .. }
+        | crate::effects::Effect::GaussianBlurLegacy { .. }
+        | crate::effects::Effect::Glow { .. }
+        | crate::effects::Effect::InnerOuterKey { .. }
+        | crate::effects::Effect::Kaleidoscope { .. }
+        | crate::effects::Effect::KeyCleaner { .. }
+        | crate::effects::Effect::LightWrap { .. }
+        | crate::effects::Effect::MomentMap { .. }
+        | crate::effects::Effect::NoiseGate { .. }
+        | crate::effects::Effect::PixelMotionBlur { .. }
+        | crate::effects::Effect::PosterizeTime { .. }
+        | crate::effects::Effect::RadialBlur { .. }
+        | crate::effects::Effect::ReduceInterlaceFlicker { .. }
+        | crate::effects::Effect::RefineMatte { .. }
+        | crate::effects::Effect::RollingShutterRepair { .. }
+        | crate::effects::Effect::Shatter { .. }
+        | crate::effects::Effect::SpillSuppressor { .. }
+        | crate::effects::Effect::SpinZoomBlur { .. }
+        | crate::effects::Effect::SpreadTones { .. }
+        | crate::effects::Effect::TextAnimator { .. }
+        | crate::effects::Effect::TimeDifference { .. }
+        | crate::effects::Effect::Timewarp { .. }
+        | crate::effects::Effect::TurbulentNoise { .. }
+        | crate::effects::Effect::Unsupported { .. }
+        | crate::effects::Effect::WarpStabilizer { .. }
+        | crate::effects::Effect::WaveWorld { .. }
+    };
+}
+
+/// The effect `Gpu::fx` draws `effect` as, when it is another's. D-445: Turbulent Noise is
+/// Fractal Noise's pass. D-454: a Match Grain is drawn as the Add Grain it lays; compose left out
+/// one that lays none. D-523: Depth of Field as its Lens Blur. D-548: Spill Suppressor as its
+/// Screen Key.
+fn drawn_as(effect: &crate::effects::Effect) -> Option<crate::effects::Effect> {
+    crate::effects::turbulent_fractal(effect)
+        .or_else(|| crate::grade::matched_grain(effect))
+        .or_else(|| crate::effects::depth_lens(effect))
+        .or_else(|| crate::effects::second_name(effect))
+}
+
+/// Whether `Gpu::fx` draws `effect`, for the app's test that every effect compose hands the card
+/// is one the card draws.
+#[doc(hidden)]
+pub fn fx_draws(effect: &crate::effects::Effect) -> bool {
+    !matches!(drawn_as(effect).as_ref().unwrap_or(effect), not_fx!())
+}
+
 impl Gpu {
     /// The fastest Direct3D 12 or Vulkan card on the machine, or why there is none.
     pub fn new() -> Result<Gpu, String> {
@@ -14028,14 +14095,7 @@ impl Gpu {
             self.fx_step(steps, &passes.tiles, p, Some(still), Some(&out), Some(&k), None, [Some(&means), None, None, None], tiles(w, h));
             out
         };
-        // D-445: Turbulent Noise is Fractal Noise's pass.
-        // D-454: a Match Grain is drawn as the Add Grain it lays; compose left out one that lays none.
-        let turned = crate::effects::turbulent_fractal(&f.instance.effect)
-            .or_else(|| crate::grade::matched_grain(&f.instance.effect))
-            // D-523: Depth of Field as its Lens Blur.
-            .or_else(|| crate::effects::depth_lens(&f.instance.effect))
-            // D-548: Spill Suppressor as its Screen Key.
-            .or_else(|| crate::effects::second_name(&f.instance.effect));
+        let turned = drawn_as(&f.instance.effect);
         match turned.as_ref().unwrap_or(&f.instance.effect) {
             E::MatchGrain { .. } => (still.clone(), (w, h)),
             E::RemoveGrain { passes: count, mode, unsharp_amount, unsharp_radius, .. } => {
@@ -17439,7 +17499,7 @@ impl Gpu {
                 self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345), B-226's four, D-365..D-367's three and D-368..D-370's three as Fx"),
+            not_fx!() => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345), B-226's four, D-365..D-367's three and D-368..D-370's three as Fx"),
         }
     }
 
