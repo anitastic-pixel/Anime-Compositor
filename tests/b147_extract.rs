@@ -57,7 +57,8 @@ fn drawing() -> Vec<u8> {
             let e = ((fx - 80.0) / 22.0).powi(2) + ((fy - 41.0) / 23.0).powi(2);
             let c = if x <= 40 && y <= 30 {
                 [70, 120, 210, 255]
-            } else if (e < 1.0 && e >= 0.8) || ((70..=90).contains(&x) && (49..=50).contains(&y)) {
+            } else if (0.8..1.0).contains(&e) || ((70..=90).contains(&x) && (49..=50).contains(&y))
+            {
                 [20, 18, 24, 255]
             } else if e < 1.0 {
                 [246, 214, 190, 255]

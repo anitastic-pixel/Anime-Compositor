@@ -213,7 +213,7 @@ fn the_export_choices_do_what_d73_says() {
     let out = repo("verification/B-22 films");
     let _ = fs::remove_dir_all(&out);
     fs::create_dir_all(&out).unwrap();
-    let mut export = |name: &str, first, last, format, choices| {
+    let export = |name: &str, first, last, format, choices| {
         let request = ExportRequest {
             composition: Id::new("comp-reference-shot"),
             first_frame: first,

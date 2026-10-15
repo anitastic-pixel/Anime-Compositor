@@ -11524,7 +11524,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         target: target.clone(),
                         prop: chosen,
                         frame,
-                        value: key.value.clone(),
+                        value: key.value,
                         interp,
                         spatial: key.spatial.map(|[ix, iy, ox, oy]| [ox, oy, ix, iy]),
                     });
@@ -12641,7 +12641,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // B-23c: D-74's colour and size from the layer's panel. What is not sent stays as
                 // it is; a layer that is not a solid is the core's to refuse.
                 "solid.set" => {
-                    let now = layer.solid.clone().unwrap_or(Solid {
+                    let now = layer.solid.unwrap_or(Solid {
                         color: [0.0; 3],
                         width: 1,
                         height: 1,
@@ -15875,10 +15875,7 @@ fn edit_channels(
             let interp = interp_parameter(query)?;
             for channel in channels.iter_mut() {
                 let was = channel.keyframe_at(frame).cloned().ok_or_else(missing)?;
-                channel.set_keyframe(Keyframe {
-                    interp: interp.clone(),
-                    ..was
-                });
+                channel.set_keyframe(Keyframe { interp, ..was });
             }
         }
     }
@@ -17529,14 +17526,13 @@ fn caught<T>(what: &str, job: impl FnOnce() -> T) -> Result<T, String> {
 /// [`caught`] in the running window: the locks the panic left marked are released as they
 /// stand, so the next request does not fail on them, and the status line says what happened.
 fn contained<T>(app: &AppHandle, what: &str, job: impl FnOnce() -> T) -> Result<T, String> {
-    caught(what, job).map_err(|said| {
+    caught(what, job).inspect_err(|said| {
         app.state::<Mutex<Viewer>>().clear_poison();
         app.state::<Mutex<Export>>().clear_poison();
         app.state::<Mutex<SessionLog>>().clear_poison();
         app.state::<Mutex<Card>>().clear_poison();
         app.state::<Mutex<[Option<Placement>; 2]>>().clear_poison();
         announce(&app.state::<Mutex<Viewer>>(), said.clone());
-        said
     })
 }
 

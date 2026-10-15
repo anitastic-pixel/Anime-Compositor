@@ -42,7 +42,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{plan_frame, screen_transform, world_depth, world_transform};
@@ -374,7 +374,7 @@ fn drawn_order(document: &Document, frame: i32) -> String {
 }
 
 /// What planning one frame reported, as diagnostic identifiers.
-fn diagnostics_at(document: &Document, frame: i32, root: &PathBuf) -> String {
+fn diagnostics_at(document: &Document, frame: i32, root: &Path) -> String {
     let mut log = FrameLog::new(8);
     let _ = plan_frame(document.project(), &Id::new(COMP), frame, root, &mut log);
     let mut ids: Vec<String> = log
@@ -507,7 +507,7 @@ fn fx_cam_002(report: &mut Report) {
             drawn(&document, &l, 0, (100.0, 0.0)),
         );
         report.number(
-            &format!("FX-CAM-002: and so it is drawn at"),
+            "FX-CAM-002: and so it is drawn at",
             size,
             drawn_at(&document, &l, 0),
         );
@@ -973,7 +973,7 @@ fn fx_cam_011(report: &mut Report) {
             held,
         );
         report.number(
-            &format!("FX-CAM-011: and its horizontal angle of view, in degrees"),
+            "FX-CAM-011: and its horizontal angle of view, in degrees",
             angle,
             2.0 * (width as f64 / (2.0 * held)).atan().to_degrees(),
         );

@@ -75,7 +75,7 @@ fn plate() -> Vec<u8> {
             let (fx, fy) = (x as f64 + 0.5, y as f64 + 0.5);
             let c = if !(40..120).contains(&x) || !(15..85).contains(&y) {
                 None
-            } else if x < 43 || x >= 117 || y < 18 || y >= 82 {
+            } else if !(43..117).contains(&x) || !(18..82).contains(&y) {
                 Some(LINE)
             } else if (fx - 80.0).hypot(fy - 50.0) < 12.0 {
                 Some(GOLD)

@@ -561,7 +561,7 @@ fn the_gpu_switch_draws_the_same_picture_and_says_where() {
             .map(|(a, b)| a.abs_diff(*b))
             .max();
         rows.push((
-            format!("and is within 1 level of the CPU's picture, at the same size"),
+            "and is within 1 level of the CPU's picture, at the same size".to_string(),
             "at most 1, 1920×1080 or its draft".into(),
             match (cpu.body().len() == gpu.body().len(), largest) {
                 (true, Some(l)) if l <= 1 => "at most 1, 1920×1080 or its draft".into(),

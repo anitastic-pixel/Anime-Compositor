@@ -229,7 +229,7 @@ fn b407_timecode() {
             }),
             info.is_some() == want
                 && said.len() == want as usize
-                && info.map_or(true, |d| d.severity == Severity::Info),
+                && info.is_none_or(|d| d.severity == Severity::Info),
         );
     }
 

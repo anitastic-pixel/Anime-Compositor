@@ -12,6 +12,7 @@
 //!   and nothing anywhere else.
 //! - An 8x8 opaque Stencil Luma of linear grey 0.2 keeps the backdrop times 0.2 encoded,
 //!   0.484529, there and nothing anywhere else.
+//!
 //! Tiles of 4 so that P-05's culling skips tiles the stencil does not reach, if it would.
 
 use serde_json::{json, Value as J};

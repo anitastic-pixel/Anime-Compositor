@@ -590,9 +590,7 @@ fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64)> {
             continue;
         }
         let rate = timescale(find(&mdia, b"mdhd")?.0)?;
-        let Some((ea, ee)) = find(&trak, b"edts") else {
-            return None;
-        };
+        let (ea, ee) = find(&trak, b"edts")?;
         let (la, _) = find(&boxes(ea, ee)?, b"elst")?;
         let wide = b.get(la)? == &1;
         let (step, count) = (if wide { 20 } else { 12 }, u32_be(la + 4)?);

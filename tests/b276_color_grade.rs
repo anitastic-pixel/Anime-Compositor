@@ -183,7 +183,7 @@ fn darkest(p: &[u8]) -> u8 {
 
 /// The brightness, the three channels summed, of the pixel at (x, y).
 fn at(p: &[u8], x: usize, y: usize) -> u32 {
-    let i = 4 * (y * TOWN.0 as usize + x);
+    let i = 4 * (y * TOWN.0 + x);
     p[i..i + 3].iter().map(|&v| v as u32).sum()
 }
 
@@ -398,7 +398,7 @@ fn b276_color_grade() {
     );
     let (dark, said) = picture(&dir, one(json!({"vignette_amount": -3})));
     write("6_vignette.png", &dark);
-    let (cx, cy) = (TOWN.0 as usize / 2, TOWN.1 as usize / 2);
+    let (cx, cy) = (TOWN.0 / 2, TOWN.1 / 2);
     t.row(
         "6_vignette.png, vignette -3: the corners darker, the middle as it was; draws cleanly",
         &format!(

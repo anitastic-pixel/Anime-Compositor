@@ -138,7 +138,11 @@ fn d325_a_blurred_layer_keeps_its_own_outline() {
     row(
         "the blurred picture's middle (over half covered)",
         "960,535",
-        format!("{},{}", (lo.0 + hi.0 + 1) / 2, (lo.1 + hi.1 + 1) / 2),
+        format!(
+            "{},{}",
+            (lo.0 + hi.0).div_ceil(2),
+            (lo.1 + hi.1).div_ceil(2)
+        ),
     );
     row(
         "the mask's middle",

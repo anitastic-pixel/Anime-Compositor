@@ -160,8 +160,7 @@ fn the_command_takes_keys_and_refuses_one_out_of_range() {
     };
     let refused = document
         .apply(set(masks.clone()))
-        .err()
-        .expect("an opacity of -0.1 is refused");
+        .expect_err("an opacity of -0.1 is refused");
     assert_eq!(
         refused.message,
         "Mask \"m\" was given an opacity of -0.1, which is not from 0 to 1."

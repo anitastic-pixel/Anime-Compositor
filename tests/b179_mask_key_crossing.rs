@@ -58,8 +58,7 @@ fn a_crossing_key_is_refused_and_a_plain_one_is_taken() {
     let mut doc = document();
     let refused = doc
         .apply(keyed(vec![(0.0, 0.0), (4.0, 0.0), (0.0, 4.0), (4.0, 4.0)]))
-        .err()
-        .expect("a crossing key is refused");
+        .expect_err("a crossing key is refused");
     assert_eq!(
         refused.message,
         "The mask crosses itself at its key on frame 4, which this build does not draw."

@@ -43,7 +43,7 @@ fn b58_drop_shadow() {
         ("distance 0, softness 0 does not grow it", shadow("#000000", 50.0, 135.0, 0.0, 0.0), 0),
     ] {
         let got = e.bounds_expansion();
-        t.row(&format!("{what}"), &got.to_string(), got == want);
+        t.row(what, &got.to_string(), got == want);
     }
     let mut draft = shadow("#000000", 50.0, 135.0, 5.0, 6.0);
     draft.scale_distances(|d| d * 0.5);

@@ -127,7 +127,7 @@ impl Amp {
     pub(crate) fn alpha(&self, phase: f64) -> Option<impl Fn(f64) -> f64 + Sync + '_> {
         self.0[4]
             .is_some()
-            .then(move || move |u| self.curve(4, phase, u))
+            .then_some(move |u| self.curve(4, phase, u))
     }
 }
 

@@ -247,7 +247,7 @@ pub(crate) fn iris_runs(
                 iris_measure(dx as f64, dy as f64, n, roundness, rotation, aspect) <= radius + SLACK
             });
             let lo = on.next()?;
-            Some([dy, lo, on.last().unwrap_or(lo)])
+            Some([dy, lo, on.next_back().unwrap_or(lo)])
         })
         .collect()
 }
@@ -2001,7 +2001,7 @@ pub(crate) fn mr_smoothie(
             let (x, y) = ((i % w) as isize + r, (i / w) as isize + r);
             let v = (data[((y * bw + x) * 4 + 3) as usize] as f64).clamp(0.0, 1.0);
             let mut t = v + k[0];
-            if t < 0.0 || t > 1.0 {
+            if !(0.0..=1.0).contains(&t) {
                 t -= t.floor();
             }
             let s = match k[1] as u8 {
@@ -8533,7 +8533,7 @@ pub(crate) fn bolt_list(
         route,
     );
     if !blocks.is_empty() {
-        segs = bolt_stop(segs, &blocked, route.is_some());
+        segs = bolt_stop(segs, blocked, route.is_some());
     }
     segs.into_iter()
         .map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq])
@@ -13277,7 +13277,7 @@ pub(crate) fn wave_world(
             // Only pixels whose centre can lie within 1/2 of the segment are tried.
             let span = |lo: f64, hi: f64, len: usize| {
                 let (lo, hi) = ((lo - 1.0).floor().max(0.0), hi.ceil().min(len as f64 - 1.0));
-                (lo <= hi).then(|| (lo as usize, hi as usize))
+                (lo <= hi).then_some((lo as usize, hi as usize))
             };
             let (Some((x0, x1)), Some((y0, y1))) = (
                 span(a.0.min(b.0), a.0.max(b.0), lwu),

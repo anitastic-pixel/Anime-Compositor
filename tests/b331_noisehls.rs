@@ -365,7 +365,7 @@ fn b331_noisehls() {
         "a Noise HLS whose noise is a number",
         &format!("{{{p}, \"noise\": 2}}"),
     );
-    t.shape_refused("fx_noisehls_001.json", "a Noise HLS whose hue is a word", &format!("{{\"noise\": \"uniform\", \"lightness\": 10, \"saturation\": 0, \"grain_size\": 1, \"noise_phase\": 0, \"hue\": \"lots\"}}"));
+    t.shape_refused("fx_noisehls_001.json", "a Noise HLS whose hue is a word", "{\"noise\": \"uniform\", \"lightness\": 10, \"saturation\": 0, \"grain_size\": 1, \"noise_phase\": 0, \"hue\": \"lots\"}");
 
     t.heading("Commands");
     let mut document = t.load("fx_noisehls_001.json").document;

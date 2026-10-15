@@ -301,7 +301,7 @@ pub(crate) fn directional_weights(u: (f64, f64), length: f64) -> Weights {
         a: if inner.is_some() { full } else { 0.0 },
         b: 0.0,
         ends: (-reach..=reach)
-            .filter(|&j| inner.map_or(true, |n| j.abs() > n) && weight(j) != 0.0)
+            .filter(|&j| inner.is_none_or(|n| j.abs() > n) && weight(j) != 0.0)
             .map(|j| (j, weight(j)))
             .collect(),
     }

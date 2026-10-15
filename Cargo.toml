@@ -16,6 +16,31 @@ description = "Cel exposure and finishing compositor. G1-core: colour, alpha and
 members = ["app"]
 exclude = ["spikes"]
 
+# Document 29's Lints gate is `cargo clippy -- -D warnings`. These clippy lints are switched
+# off for the whole workspace because what they ask for is either a different answer or a style
+# this code chose on purpose; every other lint still fails the gate.
+[workspace.lints.clippy]
+# Different answers when a number is NaN, so the rewrite would change pixels: `!(a < b)` is
+# not `a >= b`, `!(w > 0 && p)` is not `w <= 0 || !p`, and `x.max(0).min(1)` gives 0 for NaN
+# where `clamp` gives NaN. The NaN-aware forms are deliberate.
+neg_cmp_op_on_partial_ord = "allow"
+nonminimal_bool = "allow"
+manual_clamp = "allow"
+# Pixel loops index several buffers by the same x and y; an iterator over one of them reads
+# worse and is not quicker.
+needless_range_loop = "allow"
+# Effects take their settings as plain arguments and return plain tuples, so the signatures
+# are long; a struct for each would be one more name for the same list.
+too_many_arguments = "allow"
+type_complexity = "allow"
+# `from_str` returns an Option here (an unknown word is a diagnostic, not an error type), so
+# std's FromStr does not fit; and the effect and card enums are moved, not stored in bulk.
+should_implement_trait = "allow"
+large_enum_variant = "allow"
+
+[lints]
+workspace = true
+
 # Audit S6: line numbers only, which still names file and line in errors, at a fraction of
 # the disk each test program takes.
 [profile.dev]

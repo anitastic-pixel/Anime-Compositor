@@ -952,7 +952,7 @@ fn replace_layer_source_swaps_only_the_source() {
         (
             "a sound file on a drawing layer",
             format!("layer=layer-1&asset={sound_id}"),
-            format!("layer1 cannot show line.wav: a drawing layer takes a picture or a sequence, a sound layer a sound file."),
+            "layer1 cannot show line.wav: a drawing layer takes a picture or a sequence, a sound layer a sound file.".to_string(),
         ),
         ("a solid, which shows no imported item", format!("layer={solid}&asset=asset-layer2"), "Solid 1 has no imported source to replace.".to_string()),
     ] {
@@ -6470,7 +6470,7 @@ fn an_mp4_goes_out_from_the_window() {
     let said = run_export(&odd, &root, &request, &AtomicBool::new(false));
     report.check(
         "a composition with an odd width is refused, the side is named, and no file is made",
-        format!("true, true, file there: false"),
+        "true, true, file there: false".to_string(),
         format!(
             "{}, {}, file there: {}",
             said.contains("An MP4 needs an even width and an even height"),

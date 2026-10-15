@@ -1277,10 +1277,7 @@ fn p23_layer_cost() {
             "Posterize Time 12 on layer 2",
             Box::new(move |p| on(p, 1, "core.posterize_time", json!({"frame_rate": 12}))),
         ),
-        (
-            "layers 3 and 4 sliding, no motion blur",
-            Box::new(move |p| slide(p)),
-        ),
+        ("layers 3 and 4 sliding, no motion blur", Box::new(&slide)),
         (
             "layers 3 and 4 sliding, motion blur 180 degrees, 16 samples",
             Box::new(move |p| {

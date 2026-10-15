@@ -114,7 +114,7 @@ fn shot_asset(layer: u32) -> Asset {
         })
         .collect();
     Asset {
-        id: Id::new(&format!("asset-layer{layer}")),
+        id: Id::new(format!("asset-layer{layer}")),
         kind: AssetKind::ImageSequence,
         name: format!("layer{layer}"),
         path: None,
@@ -162,7 +162,7 @@ fn shot() -> Project {
         };
         let asset = shot_asset(n);
         let mut layer = Layer::new(
-            Id::new(&format!("layer-{n}")),
+            Id::new(format!("layer-{n}")),
             format!("layer{n}"),
             asset.id.clone(),
             0,

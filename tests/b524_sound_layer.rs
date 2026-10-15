@@ -277,7 +277,7 @@ fn b524_sound_layer() {
         let (w, o) = (sound_fields(&written), sound_fields(&original));
         let kept = w.len() == o.len() && w.iter().zip(&o).all(|(a, b)| same(a, b));
         t.row(
-            &format!("{file}"),
+            file,
             &if kept {
                 "as written".to_string()
             } else {

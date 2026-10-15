@@ -110,7 +110,7 @@ fn d260_a_small_picture_is_its_full_picture_shrunk() {
         "unchanged",
         if viewer.lock().unwrap().composition == shown_before
             && viewer.lock().unwrap().document.undo_labels().len() == undo_before
-            && ready_frames(&viewer, None).to_string() == ready_before
+            && ready_frames(&viewer, None) == ready_before
         {
             "unchanged".into()
         } else {

@@ -99,7 +99,7 @@ fn every_keyable_setting_on_every_effect_survives_a_save() {
                 .iter()
                 .find(|e| e.instance_id.as_str() == fx)
                 .and_then(|e| e.tracks.get(*name))
-                .map_or(true, |t| t[0].keyframes().len() != 2)
+                .is_none_or(|t| t[0].keyframes().len() != 2)
         })
         .collect();
     assert!(
@@ -128,7 +128,7 @@ fn every_keyable_setting_on_every_effect_survives_a_save() {
                 .iter()
                 .find(|e| e.instance_id.as_str() == fx)
                 .and_then(|e| e.tracks.get(*name))
-                .map_or(true, |t| t[0].keyframes().len() != 2)
+                .is_none_or(|t| t[0].keyframes().len() != 2)
         })
         .collect();
     assert!(lost.is_empty(), "these keys did not come back: {lost:?}");

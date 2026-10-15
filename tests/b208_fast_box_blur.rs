@@ -134,7 +134,7 @@ fn b208_fast_box_blur() {
     ] {
         let k = box_weights(r, n);
         let sum: f64 = k.iter().map(|&v| v as f64).sum();
-        let reach = (n as usize) * (r as f64).ceil() as usize;
+        let reach = (n as usize) * r.ceil() as usize;
         t.row(
             &format!("Radius {r}, iterations {n}: reaches {reach} pixels each side and sums to 1"),
             &format!("{} taps, sum {sum:.7}", k.len()),

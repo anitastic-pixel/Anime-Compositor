@@ -12,6 +12,7 @@
 //!   1 1 0 0;
 //! - tile width 200 shows the drawing's middle half doubled, one bilinear point a pixel:
 //!   column `j` reads the drawing at `j / 2 + 2.25`, so 0 0 0 0.25 0.75 1 1 1.
+//!
 //! Tile height works the same down, checked with the wipe turned to 180.
 
 #![recursion_limit = "256"]

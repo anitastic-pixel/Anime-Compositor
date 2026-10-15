@@ -1143,7 +1143,7 @@ impl Layer {
         layer.kind = LayerKind::Shape;
         layer.shapes = shapes;
         let centre = Value::Vec2(width as f64 / 2.0, height as f64 / 2.0);
-        layer.transform.anchor = Property::constant(centre.clone());
+        layer.transform.anchor = Property::constant(centre);
         layer.transform.position = Property::constant(centre);
         layer
     }

@@ -11,6 +11,7 @@
 //! - Scale Width 50% of size 100 is 50 across and 100 down: Size 50 at Scale Height 200%.
 //! - Cycle 1 repeats every turn, so evolution 90 and 450 degrees draw the same; Cycle 2 repeats
 //!   every two, so 90 and 810 do.
+//!
 //! The defaults draw D-128's noise unchanged: `tests/b71_fractal_noise.rs`'s fixtures still pass.
 
 use serde_json::{json, Value as J};

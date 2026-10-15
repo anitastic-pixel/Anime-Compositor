@@ -15,7 +15,7 @@
 
 use std::fmt::Write as _;
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
@@ -216,7 +216,7 @@ fn shots() -> Vec<(&'static str, Project)> {
 fn frame(
     gpu: &mut Gpu,
     project: &Project,
-    root: &PathBuf,
+    root: &Path,
     n: i32,
     quality: PreviewQuality,
 ) -> (Vec<u8>, u64) {

@@ -49,8 +49,7 @@ fn street() -> Vec<u8> {
             let star = STARS
                 .iter()
                 .any(|&(sx, sy)| x.abs_diff(sx) <= 1 && y.abs_diff(sy) <= 1);
-            let window = y >= 66
-                && y < 94
+            let window = (66..94).contains(&y)
                 && (x % 16) >= 6
                 && (x % 16) < 10
                 && (y % 12) >= 2

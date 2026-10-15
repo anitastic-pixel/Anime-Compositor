@@ -662,9 +662,7 @@ mod tests {
                 )
                 .unwrap();
         }
-        let said = png_8bit(&path)
-            .err()
-            .expect("a 20000 x 20000 drawing is refused");
+        let said = png_8bit(&path).expect_err("a 20000 x 20000 drawing is refused");
         std::fs::remove_file(&path).unwrap();
         assert!(said.detail.contains("20000x20000"), "{}", said.detail);
     }

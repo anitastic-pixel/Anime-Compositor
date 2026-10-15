@@ -40,15 +40,6 @@ fn fx(id: &str, p: &J) -> J {
     json!({"instance_id": id, "type_id": "core.turbulent_noise", "enabled": true, "parameters": all})
 }
 
-/// A setting keyed linearly through `points`, each a frame and a value.
-fn keyed(points: &[(i32, J)]) -> J {
-    let frames: Vec<J> = points
-        .iter()
-        .map(|(f, v)| json!({"frame": f, "value": v, "interp": "linear"}))
-        .collect();
-    json!({"base": points[0].1, "keyframes": frames})
-}
-
 /// `effects` on the street (in `dir`) at `frame`, drawn by the processor, straight 8-bit, with
 /// what it warned of.
 fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {

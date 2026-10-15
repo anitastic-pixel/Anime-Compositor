@@ -4460,7 +4460,7 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
             Some((x, y)) => Value::Vec2(x * by.scale.0, y * by.scale.1),
             None => v,
         },
-        &handle,
+        handle,
     );
     convert_keys(
         &mut layer.transform.rotation,
@@ -4468,7 +4468,7 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
             Some(r) => Value::Scalar(r + by.rotation),
             None => v,
         },
-        &handle,
+        handle,
     );
     // D-58. Guarded, so that a layer with no depth in a project with no camera does not
     // gain one by being parented: nothing to keep means nothing to write.
@@ -4482,7 +4482,7 @@ fn apply_keep_place(layer: &mut crate::model::Layer, by: &KeepPlace) {
                 Some(d) => Value::Scalar(d + by.depth),
                 None => v,
             },
-            &handle,
+            handle,
         );
     }
 }

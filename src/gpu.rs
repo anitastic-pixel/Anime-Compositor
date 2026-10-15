@@ -21874,13 +21874,13 @@ impl Gpu {
                 k.push(mode);
                 k.extend(linear(color));
                 k.push(bits.len() as f64);
-                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                let mut bands = vec![Vec::new(); h.div_ceil(16)];
                 for (j, bit) in bits.iter().enumerate() {
                     let b = crate::along::run_box(&[bit[0], bit[1], bit[2], bit[3], 0.0], r + 0.5);
                     k.extend(bit);
                     k.extend(b);
                     let rows = (b[2] - 0.5).floor().max(0.0) as usize
-                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
                     for band in bands
                         .iter_mut()
                         .take(rows.end() / 16 + 1)
@@ -22435,7 +22435,7 @@ impl Gpu {
                         ..
                     } => {
                         let runs = if *stroke_width != 0.0 && *opacity != 0.0 {
-                            crate::along::scribble_runs(e, (w as usize, h as usize), f.origin)
+                            crate::along::scribble_runs(e, (w, h), f.origin)
                         } else {
                             Vec::new()
                         };
@@ -22450,13 +22450,13 @@ impl Gpu {
                 let mut k = vec![*brush_size, *brush_hardness, *opacity];
                 k.extend(linear(color));
                 k.extend([style, runs.len() as f64]);
-                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                let mut bands = vec![Vec::new(); h.div_ceil(16)];
                 for (j, run) in runs.iter().enumerate() {
                     let b = crate::along::run_box(run, brush_size / 2.0 + 0.5);
                     k.extend(run);
                     k.extend(b);
                     let rows = (b[2] - 0.5).floor().max(0.0) as usize
-                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
                     for band in bands
                         .iter_mut()
                         .take(rows.end() / 16 + 1)
@@ -22478,18 +22478,17 @@ impl Gpu {
             e @ E::EnergyStroke { .. } => {
                 let n = crate::along::energy_numbers(e);
                 let mut k = n.to_vec();
-                let (bits, ends) =
-                    crate::along::energy_bits(e, (w as usize, h as usize), f.origin, &n);
+                let (bits, ends) = crate::along::energy_bits(e, (w, h), f.origin, &n);
                 k.push(bits.len() as f64);
                 // D-565: the shaped ends, before the bits.
                 k.push(ends.len() as f64);
                 k.extend(ends.concat());
-                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                let mut bands = vec![Vec::new(); h.div_ceil(16)];
                 for (j, (bit, b)) in bits.iter().enumerate() {
                     k.extend(bit);
                     k.extend(b);
                     let rows = (b[2] - 0.5).floor().max(0.0) as usize
-                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
                     for band in bands
                         .iter_mut()
                         .take(rows.end() / 16 + 1)
@@ -22513,8 +22512,7 @@ impl Gpu {
                 marks,
                 ..
             } => {
-                let marks =
-                    crate::effects::write_on_marks(marks, (w as usize, h as usize), f.origin);
+                let marks = crate::effects::write_on_marks(marks, (w, h), f.origin);
                 let style = crate::effects::PAINT_STYLES
                     .iter()
                     .position(|s| s == paint_style)
@@ -22526,7 +22524,7 @@ impl Gpu {
                     .filter(|m| m[2] != 0.0 && m[4] != 0.0)
                     .collect();
                 k.push(kept.len() as f64);
-                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                let mut bands = vec![Vec::new(); h.div_ceil(16)];
                 for (j, &[x, y, size, hardness, opacity]) in kept.iter().enumerate() {
                     let r = size / 2.0;
                     let reach = r + 0.5;
@@ -22540,7 +22538,7 @@ impl Gpu {
                     ]);
                     k.extend(b);
                     let rows = (b[2] - 0.5).floor().max(0.0) as usize
-                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
                     for band in bands
                         .iter_mut()
                         .take(rows.end() / 16 + 1)

@@ -216,7 +216,7 @@ fn b48_memory() {
                 gb((memory / 20 * 17) as u64),
                 gb(gpu.largest_budget() as u64),
             ));
-            format!("{}", gpu.about())
+            gpu.about().to_string()
         }
         Err(why) => format!("none ({why}); the card's rows are not run"),
     };

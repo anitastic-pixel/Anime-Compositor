@@ -84,7 +84,6 @@ fn both(
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first three layers.
-
 fn reference(stack: impl Fn(&str) -> J) -> Project {
     reference_masked(stack, None)
 }

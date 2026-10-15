@@ -284,18 +284,18 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
                 early.push((f, entry));
             } else if f >= duration as i64 {
                 outside.push(f);
-            } else if said.contains_key(&f) {
-                twice.push(f);
+            } else if let std::collections::btree_map::Entry::Vacant(e) = said.entry(f) {
+                e.insert(said_in(entry));
             } else {
-                said.insert(f, said_in(entry));
+                twice.push(f);
             }
         }
         // Clip Studio Paint can write a column's first drawing before frame 0, which the
         // specification does not allow. As OpenToonz reads it (xdtsio.cpp, since 23910493a1),
         // the last entry before frame 0 stands on frame 0 unless frame 0 has its own.
-        if !said.contains_key(&0) {
+        if let std::collections::btree_map::Entry::Vacant(e) = said.entry(0) {
             if let Some((f, entry)) = early.pop() {
-                said.insert(0, said_in(entry));
+                e.insert(said_in(entry));
                 notes.push(note(
                     DiagnosticId::TimesheetEntryCarriedIn,
                     json!({ "column": name, "frame": f }),
@@ -553,15 +553,15 @@ fn read_text(
         for (f, entry) in frames {
             if !(0..duration as i64).contains(&f) {
                 outside.push(f);
-            } else if said.contains_key(&f) {
-                twice.push(f);
-            } else {
+            } else if let std::collections::btree_map::Entry::Vacant(e) = said.entry(f) {
                 let values = entry
                     .get("data")
                     .and_then(J::as_array)
                     .and_then(|d| d.iter().find(|d| is(d.get("id"), 0.0)))
                     .and_then(|d| d.get("values")?.as_array().cloned());
-                said.insert(f, values);
+                e.insert(values);
+            } else {
+                twice.push(f);
             }
         }
         let (mut entries, mut orphan, mut not_text) =
