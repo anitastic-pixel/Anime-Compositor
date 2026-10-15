@@ -330,12 +330,13 @@ One row per identifier this build can print, and the table where a person can re
 | TEMPORAL_SMOOTHING_SKIPPED: the enum spells it the way the catalogue does | TEMPORAL_SMOOTHING_SKIPPED | TEMPORAL_SMOOTHING_SKIPPED | pass |
 | TEMPORAL_SMOOTHING_SKIPPED: says truthfully whether document 28 lists it | true | true | pass |
 | TEMPORAL_SMOOTHING_SKIPPED: a table somewhere shows a person this sentence | named in D-351_auto_tone_table.md | named in D-351_auto_tone_table.md | pass |
+| every identifier the build has is answered for in this list | none left out | none left out | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**224 of 224 checks pass.**
+**225 of 225 checks pass.**
 
 ## What this cannot cover
 

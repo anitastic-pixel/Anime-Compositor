@@ -23,8 +23,8 @@ fn repo(rel: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join(rel)
 }
 
-/// Every identifier this build can print, hand-listed rather than derived, so that adding a
-/// variant to `DiagnosticId` and forgetting to answer for it fails here.
+/// Every identifier this build can print, hand-listed rather than derived. A variant added to
+/// `DiagnosticId` and not answered for here fails, because the test walks `DiagnosticId::ALL`.
 ///
 /// The third column is the artifact whose table shows the identifier's own sentence to a
 /// reader; the check is that the artifact exists and names the identifier. An empty artifact
@@ -504,6 +504,23 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
             },
         );
     }
+
+    // The build's own table of identifiers, walked whole, so one added there and not here fails.
+    report.check(
+        "every identifier the build has is answered for in this list",
+        "none left out",
+        {
+            let left_out: Vec<&str> = DiagnosticId::ALL
+                .iter()
+                .filter(|id| !BUILT.iter().any(|(b, _, _)| b == *id))
+                .map(|id| id.as_str())
+                .collect();
+            match left_out.is_empty() {
+                true => "none left out".to_string(),
+                false => format!("left out: {left_out:?}"),
+            }
+        },
+    );
 
     // The one identifier that exists and is never raised. D-24 registered it, B-06 took its
     // last use away, and export still treats it as grounds for marking fidelity incomplete --

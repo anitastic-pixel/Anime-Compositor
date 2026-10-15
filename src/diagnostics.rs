@@ -31,34 +31,66 @@ impl fmt::Display for Severity {
     }
 }
 
-/// Stable machine identifiers.
-///
-/// Eight of these are **proposed additions** to document 28 rather than entries from it, and
-/// are registered as D-19, D-21 and D-24 in document 14. They are marked below. Test T-01 requires
-/// mismatched-dimension handling and document 28 has no identifier for it, so the choice was
-/// between inventing one openly and reusing an unrelated identifier, which would have been a
-/// silent reinterpretation of the catalog.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum DiagnosticId {
+/// One line per identifier: its name in the code, its spelling, and whether document 28 lists
+/// it. [`DiagnosticId::as_str`], [`DiagnosticId::in_catalog`] and [`DiagnosticId::ALL`] are all
+/// made from these lines, so an identifier cannot be added without saying both.
+macro_rules! diagnostic_ids {
+    ($($(#[$doc:meta])* $id:ident = ($spelling:literal, $listed:literal),)*) => {
+        /// Stable machine identifiers.
+        ///
+        /// Eight of these are **proposed additions** to document 28 rather than entries from it, and
+        /// are registered as D-19, D-21 and D-24 in document 14. They are marked below. Test T-01 requires
+        /// mismatched-dimension handling and document 28 has no identifier for it, so the choice was
+        /// between inventing one openly and reusing an unrelated identifier, which would have been a
+        /// silent reinterpretation of the catalog.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+        pub enum DiagnosticId {
+            $($(#[$doc])* $id,)*
+        }
+
+        impl DiagnosticId {
+            /// Every identifier, in the order below.
+            pub const ALL: &[DiagnosticId] = &[$(DiagnosticId::$id),*];
+
+            pub fn as_str(self) -> &'static str {
+                match self {
+                    $(DiagnosticId::$id => $spelling,)*
+                }
+            }
+
+            /// False for the identifiers D-19 and D-21 propose but document 28 does not yet list.
+            ///
+            /// Reports can therefore separate "the catalog said to say this" from "an agent decided
+            /// to say this", without a reader having to know document 28 by heart.
+            pub fn in_catalog(self) -> bool {
+                match self {
+                    $(DiagnosticId::$id => $listed,)*
+                }
+            }
+        }
+    };
+}
+
+diagnostic_ids! {
     /// Document 28: project requires a newer unsupported schema; do not reinterpret.
-    ProjectSchemaNewer,
+    ProjectSchemaNewer = ("PROJECT_SCHEMA_NEWER", true),
     /// Document 28: project violates the schema or an invariant; refuse model construction.
-    ProjectSchemaInvalid,
+    ProjectSchemaInvalid = ("PROJECT_SCHEMA_INVALID", true),
     /// Document 28: a save could not complete; the previous valid save is kept.
-    ProjectSaveFailed,
+    ProjectSaveFailed = ("PROJECT_SAVE_FAILED", true),
     /// Document 28: an autosave or recovery candidate exists; show the timestamp and path.
-    ProjectRecoveryAvailable,
+    ProjectRecoveryAvailable = ("PROJECT_RECOVERY_AVAILABLE", true),
     /// Document 28: referenced media unavailable; the reference is preserved.
-    MediaMissing,
+    MediaMissing = ("MEDIA_MISSING", true),
     /// Document 28: effect type not installed or implemented; the record is preserved and
     /// bypassed.
-    EffectUnsupported,
+    EffectUnsupported = ("EFFECT_UNSUPPORTED", true),
     /// Document 28: an effect parameter violates its contract. Raised when a stored value is
     /// outside what document 21 defines - a negative blur sigma, a tint amount past 1 - which
     /// can only reach the model through a hand-edited file, because the command that sets a
     /// parameter refuses it first. The effect is bypassed, never clamped: clamping would accept
     /// the number and render a different one.
-    EffectParameterInvalid,
+    EffectParameterInvalid = ("EFFECT_PARAMETER_INVALID", true),
     /// **Proposed (D-24).** A structurally valid record for a project feature this build does
     /// not implement, other than an effect. The record is preserved and takes no part in
     /// rendering.
@@ -69,63 +101,63 @@ pub enum DiagnosticId {
     /// feature. D-24 registered it, and export treats it as grounds for marking a file's fidelity
     /// incomplete. D-527: Timecode on a layer with a file says it, as information, since the
     /// file's own starting timecode is not read.
-    ProjectFeatureUnsupported,
+    ProjectFeatureUnsupported = ("PROJECT_FEATURE_UNSUPPORTED", false),
     /// Document 28: requested drawing number absent; do not substitute adjacent frame.
-    MediaSequenceGap,
+    MediaSequenceGap = ("MEDIA_SEQUENCE_GAP", true),
     /// Document 28: decoder not supported; preserve asset record, report format.
-    MediaUnsupportedFormat,
+    MediaUnsupportedFormat = ("MEDIA_UNSUPPORTED_FORMAT", true),
     /// Document 28: supported decoder failed on file.
-    MediaDecodeFailed,
+    MediaDecodeFailed = ("MEDIA_DECODE_FAILED", true),
     /// Document 28, added by D-62: an EXR file was drawn, but not exactly as stored. One reason
     /// per thing done, such as channels left unused or samples that were not numbers.
-    MediaExrAdjusted,
+    MediaExrAdjusted = ("MEDIA_EXR_ADJUSTED", true),
     /// Document 28, added by D-71: a WAV file's data ends before its header says. What is
     /// there plays.
-    MediaAudioCutShort,
+    MediaAudioCutShort = ("MEDIA_AUDIO_CUT_SHORT", true),
     /// Document 28, added by D-71: a sound file is not what its name claims. The layer is
     /// kept and silent.
-    MediaAudioUnreadable,
+    MediaAudioUnreadable = ("MEDIA_AUDIO_UNREADABLE", true),
     /// Document 28, added by D-639: a sound the core does not read (Opus). The window still
     /// plays it; exports and sound effects leave it out.
-    MediaAudioPreviewOnly,
+    MediaAudioPreviewOnly = ("MEDIA_AUDIO_PREVIEW_ONLY", true),
     /// **Proposed (D-19).** Files in one sequence disagree on pixel dimensions.
-    MediaSequenceDimensionMismatch,
+    MediaSequenceDimensionMismatch = ("MEDIA_SEQUENCE_DIMENSION_MISMATCH", false),
     /// **Proposed (D-19).** Two files in one selection claim the same frame number.
-    MediaSequenceDuplicateNumber,
+    MediaSequenceDuplicateNumber = ("MEDIA_SEQUENCE_DUPLICATE_NUMBER", false),
     /// **Proposed (D-19).** A selected file carries no frame number at all.
-    MediaSequenceUnnumbered,
+    MediaSequenceUnnumbered = ("MEDIA_SEQUENCE_UNNUMBERED", false),
     /// **Proposed (D-19).** A file joins the sequence under a name the pattern does not
     /// generate. Informational: the file is used, and its literal name is recorded.
-    MediaSequenceNameVariant,
+    MediaSequenceNameVariant = ("MEDIA_SEQUENCE_NAME_VARIANT", false),
     /// Document 28: matte ID unresolved. Raised as ERROR by a command that would create the
     /// unresolved reference; the catalog's WARNING applies to one found while loading.
-    MatteReferenceMissing,
+    MatteReferenceMissing = ("MATTE_REFERENCE_MISSING", true),
     /// Document 28: matte dependency cycle detected; reject the command.
-    MatteCycle,
+    MatteCycle = ("MATTE_CYCLE", true),
     /// Document 28, added by D-57: a parent ID no layer in the composition matches. WARNING
     /// when a loaded project holds one, in which case the reference is kept and the layer draws
     /// as if it had no parent; ERROR from a command that would create one.
-    ParentReferenceMissing,
+    ParentReferenceMissing = ("PARENT_REFERENCE_MISSING", true),
     /// Document 28, added by D-57: a parent chain that loops back on itself. Refused the way
     /// `MatteCycle` is, by both the command and the loader.
-    ParentCycle,
+    ParentCycle = ("PARENT_CYCLE", true),
     /// Document 28, added by D-67: a composition layer naming a composition the project does
     /// not have. WARNING: the reference is kept and the layer draws nothing.
-    CompositionReferenceMissing,
+    CompositionReferenceMissing = ("COMPOSITION_REFERENCE_MISSING", true),
     /// Document 28, added by D-67: a composition that would show itself, directly or through
     /// others. Refused the way `MatteCycle` is, by both the command and the loader.
-    CompositionCycle,
+    CompositionCycle = ("COMPOSITION_CYCLE", true),
     /// Document 28, added by D-58: a layer level with the camera or behind it, which has no
     /// size because `world_depth - camera_depth` is zero or negative. WARNING: the layer is not
     /// drawn for that frame, its record is untouched, and nothing is clamped into a working
     /// value. One pixel in front of the camera is not this case and is drawn enormous, which is
     /// correct.
-    CameraPlaneBehind,
+    CameraPlaneBehind = ("CAMERA_PLANE_BEHIND", true),
     /// Document 28, added by D-43: a mask outline this build refuses to draw -- fewer than
     /// three corners, or an outline that crosses itself. ERROR when a command would create
     /// one, WARNING when a project already on disk holds one, in which case the record is
     /// preserved, the layer draws unmasked, and the output says its fidelity is incomplete.
-    MaskInvalidOutline,
+    MaskInvalidOutline = ("MASK_INVALID_OUTLINE", true),
     /// Document 28, added by D-78: a shape with fewer than two points, which has nothing to fill
     /// and nothing to stroke between. ERROR when a command would create one, WARNING when a
     /// project already on disk holds one, in which case the record is preserved and that shape
@@ -134,280 +166,127 @@ pub enum DiagnosticId {
     /// A shape that crosses itself is deliberately *not* this: unlike a mask, where nobody can
     /// say which side to keep, the even-odd rule says exactly what a crossed shape fills, so it
     /// is drawn.
-    ShapeInvalidOutline,
+    ShapeInvalidOutline = ("SHAPE_INVALID_OUTLINE", true),
     /// Document 28, added by D-263: a text layer names a font this machine does not have, or a
     /// file that is not a font. WARNING per frame; the words are kept and draw nothing, and no
     /// other font is put in its place.
-    TextFontMissing,
+    TextFontMissing = ("TEXT_FONT_MISSING", true),
     /// **Proposed (D-21).** A command named a composition, layer or keyframe that is not there.
-    CommandTargetMissing,
+    CommandTargetMissing = ("COMMAND_TARGET_MISSING", false),
     /// **Proposed (D-21).** A command carried a value the model cannot hold: the wrong value
     /// kind for the property, a non-finite number, or an index outside the layer stack.
-    CommandInvalidValue,
+    CommandInvalidValue = ("COMMAND_INVALID_VALUE", false),
     /// **Proposed (D-21).** A command would have changed a locked layer.
-    CommandLayerLocked,
+    CommandLayerLocked = ("COMMAND_LAYER_LOCKED", false),
     /// Document 28: an output file could not be written; the completed frames and the failing
     /// path are reported and the job is not called successful.
-    ExportWriteFailed,
+    ExportWriteFailed = ("EXPORT_WRITE_FAILED", true),
     /// Document 28: the export was cancelled; the completed-frame list is preserved and no
     /// success is claimed.
-    ExportCancelled,
+    ExportCancelled = ("EXPORT_CANCELLED", true),
     /// **Proposed (D-28).** An export was refused before writing anything because a frame in
     /// the requested range has no source drawing. Document 07 requires a blocked final export
     /// as the default missing-frame behaviour and document 28 names no identifier for it.
-    ExportBlockedMissingMedia,
+    ExportBlockedMissingMedia = ("EXPORT_BLOCKED_MISSING_MEDIA", false),
     /// Document 28, added by D-641: an export's sound went past full level, and those samples
     /// were written at full level. WARNING; the file is written.
-    ExportSoundClipped,
+    ExportSoundClipped = ("EXPORT_SOUND_CLIPPED", true),
     /// Document 28, added by D-59: an expression that cannot be read, or that names a word, a
     /// member or a function the language does not have. ERROR, though the frame is still drawn with
     /// the property at its keyed value; an export that meets one is refused.
-    ExpressionSyntax,
+    ExpressionSyntax = ("EXPRESSION_SYNTAX", true),
     /// Document 28, added by D-59: an expression that reads but gives the wrong kind of value,
     /// or a number that is not finite.
-    ExpressionType,
+    ExpressionType = ("EXPRESSION_TYPE", true),
     /// Document 28, added by D-59: an expression naming a layer ID the composition does not hold.
-    ExpressionReferenceMissing,
+    ExpressionReferenceMissing = ("EXPRESSION_REFERENCE_MISSING", true),
     /// Document 28, added by D-59: expressions that read each other in a loop.
-    ExpressionCycle,
+    ExpressionCycle = ("EXPRESSION_CYCLE", true),
     /// Document 28, added by D-59: an expression that takes more than its steps or its depth.
-    ExpressionTimeout,
+    ExpressionTimeout = ("EXPRESSION_TIMEOUT", true),
     /// Document 28, added by D-61: collecting was refused because the destination folder holds something, or its `.partial` sibling exists.
-    PackageDestinationNotEmpty,
+    PackageDestinationNotEmpty = ("PACKAGE_DESTINATION_NOT_EMPTY", true),
     /// Document 28, added by D-61: a package could not be written; the partial folder was removed.
-    PackageWriteFailed,
+    PackageWriteFailed = ("PACKAGE_WRITE_FAILED", true),
     /// Document 28, added by D-61: a package's manifest is absent or cannot be read.
-    PackageManifestInvalid,
+    PackageManifestInvalid = ("PACKAGE_MANIFEST_INVALID", true),
     /// Document 28, added by D-61: a packaged file's size or fingerprint differs from its manifest.
-    PackageFileChanged,
+    PackageFileChanged = ("PACKAGE_FILE_CHANGED", true),
     /// Document 28, added by D-61: a file the package lists but did not copy, because its asset may not be passed on.
-    PackageMediaExcluded,
+    PackageMediaExcluded = ("PACKAGE_MEDIA_EXCLUDED", true),
     /// Document 28, added by D-61: a file is present where the manifest recorded none, so nothing can vouch for it.
-    PackageFileUnverified,
+    PackageFileUnverified = ("PACKAGE_FILE_UNVERIFIED", true),
     /// Document 28, added by D-84: the chosen folder holds no `.xdts` file, or more than one.
-    TimesheetNotFound,
+    TimesheetNotFound = ("TIMESHEET_NOT_FOUND", true),
     /// Document 28, added by D-84: the timesheet is not XDTS, or has no timetable or length.
-    TimesheetUnreadable,
+    TimesheetUnreadable = ("TIMESHEET_UNREADABLE", true),
     /// Document 28, added by D-84: no drawing column of the timesheet can become a layer.
-    TimesheetNoCells,
+    TimesheetNoCells = ("TIMESHEET_NO_CELLS", true),
     /// Document 28, added by D-84: the timesheet's version is not 5; it is read anyway.
-    TimesheetVersion,
+    TimesheetVersion = ("TIMESHEET_VERSION", true),
     /// Document 28, added by D-84: a timesheet's timetables after the first are not read.
-    TimesheetTableNotRead,
+    TimesheetTableNotRead = ("TIMESHEET_TABLE_NOT_READ", true),
     /// Document 28, added by D-84: a dialogue, camerawork or unknown field is not read.
-    TimesheetFieldNotRead,
+    TimesheetFieldNotRead = ("TIMESHEET_FIELD_NOT_READ", true),
     /// Document 28, added by D-84: a drawing column with no name makes no layer.
-    TimesheetColumnUnnamed,
+    TimesheetColumnUnnamed = ("TIMESHEET_COLUMN_UNNAMED", true),
     /// Document 28, added by D-84: an entry outside the sheet, or a second on one frame, is left out.
-    TimesheetEntryIgnored,
+    TimesheetEntryIgnored = ("TIMESHEET_ENTRY_IGNORED", true),
     /// Document 28, added by D-84: an entry before frame 0 stands on frame 0.
-    TimesheetEntryCarriedIn,
+    TimesheetEntryCarriedIn = ("TIMESHEET_ENTRY_CARRIED_IN", true),
     /// Document 28, added by D-84: a cell that is not a whole number or a symbol reads as blank.
-    TimesheetCellUnreadable,
+    TimesheetCellUnreadable = ("TIMESHEET_CELL_UNREADABLE", true),
     /// Document 28, added by D-84: a tick mark, which changes nothing shown.
-    TimesheetMark,
+    TimesheetMark = ("TIMESHEET_MARK", true),
     /// Document 28, added by D-84: a drawing column that never shows a drawing makes no layer.
-    TimesheetColumnEmpty,
+    TimesheetColumnEmpty = ("TIMESHEET_COLUMN_EMPTY", true),
     /// Document 28, added by D-84: a column with no folder and no loose files makes no layer.
-    TimesheetColumnNoDrawings,
+    TimesheetColumnNoDrawings = ("TIMESHEET_COLUMN_NO_DRAWINGS", true),
     /// Document 28, added by D-84: the sheet calls for a drawing its column does not have.
-    TimesheetDrawingMissing,
+    TimesheetDrawingMissing = ("TIMESHEET_DRAWING_MISSING", true),
     /// Document 28, added by D-84: a column has drawings the sheet never shows.
-    TimesheetDrawingUnused,
+    TimesheetDrawingUnused = ("TIMESHEET_DRAWING_UNUSED", true),
     /// Document 28, added by D-84: a folder or drawing beside the sheet that no column used.
-    TimesheetNotUsed,
+    TimesheetNotUsed = ("TIMESHEET_NOT_USED", true),
     /// **Proposed (D-101).** The viewer asked the GPU for a frame (B-44) and the CPU drew it
     /// instead, with the reason: an adjustment layer, a picture larger than the card allows, or
     /// the card failing. INFO when planned, WARNING when the card failed. Nothing is refused, so
     /// this is not document 28's GPU_BACKEND_FAILED, which is an ERROR.
-    GpuPreviewOnCpu,
+    GpuPreviewOnCpu = ("GPU_PREVIEW_ON_CPU", false),
     /// Document 28, added by D-180: a preset file that is not the preset file format, or is a
     /// newer version of it. Nothing is imported and nothing is changed.
-    PresetFileInvalid,
+    PresetFileInvalid = ("PRESET_FILE_INVALID", true),
     /// Document 28, added by D-189: an effect's layer setting naming a layer that is not in the
     /// holder's composition, deleted or of another composition. WARNING: the setting is kept
     /// as written and the effect is skipped, every frame.
-    EffectLayerMissing,
+    EffectLayerMissing = ("EFFECT_LAYER_MISSING", true),
     /// Document 28, added by D-189 and built with D-191: effects' layer settings that lead
     /// back round to a layer. ERROR: refused on command and on load, as MATTE_CYCLE is.
-    EffectLayerCycle,
+    EffectLayerCycle = ("EFFECT_LAYER_CYCLE", true),
     /// Document 28, added by D-348: an effect that reads a pass stored beside the colour in an
     /// EXR file - the depth or the normals - on a layer whose footage at that frame has none, or
     /// is not an EXR, or that has no footage. WARNING: the settings are kept and the effect is
     /// skipped, every frame.
-    EffectChannelMissing,
+    EffectChannelMissing = ("EFFECT_CHANNEL_MISSING", true),
     /// Document 28, added by D-407: an effect that would grow the layer past what this build can
     /// hold - a Detail-preserving Upscale wider or taller than 30000 pixels, or whose memory
     /// cannot be had. WARNING: the settings are kept and the effect is skipped, every frame.
-    EffectLayerTooLarge,
+    EffectLayerTooLarge = ("EFFECT_LAYER_TOO_LARGE", true),
     /// Document 28, added by D-356: an effect that draws along the layer's masks (Path Stroke)
     /// on a layer with no such mask at that frame - none numbered so, or none enabled with two
     /// points or more. WARNING: the settings are kept and the layer is left as it is, every frame.
-    EffectPathMissing,
+    EffectPathMissing = ("EFFECT_PATH_MISSING", true),
     /// Document 28, added by D-420: an effect that listens to a sound layer (Audio Spectrum)
     /// whose Audio Layer is a layer that holds no sound. WARNING: the settings are kept and the
     /// layer is left as it is, every frame.
-    EffectSoundMissing,
+    EffectSoundMissing = ("EFFECT_SOUND_MISSING", true),
     /// Document 28, added by D-350: a text animator on a layer that is not a text layer, which has
     /// no letters to move. WARNING every frame; the animator is kept and changes nothing.
-    TextAnimatorNoText,
+    TextAnimatorNoText = ("TEXT_ANIMATOR_NO_TEXT", true),
     /// Document 28, added by D-351: a Stretch effect with temporal smoothing on an adjustment
     /// layer, where the frames beneath at other times are not to hand. WARNING every frame; each
     /// frame is stretched by itself and the setting is kept.
-    TemporalSmoothingSkipped,
-}
-
-impl DiagnosticId {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            DiagnosticId::ProjectSchemaNewer => "PROJECT_SCHEMA_NEWER",
-            DiagnosticId::ProjectSchemaInvalid => "PROJECT_SCHEMA_INVALID",
-            DiagnosticId::ProjectSaveFailed => "PROJECT_SAVE_FAILED",
-            DiagnosticId::ProjectRecoveryAvailable => "PROJECT_RECOVERY_AVAILABLE",
-            DiagnosticId::MediaMissing => "MEDIA_MISSING",
-            DiagnosticId::EffectUnsupported => "EFFECT_UNSUPPORTED",
-            DiagnosticId::EffectParameterInvalid => "EFFECT_PARAMETER_INVALID",
-            DiagnosticId::ProjectFeatureUnsupported => "PROJECT_FEATURE_UNSUPPORTED",
-            DiagnosticId::MediaSequenceGap => "MEDIA_SEQUENCE_GAP",
-            DiagnosticId::MediaUnsupportedFormat => "MEDIA_UNSUPPORTED_FORMAT",
-            DiagnosticId::MediaDecodeFailed => "MEDIA_DECODE_FAILED",
-            DiagnosticId::MediaExrAdjusted => "MEDIA_EXR_ADJUSTED",
-            DiagnosticId::MediaAudioCutShort => "MEDIA_AUDIO_CUT_SHORT",
-            DiagnosticId::MediaAudioUnreadable => "MEDIA_AUDIO_UNREADABLE",
-            DiagnosticId::MediaAudioPreviewOnly => "MEDIA_AUDIO_PREVIEW_ONLY",
-            DiagnosticId::MediaSequenceDimensionMismatch => "MEDIA_SEQUENCE_DIMENSION_MISMATCH",
-            DiagnosticId::MediaSequenceDuplicateNumber => "MEDIA_SEQUENCE_DUPLICATE_NUMBER",
-            DiagnosticId::MediaSequenceUnnumbered => "MEDIA_SEQUENCE_UNNUMBERED",
-            DiagnosticId::MediaSequenceNameVariant => "MEDIA_SEQUENCE_NAME_VARIANT",
-            DiagnosticId::MatteReferenceMissing => "MATTE_REFERENCE_MISSING",
-            DiagnosticId::MatteCycle => "MATTE_CYCLE",
-            DiagnosticId::ParentReferenceMissing => "PARENT_REFERENCE_MISSING",
-            DiagnosticId::CompositionReferenceMissing => "COMPOSITION_REFERENCE_MISSING",
-            DiagnosticId::CompositionCycle => "COMPOSITION_CYCLE",
-            DiagnosticId::ParentCycle => "PARENT_CYCLE",
-            DiagnosticId::CameraPlaneBehind => "CAMERA_PLANE_BEHIND",
-            DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
-            DiagnosticId::ShapeInvalidOutline => "SHAPE_INVALID_OUTLINE",
-            DiagnosticId::TextFontMissing => "TEXT_FONT_MISSING",
-            DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
-            DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
-            DiagnosticId::CommandLayerLocked => "COMMAND_LAYER_LOCKED",
-            DiagnosticId::ExportWriteFailed => "EXPORT_WRITE_FAILED",
-            DiagnosticId::ExportCancelled => "EXPORT_CANCELLED",
-            DiagnosticId::ExportBlockedMissingMedia => "EXPORT_BLOCKED_MISSING_MEDIA",
-            DiagnosticId::ExportSoundClipped => "EXPORT_SOUND_CLIPPED",
-            DiagnosticId::ExpressionSyntax => "EXPRESSION_SYNTAX",
-            DiagnosticId::ExpressionType => "EXPRESSION_TYPE",
-            DiagnosticId::ExpressionReferenceMissing => "EXPRESSION_REFERENCE_MISSING",
-            DiagnosticId::ExpressionCycle => "EXPRESSION_CYCLE",
-            DiagnosticId::ExpressionTimeout => "EXPRESSION_TIMEOUT",
-            DiagnosticId::PackageDestinationNotEmpty => "PACKAGE_DESTINATION_NOT_EMPTY",
-            DiagnosticId::PackageWriteFailed => "PACKAGE_WRITE_FAILED",
-            DiagnosticId::PackageManifestInvalid => "PACKAGE_MANIFEST_INVALID",
-            DiagnosticId::PackageFileChanged => "PACKAGE_FILE_CHANGED",
-            DiagnosticId::PackageMediaExcluded => "PACKAGE_MEDIA_EXCLUDED",
-            DiagnosticId::PackageFileUnverified => "PACKAGE_FILE_UNVERIFIED",
-            DiagnosticId::TimesheetNotFound => "TIMESHEET_NOT_FOUND",
-            DiagnosticId::TimesheetUnreadable => "TIMESHEET_UNREADABLE",
-            DiagnosticId::TimesheetNoCells => "TIMESHEET_NO_CELLS",
-            DiagnosticId::TimesheetVersion => "TIMESHEET_VERSION",
-            DiagnosticId::TimesheetTableNotRead => "TIMESHEET_TABLE_NOT_READ",
-            DiagnosticId::TimesheetFieldNotRead => "TIMESHEET_FIELD_NOT_READ",
-            DiagnosticId::TimesheetColumnUnnamed => "TIMESHEET_COLUMN_UNNAMED",
-            DiagnosticId::TimesheetEntryIgnored => "TIMESHEET_ENTRY_IGNORED",
-            DiagnosticId::TimesheetEntryCarriedIn => "TIMESHEET_ENTRY_CARRIED_IN",
-            DiagnosticId::TimesheetCellUnreadable => "TIMESHEET_CELL_UNREADABLE",
-            DiagnosticId::TimesheetMark => "TIMESHEET_MARK",
-            DiagnosticId::TimesheetColumnEmpty => "TIMESHEET_COLUMN_EMPTY",
-            DiagnosticId::TimesheetColumnNoDrawings => "TIMESHEET_COLUMN_NO_DRAWINGS",
-            DiagnosticId::TimesheetDrawingMissing => "TIMESHEET_DRAWING_MISSING",
-            DiagnosticId::TimesheetDrawingUnused => "TIMESHEET_DRAWING_UNUSED",
-            DiagnosticId::TimesheetNotUsed => "TIMESHEET_NOT_USED",
-            DiagnosticId::GpuPreviewOnCpu => "GPU_PREVIEW_ON_CPU",
-            DiagnosticId::PresetFileInvalid => "PRESET_FILE_INVALID",
-            DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
-            DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
-            DiagnosticId::EffectChannelMissing => "EFFECT_CHANNEL_MISSING",
-            DiagnosticId::EffectLayerTooLarge => "EFFECT_LAYER_TOO_LARGE",
-            DiagnosticId::EffectPathMissing => "EFFECT_PATH_MISSING",
-            DiagnosticId::EffectSoundMissing => "EFFECT_SOUND_MISSING",
-            DiagnosticId::TextAnimatorNoText => "TEXT_ANIMATOR_NO_TEXT",
-            DiagnosticId::TemporalSmoothingSkipped => "TEMPORAL_SMOOTHING_SKIPPED",
-        }
-    }
-
-    /// False for the identifiers D-19 and D-21 propose but document 28 does not yet list.
-    ///
-    /// Reports can therefore separate "the catalog said to say this" from "an agent decided
-    /// to say this", without a reader having to know document 28 by heart.
-    pub fn in_catalog(self) -> bool {
-        matches!(
-            self,
-            DiagnosticId::ProjectSchemaNewer
-                | DiagnosticId::ProjectSchemaInvalid
-                | DiagnosticId::ProjectSaveFailed
-                | DiagnosticId::ProjectRecoveryAvailable
-                | DiagnosticId::MediaMissing
-                | DiagnosticId::EffectUnsupported
-                | DiagnosticId::EffectParameterInvalid
-                | DiagnosticId::MediaSequenceGap
-                | DiagnosticId::MediaUnsupportedFormat
-                | DiagnosticId::MediaDecodeFailed
-                | DiagnosticId::MediaExrAdjusted
-                | DiagnosticId::MediaAudioCutShort
-                | DiagnosticId::MediaAudioUnreadable
-                | DiagnosticId::MediaAudioPreviewOnly
-                | DiagnosticId::MatteReferenceMissing
-                | DiagnosticId::MatteCycle
-                | DiagnosticId::ParentReferenceMissing
-                | DiagnosticId::ParentCycle
-                | DiagnosticId::CompositionReferenceMissing
-                | DiagnosticId::CompositionCycle
-                | DiagnosticId::CameraPlaneBehind
-                | DiagnosticId::MaskInvalidOutline
-                | DiagnosticId::ShapeInvalidOutline
-                | DiagnosticId::TextFontMissing
-                | DiagnosticId::ExportWriteFailed
-                | DiagnosticId::ExportCancelled
-                | DiagnosticId::ExportSoundClipped
-                | DiagnosticId::ExpressionSyntax
-                | DiagnosticId::ExpressionType
-                | DiagnosticId::ExpressionReferenceMissing
-                | DiagnosticId::ExpressionCycle
-                | DiagnosticId::ExpressionTimeout
-                | DiagnosticId::PackageDestinationNotEmpty
-                | DiagnosticId::PackageWriteFailed
-                | DiagnosticId::PackageManifestInvalid
-                | DiagnosticId::PackageFileChanged
-                | DiagnosticId::PackageMediaExcluded
-                | DiagnosticId::PackageFileUnverified
-                | DiagnosticId::TimesheetNotFound
-                | DiagnosticId::TimesheetUnreadable
-                | DiagnosticId::TimesheetNoCells
-                | DiagnosticId::TimesheetVersion
-                | DiagnosticId::TimesheetTableNotRead
-                | DiagnosticId::TimesheetFieldNotRead
-                | DiagnosticId::TimesheetColumnUnnamed
-                | DiagnosticId::TimesheetEntryIgnored
-                | DiagnosticId::TimesheetEntryCarriedIn
-                | DiagnosticId::TimesheetCellUnreadable
-                | DiagnosticId::TimesheetMark
-                | DiagnosticId::TimesheetColumnEmpty
-                | DiagnosticId::TimesheetColumnNoDrawings
-                | DiagnosticId::TimesheetDrawingMissing
-                | DiagnosticId::TimesheetDrawingUnused
-                | DiagnosticId::TimesheetNotUsed
-                | DiagnosticId::PresetFileInvalid
-                | DiagnosticId::EffectLayerMissing
-                | DiagnosticId::EffectLayerCycle
-                | DiagnosticId::EffectChannelMissing
-                | DiagnosticId::EffectLayerTooLarge
-                | DiagnosticId::EffectPathMissing
-                | DiagnosticId::EffectSoundMissing
-                | DiagnosticId::TextAnimatorNoText
-                | DiagnosticId::TemporalSmoothingSkipped
-        )
-    }
+    TemporalSmoothingSkipped = ("TEMPORAL_SMOOTHING_SKIPPED", true),
 }
 
 impl fmt::Display for DiagnosticId {
