@@ -951,6 +951,33 @@ pub struct Layer {
     /// D-323: a raster or composition layer's Time Remap, the source frame it shows, keyed and
     /// read at the key time; `None` is off. Saved as `time_remap` only when on.
     pub time_remap: Option<Property>,
+    /// ADR-008: the record this layer was read from, which saving writes over.
+    pub record: FileRecord,
+}
+
+/// ADR-008: the file record a layer, effect, mask or shape was read from, kept whole so that
+/// what this build does not know travels with it -- through a copy, a paste, a pre-compose or a
+/// neighbour's deletion -- and saving writes the model over it. Empty on one made here.
+///
+/// Shared rather than copied, because masks and effects are cloned every frame; and no part of
+/// equality, because it never changes the picture and a cache key must not miss over it.
+#[derive(Clone, Debug, Default)]
+pub struct FileRecord(Option<std::sync::Arc<serde_json::Value>>);
+
+impl FileRecord {
+    pub fn new(record: &serde_json::Value) -> Self {
+        FileRecord(Some(std::sync::Arc::new(record.clone())))
+    }
+
+    pub fn get(&self) -> Option<&serde_json::Value> {
+        self.0.as_deref()
+    }
+}
+
+impl PartialEq for FileRecord {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
 }
 
 /// D-84: which column of which timesheet a layer's exposures were read from.
@@ -1006,6 +1033,7 @@ impl Layer {
             frame_blend: false,
             drawing_dissolve: 0,
             time_remap: None,
+            record: FileRecord::default(),
         }
     }
 

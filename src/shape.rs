@@ -371,6 +371,8 @@ pub struct Shape {
     /// their frames. The fill's and stroke's own numbers are the bases. A style without keys has
     /// no entry, as an effect's setting has none (D-68).
     pub tracks: BTreeMap<String, Vec<Property>>,
+    /// ADR-008: the record this shape was read from, which saving writes over.
+    pub record: crate::model::FileRecord,
 }
 
 impl Default for Shape {
@@ -385,6 +387,7 @@ impl Default for Shape {
             stroke: None,
             trim: None,
             tracks: BTreeMap::new(),
+            record: Default::default(),
         }
     }
 }

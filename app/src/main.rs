@@ -17152,6 +17152,32 @@ mod editing {
         comp.layer(&Id::new(id)).map(read)
     }
 
+    /// ADR-008: an effect this build does not have keeps its settings and its unknown record on
+    /// every copy the window makes of its layer -- Duplicate, Split, and Copy, Delete, Paste.
+    #[test]
+    fn an_unknown_effect_travels_with_every_copy_of_its_layer() {
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        run(&viewer, "layer.duplicate?layer=layer-cel");
+        run(&viewer, "layer.split?layer=layer-cel&frame=2");
+        run(&viewer, "layer.copy?layer=layer-cel");
+        run(&viewer, "layer.delete?layer=layer-cel");
+        run(&viewer, "layer.paste");
+        let saved: serde_json::Value = {
+            let held = held(&viewer);
+            serde_json::from_str(&persist::to_json(held.document.project(), &held.preserved)).unwrap()
+        };
+        let layers = saved["compositions"][0]["layers"].as_array().expect("layers");
+        assert_eq!(layers.len(), 3, "the duplicate, the split-off half and the pasted copy");
+        for layer in layers {
+            let effect = &layer["effects"][0];
+            assert_eq!(effect["parameters"], serde_json::json!({"strength": 0.5}), "{}", layer["id"]);
+            assert_eq!(effect["opaque_unknown_data"], serde_json::json!({"keep_me": true}), "{}", layer["id"]);
+        }
+    }
+
     #[test]
     fn the_panels_change_the_document_and_only_through_commands() {
         let mut report = Report { rows: Vec::new() };

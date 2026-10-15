@@ -223,13 +223,13 @@ fn b24b_masks() {
     let written_json: J = serde_json::from_str(&written).unwrap();
     let layer = &written_json["compositions"][0]["layers"][0];
     t.row(
-        "and saving it writes `masks` and no `mask` key at all",
+        "and saving it writes `masks`, and the old `mask` key only as null, which reads as no mask (ADR-008: the layer keeps its file record, so this is what every save writes)",
         &format!(
             "masks: {}, mask: {}",
             layer["masks"].is_array(),
-            layer.get("mask").map_or("absent", |_| "present")
+            layer.get("mask").map_or("absent", |m| if m.is_null() { "null" } else { "present" })
         ),
-        layer["masks"].is_array() && layer.get("mask").is_none(),
+        layer["masks"].is_array() && layer.get("mask").is_none_or(|m| m.is_null()),
     );
     t.row(
         "the written mask holds its path as a base of points with both handles",

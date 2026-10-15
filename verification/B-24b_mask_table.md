@@ -74,7 +74,7 @@ FX-MSK-001 is the one that says nothing moved: it is the rectangle B-06 drew, wr
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | fx_msk_002.json's old `mask` key reads as one Add mask at full opacity, no feather, no expansion, no handles, named Mask 1 | 1 mask, name "Mask 1", mode add, opacity 1, feather 0, expansion 0, handles all zero: true | yes |
-| and saving it writes `masks` and no `mask` key at all | masks: true, mask: absent | yes |
+| and saving it writes `masks`, and the old `mask` key only as null, which reads as no mask (ADR-008: the layer keeps its file record, so this is what every save writes) | masks: true, mask: null | yes |
 | the written mask holds its path as a base of points with both handles | {"in":[0,0],"out":[0,0],"point":[0,0]} | yes |
 | and it opens again as the same project | equal | yes |
 | fx_msk_016.json's handles survive a save and a load, to the last bit | MaskPoint { point: (3.0, 0.0), in_handle: (-0.5522847498307936, 0.0), out_handle: (0.5522847498307936, 0.0) } | yes |

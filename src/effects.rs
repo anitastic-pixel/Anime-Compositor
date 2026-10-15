@@ -51,6 +51,9 @@ pub struct EffectInstance {
     /// D-202: how much of the effect's result is kept, 0 to 100 per cent, laid over what it was
     /// given. Its keys, when it has any, are `tracks["mix"]`.
     pub mix: f64,
+    /// ADR-008: the record this instance was read from, which saving writes over. All an
+    /// effect this build does not have is written from.
+    pub record: crate::model::FileRecord,
 }
 
 impl EffectInstance {
@@ -61,6 +64,7 @@ impl EffectInstance {
             effect,
             tracks: BTreeMap::new(),
             mix: 100.0,
+            record: Default::default(),
         }
     }
 
@@ -379,6 +383,7 @@ impl EffectInstance {
             effect,
             tracks: BTreeMap::new(),
             mix,
+            record: Default::default(),
         }
     }
 

@@ -625,7 +625,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         // D-642: its sound effects, only when it has any; an emptied list is taken out.
         if !layer.effects.is_empty() {
-            let effects = layer.effects.iter().map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e));
+            let effects = layer.effects.iter().map(|e| effect_json(e.record.get(), e));
             owned.push(("effects", J::Array(effects.collect())));
         }
         let mut json = merge(base, owned);
@@ -661,9 +661,8 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         None => J::Null,
     };
-    // Each mask merges over whatever the file held at the same place in the list, the way the
-    // matte does, so a key this build does not know about inside a mask record survives the
-    // round trip. B-24d writes a path's `keyframes` from the model rather than inheriting them,
+    // Each mask merges over the record it was read from (ADR-008), so a key this build does not
+    // know about inside a mask record survives the round trip, and stays with its own mask. B-24d writes a path's `keyframes` from the model rather than inheriting them,
     // because from B-24d on the build moves them. D-77: the `masks` list is written and the old
     // single `mask` key never is, so a file saved by this build and opened by one older than it
     // has no mask rather than a disagreeing pair.
@@ -682,8 +681,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 .collect(),
         )
     };
-    // D-77's `path` record, written from the model and merged over whatever the file held at the
-    // same place. One writer for a mask's path and a shape's path, because D-78 makes them one
+    // D-77's `path` record, written from the model and merged over the one it was read from. One writer for a mask's path and a shape's path, because D-78 makes them one
     // record.
     let path_json = |was: Option<&Map<String, J>>,
                      points: &[crate::mask::MaskPoint],
@@ -730,17 +728,11 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         );
         J::Object(path)
     };
-    let base_masks = base
-        .and_then(|b| b.get("masks"))
-        .and_then(J::as_array)
-        .map(|a| a.as_slice())
-        .unwrap_or(&[]);
     let masks: Vec<J> = layer
         .masks
         .iter()
-        .enumerate()
-        .map(|(i, m)| {
-            let was = base_masks.get(i).and_then(J::as_object);
+        .map(|m| {
+            let was = m.record.get().and_then(J::as_object);
             let mut map = was.cloned().unwrap_or_else(Map::new);
             map.insert("name".into(), J::from(m.name.as_str()));
             map.insert("enabled".into(), J::from(m.enabled));
@@ -791,19 +783,13 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         owned.push(("mask", J::Null));
     }
     // D-78: a shape layer's drawing is its `shapes` list, written from the model and merged over
-    // what the file held at the same place, as the masks are.
+    // the record each was read from, as the masks are.
     if layer.kind == LayerKind::Shape {
-        let base_shapes = base
-            .and_then(|b| b.get("shapes"))
-            .and_then(J::as_array)
-            .map(|a| a.as_slice())
-            .unwrap_or(&[]);
         let shapes: Vec<J> = layer
             .shapes
             .iter()
-            .enumerate()
-            .map(|(i, s)| {
-                let was = base_shapes.get(i).and_then(J::as_object);
+            .map(|s| {
+                let was = s.record.get().and_then(J::as_object);
                 let mut map = was.cloned().unwrap_or_else(Map::new);
                 map.insert("name".into(), J::from(s.name.as_str()));
                 map.insert("enabled".into(), J::from(s.enabled));
@@ -902,7 +888,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     let effects: Vec<J> = layer
         .effects
         .iter()
-        .map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e))
+        .map(|e| effect_json(e.record.get(), e))
         .collect();
     if let Some(s) = &layer.solid {
         let mut map = base
@@ -1072,18 +1058,6 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
     }
     merged
-}
-
-/// The effect record this instance was read from, so that keys this build does not know about
-/// -- the fixture's `opaque_unknown_data`, a `contract_version` a later schema adds -- survive a
-/// round trip. Matched on `instance_id`, which document 07 requires be stable and which is why
-/// reordering a stack does not lose anything.
-fn effect_base<'a>(base: Option<&'a J>, instance_id: &str) -> Option<&'a J> {
-    base?
-        .get("effects")?
-        .as_array()?
-        .iter()
-        .find(|e| e.get("instance_id").and_then(J::as_str) == Some(instance_id))
 }
 
 /// One effect instance as JSON.
@@ -5106,7 +5080,7 @@ fn track_json(track: &[Property], plain: J) -> J {
 fn composition_json(base: Option<&J>, composition: &Composition) -> J {
     let layers: Vec<J> = composition
         .layers_in_order()
-        .map(|layer| layer_json(by_id(base, "layers", layer.id.as_str()), layer))
+        .map(|layer| layer_json(layer.record.get(), layer))
         .collect();
     let mut rate = Map::new();
     rate.insert(
@@ -9438,6 +9412,7 @@ fn parse_effect(
                 effect: e.clone(),
                 tracks: tracks.clone(),
                 mix,
+                record: Default::default(),
             };
             if let Some(why) = whole.fault() {
                 warnings.push(
@@ -9488,6 +9463,7 @@ fn parse_effect(
         effect: effect_value,
         tracks,
         mix,
+        record: crate::model::FileRecord::new(effect),
     })
 }
 
@@ -10080,6 +10056,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         frame_blend,
         drawing_dissolve,
         time_remap,
+        record: crate::model::FileRecord::new(v),
     })
 }
 
@@ -10330,6 +10307,7 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
                 })
             }
         },
+        record: crate::model::FileRecord::new(v),
     };
     match shape.problem() {
         Some(p) => Err(invalid(at, &p)),
@@ -10459,6 +10437,7 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
         expansion_px,
         points,
         tracks,
+        record: crate::model::FileRecord::new(v),
     })
     .and_then(|m| match m.out_of_range() {
         // D-298: the plain numbers were held to D-77's ranges above; this is every key's.
@@ -10718,6 +10697,7 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic
             layer.effects.push(parsed);
         }
     }
+    layer.record = crate::model::FileRecord::new(v);
     Ok(layer)
 }
 

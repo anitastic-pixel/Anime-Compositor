@@ -174,6 +174,8 @@ pub struct Mask {
     /// number's own field is the base. A number without keys has no entry, as a shape's style
     /// has none (D-170).
     pub tracks: BTreeMap<String, Property>,
+    /// ADR-008: the record this mask was read from, which saving writes over.
+    pub record: crate::model::FileRecord,
 }
 
 /// D-298: a mask's three numbers that take keys, by the names the window gives them.
@@ -192,6 +194,7 @@ impl Default for Mask {
             points: Vec::new(),
             keys: Vec::new(),
             tracks: BTreeMap::new(),
+            record: Default::default(),
         }
     }
 }
