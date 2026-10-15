@@ -5422,13 +5422,15 @@ fn a_shot_is_collected_and_checked_from_the_window() {
         PACKAGE_PANEL_INTRO,
         PACKAGE_PANEL_NOTES,
     );
-    let failed: Vec<&String> = report
+    // What each failed check got, not only its name: this one has failed about once in twenty
+    // full runs and passed every time alone, and the table is overwritten by the next run.
+    let failed: Vec<(&String, &String)> = report
         .rows
         .iter()
         .filter(|(_, e, a)| e != a)
-        .map(|(c, _, _)| c)
+        .map(|(c, _, a)| (c, a))
         .collect();
-    assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    assert!(failed.is_empty(), "these checks failed, with what they got: {failed:#?}");
 }
 
 const PACKAGE_PANEL_INTRO: &[&str] = &[
