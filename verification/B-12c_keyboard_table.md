@@ -37,7 +37,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | and a focused row is chosen with Enter or Space, which is what a click does | true | true | pass |
 | and a focused drag handle is moved with the arrow keys, which is what a drag does | true | true | pass |
 | every menu line and top bar button the page runs by name is a line of the command palette | all of them are | all of them are | pass |
-| the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, 2, 3, 4, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, H, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, Q, R, S, Space, T, U, V, Y, Z, [, ] | *, ,, -, ., 1, 2, 3, 4, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F2, F3, F9, G, H, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, Q, R, S, Space, T, U, V, Y, Z, [, ] | pass |
+| the keys the window answers with nothing focused are the ones written down here | *, ,, -, ., 1, 2, 3, 4, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F, F2, F3, F9, G, H, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, Q, R, S, Space, T, U, V, Y, Z, [, ] | *, ,, -, ., 1, 2, 3, 4, =, ?, A, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, B, C, D, Delete, E, End, Enter, Escape, F, F2, F3, F9, G, H, Home, I, J, K, L, M, N, O, P, PageDown, PageUp, Q, R, S, Space, T, U, V, Y, Z, [, ] | pass |
 | `alone` can be asked for without a mouse | yes | yes | pass |
 | `asset.set_redistribute` can be asked for without a mouse | yes | yes | pass |
 | `boxes` can be asked for without a mouse | yes | yes | pass |
