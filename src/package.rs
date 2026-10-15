@@ -307,7 +307,8 @@ pub fn collect_limited(
             fs::copy(source, target)?;
         }
         step()?;
-        fs::write(partial.join(&name), &text)?;
+        persist::write_checked(&partial.join(&name), &text, None)
+            .map_err(|d| io::Error::other(d.detail))?;
         step()?;
         fs::write(partial.join(MANIFEST), &manifest)?;
         if dest.is_dir() {

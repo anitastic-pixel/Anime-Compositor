@@ -11798,12 +11798,20 @@ pub fn save_limited(
     preserved: &Preserved,
     byte_limit: Option<u64>,
 ) -> Result<(), Diagnostic> {
-    let text = to_json(document.project(), preserved);
+    write_checked(path, &to_json(document.project(), preserved), byte_limit)?;
+    document.mark_saved();
+    Ok(())
+}
 
-    // Document 07: "Validate before writing." The check is that the text just produced loads
-    // back as a project; a file that cannot be reopened must never reach the disk under the
-    // name of one that could.
-    if let Err(e) = load_str(&text) {
+/// The one writer of project text: a save, an autosave and a package's project file all go
+/// through it, so each is checked and replaced the same way.
+///
+/// Document 07: "Validate before writing." The check is that the text loads back as a
+/// project; a file that cannot be reopened must never reach the disk under the name of one
+/// that could. The text then goes to a sibling temporary file, is synced, and only then
+/// renamed over `path`, so a failed write leaves the old file whole (FX-IO-001, FX-IO-002).
+pub(crate) fn write_checked(path: &Path, text: &str, byte_limit: Option<u64>) -> Result<(), Diagnostic> {
+    if let Err(e) = load_str(text) {
         return Err(save_failed(
             path,
             format!(
@@ -11823,16 +11831,13 @@ pub fn save_limited(
         fs::rename(&temp, path)
     })();
 
-    if let Err(e) = outcome {
+    outcome.map_err(|e| {
         // The partial temporary file is the only thing that could have been created, and it
         // is not the project. Removing it is a courtesy; failing to remove it is not a second
         // error to report over the first.
         let _ = fs::remove_file(&temp);
-        return Err(save_failed(path, e.to_string()));
-    }
-
-    document.mark_saved();
-    Ok(())
+        save_failed(path, e.to_string())
+    })
 }
 
 // ---------------------------------------------------------------------------------------
@@ -11941,33 +11946,16 @@ pub fn autosave(
     let slot = slot.unwrap_or_else(|| oldest.expect("AUTOSAVE_SLOTS is not zero").0);
     let path = autosave_path(project_path, slot);
 
-    let text = to_json(document.project(), preserved);
-    let temp = temp_sibling(&path);
-    let outcome = (|| -> io::Result<()> {
-        let mut file = File::create(&temp)?;
-        file.write_all(text.as_bytes())?;
-        file.flush()?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temp, &path)
-    })();
-    match outcome {
-        Ok(()) => {
-            // Document 07 promises recovery opens the newest snapshot, and both the rotation
-            // above and `recovery_candidates` read "newest" off the file system's modification
-            // time. Windows records that time coarsely enough that two snapshots written in the
-            // same millisecond tie, and a tie is exactly where the promise breaks: the eighth
-            // snapshot of `verification/B-09_recovery_table.md` tied with the seventh in one run
-            // of five and the older of the two was offered. So the writer states the order
-            // rather than hoping the clock ticked between two writes.
-            let _ = stamp_newest(project_path, &path);
-            Ok(path)
-        }
-        Err(e) => {
-            let _ = fs::remove_file(&temp);
-            Err(save_failed(&path, e.to_string()))
-        }
-    }
+    write_checked(&path, &to_json(document.project(), preserved), None)?;
+    // Document 07 promises recovery opens the newest snapshot, and both the rotation above and
+    // `recovery_candidates` read "newest" off the file system's modification time. Windows
+    // records that time coarsely enough that two snapshots written in the same millisecond
+    // tie, and a tie is exactly where the promise breaks: the eighth snapshot of
+    // `verification/B-09_recovery_table.md` tied with the seventh in one run of five and the
+    // older of the two was offered. So the writer states the order rather than hoping the
+    // clock ticked between two writes.
+    let _ = stamp_newest(project_path, &path);
+    Ok(path)
 }
 
 /// Give the snapshot just written a modification time strictly later than every other snapshot
