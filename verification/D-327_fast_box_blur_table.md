@@ -77,7 +77,7 @@ From P-26: tutorials 2 and 3 blur with After Effects' Fast Box Blur, which the r
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | fx_fastbox_001.json: the preview draws the same picture as the CPU, within 1 level of 255 | card, largest difference 0 of 255 | yes |
-| fx_fastbox_004.json: the preview draws the same picture as the CPU, within 1 level of 255 | card, largest difference 1 of 255 | yes |
+| fx_fastbox_004.json: the preview draws the same picture as the CPU, within 1 level of 255 | card, largest difference 0 of 255 | yes |
 | fx_fastbox_007.json: the preview draws the same picture as the CPU, within 1 level of 255 | CPU, largest difference 0 of 255 | yes |
 
 ## Pictures: a white square, in `verification/D-327 pictures/`, over black

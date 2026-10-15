@@ -49,7 +49,7 @@ fn d260_a_small_picture_is_its_full_picture_shrunk() {
 
     let undo_before = viewer.lock().unwrap().document.undo_labels().len();
     let shown_before = viewer.lock().unwrap().composition.clone();
-    let ready_before = ready_frames(&viewer, None).to_string();
+    let ready_before = ready_frames(&viewer, None);
 
     let drawing = anime_compositor::media::decode(&root.join("layer2/layer2_000.png"))
         .expect("decode the drawing")
