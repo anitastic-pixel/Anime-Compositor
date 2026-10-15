@@ -468,6 +468,9 @@ fn property_json(base: Option<&J>, property: &Property, factor: f64) -> J {
     );
     // D-59: the text and its switch, or no field at all when the property has no expression.
     let map = out.as_object_mut().expect("merge makes an object");
+    // D-69: a position joined since it was read drops the X and Y its record still holds.
+    map.remove("x");
+    map.remove("y");
     match property.expression() {
         Some(e) => {
             let mut m = Map::new();

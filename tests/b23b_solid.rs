@@ -197,16 +197,13 @@ fn b23b_solid() {
     let keys = keys_in_order(&written, "matte");
     let file_text = fs::read_to_string(root().join("fx_sol_006.json")).unwrap();
     let file: J = serde_json::from_str(&file_text).unwrap();
-    // D-77 retired the single `mask` key: a layer with no mask writes neither it nor an empty
-    // `masks` list, so the fixture's `mask` is the one key that is no longer written back.
-    let file_keys: Vec<String> = keys_in_order(&file_text, "matte")
-        .into_iter()
-        .filter(|k| k != "mask")
-        .collect();
+    // D-77 retired the single `mask` key, and ADR-008 has the layer keep its file record, so the
+    // fixture's `mask: null` is written back as it was read: null reads as no mask.
+    let file_keys: Vec<String> = keys_in_order(&file_text, "matte");
     t.row(
-        "fx_sol_006.json's solid written back: the fixture's keys in the fixture's order, apart from the retired `mask`, and no asset_id, exposures or source offset",
+        "fx_sol_006.json's solid written back: the fixture's keys in the fixture's order, the retired `mask` only as null, and no asset_id, exposures or source offset",
         &keys.join(", "),
-        keys == file_keys,
+        keys == file_keys && layer.get("mask").is_none_or(|m| m.is_null()),
     );
     t.row(
         "and its record written back",

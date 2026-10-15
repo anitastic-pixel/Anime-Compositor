@@ -55,6 +55,12 @@ jobs:
             if ($lines[$i] -match '^test .+ FAILED$|^error: test failed') { $lines[$i] }
             elseif ($lines[$i] -match 'panicked at') { $lines[$i] + ' ' + $lines[$i + 1] }
           }
+          # A failing table names its file; its rows that do not match go in the note too.
+          $tables = @($bad | Select-String -Pattern 'see verification/(\S+\.md)' -AllMatches |
+            ForEach-Object { $_.Matches } | ForEach-Object { 'verification/' + $_.Groups[1].Value }) | Select-Object -Unique
+          $bad = @($bad) + @($tables | Where-Object { Test-Path $_ } |
+            ForEach-Object { Select-String -Path $_ -CaseSensitive -Pattern '\*\*NO\*\*' } |
+            ForEach-Object { $_.Filename + ': ' + $_.Line }) | Where-Object { $_ }
           if ($bad) { '::error title=Failing tests::' + (($bad | Select-Object -Unique -First 200) -join '%0A') }
           if ($failed) { exit 1 }
 
