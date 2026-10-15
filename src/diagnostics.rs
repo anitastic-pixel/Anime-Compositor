@@ -248,7 +248,8 @@ diagnostic_ids! {
     TimesheetDrawingUnused = ("TIMESHEET_DRAWING_UNUSED", true),
     /// Document 28, added by D-84: a folder or drawing beside the sheet that no column used.
     TimesheetNotUsed = ("TIMESHEET_NOT_USED", true),
-    /// **Proposed (D-101).** The viewer asked the GPU for a frame (B-44) and the CPU drew it
+    /// **Accepted (D-101)**, which keeps it out of document 28's core table (it is listed after
+    /// it, under the identifiers accepted by decision). The viewer asked the GPU for a frame (B-44) and the CPU drew it
     /// instead, with the reason: an adjustment layer, a picture larger than the card allows, or
     /// the card failing. INFO when planned, WARNING when the card failed. Nothing is refused, so
     /// this is not document 28's GPU_BACKEND_FAILED, which is an ERROR.

@@ -18209,7 +18209,7 @@ impl Gpu {
                 self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
                 (out, (w, h))
             }
-            not_fx!() => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345), B-226's four, D-365..D-367's three and D-368..D-370's three as Fx"),
+            not_fx!() => unreachable!("compose hands the card only the effects `fx` draws; not_fx! lists the rest"),
         }
     }
 

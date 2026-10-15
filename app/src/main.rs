@@ -1384,7 +1384,9 @@ fn serve(
     serve_logged(viewer, export, None, None, ask, quality)
 }
 
-/// [`serve`], with the frame written into P-19's session log when its switch is on.
+/// [`serve`], with the frame written into P-19's session log when its switch is on. Tests only:
+/// the window's frames come through [`serve_seen`], which can draw just the part on screen.
+#[cfg(test)]
 fn serve_logged(
     viewer: &Mutex<Viewer>,
     export: &Mutex<Export>,
@@ -1932,7 +1934,7 @@ fn finished(pixels: Vec<u8>, width: usize, height: usize, frame: i32, log: Frame
 
 /// B-154 (G3): make the frames playback will ask for next, from where it is round the loop, until
 /// every frame is made, playback stops or memory is full; and say how many were made. Each is made
-/// as `serve_logged` makes it, under the same locks, one at a time, so a frame asked for waits at
+/// as `serve_seen` makes it, under the same locks, one at a time, so a frame asked for waits at
 /// most for one frame being made ahead.
 fn render_ahead(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> usize {
     let mut made = 0;
@@ -17911,8 +17913,8 @@ mod responsiveness;
 
 /// B-154 (G3, D-223): RAM preview. A frame the viewer has made is remembered as it was sent, and
 /// asked for again it is sent from memory; while playback runs, the frames it will ask for next
-/// are made ahead of it. Checked through `serve_logged`, the function every frame on screen comes
-/// from, against frames made cold by a viewer that has remembered nothing.
+/// are made ahead of it. Checked through `serve_logged`, the whole-frame form of `serve_seen`,
+/// which every frame on screen comes from, against frames made cold by a viewer that has remembered nothing.
 ///
 /// Writes `verification/B-154_ram_preview_table.md`.
 #[cfg(test)]
@@ -17920,8 +17922,8 @@ mod responsiveness;
 mod ram_preview;
 
 /// W-40c (D-249): `/ready`, the frames the green line under the ruler marks. Asked
-/// after frames are made through `serve_logged`, the function every frame on screen comes from,
-/// and after the render-ahead fills the loop. A frame is ready only for the project, quality and
+/// after frames are made through `serve_logged`, the whole-frame form of `serve_seen`, which every
+/// frame on screen comes from, and after the render-ahead fills the loop. A frame is ready only for the project, quality and
 /// processor it was made with.
 ///
 /// Writes `verification/W-40c_ready_frames_table.md`.

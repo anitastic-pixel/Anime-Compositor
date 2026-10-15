@@ -404,12 +404,12 @@ const NOT_BUILT: &[(&str, &str)] = &[
     (
         "GPU_BACKEND_FAILED",
         "The only GPU path is B-44's viewer picture, and a card that fails there refuses \
-            nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed).",
+            nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted).",
     ),
     (
         "GPU_OUT_OF_MEMORY",
         "The only GPU path is B-44's viewer picture, and a card out of memory there refuses \
-            nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed).",
+            nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted).",
     ),
     (
         "INVALID_PATH",

@@ -1920,9 +1920,9 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
 
 /// The effect identifiers the page's own tables name, and one full set of settings for each.
 ///
-/// Read off `EFFECT_PARAMS` and `EFFECT_NAMES` in the page by eye rather than by parser: this
-/// is five effects and the parser to read a JavaScript object literal would be longer than
-/// the list. The check is that the command reads these names, so an effect renamed on one
+/// Read off `EFFECT_PARAMS` and `EFFECT_NAMES` in the page by eye rather than by parser: the
+/// list began as five effects, when a parser for a JavaScript object literal would have been
+/// longer than it, and has been added to by hand with every effect since. The check is that the command reads these names, so an effect renamed on one
 /// side and not the other fails here.
 const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     ("core.gaussian_blur", &[("sigma_px", "4")]),
@@ -5191,10 +5191,40 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("opacity", "90"),
         ],
     ),
+    // D-642..D-644: the sound effects, whose settings the panel reads off the same table.
+    (
+        "core.noise_gate",
+        &[("threshold", "-40"), ("attack", "10"), ("hold", "50"), ("release", "100")],
+    ),
+    (
+        "core.distortion",
+        &[
+            ("drive", "50"),
+            ("gain", "25"),
+            ("wet", "100"),
+            ("volume", "11"),
+            ("resolution", "24"),
+            ("downsample", "1"),
+            ("type", "tube"),
+        ],
+    ),
+    (
+        "core.compressor",
+        &[
+            ("threshold", "-20"),
+            ("ratio", "3"),
+            ("knee", "6"),
+            ("attack", "10"),
+            ("release", "100"),
+            ("makeup", "0"),
+            ("output_limit", "-1"),
+            ("auto_release", "off"),
+        ],
+    ),
 ];
 
 const FIELDS_INTRO: &[&str] = &[
-    "The five panels draw themselves out of one JSON answer, `/state`, whose project half is \
+    "The panels draw themselves out of one JSON answer, `/state`, whose project half is \
      the same text a save writes. Nothing has ever checked that the names the panels read are \
      the names the window sends. A field renamed on one side is a panel that draws a blank \
      space: no error, no status line, nothing in the log, and a person who assumes the layer \
@@ -5210,8 +5240,8 @@ const FIELDS_NOTES: &[&str] = &[
      exists to catch, and it names the field. Every other row is a name the panels read and \
      the window sends.\n- **The transform, matte and mask rows are one level further in.** \
      The page reaches those through a local name rather than through `layer`, so the scan \
-     cannot see them and they are asked for by name.\n- **The last six rows are the other \
-     direction**: not what the panel reads, but what it sends. The effect panel builds a \
+     cannot see them and they are asked for by name.\n- **The rows from the first `the panel's` \
+     on are the other direction**: not what the panel reads, but what it sends. The effect panel builds a \
      request out of the parameter names in its own table, so a setting renamed in the core \
      and not in the page is a field a person can type into that changes nothing.",
     "## What this cannot cover\n\nThat the panel draws the value correctly once it has it. \

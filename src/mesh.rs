@@ -26,6 +26,7 @@ pub(crate) struct Mesh {
 
 impl Mesh {
     /// The grid's own places over a drawing `dw` by `dh`: the mesh that changes nothing.
+    #[cfg(test)]
     pub fn grid(cols: usize, rows: usize, (dw, dh): (f64, f64)) -> Mesh {
         let at = (0..=rows)
             .flat_map(|j| {

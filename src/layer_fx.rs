@@ -8769,10 +8769,7 @@ fn bolt_pieces(
     let mut parent = vec![usize::MAX; w * h];
     parent[at(s)] = at(s);
     let (mut queue, mut best) = (std::collections::VecDeque::from([s]), s);
-    'search: while s != t {
-        let Some((ci, cj)) = queue.pop_front() else {
-            break;
-        };
+    'search: while let Some((ci, cj)) = queue.pop_front().filter(|_| s != t) {
         for (di, dj) in [
             (1, 0),
             (-1, 0),
