@@ -14808,32 +14808,97 @@ impl Gpu {
         let turned = drawn_as(&f.instance.effect);
         match turned.as_ref().unwrap_or(&f.instance.effect) {
             E::MatchGrain { .. } => (still.clone(), (w, h)),
-            E::RemoveGrain { passes: count, mode, unsharp_amount, unsharp_radius, .. } => {
+            E::RemoveGrain {
+                passes: count,
+                mode,
+                unsharp_amount,
+                unsharp_radius,
+                ..
+            } => {
                 // D-455, as grade::remove_grain: the colour encoded, each pass, back, then
                 // Sharpen's pass; compose sends one only with its noise and no threshold.
                 let mut pic = still.clone();
                 if let Some(spread) = crate::grade::grain_spreads(&f.instance.effect) {
                     let mut cur = self.scratch("D-455 encoded", w, h);
-                    self.fx_step(steps, &passes.degrain, FxParams::default(), Some(still), Some(&cur), Some(&[0.0]), None, none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.degrain,
+                        FxParams::default(),
+                        Some(still),
+                        Some(&cur),
+                        Some(&[0.0]),
+                        None,
+                        none,
+                        tiles(w, h),
+                    );
                     for k in 1..=count.floor() as usize {
-                        let mut kk: Vec<f64> = spread.iter().map(|&s| if s > 0.0 { 1.0 / (2.0 * s * s) } else { -1.0 }).collect();
+                        let mut kk: Vec<f64> = spread
+                            .iter()
+                            .map(|&s| if s > 0.0 { 1.0 / (2.0 * s * s) } else { -1.0 })
+                            .collect();
                         kk.push(1.0 / (2.0 * (k * k) as f64));
-                        kk.extend(crate::layer_fx::disc_runs((2 * k) as f64).iter().map(|&(_, hw)| hw as f64));
-                        let p = FxParams { mode: 1, flag: (mode == "multichannel") as u32, r: 2 * k as i32, n: 4, ..Default::default() };
+                        kk.extend(
+                            crate::layer_fx::disc_runs((2 * k) as f64)
+                                .iter()
+                                .map(|&(_, hw)| hw as f64),
+                        );
+                        let p = FxParams {
+                            mode: 1,
+                            flag: (mode == "multichannel") as u32,
+                            r: 2 * k as i32,
+                            n: 4,
+                            ..Default::default()
+                        };
                         let next = self.scratch("D-455 pass", w, h);
-                        self.fx_step(steps, &passes.degrain, p, Some(&cur), Some(&next), Some(&kk), None, none, tiles(w, h));
+                        self.fx_step(
+                            steps,
+                            &passes.degrain,
+                            p,
+                            Some(&cur),
+                            Some(&next),
+                            Some(&kk),
+                            None,
+                            none,
+                            tiles(w, h),
+                        );
                         cur = next;
                     }
                     let back = self.scratch("D-455 decoded", w, h);
-                    let p = FxParams { mode: 2, ..Default::default() };
-                    self.fx_step(steps, &passes.degrain, p, Some(&cur), Some(&back), Some(&[0.0]), None, none, tiles(w, h));
+                    let p = FxParams {
+                        mode: 2,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.degrain,
+                        p,
+                        Some(&cur),
+                        Some(&back),
+                        Some(&[0.0]),
+                        None,
+                        none,
+                        tiles(w, h),
+                    );
                     pic = back;
                 }
                 if *unsharp_amount > 0.0 && *unsharp_radius > 0.0 {
                     let (blurred, r) = covering(steps, &pic, (w, h), *unsharp_radius);
                     let out = self.scratch("D-455 sharpened", w, h);
-                    let p = FxParams { r: r as i32, ..Default::default() };
-                    self.fx_step(steps, &passes.sharp, p, Some(&pic), Some(&out), Some(&[unsharp_amount / 100.0]), Some(&blurred), none, tiles(w, h));
+                    let p = FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.sharp,
+                        p,
+                        Some(&pic),
+                        Some(&out),
+                        Some(&[unsharp_amount / 100.0]),
+                        Some(&blurred),
+                        none,
+                        tiles(w, h),
+                    );
                     pic = out;
                 }
                 (pic, (w, h))
@@ -14856,7 +14921,10 @@ impl Gpu {
                 // then the diffusion, the dither and the view.
                 let taps = crate::effects::gaussian_weights(blur_amount / 3.0);
                 let r = taps.len() / 2;
-                let shown = crate::effects::DEBAND_VIEWS.iter().position(|v| v == view).unwrap_or(0) as f64;
+                let shown = crate::effects::DEBAND_VIEWS
+                    .iter()
+                    .position(|v| v == view)
+                    .unwrap_or(0) as f64;
                 let mut k = vec![
                     *edge_threshold,
                     *edge_softness,
@@ -14871,8 +14939,10 @@ impl Gpu {
                 let base = crate::grade::mix(0);
                 let p = FxParams {
                     r: r as i32,
-                    frame: crate::effects::turbulent_seed(0.0, *diffusion_reseed_interval, *frame) as i64 as i32,
-                    g: crate::effects::turbulent_seed(0.0, *noise_reseed_interval, *frame) as i64 as i32,
+                    frame: crate::effects::turbulent_seed(0.0, *diffusion_reseed_interval, *frame)
+                        as i64 as i32,
+                    g: crate::effects::turbulent_seed(0.0, *noise_reseed_interval, *frame) as i64
+                        as i32,
                     base: [base as u32, (base >> 32) as u32],
                     ox: ox as i32,
                     oy: oy as i32,
@@ -14880,9 +14950,22 @@ impl Gpu {
                 };
                 // The sums across, in single precision (B-430, D-550), which every pass binds.
                 let sums = buffer(if r > 0 { w * h * 16 } else { 16 });
-                let mut run = |mode: u32, input: &wgpu::TextureView, out: &wgpu::TextureView, other: &wgpu::TextureView| {
+                let mut run = |mode: u32,
+                               input: &wgpu::TextureView,
+                               out: &wgpu::TextureView,
+                               other: &wgpu::TextureView| {
                     let work = [Some(&sums), None, None, None];
-                    self.fx_step(steps, &passes.deband, FxParams { mode, ..p }, Some(input), Some(out), Some(&k), Some(other), work, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.deband,
+                        FxParams { mode, ..p },
+                        Some(input),
+                        Some(out),
+                        Some(&k),
+                        Some(other),
+                        work,
+                        tiles(w, h),
+                    );
                 };
                 let edges = self.scratch("D-456 edges", w, h);
                 run(0, still, &edges, still);
@@ -14896,7 +14979,13 @@ impl Gpu {
                 run(5, &m, &out, still);
                 (out, (w, h))
             }
-            E::Curves { master, red, green, blue, .. } => {
+            E::Curves {
+                master,
+                red,
+                green,
+                blue,
+                ..
+            } => {
                 // Where each curve starts, then each curve's count, ins, outs and second derivatives.
                 let mut k = vec![0.0; 4];
                 for (i, c) in [red, green, blue, master].into_iter().enumerate() {
@@ -14905,33 +14994,130 @@ impl Gpu {
                     k.push(xs.len() as f64);
                     k.extend(xs.into_iter().chain(ys).chain(m));
                 }
-                same(steps, &passes.grade, FxParams { mode: 0, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 0,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Levels { input_black, input_white, gamma, output_black, output_white } => {
+            E::Levels {
+                input_black,
+                input_white,
+                gamma,
+                output_black,
+                output_white,
+            } => {
                 let plain = crate::effects::LEVELS_PLAIN;
-                let sets = [[*input_black, *input_white, *gamma, *output_black, *output_white], plain, plain, plain];
-                let k: Vec<f64> = sets.iter().flat_map(|s| [s[0], s[1], 1.0 / s[2], s[3], s[4]]).collect();
-                same(steps, &passes.grade, FxParams { mode: 1, ..Default::default() }, &k, None)
+                let sets = [
+                    [
+                        *input_black,
+                        *input_white,
+                        *gamma,
+                        *output_black,
+                        *output_white,
+                    ],
+                    plain,
+                    plain,
+                    plain,
+                ];
+                let k: Vec<f64> = sets
+                    .iter()
+                    .flat_map(|s| [s[0], s[1], 1.0 / s[2], s[3], s[4]])
+                    .collect();
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 1,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-383: the alpha set is drawn on the CPU (`compose::card_can`).
             E::ChannelLevels { sets, .. } => {
-                let k: Vec<f64> = sets[..4].iter().flat_map(|s| [s[0], s[1], 1.0 / s[2], s[3], s[4]]).collect();
-                same(steps, &passes.grade, FxParams { mode: 1, ..Default::default() }, &k, None)
+                let k: Vec<f64> = sets[..4]
+                    .iter()
+                    .flat_map(|s| [s[0], s[1], 1.0 / s[2], s[3], s[4]])
+                    .collect();
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 1,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::HueSaturation { hue, saturation, lightness, .. } => {
-                same(steps, &passes.grade, FxParams { mode: 2, ..Default::default() }, &[*hue, *saturation, *lightness], None)
-            }
-            E::Gradient { shape, start, end, start_color, end_color, start_opacity, end_opacity, blend: b } => {
+            E::HueSaturation {
+                hue,
+                saturation,
+                lightness,
+                ..
+            } => same(
+                steps,
+                &passes.grade,
+                FxParams {
+                    mode: 2,
+                    ..Default::default()
+                },
+                &[*hue, *saturation, *lightness],
+                None,
+            ),
+            E::Gradient {
+                shape,
+                start,
+                end,
+                start_color,
+                end_color,
+                start_opacity,
+                end_opacity,
+                blend: b,
+            } => {
                 let (sx, sy) = crate::effects::radial_center(*start, (w, h), f.origin);
                 let (ex, ey) = crate::effects::radial_center(*end, (w, h), f.origin);
                 let (ex, ey) = (ex - sx, ey - sy);
                 let ll = ex * ex + ey * ey;
-                let mut k = vec![sx, sy, ex, ey, ll, ll.sqrt(), (shape == "radial") as u8 as f64, *start_opacity, *end_opacity];
+                let mut k = vec![
+                    sx,
+                    sy,
+                    ex,
+                    ey,
+                    ll,
+                    ll.sqrt(),
+                    (shape == "radial") as u8 as f64,
+                    *start_opacity,
+                    *end_opacity,
+                ];
                 k.extend(crate::effects::encoded(start_color));
                 k.extend(crate::effects::encoded(end_color));
-                same(steps, &passes.grade, FxParams { mode: 3, blend: blend(b), ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 3,
+                        blend: blend(b),
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Noise { amount, mode, seed, frame, .. } => {
+            E::Noise {
+                amount,
+                mode,
+                seed,
+                frame,
+                ..
+            } => {
                 let base = crate::grade::mix(seed.floor() as u64);
                 let p = FxParams {
                     mode: 4,
@@ -14967,8 +15153,15 @@ impl Gpu {
             } => {
                 let base = crate::grade::mix(random_seed.floor() as u64);
                 let phase = *frame as f64 * animation_speed;
-                let z = if animate_smoothly == "on" { phase } else { phase.floor() };
-                let blend = crate::effects::ADD_GRAIN_BLENDS.iter().position(|b| b == blending_mode).unwrap_or(0) as f64;
+                let z = if animate_smoothly == "on" {
+                    phase
+                } else {
+                    phase.floor()
+                };
+                let blend = crate::effects::ADD_GRAIN_BLENDS
+                    .iter()
+                    .position(|b| b == blending_mode)
+                    .unwrap_or(0) as f64;
                 let k = [
                     size * aspect_ratio,
                     *size,
@@ -14996,14 +15189,32 @@ impl Gpu {
                 same(steps, &passes.grade, p, &k, None)
             }
             // D-450: grade::noise_alpha as grade mode 11.
-            E::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } => {
+            E::NoiseAlpha {
+                noise,
+                amount,
+                original_alpha,
+                overflow,
+                random_seed,
+                noise_phase,
+                cycle_noise,
+                cycle,
+            } => {
                 let animated = noise.ends_with("_animation");
-                let base = crate::grade::mix(if animated { 0 } else { random_seed.floor() as u64 });
-                let at = |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
+                let base = crate::grade::mix(if animated {
+                    0
+                } else {
+                    random_seed.floor() as u64
+                });
+                let at =
+                    |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
                 let k = [
                     amount / 100.0,
                     if animated { noise_phase / 360.0 } else { 0.0 },
-                    if cycle_noise == "on" { cycle.floor() } else { 0.0 },
+                    if cycle_noise == "on" {
+                        cycle.floor()
+                    } else {
+                        0.0
+                    },
                     noise.starts_with("squared") as u8 as f64,
                     at(&crate::effects::NOISE_ALPHA_ORIGINALS, original_alpha),
                     at(&crate::effects::NOISE_ALPHA_OVERFLOWS, overflow),
@@ -15018,10 +15229,27 @@ impl Gpu {
                 same(steps, &passes.grade, p, &k, None)
             }
             // D-451: grade::noise_hls as grade mode 12.
-            E::NoiseHls { noise, hue, lightness, saturation, grain_size, noise_phase } => {
+            E::NoiseHls {
+                noise,
+                hue,
+                lightness,
+                saturation,
+                grain_size,
+                noise_phase,
+            } => {
                 let base = crate::grade::mix(0);
-                let kind = crate::effects::NOISE_HLS_KINDS.iter().position(|o| o == noise).unwrap_or(0) as f64;
-                let k = [hue / 100.0, lightness / 100.0, saturation / 100.0, *grain_size, noise_phase / 360.0, kind];
+                let kind = crate::effects::NOISE_HLS_KINDS
+                    .iter()
+                    .position(|o| o == noise)
+                    .unwrap_or(0) as f64;
+                let k = [
+                    hue / 100.0,
+                    lightness / 100.0,
+                    saturation / 100.0,
+                    *grain_size,
+                    noise_phase / 360.0,
+                    kind,
+                ];
                 let p = FxParams {
                     mode: 12,
                     base: [base as u32, (base >> 32) as u32],
@@ -15032,10 +15260,28 @@ impl Gpu {
                 same(steps, &passes.grade, p, &k, None)
             }
             // D-452: the same with the depth the frame times the speed.
-            E::NoiseHlsAuto { noise, hue, lightness, saturation, grain_size, animation_speed, frame } => {
+            E::NoiseHlsAuto {
+                noise,
+                hue,
+                lightness,
+                saturation,
+                grain_size,
+                animation_speed,
+                frame,
+            } => {
                 let base = crate::grade::mix(0);
-                let kind = crate::effects::NOISE_HLS_KINDS.iter().position(|o| o == noise).unwrap_or(0) as f64;
-                let k = [hue / 100.0, lightness / 100.0, saturation / 100.0, *grain_size, *frame as f64 * animation_speed, kind];
+                let kind = crate::effects::NOISE_HLS_KINDS
+                    .iter()
+                    .position(|o| o == noise)
+                    .unwrap_or(0) as f64;
+                let k = [
+                    hue / 100.0,
+                    lightness / 100.0,
+                    saturation / 100.0,
+                    *grain_size,
+                    *frame as f64 * animation_speed,
+                    kind,
+                ];
                 let p = FxParams {
                     mode: 12,
                     base: [base as u32, (base >> 32) as u32],
@@ -15049,7 +15295,13 @@ impl Gpu {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let k = amount / ((w0 * w0 + h0 * h0).sqrt() / 2.0);
-                same(steps, &passes.aberr, FxParams::default(), &[cx, cy, 1.0 - k, 1.0 + k], None)
+                same(
+                    steps,
+                    &passes.aberr,
+                    FxParams::default(),
+                    &[cx, cy, 1.0 - k, 1.0 + k],
+                    None,
+                )
             }
             E::LensChromaticAberration {
                 mode,
@@ -15066,36 +15318,92 @@ impl Gpu {
                 let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let rc = (w0 * w0 + h0 * h0).sqrt() / 2.0;
                 let (ux, uy) = crate::blurs::along(*angle);
-                let scales = [*red_scale / 100.0, *green_scale / 100.0, *blue_scale / 100.0];
+                let scales = [
+                    *red_scale / 100.0,
+                    *green_scale / 100.0,
+                    *blue_scale / 100.0,
+                ];
                 let b = *fringe_blur / 100.0;
                 let n = crate::effects::lens_aberration_counts(*amount, scales, b);
-                let p = FxParams { flag: if mode == "offset" { 2 } else { 1 }, ..Default::default() };
+                let p = FxParams {
+                    flag: if mode == "offset" { 2 } else { 1 },
+                    ..Default::default()
+                };
                 let k = [
-                    cx, cy, rc, amount / rc, 2.0 * falloff / 100.0, ux, uy, *amount, b,
-                    scales[0], scales[1], scales[2], n[0] as f64, n[1] as f64, n[2] as f64,
+                    cx,
+                    cy,
+                    rc,
+                    amount / rc,
+                    2.0 * falloff / 100.0,
+                    ux,
+                    uy,
+                    *amount,
+                    b,
+                    scales[0],
+                    scales[1],
+                    scales[2],
+                    n[0] as f64,
+                    n[1] as f64,
+                    n[2] as f64,
                 ];
                 same(steps, &passes.aberr, p, &k, None)
             }
-            E::RimLight { color, direction, width, softness, intensity, blend: b } => {
+            E::RimLight {
+                color,
+                direction,
+                width,
+                softness,
+                intensity,
+                blend: b,
+            } => {
                 let (blurred, r) = covering(steps, still, (w, h), softness / 3.0);
                 let (ux, uy) = crate::blurs::along(*direction);
                 let mut k = vec![width * ux, width * uy, intensity / 100.0];
                 k.extend(linear(color));
-                let p = FxParams { r: r as i32, blend: blend(b), ..Default::default() };
+                let p = FxParams {
+                    r: r as i32,
+                    blend: blend(b),
+                    ..Default::default()
+                };
                 same(steps, &passes.rim, p, &k, Some(&blurred))
             }
-            E::DropShadow { color, opacity, direction, distance, softness } => {
+            E::DropShadow {
+                color,
+                opacity,
+                direction,
+                distance,
+                softness,
+            } => {
                 let (blurred, r) = covering(steps, still, (w, h), softness / 3.0);
                 let g = distance.ceil() as usize + r;
                 let (ux, uy) = crate::blurs::along(*direction);
                 let mut k = vec![distance * ux, distance * uy, opacity / 100.0];
                 k.extend(linear(color));
                 let out = self.scratch("B-65 shadow", w + 2 * g, h + 2 * g);
-                let p = FxParams { g: g as i32, r: r as i32, ..Default::default() };
-                self.fx_step(steps, &passes.shadow, p, Some(still), Some(&out), Some(&k), Some(&blurred), none, tiles(w + 2 * g, h + 2 * g));
+                let p = FxParams {
+                    g: g as i32,
+                    r: r as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.shadow,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&blurred),
+                    none,
+                    tiles(w + 2 * g, h + 2 * g),
+                );
                 (out, (w + 2 * g, h + 2 * g))
             }
-            E::Outline { color, width, softness, opacity } => {
+            E::Outline {
+                color,
+                width,
+                softness,
+                opacity,
+            } => {
                 let n = width.ceil() as usize;
                 let (bw, bh) = (w + 2 * n, h + 2 * n);
                 let runs = crate::layer_fx::disc_runs(*width);
@@ -15103,41 +15411,141 @@ impl Gpu {
                 let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
                 for k in 0..=top {
                     // Each row's greatest covering within k, widened from within k - 1.
-                    let p = FxParams { n: n as u32, count: k as u32, ..Default::default() };
-                    self.fx_step(steps, &passes.rows, p, Some(still), None, None, None, [Some(&row), None, None, None], tiles(bw, h));
-                    let dys: Vec<f64> = runs.iter().filter(|&&(_, hw)| hw == k).map(|&(dy, _)| dy as f64).collect();
+                    let p = FxParams {
+                        n: n as u32,
+                        count: k as u32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.rows,
+                        p,
+                        Some(still),
+                        None,
+                        None,
+                        None,
+                        [Some(&row), None, None, None],
+                        tiles(bw, h),
+                    );
+                    let dys: Vec<f64> = runs
+                        .iter()
+                        .filter(|&&(_, hw)| hw == k)
+                        .map(|&(dy, _)| dy as f64)
+                        .collect();
                     if !dys.is_empty() {
-                        let p = FxParams { n: n as u32, count: dys.len() as u32, ..Default::default() };
-                        self.fx_step(steps, &passes.bands, p, Some(still), None, Some(&dys), None, [Some(&row), Some(&band), None, None], tiles(bw, bh));
+                        let p = FxParams {
+                            n: n as u32,
+                            count: dys.len() as u32,
+                            ..Default::default()
+                        };
+                        self.fx_step(
+                            steps,
+                            &passes.bands,
+                            p,
+                            Some(still),
+                            None,
+                            Some(&dys),
+                            None,
+                            [Some(&row), Some(&band), None, None],
+                            tiles(bw, bh),
+                        );
                     }
                 }
                 let lifted = self.scratch("B-65 band", bw, bh);
-                self.fx_step(steps, &passes.lift, FxParams::default(), None, Some(&lifted), None, None, [None, Some(&band), None, None], tiles(bw, bh));
+                self.fx_step(
+                    steps,
+                    &passes.lift,
+                    FxParams::default(),
+                    None,
+                    Some(&lifted),
+                    None,
+                    None,
+                    [None, Some(&band), None, None],
+                    tiles(bw, bh),
+                );
                 let (blurred, r) = covering(steps, &lifted, (bw, bh), softness / 3.0);
                 let g = n + r;
                 let mut k = vec![opacity / 100.0];
                 k.extend(linear(color));
                 let out = self.scratch("B-65 outline", w + 2 * g, h + 2 * g);
-                let p = FxParams { g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.ring, p, Some(still), Some(&out), Some(&k), Some(&blurred), none, tiles(w + 2 * g, h + 2 * g));
+                let p = FxParams {
+                    g: g as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.ring,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&blurred),
+                    none,
+                    tiles(w + 2 * g, h + 2 * g),
+                );
                 (out, (w + 2 * g, h + 2 * g))
             }
-            E::LensBlur { radius, edges, iris, roundness, rotation, aspect, highlight_gain, highlight_threshold, channel, focal_distance, invert, map, .. } => {
+            E::LensBlur {
+                radius,
+                edges,
+                iris,
+                roundness,
+                rotation,
+                aspect,
+                highlight_gain,
+                highlight_threshold,
+                channel,
+                focal_distance,
+                invert,
+                map,
+                ..
+            } => {
                 let repeat = edges == "repeat";
-                let g = if repeat { 0 } else { crate::layer_fx::lens_reach(*radius, *aspect).ceil() as usize };
+                let g = if repeat {
+                    0
+                } else {
+                    crate::layer_fx::lens_reach(*radius, *aspect).ceil() as usize
+                };
                 let blades = crate::layer_fx::blades(iris).unwrap_or(0);
                 // The threshold and the gain as the CPU rounds them to single precision.
-                let (at, m) = ((highlight_threshold / 100.0) as f32 as f64, (1.0 + highlight_gain) as f32 as f64);
-                let p = FxParams { mode: repeat as u32, flag: (*highlight_gain > 0.0) as u32, g: g as i32, ..Default::default() };
+                let (at, m) = (
+                    (highlight_threshold / 100.0) as f32 as f64,
+                    (1.0 + highlight_gain) as f32 as f64,
+                );
+                let p = FxParams {
+                    mode: repeat as u32,
+                    flag: (*highlight_gain > 0.0) as u32,
+                    g: g as i32,
+                    ..Default::default()
+                };
                 let sums = buffer((w + 1) * h * 32);
                 let out = self.scratch("B-65 lens", w + 2 * g, h + 2 * g);
                 if let Some(map) = map {
                     // D-359: a header, each level's count and runs, then the runs; compose leaves
                     // a named map that was not read to draw the layer without the effect.
-                    let shape = crate::layer_fx::Iris { blades, roundness: *roundness, rotation: *rotation, aspect: *aspect, gain: *highlight_gain, threshold: *highlight_threshold };
+                    let shape = crate::layer_fx::Iris {
+                        blades,
+                        roundness: *roundness,
+                        rotation: *rotation,
+                        aspect: *aspect,
+                        gain: *highlight_gain,
+                        threshold: *highlight_threshold,
+                    };
                     let levels = crate::layer_fx::lens_levels(*radius, &shape);
-                    let (alpha, turned) = ((channel == "alpha") as u8 as f64, (invert == "on") as u8 as f64);
-                    let mut k = vec![(levels.len() - 1) as f64, at, m, focal_distance / 255.0, alpha, turned, ox as f64, oy as f64];
+                    let (alpha, turned) = (
+                        (channel == "alpha") as u8 as f64,
+                        (invert == "on") as u8 as f64,
+                    );
+                    let mut k = vec![
+                        (levels.len() - 1) as f64,
+                        at,
+                        m,
+                        focal_distance / 255.0,
+                        alpha,
+                        turned,
+                        ox as f64,
+                        oy as f64,
+                    ];
                     let mut start = 8 + 3 * levels.len();
                     for runs in &levels {
                         k.push(runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64);
@@ -15145,71 +15553,271 @@ impl Gpu {
                         start += 3 * runs.len();
                     }
                     k.extend(levels.iter().flatten().flatten().map(|&v| v as f64));
-                    self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                    self.fx_step(
+                        steps,
+                        &passes.prefix,
+                        p,
+                        Some(still),
+                        None,
+                        Some(&k),
+                        None,
+                        [None, None, Some(&sums), None],
+                        ((h as u32).div_ceil(64), 1),
+                    );
                     let picture = self.map_texture(&map.0);
-                    self.fx_step(steps, &passes.lmgather, p, Some(still), Some(&out), Some(&k), Some(&picture), [None, None, Some(&sums), None], tiles(w + 2 * g, h + 2 * g));
+                    self.fx_step(
+                        steps,
+                        &passes.lmgather,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&k),
+                        Some(&picture),
+                        [None, None, Some(&sums), None],
+                        tiles(w + 2 * g, h + 2 * g),
+                    );
                 } else {
-                    let runs = crate::layer_fx::iris_runs(*radius, blades, *roundness, *rotation, *aspect);
+                    let runs =
+                        crate::layer_fx::iris_runs(*radius, blades, *roundness, *rotation, *aspect);
                     let n: isize = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum();
                     let mut k = vec![n as f64, at, m];
                     k.extend(runs.iter().flatten().map(|&v| v as f64));
-                    let p = FxParams { count: runs.len() as u32, ..p };
-                    self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
-                    self.fx_step(steps, &passes.gather, p, Some(still), Some(&out), Some(&k), None, [None, None, Some(&sums), None], tiles(w + 2 * g, h + 2 * g));
+                    let p = FxParams {
+                        count: runs.len() as u32,
+                        ..p
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.prefix,
+                        p,
+                        Some(still),
+                        None,
+                        Some(&k),
+                        None,
+                        [None, None, Some(&sums), None],
+                        ((h as u32).div_ceil(64), 1),
+                    );
+                    self.fx_step(
+                        steps,
+                        &passes.gather,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&k),
+                        None,
+                        [None, None, Some(&sums), None],
+                        tiles(w + 2 * g, h + 2 * g),
+                    );
                 }
                 (out, (w + 2 * g, h + 2 * g))
             }
             // B-76: the second batch.
-            E::ExposureFlicker { amount, hold, seed, frame } => {
-                let gain = 2f64.powf(crate::effects::flicker_stops(*amount, *hold, *seed, *frame)) as f32;
-                same(steps, &passes.grade, FxParams { mode: 5, ..Default::default() }, &[gain as f64], None)
+            E::ExposureFlicker {
+                amount,
+                hold,
+                seed,
+                frame,
+            } => {
+                let gain =
+                    2f64.powf(crate::effects::flicker_stops(*amount, *hold, *seed, *frame)) as f32;
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 5,
+                        ..Default::default()
+                    },
+                    &[gain as f64],
+                    None,
+                )
             }
-            E::ColorBalance { shadows, midtones, highlights, preserve_luminosity } => {
-                let mut k: Vec<f64> = [shadows, midtones, highlights].iter().flat_map(|t| t[..3].to_vec()).collect();
-                k.push(if preserve_luminosity == "on" { 1.0 } else { 0.0 });
-                same(steps, &passes.grade, FxParams { mode: 6, ..Default::default() }, &k, None)
+            E::ColorBalance {
+                shadows,
+                midtones,
+                highlights,
+                preserve_luminosity,
+            } => {
+                let mut k: Vec<f64> = [shadows, midtones, highlights]
+                    .iter()
+                    .flat_map(|t| t[..3].to_vec())
+                    .collect();
+                k.push(if preserve_luminosity == "on" {
+                    1.0
+                } else {
+                    0.0
+                });
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 6,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::GradientMap { shadow_color, midtone_color, highlight_color, midpoint, amount } => {
+            E::GradientMap {
+                shadow_color,
+                midtone_color,
+                highlight_color,
+                midpoint,
+                amount,
+            } => {
                 let mut k = vec![midpoint / 100.0, amount / 100.0];
                 for c in [shadow_color, midtone_color, highlight_color] {
                     k.extend(crate::effects::encoded(c));
                 }
-                same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 7,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-401: Gradient Map's pass, the midtone halfway.
-            E::TintMap { map_black_to, map_white_to, amount_to_tint } => {
+            E::TintMap {
+                map_black_to,
+                map_white_to,
+                amount_to_tint,
+            } => {
                 let mut k = vec![0.5, amount_to_tint / 100.0];
                 k.extend(crate::effects::tint_ramp(map_black_to, map_white_to).concat());
-                same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 7,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-402: Gradient Map's pass, the midpoint at the middle.
-            E::Tritone { highlights, midtones, shadows, blend_with_original } => {
+            E::Tritone {
+                highlights,
+                midtones,
+                shadows,
+                blend_with_original,
+            } => {
                 let mut k = vec![0.5, 1.0 - blend_with_original / 100.0];
                 k.extend(crate::effects::tritone_ramp(highlights, midtones, shadows).concat());
-                same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 7,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Vignette { amount, color, size, roundness, softness, center } => {
-                let v = crate::effects::vignette_settings(*amount, color, [*size, *roundness, *softness], *center, (w, h), f.origin);
-                let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
+            E::Vignette {
+                amount,
+                color,
+                size,
+                roundness,
+                softness,
+                center,
+            } => {
+                let v = crate::effects::vignette_settings(
+                    *amount,
+                    color,
+                    [*size, *roundness, *softness],
+                    *center,
+                    (w, h),
+                    f.origin,
+                );
+                let mut k = vec![
+                    v.center.0,
+                    v.center.1,
+                    v.radii.0,
+                    v.radii.1,
+                    v.inner,
+                    v.outer,
+                    v.amount,
+                    2f64.sqrt(),
+                ];
                 k.extend(v.color.map(crate::grade::to_linear));
                 k.push(v.norm);
-                same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.grade,
+                    FxParams {
+                        mode: 8,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame, float: _, more } => {
+            E::FractalNoise {
+                size,
+                complexity,
+                contrast,
+                brightness,
+                evolution,
+                speed,
+                seed,
+                dark_color,
+                light_color,
+                opacity,
+                blend: b,
+                fractal_type,
+                noise_type,
+                invert,
+                offset,
+                scale_width,
+                scale_height,
+                cycle,
+                frame,
+                float: _,
+                more,
+            } => {
                 let base = crate::grade::mix(seed.floor() as u64);
-                let mut k = vec![size * (scale_width / 100.0), crate::effects::depth(*evolution, *speed, *frame), *contrast, *brightness, opacity / 100.0];
+                let mut k = vec![
+                    size * (scale_width / 100.0),
+                    crate::effects::depth(*evolution, *speed, *frame),
+                    *contrast,
+                    *brightness,
+                    opacity / 100.0,
+                ];
                 k.extend(crate::effects::encoded(dark_color));
                 k.extend(crate::effects::encoded(light_color));
                 // D-299.
                 let look = crate::effects::fractal_look(fractal_type, noise_type, *cycle);
                 let on = |b: bool| b as u8 as f64;
-                k.extend([size * (scale_height / 100.0), offset[0], offset[1], on(look.kind == 1), on(look.noise == 1), look.cycle as f64, on(invert == "on")]);
+                k.extend([
+                    size * (scale_height / 100.0),
+                    offset[0],
+                    offset[1],
+                    on(look.kind == 1),
+                    on(look.noise == 1),
+                    look.cycle as f64,
+                    on(invert == "on"),
+                ]);
                 // D-567: the types past basic, turbulent, smooth and block, mode 111.
                 let wide = look.kind > 1 || look.noise > 1;
                 k.extend([look.kind as f64, look.noise as f64]);
                 // D-647: the Overflow, then the Transform and Sub Settings, mode 112.
-                k.push(crate::effects::OVERFLOWS.iter().position(|m| *m == more.overflow).unwrap_or(0) as f64);
-                let warp = crate::effects::noise_warp(more, *offset, complexity.floor() as usize, (w - 2 * ox, h - 2 * oy));
+                k.push(
+                    crate::effects::OVERFLOWS
+                        .iter()
+                        .position(|m| *m == more.overflow)
+                        .unwrap_or(0) as f64,
+                );
+                let warp = crate::effects::noise_warp(
+                    more,
+                    *offset,
+                    complexity.floor() as usize,
+                    (w - 2 * ox, h - 2 * oy),
+                );
                 if let Some(g) = &warp {
                     k.extend(g.middle);
                     k.extend(g.sub_offset);
@@ -15233,7 +15841,13 @@ impl Gpu {
                     _ => blend(b),
                 };
                 let p = FxParams {
-                    mode: if warp.is_some() { 112 } else if wide { 111 } else { 9 },
+                    mode: if warp.is_some() {
+                        112
+                    } else if wide {
+                        111
+                    } else {
+                        9
+                    },
                     blend: noise_blend,
                     count: complexity.floor() as u32,
                     base: [base as u32, (base >> 32) as u32],
@@ -15243,16 +15857,40 @@ impl Gpu {
                 };
                 same(steps, &passes.grade, p, &k, None)
             }
-            E::TurbulentDisplace { amount, size, complexity, evolution, speed, seed, edges, frame, units, new_seed_every, drift_direction, drift_speed, .. } => {
+            E::TurbulentDisplace {
+                amount,
+                size,
+                complexity,
+                evolution,
+                speed,
+                seed,
+                edges,
+                frame,
+                units,
+                new_seed_every,
+                drift_direction,
+                drift_speed,
+                ..
+            } => {
                 let repeat = edges == "repeat";
                 // D-328: the push, which is the amount in classic units.
                 let push = crate::effects::turbulent_push(*amount, *size, units);
                 let g = if repeat { 0 } else { push.ceil() as usize };
                 // D-410: the seed for the frame.
-                let base = crate::grade::mix(crate::effects::turbulent_seed(*seed, *new_seed_every, *frame));
+                let base = crate::grade::mix(crate::effects::turbulent_seed(
+                    *seed,
+                    *new_seed_every,
+                    *frame,
+                ));
                 // D-411: the drift slides the drawing's corner the field is read from.
                 let d = crate::effects::turbulent_drift(*drift_direction, *drift_speed, *frame);
-                let k = [push, *size, crate::effects::depth(*evolution, *speed, *frame), (ox + g) as f64 + d.0, (oy + g) as f64 + d.1];
+                let k = [
+                    push,
+                    *size,
+                    crate::effects::depth(*evolution, *speed, *frame),
+                    (ox + g) as f64 + d.0,
+                    (oy + g) as f64 + d.1,
+                ];
                 let p = FxParams {
                     count: complexity.floor() as u32,
                     flag: repeat as u32,
@@ -15261,7 +15899,17 @@ impl Gpu {
                     ..Default::default()
                 };
                 let out = self.scratch("B-76 turbulent", w + 2 * g, h + 2 * g);
-                self.fx_step(steps, &passes.turb, p, Some(still), Some(&out), Some(&k), None, none, tiles(w + 2 * g, h + 2 * g));
+                self.fx_step(
+                    steps,
+                    &passes.turb,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w + 2 * g, h + 2 * g),
+                );
                 (out, (w + 2 * g, h + 2 * g))
             }
             E::Offset { shift } => {
@@ -15269,21 +15917,59 @@ impl Gpu {
                 let (i0, j0) = (qx.floor(), qy.floor());
                 // Whole turns of the drawing change nothing, and keep the sums small.
                 let inside = |v: f64, n: usize| (v as i64).rem_euclid(n as i64) as i32;
-                let p = FxParams { ox: inside(i0, w), oy: inside(j0, h), ..Default::default() };
+                let p = FxParams {
+                    ox: inside(i0, w),
+                    oy: inside(j0, h),
+                    ..Default::default()
+                };
                 same(steps, &passes.slide, p, &[qx - i0, qy - j0], None)
             }
-            E::LightRays { center, length, threshold, intensity, color } => {
-                let bloom = self.bloom.as_ref().expect("Light Rays are refused without the passes");
-                let none = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-76 none"),
-                    contents: bytemuck::cast_slice(&[0.0f32; 3]),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+            E::LightRays {
+                center,
+                length,
+                threshold,
+                intensity,
+                color,
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("Light Rays are refused without the passes");
+                let none = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-76 none"),
+                        contents: bytemuck::cast_slice(&[0.0f32; 3]),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let lit = self.scratch("B-76 bright", w, h);
-                let p = Params { level: crate::bloom::bright_level(*threshold), ..Default::default() };
-                self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&none), tiles(w, h));
+                let p = Params {
+                    level: crate::bloom::bright_level(*threshold),
+                    ..Default::default()
+                };
+                self.step(
+                    steps,
+                    &bloom.bright,
+                    p,
+                    still,
+                    Some(&lit),
+                    None,
+                    Some(&none),
+                    tiles(w, h),
+                );
                 let center = crate::effects::radial_center(*center, (w, h), f.origin);
-                let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false, sweep: None });
+                let rays = self.blur(
+                    steps,
+                    &lit,
+                    (w, h),
+                    Radial {
+                        spin: false,
+                        amount: *length,
+                        center,
+                        repeat: false,
+                        sweep: None,
+                    },
+                );
                 let mut k = vec![*intensity];
                 k.extend(linear(color));
                 k.extend([0.0, 0.0]);
@@ -15291,10 +15977,28 @@ impl Gpu {
             }
             // D-422: the layer itself is the light, through Spin & Zoom Blur's zoom, then Light
             // Rays' last step.
-            E::LightBurst { center, intensity, ray_length, burst, set_color, color } => {
+            E::LightBurst {
+                center,
+                intensity,
+                ray_length,
+                burst,
+                set_color,
+                color,
+            } => {
                 let center = crate::effects::radial_center(*center, (w, h), f.origin);
                 let sweep = Some(crate::effects::burst_sweep(burst, *ray_length));
-                let rays = self.blur(steps, still, (w, h), Radial { spin: false, amount: *ray_length, center, repeat: false, sweep });
+                let rays = self.blur(
+                    steps,
+                    still,
+                    (w, h),
+                    Radial {
+                        spin: false,
+                        amount: *ray_length,
+                        center,
+                        repeat: false,
+                        sweep,
+                    },
+                );
                 let on = set_color == "on";
                 let mut k = vec![intensity / 100.0];
                 if on {
@@ -15307,37 +16011,122 @@ impl Gpu {
             }
             // D-423: the layer times the source's share, zoomed out and spun, then the rays pass
             // in its transfer mode.
-            E::CcLightRays { intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode } => {
+            E::CcLightRays {
+                intensity,
+                center,
+                radius,
+                warp_softness,
+                shape,
+                direction,
+                color_from_source,
+                allow_brightening,
+                color,
+                transfer_mode,
+            } => {
                 let center = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (s, c) = direction.to_radians().sin_cos();
-                let k = [center.0, center.1, *radius, (shape == "square") as u8 as f64, s, c];
-                let (lit, _) = same(steps, &passes.warp, FxParams { mode: 33, ..Default::default() }, &k, None);
-                let zoomed = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: 100.0, center, repeat: false, sweep: None });
+                let k = [
+                    center.0,
+                    center.1,
+                    *radius,
+                    (shape == "square") as u8 as f64,
+                    s,
+                    c,
+                ];
+                let (lit, _) = same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 33,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                );
+                let zoomed = self.blur(
+                    steps,
+                    &lit,
+                    (w, h),
+                    Radial {
+                        spin: false,
+                        amount: 100.0,
+                        center,
+                        repeat: false,
+                        sweep: None,
+                    },
+                );
                 let turn = warp_softness / 10.0;
                 let rays = if turn == 0.0 {
                     zoomed
                 } else {
-                    self.blur(steps, &zoomed, (w, h), Radial { spin: true, amount: turn, center, repeat: false, sweep: None })
+                    self.blur(
+                        steps,
+                        &zoomed,
+                        (w, h),
+                        Radial {
+                            spin: true,
+                            amount: turn,
+                            center,
+                            repeat: false,
+                            sweep: None,
+                        },
+                    )
                 };
                 let tinted = color_from_source == "off";
-                let mut k = vec![if allow_brightening == "on" { intensity / 100.0 } else { (intensity / 100.0).min(1.0) }];
+                let mut k = vec![if allow_brightening == "on" {
+                    intensity / 100.0
+                } else {
+                    (intensity / 100.0).min(1.0)
+                }];
                 if tinted {
                     k.extend(linear(color));
                 } else {
                     k.extend([1.0; 3]);
                 }
-                k.extend([tinted as u8 as f64, crate::effects::ray_mode(transfer_mode) as f64]);
+                k.extend([
+                    tinted as u8 as f64,
+                    crate::effects::ray_mode(transfer_mode) as f64,
+                ]);
                 same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
             }
-            E::DistanceGradation { color, width, opacity, invert, blend: b } => {
+            E::DistanceGradation {
+                color,
+                width,
+                opacity,
+                invert,
+                blend: b,
+            } => {
                 let dist = buffer(dist_bytes(w, h));
                 let mut k = vec![*width, *opacity, (invert == "on") as u8 as f64];
                 k.extend(linear(color));
-                let p = FxParams { blend: blend(b), ..Default::default() };
+                let p = FxParams {
+                    blend: blend(b),
+                    ..Default::default()
+                };
                 let work = [None, None, None, Some(&dist)];
-                self.fx_step(steps, &passes.cols, p, Some(still), None, None, None, work, (((w + 2) as u32).div_ceil(64), 1));
+                self.fx_step(
+                    steps,
+                    &passes.cols,
+                    p,
+                    Some(still),
+                    None,
+                    None,
+                    None,
+                    work,
+                    (((w + 2) as u32).div_ceil(64), 1),
+                );
                 let out = self.scratch("B-76 distance", w, h);
-                self.fx_step(steps, &passes.edt, p, Some(still), Some(&out), Some(&k), None, work, ((h as u32).div_ceil(64), 1));
+                self.fx_step(
+                    steps,
+                    &passes.edt,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    work,
+                    ((h as u32).div_ceil(64), 1),
+                );
                 (out, (w, h))
             }
             // B-107: the third batch, Motion Tile aside.
@@ -15349,45 +16138,174 @@ impl Gpu {
                     "blue" => (0, 2),
                     _ => (0, 3),
                 };
-                same(steps, &passes.tone, FxParams { mode, count, ..Default::default() }, &[amount / 100.0], None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode,
+                        count,
+                        ..Default::default()
+                    },
+                    &[amount / 100.0],
+                    None,
+                )
             }
-            E::BrightnessContrast { brightness, contrast } => {
-                let k = if *contrast <= 0.0 { 1.0 + contrast / 100.0 } else { 1.0 / (1.0 - 0.99 * contrast / 100.0) };
-                same(steps, &passes.tone, FxParams { mode: 2, ..Default::default() }, &[k, brightness / 255.0], None)
+            E::BrightnessContrast {
+                brightness,
+                contrast,
+            } => {
+                let k = if *contrast <= 0.0 {
+                    1.0 + contrast / 100.0
+                } else {
+                    1.0 / (1.0 - 0.99 * contrast / 100.0)
+                };
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 2,
+                        ..Default::default()
+                    },
+                    &[k, brightness / 255.0],
+                    None,
+                )
             }
-            E::BlackWhite { reds, yellows, greens, cyans, blues, magentas } => {
+            E::BlackWhite {
+                reds,
+                yellows,
+                greens,
+                cyans,
+                blues,
+                magentas,
+            } => {
                 let k = [*reds, *yellows, *greens, *cyans, *blues, *magentas];
-                same(steps, &passes.tone, FxParams { mode: 3, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 3,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Posterize { levels } => same(steps, &passes.tone, FxParams { mode: 4, ..Default::default() }, &[levels.floor()], None),
-            E::Threshold { level } => same(steps, &passes.tone, FxParams { mode: 5, ..Default::default() }, &[*level], None),
-            E::ChannelMixer { red, green, blue, monochrome } => {
-                let rows = if monochrome == "on" { [red, red, red] } else { [red, green, blue] };
+            E::Posterize { levels } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 4,
+                    ..Default::default()
+                },
+                &[levels.floor()],
+                None,
+            ),
+            E::Threshold { level } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 5,
+                    ..Default::default()
+                },
+                &[*level],
+                None,
+            ),
+            E::ChannelMixer {
+                red,
+                green,
+                blue,
+                monochrome,
+            } => {
+                let rows = if monochrome == "on" {
+                    [red, red, red]
+                } else {
+                    [red, green, blue]
+                };
                 let k: Vec<f64> = rows.iter().flat_map(|r| r[..4].to_vec()).collect();
-                same(steps, &passes.tone, FxParams { mode: 6, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 6,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Vibrance { vibrance, saturation } => {
-                same(steps, &passes.tone, FxParams { mode: 7, ..Default::default() }, &[*vibrance, *saturation], None)
-            }
-            E::LeaveColor { color, tolerance, softness, amount } => {
+            E::Vibrance {
+                vibrance,
+                saturation,
+            } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 7,
+                    ..Default::default()
+                },
+                &[*vibrance, *saturation],
+                None,
+            ),
+            E::LeaveColor {
+                color,
+                tolerance,
+                softness,
+                amount,
+            } => {
                 let hc = crate::grade::hsv_hue(crate::effects::encoded(color)).unwrap_or(-1.0);
                 let k = [hc, tolerance / 100.0, softness / 100.0, amount / 100.0];
-                same(steps, &passes.tone, FxParams { mode: 8, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 8,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Solarize { threshold } => same(steps, &passes.tone, FxParams { mode: 9, ..Default::default() }, &[*threshold], None),
-            E::Halftone { size, angle, ink, paper, amount } => {
+            E::Solarize { threshold } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 9,
+                    ..Default::default()
+                },
+                &[*threshold],
+                None,
+            ),
+            E::Halftone {
+                size,
+                angle,
+                ink,
+                paper,
+                amount,
+            } => {
                 let (sin, cos) = angle.to_radians().sin_cos();
                 let mut k = vec![sin, cos, *size, amount / 100.0];
                 k.extend(linear(ink));
                 k.extend(linear(paper));
-                let p = FxParams { mode: 10, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    mode: 10,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.tone, p, &k, None)
             }
             E::Mosaic { size } => (mosaic(steps, *size, false), (w, h)),
             // D-449: compose left out one with every pass done.
-            E::BlockLoad { completion, scans, start_cleared, bilinear, pixel } => {
-                let (e, empty, f) = crate::layer_fx::block_load_pass(*completion, *scans, start_cleared == "on")
-                    .expect("compose leaves out a Block Load with every pass done");
+            E::BlockLoad {
+                completion,
+                scans,
+                start_cleared,
+                bilinear,
+                pixel,
+            } => {
+                let (e, empty, f) =
+                    crate::layer_fx::block_load_pass(*completion, *scans, start_cleared == "on")
+                        .expect("compose leaves out a Block Load with every pass done");
                 let size = 2f64.powi(e) * pixel;
                 let bilinear = bilinear == "on";
                 let now = mosaic(steps, size, bilinear);
@@ -15395,61 +16313,200 @@ impl Gpu {
                 if edge >= h {
                     return (now, (w, h));
                 }
-                let before = if empty { now.clone() } else { mosaic(steps, size * 2.0, bilinear) };
+                let before = if empty {
+                    now.clone()
+                } else {
+                    mosaic(steps, size * 2.0, bilinear)
+                };
                 let out = self.scratch("D-449 block load", w, h);
-                let p = FxParams { mode: empty as u32, ..Default::default() };
-                self.fx_step(steps, &passes.blockload, p, Some(&now), Some(&out), Some(&[edge as f64]), Some(&before), none, tiles(w, h));
+                let p = FxParams {
+                    mode: empty as u32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.blockload,
+                    p,
+                    Some(&now),
+                    Some(&out),
+                    Some(&[edge as f64]),
+                    Some(&before),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-460: compose left out one at Burn 0.
             E::BurnFilm { burn, center, seed } => {
                 let (base, k) = crate::layer_fx::burn_film_setup((w, h), *burn, *center, *seed);
-                let p = FxParams { base: [base as u32, (base >> 32) as u32], ..Default::default() };
+                let p = FxParams {
+                    base: [base as u32, (base >> 32) as u32],
+                    ..Default::default()
+                };
                 same(steps, &passes.burnfilm, p, &k, None)
             }
             // D-461: one warp pass, mode 100, its sines worked here.
-            E::HexTile { render, radius, center, lock_center, rotate, smearing } => {
-                let k = crate::layer_fx::hex_tile_setup(render, *radius, *center, lock_center == "on", *rotate, *smearing, (w, h), f.origin);
-                same(steps, &passes.warp, FxParams { mode: 100, ..Default::default() }, &k, None)
+            E::HexTile {
+                render,
+                radius,
+                center,
+                lock_center,
+                rotate,
+                smearing,
+            } => {
+                let k = crate::layer_fx::hex_tile_setup(
+                    render,
+                    *radius,
+                    *center,
+                    lock_center == "on",
+                    *rotate,
+                    *smearing,
+                    (w, h),
+                    f.origin,
+                );
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 100,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Emboss { direction, relief, contrast, mode } => {
+            E::Emboss {
+                direction,
+                relief,
+                contrast,
+                mode,
+            } => {
                 let (ux, uy) = crate::blurs::along(*direction);
-                let k = [relief * ux, relief * uy, contrast / 100.0, (mode == "color") as u8 as f64];
+                let k = [
+                    relief * ux,
+                    relief * uy,
+                    contrast / 100.0,
+                    (mode == "color") as u8 as f64,
+                ];
                 same(steps, &passes.relief, FxParams::default(), &k, None)
             }
             E::FindEdges { invert, amount } => {
                 let k = [amount / 100.0, (invert == "on") as u8 as f64];
-                same(steps, &passes.relief, FxParams { mode: 1, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.relief,
+                    FxParams {
+                        mode: 1,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             E::Sharpen { amount, radius, .. } => {
                 let (blurred, r) = covering(steps, still, (w, h), *radius);
-                same(steps, &passes.sharp, FxParams { r: r as i32, ..Default::default() }, &[amount / 100.0], Some(&blurred))
+                same(
+                    steps,
+                    &passes.sharp,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    &[amount / 100.0],
+                    Some(&blurred),
+                )
             }
-            E::Diffusion { radius, amount, blend: b, second_amount, second_blend } => {
+            E::Diffusion {
+                radius,
+                amount,
+                blend: b,
+                second_amount,
+                second_blend,
+            } => {
                 let (blurred, r) = covering(steps, still, (w, h), radius / 3.0);
                 let blend = match b.as_str() {
                     "screen" => 1,
                     "lighten" => 2,
                     _ => 0,
                 };
-                let k = [amount / 100.0, second_amount / 100.0, if second_blend == "overlay" { 4.0 } else { 5.0 }];
-                same(steps, &passes.sharp, FxParams { mode: 1, blend, r: r as i32, ..Default::default() }, &k, Some(&blurred))
+                let k = [
+                    amount / 100.0,
+                    second_amount / 100.0,
+                    if second_blend == "overlay" { 4.0 } else { 5.0 },
+                ];
+                same(
+                    steps,
+                    &passes.sharp,
+                    FxParams {
+                        mode: 1,
+                        blend,
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    &k,
+                    Some(&blurred),
+                )
             }
-            E::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, .. } => {
+            E::ShadowHighlight {
+                shadow_amount,
+                highlight_amount,
+                shadow_tonal_width,
+                shadow_radius,
+                highlight_tonal_width,
+                highlight_radius,
+                color_correction,
+                midtone_contrast,
+                ..
+            } => {
                 // D-400, as grade::shadow_highlight: the lightness, blurred at each radius (the
                 // highlights' blur copied into green, as Channel Blur's channels), then the rule.
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 let plane = self.scratch("D-400 lightness", w, h);
-                self.fx_step(steps, &passes.shprep, FxParams::default(), Some(still), Some(&plane), None, None, none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.shprep,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&plane),
+                    None,
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let blurred = |steps: &mut Vec<Step>, sigma: f64| {
                     let taps = crate::effects::gaussian_weights(sigma);
-                    self.gauss(steps, bloom, "D-400 blur", &plane, (w, h), [&taps, &taps], 0, true)
+                    self.gauss(
+                        steps,
+                        bloom,
+                        "D-400 blur",
+                        &plane,
+                        (w, h),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    )
                 };
                 let mut lit = blurred(steps, *shadow_radius);
                 if highlight_radius != shadow_radius {
                     let b = blurred(steps, *highlight_radius);
                     let next = self.scratch("D-400 blurs", w, h);
-                    self.fx_step(steps, &passes.chanmix, FxParams { count: 1, ..Default::default() }, Some(&lit), Some(&next), None, Some(&b), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.chanmix,
+                        FxParams {
+                            count: 1,
+                            ..Default::default()
+                        },
+                        Some(&lit),
+                        Some(&next),
+                        None,
+                        Some(&b),
+                        none,
+                        tiles(w, h),
+                    );
                     lit = next;
                 }
                 let k = [
@@ -15462,42 +16519,144 @@ impl Gpu {
                 ];
                 same(steps, &passes.shhi, FxParams::default(), &k, Some(&lit))
             }
-            E::WaveWarp { shape, height, width, direction, speed, phase, edges, frame } => {
+            E::WaveWarp {
+                shape,
+                height,
+                width,
+                direction,
+                speed,
+                phase,
+                edges,
+                frame,
+            } => {
                 let repeat = edges == "repeat";
                 let g = if repeat { 0 } else { height.ceil() as usize };
                 let (tx, ty) = crate::blurs::along(*direction);
                 let phi = (phase + speed * *frame as f64).to_radians();
-                let k = [(ox + g) as f64, (oy + g) as f64, tx, ty, -ty, tx, *width, phi, *height, (shape == "triangle") as u8 as f64];
+                let k = [
+                    (ox + g) as f64,
+                    (oy + g) as f64,
+                    tx,
+                    ty,
+                    -ty,
+                    tx,
+                    *width,
+                    phi,
+                    *height,
+                    (shape == "triangle") as u8 as f64,
+                ];
                 let out = self.scratch("B-107 wave", w + 2 * g, h + 2 * g);
-                let p = FxParams { flag: repeat as u32, g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(w + 2 * g, h + 2 * g));
+                let p = FxParams {
+                    flag: repeat as u32,
+                    g: g as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w + 2 * g, h + 2 * g),
+                );
                 (out, (w + 2 * g, h + 2 * g))
             }
-            E::Ripple { center, amplitude, wavelength, speed, phase, fade, frame } => {
+            E::Ripple {
+                center,
+                amplitude,
+                wavelength,
+                speed,
+                phase,
+                fade,
+                frame,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                let k = [cx, cy, *amplitude, *wavelength, (phase + speed * *frame as f64).to_radians(), *fade];
-                same(steps, &passes.warp, FxParams { mode: 1, ..Default::default() }, &k, None)
+                let k = [
+                    cx,
+                    cy,
+                    *amplitude,
+                    *wavelength,
+                    (phase + speed * *frame as f64).to_radians(),
+                    *fade,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 1,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Twirl { angle, radius, center } => {
+            E::Twirl {
+                angle,
+                radius,
+                center,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                same(steps, &passes.warp, FxParams { mode: 2, ..Default::default() }, &[cx, cy, angle.to_radians(), *radius], None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 2,
+                        ..Default::default()
+                    },
+                    &[cx, cy, angle.to_radians(), *radius],
+                    None,
+                )
             }
-            E::Bulge { center, radius, height, .. } => {
+            E::Bulge {
+                center,
+                radius,
+                height,
+                ..
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                same(steps, &passes.warp, FxParams { mode: 3, ..Default::default() }, &[cx, cy, *height, *radius], None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 3,
+                        ..Default::default()
+                    },
+                    &[cx, cy, *height, *radius],
+                    None,
+                )
             }
             // D-406: Bulge's branch of the warp pass, mode 24.
             E::Spherize { radius, center } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                same(steps, &passes.warp, FxParams { mode: 24, ..Default::default() }, &[cx, cy, 0.0, *radius], None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 24,
+                        ..Default::default()
+                    },
+                    &[cx, cy, 0.0, *radius],
+                    None,
+                )
             }
             // D-407: softened first as `covering` blurs, the Lanczos sum in the warp pass (mode
             // 29) grown as compose grew it, then Detail in the sharpen pass (mode 2).
-            E::DetailUpscale { scale, reduce_noise, detail } => {
+            E::DetailUpscale {
+                scale,
+                reduce_noise,
+                detail,
+            } => {
                 let (gx, gy) = f.grow;
                 let (tw, th) = (w + 2 * gx, h + 2 * gy);
                 let s = scale / 100.0;
-                let (soft, r) = if *reduce_noise > 0.0 { covering(steps, still, (w, h), reduce_noise / 50.0) } else { (still.clone(), 0) };
+                let (soft, r) = if *reduce_noise > 0.0 {
+                    covering(steps, still, (w, h), reduce_noise / 50.0)
+                } else {
+                    (still.clone(), 0)
+                };
                 let mut k = vec![0.0];
                 for (n, big) in [(w, tw), (h, th)] {
                     for x in 0..big {
@@ -15507,76 +16666,301 @@ impl Gpu {
                     }
                 }
                 let up = self.scratch("D-407 upscale", tw, th);
-                let p = FxParams { mode: 29, r: r as i32, flag: (*detail <= 0.0) as u32, ..Default::default() };
-                self.fx_step(steps, &passes.warp, p, Some(&soft), Some(&up), Some(&k), None, none, tiles(tw, th));
+                let p = FxParams {
+                    mode: 29,
+                    r: r as i32,
+                    flag: (*detail <= 0.0) as u32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    p,
+                    Some(&soft),
+                    Some(&up),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(tw, th),
+                );
                 if *detail <= 0.0 {
                     return (up, (tw, th));
                 }
                 let (blurred, r2) = covering(steps, &up, (tw, th), s / 2.0);
                 let out = self.scratch("D-407 detail", tw, th);
-                let p = FxParams { mode: 2, r: r2 as i32, ..Default::default() };
-                self.fx_step(steps, &passes.sharp, p, Some(&up), Some(&out), Some(&[detail / 50.0]), Some(&blurred), none, tiles(tw, th));
+                let p = FxParams {
+                    mode: 2,
+                    r: r2 as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.sharp,
+                    p,
+                    Some(&up),
+                    Some(&out),
+                    Some(&[detail / 50.0]),
+                    Some(&blurred),
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // D-377: the frames at End and at -L worked out here as the CPU works them.
-            E::BendIt { bend, start, end, render_prestart, distort } => {
-                let (s, e) = (crate::effects::radial_center(*start, (w, h), f.origin), crate::effects::radial_center(*end, (w, h), f.origin));
+            E::BendIt {
+                bend,
+                start,
+                end,
+                render_prestart,
+                distort,
+            } => {
+                let (s, e) = (
+                    crate::effects::radial_center(*start, (w, h), f.origin),
+                    crate::effects::radial_center(*end, (w, h), f.origin),
+                );
                 let length = (e.0 - s.0).hypot(e.1 - s.1);
                 let (tx, ty) = ((e.0 - s.0) / length, (e.1 - s.1) / length);
                 let (nx, ny) = (-ty, tx);
                 let theta = bend.to_radians();
-                let (r, (cx, cy)) = if theta == 0.0 { (0.0, (0.0, 0.0)) } else { (length / theta, (s.0 + length / theta * nx, s.1 + length / theta * ny)) };
+                let (r, (cx, cy)) = if theta == 0.0 {
+                    (0.0, (0.0, 0.0))
+                } else {
+                    (
+                        length / theta,
+                        (s.0 + length / theta * nx, s.1 + length / theta * ny),
+                    )
+                };
                 let frame = |phi: f64| {
                     let (sn, c) = phi.sin_cos();
-                    let (t, n) = ((tx * c + nx * sn, ty * c + ny * sn), (nx * c - tx * sn, ny * c - ty * sn));
+                    let (t, n) = (
+                        (tx * c + nx * sn, ty * c + ny * sn),
+                        (nx * c - tx * sn, ny * c - ty * sn),
+                    );
                     [cx - r * n.0, cy - r * n.1, t.0, t.1, n.0, n.1]
                 };
-                let pre = crate::effects::BEND_IT_PRESTARTS.iter().position(|p| p == render_prestart).expect("compose leaves a valid Bend It");
+                let pre = crate::effects::BEND_IT_PRESTARTS
+                    .iter()
+                    .position(|p| p == render_prestart)
+                    .expect("compose leaves a valid Bend It");
                 let lo = if pre >= 2 { -length } else { 0.0 };
-                let mut k = vec![s.0, s.1, tx, ty, nx, ny, length, theta, r, cx, cy, theta / length, lo, pre as f64, (distort == "extended") as u8 as f64];
+                let mut k = vec![
+                    s.0,
+                    s.1,
+                    tx,
+                    ty,
+                    nx,
+                    ny,
+                    length,
+                    theta,
+                    r,
+                    cx,
+                    cy,
+                    theta / length,
+                    lo,
+                    pre as f64,
+                    (distort == "extended") as u8 as f64,
+                ];
                 k.extend(frame(theta));
                 k.extend(frame(-theta));
-                same(steps, &passes.warp, FxParams { mode: 12, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 12,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Bender { amount, style, adjust_to_distance, top, base } => {
-                let (b, t) = (crate::effects::radial_center(*base, (w, h), f.origin), crate::effects::radial_center(*top, (w, h), f.origin));
+            E::Bender {
+                amount,
+                style,
+                adjust_to_distance,
+                top,
+                base,
+            } => {
+                let (b, t) = (
+                    crate::effects::radial_center(*base, (w, h), f.origin),
+                    crate::effects::radial_center(*top, (w, h), f.origin),
+                );
                 let a = crate::effects::bender_amount(*amount, adjust_to_distance, b, t);
                 let length = (t.0 - b.0).hypot(t.1 - b.1);
                 let (ux, uy) = ((t.0 - b.0) / length, (t.1 - b.1) / length);
-                let kind = crate::effects::BENDER_STYLES.iter().position(|s| s == style).expect("compose leaves a valid Bender");
-                same(steps, &passes.warp, FxParams { mode: 13, ..Default::default() }, &[b.0, b.1, ux, uy, -uy, ux, length, a, kind as f64], None)
+                let kind = crate::effects::BENDER_STYLES
+                    .iter()
+                    .position(|s| s == style)
+                    .expect("compose leaves a valid Bender");
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 13,
+                        ..Default::default()
+                    },
+                    &[b.0, b.1, ux, uy, -uy, ux, length, a, kind as f64],
+                    None,
+                )
             }
-            E::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing } => {
+            E::FlowMotion {
+                knot_1,
+                amount_1,
+                knot_2,
+                amount_2,
+                falloff,
+                tile_edges,
+                finer_controls,
+                antialiasing,
+            } => {
                 let ([((k1x, k1y), a1), ((k2x, k2y), a2)], sigma) =
-                    crate::effects::flow_motion_knots([*knot_1, *knot_2], [*amount_1, *amount_2], *falloff, finer_controls, (w, h), f.origin);
-                let n = 1 << crate::effects::FLOW_MOTION_ANTIALIASING.iter().position(|a| a == antialiasing).expect("compose leaves a valid Flow Motion");
-                let k = [k1x, k1y, a1, k2x, k2y, a2, sigma * sigma, (tile_edges == "on") as u8 as f64, n as f64];
-                same(steps, &passes.warp, FxParams { mode: 14, ..Default::default() }, &k, None)
+                    crate::effects::flow_motion_knots(
+                        [*knot_1, *knot_2],
+                        [*amount_1, *amount_2],
+                        *falloff,
+                        finer_controls,
+                        (w, h),
+                        f.origin,
+                    );
+                let n = 1
+                    << crate::effects::FLOW_MOTION_ANTIALIASING
+                        .iter()
+                        .position(|a| a == antialiasing)
+                        .expect("compose leaves a valid Flow Motion");
+                let k = [
+                    k1x,
+                    k1y,
+                    a1,
+                    k2x,
+                    k2y,
+                    a2,
+                    sigma * sigma,
+                    (tile_edges == "on") as u8 as f64,
+                    n as f64,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 14,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles } => {
+            E::Griddler {
+                horizontal_scale,
+                vertical_scale,
+                tile_size,
+                rotation,
+                cut_tiles,
+            } => {
                 let (sin, cos) = rotation.to_radians().sin_cos();
                 let tile = tile_size / 100.0 * (w - 2 * f.origin.0) as f64;
-                let k = [f.origin.0 as f64, f.origin.1 as f64, tile, sin, cos, horizontal_scale / 100.0, vertical_scale / 100.0, (cut_tiles == "on") as u8 as f64, 0.0];
-                same(steps, &passes.warp, FxParams { mode: 15, ..Default::default() }, &k, None)
+                let k = [
+                    f.origin.0 as f64,
+                    f.origin.1 as f64,
+                    tile,
+                    sin,
+                    cos,
+                    horizontal_scale / 100.0,
+                    vertical_scale / 100.0,
+                    (cut_tiles == "on") as u8 as f64,
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 15,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Fisheye { center, size, convergence } => {
+            E::Fisheye {
+                center,
+                size,
+                convergence,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                let k = [cx, cy, crate::effects::fisheye_radius(*size, (w, h), f.origin), convergence / 100.0, 0.0];
-                same(steps, &passes.warp, FxParams { mode: 16, ..Default::default() }, &k, None)
+                let k = [
+                    cx,
+                    cy,
+                    crate::effects::fisheye_radius(*size, (w, h), f.origin),
+                    convergence / 100.0,
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 16,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-388, layer_fx::page_turn; a corner turned onto itself is the drawing as it was.
-            E::PageTurn { controls, fold_position, fold_direction, fold_radius, light_direction, render, back_opacity, paper_color, map, .. } => {
+            E::PageTurn {
+                controls,
+                fold_position,
+                fold_direction,
+                fold_radius,
+                light_direction,
+                render,
+                back_opacity,
+                paper_color,
+                map,
+                ..
+            } => {
                 let (dw, dh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let Some(((n0, n1), off)) = crate::effects::page_turn_fold(controls, *fold_position, *fold_direction, *fold_radius, (dw, dh)) else {
+                let Some(((n0, n1), off)) = crate::effects::page_turn_fold(
+                    controls,
+                    *fold_position,
+                    *fold_direction,
+                    *fold_radius,
+                    (dw, dh),
+                ) else {
                     return (still.clone(), (w, h));
                 };
                 let (lx, ly) = crate::blurs::along(*light_direction);
                 let paper = linear(paper_color);
-                let r = crate::effects::PAGE_TURN_RENDERS.iter().position(|x| x == render).unwrap_or(0);
+                let r = crate::effects::PAGE_TURN_RENDERS
+                    .iter()
+                    .position(|x| x == render)
+                    .unwrap_or(0);
                 let back = map.as_ref().map(|m| self.map_texture(&m.0));
-                let k = [n0, n1, off, *fold_radius, lx * n0 + ly * n1, back_opacity / 100.0, paper[0], paper[1], paper[2], r as f64, back.is_some() as u8 as f64, ox as f64, oy as f64, 0.0];
+                let k = [
+                    n0,
+                    n1,
+                    off,
+                    *fold_radius,
+                    lx * n0 + ly * n1,
+                    back_opacity / 100.0,
+                    paper[0],
+                    paper[1],
+                    paper[2],
+                    r as f64,
+                    back.is_some() as u8 as f64,
+                    ox as f64,
+                    oy as f64,
+                    0.0,
+                ];
                 let out = self.scratch("D-388 page turn", w, h);
-                self.fx_step(steps, &passes.pageturn, FxParams::default(), Some(still), Some(&out), Some(&k), Some(back.as_ref().unwrap_or(still)), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.pageturn,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(back.as_ref().unwrap_or(still)),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-389, layer_fx::power_pin; no ring leaves the k[36] flag 0, which draws nothing.
@@ -15596,9 +16980,16 @@ impl Gpu {
                 let on = unstretch == "on";
                 let (gx, gy) = if on { (0, 0) } else { f.grow };
                 let pins = [*top_left, *top_right, *bottom_left, *bottom_right];
-                let e = [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom];
+                let e = [
+                    *expansion_top,
+                    *expansion_left,
+                    *expansion_right,
+                    *expansion_bottom,
+                ];
                 let mut k = [0.0; 37];
-                if let Some((q, mq, adj, det, _)) = crate::layer_fx::power_pin_map(pins, p, e, (w, h), f.origin) {
+                if let Some((q, mq, adj, det, _)) =
+                    crate::layer_fx::power_pin_map(pins, p, e, (w, h), f.origin)
+                {
                     k[..9].copy_from_slice(adj.as_flattened());
                     k[9] = det;
                     k[10..19].copy_from_slice(mq.as_flattened());
@@ -15608,138 +16999,470 @@ impl Gpu {
                     }
                     k[36] = 1.0;
                 }
-                k[27..35].copy_from_slice(&[(w - 2 * ox) as f64, (h - 2 * oy) as f64, ox as f64, oy as f64, (ox + gx) as f64, (oy + gy) as f64, p, on as u8 as f64]);
+                k[27..35].copy_from_slice(&[
+                    (w - 2 * ox) as f64,
+                    (h - 2 * oy) as f64,
+                    ox as f64,
+                    oy as f64,
+                    (ox + gx) as f64,
+                    (oy + gy) as f64,
+                    p,
+                    on as u8 as f64,
+                ]);
                 let (tw, th) = (w + 2 * gx, h + 2 * gy);
                 let out = self.scratch("D-389 power pin", tw, th);
-                self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 17,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // D-607, mesh::smear, drawn the same way.
-            E::MaskSmear { mask_offset, mask_rotation, mask_scale, percent, elasticity, paths, .. } => match paths.as_ref().filter(|_| *percent != 0.0) {
+            E::MaskSmear {
+                mask_offset,
+                mask_rotation,
+                mask_scale,
+                percent,
+                elasticity,
+                paths,
+                ..
+            } => match paths.as_ref().filter(|_| *percent != 0.0) {
                 None => (still.clone(), (w, h)),
                 Some(paths) => {
-                    let field = crate::mesh::smear(paths, *mask_offset, *mask_rotation, *mask_scale, *percent, elasticity, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                    let field = crate::mesh::smear(
+                        paths,
+                        *mask_offset,
+                        *mask_rotation,
+                        *mask_scale,
+                        *percent,
+                        elasticity,
+                        ((w - 2 * ox) as f64, (h - 2 * oy) as f64),
+                    );
                     let k = crate::mesh::field_numbers(&field, 1.0, [0.0, 0.0], (w, h), f.origin);
-                    same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
+                    same(
+                        steps,
+                        &passes.warp,
+                        FxParams {
+                            mode: 151,
+                            ..Default::default()
+                        },
+                        &k,
+                        None,
+                    )
                 }
             },
             // D-606, mesh::reshape, drawn the same way.
-            E::Reshape { percent, elasticity, correspondence_points, between, paths, .. } => match paths.as_ref().and_then(|paths| {
-                crate::mesh::reshape(paths, *percent, between, correspondence_points, elasticity, ((w - 2 * ox) as f64, (h - 2 * oy) as f64))
+            E::Reshape {
+                percent,
+                elasticity,
+                correspondence_points,
+                between,
+                paths,
+                ..
+            } => match paths.as_ref().and_then(|paths| {
+                crate::mesh::reshape(
+                    paths,
+                    *percent,
+                    between,
+                    correspondence_points,
+                    elasticity,
+                    ((w - 2 * ox) as f64, (h - 2 * oy) as f64),
+                )
             }) {
                 None => (still.clone(), (w, h)),
                 Some(field) => {
                     let k = crate::mesh::field_numbers(&field, 1.0, [0.0, 0.0], (w, h), f.origin);
-                    same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
+                    same(
+                        steps,
+                        &passes.warp,
+                        FxParams {
+                            mode: 151,
+                            ..Default::default()
+                        },
+                        &k,
+                        None,
+                    )
                 }
             },
             // D-605, D-700: mesh::liquify, worked on the processor, drawn as mesh::draw_field
             // draws it: warp mode 151.
-            liquify @ E::Liquify { distortion_percentage, distortion_mesh_offset, .. } => match crate::mesh::liquify(liquify, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
+            liquify @ E::Liquify {
+                distortion_percentage,
+                distortion_mesh_offset,
+                ..
+            } => match crate::mesh::liquify(liquify, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
                 None => (still.clone(), (w, h)),
                 Some(field) => {
-                    let k = crate::mesh::field_numbers(&field, *distortion_percentage / 100.0, *distortion_mesh_offset, (w, h), f.origin);
-                    same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
+                    let k = crate::mesh::field_numbers(
+                        &field,
+                        *distortion_percentage / 100.0,
+                        *distortion_mesh_offset,
+                        (w, h),
+                        f.origin,
+                    );
+                    same(
+                        steps,
+                        &passes.warp,
+                        FxParams {
+                            mode: 151,
+                            ..Default::default()
+                        },
+                        &k,
+                        None,
+                    )
                 }
             },
             // D-604, mesh::warp_preset_mesh, drawn the same way.
-            E::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {
+            E::Warp {
+                warp_style,
+                warp_axis,
+                bend,
+                horizontal_distortion,
+                vertical_distortion,
+            } => {
                 let size = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                match crate::mesh::warp_preset_mesh(warp_style, warp_axis, *bend, *horizontal_distortion, *vertical_distortion, size) {
-                    Some(m) => same(steps, &passes.warp, FxParams { mode: 150, ..Default::default() }, &crate::mesh::mesh_numbers(&m, (w, h), f.origin), None),
+                match crate::mesh::warp_preset_mesh(
+                    warp_style,
+                    warp_axis,
+                    *bend,
+                    *horizontal_distortion,
+                    *vertical_distortion,
+                    size,
+                ) {
+                    Some(m) => same(
+                        steps,
+                        &passes.warp,
+                        FxParams {
+                            mode: 150,
+                            ..Default::default()
+                        },
+                        &crate::mesh::mesh_numbers(&m, (w, h), f.origin),
+                        None,
+                    ),
                     None => (still.clone(), (w, h)),
                 }
             }
             // D-603, mesh::warp_mesh, drawn the same way.
-            E::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => {
-                match crate::mesh::warp_mesh(*rows, *columns, *quality, distortion_mesh, vertex_handles, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
-                    Some(m) => same(steps, &passes.warp, FxParams { mode: 150, ..Default::default() }, &crate::mesh::mesh_numbers(&m, (w, h), f.origin), None),
+            E::MeshWarp {
+                rows,
+                columns,
+                quality,
+                distortion_mesh,
+                vertex_handles,
+            } => {
+                match crate::mesh::warp_mesh(
+                    *rows,
+                    *columns,
+                    *quality,
+                    distortion_mesh,
+                    vertex_handles,
+                    ((w - 2 * ox) as f64, (h - 2 * oy) as f64),
+                ) {
+                    Some(m) => same(
+                        steps,
+                        &passes.warp,
+                        FxParams {
+                            mode: 150,
+                            ..Default::default()
+                        },
+                        &crate::mesh::mesh_numbers(&m, (w, h), f.origin),
+                        None,
+                    ),
                     None => (still.clone(), (w, h)),
                 }
             }
             // D-602, mesh::bezier_mesh, drawn as mesh::draw draws it: warp mode 150.
-            E::BezierWarp { points, quality } => match crate::mesh::bezier_mesh(points, *quality, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
-                Some(m) => same(steps, &passes.warp, FxParams { mode: 150, ..Default::default() }, &crate::mesh::mesh_numbers(&m, (w, h), f.origin), None),
+            E::BezierWarp { points, quality } => match crate::mesh::bezier_mesh(
+                points,
+                *quality,
+                ((w - 2 * ox) as f64, (h - 2 * oy) as f64),
+            ) {
+                Some(m) => same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 150,
+                        ..Default::default()
+                    },
+                    &crate::mesh::mesh_numbers(&m, (w, h), f.origin),
+                    None,
+                ),
                 None => (still.clone(), (w, h)),
             },
             // D-390, layer_fx::ripple_pulse, with the levels compose read for this frame.
-            E::RipplePulse { center, pulse_level, amplitude, render_bump_map, levels, .. } => {
+            E::RipplePulse {
+                center,
+                pulse_level,
+                amplitude,
+                render_bump_map,
+                levels,
+                ..
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let big = ((w - 2 * ox) as f64).hypot((h - 2 * oy) as f64) / 2.0;
                 let now = [*pulse_level];
-                let levels = if levels.is_empty() { &now[..] } else { &levels[..] };
-                let mut k = vec![cx, cy, (levels.len() - 1) as f64, big, *amplitude, (render_bump_map == "on") as u8 as f64, 0.0];
+                let levels = if levels.is_empty() {
+                    &now[..]
+                } else {
+                    &levels[..]
+                };
+                let mut k = vec![
+                    cx,
+                    cy,
+                    (levels.len() - 1) as f64,
+                    big,
+                    *amplitude,
+                    (render_bump_map == "on") as u8 as f64,
+                    0.0,
+                ];
                 k.extend_from_slice(levels);
-                same(steps, &passes.warp, FxParams { mode: 18, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 18,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-391..D-393, layer_fx::slant, smear and split, each a warp; no drag or no gap is
             // the drawing as it was.
-            E::Slant { slant, stretching, height, floor, set_color, color } => {
+            E::Slant {
+                slant,
+                stretching,
+                height,
+                floor,
+                set_color,
+                color,
+            } => {
                 let (_, fy) = crate::effects::radial_center(*floor, (w, h), f.origin);
                 let theta = slant.to_radians();
                 let s = height / 100.0 * if stretching == "on" { 1.0 } else { theta.cos() };
                 let c = linear(color);
-                let k = [fy, theta.tan(), s, (set_color == "on") as u8 as f64, c[0], c[1], c[2], 0.0];
-                same(steps, &passes.warp, FxParams { mode: 19, ..Default::default() }, &k, None)
+                let k = [
+                    fy,
+                    theta.tan(),
+                    s,
+                    (set_color == "on") as u8 as f64,
+                    c[0],
+                    c[1],
+                    c[2],
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 19,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Smear { from, to, reach, radius } => {
+            E::Smear {
+                from,
+                to,
+                reach,
+                radius,
+            } => {
                 let (fx, fy) = crate::effects::radial_center(*from, (w, h), f.origin);
                 let (tx, ty) = crate::effects::radial_center(*to, (w, h), f.origin);
                 let v = ((tx - fx) * reach / 100.0, (ty - fy) * reach / 100.0);
                 if *radius <= 0.0 || v.0 * v.0 + v.1 * v.1 == 0.0 {
                     return (still.clone(), (w, h));
                 }
-                same(steps, &passes.warp, FxParams { mode: 20, ..Default::default() }, &[fx, fy, v.0, v.1, *radius, 0.0], None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 20,
+                        ..Default::default()
+                    },
+                    &[fx, fy, v.0, v.1, *radius, 0.0],
+                    None,
+                )
             }
-            E::Split { point_a, point_b, split } => {
+            E::Split {
+                point_a,
+                point_b,
+                split,
+            } => {
                 let (ax, ay) = crate::effects::radial_center(*point_a, (w, h), f.origin);
                 let (bx, by) = crate::effects::radial_center(*point_b, (w, h), f.origin);
                 let length = (bx - ax).hypot(by - ay);
                 if length == 0.0 || *split <= 0.0 {
                     return (still.clone(), (w, h));
                 }
-                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split, 0.0, *split];
-                same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
+                let k = [
+                    ax,
+                    ay,
+                    (bx - ax) / length,
+                    (by - ay) / length,
+                    length,
+                    *split,
+                    0.0,
+                    *split,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 21,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-394: the same pass, each side its own amount.
-            E::Split2 { point_a, point_b, split_1, split_2 } => {
+            E::Split2 {
+                point_a,
+                point_b,
+                split_1,
+                split_2,
+            } => {
                 let (ax, ay) = crate::effects::radial_center(*point_a, (w, h), f.origin);
                 let (bx, by) = crate::effects::radial_center(*point_b, (w, h), f.origin);
                 let length = (bx - ax).hypot(by - ay);
                 if length == 0.0 || (*split_1 <= 0.0 && *split_2 <= 0.0) {
                     return (still.clone(), (w, h));
                 }
-                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split_2, 0.0, *split_1];
-                same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
+                let k = [
+                    ax,
+                    ay,
+                    (bx - ax) / length,
+                    (by - ay) / length,
+                    length,
+                    *split_2,
+                    0.0,
+                    *split_1,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 21,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-458: compose leaves only a wire that changes the layer.
-            E::SimpleWireRemoval { point_a, point_b, removal_style, thickness, slope, mirror_blend, picture, .. } => {
+            E::SimpleWireRemoval {
+                point_a,
+                point_b,
+                removal_style,
+                thickness,
+                slope,
+                mirror_blend,
+                picture,
+                ..
+            } => {
                 let (ax, ay) = crate::effects::radial_center(*point_a, (w, h), f.origin);
                 let (bx, by) = crate::effects::radial_center(*point_b, (w, h), f.origin);
                 let length = (bx - ax).hypot(by - ay);
-                let mode = crate::effects::WIRE_STYLES.iter().position(|s| s == removal_style).expect("compose leaves a valid Simple Wire Removal") as u32;
+                let mode = crate::effects::WIRE_STYLES
+                    .iter()
+                    .position(|s| s == removal_style)
+                    .expect("compose leaves a valid Simple Wire Removal")
+                    as u32;
                 let (hh, r) = (thickness / 2.0, thickness * (1.0 - slope / 100.0));
-                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, hh, r, hh + r, mirror_blend / 100.0, 0.0];
+                let k = [
+                    ax,
+                    ay,
+                    (bx - ax) / length,
+                    (by - ay) / length,
+                    length,
+                    hh,
+                    r,
+                    hh + r,
+                    mirror_blend / 100.0,
+                    0.0,
+                ];
                 let other = match picture {
                     Some(m) if mode == 1 => self.map_texture(&m.0),
                     _ => still.clone(),
                 };
-                same(steps, &passes.wire, FxParams { mode, ..Default::default() }, &k, Some(&other))
+                same(
+                    steps,
+                    &passes.wire,
+                    FxParams {
+                        mode,
+                        ..Default::default()
+                    },
+                    &k,
+                    Some(&other),
+                )
             }
             // D-404: Motion Tile's sized tile held at the picture's size, as layer_fx::sized_tile
             // works its numbers, then the original mixed back.
-            E::Tiles { scale, center, blend } => {
+            E::Tiles {
+                scale,
+                center,
+                blend,
+            } => {
                 let s = scale / 100.0;
                 let points = (1.0 / s).ceil().clamp(1.0, 16.0);
                 let (nx, ny) = (w as f64, h as f64);
                 let (tx, ty) = (nx * s, ny * s);
-                let k = [center[0] / 100.0 * nx - tx / 2.0, tx, s, center[1] / 100.0 * ny - ty / 2.0, ty, points, points, blend / 100.0, 0.0];
-                same(steps, &passes.warp, FxParams { mode: 25, ..Default::default() }, &k, None)
+                let k = [
+                    center[0] / 100.0 * nx - tx / 2.0,
+                    tx,
+                    s,
+                    center[1] / 100.0 * ny - ty / 2.0,
+                    ty,
+                    points,
+                    points,
+                    blend / 100.0,
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 25,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-405: grown as layer_fx::magnify_lens says, as compose's growth for it.
-            E::Magnify { shape, center, magnification, link, size: radius, feather, opacity, scaling, blending_mode, resize_layer } => {
-                let ((cx, cy), r, fe, g) =
-                    crate::layer_fx::magnify_lens(*center, *magnification, link, [*radius, *feather], resize_layer == "on", (w, h), f.origin);
+            E::Magnify {
+                shape,
+                center,
+                magnification,
+                link,
+                size: radius,
+                feather,
+                opacity,
+                scaling,
+                blending_mode,
+                resize_layer,
+            } => {
+                let ((cx, cy), r, fe, g) = crate::layer_fx::magnify_lens(
+                    *center,
+                    *magnification,
+                    link,
+                    [*radius, *feather],
+                    resize_layer == "on",
+                    (w, h),
+                    f.origin,
+                );
                 let m = magnification / 100.0;
                 let scaling = match scaling.as_str() {
                     "soft" => 1.0,
@@ -15747,45 +17470,203 @@ impl Gpu {
                     _ => 0.0,
                 };
                 let (ox, oy) = (f.origin.0 as f64, f.origin.1 as f64);
-                let k = [cx, cy, m, r, fe, opacity / 100.0, 1.0 - 1.0 / m, (shape == "square") as u8 as f64, scaling, laid(blending_mode), ox, oy, 0.0];
+                let k = [
+                    cx,
+                    cy,
+                    m,
+                    r,
+                    fe,
+                    opacity / 100.0,
+                    1.0 - 1.0 / m,
+                    (shape == "square") as u8 as f64,
+                    scaling,
+                    laid(blending_mode),
+                    ox,
+                    oy,
+                    0.0,
+                ];
                 let base = crate::grade::mix(0);
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 let out = self.scratch("D-405 magnify", tw, th);
-                let p = FxParams { mode: 23, g: g as i32, base: [base as u32, (base >> 32) as u32], ..Default::default() };
-                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
+                let p = FxParams {
+                    mode: 23,
+                    g: g as i32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // D-413: as effects' arm reads it, the layer never grows.
-            E::Checkerboard { anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode } => {
-                let ((ax, ay), (cw, ch)) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (w, h), f.origin);
+            E::Checkerboard {
+                anchor,
+                size_from,
+                corner,
+                width,
+                height,
+                feather_width,
+                feather_height,
+                color,
+                opacity,
+                blending_mode,
+            } => {
+                let ((ax, ay), (cw, ch)) = crate::layer_fx::checker_cells(
+                    *anchor,
+                    size_from,
+                    *corner,
+                    [*width, *height],
+                    (w, h),
+                    f.origin,
+                );
                 let c = linear(color);
-                let k = [ax, ay, cw, ch, feather_width.max(1.0) / 2.0, feather_height.max(1.0) / 2.0, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), 0.0];
-                same(steps, &passes.warp, FxParams { mode: 26, ..Default::default() }, &k, None)
+                let k = [
+                    ax,
+                    ay,
+                    cw,
+                    ch,
+                    feather_width.max(1.0) / 2.0,
+                    feather_height.max(1.0) / 2.0,
+                    c[0],
+                    c[1],
+                    c[2],
+                    opacity / 100.0,
+                    laid(blending_mode),
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 26,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-414: as effects' arm reads it, the layer never grows.
-            E::Circle { center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode } => {
+            E::Circle {
+                center,
+                radius,
+                edge,
+                edge_thickness,
+                feather_outer,
+                feather_inner,
+                invert,
+                color,
+                opacity,
+                blending_mode,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                let [ro, ri, fo, fi] = crate::layer_fx::circle_ring(*radius, edge, *edge_thickness, [*feather_outer, *feather_inner]);
+                let [ro, ri, fo, fi] = crate::layer_fx::circle_ring(
+                    *radius,
+                    edge,
+                    *edge_thickness,
+                    [*feather_outer, *feather_inner],
+                );
                 let c = linear(color);
-                let k = [cx, cy, ro, ri, fo, fi, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), (invert == "on") as u8 as f64];
-                same(steps, &passes.warp, FxParams { mode: 27, ..Default::default() }, &k, None)
+                let k = [
+                    cx,
+                    cy,
+                    ro,
+                    ri,
+                    fo,
+                    fi,
+                    c[0],
+                    c[1],
+                    c[2],
+                    opacity / 100.0,
+                    laid(blending_mode),
+                    (invert == "on") as u8 as f64,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 27,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-417: as effects' arm reads it, the layer never grows.
-            E::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
-                let ((ax, ay), (cw, ch)) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (w, h), f.origin);
+            E::Grid {
+                anchor,
+                size_from,
+                corner,
+                width,
+                height,
+                border,
+                feather_width,
+                feather_height,
+                invert,
+                color,
+                opacity,
+                blending_mode,
+            } => {
+                let ((ax, ay), (cw, ch)) = crate::layer_fx::checker_cells(
+                    *anchor,
+                    size_from,
+                    *corner,
+                    [*width, *height],
+                    (w, h),
+                    f.origin,
+                );
                 let c = linear(color);
-                let k = [ax, ay, cw, ch, *border, feather_width.max(1.0), feather_height.max(1.0), c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), (invert == "on") as u8 as f64];
-                same(steps, &passes.warp, FxParams { mode: 31, ..Default::default() }, &k, None)
+                let k = [
+                    ax,
+                    ay,
+                    cw,
+                    ch,
+                    *border,
+                    feather_width.max(1.0),
+                    feather_height.max(1.0),
+                    c[0],
+                    c[1],
+                    c[2],
+                    opacity / 100.0,
+                    laid(blending_mode),
+                    (invert == "on") as u8 as f64,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 31,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-415: as effects' arm reads it, the layer never grows.
             // D-420: the marks worked out here as the CPU works them, from the levels compose
             // found; with none the card is not asked (`compose::card_effect`).
             // D-421: Audio Waveform's marks on the same pass.
             e @ (E::AudioSpectrum { .. } | E::AudioWaveform { .. }) => {
-                let m = crate::layer_fx::spectrum_marks(e, (w, h), f.origin).or_else(|| crate::layer_fx::waveform_marks(e, (w, h), f.origin)).unwrap_or_default();
+                let m = crate::layer_fx::spectrum_marks(e, (w, h), f.origin)
+                    .or_else(|| crate::layer_fx::waveform_marks(e, (w, h), f.origin))
+                    .unwrap_or_default();
                 let boxes = m.boxes();
                 let bands = crate::layer_fx::Marks::bands(&boxes, h);
-                let mut k = vec![m.r, m.softness, m.how as f64, m.blend as u8 as f64, m.pieces.len() as f64];
+                let mut k = vec![
+                    m.r,
+                    m.softness,
+                    m.how as f64,
+                    m.blend as u8 as f64,
+                    m.pieces.len() as f64,
+                ];
                 for (p, b) in m.pieces.iter().zip(&boxes) {
                     k.extend(p);
                     k.extend(b);
@@ -15798,12 +17679,38 @@ impl Gpu {
                 k.extend(bands.concat().into_iter().map(f64::from));
                 same(steps, &passes.marks, FxParams::default(), &k, None)
             }
-            E::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
+            E::Ellipse {
+                center,
+                width,
+                height,
+                thickness,
+                softness,
+                inside_color,
+                outside_color,
+                composite,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                let mut k = vec![cx, cy, width / 2.0, height / 2.0, thickness / 2.0, *softness, (composite == "off") as u8 as f64];
+                let mut k = vec![
+                    cx,
+                    cy,
+                    width / 2.0,
+                    height / 2.0,
+                    thickness / 2.0,
+                    *softness,
+                    (composite == "off") as u8 as f64,
+                ];
                 k.extend(linear(inside_color));
                 k.extend(linear(outside_color));
-                same(steps, &passes.warp, FxParams { mode: 28, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 28,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-416: as effects' arm reads it, the layer replaced and never grown.
             effect @ E::Fractal { .. } => {
@@ -15811,74 +17718,287 @@ impl Gpu {
                 let v = crate::layer_fx::FractalView::of(effect, h0).expect("a Fractal");
                 let on = |b: bool| b as u8 as f64;
                 let k = [
-                    v.m[0], v.m[1], v.m[2], v.j[0], v.j[1], v.j[2],
-                    f.origin.0 as f64, f.origin.1 as f64, w0 / 2.0, h0 / 2.0,
-                    v.m_limit as f64, v.j_limit as f64, v.power as f64,
-                    on(v.julia), on(v.inverse), on(v.over_julia),
-                    v.palette as f64, v.hue, v.steps as f64, v.offset as f64,
-                    on(v.transparency), on(v.edge_highlight), on(v.brute), v.factor as f64, on(v.overlay), 0.0,
-                    (w0 as i64 / 2) as f64, (h0 as i64 / 2) as f64, 2.max(h0 as i64 / 20) as f64,
+                    v.m[0],
+                    v.m[1],
+                    v.m[2],
+                    v.j[0],
+                    v.j[1],
+                    v.j[2],
+                    f.origin.0 as f64,
+                    f.origin.1 as f64,
+                    w0 / 2.0,
+                    h0 / 2.0,
+                    v.m_limit as f64,
+                    v.j_limit as f64,
+                    v.power as f64,
+                    on(v.julia),
+                    on(v.inverse),
+                    on(v.over_julia),
+                    v.palette as f64,
+                    v.hue,
+                    v.steps as f64,
+                    v.offset as f64,
+                    on(v.transparency),
+                    on(v.edge_highlight),
+                    on(v.brute),
+                    v.factor as f64,
+                    on(v.overlay),
+                    0.0,
+                    (w0 as i64 / 2) as f64,
+                    (h0 as i64 / 2) as f64,
+                    2.max(h0 as i64 / 20) as f64,
                 ];
-                same(steps, &passes.warp, FxParams { mode: 30, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 30,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (nx, ny) = crate::layer_fx::mirror_normal(*angle);
-                same(steps, &passes.warp, FxParams { mode: 4, ..Default::default() }, &[cx, cy, nx, ny, 0.0], None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 4,
+                        ..Default::default()
+                    },
+                    &[cx, cy, nx, ny, 0.0],
+                    None,
+                )
             }
-            E::CameraShake { amount, rotation, hold, seed, frame } => {
-                let ((cx, cy), g) = crate::layer_fx::shake_reach(*amount, *rotation, (w, h), f.origin);
-                let (dx, dy, sb, cb) = crate::layer_fx::shake_jolt([*amount, *rotation, *hold, *seed], *frame);
+            E::CameraShake {
+                amount,
+                rotation,
+                hold,
+                seed,
+                frame,
+            } => {
+                let ((cx, cy), g) =
+                    crate::layer_fx::shake_reach(*amount, *rotation, (w, h), f.origin);
+                let (dx, dy, sb, cb) =
+                    crate::layer_fx::shake_jolt([*amount, *rotation, *hold, *seed], *frame);
                 let out = self.scratch("B-107 shake", w + 2 * g, h + 2 * g);
-                let p = FxParams { mode: 5, g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&[cx, cy, dx, dy, sb, cb]), None, none, tiles(w + 2 * g, h + 2 * g));
+                let p = FxParams {
+                    mode: 5,
+                    g: g as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&[cx, cy, dx, dy, sb, cb]),
+                    None,
+                    none,
+                    tiles(w + 2 * g, h + 2 * g),
+                );
                 (out, (w + 2 * g, h + 2 * g))
             }
             E::MotionTile { mirror, .. } => {
                 let (gx, gy) = f.grow;
                 let (tw, th) = (w + 2 * gx, h + 2 * gy);
                 let out = self.scratch("B-115 tile", tw, th);
-                let p = FxParams { mode: 6, flag: (mirror == "on") as u32, ox: gx as i32, oy: gy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&[0.0]), None, none, tiles(tw, th));
+                let p = FxParams {
+                    mode: 6,
+                    flag: (mirror == "on") as u32,
+                    ox: gx as i32,
+                    oy: gy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&[0.0]),
+                    None,
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // D-464: one warp pass, mode 101, into the grown buffer.
-            E::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
+            E::RepeatTile {
+                expand_right,
+                expand_left,
+                expand_down,
+                expand_up,
+                tiling,
+                blend_borders,
+            } => {
                 let (gx, gy) = f.grow;
                 let (tw, th) = (w + 2 * gx, h + 2 * gy);
                 let out = self.scratch("D-464 repeat tile", tw, th);
-                let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
-                let p = FxParams { mode: 101, ox: gx as i32, oy: gy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
+                let k = crate::layer_fx::repeat_tile_setup(
+                    [*expand_right, *expand_left, *expand_down, *expand_up],
+                    tiling,
+                    *blend_borders,
+                );
+                let p = FxParams {
+                    mode: 101,
+                    ox: gx as i32,
+                    oy: gy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // D-465: one warp pass, mode 102.
-            E::Scatter { scatter_amount, grain, frame, .. } => {
+            E::Scatter {
+                scatter_amount,
+                grain,
+                frame,
+                ..
+            } => {
                 let k = crate::layer_fx::scatter_setup(*scatter_amount, grain);
-                same(steps, &passes.warp, FxParams { mode: 102, frame: *frame, ..Default::default() }, &[k[0] as f64, k[1] as f64], None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 102,
+                        frame: *frame,
+                        ..Default::default()
+                    },
+                    &[k[0] as f64, k[1] as f64],
+                    None,
+                )
             }
             // D-466: one warp pass, mode 103; the card's plan leaves out a Strobe Light that is off.
-            E::StrobeLight { strobe_color, blend_with_original, strobe, strobe_operator, .. } => {
-                let k = crate::layer_fx::strobe_setup(linear(strobe_color), *blend_with_original, strobe, strobe_operator);
-                same(steps, &passes.warp, FxParams { mode: 103, ..Default::default() }, &[k[0], k[1], k[2], k[3], k[4], k[5], 0.0], None)
+            E::StrobeLight {
+                strobe_color,
+                blend_with_original,
+                strobe,
+                strobe_operator,
+                ..
+            } => {
+                let k = crate::layer_fx::strobe_setup(
+                    linear(strobe_color),
+                    *blend_with_original,
+                    strobe,
+                    strobe_operator,
+                );
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 103,
+                        ..Default::default()
+                    },
+                    &[k[0], k[1], k[2], k[3], k[4], k[5], 0.0],
+                    None,
+                )
             }
             // D-562: tone mode 110; the card's plan leaves out one that changes nothing.
-            E::CcVignette { amount, angle_of_view, center, pin_highlights } => {
-                let k = crate::effects::cc_vignette_settings(*amount, *angle_of_view, *center, *pin_highlights, (w, h), f.origin);
-                same(steps, &passes.tone, FxParams { mode: 110, ..Default::default() }, &k, None)
+            E::CcVignette {
+                amount,
+                angle_of_view,
+                center,
+                pin_highlights,
+            } => {
+                let k = crate::effects::cc_vignette_settings(
+                    *amount,
+                    *angle_of_view,
+                    *center,
+                    *pin_highlights,
+                    (w, h),
+                    f.origin,
+                );
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 110,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-468: tone mode 100, one level and one Invert for all three.
-            E::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
-                let ch = crate::effects::CHANNEL_THRESHOLD_CHANNELS.iter().position(|c| c == channel).expect("a valid channel") as f64;
+            E::ChannelThreshold {
+                threshold,
+                channel,
+                invert,
+                blend_with_original,
+            } => {
+                let ch = crate::effects::CHANNEL_THRESHOLD_CHANNELS
+                    .iter()
+                    .position(|c| c == channel)
+                    .expect("a valid channel") as f64;
                 let i = (invert == "on") as u8 as f64;
-                let k = [*threshold, *threshold, *threshold, ch, i, i, i, 1.0 - blend_with_original / 100.0];
-                same(steps, &passes.tone, FxParams { mode: 100, ..Default::default() }, &k, None)
+                let k = [
+                    *threshold,
+                    *threshold,
+                    *threshold,
+                    ch,
+                    i,
+                    i,
+                    i,
+                    1.0 - blend_with_original / 100.0,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 100,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-469: Channel Threshold's tone mode 100 on RGB, a level and an Invert each.
-            E::ThresholdRgb { red_threshold, green_threshold, blue_threshold, invert_red, invert_green, invert_blue, blend_with_original } => {
-                let [i0, i1, i2] = [invert_red, invert_green, invert_blue].map(|v| (v == "on") as u8 as f64);
-                let k = [*red_threshold, *green_threshold, *blue_threshold, 1.0, i0, i1, i2, 1.0 - blend_with_original / 100.0];
-                same(steps, &passes.tone, FxParams { mode: 100, ..Default::default() }, &k, None)
+            E::ThresholdRgb {
+                red_threshold,
+                green_threshold,
+                blue_threshold,
+                invert_red,
+                invert_green,
+                invert_blue,
+                blend_with_original,
+            } => {
+                let [i0, i1, i2] =
+                    [invert_red, invert_green, invert_blue].map(|v| (v == "on") as u8 as f64);
+                let k = [
+                    *red_threshold,
+                    *green_threshold,
+                    *blue_threshold,
+                    1.0,
+                    i0,
+                    i1,
+                    i2,
+                    1.0 - blend_with_original / 100.0,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 100,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-470: the flow as CC Vector Blur's luminance, the tensor, D-400's held blur and the
             // tangent; then each smear pass, and the fills from compose's palette.
@@ -15900,10 +18020,21 @@ impl Gpu {
                 map,
                 ..
             } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
-                let (sigma, turn, ways) = crate::layer_fx::contour_setup(*cleanliness, *offset_flow_angles, *quantize_flow_angles, *px);
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
+                let (sigma, turn, ways) = crate::layer_fx::contour_setup(
+                    *cleanliness,
+                    *offset_flow_angles,
+                    *quantize_flow_angles,
+                    *px,
+                );
                 let taps = crate::effects::gaussian_weights(sigma);
-                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a property");
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| *p == "luminance")
+                    .expect("luminance is a property");
                 let mut tk = vec![turn.0, turn.1];
                 tk.extend(ways.iter().flat_map(|&(x, y)| [x, y]));
                 let picture = map.as_ref().map(|m| self.map_texture(&m.0));
@@ -15913,65 +18044,209 @@ impl Gpu {
                         None => (from, (0, 0)),
                     };
                     let lum = self.scratch("D-470 luminance", w, h);
-                    let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                    self.fx_step(steps, &passes.vheight, p, Some(from), Some(&lum), Some(&[place as f64]), None, none, tiles(w, h));
+                    let p = FxParams {
+                        ox: mx as i32,
+                        oy: my as i32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.vheight,
+                        p,
+                        Some(from),
+                        Some(&lum),
+                        Some(&[place as f64]),
+                        None,
+                        none,
+                        tiles(w, h),
+                    );
                     let tensor = self.scratch("D-470 tensor", w, h);
-                    self.fx_step(steps, &passes.cptensor, FxParams::default(), Some(&lum), Some(&tensor), None, None, none, tiles(w, h));
-                    let blurred = self.gauss(steps, bloom, "D-470 blur", &tensor, (w, h), [&taps, &taps], 0, true);
+                    self.fx_step(
+                        steps,
+                        &passes.cptensor,
+                        FxParams::default(),
+                        Some(&lum),
+                        Some(&tensor),
+                        None,
+                        None,
+                        none,
+                        tiles(w, h),
+                    );
+                    let blurred = self.gauss(
+                        steps,
+                        bloom,
+                        "D-470 blur",
+                        &tensor,
+                        (w, h),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    );
                     let out = self.scratch("D-470 flow", w, h);
-                    let p = FxParams { n: ways.len() as u32, ..Default::default() };
-                    self.fx_step(steps, &passes.cptangent, p, Some(&blurred), Some(&out), Some(&tk), None, none, tiles(w, h));
+                    let p = FxParams {
+                        n: ways.len() as u32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.cptangent,
+                        p,
+                        Some(&blurred),
+                        Some(&out),
+                        Some(&tk),
+                        None,
+                        none,
+                        tiles(w, h),
+                    );
                     out
                 };
                 if view == "edge_map" {
                     let field = flow(steps, still);
                     let out = self.scratch("D-470 edges", w, h);
-                    self.fx_step(steps, &passes.cpedge, FxParams::default(), Some(&field), Some(&out), Some(&[12.0 * px, *px, (arrowheads == "on") as u8 as f64]), None, none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.cpedge,
+                        FxParams::default(),
+                        Some(&field),
+                        Some(&out),
+                        Some(&[12.0 * px, *px, (arrowheads == "on") as u8 as f64]),
+                        None,
+                        none,
+                        tiles(w, h),
+                    );
                     (out, (w, h))
                 } else {
                     let fixed = picture.as_ref().map(|_| flow(steps, still));
                     let weights = crate::layer_fx::contour_weights(*stylization, *px);
-                    let keep = FxParams { n: weights.len() as u32, flag: (apply_to_alpha == "off") as u32, ..Default::default() };
+                    let keep = FxParams {
+                        n: weights.len() as u32,
+                        flag: (apply_to_alpha == "off") as u32,
+                        ..Default::default()
+                    };
                     let mut cur = still.clone();
                     for _ in 0..smear_iterations.floor() as usize {
                         let field = fixed.clone().unwrap_or_else(|| flow(steps, &cur));
                         let out = self.scratch("D-470 smear", w, h);
-                        self.fx_step(steps, &passes.cpsmear, keep, Some(&cur), Some(&out), Some(&weights), Some(&field), none, tiles(w, h));
+                        self.fx_step(
+                            steps,
+                            &passes.cpsmear,
+                            keep,
+                            Some(&cur),
+                            Some(&out),
+                            Some(&weights),
+                            Some(&field),
+                            none,
+                            tiles(w, h),
+                        );
                         cur = out;
                     }
-                    let palette = palette.as_ref().expect("compose fills Contour Paint's palette");
+                    let palette = palette
+                        .as_ref()
+                        .expect("compose fills Contour Paint's palette");
                     if draw_color_fills != "none" && !palette.is_empty() {
                         let field = fixed.unwrap_or_else(|| flow(steps, &cur));
                         let perceptual = reduction_method == crate::effects::CONTOUR_CUSTOM;
                         let mut k = vec![*low_strength, *high_strength, palette.len() as f64];
-                        k.extend(palette.iter().flat_map(|&q| if perceptual { crate::layer_fx::contour_lab(q) } else { q }));
+                        k.extend(palette.iter().flat_map(|&q| {
+                            if perceptual {
+                                crate::layer_fx::contour_lab(q)
+                            } else {
+                                q
+                            }
+                        }));
                         k.extend(palette.iter().flat_map(|q| q.map(crate::grade::to_linear)));
-                        let p = FxParams { flag: (draw_color_fills == "only") as u32 | (perceptual as u32) << 1, ..Default::default() };
+                        let p = FxParams {
+                            flag: (draw_color_fills == "only") as u32 | (perceptual as u32) << 1,
+                            ..Default::default()
+                        };
                         let out = self.scratch("D-470 fills", w, h);
-                        self.fx_step(steps, &passes.cpfill, p, Some(&cur), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
+                        self.fx_step(
+                            steps,
+                            &passes.cpfill,
+                            p,
+                            Some(&cur),
+                            Some(&out),
+                            Some(&k),
+                            Some(&field),
+                            none,
+                            tiles(w, h),
+                        );
                         cur = out;
                     }
                     (cur, (w, h))
                 }
             }
             // D-467: the texture's luminance as Plastic's bump, then one pass that presses it in.
-            E::Texturize { light_direction, texture_contrast, map, .. } => {
-                let picture = self.map_texture(&map.as_ref().expect("compose leaves a Texturize with a texture").0);
-                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a property");
+            E::Texturize {
+                light_direction,
+                texture_contrast,
+                map,
+                ..
+            } => {
+                let picture = self.map_texture(
+                    &map.as_ref()
+                        .expect("compose leaves a Texturize with a texture")
+                        .0,
+                );
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| *p == "luminance")
+                    .expect("luminance is a property");
                 let raw = self.scratch("D-467 height", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[place as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let (ux, uy) = crate::blurs::along(*light_direction);
                 let out = self.scratch("D-467 texturize", w, h);
-                self.fx_step(steps, &passes.texturize, FxParams::default(), Some(still), Some(&out), Some(&[ux, uy, texture_contrast / 2.0]), Some(&raw), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.texturize,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&[ux, uy, texture_contrast / 2.0]),
+                    Some(&raw),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            E::LinearWipe { completion, angle, feather } => {
-                let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, (w, h), f.origin);
-                let p = FxParams { mode: 0, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+            E::LinearWipe {
+                completion,
+                angle,
+                feather,
+            } => {
+                let ((ux, uy), edge) =
+                    crate::layer_fx::linear_edge(*completion, *angle, *feather, (w, h), f.origin);
+                let p = FxParams {
+                    mode: 0,
+                    flag: (*completion == 100.0) as u32,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &[ux, uy, edge, *feather, 0.0], None)
             }
-            E::RadialWipe { completion, start_angle, center, wipe, feather } => {
+            E::RadialWipe {
+                completion,
+                start_angle,
+                center,
+                wipe,
+                feather,
+            } => {
                 let way = match wipe.as_str() {
                     "counterclockwise" => 1,
                     "both" => 2,
@@ -15979,50 +18254,136 @@ impl Gpu {
                 };
                 let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let edge = completion / 100.0 * (360.0 + feather) - feather / 2.0;
-                let k = [center[0] / 100.0 * w0, center[1] / 100.0 * h0, *start_angle, edge, *feather];
-                let p = FxParams { mode: 1, count: way, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let k = [
+                    center[0] / 100.0 * w0,
+                    center[1] / 100.0 * h0,
+                    *start_angle,
+                    edge,
+                    *feather,
+                ];
+                let p = FxParams {
+                    mode: 1,
+                    count: way,
+                    flag: (*completion == 100.0) as u32,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
-            E::VenetianBlinds { completion, angle, width, feather } => {
+            E::VenetianBlinds {
+                completion,
+                angle,
+                width,
+                feather,
+            } => {
                 let (ux, uy) = crate::blurs::along(*angle);
                 let edge = completion / 100.0 * (width + feather) - feather / 2.0;
-                let p = FxParams { mode: 2, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
-                same(steps, &passes.wipe, p, &[ux, uy, *width, edge, *feather, 0.0], None)
+                let p = FxParams {
+                    mode: 2,
+                    flag: (*completion == 100.0) as u32,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(
+                    steps,
+                    &passes.wipe,
+                    p,
+                    &[ux, uy, *width, edge, *feather, 0.0],
+                    None,
+                )
             }
-            E::IrisWipe { completion, center, feather, invert } => {
+            E::IrisWipe {
+                completion,
+                center,
+                feather,
+                invert,
+            } => {
                 let invert = invert == "on";
-                let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, (w, h), f.origin);
-                let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
-                same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
+                let ((cx, cy), r) = crate::layer_fx::iris_circle(
+                    *completion,
+                    *center,
+                    *feather,
+                    invert,
+                    (w, h),
+                    f.origin,
+                );
+                let p = FxParams {
+                    mode: 3,
+                    flag: (*completion == 100.0) as u32,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(
+                    steps,
+                    &passes.wipe,
+                    p,
+                    &[cx, cy, r, *feather, invert as u8 as f64],
+                    None,
+                )
             }
             e @ E::StretchWipe { .. } => {
-                let k = crate::layer_fx::stretch_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let p = FxParams { mode: 9, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let k =
+                    crate::layer_fx::stretch_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let p = FxParams {
+                    mode: 9,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::PushIris { .. } => {
                 let k = crate::layer_fx::push_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let p = FxParams { mode: 8, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    mode: 8,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::StripeSweep { .. } => {
-                let k = crate::layer_fx::stripe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let p = FxParams { mode: 7, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let k =
+                    crate::layer_fx::stripe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let p = FxParams {
+                    mode: 7,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::GlowWipe { .. } => {
                 let k = crate::layer_fx::glow_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let p = FxParams { mode: 6, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    mode: 6,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::TeethWipe { .. } => {
                 let k = crate::layer_fx::teeth_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let p = FxParams { mode: 5, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    mode: 5,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::TileWipe { .. } => {
                 let k = crate::layer_fx::tile_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let p = FxParams { mode: 4, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    mode: 4,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.wipe, p, &k, None)
             }
             E::SimpleChoker { choke } => {
@@ -16035,25 +18396,88 @@ impl Gpu {
                 let mut first = true;
                 for k in 0..=top {
                     // Each row's least or greatest covering within k, widened from within k - 1.
-                    let p = FxParams { n: g as u32, count: k as u32, flag: !spread as u32, ..Default::default() };
-                    self.fx_step(steps, &passes.rows, p, Some(still), None, None, None, [Some(&row), None, None, None], tiles(bw, h));
-                    let dys: Vec<f64> = runs.iter().filter(|&&(_, hw)| hw == k).map(|&(dy, _)| dy as f64).collect();
+                    let p = FxParams {
+                        n: g as u32,
+                        count: k as u32,
+                        flag: !spread as u32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.rows,
+                        p,
+                        Some(still),
+                        None,
+                        None,
+                        None,
+                        [Some(&row), None, None, None],
+                        tiles(bw, h),
+                    );
+                    let dys: Vec<f64> = runs
+                        .iter()
+                        .filter(|&&(_, hw)| hw == k)
+                        .map(|&(dy, _)| dy as f64)
+                        .collect();
                     if !dys.is_empty() {
                         // A shrink's band starts from infinity, a spread's from the empty buffer.
                         let mode = (!spread && first) as u32;
                         first = false;
-                        let p = FxParams { mode, n: g as u32, count: dys.len() as u32, flag: !spread as u32, ..Default::default() };
-                        self.fx_step(steps, &passes.bands, p, Some(still), None, Some(&dys), None, [Some(&row), Some(&band), None, None], tiles(bw, bh));
+                        let p = FxParams {
+                            mode,
+                            n: g as u32,
+                            count: dys.len() as u32,
+                            flag: !spread as u32,
+                            ..Default::default()
+                        };
+                        self.fx_step(
+                            steps,
+                            &passes.bands,
+                            p,
+                            Some(still),
+                            None,
+                            Some(&dys),
+                            None,
+                            [Some(&row), Some(&band), None, None],
+                            tiles(bw, bh),
+                        );
                     }
                 }
                 let sums = buffer(if spread { (w + 1) * h * 32 } else { 32 });
                 if spread {
-                    self.fx_step(steps, &passes.prefix, FxParams::default(), Some(still), None, Some(&[0.0; 3]), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                    self.fx_step(
+                        steps,
+                        &passes.prefix,
+                        FxParams::default(),
+                        Some(still),
+                        None,
+                        Some(&[0.0; 3]),
+                        None,
+                        [None, None, Some(&sums), None],
+                        ((h as u32).div_ceil(64), 1),
+                    );
                 }
-                let k: Vec<f64> = runs.iter().flat_map(|&(dy, hw)| [dy as f64, hw as f64]).collect();
+                let k: Vec<f64> = runs
+                    .iter()
+                    .flat_map(|&(dy, hw)| [dy as f64, hw as f64])
+                    .collect();
                 let out = self.scratch("B-107 choker", bw, bh);
-                let p = FxParams { flag: !spread as u32, g: g as i32, count: runs.len() as u32, ..Default::default() };
-                self.fx_step(steps, &passes.choke, p, Some(still), Some(&out), Some(&k), None, [None, Some(&band), Some(&sums), None], tiles(bw, bh));
+                let p = FxParams {
+                    flag: !spread as u32,
+                    g: g as i32,
+                    count: runs.len() as u32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.choke,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None, Some(&band), Some(&sums), None],
+                    tiles(bw, bh),
+                );
                 (out, (bw, bh))
             }
             // D-352: each stage the running totals of what the stage before made, then the
@@ -16068,7 +18492,10 @@ impl Gpu {
                 iterations,
             } => {
                 let sums = buffer((w + 1) * h * 32);
-                let pair = [self.scratch("D-352 matte choker", w, h), self.scratch("D-352 matte choker", w, h)];
+                let pair = [
+                    self.scratch("D-352 matte choker", w, h),
+                    self.scratch("D-352 matte choker", w, h),
+                ];
                 let stages = [
                     [*geometric_softness_1, *choke_1, *gray_level_softness_1],
                     [*geometric_softness_2, *choke_2, *gray_level_softness_2],
@@ -16076,14 +18503,41 @@ impl Gpu {
                 let mut done = 0;
                 for _ in 0..iterations.floor() as usize {
                     for [g, c, s] in stages {
-                        let from = if done == 0 { still } else { &pair[(done + 1) % 2] };
-                        self.fx_step(steps, &passes.prefix, FxParams::default(), Some(from), None, Some(&[0.0; 3]), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                        let from = if done == 0 {
+                            still
+                        } else {
+                            &pair[(done + 1) % 2]
+                        };
+                        self.fx_step(
+                            steps,
+                            &passes.prefix,
+                            FxParams::default(),
+                            Some(from),
+                            None,
+                            Some(&[0.0; 3]),
+                            None,
+                            [None, None, Some(&sums), None],
+                            ((h as u32).div_ceil(64), 1),
+                        );
                         let runs = crate::layer_fx::disc_runs(g);
                         let size: isize = runs.iter().map(|&(_, hw)| 2 * hw + 1).sum();
                         let mut k = vec![size as f64, 0.5 + c / 255.0, s / 100.0];
                         k.extend(runs.iter().flat_map(|&(dy, hw)| [dy as f64, hw as f64]));
-                        let p = FxParams { count: runs.len() as u32, ..Default::default() };
-                        self.fx_step(steps, &passes.mchoke, p, Some(from), Some(&pair[done % 2]), Some(&k), None, [None, None, Some(&sums), None], tiles(w, h));
+                        let p = FxParams {
+                            count: runs.len() as u32,
+                            ..Default::default()
+                        };
+                        self.fx_step(
+                            steps,
+                            &passes.mchoke,
+                            p,
+                            Some(from),
+                            Some(&pair[done % 2]),
+                            Some(&k),
+                            None,
+                            [None, None, Some(&sums), None],
+                            tiles(w, h),
+                        );
                         done += 1;
                     }
                 }
@@ -16114,25 +18568,77 @@ impl Gpu {
                 let tinted = |radius: f64, k: usize| -> [f64; 8] {
                     let Some(t) = &tint else { return [0.0; 8] };
                     let c = t.colour(radius, k);
-                    [1.0, t.amount as f64, c[0] as f64, c[1] as f64, c[2] as f64, t.inner[0] as f64, t.inner[1] as f64, t.inner[2] as f64]
+                    [
+                        1.0,
+                        t.amount as f64,
+                        c[0] as f64,
+                        c[1] as f64,
+                        c[2] as f64,
+                        t.inner[0] as f64,
+                        t.inner[1] as f64,
+                        t.inner[2] as f64,
+                    ]
                 };
-                let g = chains.iter().map(|(_, plan, _)| plan.grow).max().unwrap_or(0);
+                let g = chains
+                    .iter()
+                    .map(|(_, plan, _)| plan.grow)
+                    .max()
+                    .unwrap_or(0);
                 let (ow, oh) = (w + 2 * g, h + 2 * g);
                 let single = |v: f64| v as f32 as f64;
                 let lit = self.scratch("D-353 light", w, h);
-                let k = [single(s.threshold / 100.0), single(s.bias / 100.0), single(s.smooth / 100.0), f64::from(s.luminance)];
-                self.fx_step(steps, &passes.sglight, FxParams::default(), Some(still), Some(&lit), Some(&k), None, none, tiles(w, h));
-                let size = |lv: &crate::soft_glow::Level| (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1);
-                let (mw, mh) = chains.iter().flat_map(|(_, plan, _)| &plan.levels).map(size).fold((1, 1), |(a, b), (x, y)| (a.max(x), b.max(y)));
-                let planes = [self.scratch("D-353 plane", mw, mh), self.scratch("D-353 plane", mw, mh), self.scratch("D-353 plane", mw, mh)];
-                let sums = [self.scratch("D-353 glow", ow, oh), self.scratch("D-353 glow", ow, oh)];
-                let along = |taps: &[f32], down: bool, mu: f64, (pw, ph): (usize, usize)| {
-                    let mut k = vec![pw as f64, ph as f64, f64::from(down)];
-                    k.extend(crate::soft_glow::steps(taps, mu).into_iter().flat_map(|(t, lo, w0, w1)| [t as f64, lo as f64, w0 as f64, w1 as f64]));
-                    k
+                let k = [
+                    single(s.threshold / 100.0),
+                    single(s.bias / 100.0),
+                    single(s.smooth / 100.0),
+                    f64::from(s.luminance),
+                ];
+                self.fx_step(
+                    steps,
+                    &passes.sglight,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&lit),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
+                let size = |lv: &crate::soft_glow::Level| {
+                    (
+                        w.div_ceil(lv.d) + 2 * lv.reach.0,
+                        h.div_ceil(lv.d) + 2 * lv.reach.1,
+                    )
                 };
+                let (mw, mh) = chains
+                    .iter()
+                    .flat_map(|(_, plan, _)| &plan.levels)
+                    .map(size)
+                    .fold((1, 1), |(a, b), (x, y)| (a.max(x), b.max(y)));
+                let planes = [
+                    self.scratch("D-353 plane", mw, mh),
+                    self.scratch("D-353 plane", mw, mh),
+                    self.scratch("D-353 plane", mw, mh),
+                ];
+                let sums = [
+                    self.scratch("D-353 glow", ow, oh),
+                    self.scratch("D-353 glow", ow, oh),
+                ];
+                let along =
+                    |taps: &[f32], down: bool, mu: f64, (pw, ph): (usize, usize)| {
+                        let mut k = vec![pw as f64, ph as f64, f64::from(down)];
+                        k.extend(crate::soft_glow::steps(taps, mu).into_iter().flat_map(
+                            |(t, lo, w0, w1)| [t as f64, lo as f64, w0 as f64, w1 as f64],
+                        ));
+                        k
+                    };
                 let mut done = 0;
-                let levels = chains.iter().flat_map(|(r, plan, c)| plan.levels.iter().enumerate().map(move |(n, lv)| (*r, n, lv, *c)));
+                let levels = chains.iter().flat_map(|(r, plan, c)| {
+                    plan.levels
+                        .iter()
+                        .enumerate()
+                        .map(move |(n, lv)| (*r, n, lv, *c))
+                });
                 for (r, n, lv, channel) in levels {
                     let (pw, ph) = size(lv);
                     let mask: [f64; 3] = match channel {
@@ -16141,20 +18647,83 @@ impl Gpu {
                     };
                     let (rx, ry) = (lv.reach.0 as f64, lv.reach.1 as f64);
                     let k = [lv.d as f64, rx, ry, pw as f64, ph as f64];
-                    self.fx_step(steps, &passes.sgcells, FxParams::default(), Some(&lit), Some(&planes[0]), Some(&k), None, none, tiles(pw, ph));
-                    let p = FxParams { count: lv.first.len() as u32, ..Default::default() };
+                    self.fx_step(
+                        steps,
+                        &passes.sgcells,
+                        FxParams::default(),
+                        Some(&lit),
+                        Some(&planes[0]),
+                        Some(&k),
+                        None,
+                        none,
+                        tiles(pw, ph),
+                    );
+                    let p = FxParams {
+                        count: lv.first.len() as u32,
+                        ..Default::default()
+                    };
                     let k = along(&lv.first, lv.first_y, 0.0, (pw, ph));
-                    self.fx_step(steps, &passes.sgpass, p, Some(&planes[0]), Some(&planes[1]), Some(&k), None, none, tiles(pw, ph));
-                    let p = FxParams { count: lv.second.len() as u32, ..Default::default() };
+                    self.fx_step(
+                        steps,
+                        &passes.sgpass,
+                        p,
+                        Some(&planes[0]),
+                        Some(&planes[1]),
+                        Some(&k),
+                        None,
+                        none,
+                        tiles(pw, ph),
+                    );
+                    let p = FxParams {
+                        count: lv.second.len() as u32,
+                        ..Default::default()
+                    };
                     let k = along(&lv.second, !lv.first_y, lv.mu, (pw, ph));
-                    self.fx_step(steps, &passes.sgpass, p, Some(&planes[1]), Some(&planes[2]), Some(&k), None, none, tiles(pw, ph));
-                    let mut k = vec![lv.weight as f64, lv.d as f64, rx, ry, g as f64, own[0], pw as f64, ph as f64];
+                    self.fx_step(
+                        steps,
+                        &passes.sgpass,
+                        p,
+                        Some(&planes[1]),
+                        Some(&planes[2]),
+                        Some(&k),
+                        None,
+                        none,
+                        tiles(pw, ph),
+                    );
+                    let mut k = vec![
+                        lv.weight as f64,
+                        lv.d as f64,
+                        rx,
+                        ry,
+                        g as f64,
+                        own[0],
+                        pw as f64,
+                        ph as f64,
+                    ];
                     k.extend(tinted(r, n));
                     k.extend(mask);
                     k.extend(own);
-                    let p = FxParams { flag: (done == 0) as u32, count: 1, ..Default::default() };
-                    let before = if done == 0 { &lit } else { &sums[(done + 1) % 2] };
-                    self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[done % 2]), Some(&k), Some(before), none, tiles(ow, oh));
+                    let p = FxParams {
+                        flag: (done == 0) as u32,
+                        count: 1,
+                        ..Default::default()
+                    };
+                    let before = if done == 0 {
+                        &lit
+                    } else {
+                        &sums[(done + 1) % 2]
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.sgadd,
+                        p,
+                        Some(&planes[2]),
+                        Some(&sums[done % 2]),
+                        Some(&k),
+                        Some(before),
+                        none,
+                        tiles(ow, oh),
+                    );
                     done += 1;
                 }
                 if done == 0 {
@@ -16163,13 +18732,37 @@ impl Gpu {
                     k.extend(tinted(s.radius, 0));
                     k.extend([1.0; 3]);
                     k.extend(own);
-                    let p = FxParams { flag: 1, count: 0, ..Default::default() };
-                    self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[0]), Some(&k), Some(&lit), none, tiles(ow, oh));
+                    let p = FxParams {
+                        flag: 1,
+                        count: 0,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.sgadd,
+                        p,
+                        Some(&planes[2]),
+                        Some(&sums[0]),
+                        Some(&k),
+                        Some(&lit),
+                        none,
+                        tiles(ow, oh),
+                    );
                     done = 1;
                 }
                 if let Some(c) = s.halation {
                     let k = [g as f64, c[0] as f64, c[1] as f64, c[2] as f64];
-                    self.fx_step(steps, &passes.sghalo, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&sums[done % 2]), Some(&k), Some(&lit), none, tiles(ow, oh));
+                    self.fx_step(
+                        steps,
+                        &passes.sghalo,
+                        FxParams::default(),
+                        Some(&sums[(done + 1) % 2]),
+                        Some(&sums[done % 2]),
+                        Some(&k),
+                        Some(&lit),
+                        none,
+                        tiles(ow, oh),
+                    );
                     done += 1;
                 }
                 // D-545: the glow times Exposure with the dirt on top, then laid at Exposure 1.
@@ -16178,18 +18771,67 @@ impl Gpu {
                     let mut k = vec![exposure];
                     k.extend(dirt_k(d, (w, h), g));
                     let picture = self.map_texture(&d.picture);
-                    self.fx_step(steps, &passes.sgdirt, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&sums[done % 2]), Some(&k), Some(&picture), none, tiles(ow, oh));
+                    self.fx_step(
+                        steps,
+                        &passes.sgdirt,
+                        FxParams::default(),
+                        Some(&sums[(done + 1) % 2]),
+                        Some(&sums[done % 2]),
+                        Some(&k),
+                        Some(&picture),
+                        none,
+                        tiles(ow, oh),
+                    );
                     done += 1;
                     exposure = 1.0;
                 }
                 let out = self.scratch("D-353 soft glow", ow, oh);
-                let k = [g as f64, exposure, single(s.opacity / 100.0), f64::from(s.screen), f64::from(s.unmult)];
-                self.fx_step(steps, &passes.sgfinish, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&out), Some(&k), Some(still), none, tiles(ow, oh));
+                let k = [
+                    g as f64,
+                    exposure,
+                    single(s.opacity / 100.0),
+                    f64::from(s.screen),
+                    f64::from(s.unmult),
+                ];
+                self.fx_step(
+                    steps,
+                    &passes.sgfinish,
+                    FxParams::default(),
+                    Some(&sums[(done + 1) % 2]),
+                    Some(&out),
+                    Some(&k),
+                    Some(still),
+                    none,
+                    tiles(ow, oh),
+                );
                 (out, (ow, oh))
             }
-            E::SpeedLines { center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity, frame } => {
+            E::SpeedLines {
+                center,
+                color,
+                count,
+                thickness,
+                inner,
+                inner_jitter,
+                angle_jitter,
+                seed,
+                hold,
+                opacity,
+                frame,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
-                let lines = crate::layer_fx::speed_line_list([*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold], *frame);
+                let lines = crate::layer_fx::speed_line_list(
+                    [
+                        *count,
+                        *thickness,
+                        *inner,
+                        *inner_jitter,
+                        *angle_jitter,
+                        *seed,
+                        *hold,
+                    ],
+                    *frame,
+                );
                 let widest = lines.iter().map(|l| l.1).fold(0.0, f64::max);
                 let mut k = vec![cx, cy, opacity / 100.0];
                 k.extend(linear(color));
@@ -16197,16 +18839,41 @@ impl Gpu {
                 k.extend(lines.iter().flat_map(|&(t, h, r)| [t, h, r]));
                 same(steps, &passes.lines, FxParams::default(), &k, None)
             }
-            E::CrossGlare { threshold, length, points, angle, intensity, color, glint } => {
-                let bloom = self.bloom.as_ref().expect("a Cross Glare is refused without the passes");
-                let empty = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-107 none"),
-                    contents: bytemuck::cast_slice(&[0.0f32; 3]),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+            E::CrossGlare {
+                threshold,
+                length,
+                points,
+                angle,
+                intensity,
+                color,
+                glint,
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a Cross Glare is refused without the passes");
+                let empty = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-107 none"),
+                        contents: bytemuck::cast_slice(&[0.0f32; 3]),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let lit = self.scratch("B-107 bright", w, h);
-                let p = Params { level: crate::bloom::bright_level(*threshold), ..Default::default() };
-                self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&empty), tiles(w, h));
+                let p = Params {
+                    level: crate::bloom::bright_level(*threshold),
+                    ..Default::default()
+                };
+                self.step(
+                    steps,
+                    &bloom.bright,
+                    p,
+                    still,
+                    Some(&lit),
+                    None,
+                    Some(&empty),
+                    tiles(w, h),
+                );
                 let l = length.floor() as usize;
                 let n = points.floor();
                 // D-546: each arm's tint after its direction.
@@ -16219,78 +18886,300 @@ impl Gpu {
                     let [r, g, b, a] = tints[j];
                     [vx, vy, r, g, b, a]
                 }));
-                let fade: Vec<f64> = (1..=l).map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2)).collect();
+                let fade: Vec<f64> = (1..=l)
+                    .map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2))
+                    .collect();
                 let total: f64 = fade.iter().sum();
-                k.extend(fade.iter().enumerate().flat_map(|(t, f)| [(t + 1) as f64, f / total]));
+                k.extend(
+                    fade.iter()
+                        .enumerate()
+                        .flat_map(|(t, f)| [(t + 1) as f64, f / total]),
+                );
                 let out = self.scratch("B-107 glare", w + 2 * l, h + 2 * l);
-                let p = FxParams { g: l as i32, ..Default::default() };
-                self.fx_step(steps, &passes.glare, p, Some(still), Some(&out), Some(&k), Some(&lit), none, tiles(w + 2 * l, h + 2 * l));
+                let p = FxParams {
+                    g: l as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.glare,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&lit),
+                    none,
+                    tiles(w + 2 * l, h + 2 * l),
+                );
                 (out, (w + 2 * l, h + 2 * l))
             }
-            E::Rain { color, density, spacing, length, width, direction, speed, seed, opacity, frame } => {
+            E::Rain {
+                color,
+                density,
+                spacing,
+                length,
+                width,
+                direction,
+                speed,
+                seed,
+                opacity,
+                frame,
+            } => {
                 let (tx, ty) = crate::blurs::along(*direction);
                 let base = crate::grade::mix(seed.floor() as u64);
-                let mut k = vec![tx, ty, -ty, tx, width / 2.0 + 0.5, length / 2.0, speed * *frame as f64, *spacing, density / 100.0, width / 2.0, *opacity];
+                let mut k = vec![
+                    tx,
+                    ty,
+                    -ty,
+                    tx,
+                    width / 2.0 + 0.5,
+                    length / 2.0,
+                    speed * *frame as f64,
+                    *spacing,
+                    density / 100.0,
+                    width / 2.0,
+                    *opacity,
+                ];
                 k.extend(linear(color));
-                let p = FxParams { base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.rain, p, &k, None)
             }
             E::ColorLookup { table, .. } => {
-                let table = table.as_ref().expect("compose leaves a Color Lookup only with its table");
-                same(steps, &passes.tone, FxParams { mode: 11, ..Default::default() }, &table.0.packed(), None)
+                let table = table
+                    .as_ref()
+                    .expect("compose leaves a Color Lookup only with its table");
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 11,
+                        ..Default::default()
+                    },
+                    &table.0.packed(),
+                    None,
+                )
             }
             // D-395: the colour tables as one 1D lookup, Color Lookup's pass.
             E::ArbitraryMap { phase, table, .. } => {
-                let table = table.as_ref().expect("compose leaves an Arbitrary Map only with its file");
-                same(steps, &passes.tone, FxParams { mode: 11, ..Default::default() }, &table.0.colours(*phase).packed(), None)
+                let table = table
+                    .as_ref()
+                    .expect("compose leaves an Arbitrary Map only with its file");
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 11,
+                        ..Default::default()
+                    },
+                    &table.0.colours(*phase).packed(),
+                    None,
+                )
             }
-            E::HsvKey { hue, saturation, value, hue_range, saturation_range, value_range, invert } => {
+            E::HsvKey {
+                hue,
+                saturation,
+                value,
+                hue_range,
+                saturation_range,
+                value_range,
+                invert,
+            } => {
                 // The single-precision power 1/2.4 the CPU's encoding uses, less the true one.
                 let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
-                let k = [*hue, *hue_range, *saturation, *saturation_range, *value, *value_range, (invert == "on") as u8 as f64, power, 0.0];
-                same(steps, &passes.tone, FxParams { mode: 12, ..Default::default() }, &k, None)
+                let k = [
+                    *hue,
+                    *hue_range,
+                    *saturation,
+                    *saturation_range,
+                    *value,
+                    *value_range,
+                    (invert == "on") as u8 as f64,
+                    power,
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 12,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // B-222: ten colour effects of their own pixel. Bypass is the 8 bpc and 32 bpc (After
             // Effects) depths' only, which the card is never given (D-330).
-            E::Exposure { stops, offset, gamma, .. } if *offset == 0.0 && *gamma == 1.0 => {
-                same(steps, &passes.grade, FxParams { mode: 5, ..Default::default() }, &[2f64.powf(*stops) as f32 as f64], None)
-            }
-            E::Exposure { stops, offset, gamma, .. } => {
-                same(steps, &passes.tone, FxParams { mode: 14, ..Default::default() }, &[2f64.powf(*stops), *offset, 1.0 / gamma], None)
-            }
+            E::Exposure {
+                stops,
+                offset,
+                gamma,
+                ..
+            } if *offset == 0.0 && *gamma == 1.0 => same(
+                steps,
+                &passes.grade,
+                FxParams {
+                    mode: 5,
+                    ..Default::default()
+                },
+                &[2f64.powf(*stops) as f32 as f64],
+                None,
+            ),
+            E::Exposure {
+                stops,
+                offset,
+                gamma,
+                ..
+            } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 14,
+                    ..Default::default()
+                },
+                &[2f64.powf(*stops), *offset, 1.0 / gamma],
+                None,
+            ),
             E::Tint { color, amount } => {
-                let k = [*amount as f32 as f64, color[0] as f32 as f64, color[1] as f32 as f64, color[2] as f32 as f64];
-                same(steps, &passes.tone, FxParams { mode: 15, ..Default::default() }, &k, None)
+                let k = [
+                    *amount as f32 as f64,
+                    color[0] as f32 as f64,
+                    color[1] as f32 as f64,
+                    color[2] as f32 as f64,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 15,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ShiftChannels { take_alpha, take_red, take_green, take_blue } => {
-                let place = |w: &String| crate::effects::SHIFT_CHANNELS_FROM.iter().position(|f| f == w).unwrap_or(10) as f64;
+            E::ShiftChannels {
+                take_alpha,
+                take_red,
+                take_green,
+                take_blue,
+            } => {
+                let place = |w: &String| {
+                    crate::effects::SHIFT_CHANNELS_FROM
+                        .iter()
+                        .position(|f| f == w)
+                        .unwrap_or(10) as f64
+                };
                 let k = [take_red, take_green, take_blue, take_alpha].map(place);
-                same(steps, &passes.tone, FxParams { mode: 16, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 16,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::SolidComposite { source_opacity, color, opacity, blend: b } => {
+            E::SolidComposite {
+                source_opacity,
+                color,
+                opacity,
+                blend: b,
+            } => {
                 let o = (opacity / 100.0) as f32;
-                let lin = crate::effects::encoded(color).map(|c| (crate::color::srgb_to_linear(c as f32) * o) as f64);
-                let k = [(source_opacity / 100.0) as f32 as f64, o as f64, lin[0], lin[1], lin[2]];
-                same(steps, &passes.tone, FxParams { mode: 17, blend: blend(b), ..Default::default() }, &k, None)
+                let lin = crate::effects::encoded(color)
+                    .map(|c| (crate::color::srgb_to_linear(c as f32) * o) as f64);
+                let k = [
+                    (source_opacity / 100.0) as f32 as f64,
+                    o as f64,
+                    lin[0],
+                    lin[1],
+                    lin[2],
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 17,
+                        blend: blend(b),
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ChangeToColor { from, to, change, change_by, hue_tolerance, lightness_tolerance, saturation_tolerance, softness, view_matte } => {
+            E::ChangeToColor {
+                from,
+                to,
+                change,
+                change_by,
+                hue_tolerance,
+                lightness_tolerance,
+                saturation_tolerance,
+                softness,
+                view_matte,
+            } => {
                 let mut k = crate::effects::encoded(from).to_vec();
                 k.extend(crate::effects::encoded(to));
-                k.extend([hue_tolerance / 100.0, lightness_tolerance / 100.0, saturation_tolerance / 100.0, softness / 100.0]);
+                k.extend([
+                    hue_tolerance / 100.0,
+                    lightness_tolerance / 100.0,
+                    saturation_tolerance / 100.0,
+                    softness / 100.0,
+                ]);
                 let on = |b: bool| b as u8 as f64;
-                k.extend([on(change_by == "transforming"), on(change.contains("lightness")), on(change.contains("saturation")), on(view_matte == "on")]);
-                same(steps, &passes.tone, FxParams { mode: 18, ..Default::default() }, &k, None)
+                k.extend([
+                    on(change_by == "transforming"),
+                    on(change.contains("lightness")),
+                    on(change.contains("saturation")),
+                    on(view_matte == "on"),
+                ]);
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 18,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ColorKey { colors, tolerance, .. }
-            | E::SelectColor { colors, tolerance, .. }
-            | E::LineRecolor { colors, tolerance, .. } => {
+            E::ColorKey {
+                colors, tolerance, ..
+            }
+            | E::SelectColor {
+                colors, tolerance, ..
+            }
+            | E::LineRecolor {
+                colors, tolerance, ..
+            } => {
                 // k: the targets' count, the tolerance, two settings and the new colour as each
                 // reads them, level8's power and 0, then the targets.
                 let targets = crate::selective_blur::targets(colors);
                 let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
-                let mut k = vec![targets.len() as f64, *tolerance, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
+                let mut k = vec![
+                    targets.len() as f64,
+                    *tolerance,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    power,
+                    0.0,
+                ];
                 let mode = match &f.instance.effect {
-                    E::ColorKey { match_by, softness, .. } => {
+                    E::ColorKey {
+                        match_by, softness, ..
+                    } => {
                         k[2] = *softness;
                         k[3] = (match_by == "hue") as u8 as f64;
                         19
@@ -16300,7 +19189,8 @@ impl Gpu {
                         20
                     }
                     E::LineRecolor { new_color, .. } => {
-                        let new = crate::selective_blur::parse_hex(new_color).expect("compose leaves a valid Line Recolour");
+                        let new = crate::selective_blur::parse_hex(new_color)
+                            .expect("compose leaves a valid Line Recolour");
                         for c in 0..3 {
                             k[4 + c] = crate::color::srgb_to_linear(new[c] as f32 / 255.0) as f64;
                         }
@@ -16309,7 +19199,16 @@ impl Gpu {
                     _ => unreachable!("matched above"),
                 };
                 k.extend(targets.iter().flat_map(|t| t.map(f64::from)));
-                same(steps, &passes.tone, FxParams { mode, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             E::Colorama {
                 get_phase,
@@ -16339,7 +19238,11 @@ impl Gpu {
                 ..
             } => {
                 let n = (stops.floor() as usize).clamp(2, 5);
-                let place = |list: &[&str], word: &str| list.iter().position(|g| *g == word).map_or(-1.0, |i| i as f64);
+                let place = |list: &[&str], word: &str| {
+                    list.iter()
+                        .position(|g| *g == word)
+                        .map_or(-1.0, |i| i as f64)
+                };
                 let on = |word: &String| (word == "on") as u8 as f64;
                 let mut k = vec![
                     place(&crate::effects::COLORAMA_GET, get_phase).max(0.0),
@@ -16348,193 +19251,524 @@ impl Gpu {
                     n as f64,
                     blend_with_original / 100.0,
                 ];
-                k.extend([color_1, color_2, color_3, color_4, color_5].iter().flat_map(|c| crate::effects::encoded(c)));
-                k.extend([opacity_1, opacity_2, opacity_3, opacity_4, opacity_5].map(|o| o / 100.0));
-                k.extend([place(&crate::effects::COLORAMA_MODIFY, modify).max(0.0), on(modify_alpha), on(change_empty), on(interpolate)]);
+                k.extend(
+                    [color_1, color_2, color_3, color_4, color_5]
+                        .iter()
+                        .flat_map(|c| crate::effects::encoded(c)),
+                );
+                k.extend(
+                    [opacity_1, opacity_2, opacity_3, opacity_4, opacity_5].map(|o| o / 100.0),
+                );
+                k.extend([
+                    place(&crate::effects::COLORAMA_MODIFY, modify).max(0.0),
+                    on(modify_alpha),
+                    on(change_empty),
+                    on(interpolate),
+                ]);
                 k.push(place(&crate::effects::CHANGE_MATCHES, matching_mode));
                 k.extend(crate::effects::encoded(matching_color));
-                k.extend([matching_tolerance / 100.0, matching_softness / 100.0, on(composite_over)]);
-                same(steps, &passes.tone, FxParams { mode: 22, ..Default::default() }, &k, None)
+                k.extend([
+                    matching_tolerance / 100.0,
+                    matching_softness / 100.0,
+                    on(composite_over),
+                ]);
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 22,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Extract { channel, black_point, white_point, black_softness, white_softness, invert } => {
-                let place = ["red", "green", "blue", "alpha"].iter().position(|c| c == channel).unwrap_or(4) as f64;
-                let k = [place, *black_point, *white_point, *black_softness, *white_softness, (invert == "on") as u8 as f64];
-                same(steps, &passes.tone, FxParams { mode: 23, ..Default::default() }, &k, None)
+            E::Extract {
+                channel,
+                black_point,
+                white_point,
+                black_softness,
+                white_softness,
+                invert,
+            } => {
+                let place = ["red", "green", "blue", "alpha"]
+                    .iter()
+                    .position(|c| c == channel)
+                    .unwrap_or(4) as f64;
+                let k = [
+                    place,
+                    *black_point,
+                    *white_point,
+                    *black_softness,
+                    *white_softness,
+                    (invert == "on") as u8 as f64,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 23,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::BroadcastSafe { locale, method, max_amplitude } => {
+            E::BroadcastSafe {
+                locale,
+                method,
+                max_amplitude,
+            } => {
                 let setup = crate::effects::broadcast_setup(locale);
-                let place = crate::effects::BROADCAST_METHODS.iter().position(|m| m == method).unwrap_or(0) as f64;
-                let k = [setup, *max_amplitude, (max_amplitude - setup) / (100.0 - setup), place];
-                same(steps, &passes.tone, FxParams { mode: 24, ..Default::default() }, &k, None)
+                let place = crate::effects::BROADCAST_METHODS
+                    .iter()
+                    .position(|m| m == method)
+                    .unwrap_or(0) as f64;
+                let k = [
+                    setup,
+                    *max_amplitude,
+                    (max_amplitude - setup) / (100.0 - setup),
+                    place,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 24,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point } => {
-                let d = crate::effects::neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]);
+            E::ColorNeutralizer {
+                shadows_unbalance,
+                midtones_unbalance,
+                highlights_unbalance,
+                shadows,
+                midtones,
+                highlights,
+                pinning,
+                black_point,
+                white_point,
+            } => {
+                let d = crate::effects::neutral_corrections(
+                    [shadows_unbalance, midtones_unbalance, highlights_unbalance],
+                    [shadows, midtones, highlights],
+                );
                 let mut k: Vec<f64> = d.iter().flatten().copied().collect();
                 k.extend([pinning / 200.0, *black_point, *white_point]);
-                same(steps, &passes.tone, FxParams { mode: 25, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 25,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ColorOffset { red_phase, green_phase, blue_phase, overflow } => {
+            E::ColorOffset {
+                red_phase,
+                green_phase,
+                blue_phase,
+                overflow,
+            } => {
                 let phases = [*red_phase, *green_phase, *blue_phase];
-                let turns = phases.map(|p| std::f64::consts::PI * p / 360.0).map(f64::sin_cos);
+                let turns = phases
+                    .map(|p| std::f64::consts::PI * p / 360.0)
+                    .map(f64::sin_cos);
                 let mut k: Vec<f64> = phases.map(|p| p / 360.0).to_vec();
-                k.push(crate::effects::OFFSET_OVERFLOWS.iter().position(|o| o == overflow).unwrap_or(0) as f64);
+                k.push(
+                    crate::effects::OFFSET_OVERFLOWS
+                        .iter()
+                        .position(|o| o == overflow)
+                        .unwrap_or(0) as f64,
+                );
                 k.extend(turns.map(|t| t.1));
                 k.extend(turns.map(|t| t.0));
-                same(steps, &passes.tone, FxParams { mode: 26, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 26,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Kernel { line_1, line_2, line_3, divider, absolute_values } => {
-                let mut k: Vec<f64> = crate::effects::kernel_grid([line_1, line_2, line_3]).iter().flatten().copied().collect();
+            E::Kernel {
+                line_1,
+                line_2,
+                line_3,
+                divider,
+                absolute_values,
+            } => {
+                let mut k: Vec<f64> = crate::effects::kernel_grid([line_1, line_2, line_3])
+                    .iter()
+                    .flatten()
+                    .copied()
+                    .collect();
                 k.extend([*divider, (absolute_values == "on") as u8 as f64]);
-                same(steps, &passes.relief, FxParams { mode: 2, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.relief,
+                    FxParams {
+                        mode: 2,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Toner { tones, highlights, brights, midtones, darktones, shadows } => {
-                let stops = crate::effects::toner_stops(tones, [highlights, brights, midtones, darktones, shadows]);
+            E::Toner {
+                tones,
+                highlights,
+                brights,
+                midtones,
+                darktones,
+                shadows,
+            } => {
+                let stops = crate::effects::toner_stops(
+                    tones,
+                    [highlights, brights, midtones, darktones, shadows],
+                );
                 let mut k = vec![(stops.len() - 1) as f64];
                 k.extend(stops.iter().flatten());
-                same(steps, &passes.tone, FxParams { mode: 27, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 27,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, color_to_change, tolerance, softness, match_colors, invert_mask } => {
+            E::ChangeColor {
+                view,
+                hue_transform,
+                lightness_transform,
+                saturation_transform,
+                color_to_change,
+                tolerance,
+                softness,
+                match_colors,
+                invert_mask,
+            } => {
                 let mut k = crate::effects::encoded(color_to_change).to_vec();
                 k.extend([
                     tolerance / 100.0,
                     softness / 100.0,
-                    crate::effects::CHANGE_MATCHES.iter().position(|m| m == match_colors).unwrap_or(1) as f64,
+                    crate::effects::CHANGE_MATCHES
+                        .iter()
+                        .position(|m| m == match_colors)
+                        .unwrap_or(1) as f64,
                     *hue_transform,
                     lightness_transform / 100.0,
                     saturation_transform / 100.0,
                     (view == "mask") as u8 as f64,
                     (invert_mask == "on") as u8 as f64,
                 ]);
-                same(steps, &passes.tone, FxParams { mode: 28, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 28,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::ColorBalanceHls { hue, lightness, saturation } => {
-                same(steps, &passes.tone, FxParams { mode: 29, ..Default::default() }, &[*hue, lightness / 100.0, saturation / 100.0], None)
-            }
-            E::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => {
+            E::ColorBalanceHls {
+                hue,
+                lightness,
+                saturation,
+            } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 29,
+                    ..Default::default()
+                },
+                &[*hue, lightness / 100.0, saturation / 100.0],
+                None,
+            ),
+            E::GammaPedestalGain {
+                black_stretch,
+                gamma,
+                pedestal,
+                gain,
+            } => {
                 let mut k = vec![*black_stretch];
                 for c in 0..3 {
                     k.extend([1.0 / gamma[c], pedestal[c], gain[c]]);
                 }
-                same(steps, &passes.tone, FxParams { mode: 31, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 31,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-397: its steps drawn in one pass of their own, each a stage of the grade or tone
             // pass. Not one of a run (`one_pixel`): a run's Mix lands on each stage, and the Mix
             // is the whole grade's.
             E::ColorGrade { .. } => {
                 use crate::effects::GradeStep as G;
-                let stage = |which: u32, mode: u32, k: Vec<f64>| (which, FxParams { mode, ..Default::default() }, k, 1.0);
-                let mine: Vec<Staged> = crate::effects::color_grade_steps(&f.instance.effect, (w, h), f.origin)
-                    .into_iter()
-                    .map(|s| match s {
-                        G::Tone(g, t) => {
-                            let mut k = g.to_vec();
-                            k.extend(t);
-                            k.push((g != [1.0; 3]) as u8 as f64);
-                            stage(1, 40, k)
-                        }
-                        G::Vibrance(v, s) => stage(1, 7, vec![v, s]),
-                        G::Look(cube, i) => {
-                            let mut k = cube.packed();
-                            k.push(i);
-                            stage(1, 41, k)
-                        }
-                        G::Tints(sh, hi) => {
-                            let mut k = sh.to_vec();
-                            k.extend([0.0; 3]);
-                            k.extend(hi);
-                            k.push(0.0);
-                            stage(0, 6, k)
-                        }
-                        // D-398: Curves' pass, red, green, blue then the master, as E::Curves.
-                        G::Curves(c) => {
-                            let mut k = vec![0.0; 4];
-                            for (i, c) in [&c[1], &c[2], &c[3], &c[0]].into_iter().enumerate() {
-                                k[i] = k.len() as f64;
-                                let (xs, ys, m) = crate::grade::knots(c);
-                                k.push(xs.len() as f64);
-                                k.extend(xs.into_iter().chain(ys).chain(m));
+                let stage = |which: u32, mode: u32, k: Vec<f64>| {
+                    (
+                        which,
+                        FxParams {
+                            mode,
+                            ..Default::default()
+                        },
+                        k,
+                        1.0,
+                    )
+                };
+                let mine: Vec<Staged> =
+                    crate::effects::color_grade_steps(&f.instance.effect, (w, h), f.origin)
+                        .into_iter()
+                        .map(|s| match s {
+                            G::Tone(g, t) => {
+                                let mut k = g.to_vec();
+                                k.extend(t);
+                                k.push((g != [1.0; 3]) as u8 as f64);
+                                stage(1, 40, k)
                             }
-                            stage(0, 0, k)
-                        }
-                        G::HueSaturation(points) => {
-                            let mut k = vec![points.len() as f64];
-                            k.extend(points.iter().map(|p| p[0]));
-                            k.extend(points.iter().map(|p| p[1]));
-                            stage(1, 42, k)
-                        }
-                        // D-571: the same count and numbers, modes 120 to 123 in
-                        // COLOR_GRADE_MORE_CURVES' order.
-                        G::More(which, points) => {
-                            let mut k = vec![points.len() as f64];
-                            k.extend(points.iter().map(|p| p[0]));
-                            k.extend(points.iter().map(|p| p[1]));
-                            stage(1, 120 + which as u32, k)
-                        }
-                        G::Wheels(sh, mid, hi) => {
-                            let mut k = sh.to_vec();
-                            k.extend(mid);
-                            k.extend(hi);
-                            k.push(0.0);
-                            stage(0, 6, k)
-                        }
-                        G::Secondary(s) => {
-                            let mut k = s.key.to_vec();
-                            k.extend([s.invert as u8 as f64, s.mask as u8 as f64, s.gains.is_some() as u8 as f64]);
-                            k.extend(s.gains.unwrap_or([1.0; 3]));
-                            k.extend([s.contrast, s.saturation]);
-                            k.extend(s.push);
-                            k.push(s.three.is_some() as u8 as f64);
-                            k.extend(s.three.unwrap_or([[0.0; 3]; 2]).into_iter().flatten());
-                            stage(1, 43, k)
-                        }
-                        G::Vignette(v) => {
-                            let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
-                            k.extend(v.color.map(crate::grade::to_linear));
-                            k.push(v.norm);
-                            stage(0, 8, k)
-                        }
-                        G::Sharpen(_) => unreachable!("D-637: compose keeps a sharpened grade on the processor"),
-                    })
-                    .collect();
-                if mine.is_empty() { (still.clone(), (w, h)) } else { (self.chain(steps, still, (w, h), &mine), (w, h)) }
+                            G::Vibrance(v, s) => stage(1, 7, vec![v, s]),
+                            G::Look(cube, i) => {
+                                let mut k = cube.packed();
+                                k.push(i);
+                                stage(1, 41, k)
+                            }
+                            G::Tints(sh, hi) => {
+                                let mut k = sh.to_vec();
+                                k.extend([0.0; 3]);
+                                k.extend(hi);
+                                k.push(0.0);
+                                stage(0, 6, k)
+                            }
+                            // D-398: Curves' pass, red, green, blue then the master, as E::Curves.
+                            G::Curves(c) => {
+                                let mut k = vec![0.0; 4];
+                                for (i, c) in [&c[1], &c[2], &c[3], &c[0]].into_iter().enumerate() {
+                                    k[i] = k.len() as f64;
+                                    let (xs, ys, m) = crate::grade::knots(c);
+                                    k.push(xs.len() as f64);
+                                    k.extend(xs.into_iter().chain(ys).chain(m));
+                                }
+                                stage(0, 0, k)
+                            }
+                            G::HueSaturation(points) => {
+                                let mut k = vec![points.len() as f64];
+                                k.extend(points.iter().map(|p| p[0]));
+                                k.extend(points.iter().map(|p| p[1]));
+                                stage(1, 42, k)
+                            }
+                            // D-571: the same count and numbers, modes 120 to 123 in
+                            // COLOR_GRADE_MORE_CURVES' order.
+                            G::More(which, points) => {
+                                let mut k = vec![points.len() as f64];
+                                k.extend(points.iter().map(|p| p[0]));
+                                k.extend(points.iter().map(|p| p[1]));
+                                stage(1, 120 + which as u32, k)
+                            }
+                            G::Wheels(sh, mid, hi) => {
+                                let mut k = sh.to_vec();
+                                k.extend(mid);
+                                k.extend(hi);
+                                k.push(0.0);
+                                stage(0, 6, k)
+                            }
+                            G::Secondary(s) => {
+                                let mut k = s.key.to_vec();
+                                k.extend([
+                                    s.invert as u8 as f64,
+                                    s.mask as u8 as f64,
+                                    s.gains.is_some() as u8 as f64,
+                                ]);
+                                k.extend(s.gains.unwrap_or([1.0; 3]));
+                                k.extend([s.contrast, s.saturation]);
+                                k.extend(s.push);
+                                k.push(s.three.is_some() as u8 as f64);
+                                k.extend(s.three.unwrap_or([[0.0; 3]; 2]).into_iter().flatten());
+                                stage(1, 43, k)
+                            }
+                            G::Vignette(v) => {
+                                let mut k = vec![
+                                    v.center.0,
+                                    v.center.1,
+                                    v.radii.0,
+                                    v.radii.1,
+                                    v.inner,
+                                    v.outer,
+                                    v.amount,
+                                    2f64.sqrt(),
+                                ];
+                                k.extend(v.color.map(crate::grade::to_linear));
+                                k.push(v.norm);
+                                stage(0, 8, k)
+                            }
+                            G::Sharpen(_) => unreachable!(
+                                "D-637: compose keeps a sharpened grade on the processor"
+                            ),
+                        })
+                        .collect();
+                if mine.is_empty() {
+                    (still.clone(), (w, h))
+                } else {
+                    (self.chain(steps, still, (w, h), &mine), (w, h))
+                }
             }
-            E::PhotoFilter { filter, color, density, preserve_luminosity } => {
+            E::PhotoFilter {
+                filter,
+                color,
+                density,
+                preserve_luminosity,
+            } => {
                 let mut k = crate::effects::photo_filter_colour(filter, color).to_vec();
                 k.extend([density / 100.0, (preserve_luminosity == "on") as u8 as f64]);
-                same(steps, &passes.tone, FxParams { mode: 32, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 32,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             E::SelectiveColor { method, families } => {
-                let mut k: Vec<f64> = crate::effects::selective_color_amounts(families).iter().flatten().map(|v| v / 100.0).collect();
+                let mut k: Vec<f64> = crate::effects::selective_color_amounts(families)
+                    .iter()
+                    .flatten()
+                    .map(|v| v / 100.0)
+                    .collect();
                 k.push((method == "relative") as u8 as f64);
-                same(steps, &passes.tone, FxParams { mode: 60, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 60,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            spill @ E::AdvancedSpillSuppressor { .. } => {
-                same(steps, &passes.tone, FxParams { mode: 61, ..Default::default() }, &crate::grade::spill_settings(spill), None)
-            }
-            cdk @ E::ColorDifferenceKey { .. } => {
-                same(steps, &passes.tone, FxParams { mode: 70, ..Default::default() }, &crate::grade::cdk_settings(cdk), None)
-            }
-            crange @ E::ColorRange { .. } => {
-                same(steps, &passes.tone, FxParams { mode: 71, ..Default::default() }, &crate::grade::crange_settings(crange), None)
-            }
-            lckey @ E::LinearColorKey { .. } => {
-                same(steps, &passes.tone, FxParams { mode: 72, ..Default::default() }, &crate::grade::lckey_settings(lckey), None)
-            }
-            u @ E::Unmult { .. } => {
-                same(steps, &passes.tone, FxParams { mode: 73, ..Default::default() }, &crate::grade::unmult_settings(u), None)
-            }
-            skey @ E::ScreenKey { .. } => {
-                same(steps, &passes.tone, FxParams { mode: 90, ..Default::default() }, &crate::grade::skey_settings(skey), None)
-            }
-            E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
+            spill @ E::AdvancedSpillSuppressor { .. } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 61,
+                    ..Default::default()
+                },
+                &crate::grade::spill_settings(spill),
+                None,
+            ),
+            cdk @ E::ColorDifferenceKey { .. } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 70,
+                    ..Default::default()
+                },
+                &crate::grade::cdk_settings(cdk),
+                None,
+            ),
+            crange @ E::ColorRange { .. } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 71,
+                    ..Default::default()
+                },
+                &crate::grade::crange_settings(crange),
+                None,
+            ),
+            lckey @ E::LinearColorKey { .. } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 72,
+                    ..Default::default()
+                },
+                &crate::grade::lckey_settings(lckey),
+                None,
+            ),
+            u @ E::Unmult { .. } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 73,
+                    ..Default::default()
+                },
+                &crate::grade::unmult_settings(u),
+                None,
+            ),
+            skey @ E::ScreenKey { .. } => same(
+                steps,
+                &passes.tone,
+                FxParams {
+                    mode: 90,
+                    ..Default::default()
+                },
+                &crate::grade::skey_settings(skey),
+                None,
+            ),
+            E::ColorLink {
+                sample,
+                clip,
+                stencil,
+                opacity,
+                blending_mode: b,
+                map,
+                ..
+            } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.
-                let map = map.as_ref().expect("card_can takes Color Link only with its picture");
-                let stats = crate::frame_stats::Stats::of(&map.0).expect("compose leaves a colour to link");
+                let map = map
+                    .as_ref()
+                    .expect("card_can takes Color Link only with its picture");
+                let stats =
+                    crate::frame_stats::Stats::of(&map.0).expect("compose leaves a colour to link");
                 let c = crate::frame_stats::link_colour(&stats, sample, *clip);
-                let k = [c[0], c[1], c[2], opacity / 100.0, (stencil == "on") as u8 as f64];
-                same(steps, &passes.tone, FxParams { mode: 30, blend: blend(b), ..Default::default() }, &k, None)
+                let k = [
+                    c[0],
+                    c[1],
+                    c[2],
+                    opacity / 100.0,
+                    (stencil == "on") as u8 as f64,
+                ];
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 30,
+                        blend: blend(b),
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::Paraffin { color, direction, spread, opacity, blend: b } => {
+            E::Paraffin {
+                color,
+                direction,
+                spread,
+                opacity,
+                blend: b,
+            } => {
                 // No pixel covered half or more: nothing is washed.
                 let (span, share) = match crate::grade::paraffin_span(source, *direction, *spread) {
                     Some(span) => (span, opacity / 100.0),
@@ -16543,21 +19777,69 @@ impl Gpu {
                 let mut k = span.to_vec();
                 k.push(share);
                 k.extend(crate::effects::encoded(color));
-                same(steps, &passes.tone, FxParams { mode: 13, blend: blend(b), ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.tone,
+                    FxParams {
+                        mode: 13,
+                        blend: blend(b),
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::LineBlur { length, strength, lines_only } => {
+            E::LineBlur {
+                length,
+                strength,
+                lines_only,
+            } => {
                 let g = crate::line_blur::GROW;
                 let weights = crate::line_blur::weights(*length);
                 let mut k = vec![strength / 100.0, (lines_only == "on") as u8 as f64];
                 k.extend(&weights);
                 let out = self.scratch("B-123 line blur", w + 2 * g, h + 2 * g);
-                let p = FxParams { g: g as i32, count: weights.len() as u32, ..Default::default() };
-                self.fx_step(steps, &passes.line_blur, p, Some(still), Some(&out), Some(&k), None, none, tiles(w + 2 * g, h + 2 * g));
+                let p = FxParams {
+                    g: g as i32,
+                    count: weights.len() as u32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.line_blur,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w + 2 * g, h + 2 * g),
+                );
                 (out, (w + 2 * g, h + 2 * g))
             }
-            E::KiraKira { threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color, frame } => {
+            E::KiraKira {
+                threshold,
+                spacing,
+                density,
+                size,
+                shape,
+                angle,
+                twinkle,
+                period,
+                seed,
+                opacity,
+                color,
+                frame,
+            } => {
                 let g = f.grow.0;
-                let stars = crate::layer_fx::kira_stars(source, [*threshold, *spacing, *density, *size, *twinkle, *period, *seed], *frame, f.origin);
+                let stars = crate::layer_fx::kira_stars(
+                    source,
+                    [
+                        *threshold, *spacing, *density, *size, *twinkle, *period, *seed,
+                    ],
+                    *frame,
+                    f.origin,
+                );
                 let arms = crate::layer_fx::kira_arms(*angle, shape == "star");
                 let mut k = vec![(g + ox) as f64, (g + oy) as f64, opacity / 100.0];
                 k.extend(linear(color));
@@ -16568,12 +19850,36 @@ impl Gpu {
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 let lit = buffer(tw * th * 4);
                 let n = stars.len() as u32;
-                let p = FxParams { g: g as i32, count: n, ..Default::default() };
+                let p = FxParams {
+                    g: g as i32,
+                    count: n,
+                    ..Default::default()
+                };
                 if n > 0 {
-                    self.fx_step(steps, &passes.stars, p, Some(still), None, Some(&k), None, [None, None, None, None, Some(&lit)], (n.min(65535), n.div_ceil(65535)));
+                    self.fx_step(
+                        steps,
+                        &passes.stars,
+                        p,
+                        Some(still),
+                        None,
+                        Some(&k),
+                        None,
+                        [None, None, None, None, Some(&lit)],
+                        (n.min(65535), n.div_ceil(65535)),
+                    );
                 }
                 let out = self.scratch("B-123 kira", tw, th);
-                self.fx_step(steps, &passes.kira, p, Some(still), Some(&out), Some(&k), None, [None, None, None, None, Some(&lit)], tiles(tw, th));
+                self.fx_step(
+                    steps,
+                    &passes.kira,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None, None, None, None, Some(&lit)],
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // D-551: the balls from the drawing the layer sent, as Kira-kira's stars; each pixel's
@@ -16582,13 +19888,38 @@ impl Gpu {
                 let k = crate::layer_fx::ball_numbers(source, e, f.origin);
                 let n = ((k.len() - crate::layer_fx::BALL_HEAD) / 6) as u32;
                 let keys = buffer(2 * w * h * 4);
-                let p = FxParams { count: n, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    count: n,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 for mode in [0, 1].into_iter().filter(|_| n > 0) {
                     let groups = (n.min(65535), n.div_ceil(65535));
-                    self.fx_step(steps, &passes.balls, FxParams { mode, ..p }, Some(still), None, Some(&k), None, [None, None, None, None, Some(&keys)], groups);
+                    self.fx_step(
+                        steps,
+                        &passes.balls,
+                        FxParams { mode, ..p },
+                        Some(still),
+                        None,
+                        Some(&k),
+                        None,
+                        [None, None, None, None, Some(&keys)],
+                        groups,
+                    );
                 }
                 let out = self.scratch("D-551 balls", w, h);
-                self.fx_step(steps, &passes.ballshade, p, None, Some(&out), Some(&k), None, [None, None, None, None, Some(&keys)], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.ballshade,
+                    p,
+                    None,
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None, None, None, None, Some(&keys)],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-610: the sprites from the drawing the layer sent, binned into the card's tiles,
@@ -16599,16 +19930,37 @@ impl Gpu {
             // particles pass as dots, pieces of the Explode layer and copies of the Layer Map, the
             // two maps side by side in its atlas.
             e @ E::ParticlePlayground { .. } => {
-                let (mut k, atlas, [ew, eh, lw, lh]) = crate::playground::sprites(e, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                let (mut k, atlas, [ew, eh, lw, lh]) =
+                    crate::playground::sprites(e, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 let atlas = self.map_texture(&atlas);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, n: ew as u32, r: eh as i32, base: [lw as u32, lh as u32], ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    n: ew as u32,
+                    r: eh as i32,
+                    base: [lw as u32, lh as u32],
+                    ..Default::default()
+                };
                 let out = self.scratch("D-619 playground", w, h);
-                self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), Some(&atlas), [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.particles,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&atlas),
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. } | E::ParticleEmitter { .. } | E::ParticleGrid { .. }) => {
+            e @ (E::ParticleSpace { .. }
+            | E::ParticlePlane { .. }
+            | E::ParticleEmitter { .. }
+            | E::ParticleGrid { .. }) => {
                 let mut k = crate::particles::sprite_numbers(source, e, f.origin);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
@@ -16618,9 +19970,26 @@ impl Gpu {
                     None => self.map_texture(&crate::WorkingBuffer::transparent(1, 1)),
                 };
                 let (tw, th) = tex.map_or((1, 1), |t| (t.width(), t.height()));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, flag: tex.is_some() as u32, n: tw as u32, r: th as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    flag: tex.is_some() as u32,
+                    n: tw as u32,
+                    r: th as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-610 particles", w, h);
-                self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), Some(&atlas), [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.particles,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&atlas),
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-671: the bubbles in the drawing's own space, binned into the card's tiles as the
@@ -16629,13 +19998,36 @@ impl Gpu {
                 let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
                 let mut k = crate::simulate::bubble_list(e, w0 as f64, h0 as f64);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
-                let shading = crate::effects::BUBBLES_WORDS[1].1.iter().position(|s| *s == words[1]).unwrap_or(3);
-                k[..4].copy_from_slice(&[if words[0] == "world" { 1.0 } else { -1.0 }, shading as f64, w0 as f64, h0 as f64]);
+                let shading = crate::effects::BUBBLES_WORDS[1]
+                    .1
+                    .iter()
+                    .position(|s| *s == words[1])
+                    .unwrap_or(3);
+                k[..4].copy_from_slice(&[
+                    if words[0] == "world" { 1.0 } else { -1.0 },
+                    shading as f64,
+                    w0 as f64,
+                    h0 as f64,
+                ]);
                 k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-671 bubbles", w, h);
-                self.fx_step(steps, &passes.bubbles, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.bubbles,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-672: the drops in the drawing's own space, binned into the card's tiles as the
@@ -16648,9 +20040,23 @@ impl Gpu {
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 k[0] = k.len() as f64;
                 k.extend(crate::simulate::drizzle_light(e, w0 as f64, h0 as f64));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-672 drizzle", w, h);
-                self.fx_step(steps, &passes.drizzle, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.drizzle,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-673: the strands in the drawing's own space, binned into the card's tiles as the
@@ -16663,9 +20069,23 @@ impl Gpu {
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 k[0] = k.len() as f64;
                 k.extend(crate::simulate::hair_light(e, h0 as f64));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-673 hair", w, h);
-                self.fx_step(steps, &passes.hair, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.hair,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-674: the drops in the drawing's own space, binned into the card's tiles as the
@@ -16678,9 +20098,23 @@ impl Gpu {
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 k[0] = k.len() as f64;
                 k.extend(crate::simulate::mercury_light(e, w0 as f64, h0 as f64));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-674 mercury", w, h);
-                self.fx_step(steps, &passes.mercury, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.mercury,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-675: the shards worked on the processor from the drawing the layer sent, which
@@ -16690,7 +20124,10 @@ impl Gpu {
             e @ E::PolygonShards { .. } => {
                 let (sw, sh) = (source.width(), source.height());
                 let (w0, h0) = (sw.saturating_sub(2 * ox), sh.saturating_sub(2 * oy));
-                let Some((mut k, blocks, shared)) = (w0 > 0 && h0 > 0).then(|| crate::simulate::shards_list(e, source.data(), sw, f.origin, w0, h0)).flatten() else {
+                let Some((mut k, blocks, shared)) = (w0 > 0 && h0 > 0)
+                    .then(|| crate::simulate::shards_list(e, source.data(), sw, f.origin, w0, h0))
+                    .flatten()
+                else {
                     return (still.clone(), (w, h));
                 };
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
@@ -16699,9 +20136,23 @@ impl Gpu {
                 k[0] = k.len() as f64;
                 k.extend(shared);
                 k.extend(blocks);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-675 shards", w, h);
-                self.fx_step(steps, &passes.shards, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.shards,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-678: the bubbles stepped on the processor and laid out on screen in the drawing's
@@ -16720,9 +20171,23 @@ impl Gpu {
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 k[0] = k.len() as f64;
                 k.extend(shared);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-678 foam", w, h);
-                self.fx_step(steps, &passes.foam, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.foam,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-676: the dots worked out and binned into the card's tiles on the processor, three
@@ -16734,9 +20199,23 @@ impl Gpu {
                     return (still.clone(), (w, h));
                 }
                 let k = crate::simulate::scatterize_list(e, (w0, h0), (ox, oy), (w, h));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-676 scatterize", w, h);
-                self.fx_step(steps, &passes.scatterize, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.scatterize,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-677: the stars in the drawing's own space, binned into the card's tiles as the
@@ -16749,40 +20228,100 @@ impl Gpu {
                 let mut k = crate::simulate::star_list(e, w0 as f64, h0 as f64);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let out = self.scratch("D-677 star burst", w, h);
-                self.fx_step(steps, &passes.star_burst, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.star_burst,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [None; 5],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // B-151: ten of the fourth batch.
-            E::Median { radius, operate_on_alpha } => {
-                let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
-                let p = FxParams { r: radius.floor() as i32, flag: (operate_on_alpha == "on") as u32, ..Default::default() };
+            E::Median {
+                radius,
+                operate_on_alpha,
+            } => {
+                let k: Vec<f64> = crate::layer_fx::disc_runs(*radius)
+                    .iter()
+                    .map(|&(_, hw)| hw as f64)
+                    .collect();
+                let p = FxParams {
+                    r: radius.floor() as i32,
+                    flag: (operate_on_alpha == "on") as u32,
+                    ..Default::default()
+                };
                 same(steps, &passes.median, p, &k, None)
             }
             // D-453: the same pass in mode 1, k the threshold, then level8's power and 0, then
             // the disc's rows, as SmartBlur's.
-            E::DustScratches { radius, threshold, operate_on_alpha } => {
+            E::DustScratches {
+                radius,
+                threshold,
+                operate_on_alpha,
+            } => {
                 let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
                 let mut k = vec![*threshold, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
-                k.extend(crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64));
-                let p = FxParams { r: radius.floor() as i32, n: 9, mode: 1, flag: (operate_on_alpha == "on") as u32, ..Default::default() };
+                k.extend(
+                    crate::layer_fx::disc_runs(*radius)
+                        .iter()
+                        .map(|&(_, hw)| hw as f64),
+                );
+                let p = FxParams {
+                    r: radius.floor() as i32,
+                    n: 9,
+                    mode: 1,
+                    flag: (operate_on_alpha == "on") as u32,
+                    ..Default::default()
+                };
                 same(steps, &passes.median, p, &k, None)
             }
             E::SmartBlur { radius, threshold } => {
                 // The threshold, then level8's power and 0, then the disc's rows.
                 let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
                 let mut k = vec![*threshold, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
-                k.extend(crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64));
-                let p = FxParams { r: radius.floor() as i32, n: 9, ..Default::default() };
+                k.extend(
+                    crate::layer_fx::disc_runs(*radius)
+                        .iter()
+                        .map(|&(_, hw)| hw as f64),
+                );
+                let p = FxParams {
+                    r: radius.floor() as i32,
+                    n: 9,
+                    ..Default::default()
+                };
                 let (levels, _) = same(steps, &passes.smart, p, &k, Some(still));
-                same(steps, &passes.smart, FxParams { mode: 1, ..p }, &k, Some(&levels))
+                same(
+                    steps,
+                    &passes.smart,
+                    FxParams { mode: 1, ..p },
+                    &k,
+                    Some(&levels),
+                )
             }
             // B-237: alone, only Colorize off reaches here.
-            E::BilateralBlur { radius, threshold, colorize } => bilateral(steps, *radius, *threshold, colorize == "on"),
+            E::BilateralBlur {
+                radius,
+                threshold,
+                colorize,
+            } => bilateral(steps, *radius, *threshold, colorize == "on"),
             // D-448: the smoothing as Bilateral Blur's (none when it would count only the pixel
             // itself), then the edges, then the fill and the line.
-            e @ E::Cartoon { detail_radius, detail_threshold, .. } => {
+            e @ E::Cartoon {
+                detail_radius,
+                detail_threshold,
+                ..
+            } => {
                 let k = crate::median::cartoon_k(e).expect("a Cartoon");
                 let smooth = if *detail_radius < 1.0 || *detail_threshold <= 0.0 {
                     still.clone()
@@ -16790,14 +20329,49 @@ impl Gpu {
                     bilateral(steps, *detail_radius, *detail_threshold, true).0
                 };
                 let edge = self.scratch("D-448 edges", w, h);
-                self.fx_step(steps, &passes.cartoonedge, FxParams::default(), Some(&smooth), Some(&edge), Some(&k), None, none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.cartoonedge,
+                    FxParams::default(),
+                    Some(&smooth),
+                    Some(&edge),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let out = self.scratch("D-448", w, h);
-                self.fx_step(steps, &passes.cartoon, FxParams::default(), Some(&smooth), Some(&out), Some(&k), Some(&edge), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.cartoon,
+                    FxParams::default(),
+                    Some(&smooth),
+                    Some(&out),
+                    Some(&k),
+                    Some(&edge),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            E::RoughenEdges { edge_type, edge_color, border, size, complexity, evolution, speed, seed, frame } => {
+            E::RoughenEdges {
+                edge_type,
+                edge_color,
+                border,
+                size,
+                complexity,
+                evolution,
+                speed,
+                seed,
+                frame,
+            } => {
                 let base = crate::grade::mix(seed.floor() as u64);
-                let mut k = vec![*border, *size, crate::effects::depth(*evolution, *speed, *frame), (edge_type == "roughen_color") as u8 as f64];
+                let mut k = vec![
+                    *border,
+                    *size,
+                    crate::effects::depth(*evolution, *speed, *frame),
+                    (edge_type == "roughen_color") as u8 as f64,
+                ];
                 k.extend(linear(edge_color));
                 let p = FxParams {
                     count: complexity.floor() as u32,
@@ -16808,63 +20382,244 @@ impl Gpu {
                 };
                 same(steps, &passes.rough, p, &k, None)
             }
-            E::RadialShadow { color, opacity, light, distance, softness, render, color_influence, shadow_only } => {
+            E::RadialShadow {
+                color,
+                opacity,
+                light,
+                distance,
+                softness,
+                render,
+                color_influence,
+                shadow_only,
+            } => {
                 // The drawing cast from the light, blurred, then laid behind the drawing.
-                let (lx, ly, scale, gx, gy) = crate::layer_fx::radial_cast(*light, *distance, (w, h), f.origin);
+                let (lx, ly, scale, gx, gy) =
+                    crate::layer_fx::radial_cast(*light, *distance, (w, h), f.origin);
                 let (cw, ch) = (w + 2 * gx, h + 2 * gy);
                 let cast = self.scratch("B-151 cast", cw, ch);
                 let k = [lx, ly, scale, gx as f64, gy as f64];
-                self.fx_step(steps, &passes.warp, FxParams { mode: 11, ..Default::default() }, Some(still), Some(&cast), Some(&k), None, none, tiles(cw, ch));
-                let (blurred, (bw, bh)) = self.gaussian(steps, &cast, (cw, ch), Gaussian { sigma: softness / 3.0, repeat: false, long: false });
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 11,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&cast),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(cw, ch),
+                );
+                let (blurred, (bw, bh)) = self.gaussian(
+                    steps,
+                    &cast,
+                    (cw, ch),
+                    Gaussian {
+                        sigma: softness / 3.0,
+                        repeat: false,
+                        long: false,
+                    },
+                );
                 let r = (bw - cw) / 2;
-                let mut k = vec![opacity / 100.0, color_influence / 100.0, (render == "glass_edge") as u8 as f64, (shadow_only == "on") as u8 as f64];
+                let mut k = vec![
+                    opacity / 100.0,
+                    color_influence / 100.0,
+                    (render == "glass_edge") as u8 as f64,
+                    (shadow_only == "on") as u8 as f64,
+                ];
                 k.extend(linear(color));
                 let out = self.scratch("B-151 radial shadow", bw, bh);
-                let p = FxParams { ox: (gx + r) as i32, oy: (gy + r) as i32, ..Default::default() };
-                self.fx_step(steps, &passes.rshadow, p, Some(&blurred), Some(&out), Some(&k), Some(still), none, tiles(bw, bh));
+                let p = FxParams {
+                    ox: (gx + r) as i32,
+                    oy: (gy + r) as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.rshadow,
+                    p,
+                    Some(&blurred),
+                    Some(&out),
+                    Some(&k),
+                    Some(still),
+                    none,
+                    tiles(bw, bh),
+                );
                 (out, (bw, bh))
             }
-            E::BevelAlpha { edge_thickness, light_angle, light_color, light_intensity } => {
+            E::BevelAlpha {
+                edge_thickness,
+                light_angle,
+                light_color,
+                light_intensity,
+            } => {
                 let (blurred, r) = covering(steps, still, (w, h), edge_thickness / 2.0);
                 let (ux, uy) = crate::blurs::along(*light_angle);
                 let mut k = vec![*edge_thickness, ux, uy, *light_intensity];
                 k.extend(linear(light_color));
-                same(steps, &passes.bevel, FxParams { r: r as i32, ..Default::default() }, &k, Some(&blurred))
+                same(
+                    steps,
+                    &passes.bevel,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    &k,
+                    Some(&blurred),
+                )
             }
-            E::Snowfall { color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity, frame } => {
+            E::Snowfall {
+                color,
+                density,
+                spacing,
+                size,
+                depth,
+                speed,
+                wind,
+                wiggle,
+                period,
+                seed,
+                opacity,
+                frame,
+            } => {
                 let base = crate::grade::mix(seed.floor() as u64);
                 let mut k = vec![density / 100.0, *opacity, *period, *frame as f64];
-                k.extend(crate::layer_fx::snow_planes([*spacing, *size, *depth, *speed, *wind, *wiggle], *frame).iter().flatten());
+                k.extend(
+                    crate::layer_fx::snow_planes(
+                        [*spacing, *size, *depth, *speed, *wind, *wiggle],
+                        *frame,
+                    )
+                    .iter()
+                    .flatten(),
+                );
                 k.extend(linear(color));
-                let p = FxParams { base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.snow, p, &k, None)
             }
-            E::CellPattern { pattern, invert, contrast, disperse, size, evolution, seed, dark_color, light_color, opacity, blend: b } => {
-                let (m0, n0, cols, points) = crate::grade::cell_points([*disperse, *size, *evolution, *seed], (w, h), f.origin);
-                let code = ["bubbles", "crystals", "plates"].iter().position(|p| *p == pattern.as_str()).unwrap_or(3);
-                let mut k = vec![*size, *contrast, opacity / 100.0, code as f64, (invert == "on") as u8 as f64, m0 as f64, n0 as f64, cols as f64];
+            E::CellPattern {
+                pattern,
+                invert,
+                contrast,
+                disperse,
+                size,
+                evolution,
+                seed,
+                dark_color,
+                light_color,
+                opacity,
+                blend: b,
+            } => {
+                let (m0, n0, cols, points) = crate::grade::cell_points(
+                    [*disperse, *size, *evolution, *seed],
+                    (w, h),
+                    f.origin,
+                );
+                let code = ["bubbles", "crystals", "plates"]
+                    .iter()
+                    .position(|p| *p == pattern.as_str())
+                    .unwrap_or(3);
+                let mut k = vec![
+                    *size,
+                    *contrast,
+                    opacity / 100.0,
+                    code as f64,
+                    (invert == "on") as u8 as f64,
+                    m0 as f64,
+                    n0 as f64,
+                    cols as f64,
+                ];
                 k.extend(crate::effects::encoded(dark_color));
                 k.extend(crate::effects::encoded(light_color));
                 k.push(0.0);
                 k.extend(points.iter().flat_map(|&(x, y, grey)| [x, y, grey]));
-                same(steps, &passes.cells, FxParams { blend: blend(b), ox: ox as i32, oy: oy as i32, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.cells,
+                    FxParams {
+                        blend: blend(b),
+                        ox: ox as i32,
+                        oy: oy as i32,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::PolarCoordinates { interpolation, conversion, shape } => {
+            E::PolarCoordinates {
+                interpolation,
+                conversion,
+                shape,
+            } => {
                 let (dw, dh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
-                let (rx, ry) = if shape == "circle" { (dw.min(dh) / 2.0, dw.min(dh) / 2.0) } else { (dw / 2.0, dh / 2.0) };
-                let k = [interpolation / 100.0, (conversion == "rect_to_polar") as u8 as f64, dw, dh, ox as f64, oy as f64, rx, ry, rx / (dw / 2.0), ry / (dh / 2.0)];
-                same(steps, &passes.warp, FxParams { mode: 8, ..Default::default() }, &k, None)
+                let (rx, ry) = if shape == "circle" {
+                    (dw.min(dh) / 2.0, dw.min(dh) / 2.0)
+                } else {
+                    (dw / 2.0, dh / 2.0)
+                };
+                let k = [
+                    interpolation / 100.0,
+                    (conversion == "rect_to_polar") as u8 as f64,
+                    dw,
+                    dh,
+                    ox as f64,
+                    oy as f64,
+                    rx,
+                    ry,
+                    rx / (dw / 2.0),
+                    ry / (dh / 2.0),
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 8,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::OpticsCompensation { field_of_view, reverse, orientation, center } => {
+            E::OpticsCompensation {
+                field_of_view,
+                reverse,
+                orientation,
+                center,
+            } => {
                 let (dw, dh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let r = match orientation.as_str() {
                     "vertical" => dh / 2.0,
                     "diagonal" => dw.hypot(dh) / 2.0,
                     _ => dw / 2.0,
                 };
-                let (cx, cy) = (center[0] / 100.0 * dw + ox as f64, center[1] / 100.0 * dh + oy as f64);
-                let k = [cx, cy, r, field_of_view.to_radians() / 2.0, (reverse == "on") as u8 as f64, 0.0];
-                same(steps, &passes.warp, FxParams { mode: 9, ..Default::default() }, &k, None)
+                let (cx, cy) = (
+                    center[0] / 100.0 * dw + ox as f64,
+                    center[1] / 100.0 * dh + oy as f64,
+                );
+                let k = [
+                    cx,
+                    cy,
+                    r,
+                    field_of_view.to_radians() / 2.0,
+                    (reverse == "on") as u8 as f64,
+                    0.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 9,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-408: one moment; a Transform through the shutter stays off the card (card_can).
             // A map that cannot be undone draws nothing, at opacity 0.
@@ -16876,61 +20631,194 @@ impl Gpu {
                     k[6] = m[9] / 100.0;
                 }
                 k[8] = (sampling == "bicubic") as u8 as f64;
-                same(steps, &passes.warp, FxParams { mode: 22, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 22,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
+            E::CornerPin {
+                upper_left,
+                upper_right,
+                lower_left,
+                lower_right,
+            } => {
                 // Crossed corners leave the determinant 0, which draws nothing.
                 let (gx, gy) = f.grow;
                 let mut k = [0.0; 17];
-                if let Some((adj, det, _)) = crate::layer_fx::corner_map([*upper_left, *upper_right, *lower_left, *lower_right], (w, h), f.origin) {
+                if let Some((adj, det, _)) = crate::layer_fx::corner_map(
+                    [*upper_left, *upper_right, *lower_left, *lower_right],
+                    (w, h),
+                    f.origin,
+                ) {
                     k[..9].copy_from_slice(adj.as_flattened());
                     k[9] = det;
                 }
-                k[10..16].copy_from_slice(&[(w - 2 * ox) as f64, (h - 2 * oy) as f64, ox as f64, oy as f64, (ox + gx) as f64, (oy + gy) as f64]);
+                k[10..16].copy_from_slice(&[
+                    (w - 2 * ox) as f64,
+                    (h - 2 * oy) as f64,
+                    ox as f64,
+                    oy as f64,
+                    (ox + gx) as f64,
+                    (oy + gy) as f64,
+                ]);
                 let (tw, th) = (w + 2 * gx, h + 2 * gy);
                 let out = self.scratch("B-151 corner pin", tw, th);
-                self.fx_step(steps, &passes.warp, FxParams { mode: 10, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
+                self.fx_step(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 10,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             // B-223 (D-342): five blurs, each as its CPU function.
-            E::FastBoxBlur { radius, iterations, edges, dimensions } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+            E::FastBoxBlur {
+                radius,
+                iterations,
+                edges,
+                dimensions,
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 let taps = crate::effects::box_weights(*radius, *iterations);
                 let flat = crate::effects::still_weights(taps.len() / 2);
                 let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
                 let repeat = edges == "repeat";
                 let e = if repeat { 0 } else { taps.len() / 2 };
-                let out = self.gauss(steps, bloom, "B-223 box", still, (w, h), [pick(dimensions != "vertical"), pick(dimensions != "horizontal")], e, repeat);
+                let out = self.gauss(
+                    steps,
+                    bloom,
+                    "B-223 box",
+                    still,
+                    (w, h),
+                    [
+                        pick(dimensions != "vertical"),
+                        pick(dimensions != "horizontal"),
+                    ],
+                    e,
+                    repeat,
+                );
                 (out, (w + 2 * e, h + 2 * e))
             }
             // D-471: Fast Box Blur's passes at its radius and 3 iterations.
-            E::FastBlurLegacy { blurriness, edges, dimensions } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
-                let taps = crate::effects::box_weights(crate::effects::FAST_BLUR_LEGACY_FACTOR * blurriness, crate::effects::FAST_BLUR_LEGACY_ITERATIONS);
+            E::FastBlurLegacy {
+                blurriness,
+                edges,
+                dimensions,
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
+                let taps = crate::effects::box_weights(
+                    crate::effects::FAST_BLUR_LEGACY_FACTOR * blurriness,
+                    crate::effects::FAST_BLUR_LEGACY_ITERATIONS,
+                );
                 let flat = crate::effects::still_weights(taps.len() / 2);
                 let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
                 let repeat = edges == "repeat";
                 let e = if repeat { 0 } else { taps.len() / 2 };
-                let out = self.gauss(steps, bloom, "D-471 box", still, (w, h), [pick(dimensions != "vertical"), pick(dimensions != "horizontal")], e, repeat);
+                let out = self.gauss(
+                    steps,
+                    bloom,
+                    "D-471 box",
+                    still,
+                    (w, h),
+                    [
+                        pick(dimensions != "vertical"),
+                        pick(dimensions != "horizontal"),
+                    ],
+                    e,
+                    repeat,
+                );
                 (out, (w + 2 * e, h + 2 * e))
             }
             // D-360: Fast Box Blur's passes across and, apart, down, then laid together.
-            E::CrossBlur { radius_x, radius_y, mode, edges } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+            E::CrossBlur {
+                radius_x,
+                radius_y,
+                mode,
+                edges,
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 let [across, down] = crate::blurs::cross_taps(*radius_x, *radius_y);
                 let flat = crate::effects::still_weights(across.len() / 2);
                 let repeat = edges == "repeat";
                 let e = if repeat { 0 } else { across.len() / 2 };
-                let a = self.gauss(steps, bloom, "D-360 across", still, (w, h), [&across, &flat], e, repeat);
-                let d = self.gauss(steps, bloom, "D-360 down", still, (w, h), [&flat, &down], e, repeat);
+                let a = self.gauss(
+                    steps,
+                    bloom,
+                    "D-360 across",
+                    still,
+                    (w, h),
+                    [&across, &flat],
+                    e,
+                    repeat,
+                );
+                let d = self.gauss(
+                    steps,
+                    bloom,
+                    "D-360 down",
+                    still,
+                    (w, h),
+                    [&flat, &down],
+                    e,
+                    repeat,
+                );
                 let (tw, th) = (w + 2 * e, h + 2 * e);
                 let out = self.scratch("D-360 cross", tw, th);
-                let mode = crate::effects::CROSS_MODES.iter().position(|m| m == mode).unwrap_or(0) as u32;
-                self.fx_step(steps, &passes.crossmix, FxParams { mode, ..Default::default() }, Some(&a), Some(&out), None, Some(&d), none, tiles(tw, th));
+                let mode = crate::effects::CROSS_MODES
+                    .iter()
+                    .position(|m| m == mode)
+                    .unwrap_or(0) as u32;
+                self.fx_step(
+                    steps,
+                    &passes.crossmix,
+                    FxParams {
+                        mode,
+                        ..Default::default()
+                    },
+                    Some(&a),
+                    Some(&out),
+                    None,
+                    Some(&d),
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
-            E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions, units } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+            E::ChannelBlur {
+                red_blurriness,
+                green_blurriness,
+                blue_blurriness,
+                alpha_blurriness,
+                edges,
+                dimensions,
+                units,
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 let repeat = edges == "repeat";
                 // D-380: each number as D-321's units take it.
                 let blurred = |steps: &mut Vec<Step>, number: f64| {
@@ -16939,10 +20827,30 @@ impl Gpu {
                     let flat = crate::effects::still_weights(taps.len() / 2);
                     let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
                     let e = if repeat { 0 } else { taps.len() / 2 };
-                    let axes = [pick(dimensions != "vertical"), pick(dimensions != "horizontal")];
-                    (self.gauss(steps, bloom, "B-223 channel", still, (w, h), axes, e, repeat), e)
+                    let axes = [
+                        pick(dimensions != "vertical"),
+                        pick(dimensions != "horizontal"),
+                    ];
+                    (
+                        self.gauss(
+                            steps,
+                            bloom,
+                            "B-223 channel",
+                            still,
+                            (w, h),
+                            axes,
+                            e,
+                            repeat,
+                        ),
+                        e,
+                    )
                 };
-                let sigma = [*red_blurriness, *green_blurriness, *blue_blurriness, *alpha_blurriness];
+                let sigma = [
+                    *red_blurriness,
+                    *green_blurriness,
+                    *blue_blurriness,
+                    *alpha_blurriness,
+                ];
                 let (mut out, g) = blurred(steps, sigma[3]);
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 for c in 0..3 {
@@ -16951,81 +20859,278 @@ impl Gpu {
                     }
                     let (b, r) = blurred(steps, sigma[c]);
                     let next = self.scratch("B-223 channel mix", tw, th);
-                    let p = FxParams { count: c as u32, g: r as i32 - g as i32, ..Default::default() };
-                    self.fx_step(steps, &passes.chanmix, p, Some(&out), Some(&next), None, Some(&b), none, tiles(tw, th));
+                    let p = FxParams {
+                        count: c as u32,
+                        g: r as i32 - g as i32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.chanmix,
+                        p,
+                        Some(&out),
+                        Some(&next),
+                        None,
+                        Some(&b),
+                        none,
+                        tiles(tw, th),
+                    );
                     out = next;
                 }
                 (out, (tw, th))
             }
-            E::SelectiveColorBlur { blur, colors, tolerance } => {
+            E::SelectiveColorBlur {
+                blur,
+                colors,
+                tolerance,
+            } => {
                 // k: the targets' count, the tolerance, 0s, level8's power and 0, then the targets.
                 let r = (blur + 0.5).floor() as usize;
                 let targets = crate::selective_blur::targets(colors);
                 let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
-                let mut k = vec![targets.len() as f64, *tolerance, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
+                let mut k = vec![
+                    targets.len() as f64,
+                    *tolerance,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    power,
+                    0.0,
+                ];
                 k.extend(targets.iter().flat_map(|t| t.map(f64::from)));
                 let mut chosen = self.scratch("B-223 chosen", w, h);
-                self.fx_step(steps, &passes.selprep, FxParams::default(), Some(still), Some(&chosen), Some(&k), None, none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.selprep,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&chosen),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let zone = r as f64 / 3.0;
-                let tbl: Vec<f64> = (0..=r).map(|j| (-((j * j) as f64) / (2.0 * zone * zone)).exp() as f32 as f64).collect();
-                for (reach, across) in [(r, true), (r, false), (r / 4, true), (r / 16, false), (r / 64, true)] {
+                let tbl: Vec<f64> = (0..=r)
+                    .map(|j| (-((j * j) as f64) / (2.0 * zone * zone)).exp() as f32 as f64)
+                    .collect();
+                for (reach, across) in [
+                    (r, true),
+                    (r, false),
+                    (r / 4, true),
+                    (r / 16, false),
+                    (r / 64, true),
+                ] {
                     if reach > 0 {
                         let next = self.scratch("B-223 chosen", w, h);
-                        let p = FxParams { n: reach as u32, flag: across as u32, ..Default::default() };
-                        self.fx_step(steps, &passes.selpass, p, Some(&chosen), Some(&next), Some(&tbl), None, none, tiles(w, h));
+                        let p = FxParams {
+                            n: reach as u32,
+                            flag: across as u32,
+                            ..Default::default()
+                        };
+                        self.fx_step(
+                            steps,
+                            &passes.selpass,
+                            p,
+                            Some(&chosen),
+                            Some(&next),
+                            Some(&tbl),
+                            None,
+                            none,
+                            tiles(w, h),
+                        );
                         chosen = next;
                     }
                 }
                 let out = self.scratch("B-223 selective", w, h);
-                self.fx_step(steps, &passes.selfinish, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&chosen), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.selfinish,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&chosen),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            E::VectorBlur { kind, amount, angle_offset, ridge_smoothness, property, map_softness, map, .. } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+            E::VectorBlur {
+                kind,
+                amount,
+                angle_offset,
+                ridge_smoothness,
+                property,
+                map_softness,
+                map,
+                ..
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 // The height from the map compose read, lying on the drawing at its corner, or the drawing.
                 let (picture, (mx, my)) = match map {
                     Some(m) => (self.map_texture(&m.0), (ox, oy)),
                     None => (still.clone(), (0, 0)),
                 };
-                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid CC Vector Blur");
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| p == property)
+                    .expect("compose leaves a valid CC Vector Blur");
                 let raw = self.scratch("B-223 height", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[place as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let (height, r) = if *map_softness > 0.0 {
                     let taps = crate::effects::gaussian_weights(map_softness / 2.0);
                     let r = taps.len() / 2;
-                    (self.gauss(steps, bloom, "B-223 height", &raw, (w, h), [&taps, &taps], r, false), r)
+                    (
+                        self.gauss(
+                            steps,
+                            bloom,
+                            "B-223 height",
+                            &raw,
+                            (w, h),
+                            [&taps, &taps],
+                            r,
+                            false,
+                        ),
+                        r,
+                    )
                 } else {
                     (raw, 0)
                 };
-                let kind_at = crate::effects::VECTOR_BLUR_TYPES.iter().position(|t| t == kind).expect("compose leaves a valid CC Vector Blur");
-                let turn = (angle_offset + if kind == "perpendicular" { 90.0 } else { 0.0 }).to_radians();
-                let k = [*amount, *angle_offset, *ridge_smoothness, amount.ceil(), kind_at as f64, turn.cos(), turn.sin()];
+                let kind_at = crate::effects::VECTOR_BLUR_TYPES
+                    .iter()
+                    .position(|t| t == kind)
+                    .expect("compose leaves a valid CC Vector Blur");
+                let turn =
+                    (angle_offset + if kind == "perpendicular" { 90.0 } else { 0.0 }).to_radians();
+                let k = [
+                    *amount,
+                    *angle_offset,
+                    *ridge_smoothness,
+                    amount.ceil(),
+                    kind_at as f64,
+                    turn.cos(),
+                    turn.sin(),
+                ];
                 let out = self.scratch("B-223 vector", w, h);
-                self.fx_step(steps, &passes.vblur, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&height), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.vblur,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&height),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-462: the height as CC Vector Blur's, then one pass that samples the drawing.
-            E::MrSmoothie { property, smoothness, sample_a, sample_b, phase, color_loop, map, .. } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+            E::MrSmoothie {
+                property,
+                smoothness,
+                sample_a,
+                sample_b,
+                phase,
+                color_loop,
+                map,
+                ..
+            } => {
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 let (picture, (mx, my)) = match map {
                     Some(m) => (self.map_texture(&m.0), (ox, oy)),
                     None => (still.clone(), (0, 0)),
                 };
-                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid Mr. Smoothie");
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| p == property)
+                    .expect("compose leaves a valid Mr. Smoothie");
                 let raw = self.scratch("D-462 height", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[place as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let (height, r) = if *smoothness > 0.0 {
                     let taps = crate::effects::gaussian_weights(smoothness / 2.0);
                     let r = taps.len() / 2;
-                    (self.gauss(steps, bloom, "D-462 height", &raw, (w, h), [&taps, &taps], r, false), r)
+                    (
+                        self.gauss(
+                            steps,
+                            bloom,
+                            "D-462 height",
+                            &raw,
+                            (w, h),
+                            [&taps, &taps],
+                            r,
+                            false,
+                        ),
+                        r,
+                    )
                 } else {
                     (raw, 0)
                 };
-                let k = crate::layer_fx::mr_smoothie_setup(*phase, color_loop, *sample_a, *sample_b, (w, h), (ox, oy));
+                let k = crate::layer_fx::mr_smoothie_setup(
+                    *phase,
+                    color_loop,
+                    *sample_a,
+                    *sample_b,
+                    (w, h),
+                    (ox, oy),
+                );
                 let out = self.scratch("D-462 smoothie", w, h);
-                self.fx_step(steps, &passes.smoothie, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&height), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.smoothie,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&height),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-463: the bump as Blobbylize's, then one pass that lights the drawing on it.
@@ -17051,26 +21156,62 @@ impl Gpu {
                 map,
                 ..
             } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 let (picture, (mx, my)) = match map {
                     Some(m) => (self.map_texture(&m.0), (ox, oy)),
                     None => (still.clone(), (0, 0)),
                 };
-                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid Plastic");
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| p == property)
+                    .expect("compose leaves a valid Plastic");
                 let raw = self.scratch("D-463 bump", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[place as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let (bump, r) = if *softness > 0.0 {
                     let taps = crate::effects::gaussian_weights(softness / 2.0);
                     let r = taps.len() / 2;
-                    (self.gauss(steps, bloom, "D-463 bump", &raw, (w, h), [&taps, &taps], r, false), r)
+                    (
+                        self.gauss(
+                            steps,
+                            bloom,
+                            "D-463 bump",
+                            &raw,
+                            (w, h),
+                            [&taps, &taps],
+                            r,
+                            false,
+                        ),
+                        r,
+                    )
                 } else {
                     (raw, 0)
                 };
                 let (ux, uy) = crate::blurs::along(*light_direction);
                 let d = [100.0 * ux, 100.0 * uy, *light_height];
                 let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
-                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let d = if dl > 0.0 {
+                    d.map(|c| c / dl)
+                } else {
+                    [0.0; 3]
+                };
                 let (px, py) = crate::effects::radial_center(*light_position, (w, h), f.origin);
                 let l = linear(light_color);
                 let al = linear(ambient_light_color);
@@ -17100,49 +21241,155 @@ impl Gpu {
                     metal / 100.0,
                 ];
                 let out = self.scratch("D-463 plastic", w, h);
-                self.fx_step(steps, &passes.plastic, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.plastic,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&bump),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            E::CompoundBlur { max_blur, invert, edges, map, .. } => {
-                let map = self.map_texture(&map.as_ref().expect("compose leaves a Compound Blur with a map").0);
+            E::CompoundBlur {
+                max_blur,
+                invert,
+                edges,
+                map,
+                ..
+            } => {
+                let map = self.map_texture(
+                    &map.as_ref()
+                        .expect("compose leaves a Compound Blur with a map")
+                        .0,
+                );
                 let big = max_blur / 3.0;
                 let levels = [0.0, big / 16.0, big / 8.0, big / 4.0, big / 2.0, big];
                 let dist = buffer(w * h * 8);
                 let work = [None, None, None, Some(&dist)];
-                let p = FxParams { n: w as u32, count: h as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.csigma, p, Some(&map), None, Some(&[big, (invert == "on") as u8 as f64]), None, work, tiles(w, h));
+                let p = FxParams {
+                    n: w as u32,
+                    count: h as u32,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.csigma,
+                    p,
+                    Some(&map),
+                    None,
+                    Some(&[big, (invert == "on") as u8 as f64]),
+                    None,
+                    work,
+                    tiles(w, h),
+                );
                 // ponytail: all five levels are blurred, where the CPU stops at the map's brightest;
                 // find the brightest first if a dark map is slow here.
                 let out = self.scratch("B-223 compound", w, h);
                 let mut low = (still.clone(), 0);
                 for j in 0..5 {
-                    let g = Gaussian { sigma: levels[j + 1], repeat: edges == "repeat", long: false };
+                    let g = Gaussian {
+                        sigma: levels[j + 1],
+                        repeat: edges == "repeat",
+                        long: false,
+                    };
                     let (high, _) = self.gaussian(steps, still, (w, h), g);
-                    let p = FxParams { n: j as u32, g: low.1 as i32, r: g.grow() as i32, ..Default::default() };
-                    self.fx_step(steps, &passes.cmix, p, Some(&low.0), Some(&out), Some(&levels), Some(&high), work, tiles(w, h));
+                    let p = FxParams {
+                        n: j as u32,
+                        g: low.1 as i32,
+                        r: g.grow() as i32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.cmix,
+                        p,
+                        Some(&low.0),
+                        Some(&out),
+                        Some(&levels),
+                        Some(&high),
+                        work,
+                        tiles(w, h),
+                    );
                     low = (high, g.grow());
                 }
                 (out, (w, h))
             }
             // B-224 (D-343): two that read a map, each as its CPU function.
-            E::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, red_amount, green_amount, blue_amount, spectrum, map, .. } => {
-                let map = self.map_texture(&map.as_ref().expect("compose leaves a Displacement Map with a map").0);
+            E::DisplacementMap {
+                horizontal,
+                max_horizontal,
+                vertical,
+                max_vertical,
+                wrap,
+                red_amount,
+                green_amount,
+                blue_amount,
+                spectrum,
+                map,
+                ..
+            } => {
+                let map = self.map_texture(
+                    &map.as_ref()
+                        .expect("compose leaves a Displacement Map with a map")
+                        .0,
+                );
                 // `push`'s kinds: `phase`'s, 9 full, 10 off.
                 let kind = |word: &str| match word {
                     "full" => 9.0,
                     "off" => 10.0,
-                    _ => crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == word).expect("compose leaves a valid Displacement Map") as f64,
+                    _ => crate::effects::VECTOR_BLUR_PROPERTIES
+                        .iter()
+                        .position(|p| *p == word)
+                        .expect("compose leaves a valid Displacement Map")
+                        as f64,
                 };
                 let g = f.grow.0;
                 // D-412: then the samples' count (0 for none) and the three shares.
-                let (most, a) = crate::effects::chromatic_amounts([*max_horizontal, *max_vertical], [*red_amount, *green_amount, *blue_amount]);
+                let (most, a) = crate::effects::chromatic_amounts(
+                    [*max_horizontal, *max_vertical],
+                    [*red_amount, *green_amount, *blue_amount],
+                );
                 let n = if a.is_some() { spectrum.floor() } else { 0.0 };
                 let a = a.unwrap_or([1.0; 3]);
-                let k = [kind(horizontal), kind(vertical), most[0], most[1], (wrap == "on") as u8 as f64, n, a[0], a[1], a[2]];
+                let k = [
+                    kind(horizontal),
+                    kind(vertical),
+                    most[0],
+                    most[1],
+                    (wrap == "on") as u8 as f64,
+                    n,
+                    a[0],
+                    a[1],
+                    a[2],
+                ];
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 let out = self.scratch("B-224 displacement", tw, th);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.dmap, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(tw, th));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    g: g as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.dmap,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&map),
+                    none,
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
             E::Glass {
@@ -17164,7 +21411,10 @@ impl Gpu {
                 map,
                 ..
             } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 // The bump from the map compose read, lying on the drawing at its corner, or the drawing.
                 let (picture, (mx, my)) = match map {
                     Some(m) => (self.map_texture(&m.0), (ox, oy)),
@@ -17172,15 +21422,44 @@ impl Gpu {
                 };
                 let place = match property.as_str() {
                     "intensity" => 8,
-                    p => crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|q| *q == p).expect("compose leaves a valid CC Glass"),
+                    p => crate::effects::VECTOR_BLUR_PROPERTIES
+                        .iter()
+                        .position(|q| *q == p)
+                        .expect("compose leaves a valid CC Glass"),
                 };
                 let raw = self.scratch("B-224 bump", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[place as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let (bump, r) = if *softness > 0.0 {
                     let taps = crate::effects::gaussian_weights(softness / 2.0);
                     let r = taps.len() / 2;
-                    (self.gauss(steps, bloom, "B-224 bump", &raw, (w, h), [&taps, &taps], r, false), r)
+                    (
+                        self.gauss(
+                            steps,
+                            bloom,
+                            "B-224 bump",
+                            &raw,
+                            (w, h),
+                            [&taps, &taps],
+                            r,
+                            false,
+                        ),
+                        r,
+                    )
                 } else {
                     (raw, 0)
                 };
@@ -17194,7 +21473,11 @@ impl Gpu {
                 let (px, py) = crate::effects::radial_center(*light_position, (w, h), (ox, oy));
                 let d = [100.0 * ux, 100.0 * uy, *light_height];
                 let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
-                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let d = if dl > 0.0 {
+                    d.map(|c| c / dl)
+                } else {
+                    [0.0; 3]
+                };
                 let k = [
                     *displacement,
                     height / 100.0 * 1.25 * softness.max(1.0),
@@ -17218,7 +21501,20 @@ impl Gpu {
                     metal / 100.0,
                 ];
                 let out = self.scratch("B-224 glass", w, h);
-                self.fx_step(steps, &passes.glass, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.glass,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&bump),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             E::Blobbylize {
@@ -17239,30 +21535,89 @@ impl Gpu {
                 map,
                 ..
             } => {
-                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let bloom = self
+                    .bloom
+                    .as_ref()
+                    .expect("a blur is refused without the passes");
                 // The blob from the map compose read, lying on the drawing at its corner, or the drawing.
                 let (picture, (mx, my)) = match map {
                     Some(m) => (self.map_texture(&m.0), (ox, oy)),
                     None => (still.clone(), (0, 0)),
                 };
-                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid Blobbylize");
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| p == property)
+                    .expect("compose leaves a valid Blobbylize");
                 let raw = self.scratch("D-379 blob", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[place as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let (bump, spread, r) = if *softness > 0.0 {
                     let taps = crate::effects::gaussian_weights(softness / 2.0);
                     let r = taps.len() / 2;
-                    let bump = self.gauss(steps, bloom, "D-379 blob", &raw, (w, h), [&taps, &taps], r, false);
-                    (bump, self.gauss(steps, bloom, "D-379 spread", still, (w, h), [&taps, &taps], r, false), r)
+                    let bump = self.gauss(
+                        steps,
+                        bloom,
+                        "D-379 blob",
+                        &raw,
+                        (w, h),
+                        [&taps, &taps],
+                        r,
+                        false,
+                    );
+                    (
+                        bump,
+                        self.gauss(
+                            steps,
+                            bloom,
+                            "D-379 spread",
+                            still,
+                            (w, h),
+                            [&taps, &taps],
+                            r,
+                            false,
+                        ),
+                        r,
+                    )
                 } else {
                     (raw, still.clone(), 0)
                 };
                 let colour = self.scratch("D-379 colour", w, h);
-                self.fx_step(steps, &passes.blobover, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&colour), None, Some(&spread), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.blobover,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    Some(still),
+                    Some(&colour),
+                    None,
+                    Some(&spread),
+                    none,
+                    tiles(w, h),
+                );
                 let (ux, uy) = crate::blurs::along(*light_direction);
                 let d = [100.0 * ux, 100.0 * uy, *light_height];
                 let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
-                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let d = if dl > 0.0 {
+                    d.map(|c| c / dl)
+                } else {
+                    [0.0; 3]
+                };
                 let (px, py) = crate::effects::radial_center(*light_position, (w, h), f.origin);
                 let l = linear(light_color);
                 let k = [
@@ -17286,7 +21641,20 @@ impl Gpu {
                     metal / 100.0,
                 ];
                 let out = self.scratch("D-379 blobby", w, h);
-                self.fx_step(steps, &passes.blobby, FxParams { r: r as i32, ..Default::default() }, Some(&colour), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.blobby,
+                    FxParams {
+                        r: r as i32,
+                        ..Default::default()
+                    },
+                    Some(&colour),
+                    Some(&out),
+                    Some(&k),
+                    Some(&bump),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-424: the blobs as the CPU lays them, and the bands of rows each reaches, handed
@@ -17315,8 +21683,15 @@ impl Gpu {
                 clock,
                 ..
             } => {
-                let trail: Vec<(f64, f64)> = trail.iter().map(|p| crate::effects::radial_center(*p, (w, h), f.origin)).collect();
-                let wobble = (paint_style == "wobbly").then_some((*wobble_width, *wobble_height, *wobble_speed));
+                let trail: Vec<(f64, f64)> = trail
+                    .iter()
+                    .map(|p| crate::effects::radial_center(*p, (w, h), f.origin))
+                    .collect();
+                let wobble = (paint_style == "wobbly").then_some((
+                    *wobble_width,
+                    *wobble_height,
+                    *wobble_speed,
+                ));
                 let blobs = crate::layer_fx::glue_blobs(&trail, *clock, *density, wobble);
                 let r = stroke_width / 2.0;
                 let big = r * (1.0 + strength / 100.0);
@@ -17324,7 +21699,11 @@ impl Gpu {
                 let (ux, uy) = crate::blurs::along(*light_direction);
                 let d = [100.0 * ux, 100.0 * uy, *light_height];
                 let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
-                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let d = if dl > 0.0 {
+                    d.map(|c| c / dl)
+                } else {
+                    [0.0; 3]
+                };
                 let (px, py) = crate::effects::radial_center(*light_position, (w, h), f.origin);
                 let l = linear(light_color);
                 let mut k = vec![
@@ -17358,17 +21737,62 @@ impl Gpu {
                     first += band.len();
                 }
                 k.extend(bands.concat().into_iter().map(f64::from));
-                same(steps, &passes.warp, FxParams { mode: 34, ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 34,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-425: one warp pass, the cloth's numbers in `k`.
-            E::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => {
+            E::Threads {
+                width,
+                height,
+                overlaps,
+                direction,
+                center,
+                coverage,
+                shadowing,
+                texture,
+            } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (s, c) = direction.to_radians().sin_cos();
-                let k = [cx, cy, s, c, *width, *height, overlaps.floor(), coverage / 100.0, shadowing / 100.0, 0.0, texture / 100.0];
-                same(steps, &passes.warp, FxParams { mode: 35, ..Default::default() }, &k, None)
+                let k = [
+                    cx,
+                    cy,
+                    s,
+                    c,
+                    *width,
+                    *height,
+                    overlaps.floor(),
+                    coverage / 100.0,
+                    shadowing / 100.0,
+                    0.0,
+                    texture / 100.0,
+                ];
+                same(
+                    steps,
+                    &passes.warp,
+                    FxParams {
+                        mode: 35,
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
             // D-426: one warp pass, the parts placed on the processor.
-            E::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, dirt } => {
+            E::LensFlare {
+                flare_center,
+                flare_brightness,
+                lens_type,
+                blend_with_original,
+                dirt,
+            } => {
                 let (ox, oy) = f.origin;
                 let parts = crate::layer_fx::flare_parts(
                     lens_type,
@@ -17384,25 +21808,69 @@ impl Gpu {
                     Some(d) => {
                         k.extend(dirt_k(&d, (w, h), 0));
                         let picture = self.map_texture(&d.picture);
-                        same(steps, &passes.flaredirt, FxParams::default(), &k, Some(&picture))
+                        same(
+                            steps,
+                            &passes.flaredirt,
+                            FxParams::default(),
+                            &k,
+                            Some(&picture),
+                        )
                     }
-                    None => same(steps, &passes.warp, FxParams { mode: 36, ..Default::default() }, &k, None),
+                    None => same(
+                        steps,
+                        &passes.warp,
+                        FxParams {
+                            mode: 36,
+                            ..Default::default()
+                        },
+                        &k,
+                        None,
+                    ),
                 }
             }
             // D-444: its own pass, the dashes' bits worked out here as the CPU works them, from
             // the paths compose found, in bands as Path Stroke's runs are; with no path the card
             // is not asked (`compose::card_effect`).
             E::Vegas {
-                segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, paths, ..
+                segments,
+                length,
+                segment_distribution,
+                rotation,
+                random_phase,
+                random_seed,
+                blend_mode,
+                color,
+                width,
+                hardness,
+                start_opacity,
+                mid_point_opacity,
+                mid_point_position,
+                end_opacity,
+                paths,
+                ..
             } => {
                 let bits = match paths {
-                    Some(p) if *width != 0.0 => crate::along::vegas_bits(p, f.origin, [*segments, *length, *rotation, *random_seed], segment_distribution == "even", random_phase == "on"),
+                    Some(p) if *width != 0.0 => crate::along::vegas_bits(
+                        p,
+                        f.origin,
+                        [*segments, *length, *rotation, *random_seed],
+                        segment_distribution == "even",
+                        random_phase == "on",
+                    ),
                     _ => Vec::new(),
                 };
                 let r = width / 2.0;
-                let mode = crate::effects::VEGAS_MODES.iter().position(|m| m == blend_mode).unwrap_or(0) as f64;
+                let mode = crate::effects::VEGAS_MODES
+                    .iter()
+                    .position(|m| m == blend_mode)
+                    .unwrap_or(0) as f64;
                 let mut k = vec![r, (r * (1.0 - hardness)).max(1.0)];
-                k.extend(crate::effects::vegas_fade(*start_opacity, *mid_point_opacity, *mid_point_position, *end_opacity));
+                k.extend(crate::effects::vegas_fade(
+                    *start_opacity,
+                    *mid_point_opacity,
+                    *mid_point_position,
+                    *end_opacity,
+                ));
                 k.push(mode);
                 k.extend(linear(color));
                 k.push(bits.len() as f64);
@@ -17411,8 +21879,13 @@ impl Gpu {
                     let b = crate::along::run_box(&[bit[0], bit[1], bit[2], bit[3], 0.0], r + 0.5);
                     k.extend(bit);
                     k.extend(b);
-                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
-                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands
+                        .iter_mut()
+                        .take(rows.end() / 16 + 1)
+                        .skip(rows.start() / 16)
+                    {
                         band.push(j as f64);
                     }
                 }
@@ -17429,7 +21902,21 @@ impl Gpu {
             // Other Layer first makes the picture's lightness plane, blurred by Softness, as
             // grade::CurlPlane does.
             e @ E::CurlNoise {
-                source, softness, mirror_at_edge, map, sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, ..
+                source,
+                softness,
+                mirror_at_edge,
+                map,
+                sample_count,
+                sample_radius,
+                flow_softness,
+                flow_falloff,
+                view,
+                contrast,
+                brightness,
+                clip_hdr_results,
+                channel,
+                float,
+                ..
             } => {
                 let c = crate::grade::Curl::new(e, (w - 2 * ox, h - 2 * oy)).expect("a Curl Noise");
                 let m = crate::grade::curl_margin(*sample_radius);
@@ -17441,22 +21928,71 @@ impl Gpu {
                 let picture = match source.as_str() {
                     "this_layer" => Some((still.clone(), (w, h), [ox as f64, oy as f64])),
                     "other_layer" => {
-                        let m = &map.as_ref().expect("compose leaves an Other Layer Curl Noise whose layer was read").0;
+                        let m = &map
+                            .as_ref()
+                            .expect("compose leaves an Other Layer Curl Noise whose layer was read")
+                            .0;
                         Some((self.map_texture(m), (m.width(), m.height()), [0.0, 0.0]))
                     }
                     _ => None,
                 };
                 let plane = picture.map(|(from, (pw, ph), origin)| {
-                    let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a property");
+                    let place = crate::effects::VECTOR_BLUR_PROPERTIES
+                        .iter()
+                        .position(|p| *p == "luminance")
+                        .expect("luminance is a property");
                     let raw = self.scratch("D-583 plane", pw, ph);
-                    self.fx_step(steps, &passes.vheight, FxParams::default(), Some(&from), Some(&raw), Some(&[place as f64]), None, none, tiles(pw, ph));
-                    k.extend([1.0, origin[0], origin[1], (mirror_at_edge == "on") as u8 as f64]);
+                    self.fx_step(
+                        steps,
+                        &passes.vheight,
+                        FxParams::default(),
+                        Some(&from),
+                        Some(&raw),
+                        Some(&[place as f64]),
+                        None,
+                        none,
+                        tiles(pw, ph),
+                    );
+                    k.extend([
+                        1.0,
+                        origin[0],
+                        origin[1],
+                        (mirror_at_edge == "on") as u8 as f64,
+                    ]);
                     let taps = crate::effects::gaussian_weights(softness / 10.0);
                     if taps.len() > 1 {
-                        let kk = |axis: f64| -> Vec<f64> { [axis, (taps.len() / 2) as f64].into_iter().chain(taps.iter().map(|&t| t as f64)).collect() };
-                        let (across, down) = (self.scratch("D-583 across", pw, ph), self.scratch("D-583 down", pw, ph));
-                        self.fx_step(steps, &passes.curlsoft, FxParams::default(), Some(&raw), Some(&across), Some(&kk(0.0)), None, none, tiles(pw, ph));
-                        self.fx_step(steps, &passes.curlsoft, FxParams::default(), Some(&across), Some(&down), Some(&kk(1.0)), None, none, tiles(pw, ph));
+                        let kk = |axis: f64| -> Vec<f64> {
+                            [axis, (taps.len() / 2) as f64]
+                                .into_iter()
+                                .chain(taps.iter().map(|&t| t as f64))
+                                .collect()
+                        };
+                        let (across, down) = (
+                            self.scratch("D-583 across", pw, ph),
+                            self.scratch("D-583 down", pw, ph),
+                        );
+                        self.fx_step(
+                            steps,
+                            &passes.curlsoft,
+                            FxParams::default(),
+                            Some(&raw),
+                            Some(&across),
+                            Some(&kk(0.0)),
+                            None,
+                            none,
+                            tiles(pw, ph),
+                        );
+                        self.fx_step(
+                            steps,
+                            &passes.curlsoft,
+                            FxParams::default(),
+                            Some(&across),
+                            Some(&down),
+                            Some(&kk(1.0)),
+                            None,
+                            none,
+                            tiles(pw, ph),
+                        );
                         down
                     } else {
                         raw
@@ -17471,10 +22007,21 @@ impl Gpu {
                 k.extend(c.turn.unwrap_or_default());
                 k.push(c.perspective as u8 as f64);
                 let base = crate::grade::mix(0);
-                let p = FxParams { g: m as i32, base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    g: m as i32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 // Audit P9: a field from the noise alone is kept, and drawn again only when the
                 // numbers that make it change; a picture's plane is drawn each time.
-                let key: Option<Vec<u64>> = plane.is_none().then(|| k.iter().map(|v| v.to_bits()).chain([m, ox, oy, gw, gh].map(|v| v as u64)).collect());
+                let key: Option<Vec<u64>> = plane.is_none().then(|| {
+                    k.iter()
+                        .map(|v| v.to_bits())
+                        .chain([m, ox, oy, gw, gh].map(|v| v as u64))
+                        .collect()
+                });
                 let kept = key.as_ref().and_then(|key| {
                     let mut fields = self.fields.borrow_mut();
                     let f = fields.iter_mut().find(|f| &f.0 == key)?;
@@ -17485,17 +22032,30 @@ impl Gpu {
                     Some(field) => field,
                     None => {
                         let field = self.scratch("D-446 field", gw, gh);
-                        self.fx_step(steps, &passes.curlfield, p, Some(plane.as_ref().unwrap_or(still)), Some(&field), Some(&k), None, none, tiles(gw, gh));
+                        self.fx_step(
+                            steps,
+                            &passes.curlfield,
+                            p,
+                            Some(plane.as_ref().unwrap_or(still)),
+                            Some(&field),
+                            Some(&k),
+                            None,
+                            none,
+                            tiles(gw, gh),
+                        );
                         if let Some(key) = key {
                             if let Some(working) = &self.working {
                                 working.borrow_mut().retain(|(t, _)| t != field.texture());
                             }
-                            self.fields.borrow_mut().push((key, field.clone(), self.frame));
+                            self.fields
+                                .borrow_mut()
+                                .push((key, field.clone(), self.frame));
                         }
                         field
                     }
                 };
-                let at = |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
+                let at =
+                    |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
                 let k = [
                     *sample_radius,
                     sample_count.floor(),
@@ -17508,29 +22068,96 @@ impl Gpu {
                     at(&crate::effects::CURL_CHANNELS, channel),
                     plane.is_some() as u8 as f64,
                 ];
-                same(steps, &passes.curlflow, FxParams { g: m as i32, ..Default::default() }, &k, Some(&field))
+                same(
+                    steps,
+                    &passes.curlflow,
+                    FxParams {
+                        g: m as i32,
+                        ..Default::default()
+                    },
+                    &k,
+                    Some(&field),
+                )
             }
             // D-447: one pass, as grade::brush_strokes works it.
             e @ E::BrushStrokes { .. } => {
                 let b = crate::grade::Brush::new(e).expect("a Brush Strokes");
-                let k = [b.d[0], b.d[1], b.su, b.sv, b.len, b.r, b.m, b.slope, b.s, b.reach, b.surface as f64, b.blend];
-                let p = FxParams { base: [b.base as u32, (b.base >> 32) as u32], frame: b.frame as i32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let k = [
+                    b.d[0],
+                    b.d[1],
+                    b.su,
+                    b.sv,
+                    b.len,
+                    b.r,
+                    b.m,
+                    b.slope,
+                    b.s,
+                    b.reach,
+                    b.surface as f64,
+                    b.blend,
+                ];
+                let p = FxParams {
+                    base: [b.base as u32, (b.base >> 32) as u32],
+                    frame: b.frame as i32,
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 same(steps, &passes.brush, p, &k, None)
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.
-            E::Beam { start, end, length, time, start_thickness, end_thickness, softness, inside_color, outside_color, composite } => {
-                let (s, e) = (crate::effects::radial_center(*start, (w, h), f.origin), crate::effects::radial_center(*end, (w, h), f.origin));
+            E::Beam {
+                start,
+                end,
+                length,
+                time,
+                start_thickness,
+                end_thickness,
+                softness,
+                inside_color,
+                outside_color,
+                composite,
+            } => {
+                let (s, e) = (
+                    crate::effects::radial_center(*start, (w, h), f.origin),
+                    crate::effects::radial_center(*end, (w, h), f.origin),
+                );
                 let l = length / 100.0;
                 let a = time / 100.0 * (1.0 - l);
                 let (dx, dy) = (l * (e.0 - s.0), l * (e.1 - s.1));
-                let mut k = vec![s.0 + a * (e.0 - s.0), s.1 + a * (e.1 - s.1), dx, dy, dx * dx + dy * dy, a, l];
-                k.extend([*start_thickness, *end_thickness, *softness, (composite == "off") as u8 as f64]);
+                let mut k = vec![
+                    s.0 + a * (e.0 - s.0),
+                    s.1 + a * (e.1 - s.1),
+                    dx,
+                    dy,
+                    dx * dx + dy * dy,
+                    a,
+                    l,
+                ];
+                k.extend([
+                    *start_thickness,
+                    *end_thickness,
+                    *softness,
+                    (composite == "off") as u8 as f64,
+                ]);
                 k.extend(linear(inside_color));
                 k.extend(linear(outside_color));
                 same(steps, &passes.beam, FxParams::default(), &k, None)
             }
-            E::FourColorGradient { point_1, point_2, point_3, point_4, color_1, color_2, color_3, color_4, blend: b, opacity, blending_mode } => {
+            E::FourColorGradient {
+                point_1,
+                point_2,
+                point_3,
+                point_4,
+                color_1,
+                color_2,
+                color_3,
+                color_4,
+                blend: b,
+                opacity,
+                blending_mode,
+            } => {
                 let mut k: Vec<f64> = [point_1, point_2, point_3, point_4]
                     .iter()
                     .flat_map(|p| {
@@ -17542,9 +22169,28 @@ impl Gpu {
                 for c in [color_1, color_2, color_3, color_4] {
                     k.extend(crate::effects::encoded(c));
                 }
-                same(steps, &passes.gradient4, FxParams { blend: blend(blending_mode), ..Default::default() }, &k, None)
+                same(
+                    steps,
+                    &passes.gradient4,
+                    FxParams {
+                        blend: blend(blending_mode),
+                        ..Default::default()
+                    },
+                    &k,
+                    None,
+                )
             }
-            E::LightSweep { center, direction, shape, width, sweep_intensity, edge_intensity, edge_thickness, light_color, light_reception } => {
+            E::LightSweep {
+                center,
+                direction,
+                shape,
+                width,
+                sweep_intensity,
+                edge_intensity,
+                edge_thickness,
+                light_color,
+                light_reception,
+            } => {
                 let r = width / 2.0;
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (nx, ny) = crate::blurs::along(direction + 90.0);
@@ -17559,19 +22205,71 @@ impl Gpu {
                     "composite" => 1.0,
                     _ => 2.0,
                 };
-                let mut k = vec![cx, cy, nx, ny, r, sweep_intensity / 100.0, edge_intensity / 100.0, shape, reception, least as u8 as f64];
+                let mut k = vec![
+                    cx,
+                    cy,
+                    nx,
+                    ny,
+                    r,
+                    sweep_intensity / 100.0,
+                    edge_intensity / 100.0,
+                    shape,
+                    reception,
+                    least as u8 as f64,
+                ];
                 k.extend(linear(light_color));
                 let rows = buffer(if least { w * h * 4 } else { 4 });
-                let p = FxParams { r: edge_thickness.floor() as i32, ..Default::default() };
+                let p = FxParams {
+                    r: edge_thickness.floor() as i32,
+                    ..Default::default()
+                };
                 if least {
-                    self.fx_step(steps, &passes.sweepmin, p, Some(still), None, None, None, [Some(&rows)], tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.sweepmin,
+                        p,
+                        Some(still),
+                        None,
+                        None,
+                        None,
+                        [Some(&rows)],
+                        tiles(w, h),
+                    );
                 }
                 let out = self.scratch("B-225 sweep", w, h);
-                self.fx_step(steps, &passes.sweep, p, Some(still), Some(&out), Some(&k), None, [Some(&rows)], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.sweep,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [Some(&rows)],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-345: Radio Waves, its waves worked out here as the CPU works them.
-            E::RadioWaves { producer_point, sides, interval, expansion, orientation, direction, velocity, spin, lifespan, opacity, fade_in_time, fade_out_time, start_width, end_width, profile, color, frame } => {
+            E::RadioWaves {
+                producer_point,
+                sides,
+                interval,
+                expansion,
+                orientation,
+                direction,
+                velocity,
+                spin,
+                lifespan,
+                opacity,
+                fade_in_time,
+                fade_out_time,
+                start_width,
+                end_width,
+                profile,
+                color,
+                frame,
+            } => {
                 let s = crate::layer_fx::RadioWaves {
                     producer: crate::effects::radial_center(*producer_point, (w, h), f.origin),
                     sides: *sides,
@@ -17600,27 +22298,78 @@ impl Gpu {
                 let mut k = vec![n, 360.0 / n, (std::f64::consts::PI / n).cos(), profile];
                 k.extend(s.color);
                 k.push(list.len() as f64);
-                k.extend(list.iter().flat_map(|&(x, y, r, t, hw, g)| [x, y, r, t, hw, g]));
+                k.extend(
+                    list.iter()
+                        .flat_map(|&(x, y, r, t, hw, g)| [x, y, r, t, hw, g]),
+                );
                 same(steps, &passes.waves, FxParams::default(), &k, None)
             }
-            E::LightningBolt { start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite, kind, turbulence, decay, conductivity, obstacle, path, core, forks, frame } => {
+            E::LightningBolt {
+                start,
+                end,
+                jagged,
+                detail,
+                branches,
+                width,
+                glow,
+                opacity,
+                hold,
+                seed,
+                color,
+                glow_color,
+                composite,
+                kind,
+                turbulence,
+                decay,
+                conductivity,
+                obstacle,
+                path,
+                core,
+                forks,
+                frame,
+            } => {
                 // D-324: Alpha Obstacle reads the drawing it is given; compose has a bolt with
                 // one begin its run, so that is `source`, the CPU's.
                 let edge = 1.0 - obstacle / 100.0;
                 let blocks: Vec<bool> = match *obstacle {
-                    a if a > 0.0 => source.data().chunks_exact(4).map(|p| p[3] as f64 > edge).collect(),
-                    a if a < 0.0 => source.data().chunks_exact(4).map(|p| (p[3] as f64) < -a / 100.0).collect(),
+                    a if a > 0.0 => source
+                        .data()
+                        .chunks_exact(4)
+                        .map(|p| p[3] as f64 > edge)
+                        .collect(),
+                    a if a < 0.0 => source
+                        .data()
+                        .chunks_exact(4)
+                        .map(|p| (p[3] as f64) < -a / 100.0)
+                        .collect(),
                     _ => Vec::new(),
                 };
                 let segs = if *opacity == 0.0 || (*width == 0.0 && *glow == 0.0) {
                     Vec::new()
                 } else {
                     let size = (w, h);
-                    let ends = [start, end, &[start[0], 100.0]].map(|p| crate::effects::radial_center(*p, size, f.origin));
-                    let kinds = (kind.as_str(), [*turbulence, *decay, *conductivity], forks.as_str());
-                    crate::layer_fx::bolt_list(size, ends, [*jagged, *detail, *branches, *hold, *seed], kinds, (&blocks, *obstacle < 0.0, path == "around"), *frame)
+                    let ends = [start, end, &[start[0], 100.0]]
+                        .map(|p| crate::effects::radial_center(*p, size, f.origin));
+                    let kinds = (
+                        kind.as_str(),
+                        [*turbulence, *decay, *conductivity],
+                        forks.as_str(),
+                    );
+                    crate::layer_fx::bolt_list(
+                        size,
+                        ends,
+                        [*jagged, *detail, *branches, *hold, *seed],
+                        kinds,
+                        (&blocks, *obstacle < 0.0, path == "around"),
+                        *frame,
+                    )
                 };
-                let mut k = vec![*width, *glow, (core == "soft") as u8 as f64, opacity / 100.0];
+                let mut k = vec![
+                    *width,
+                    *glow,
+                    (core == "soft") as u8 as f64,
+                    opacity / 100.0,
+                ];
                 k.extend(linear(color));
                 k.extend(linear(glow_color));
                 k.extend([(composite == "off") as u8 as f64, segs.len() as f64]);
@@ -17629,7 +22378,12 @@ impl Gpu {
                     let ww = s[4].max(s[5]);
                     let e = (ww * width / 2.0 + 0.5).max(ww * glow);
                     k.extend(s);
-                    k.extend([s[0].min(s[2]) - e, s[0].max(s[2]) + e, s[1].min(s[3]) - e, s[1].max(s[3]) + e]);
+                    k.extend([
+                        s[0].min(s[2]) - e,
+                        s[0].max(s[2]) + e,
+                        s[1].min(s[3]) - e,
+                        s[1].max(s[3]) + e,
+                    ]);
                 }
                 same(steps, &passes.bolt, FxParams::default(), &k, None)
             }
@@ -17638,23 +22392,61 @@ impl Gpu {
             // D-442: Scribble's lines are drawn by the same pass, found here as the CPU finds them.
             e @ (E::Stroke { .. } | E::Scribble { .. }) => {
                 let (runs, brush_size, brush_hardness, opacity, color, paint_style) = match e {
-                    E::Stroke { all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, paths, .. } => {
+                    E::Stroke {
+                        all_masks,
+                        stroke_sequentially,
+                        color,
+                        brush_size,
+                        brush_hardness,
+                        opacity,
+                        start,
+                        end,
+                        spacing,
+                        paint_style,
+                        paths,
+                        ..
+                    } => {
                         let runs = match paths {
                             Some(p) if *brush_size != 0.0 && *opacity != 0.0 => {
                                 let sequential = all_masks == "on" && stroke_sequentially == "on";
-                                crate::along::stroke_runs(p, f.origin, [*start, *end, *spacing, *brush_size], sequential)
+                                crate::along::stroke_runs(
+                                    p,
+                                    f.origin,
+                                    [*start, *end, *spacing, *brush_size],
+                                    sequential,
+                                )
                             }
                             _ => Vec::new(),
                         };
-                        (runs, brush_size, brush_hardness, opacity, color, paint_style)
+                        (
+                            runs,
+                            brush_size,
+                            brush_hardness,
+                            opacity,
+                            color,
+                            paint_style,
+                        )
                     }
-                    E::Scribble { color, opacity, stroke_width, composite, .. } => {
-                        let runs = if *stroke_width != 0.0 && *opacity != 0.0 { crate::along::scribble_runs(e, (w as usize, h as usize), f.origin) } else { Vec::new() };
+                    E::Scribble {
+                        color,
+                        opacity,
+                        stroke_width,
+                        composite,
+                        ..
+                    } => {
+                        let runs = if *stroke_width != 0.0 && *opacity != 0.0 {
+                            crate::along::scribble_runs(e, (w as usize, h as usize), f.origin)
+                        } else {
+                            Vec::new()
+                        };
                         (runs, stroke_width, &100.0, opacity, color, composite)
                     }
                     _ => unreachable!("matched as a Path Stroke or a Scribble"),
                 };
-                let style = crate::effects::PAINT_STYLES.iter().position(|s| s == paint_style).unwrap_or(0) as f64;
+                let style = crate::effects::PAINT_STYLES
+                    .iter()
+                    .position(|s| s == paint_style)
+                    .unwrap_or(0) as f64;
                 let mut k = vec![*brush_size, *brush_hardness, *opacity];
                 k.extend(linear(color));
                 k.extend([style, runs.len() as f64]);
@@ -17663,8 +22455,13 @@ impl Gpu {
                     let b = crate::along::run_box(run, brush_size / 2.0 + 0.5);
                     k.extend(run);
                     k.extend(b);
-                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
-                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands
+                        .iter_mut()
+                        .take(rows.end() / 16 + 1)
+                        .skip(rows.start() / 16)
+                    {
                         band.push(j as f64);
                     }
                 }
@@ -17681,7 +22478,8 @@ impl Gpu {
             e @ E::EnergyStroke { .. } => {
                 let n = crate::along::energy_numbers(e);
                 let mut k = n.to_vec();
-                let (bits, ends) = crate::along::energy_bits(e, (w as usize, h as usize), f.origin, &n);
+                let (bits, ends) =
+                    crate::along::energy_bits(e, (w as usize, h as usize), f.origin, &n);
                 k.push(bits.len() as f64);
                 // D-565: the shaped ends, before the bits.
                 k.push(ends.len() as f64);
@@ -17690,8 +22488,13 @@ impl Gpu {
                 for (j, (bit, b)) in bits.iter().enumerate() {
                     k.extend(bit);
                     k.extend(b);
-                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
-                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands
+                        .iter_mut()
+                        .take(rows.end() / 16 + 1)
+                        .skip(rows.start() / 16)
+                    {
                         band.push(j as f64);
                     }
                 }
@@ -17704,22 +22507,45 @@ impl Gpu {
                 same(steps, &passes.energy, FxParams::default(), &k, None)
             }
             // D-441: Write-on's marks, placed here as the CPU places them.
-            E::WriteOn { color, paint_style, marks, .. } => {
-                let marks = crate::effects::write_on_marks(marks, (w as usize, h as usize), f.origin);
-                let style = crate::effects::PAINT_STYLES.iter().position(|s| s == paint_style).unwrap_or(0) as f64;
+            E::WriteOn {
+                color,
+                paint_style,
+                marks,
+                ..
+            } => {
+                let marks =
+                    crate::effects::write_on_marks(marks, (w as usize, h as usize), f.origin);
+                let style = crate::effects::PAINT_STYLES
+                    .iter()
+                    .position(|s| s == paint_style)
+                    .unwrap_or(0) as f64;
                 let mut k = vec![style];
                 k.extend(linear(color));
-                let kept: Vec<[f64; 5]> = marks.into_iter().filter(|m| m[2] != 0.0 && m[4] != 0.0).collect();
+                let kept: Vec<[f64; 5]> = marks
+                    .into_iter()
+                    .filter(|m| m[2] != 0.0 && m[4] != 0.0)
+                    .collect();
                 k.push(kept.len() as f64);
                 let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
                 for (j, &[x, y, size, hardness, opacity]) in kept.iter().enumerate() {
                     let r = size / 2.0;
                     let reach = r + 0.5;
                     let b = [x - reach, x + reach, y - reach, y + reach];
-                    k.extend([x, y, r, (r * (1.0 - hardness / 100.0)).max(1.0), opacity / 100.0]);
+                    k.extend([
+                        x,
+                        y,
+                        r,
+                        (r * (1.0 - hardness / 100.0)).max(1.0),
+                        opacity / 100.0,
+                    ]);
                     k.extend(b);
-                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
-                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize
+                        ..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands
+                        .iter_mut()
+                        .take(rows.end() / 16 + 1)
+                        .skip(rows.start() / 16)
+                    {
                         band.push(j as f64);
                     }
                 }
@@ -17731,9 +22557,19 @@ impl Gpu {
                 k.extend(bands.concat());
                 same(steps, &passes.writeon, FxParams::default(), &k, None)
             }
-            E::BevelEdges { edge_thickness, light_angle, light_color, light_intensity } => {
+            E::BevelEdges {
+                edge_thickness,
+                light_angle,
+                light_color,
+                light_intensity,
+            } => {
                 let (ux, uy) = crate::blurs::along(*light_angle);
-                let mut k = vec![edge_thickness * (w as f64).min(h as f64), ux, uy, *light_intensity];
+                let mut k = vec![
+                    edge_thickness * (w as f64).min(h as f64),
+                    ux,
+                    uy,
+                    *light_intensity,
+                ];
                 k.extend(linear(light_color));
                 same(steps, &passes.edges, FxParams::default(), &k, None)
             }
@@ -17741,173 +22577,526 @@ impl Gpu {
             // Width's offsets are worked out here, as the CPU works them, and handed over in `k`;
             // Line Width's chosen pixels and Line Smooth's encoded picture are the CPU's own, from
             // `source`, as compose has each of those two begin its run.
-            E::BlockDissolve { completion, block_width, block_height, feather } => {
+            E::BlockDissolve {
+                completion,
+                block_width,
+                block_height,
+                feather,
+            } => {
                 let k = if *feather > 0.0 && *completion != 100.0 {
-                    let (j0, ny, down) = crate::layer_fx::dissolve_down((w, h), *completion, (*block_width, *block_height), *feather, (ox, oy));
-                    let mut k = vec![1.0, (ny + 1) as f64, j0 as f64, *block_height, feather / 2.0, feather * feather, oy as f64];
+                    let (j0, ny, down) = crate::layer_fx::dissolve_down(
+                        (w, h),
+                        *completion,
+                        (*block_width, *block_height),
+                        *feather,
+                        (ox, oy),
+                    );
+                    let mut k = vec![
+                        1.0,
+                        (ny + 1) as f64,
+                        j0 as f64,
+                        *block_height,
+                        feather / 2.0,
+                        feather * feather,
+                        oy as f64,
+                    ];
                     k.extend(down);
                     k
                 } else {
                     let kept = crate::layer_fx::dissolve_kept(*completion);
-                    let block = |x: usize, o: usize, size: f64| ((x as f64 - o as f64 + 0.5) / size).floor() as i64;
+                    let block = |x: usize, o: usize, size: f64| {
+                        ((x as f64 - o as f64 + 0.5) / size).floor() as i64
+                    };
                     let ix: Vec<i64> = (0..w).map(|x| block(x, ox, *block_width)).collect();
                     let jy: Vec<i64> = (0..h).map(|y| block(y, oy, *block_height)).collect();
                     let mut k = vec![0.0, (ix[w - 1] - ix[0] + 1) as f64];
                     k.extend(ix.iter().map(|i| (i - ix[0]) as f64));
                     k.extend(jy.iter().map(|j| (j - jy[0]) as f64));
                     for j in jy[0]..=jy[h - 1] {
-                        k.extend((ix[0]..=ix[w - 1]).map(|i| if *completion == 100.0 { 0.0 } else { kept(i, j) }));
+                        k.extend((ix[0]..=ix[w - 1]).map(|i| {
+                            if *completion == 100.0 {
+                                0.0
+                            } else {
+                                kept(i, j)
+                            }
+                        }));
                     }
                     k
                 };
                 same(steps, &passes.dissolve, FxParams::default(), &k, None)
             }
-            E::GradientWipe { completion, softness, invert, map, .. } => {
-                let map = self.map_texture(&map.as_ref().expect("compose leaves a Gradient Wipe with a map").0);
+            E::GradientWipe {
+                completion,
+                softness,
+                invert,
+                map,
+                ..
+            } => {
+                let map = self.map_texture(
+                    &map.as_ref()
+                        .expect("compose leaves a Gradient Wipe with a map")
+                        .0,
+                );
                 let (c, s) = (completion / 100.0, softness / 100.0);
-                let luminance = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a reading");
-                let k = [-s / 2.0 + c * (1.0 + s), s, (invert == "on") as u8 as f64, (*completion == 100.0) as u8 as f64, luminance as f64, 0.0];
+                let luminance = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| *p == "luminance")
+                    .expect("luminance is a reading");
+                let k = [
+                    -s / 2.0 + c * (1.0 + s),
+                    s,
+                    (invert == "on") as u8 as f64,
+                    (*completion == 100.0) as u8 as f64,
+                    luminance as f64,
+                    0.0,
+                ];
                 let out = self.scratch("B-226 wipe", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.gwipe,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&map),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-512: compose leaves the card a Channel Wipe only when it wipes and its layer, if
             // one is named, was read; "" for the layer itself.
-            E::ChannelWipe { completion, softness, property, blur, invert, map, .. } => {
+            E::ChannelWipe {
+                completion,
+                softness,
+                property,
+                blur,
+                invert,
+                map,
+                ..
+            } => {
                 let (picture, (mx, my)) = match map {
                     Some(m) => (self.map_texture(&m.0), (ox, oy)),
                     None => (still.clone(), (0, 0)),
                 };
-                let kind = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == property.as_str()).expect("compose leaves a Channel Wipe whose property is a reading");
+                let kind = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| *p == property.as_str())
+                    .expect("compose leaves a Channel Wipe whose property is a reading");
                 let (c, s) = (completion / 100.0, softness / 100.0);
-                let mut k = [-s / 2.0 + c * (1.0 + s), s, (invert == "on") as u8 as f64, (*completion == 100.0) as u8 as f64, kind as f64, 0.0];
+                let mut k = [
+                    -s / 2.0 + c * (1.0 + s),
+                    s,
+                    (invert == "on") as u8 as f64,
+                    (*completion == 100.0) as u8 as f64,
+                    kind as f64,
+                    0.0,
+                ];
                 let out = self.scratch("D-512 wipe", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
                 if *blur > 0.0 && *completion != 100.0 {
                     let raw = self.scratch("D-512 reading", w, h);
                     k[5] = 2.0;
-                    self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&raw), Some(&k), Some(&picture), none, tiles(w, h));
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    self.fx_step(
+                        steps,
+                        &passes.gwipe,
+                        p,
+                        Some(still),
+                        Some(&raw),
+                        Some(&k),
+                        Some(&picture),
+                        none,
+                        tiles(w, h),
+                    );
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
                     let taps = crate::effects::gaussian_weights(blur / 2.0);
-                    let field = self.gauss(steps, bloom, "D-512 reading", &raw, (w, h), [&taps, &taps], 0, true);
+                    let field = self.gauss(
+                        steps,
+                        bloom,
+                        "D-512 reading",
+                        &raw,
+                        (w, h),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    );
                     k[5] = 1.0;
-                    self.fx_step(steps, &passes.gwipe, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.gwipe,
+                        FxParams::default(),
+                        Some(still),
+                        Some(&out),
+                        Some(&k),
+                        Some(&field),
+                        none,
+                        tiles(w, h),
+                    );
                 } else {
-                    self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&picture), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.gwipe,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&k),
+                        Some(&picture),
+                        none,
+                        tiles(w, h),
+                    );
                 }
                 (out, (w, h))
             }
             // D-403: compose leaves the card a haze only when it is even or its matte was read.
-            E::AerialHaze { haze_color, amount, map, .. } => {
+            E::AerialHaze {
+                haze_color,
+                amount,
+                map,
+                ..
+            } => {
                 let mut k = vec![amount / 100.0];
                 k.extend(crate::effects::encoded(haze_color).map(crate::grade::to_linear));
                 k.push(map.is_some() as u8 as f64);
                 let matte = map.as_ref().map(|m| self.map_texture(&m.0));
                 let out = self.scratch("D-403 haze", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.haze, p, Some(still), Some(&out), Some(&k), Some(matte.as_ref().unwrap_or(still)), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.haze,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(matte.as_ref().unwrap_or(still)),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-524: compose leaves the card a Fog 3D only when its depth (and gradient) was read.
             // ponytail: the shares are worked on the processor each frame; a shader reading the
             // depth and the gradient together if Fog 3D shows in the card's timings.
             e @ E::Fog3d { .. } => {
-                let shares = crate::layer_fx::fog_shares(e).expect("compose leaves a Fog 3D whose depth was read");
+                let shares = crate::layer_fx::fog_shares(e)
+                    .expect("compose leaves a Fog 3D whose depth was read");
                 let shares = self.map_texture(&shares);
-                let E::Fog3d { fog_color, .. } = e else { unreachable!() };
+                let E::Fog3d { fog_color, .. } = e else {
+                    unreachable!()
+                };
                 let k = crate::effects::encoded(fog_color).map(crate::grade::to_linear);
                 let out = self.scratch("D-524 fog", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.fog, p, Some(still), Some(&out), Some(&k), Some(&shares), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.fog,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&shares),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-501: compose leaves the card a Difference Matte only when its plate was read. With
             // a blur, the shares are worked from both blurred (grown by r) and then applied.
-            E::DifferenceMatte { view, matching_tolerance, matching_softness, blur_before_difference, map, .. } => {
-                let map = &map.as_ref().expect("compose leaves a Difference Matte with a plate").0;
+            E::DifferenceMatte {
+                view,
+                matching_tolerance,
+                matching_softness,
+                blur_before_difference,
+                map,
+                ..
+            } => {
+                let map = &map
+                    .as_ref()
+                    .expect("compose leaves a Difference Matte with a plate")
+                    .0;
                 let plate = self.map_texture(map);
-                let k = [*matching_tolerance, *matching_softness, (view == "matte") as u8 as f64];
+                let k = [
+                    *matching_tolerance,
+                    *matching_softness,
+                    (view == "matte") as u8 as f64,
+                ];
                 let out = self.scratch("D-501 matte", w, h);
                 if *blur_before_difference > 0.0 {
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
                     let taps = crate::effects::gaussian_weights(*blur_before_difference);
                     let r = taps.len() / 2;
-                    let soft = self.gauss(steps, bloom, "D-501 shot", still, (w, h), [&taps, &taps], r, false);
-                    let soft_plate = self.gauss(steps, bloom, "D-501 plate", &plate, (map.width(), map.height()), [&taps, &taps], r, false);
+                    let soft = self.gauss(
+                        steps,
+                        bloom,
+                        "D-501 shot",
+                        still,
+                        (w, h),
+                        [&taps, &taps],
+                        r,
+                        false,
+                    );
+                    let soft_plate = self.gauss(
+                        steps,
+                        bloom,
+                        "D-501 plate",
+                        &plate,
+                        (map.width(), map.height()),
+                        [&taps, &taps],
+                        r,
+                        false,
+                    );
                     let shares = self.scratch("D-501 shares", w, h);
-                    let p = FxParams { r: r as i32, ox: ox as i32 - r as i32, oy: oy as i32 - r as i32, ..Default::default() };
-                    self.fx_step(steps, &passes.dmatte, p, Some(&soft), Some(&shares), Some(&k), Some(&soft_plate), none, tiles(w, h));
-                    let p = FxParams { mode: 2, ..Default::default() };
-                    self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&shares), none, tiles(w, h));
+                    let p = FxParams {
+                        r: r as i32,
+                        ox: ox as i32 - r as i32,
+                        oy: oy as i32 - r as i32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.dmatte,
+                        p,
+                        Some(&soft),
+                        Some(&shares),
+                        Some(&k),
+                        Some(&soft_plate),
+                        none,
+                        tiles(w, h),
+                    );
+                    let p = FxParams {
+                        mode: 2,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.dmatte,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&k),
+                        Some(&shares),
+                        none,
+                        tiles(w, h),
+                    );
                 } else {
-                    let p = FxParams { mode: 1, ox: ox as i32, oy: oy as i32, ..Default::default() };
-                    self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&plate), none, tiles(w, h));
+                    let p = FxParams {
+                        mode: 1,
+                        ox: ox as i32,
+                        oy: oy as i32,
+                        ..Default::default()
+                    };
+                    self.fx_step(
+                        steps,
+                        &passes.dmatte,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&k),
+                        Some(&plate),
+                        none,
+                        tiles(w, h),
+                    );
                 }
                 (out, (w, h))
             }
             // D-531: compose leaves the card a CC Environment only with its environment read.
             e @ E::CcEnvironment { map, .. } => {
-                let m = &map.as_ref().expect("compose leaves the card a CC Environment whose environment was read").0;
-                let k = crate::layer_fx::environment_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64, (m.width(), m.height()));
+                let m = &map
+                    .as_ref()
+                    .expect("compose leaves the card a CC Environment whose environment was read")
+                    .0;
+                let k = crate::layer_fx::environment_numbers(
+                    e,
+                    (w - 2 * ox) as f64,
+                    (h - 2 * oy) as f64,
+                    (m.width(), m.height()),
+                );
                 let env = if m.width() == 0 || m.height() == 0 {
                     self.map_texture(&crate::WorkingBuffer::transparent(1, 1))
                 } else {
                     self.map_texture(m)
                 };
                 let out = self.scratch("D-531 environment", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.environment, p, Some(still), Some(&out), Some(&k), Some(&env), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.environment,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&env),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             e @ E::CardWipe { back_map, .. } => {
-                let k = crate::layer_fx::card_wipe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let k =
+                    crate::layer_fx::card_wipe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let back = match back_map {
                     Some(m) if m.0.width() > 0 && m.0.height() > 0 => self.map_texture(&m.0),
                     _ => self.map_texture(&crate::WorkingBuffer::transparent(1, 1)),
                 };
                 let out = self.scratch("D-580 cardwipe", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.cardwipe, p, Some(still), Some(&out), Some(&k), Some(&back), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.cardwipe,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&back),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             e @ E::CcSphere { .. } => {
-                let k = crate::layer_fx::cylinder_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let k =
+                    crate::layer_fx::cylinder_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let out = self.scratch("D-532 sphere", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.sphere, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.sphere,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             e @ E::CcCylinder { .. } => {
-                let k = crate::layer_fx::cylinder_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let k =
+                    crate::layer_fx::cylinder_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let out = self.scratch("D-530 cylinder", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.cylinder, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.cylinder,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-519: compose leaves the card a CC Spotlight only when any gel named was read.
             e @ E::CcSpotlight { .. } => {
-                let gel = crate::layer_fx::spot_gel(e).expect("compose leaves a CC Spotlight whose gel was read");
-                let k = crate::layer_fx::spotlight_numbers(e, gel.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let gel = crate::layer_fx::spot_gel(e)
+                    .expect("compose leaves a CC Spotlight whose gel was read");
+                let k = crate::layer_fx::spotlight_numbers(
+                    e,
+                    gel.is_some(),
+                    (w - 2 * ox) as f64,
+                    (h - 2 * oy) as f64,
+                );
                 let gel = gel.map(|m| self.map_texture(m));
                 let out = self.scratch("D-507 spotlight", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), Some(gel.as_ref().unwrap_or(still)), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.spotlight,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(gel.as_ref().unwrap_or(still)),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-518: compose leaves the card a Warp Blend only when it has begun and any layer named
             // was read.
             e @ E::WarpBlend { .. } => {
-                let g = crate::layer_fx::warp_settings(e).expect("compose leaves a Warp Blend whose layer was read");
+                let g = crate::layer_fx::warp_settings(e)
+                    .expect("compose leaves a Warp Blend whose layer was read");
                 let reveal = g.reveal.map(|m| self.map_texture(m));
                 let raw = self.scratch("D-518 reactor", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let k = [g.reactor as f64, reveal.is_some() as u8 as f64];
-                self.fx_step(steps, &passes.wreact, p, Some(still), Some(&raw), Some(&k), Some(reveal.as_ref().unwrap_or(still)), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.wreact,
+                    p,
+                    Some(still),
+                    Some(&raw),
+                    Some(&k),
+                    Some(reveal.as_ref().unwrap_or(still)),
+                    none,
+                    tiles(w, h),
+                );
                 let bump = if g.smoothness > 0.0 {
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
                     let taps = crate::effects::gaussian_weights(g.smoothness / 2.0);
-                    self.gauss(steps, bloom, "D-518 reactor", &raw, (w, h), [&taps, &taps], 0, true)
+                    self.gauss(
+                        steps,
+                        bloom,
+                        "D-518 reactor",
+                        &raw,
+                        (w, h),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    )
                 } else {
                     raw
                 };
@@ -17915,58 +23104,164 @@ impl Gpu {
                 let work = [None, None, Some(&sums), None];
                 // Glass Melt's slope pass; its share (k[2], k[3]) is not read here.
                 let k = [g.amount, 1.25 * g.smoothness.max(1.0), 0.0, 1.0];
-                self.fx_step(steps, &passes.gmeltk, FxParams::default(), Some(&bump), None, Some(&k), None, work, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.gmeltk,
+                    FxParams::default(),
+                    Some(&bump),
+                    None,
+                    Some(&k),
+                    None,
+                    work,
+                    tiles(w, h),
+                );
                 let out = self.scratch("D-518 warp", w, h);
                 let c = g.completion / 100.0;
-                let k = [c, g.direction as f64, crate::layer_fx::blend_share(c, g.span), reveal.is_some() as u8 as f64];
-                self.fx_step(steps, &passes.warpb, p, Some(still), Some(&out), Some(&k), Some(reveal.as_ref().unwrap_or(still)), work, tiles(w, h));
+                let k = [
+                    c,
+                    g.direction as f64,
+                    crate::layer_fx::blend_share(c, g.span),
+                    reveal.is_some() as u8 as f64,
+                ];
+                self.fx_step(
+                    steps,
+                    &passes.warpb,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(reveal.as_ref().unwrap_or(still)),
+                    work,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-517: compose leaves the card a Twister only when it turns and any back named was
             // read.
             e @ E::Twister { .. } => {
-                let back = crate::layer_fx::twist_back(e).expect("compose leaves a Twister whose back was read");
-                let k = crate::layer_fx::twist_numbers(e, back.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let back = crate::layer_fx::twist_back(e)
+                    .expect("compose leaves a Twister whose back was read");
+                let k = crate::layer_fx::twist_numbers(
+                    e,
+                    back.is_some(),
+                    (w - 2 * ox) as f64,
+                    (h - 2 * oy) as f64,
+                );
                 let back = back.map(|m| self.map_texture(m));
                 let out = self.scratch("D-517 twist", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.twist, p, Some(still), Some(&out), Some(&k), Some(back.as_ref().unwrap_or(still)), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.twist,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(back.as_ref().unwrap_or(still)),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-509: compose leaves the card a Glass Melt only when it melts and every layer named
             // was read.
             e @ E::GlassMelt { .. } => {
-                let g = crate::layer_fx::melt_settings(e).expect("compose leaves a Glass Melt whose layers were read");
+                let g = crate::layer_fx::melt_settings(e)
+                    .expect("compose leaves a Glass Melt whose layers were read");
                 let (picture, (mx, my)) = match g.gradient {
                     Some(m) => (self.map_texture(m), (ox, oy)),
                     None => (still.clone(), (0, 0)),
                 };
-                let luminance = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a phase");
+                let luminance = crate::effects::VECTOR_BLUR_PROPERTIES
+                    .iter()
+                    .position(|p| *p == "luminance")
+                    .expect("luminance is a phase");
                 let raw = self.scratch("D-509 bump", w, h);
-                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
-                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[luminance as f64]), None, none, tiles(w, h));
+                let p = FxParams {
+                    ox: mx as i32,
+                    oy: my as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.vheight,
+                    p,
+                    Some(&picture),
+                    Some(&raw),
+                    Some(&[luminance as f64]),
+                    None,
+                    none,
+                    tiles(w, h),
+                );
                 let bump = if g.softness > 0.0 {
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
                     let taps = crate::effects::gaussian_weights(g.softness / 2.0);
-                    self.gauss(steps, bloom, "D-509 bump", &raw, (w, h), [&taps, &taps], 0, true)
+                    self.gauss(
+                        steps,
+                        bloom,
+                        "D-509 bump",
+                        &raw,
+                        (w, h),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    )
                 } else {
                     raw
                 };
                 let sums = buffer(w * h * 32);
                 let work = [None, None, Some(&sums), None];
-                let edge = -crate::layer_fx::MELT_BAND / 2.0 + g.completion / 100.0 * (1.0 + crate::layer_fx::MELT_BAND);
-                let k = [g.amount, 1.25 * g.softness.max(1.0), edge, crate::layer_fx::MELT_BAND];
-                self.fx_step(steps, &passes.gmeltk, FxParams::default(), Some(&bump), None, Some(&k), None, work, tiles(w, h));
+                let edge = -crate::layer_fx::MELT_BAND / 2.0
+                    + g.completion / 100.0 * (1.0 + crate::layer_fx::MELT_BAND);
+                let k = [
+                    g.amount,
+                    1.25 * g.softness.max(1.0),
+                    edge,
+                    crate::layer_fx::MELT_BAND,
+                ];
+                self.fx_step(
+                    steps,
+                    &passes.gmeltk,
+                    FxParams::default(),
+                    Some(&bump),
+                    None,
+                    Some(&k),
+                    None,
+                    work,
+                    tiles(w, h),
+                );
                 let reveal = g.reveal.map(|m| self.map_texture(m));
                 let out = self.scratch("D-509 melt", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 let k = [reveal.is_some() as u8 as f64];
-                self.fx_step(steps, &passes.gmelt, p, Some(still), Some(&out), Some(&k), Some(reveal.as_ref().unwrap_or(still)), work, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.gmelt,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(reveal.as_ref().unwrap_or(still)),
+                    work,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-506: compose leaves the card a 3D Glasses only when every view named was read.
             e @ E::ThreeDGlasses { .. } => {
-                let g = crate::layer_fx::glasses_settings(e).expect("compose leaves a 3D Glasses whose views were read");
+                let g = crate::layer_fx::glasses_settings(e)
+                    .expect("compose leaves a 3D Glasses whose views were read");
                 let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let (c, v) = if g.percent {
                     (g.convergence / 100.0 * w0, g.alignment / 100.0 * h0)
@@ -17974,50 +23269,175 @@ impl Gpu {
                     (g.convergence, g.alignment)
                 };
                 let maps = g.maps.map(|m| m.map(|m| self.map_texture(m)));
-                let corner = |m: &Option<wgpu::TextureView>| if m.is_some() { [0.0, 0.0] } else { [ox as f64, oy as f64] };
+                let corner = |m: &Option<wgpu::TextureView>| {
+                    if m.is_some() {
+                        [0.0, 0.0]
+                    } else {
+                        [ox as f64, oy as f64]
+                    }
+                };
                 let [l, r] = [corner(&maps[0]), corner(&maps[1])];
-                let k = [g.view as f64, c, v, w0, h0, g.balance, l[0], l[1], r[0], r[1]];
+                let k = [
+                    g.view as f64,
+                    c,
+                    v,
+                    w0,
+                    h0,
+                    g.balance,
+                    l[0],
+                    l[1],
+                    r[0],
+                    r[1],
+                ];
                 let out = self.scratch("D-506 glasses", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                let [left, right] = [maps[0].as_ref().unwrap_or(still), maps[1].as_ref().unwrap_or(still)];
-                self.fx_step(steps, &passes.glasses, p, Some(left), Some(&out), Some(&k), Some(right), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                let [left, right] = [
+                    maps[0].as_ref().unwrap_or(still),
+                    maps[1].as_ref().unwrap_or(still),
+                ];
+                self.fx_step(
+                    steps,
+                    &passes.glasses,
+                    p,
+                    Some(left),
+                    Some(&out),
+                    Some(&k),
+                    Some(right),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            E::PassExtract { channels, black_point, white_point, invert, clamp, unmult, .. } => {
-                let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Pass Extract with a pass").0);
+            E::PassExtract {
+                channels,
+                black_point,
+                white_point,
+                invert,
+                clamp,
+                unmult,
+                ..
+            } => {
+                let pass = self.map_texture(
+                    &channels
+                        .as_ref()
+                        .expect("compose leaves a Pass Extract with a pass")
+                        .0,
+                );
                 let on = |w: &String| (w == "on") as u8 as f64;
-                let k = [*black_point, *white_point, on(invert), on(clamp), on(unmult)];
+                let k = [
+                    *black_point,
+                    *white_point,
+                    on(invert),
+                    on(clamp),
+                    on(unmult),
+                ];
                 let out = self.scratch("B-228 pass", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.passx,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&pass),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            E::DepthKey { channels, depth, feather, invert } => {
-                let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Depth Key with a pass").0);
+            E::DepthKey {
+                channels,
+                depth,
+                feather,
+                invert,
+            } => {
+                let pass = self.map_texture(
+                    &channels
+                        .as_ref()
+                        .expect("compose leaves a Depth Key with a pass")
+                        .0,
+                );
                 let k = [*depth, *feather, (invert == "on") as u8 as f64];
                 let out = self.scratch("B-228 key", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.dkey, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.dkey,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&pass),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-418: the covering worked out as layer_fx::fill_cover works it, reaching the
             // feathers' radius past the layer, sent once, feathered with Bloom's `gauss` (its
             // edges held, the shorter taps padded with zeros), then laid on.
-            E::Fill { color, invert, horizontal_feather, vertical_feather, opacity, paths, .. } => {
-                let paths = paths.as_ref().expect("compose leaves a Fill with its paths");
+            E::Fill {
+                color,
+                invert,
+                horizontal_feather,
+                vertical_feather,
+                opacity,
+                paths,
+                ..
+            } => {
+                let paths = paths
+                    .as_ref()
+                    .expect("compose leaves a Fill with its paths");
                 let c = linear(color);
-                let k = [c[0], c[1], c[2], opacity / 100.0, (invert == "on") as u8 as f64, paths.is_empty() as u8 as f64];
-                let ([tx, ty], r) = crate::layer_fx::fill_taps([*horizontal_feather, *vertical_feather]);
+                let k = [
+                    c[0],
+                    c[1],
+                    c[2],
+                    opacity / 100.0,
+                    (invert == "on") as u8 as f64,
+                    paths.is_empty() as u8 as f64,
+                ];
+                let ([tx, ty], r) =
+                    crate::layer_fx::fill_taps([*horizontal_feather, *vertical_feather]);
                 let (fw, fh) = (w + 2 * r, h + 2 * r);
-                let cover = if paths.is_empty() { vec![0.0f32] } else { crate::layer_fx::fill_cover(paths, f.origin, (w, h), r) };
-                let cover = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-297 covering"),
-                    contents: bytemuck::cast_slice(&cover),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+                let cover = if paths.is_empty() {
+                    vec![0.0f32]
+                } else {
+                    crate::layer_fx::fill_cover(paths, f.origin, (w, h), r)
+                };
+                let cover = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-297 covering"),
+                        contents: bytemuck::cast_slice(&cover),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let field = (!paths.is_empty()).then(|| {
                     let field = self.scratch("B-297 covering", fw, fh);
-                    self.fx_step(steps, &passes.fill, FxParams::default(), Some(still), Some(&field), Some(&k), Some(still), [Some(&cover)], tiles(fw, fh));
+                    self.fx_step(
+                        steps,
+                        &passes.fill,
+                        FxParams::default(),
+                        Some(still),
+                        Some(&field),
+                        Some(&k),
+                        Some(still),
+                        [Some(&cover)],
+                        tiles(fw, fh),
+                    );
                     if r == 0 {
                         return field;
                     }
@@ -18027,35 +23447,121 @@ impl Gpu {
                         p.resize(2 * r + 1, 0.0);
                         p
                     };
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
-                    self.gauss(steps, bloom, "B-297 feather", &field, (fw, fh), [&pad(tx), &pad(ty)], 0, true)
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
+                    self.gauss(
+                        steps,
+                        bloom,
+                        "B-297 feather",
+                        &field,
+                        (fw, fh),
+                        [&pad(tx), &pad(ty)],
+                        0,
+                        true,
+                    )
                 });
                 let out = self.scratch("B-297 fill", w, h);
-                let p = FxParams { mode: 1, g: r as i32, ..Default::default() };
-                self.fx_step(steps, &passes.fill, p, Some(still), Some(&out), Some(&k), Some(field.as_ref().unwrap_or(still)), [Some(&cover)], tiles(w, h));
+                let p = FxParams {
+                    mode: 1,
+                    g: r as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.fill,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(field.as_ref().unwrap_or(still)),
+                    [Some(&cover)],
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-419: the area's rows found as layer_fx::eyedropper_rows finds them, each summed
             // by a thread, added in order by one, then every pixel filled; no warp mode.
-            E::EyedropperFill { sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original } => {
+            E::EyedropperFill {
+                sample_point,
+                sample_radius,
+                average_pixel_colors,
+                maintain_original_alpha,
+                blend_with_original,
+            } => {
                 let point = crate::effects::radial_center(*sample_point, (w, h), f.origin);
                 let (n, rows) = crate::layer_fx::eyedropper_rows(point, *sample_radius, (w, h));
-                let mode = crate::effects::EYEDROPPER_AVERAGES.iter().position(|a| a == average_pixel_colors).unwrap_or(0);
-                let mut k = vec![n, mode as f64, (maintain_original_alpha == "on") as u8 as f64, blend_with_original / 100.0];
+                let mode = crate::effects::EYEDROPPER_AVERAGES
+                    .iter()
+                    .position(|a| a == average_pixel_colors)
+                    .unwrap_or(0);
+                let mut k = vec![
+                    n,
+                    mode as f64,
+                    (maintain_original_alpha == "on") as u8 as f64,
+                    blend_with_original / 100.0,
+                ];
                 k.extend(rows.iter().flat_map(|r| r.map(|v| v as f64)));
                 let sums = buffer((2 * rows.len() + 1) * 32);
-                let p = FxParams { count: rows.len() as u32, ..Default::default() };
+                let p = FxParams {
+                    count: rows.len() as u32,
+                    ..Default::default()
+                };
                 let work = [None, None, Some(&sums)];
-                self.fx_step(steps, &passes.eyerow, p, Some(still), None, Some(&k), None, work, ((rows.len() as u32).div_ceil(64).max(1), 1));
-                self.fx_step(steps, &passes.eyesum, p, None, None, Some(&k), None, work, (1, 1));
+                self.fx_step(
+                    steps,
+                    &passes.eyerow,
+                    p,
+                    Some(still),
+                    None,
+                    Some(&k),
+                    None,
+                    work,
+                    ((rows.len() as u32).div_ceil(64).max(1), 1),
+                );
+                self.fx_step(
+                    steps,
+                    &passes.eyesum,
+                    p,
+                    None,
+                    None,
+                    Some(&k),
+                    None,
+                    work,
+                    (1, 1),
+                );
                 let out = self.scratch("B-298 eyedropper fill", w, h);
-                self.fx_step(steps, &passes.eyefill, p, Some(still), Some(&out), Some(&k), None, work, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.eyefill,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    work,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-440: the area found on the processor from the drawing compose begins the run with
             // (layer_fx::bucket_area: the flood fill and the distances), sent once, blurred with
             // Bloom's `gauss` (edges held), then laid on; no warp mode.
-            E::PaintBucket { fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode } => {
+            E::PaintBucket {
+                fill_point,
+                fill_selector,
+                tolerance,
+                view_threshold,
+                stroke,
+                invert_fill,
+                spread_radius,
+                stroke_width,
+                feather_softness,
+                color,
+                opacity,
+                blending_mode,
+            } => {
                 let b = crate::layer_fx::Bucket {
                     point: crate::effects::radial_center(*fill_point, (w, h), f.origin),
                     selector: fill_selector,
@@ -18068,148 +23574,409 @@ impl Gpu {
                 };
                 let view = view_threshold == "on";
                 let area: Vec<f32> = match view {
-                    true => crate::layer_fx::bucket_matches(source, &b)
-                        .map_or_else(|| vec![0.0; w * h], |(ok, _)| ok.into_iter().map(|g| g as u8 as f32).collect()),
+                    true => crate::layer_fx::bucket_matches(source, &b).map_or_else(
+                        || vec![0.0; w * h],
+                        |(ok, _)| ok.into_iter().map(|g| g as u8 as f32).collect(),
+                    ),
                     false => crate::layer_fx::bucket_area(source, &b),
                 };
-                let cover = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-320 area"),
-                    contents: bytemuck::cast_slice(&area),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+                let cover = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-320 area"),
+                        contents: bytemuck::cast_slice(&area),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let field = self.scratch("B-320 area", w, h);
-                self.fx_step(steps, &passes.fill, FxParams::default(), Some(still), Some(&field), Some(&[0.0]), Some(still), [Some(&cover)], tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.fill,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&field),
+                    Some(&[0.0]),
+                    Some(still),
+                    [Some(&cover)],
+                    tiles(w, h),
+                );
                 let taps = crate::layer_fx::bucket_taps(&b);
                 let field = if !view && taps.len() > 1 {
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
-                    self.gauss(steps, bloom, "B-320 blur", &field, (w, h), [&taps, &taps], 0, true)
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
+                    self.gauss(
+                        steps,
+                        bloom,
+                        "B-320 blur",
+                        &field,
+                        (w, h),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    )
                 } else {
                     field
                 };
                 let c = linear(color);
-                let mode = if blending_mode == "fill_only" { "none" } else { blending_mode.as_str() };
-                let k = [c[0], c[1], c[2], opacity / 100.0, laid(mode), (fill_selector == "straight_color") as u8 as f64, view as u8 as f64];
+                let mode = if blending_mode == "fill_only" {
+                    "none"
+                } else {
+                    blending_mode.as_str()
+                };
+                let k = [
+                    c[0],
+                    c[1],
+                    c[2],
+                    opacity / 100.0,
+                    laid(mode),
+                    (fill_selector == "straight_color") as u8 as f64,
+                    view as u8 as f64,
+                ];
                 let out = self.scratch("B-320 paint bucket", w, h);
-                self.fx_step(steps, &passes.bucket, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.bucket,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&field),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // B-229: the matte at the ids' size, blurred with its edges held, then laid on.
-            E::IdKey { channels, id, feather, invert, .. } => {
-                let ids = &channels.as_ref().expect("compose leaves an ID Key with ids").0;
+            E::IdKey {
+                channels,
+                id,
+                feather,
+                invert,
+                ..
+            } => {
+                let ids = &channels
+                    .as_ref()
+                    .expect("compose leaves an ID Key with ids")
+                    .0;
                 let (pw, ph) = (ids.width(), ids.height());
                 let pass = self.map_texture(ids);
                 let matte = self.scratch("B-229 matte", pw, ph);
                 let mut k = [*id, (invert == "on") as u8 as f64, 0.0];
-                self.fx_step(steps, &passes.idkey, FxParams::default(), Some(&pass), Some(&matte), Some(&k), Some(&pass), none, tiles(pw, ph));
+                self.fx_step(
+                    steps,
+                    &passes.idkey,
+                    FxParams::default(),
+                    Some(&pass),
+                    Some(&matte),
+                    Some(&k),
+                    Some(&pass),
+                    none,
+                    tiles(pw, ph),
+                );
                 let taps = crate::effects::gaussian_weights(*feather);
                 let matte = if taps.len() > 1 {
-                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
-                    self.gauss(steps, bloom, "B-229 feather", &matte, (pw, ph), [&taps, &taps], 0, true)
+                    let bloom = self
+                        .bloom
+                        .as_ref()
+                        .expect("a blur is refused without the passes");
+                    self.gauss(
+                        steps,
+                        bloom,
+                        "B-229 feather",
+                        &matte,
+                        (pw, ph),
+                        [&taps, &taps],
+                        0,
+                        true,
+                    )
                 } else {
                     matte
                 };
                 k[2] = 1.0;
                 let out = self.scratch("B-229 key", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&k), Some(&matte), none, tiles(w, h));
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.idkey,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&matte),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-527: the box and the words drawn on the processor, in the bundled font, laid over
             // the drawing or alone.
-            e @ E::Timecode { composite_on_original, .. } => {
-                let words = crate::layer_fx::timecode_picture(e, (w, h), (ox, oy)).expect("the bundled font is always there");
+            e @ E::Timecode {
+                composite_on_original,
+                ..
+            } => {
+                let words = crate::layer_fx::timecode_picture(e, (w, h), (ox, oy))
+                    .expect("the bundled font is always there");
                 let words = self.map_texture(&words);
                 let out = self.scratch("D-527 timecode", w, h);
                 let k = [(composite_on_original == "on") as u8 as f64];
-                self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.over,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&words),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-473: as Numbers' words, drawn on the processor.
-            e @ E::BasicText { composite_on_original, .. } => {
-                let words = crate::layer_fx::basic_text_picture(e, (w, h), (ox, oy)).expect("compose leaves Basic Text a font it can draw in");
+            e @ E::BasicText {
+                composite_on_original,
+                ..
+            } => {
+                let words = crate::layer_fx::basic_text_picture(e, (w, h), (ox, oy))
+                    .expect("compose leaves Basic Text a font it can draw in");
                 let words = self.map_texture(&words);
                 let out = self.scratch("D-473 basic text", w, h);
                 let k = [(composite_on_original == "on") as u8 as f64];
-                self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.over,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&words),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-526: the words drawn on the processor, as compose leaves Numbers only a font it can
             // draw in, laid over the drawing or alone.
-            e @ E::Numbers { composite_on_original, .. } => {
-                let words = crate::layer_fx::numbers_picture(e, (w, h), (ox, oy)).expect("compose leaves Numbers a font it can draw in");
+            e @ E::Numbers {
+                composite_on_original,
+                ..
+            } => {
+                let words = crate::layer_fx::numbers_picture(e, (w, h), (ox, oy))
+                    .expect("compose leaves Numbers a font it can draw in");
                 let words = self.map_texture(&words);
                 let out = self.scratch("D-526 numbers", w, h);
                 let k = [(composite_on_original == "on") as u8 as f64];
-                self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.over,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    Some(&words),
+                    none,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
             // D-525: the picture worked on the processor at the ids' size, then laid on as
             // Cryptomatte's is: the alpha matte as ID Key's matte, the rest as Pass Extract's pass.
-            E::Identifier { channels, id, output, .. } => {
-                let ids = &channels.as_ref().expect("compose leaves an IDentifier with ids").0;
+            E::Identifier {
+                channels,
+                id,
+                output,
+                ..
+            } => {
+                let ids = &channels
+                    .as_ref()
+                    .expect("compose leaves an IDentifier with ids")
+                    .0;
                 let pass = self.map_texture(&crate::layer_fx::identifier(ids, *id, output));
                 let out = self.scratch("D-525 identifier", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 if output == "alpha_matte" {
-                    self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&[0.0, 0.0, 1.0]), Some(&pass), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.idkey,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&[0.0, 0.0, 1.0]),
+                        Some(&pass),
+                        none,
+                        tiles(w, h),
+                    );
                 } else {
-                    self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&[0.0, 1.0, 0.0, 0.0]), Some(&pass), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.passx,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&[0.0, 1.0, 0.0, 0.0]),
+                        Some(&pass),
+                        none,
+                        tiles(w, h),
+                    );
                 }
                 (out, (w, h))
             }
             // D-522: the colours or the matte as Pass Extract's pass at 0 to 1 unclamped; keyed,
             // the drawing times the matte as ID Key lays its matte on.
-            E::Cryptomatte { channels, output, .. } => {
-                let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Cryptomatte with its matte").0);
+            E::Cryptomatte {
+                channels, output, ..
+            } => {
+                let pass = self.map_texture(
+                    &channels
+                        .as_ref()
+                        .expect("compose leaves a Cryptomatte with its matte")
+                        .0,
+                );
                 let out = self.scratch("B-402 cryptomatte", w, h);
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let p = FxParams {
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
                 if output == "keyed" {
-                    self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&[0.0, 0.0, 1.0]), Some(&pass), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.idkey,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&[0.0, 0.0, 1.0]),
+                        Some(&pass),
+                        none,
+                        tiles(w, h),
+                    );
                 } else {
-                    self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&[0.0, 1.0, 0.0, 0.0]), Some(&pass), none, tiles(w, h));
+                    self.fx_step(
+                        steps,
+                        &passes.passx,
+                        p,
+                        Some(still),
+                        Some(&out),
+                        Some(&[0.0, 1.0, 0.0, 0.0]),
+                        Some(&pass),
+                        none,
+                        tiles(w, h),
+                    );
                 }
                 (out, (w, h))
             }
-            E::LineWidth { width, based_on, colors, tolerance } => {
+            E::LineWidth {
+                width,
+                based_on,
+                colors,
+                tolerance,
+            } => {
                 let shape = based_on == "shape";
                 let disc = crate::line_width::disc(*width);
-                let mode = if !shape { 2.0 } else if *width > 0.0 { 0.0 } else { 1.0 };
+                let mode = if !shape {
+                    2.0
+                } else if *width > 0.0 {
+                    0.0
+                } else {
+                    1.0
+                };
                 let mut k = vec![mode, (*width > 0.0) as u8 as f64, disc.len() as f64];
                 k.extend(disc.iter().flat_map(|&(dx, dy)| [dx as f64, dy as f64]));
                 let targets = crate::selective_blur::targets(colors);
                 let picked: Vec<f32> = match shape {
                     true => vec![0.0],
-                    false => source.data().par_chunks_exact(4).map(|p| crate::selective_blur::chosen(p, &targets, *tolerance) as u8 as f32).collect(),
+                    false => source
+                        .data()
+                        .par_chunks_exact(4)
+                        .map(|p| {
+                            crate::selective_blur::chosen(p, &targets, *tolerance) as u8 as f32
+                        })
+                        .collect(),
                 };
-                let picked = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-226 chosen"),
-                    contents: bytemuck::cast_slice(&picked),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+                let picked = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-226 chosen"),
+                        contents: bytemuck::cast_slice(&picked),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let g = f.grow.0;
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 let out = self.scratch("B-226 width", tw, th);
-                let p = FxParams { g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.lwidth, p, Some(still), Some(&out), Some(&k), None, [Some(&picked)], tiles(tw, th));
+                let p = FxParams {
+                    g: g as i32,
+                    ..Default::default()
+                };
+                self.fx_step(
+                    steps,
+                    &passes.lwidth,
+                    p,
+                    Some(still),
+                    Some(&out),
+                    Some(&k),
+                    None,
+                    [Some(&picked)],
+                    tiles(tw, th),
+                );
                 (out, (tw, th))
             }
-            E::LineSmooth { softness, threshold } => {
-                let encoded: Vec<[f32; 4]> = source.data().par_chunks_exact(4).map(crate::line_smooth::encoded).collect();
-                let band = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("B-226 encoded"),
-                    contents: bytemuck::cast_slice(&encoded),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+            E::LineSmooth {
+                softness,
+                threshold,
+            } => {
+                let encoded: Vec<[f32; 4]> = source
+                    .data()
+                    .par_chunks_exact(4)
+                    .map(crate::line_smooth::encoded)
+                    .collect();
+                let band = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("B-226 encoded"),
+                        contents: bytemuck::cast_slice(&encoded),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let mixes = buffer(w * h * 32);
                 let k = [50.0 / softness, (threshold / 255.0) as f32 as f64];
                 let lines = (w + h - 2) as u32;
                 let work = [Some(&mixes), Some(&band)];
-                self.fx_step(steps, &passes.smoothscan, FxParams::default(), Some(still), None, Some(&k), None, work, (lines.div_ceil(64).max(1), 1));
+                self.fx_step(
+                    steps,
+                    &passes.smoothscan,
+                    FxParams::default(),
+                    Some(still),
+                    None,
+                    Some(&k),
+                    None,
+                    work,
+                    (lines.div_ceil(64).max(1), 1),
+                );
                 let out = self.scratch("B-226 smooth", w, h);
-                self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
+                self.fx_step(
+                    steps,
+                    &passes.smoothmix,
+                    FxParams::default(),
+                    Some(still),
+                    Some(&out),
+                    None,
+                    None,
+                    work,
+                    tiles(w, h),
+                );
                 (out, (w, h))
             }
-            not_fx!() => unreachable!("compose hands the card only the effects `fx` draws; not_fx! lists the rest"),
+            not_fx!() => unreachable!(
+                "compose hands the card only the effects `fx` draws; not_fx! lists the rest"
+            ),
         }
     }
 
