@@ -11,7 +11,7 @@
 
 mod effect_table;
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -207,8 +207,8 @@ fn b462_contour_custom() {
     let (before, said) = picture(&dir, "town.png", TOWN, json!([]));
     write("1_before.png", &before);
     t.row("1_before.png, the street with no effect; draws cleanly", &format!("{said:?}"), said.is_empty());
-    let colours = |p: &[u8]| p.chunks_exact(4).filter(|q| q[3] > 0).map(|q| [q[0], q[1], q[2]]).collect::<HashSet<_>>();
-    let set_of = |list: &[&str]| list.iter().map(|h| rgb(h)).collect::<HashSet<_>>();
+    let colours = |p: &[u8]| p.chunks_exact(4).filter(|q| q[3] > 0).map(|q| [q[0], q[1], q[2]]).collect::<BTreeSet<_>>();
+    let set_of = |list: &[&str]| list.iter().map(|h| rgb(h)).collect::<BTreeSet<_>>();
 
     let (k_means, said) = street(json!({"draw_color_fills": "over_smeared_image", "posterization_level": 5}));
     write("2_k_means_5_colours.png", &k_means);
