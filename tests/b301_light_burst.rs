@@ -15,29 +15,18 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, reference, repo, set, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, town, Table, MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
-use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
+use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
-use anime_compositor::{persist, png_out, render, OutputDepth};
-
-/// The effects `pick` takes that the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality, pick: fn(&Effect) -> bool) -> usize {
-    let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers
-        .iter()
-        .flat_map(|l| &l.on_card)
-        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if pick(&f.instance.effect)))
-        .count()
-}
+use anime_compositor::{persist, png_out, OutputDepth};
 
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
 /// out is the one a new one takes, since the file holds them all.

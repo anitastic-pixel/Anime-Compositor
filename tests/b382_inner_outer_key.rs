@@ -17,17 +17,17 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, keys, median, repo, set, town, Table, MAIN, TOWN};
+use effect_table::{both, distance, keys, median, on_card, repo, set, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
-use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
+use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
-use anime_compositor::{persist, png_out, render, OutputDepth};
+use anime_compositor::{persist, png_out, OutputDepth};
 
 /// An Inner/Outer Key: foreground, background, radius, thin, feather, threshold, blend; invert.
 fn iok([foreground, background, single_mask_highlight_radius, edge_thin, edge_feather, edge_threshold, blend_with_original]: [f64; 7], invert: &str) -> Effect {
@@ -42,17 +42,6 @@ fn iok([foreground, background, single_mask_highlight_radius, edge_thin, edge_fe
         blend_with_original,
         paths: None,
     }
-}
-
-/// The effects `pick` takes that the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality, pick: fn(&Effect) -> bool) -> usize {
-    let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers
-        .iter()
-        .flat_map(|l| &l.on_card)
-        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if pick(&f.instance.effect)))
-        .count()
 }
 
 /// A circle as a closed path of four curves.

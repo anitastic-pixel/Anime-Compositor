@@ -18,32 +18,21 @@ use std::fs;
 use std::path::Path;
 
 use effect_table::{
-    both, distance, keys, median, reference, repo, set, town, Table, MAIN, TOWN,
+    both, distance, keys, median, on_card, reference, repo, set, town, Table, MAIN, TOWN,
 };
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
-use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
+use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
-use anime_compositor::{persist, png_out, render, OutputDepth};
+use anime_compositor::{persist, png_out, OutputDepth};
 
 fn kc(additional_edge_radius: f64, alpha_contrast: f64, strength: f64) -> Effect {
     Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength }
-}
-
-/// The Key Cleaners the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
-    let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers
-        .iter()
-        .flat_map(|l| &l.on_card)
-        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::KeyCleaner { .. })))
-        .count()
 }
 
 /// An effect of `type_id` with the settings `p`; for the ones here, every setting `p` leaves
@@ -80,7 +69,7 @@ fn card_fixtures(t: &mut Table, gpu: &mut Gpu, stem: &str, count: u32) {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality);
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::KeyCleaner { .. }));
             }
         }
         t.row(
@@ -119,7 +108,7 @@ fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, fn(&str) -> J
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality);
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::KeyCleaner { .. }));
                 t.row(
                     &format!("the reference shot, {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),

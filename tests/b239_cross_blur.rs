@@ -15,17 +15,17 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{keys, median, said, set, Table, MAIN};
+use effect_table::{keys, median, on_card, said, set, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
-use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
+use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
-use anime_compositor::{persist, png_out, render, OutputDepth};
+use anime_compositor::{persist, png_out, OutputDepth};
 
 fn cross(radius_x: f64, radius_y: f64, mode: &str, edges: &str) -> Effect {
     Effect::CrossBlur { radius_x, radius_y, mode: mode.into(), edges: edges.into() }
@@ -95,17 +95,6 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
-}
-
-/// The Cross Blurs the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
-    let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers
-        .iter()
-        .flat_map(|l| &l.on_card)
-        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::CrossBlur { .. })))
-        .count()
 }
 
 /// The processor and the card, each drawing the frame the page receives: the largest
@@ -228,7 +217,7 @@ fn b239_cross_blur() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &fixture_root, frame, quality);
+                card += on_card(&project, &comp, &fixture_root, frame, quality, |e| matches!(e, Effect::CrossBlur { .. }));
             }
         }
         // FX-CROSS-010 leaves the layer as it is, so the card is not asked; FX-CROSS-011's frame 0
@@ -263,7 +252,7 @@ fn b239_cross_blur() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(&mut gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality);
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::CrossBlur { .. }));
                 t.row(
                     &format!("the reference shot, Cross Blur {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),

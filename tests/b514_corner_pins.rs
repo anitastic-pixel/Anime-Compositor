@@ -18,17 +18,16 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, repo, Table, MAIN, TOWN};
+use effect_table::{both, distance, on_card, repo, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
-use anime_compositor::cache::CelCache;
-use anime_compositor::compose::{self, render_frame};
+use anime_compositor::compose::render_frame;
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
-use anime_compositor::model::{Id, Project};
+use anime_compositor::model::Id;
 use anime_compositor::preview::PreviewQuality;
-use anime_compositor::{persist, png_out, render, OutputDepth};
+use anime_compositor::{persist, png_out, OutputDepth};
 
 const PIN_KEYS: [&str; 6] = ["camera_system", "upper_left_corner", "upper_right_corner", "lower_left_corner", "lower_right_corner", "auto_focal_length"];
 
@@ -40,17 +39,6 @@ fn effect(t: &Table, file: &str) -> Effect {
 
 fn files(prefix: &str, numbers: std::ops::RangeInclusive<u32>) -> Vec<String> {
     numbers.map(|n| format!("{prefix}_{n:03}.json")).collect()
-}
-
-/// The Card Wipes the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
-    let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers
-        .iter()
-        .flat_map(|l| &l.on_card)
-        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::CardWipe { .. })))
-        .count()
 }
 
 /// `Fixtures/{folder}/{file}` at the street's size in `dir` (the street the holder's drawing,
@@ -152,7 +140,7 @@ fn b514_corner_pins() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality);
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::CardWipe { .. }));
             }
         }
         t.row(

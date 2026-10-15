@@ -13,29 +13,18 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{both, distance, median, reference, repo, set, town, Table, MAIN, TOWN};
+use effect_table::{both, distance, median, on_card, reference, repo, set, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::command::Command;
-use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
+use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
-use anime_compositor::{persist, png_out, render, OutputDepth};
-
-/// The Contour Paints the card's plan leaves to the card, over every layer.
-fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
-    let mut log = FrameLog::new(3);
-    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
-    plan.layers
-        .iter()
-        .flat_map(|l| &l.on_card)
-        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::ContourPaint { .. })))
-        .count()
-}
+use anime_compositor::{persist, png_out, OutputDepth};
 
 /// A Contour Paint with the settings `p`, every one `p` leaves out as it is added.
 fn fx(id: &str, p: &J) -> J {
@@ -167,7 +156,7 @@ fn b463_contour_heads() {
                 largest = largest.max(d.0);
                 refused |= r;
                 agree &= a == b;
-                card += on_card(&project, &comp, &t.root, frame, quality);
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| matches!(e, Effect::ContourPaint { .. }));
             }
         }
         // The refused one (047) leaves nothing for the card.
@@ -200,7 +189,7 @@ fn b463_contour_heads() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             for frame in [0, 100, 239] {
                 let (d, r, a, b) = both(&mut gpu, &project, &ref_comp, &ref_root, frame, quality);
-                let card = on_card(&project, &ref_comp, &ref_root, frame, quality);
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality, |e| matches!(e, Effect::ContourPaint { .. }));
                 t.row(
                     &format!("the reference shot, Contour Paint {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
