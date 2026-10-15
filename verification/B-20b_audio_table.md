@@ -62,11 +62,11 @@ Nothing is heard yet: playback, the waveform and the bar styles are B-20c.
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | FX-AUD-030: An audio layer with a transform: it has no place to be. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/transform: expected no transform on an audio layer, which draws nothing (D-71). | yes |
-| FX-AUD-031: An audio layer with effects. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/effects: expected no effects on an audio layer, which draws nothing (D-71). | yes |
+| FX-AUD-031: An audio layer with effects. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/effects: expected no empty effects list on an audio layer: leave it out, or give it a sound effect (D-71, D-642). | yes |
 | FX-AUD-032: An audio layer with a blend mode. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/blend_mode: expected no blend_mode on an audio layer, which draws nothing (D-71). | yes |
 | FX-AUD-033: An audio layer whose asset is a picture. | PROJECT_SCHEMA_INVALID. At /compositions/comp-main/layers: expected layer sound to name a sound file if it is an audio layer and a drawing if it is not (D-71); it names asset-bg. | yes |
-| FX-AUD-034: A level above +12 dB. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/gain_db: expected a level from -96 to +12 decibels (D-71). | yes |
-| FX-AUD-035: A level that is not a number. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/gain_db: expected a number. | yes |
+| FX-AUD-034: A level above +12 dB. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/gain_db: expected a level in decibels from -96 to 12 (D-71, D-645). | yes |
+| FX-AUD-035: A level that is not a number. | PROJECT_SCHEMA_INVALID. At /compositions/0/layers/1/gain_db: expected a level in decibels as a number, or as keys with a base (D-645). | yes |
 
 ## Editing (D-71; no fixture, the rule is a sentence)
 
