@@ -33,6 +33,10 @@ jobs:
       - name: Build
         run: cargo build --workspace --all-targets
 
+      # B-520 reads back the exported sound with ffprobe, which GitHub's computer does not have.
+      - name: Install ffmpeg
+        run: choco install ffmpeg -y --no-progress
+
       # GitHub's computer has no graphics card, and Windows' software card took over six hours
       # (run 38709950824). So this runs every test that never opens a card: both crates' own
       # tests and each file under tests/ that does not name `Gpu`. The card tests run on the
