@@ -43,3 +43,10 @@ verification/B-16b[[:space:]]export/*.exr -text
 # The arbitrary map fixtures are exact bytes: refused/cube.amp is text on purpose, and its length is
 # its reason for being refused.
 Fixtures/arbitrary_map/**/*.amp -text
+
+# The app's tests read its own source and page as text (include_str!) and look for exact lines
+# in them, newlines included. A CRLF checkout breaks those pins, so the app's text files are LF
+# everywhere. Named by extension so the icons stay exact bytes.
+app/**/*.rs text eol=lf
+app/**/*.html text eol=lf
+app/*.toml text eol=lf
