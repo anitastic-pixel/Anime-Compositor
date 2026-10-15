@@ -271,7 +271,7 @@ pub fn load(path: &std::path::Path) -> Result<std::sync::Arc<Sound>, Diagnostic>
     use std::sync::{Arc, Mutex, OnceLock};
     type Kept = HashMap<std::path::PathBuf, (u64, Option<std::time::SystemTime>, Arc<Sound>)>;
     static KEPT: OnceLock<Mutex<Kept>> = OnceLock::new();
-    let meta = std::fs::metadata(path).map_err(|e| unreadable(&format!("the file could not be opened ({e})")))?;
+    let meta = crate::cache::looked_at(path).map_err(|e| unreadable(&format!("the file could not be opened ({e})")))?;
     let stamp = (meta.len(), meta.modified().ok());
     let kept = KEPT.get_or_init(Default::default);
     if let Some((len, time, sound)) = kept.lock().unwrap_or_else(|e| e.into_inner()).get(path) {
