@@ -1,8 +1,7 @@
-# Document 29, "CI gates". Four of the seven listed gates apply at this stage of the project:
-# build on the primary supported platform, unit tests for model/time/math, render numeric
-# fixture tests, and formatting/static analysis. Schema validation and persistence fixtures
-# arrive with B-09, and the packaging smoke test with B-11. They are absent here because they
-# have nothing to run yet, not because they were skipped.
+# Document 29, "CI gates": build on the primary supported platform, unit tests for
+# model/time/math, render numeric fixture tests, schema validation and persistence fixtures
+# (B-09 on), the packaging and offline checks (B-11 on), and formatting/static analysis. The
+# fixture, persistence and packaging checks are test programs, so the Test step runs them.
 #
 # The workspace has two crates as of the shell: the rendering core at the root and `app/`, the
 # Tauri window. Every gate below is workspace-wide, because a gate that only sees one of them
@@ -13,8 +12,8 @@
 
 name: CI
 
+# Work happens on main only (AGENTS.md), so pushes to main are what is checked.
 on:
-  pull_request:
   push:
     branches: [main]
 
@@ -67,8 +66,13 @@ jobs:
       - name: The prose names files that exist and scores that agree
         run: python tools/audit_references.py
 
+      # `cargo fmt --all --check` passes every file to one rustfmt command, and with this many
+      # test programs that command is longer than Windows allows (os error 206). The same check,
+      # one file list from git: every tracked .rs file outside the quarantined spikes/ and the
+      # proposal sketches kept under verification/.
       - name: Formatting
-        run: cargo fmt --all --check
+        shell: bash
+        run: git ls-files '*.rs' ':!spikes' ':!verification' | xargs rustfmt --check --edition 2021
 
       - name: Lints
         run: cargo clippy --workspace --all-targets -- -D warnings
