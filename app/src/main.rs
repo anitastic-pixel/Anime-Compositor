@@ -16804,7 +16804,7 @@ mod saving {
     /// A scratch directory of this test's own, emptied first so a previous run cannot make a
     /// later one pass.
     fn scratch() -> PathBuf {
-        let directory = std::env::temp_dir().join("anime_compositor_b09_save");
+        let directory = crate::test_temp().join("anime_compositor_b09_save");
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("make the scratch directory");
         directory
@@ -17605,7 +17605,7 @@ mod editing {
     #[test]
     fn increment_and_save_writes_the_next_version_and_works_on_it() {
         let mut report = Report { rows: Vec::new() };
-        let folder = std::env::temp_dir().join("anime_compositor_d732");
+        let folder = crate::test_temp().join("anime_compositor_d732");
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).expect("make the scratch folder");
         let name = |p: PathBuf| p.file_name().unwrap().to_string_lossy().into_owned();
@@ -21398,7 +21398,7 @@ mod editing {
 
     /// Two drawings of a size nothing in the reference shot has.
     fn tiny_drawings() -> Vec<PathBuf> {
-        let directory = std::env::temp_dir().join("anime_compositor_b12a_relink");
+        let directory = crate::test_temp().join("anime_compositor_b12a_relink");
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("make the scratch directory");
         (0..2)
@@ -21859,7 +21859,7 @@ mod editing {
         // first composition is the empty one the file came with, so before B-12d's rule of
         // thumb a save, close and reopen came back looking at that empty one and the work
         // looked lost.
-        let folder = std::env::temp_dir().join("anime_compositor_b12d");
+        let folder = crate::test_temp().join("anime_compositor_b12d");
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).expect("make the scratch directory");
         let drawings = drawings_in("layer1");
@@ -22212,7 +22212,7 @@ mod editing {
         run(&viewer, "layer.toggle_lock?layer=layer-cel");
 
         // ---- the file ----------------------------------------------------------------------
-        let folder = std::env::temp_dir().join("anime_compositor_b14c");
+        let folder = crate::test_temp().join("anime_compositor_b14c");
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).expect("make the scratch directory");
         let file = folder.join("expressions.json");
@@ -22716,7 +22716,7 @@ mod editing {
             "Png",
             format!("{:?}", output_format(None).expect("no choice is a format")),
         );
-        let into = std::env::temp_dir().join("anime_compositor_b16c_export");
+        let into = crate::test_temp().join("anime_compositor_b16c_export");
         let _ = std::fs::remove_dir_all(&into);
         std::fs::create_dir_all(&into).expect("the export folder");
         let (snapshot, root, mut request) = export_job(
@@ -22857,7 +22857,7 @@ mod editing {
             true,
             page.contains("<option value=\"apng\">Animated PNG, 8-bit, lossless</option>"),
         );
-        let into = std::env::temp_dir().join("anime_compositor_b21c_export");
+        let into = crate::test_temp().join("anime_compositor_b21c_export");
         let _ = std::fs::remove_dir_all(&into);
         std::fs::create_dir_all(&into).expect("the export folder");
         for (choice, file) in [
@@ -23065,7 +23065,7 @@ mod editing {
             true,
             page.contains("<option value=\"mp4\">MP4 (H.264), over black, with sound</option>"),
         );
-        let into = std::env::temp_dir().join("anime_compositor_b21d_export");
+        let into = crate::test_temp().join("anime_compositor_b21d_export");
         let _ = std::fs::remove_dir_all(&into);
         std::fs::create_dir_all(&into).expect("the export folder");
         let format = output_format(Some("format=mp4")).expect("a listed format");
@@ -24035,7 +24035,7 @@ mod editing {
             let held = held(viewer);
             held.document.project().composition(&held.composition).cloned().expect("a composition on screen")
         };
-        let saved_at = std::env::temp_dir().join("anime_compositor_b28i");
+        let saved_at = crate::test_temp().join("anime_compositor_b28i");
         std::fs::create_dir_all(&saved_at).expect("a folder to save into");
         let saved_at = saved_at.join("title_block_project.json");
         let source = repo("Fixtures/projects/cel_holds_project.json");
@@ -24570,7 +24570,7 @@ mod editing {
                 .expect("read the cel project"),
         )
         .expect("the cel project is JSON");
-        let folder = std::env::temp_dir().join("anime_compositor_b28e");
+        let folder = crate::test_temp().join("anime_compositor_b28e");
         std::fs::create_dir_all(&folder).expect("make the scratch folder");
         // The layer's column as document 25 writes a line: the drawing on each frame, `x` for
         // nothing and `-` outside the layer.
@@ -29068,7 +29068,7 @@ mod recovery_and_autosave {
     /// A copy of a fixture in a scratch directory of its own, emptied first. A copy because
     /// autosave writes beside the project, and `Fixtures/` is not somewhere a test may write.
     fn a_project_to_work_on() -> PathBuf {
-        let directory = std::env::temp_dir().join("anime_compositor_b09_recovery");
+        let directory = crate::test_temp().join("anime_compositor_b09_recovery");
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("make the scratch directory");
         let path = directory.join("shot.json");
@@ -29461,7 +29461,7 @@ mod serving {
     /// apart, and the page draws straight. This cel is four pixels of half-transparent red, which
     /// can: carried straight it stays 255 red, carried premultiplied it comes back at about 188.
     fn a_half_transparent_red_project() -> PathBuf {
-        let directory = std::env::temp_dir().join("anime_compositor_b08_shell");
+        let directory = crate::test_temp().join("anime_compositor_b08_shell");
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(directory.join("media")).expect("make the scratch directory");
         let samples: Vec<u8> = std::iter::repeat_n([255u8, 0, 0, 128], 16)
@@ -29568,7 +29568,7 @@ mod serving {
     /// A directory of this test's own, emptied first so a previous run cannot make a later one
     /// pass.
     fn scratch(name: &str) -> PathBuf {
-        let directory = std::env::temp_dir().join(name);
+        let directory = crate::test_temp().join(name);
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("make the scratch directory");
         directory
@@ -30757,7 +30757,7 @@ mod exporting {
     /// A scratch directory of this test's own, emptied first so a previous run's frames cannot
     /// make a later one pass.
     fn scratch(name: &str) -> PathBuf {
-        let directory = std::env::temp_dir().join(name);
+        let directory = crate::test_temp().join(name);
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).expect("make the scratch directory");
         directory
@@ -38524,6 +38524,16 @@ mod acceptance {
     }
 }
 
+/// Where app tests make their scratch folders: one folder per test program, so two checkouts
+/// testing at once (lanes) do not delete each other's files under the same fixed name.
+#[cfg(test)]
+fn test_temp() -> std::path::PathBuf {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    std::env::current_exe().ok().hash(&mut hasher);
+    std::env::temp_dir().join(format!("anime_compositor_tests_{:016x}", hasher.finish()))
+}
+
 /// The fixture document 08 line 41 declares, built the way every other timing test builds it.
 /// Included rather than copied: `tests/common/mod.rs` is where this project keeps the fixture
 /// builder, and P-04 is the fourth measurement to want it.
@@ -39528,7 +39538,7 @@ mod window_place {
     #[test]
     fn b174_the_window_opens_where_it_was_left_and_never_off_screen() {
         let first = placed(480, 261, 2880, 1566, true);
-        let file = std::env::temp_dir().join("anime_compositor_b174").join("window.txt");
+        let file = crate::test_temp().join("anime_compositor_b174").join("window.txt");
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         let _ = std::fs::remove_file(&file);
         let read = || std::fs::read_to_string(&file).ok().and_then(|t| placement_from_text(&t));
