@@ -1,6 +1,6 @@
 # Error and diagnostics catalog
 
-Version 0.2 | 2026-09-04 | Proposed baseline
+Version 0.3 | 2026-10-15 | Maintained catalogue, updated as diagnostics are accepted (history: version 0.2, 2026-09-04, proposed baseline)
 
 ## Diagnostic contract
 
@@ -79,6 +79,14 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | TIMESHEET_DRAWING_UNUSED | INFO | A column has drawings the sheet never shows (D-84) | name the drawings |
 | TIMESHEET_NOT_USED | INFO | A folder or drawing beside the sheet that no column used (D-84) | name them |
 | DEPENDENCY_LICENSE_UNRESOLVED | ERROR for distribution | Required distribution review incomplete | block public package |
+
+## Viewer identifiers accepted by decision
+
+Added 2026-10-15. D-101 (document 14, accepted 2026-09-27 under D-167) keeps the Core IDs table and its count as they are, so its identifier is listed here instead. `GPU_BACKEND_FAILED` and `GPU_OUT_OF_MEMORY` above stay unbuilt.
+
+| ID | Severity | Meaning | Required behavior |
+|---|---|---|---|
+| GPU_PREVIEW_ON_CPU | INFO or WARNING | The viewer asked the graphics card for a frame (B-44) and the CPU drew it instead (D-101) | draw the same frame on the CPU and say why, never a quiet switch; INFO when the reason is the project's (for example an adjustment layer, a picture larger than the card's texture limit, Float depth, a blend mode the card does not draw), WARNING when the card failed ("The CPU drew this frame: the graphics card failed.", with the remedy to switch the preview back to CPU or to Draft); the words go to the session log and the frame's reply, and the viewer's label reads "drawn on CPU, not GPU"; raised in `src/gpu.rs` |
 
 ## Missing/unsupported render fallback
 

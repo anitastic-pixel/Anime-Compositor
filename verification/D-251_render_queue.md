@@ -45,7 +45,7 @@ The test adds rows straight from code (no folder dialog) into scratch folders, a
 | Step | What happened |
 |---|---|
 | Render workspace, work area frames 0 to 11, "Write frames whose drawing is missing" ticked | |
-| Add to queue → PNG folder; Composition > Add to Render queue… → GIF folder; Add to queue → MP4 folder | Three rows, as in `queued.png` |
+| Add to queue → PNG folder; Composition > Add to Render queue… → GIF folder; Add to queue → MP4 folder | Three rows, as in `d251_queued.png` |
 | Rename layer2 | All three rows marked "before your last edits" |
 | Refresh on row 1 | Row 1's mark goes; rows 2 and 3 keep theirs |
 | Render | Rows written in turn (PNG 0.7 s, GIF 2.3 s, MP4 1.0 s on this machine); "Rendered 3 of 3 rows." |

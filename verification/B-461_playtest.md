@@ -22,6 +22,11 @@ reads the picture in slightly less exact numbers than the checking program, and 
 lines over sharp edges magnify that. By the coordinator's ruling it now uses small lines, and the
 starting settings are instead held card against processor within 1 level on the reference shot.
 
+**Changed since, by D-680 (2026-10-14, your "go with fixes 1 and 2").** The flow lines are now
+shorter where the flow is weak and read every pixel they cross, so the straight-edged wedges and
+the comb of streaks your real-app check found are gone. Every Curl Noise check and these pictures
+were worked out again after that fix; what you see in them is the fixed look.
+
 The check, `verification/D-583_curl_sources_table.md` (138 of 138), holds every pixel to numbers
 worked out by a separate program before the code existed, and holds the graphics card's picture
 to within 1 level of the processor's. The pictures are in `verification/D-583 pictures/`.
@@ -47,7 +52,8 @@ to within 1 level of the processor's. The pictures are in `verification/D-583 pi
 
 ## Speed
 
-In `verification/B-461_curl_sources_timing_table.md` (PROVISIONAL, the machine was busy): the reference shot with a moving
-Noise and a Curl Noise on This Layer on each of three layers, played again, 147.0 ms a frame
-on the card against 133.5 for the Noise alone, and 79.1 with Softness 50; on the
-processor 286.2 against 92.8: a busy machine cannot say whether the card is quicker than the processor for this effect.
+In `verification/B-461_curl_sources_timing_table.md`, measured again on a quiet machine on
+2026-10-14 after D-680: the reference shot with a moving Noise and a Curl Noise on This Layer on
+each of three layers, played again, 83.8 ms a frame on the card against 12.6 for the Noise alone,
+and 87.8 with Softness 50; on the processor 263.8 against 42.3. The card is about three times
+quicker than the processor here.

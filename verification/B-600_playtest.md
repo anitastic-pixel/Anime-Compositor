@@ -14,7 +14,7 @@ Saturation, Color and Luminosity use the public web standard's rules (W3C Compos
 our choice, not a copy of After Effects. None and the stencils follow the Timeline's own modes,
 as Adobe's help says they should.
 
-The check, `verification/D-730_turbulent_blends_table.md` (314 of 314 checks pass), holds fourteen
+The check, `verification/D-730_turbulent_blends_table.md` (309 of 309 checks pass), holds fourteen
 small test projects to numbers worked out before the code.
 
 ## What to look at

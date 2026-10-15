@@ -22,7 +22,7 @@ What replaces it is evidence: independent fixtures with expected values written 
 - Mutate the project model directly from UI code; use commands.
 - Use widget references, memory addresses or display names as persistent identity.
 - Silently substitute missing media, unsupported effects or unknown project semantics.
-- Implement anything demoted to PARKED in document 23 without an explicit promotion decision.
+- Implement anything demoted to PARKED in document 23 without an explicit promotion decision. (Particles and motion tracking are no longer parked: the owner opened both on 2026-10-12 in D-600. Particles were built from D-610 on; motion from footage, the program's own motion estimate, Pixel Motion Blur, Timewarp and Warp Stabilizer, in D-650 to D-653. 3D Camera Tracker, mocha shape and Object Matte stay skipped by the owner's choice in D-600.)
 
 ## Always
 
@@ -35,25 +35,25 @@ What replaces it is evidence: independent fixtures with expected values written 
 - Preserve unknown serialized data rather than dropping it to simplify parsing.
 - Update the relevant ADR in `docs/adr/` when a consequential decision changes.
 
-## Pull requests
+## Committing and pushing
 
-**One pull request at a time, based on `main`.** Do not open a second while the first is
-unmerged, and do not base a branch on another branch. A stack of three was opened here once and
-merged twenty seconds apart; GitHub had not yet re-pointed the third at `main`, so it merged into
-the second one's branch and never reached the trunk. The work looked merged and was not.
+**Work on `main` only: no branches and no pull requests** (the owner's rule since 2026-09-13; the
+last pull request merged on 2026-09-12). Add, commit, then push with
+`bash scripts/push origin main:main`. Always pass that refspec: a bare call pushes whatever branch
+the current checkout is on.
 
-If a stack cannot be avoided, merge the bottom one, then **confirm the next reports
-`mergeable: MERGEABLE` against `main` before merging it** - not merely that its checks are green.
-Merging in a rapid burst is what breaks this.
+"Fixture before code" means two ordered commits on `main`, the fixture commit first and the code
+commit after it, not two pull requests.
 
-Merges into `main` here are squashed. A branch based on a branch therefore carries the *original*
-commits of work that reached `main` *squashed*, and merging it adds every one of those lines a
-second time. The repair is to rebuild the work on `main` and compare the two file lists and their
-contents before opening the replacement, never to resolve such a conflict by hand.
-
-Use `scripts/gh` rather than the GitHub CLI directly, and `scripts/push` rather than `git push`.
+Use `scripts/push` rather than `git push`, and `scripts/gh` rather than the GitHub CLI directly.
 They supply the credentials this machine keeps in the git credential helper, and they refuse
 deleting and history-rewriting operations, which stay the owner's to run.
+
+## Building and testing
+
+Never run a bare `cargo test` or `cargo test --workspace`: it builds every test program and fills
+the drive with 100 GB or more. Build and run only the named tests a change needs, for example
+`cargo test --release --test <name>`, `cargo test --lib`, or `cargo test -p anime_compositor_app`.
 
 ## When a request conflicts with a contract
 

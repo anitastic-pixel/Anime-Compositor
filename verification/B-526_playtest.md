@@ -14,7 +14,7 @@ Built on 2026-10-13 as D-647. Turbulent Noise gains these After Effects controls
   Center Subscale (the fine detail grows from the middle, not the corner).
 - **Blending Mode** adds Soft Light, Hard Light, Darken, Lighten and Difference.
 
-The check, `verification/D-647_turbulent_more_table.md` (309 of 309 checks pass), holds
+The check, `verification/D-647_turbulent_more_table.md` (305 of 305 checks pass), holds
 twenty-eight small test projects to numbers worked out before the code.
 
 ## What to look at

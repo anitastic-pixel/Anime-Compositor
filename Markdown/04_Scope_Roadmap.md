@@ -16,6 +16,8 @@ Stage G3: production conveniences. Precompositions, adjustment layers, richer ma
 
 Later, each its own project (D-179, 2026-09-28): particles, the 3D simulations (Shatter, Card Dance, Caustics, Wave World), a professional key with spill suppression, stabilizing and retiming by motion, and liquify and mesh warp. Each is recorded as a PARKED entry, L-01 to L-05, in document 15, with what it is, why it is big, what it needs first and its trigger: the owner asks for it by name. Recording them lifts nothing in the exclusions below; a named request that reaches into one (3D, advanced tracking) narrows that exclusion by its own decision, as D-75 did.
 
+Note of 2026-10-15: all five have since been opened and built. L-03, the professional key, was un-parked on 2026-10-11 and built as Screen Key (D-540, B-420). The owner opened the other four on 2026-10-12 (D-600) and set their order: liquify and mesh warp (L-05) first, built as Mesh Warp and Liquify (D-603, D-605); then particles (L-01), from Particle Space (D-610, B-490) on; then the 3D surfaces (L-02), Wave World, Caustics, Card Dance and Shatter (D-630 to D-633), each 3D only inside its own effect; then stabilizing and retiming by motion (L-04), our own motion estimate, Pixel Motion Blur, Timewarp and Warp Stabilizer (D-650 to D-653). D-600 narrows the advanced-tracking exclusion to that motion estimate only: 3D Camera Tracker, mocha shape, Object Matte and Camera-Shake Deblur stay out by the owner's choice, and true 3D layers stay out (D-355).
+
 ## Why G1 was split
 
 Version 0.2 listed fifteen must-have features for G1. That list described a small After Effects, and it was not deliverable by one person without a coding background at an uncommitted weekly capacity.
@@ -32,6 +34,8 @@ Not in any stage: drawing engine, vector animation (narrowed by D-75 on 2026-09-
 
 Not in any stage: AEP importer, AE binary plugin host, comprehensive AE expression compatibility, cloned commercial effect catalogs. These are separate products with independent technical and legal costs.
 
+Note of 2026-10-15: the effect catalogue part of this line no longer describes the project. On 2026-09-28 the owner took every effect on the agent's After Effects list into the build queue (D-179), and `docs/effects/EFFECTS.md` (audit of 2026-10-08) now checks this program's effects row by row against After Effects' own effect list, with the owner's picks of third-party plug-ins from `docs/effects/PLUGINS.md`. What still holds: each effect is our own work under our own name, described in our own words, with no Adobe or third-party code or presets, and it is never a binary plugin host or an AEP importer.
+
 ## Dependencies
 
 Time and alpha contracts precede all rendering work. Serializable commands precede interface complexity. Save and recovery precede any use with artwork the owner cares about. Stable render evaluation precedes any performance optimization. The tile contract precedes the renderer, because retrofitting tiling is a rewrite.
@@ -45,6 +49,8 @@ For every addition, write the affected workflow, expected frequency, smallest us
 Compare value against implementation, testing, interface, documentation, migration and permanent maintenance cost. Do not justify an addition because a competitor has it, because a library exists, or because an agent can generate the code quickly. That last one is the trap specific to this project: cheap code generation makes scope expansion feel free, and it is not, because every feature must still be specified, fixtured, verified and maintained by one person who cannot read it.
 
 One major subsystem in active development at a time. Do not open several partially working systems to make the roadmap look faster.
+
+Note of 2026-10-15: in practice this is no longer how the work runs. Since the effects audit, units are built several at a time in parallel lanes under the owner's /loop requests (for example lane K's particle units, D-617 and D-710 to D-713), each unit still finished, fixtured and recorded on its own before it counts as done.
 
 ## Parking and removal procedure
 

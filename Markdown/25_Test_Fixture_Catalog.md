@@ -1,6 +1,6 @@
 # Test fixture catalog and tolerances
 
-Version 0.2 | 2026-09-04 | Proposed baseline
+Version 0.3 | 2026-10-15 | Maintained catalogue, updated as fixtures are accepted (history: version 0.2, 2026-09-04, proposed baseline)
 
 ## Fixture authority
 
@@ -189848,7 +189848,15 @@ FX-EXPAE-010 (`fx_expae_010.json`): Gamma keyed from 1 at frame 0 to 3 at frame 
 
 FX-EXPAE-011 (`fx_expae_011.json`): 32 bpc (After Effects), Exposure +1 with offset 0, gamma 1 and bypass "off" written: D-333's Exposure exactly. Pixel (12, 4) is 0.0848431 0.0379578 0.308294 1.
 
-FX-EXPAE-012 to 016: Gamma 0, gamma 10, offset 0.6, offset keyed to -1 at frame 4, and bypass "yes". Each file is read, the effect kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the drawing untouched.
+FX-EXPAE-012 (`fx_expae_012.json`): Gamma 0, below 0.01. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EXPAE-013 (`fx_expae_013.json`): Gamma 10, above 9.99. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EXPAE-014 (`fx_expae_014.json`): Offset 0.6, above 0.5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EXPAE-015 (`fx_expae_015.json`): Offset keyed to -1 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EXPAE-016 (`fx_expae_016.json`): Bypass "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ## Mix fixtures
 
@@ -205874,6 +205882,8 @@ FX-AMAP-020 (`fx_amap_020.json`): Phase keyed to 300 at frame 4. The file is rea
 
 FX-AMAP-021 (`fx_amap_021.json`): Apply Phase Map To Alpha "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+FX-AMAP-022 (`fx_amap_022.json`): The map asset's file is maps/refused/odd_300.amp, 300 bytes: the drawing, untouched, with MEDIA_DECODE_FAILED at every frame and nothing on opening; the asset and the setting are kept. Frames 0, 4.
+
 ### Selective Color (D-396)
 
 Selective Color (`core.selective_color`), after After Effects' Selective Color, which is Photoshop's (B-275). Every case is a project of one composition 16 by 10, five frames, one drawing, Broadcast Safe's (`tools/broadcast_safe_reference.py`: pure colours, greys, a skin tone, orange and three warm tones), with the effect. `tools/selective_color_reference.py` works the expected frames, `Fixtures/selective_color/expected_selective_color.json`, tolerance 2e-5, and its check reproduces Clement Boesch's Photoshop measurements on (180, 100, 50) within 1 level; the rule is in document 21.
@@ -215096,3 +215106,447 @@ FX-SBURST-023 (`fx_sburst_023.json`): Size -1, below 0. The file is read, the ef
 FX-SBURST-024 (`fx_sburst_024.json`): Blend w. Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SBURST-025 (`fx_sburst_025.json`): Speed keyed to 200 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Liquify's other brushes, Freeze and Thaw, many strokes (D-700)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/liquify_brushes_reference.py` works the expected frames, `Fixtures/liquify_brushes/expected_liquify_brushes.json`, 16 by 10, tolerance 2e-5; the media are in `Fixtures/liquify_brushes/media/`. Checked by `tests/b570_liquify_brushes.rs`; the rule is in document 21.
+
+FX-LIQUIFY-BRUSHES-001 (`fx_liquify_brushes_001.json`): Turbulence, brush 8, pressure 50, jitter 70, stroked across the middle: the stripes there scrambled smoothly. Frames 0.
+
+FX-LIQUIFY-BRUSHES-002 (`fx_liquify_brushes_002.json`): FX-LIQUIFY-BRUSHES-001 at jitter 20: scrambled less. Frames 0.
+
+FX-LIQUIFY-BRUSHES-003 (`fx_liquify_brushes_003.json`): Reflection, brush 8, pressure 100, stroked from the top left to the bottom right: below the line, the stripes above it mirrored. Frames 0.
+
+FX-LIQUIFY-BRUSHES-004 (`fx_liquify_brushes_004.json`): A Warp across the middle first, then Clone, brush 6, pressure 100, one dab near the top with Clone Offset 3 pixels down: the push copied up there. Frames 0.
+
+FX-LIQUIFY-BRUSHES-005 (`fx_liquify_brushes_005.json`): A Warp across the middle first, then Reconstruction (Revert), brush 6, pressure 70, one dab in the middle: the push mostly undone there. Frames 0.
+
+FX-LIQUIFY-BRUSHES-006 (`fx_liquify_brushes_006.json`): A Twirl in the middle and a Shift Pixels down it first, then Reconstruction (Displace) brushed from above the middle to the right: the displacement where it starts carried along. Frames 0.
+
+FX-LIQUIFY-BRUSHES-007 (`fx_liquify_brushes_007.json`): FX-LIQUIFY-BRUSHES-006 with Amplitwist: the turn and swell there carried along too. Frames 0.
+
+FX-LIQUIFY-BRUSHES-008 (`fx_liquify_brushes_008.json`): FX-LIQUIFY-BRUSHES-006 with Affine: the whole local distortion, slant and all. Frames 0.
+
+FX-LIQUIFY-BRUSHES-009 (`fx_liquify_brushes_009.json`): Freeze Area, brush 6, pressure 100, one dab in the middle, then FX-LIQUIFY-002's Warp: the push held back in the middle. Frames 0.
+
+FX-LIQUIFY-BRUSHES-010 (`fx_liquify_brushes_010.json`): FX-LIQUIFY-BRUSHES-009 with a Thaw Area at pressure 50 over the freeze before the Warp: held back half as much. Frames 0.
+
+FX-LIQUIFY-BRUSHES-011 (`fx_liquify_brushes_011.json`): FX-LIQUIFY-002's Warp with Freeze Area Mask 1, a box from (4, 2) to (12, 8): the drawing well inside it does not move. Frames 0.
+
+FX-LIQUIFY-BRUSHES-012 (`fx_liquify_brushes_012.json`): FX-LIQUIFY-BRUSHES-011 with the layer moved three pixels right: the mask is the layer's, so all of it moves with it. Frames 0.
+
+FX-LIQUIFY-BRUSHES-013 (`fx_liquify_brushes_013.json`): Two strokes: a Warp across the middle, then Pucker, brush 10, pressure 100, one dab in the middle: both drawn. Frames 0.
+
+FX-LIQUIFY-BRUSHES-014 (`fx_liquify_brushes_014.json`): FX-LIQUIFY-002's Warp as an earlier stroke and no stroke after it: FX-LIQUIFY-002's frame. Frames 0.
+
+FX-LIQUIFY-BRUSHES-015 (`fx_liquify_brushes_015.json`): Turbulence with the jitter keyed from 10 at frame 0 to 100 at frame 4, linear: scrambled more as it goes. Frames 0, 2, 4.
+
+FX-LIQUIFY-BRUSHES-016 (`fx_liquify_brushes_016.json`): FX-LIQUIFY-BRUSHES-004 with the Clone Offset keyed from 3 pixels down at frame 0 to 3 pixels up at frame 4: frame 0 FX-LIQUIFY-BRUSHES-004's, then copied from above instead. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-017 (`fx_liquify_brushes_017.json`): Freeze Area Mask 2, of one. Nothing to freeze by: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning at frames `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-018 (`fx_liquify_brushes_018.json`): Tool "smudge", not one of the twelve. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-019 (`fx_liquify_brushes_019.json`): Turbulent Jitter 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-020 (`fx_liquify_brushes_020.json`): Reconstruction Mode "smooth", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-021 (`fx_liquify_brushes_021.json`): An earlier stroke with tool number 12, past the last. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-022 (`fx_liquify_brushes_022.json`): An earlier stroke with half a point over. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-023 (`fx_liquify_brushes_023.json`): An earlier stroke with a point 300 per cent across. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-024 (`fx_liquify_brushes_024.json`): An earlier stroke with brush size 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-025 (`fx_liquify_brushes_025.json`): An earlier stroke with no points. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-026 (`fx_liquify_brushes_026.json`): Freeze Area Mask 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-027 (`fx_liquify_brushes_027.json`): Clone Offset 10001 pixels across, past 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-BRUSHES-028 (`fx_liquify_brushes_028.json`): An earlier stroke with reconstruction mode number 1.5, not whole. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Mesh Warp's Bezier vertex handles (D-701)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/mesh_handles_reference.py` works the expected frames, `Fixtures/mesh_handles/expected_mesh_handles.json`, 16 by 10, tolerance 2e-5; the media are in `Fixtures/mesh_handles/media/`. Checked by `tests/b571_mesh_handles.rs`; the rule is in document 21.
+
+FX-MESHH-001 (`fx_meshh_001.json`): D-603's FX-MESH-003 (the middle vertex pushed to 75 per cent) with every handle written and none moved: the same frame as FX-MESH-003. Frames 0.
+
+FX-MESHH-002 (`fx_meshh_002.json`): The mesh at rest written out, every handle written and none moved: the drawing, untouched. Frames 0.
+
+FX-MESHH-003 (`fx_meshh_003.json`): A 2 by 2 mesh at rest (no list), the middle vertex's right handle lifted 20 per cent: no vertex moved, but the stripes right of the middle bend up. Frames 0.
+
+FX-MESHH-004 (`fx_meshh_004.json`): FX-MESHH-003 with the mesh at rest written out: the same frame. Frames 0.
+
+FX-MESHH-005 (`fx_meshh_005.json`): A 1 by 1 mesh, the top edge's two handles pulled 30 per cent down: the top edge sags in a curve, clear above it, the corners where they were. Frames 0.
+
+FX-MESHH-006 (`fx_meshh_006.json`): FX-MESH-003's push with the middle vertex's lower handle swung left and upper right: the bow becomes an S, leaning the other way above and below. Frames 0.
+
+FX-MESHH-007 (`fx_meshh_007.json`): FX-MESHH-005's handles keyed from none moved at frame 0 to moved at frame 4, linear: frame 0 the drawing, frame 4 FX-MESHH-005, frame 2 between. Frames 0, 2, 4.
+
+FX-MESHH-008 (`fx_meshh_008.json`): FX-MESHH-006 with the layer moved three pixels right: the bent drawing moves with it. Frames 0.
+
+FX-MESHH-009 (`fx_meshh_009.json`): FX-MESHH-005 at Quality 1: the cell is drawn as one piece straight between its corners, so the sag is lost and the drawing untouched. Frames 0.
+
+FX-MESHH-010 (`fx_meshh_010.json`): A handle on the mesh's outside, the top left vertex's left handle, pulled far: it moves nothing, the drawing untouched. Frames 0.
+
+FX-MESHH-011 (`fx_meshh_011.json`): A 2 by 2 mesh's handles written with 70 numbers, not 72. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESHH-012 (`fx_meshh_012.json`): A handle moved 401 per cent, past 400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESHH-013 (`fx_meshh_013.json`): A handle keyed out to -500 per cent at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Reshape's Correspondence Points and Interpolation (D-702)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/reshape_points_reference.py` works the expected frames, `Fixtures/reshape_points/expected_reshape_points.json`, 16 by 10, tolerance 2e-5; the media are in `Fixtures/reshape_points/media/`. Checked by `tests/b572_reshape_points.rs`; the rule is in document 21.
+
+FX-RESHP-001 (`fx_reshp_001.json`): D-606's FX-RESHAPE-002 (the square pulled three pixels right) with one correspondence pair, (0, 0): the first points answer each other, so FX-RESHAPE-002's frame. Frames 0.
+
+FX-RESHP-002 (`fx_reshp_002.json`): One pair, (0, 25): the source's first corner answers the destination's second, so the square is pulled right and turned a quarter round. Frames 0.
+
+FX-RESHP-003 (`fx_reshp_003.json`): Two pairs, (0, 0) and (50, 25): the source's first half is squeezed into the destination's first quarter. Frames 0.
+
+FX-RESHP-004 (`fx_reshp_004.json`): The destination drawn the other way round with pairs (0, 0) and (25, 75): 75 per cent along it as drawn is 25 per cent along it turned, so FX-RESHAPE-002's frame. Frames 0.
+
+FX-RESHP-005 (`fx_reshp_005.json`): Percent keyed 0 at frame 0 to 100 at frame 4, Interpolation Linear: frame 2 is half of frame 4's field, not D-606's Percent 50. Frames 0, 1, 2, 4.
+
+FX-RESHP-006 (`fx_reshp_006.json`): The same keys eased past their end, Linear: the ease is not read, so FX-RESHP-005's frames. Frames 0, 1, 2, 4.
+
+FX-RESHP-007 (`fx_reshp_007.json`): Percent keyed 0, 100, 40 at frames 0, 2, 4, Interpolation Smooth: frames 1 and 3 blended through all three keys. Frames 0, 1, 2, 3, 4.
+
+FX-RESHP-008 (`fx_reshp_008.json`): The same keys, Linear: frames 1 and 3 differ from Smooth's. Frames 1, 3.
+
+FX-RESHP-009 (`fx_reshp_009.json`): Discrete written out, Percent keyed 0 to 100: D-606's FX-RESHAPE-010. Frames 0, 2, 4.
+
+FX-RESHP-010 (`fx_reshp_010.json`): Smooth with Percent not keyed (100): FX-RESHAPE-002's frame. Frames 0.
+
+FX-RESHP-011 (`fx_reshp_011.json`): The pairs keyed from (0, 0) at frame 0 to (0, 25) at frame 4: frame 0 is FX-RESHAPE-002's, frame 4 FX-RESHP-002's. Frames 0, 4.
+
+FX-RESHP-012 (`fx_reshp_012.json`): Correspondence points 0, 0, 50: three numbers, not pairs. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHP-013 (`fx_reshp_013.json`): A correspondence point at 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHP-014 (`fx_reshp_014.json`): 33 pairs, more than 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHP-015 (`fx_reshp_015.json`): Interpolation "cubic", not one of the three. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Plane's textured particles and Composite With Original (D-710)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/particle_plane_texture_reference.py` works the expected frames, `Fixtures/particle_plane_texture/expected_particle_plane_texture.json`, 16 by 10, tolerance 2e-5; the media are in `Fixtures/particle_plane_texture/media/`. Checked by `tests/b580_particle_plane_texture.rs`; the rule is in document 21.
+
+FX-PPTEX-001 (`fx_pptex_001.json`): Composite With Original on, one disc: FX-PPLANE-002's dot over the drawing instead of over a clear layer. Frames 20.
+
+FX-PPTEX-002 (`fx_pptex_002.json`): Composite With Original on, the falling burst: FX-PPLANE-025 over the drawing, at frames 12 and 24. Frames 12, 24.
+
+FX-PPTEX-003 (`fx_pptex_003.json`): Composite With Original on, the two discs Screened over the drawing. Frames 20.
+
+FX-PPTEX-004 (`fx_pptex_004.json`): Composite With Original on, the layer starting at frame 10: at its first frame no particle yet, so the drawing as it is; frame 22 is FX-PPTEX-002's frame 12. Frames 10, 22.
+
+FX-PPTEX-005 (`fx_pptex_005.json`): Textured Disc with no texture: FX-PPLANE-002's disc. Frames 20.
+
+FX-PPTEX-006 (`fx_pptex_006.json`): Textured Faded Disc with no texture: FX-PPLANE-003's Faded Sphere. Frames 20.
+
+FX-PPTEX-007 (`fx_pptex_007.json`): Textured Disc with the dot texture: its red, green, blue and white quarters cut round, upright, the red at the top left. Frames 20.
+
+FX-PPTEX-008 (`fx_pptex_008.json`): Textured Faded Disc with the dot: the quarters fading to nothing at the edge. Frames 20.
+
+FX-PPTEX-009 (`fx_pptex_009.json`): Initial Rotation 360: the disc turned by its own random amount. Frames 20.
+
+FX-PPTEX-010 (`fx_pptex_010.json`): Rotation Speed 90 a second: at 10.8 frames old, turned about 40 degrees clockwise. Frames 20.
+
+FX-PPTEX-011 (`fx_pptex_011.json`): Rotation Speed keyed from -180 at frame 0 to 180 at frame 24: read at the particle's birth (frame 9.2), so it turns anticlockwise for life. Frames 20.
+
+FX-PPTEX-012 (`fx_pptex_012.json`): The 20 by 12 texture on the disc: taken down a level, its blue checker greying. Frames 20.
+
+FX-PPTEX-013 (`fx_pptex_013.json`): Two textured discs, Composite: the newer over the older. Frames 20.
+
+FX-PPTEX-014 (`fx_pptex_014.json`): The two, Add. Frames 20.
+
+FX-PPTEX-015 (`fx_pptex_015.json`): The two over the drawing (Composite With Original on), Max Opacity 70. Frames 20.
+
+FX-PPTEX-016 (`fx_pptex_016.json`): The textured disc faded out over its life (Opacity Map Fade Out): four fifths covering. Frames 20.
+
+FX-PPTEX-017 (`fx_pptex_017.json`): The texture layer starting at frame 15: at frame 10 it has no picture, so nothing is drawn; at frame 20 it is FX-PPTEX-007. Frames 10, 20.
+
+FX-PPTEX-018 (`fx_pptex_018.json`): A texture layer not in the composition, `gone`: the effect is left out, the drawing shows, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 20.
+
+FX-PPTEX-019 (`fx_pptex_019.json`): FX-PPTEX-007 with the layer moved 3 pixels right. Frames 20.
+
+FX-PPTEX-020 (`fx_pptex_020.json`): A burst of turning textured faded discs, Rotation Speed 180 and Initial Rotation 360, at frames 12 and 24. Frames 12, 24.
+
+FX-PPTEX-021 (`fx_pptex_021.json`): A tiny textured disc, size 3: drawn 1.4 pixels across and fainter, the texture taken down to its last level. Frames 20.
+
+FX-PPTEX-022 (`fx_pptex_022.json`): A Disc (not textured) with the texture and rotation set: FX-PPLANE-002, the texture not used. Frames 20.
+
+FX-PPTEX-023 (`fx_pptex_023.json`): A star over the drawing (Composite With Original on), the texture set and not used. Frames 20.
+
+FX-PPTEX-024 (`fx_pptex_024.json`): Particle Type "cube": not one of the plane's kinds (D-714, the owner, 2026-10-13: was "textured_square", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPTEX-025 (`fx_pptex_025.json`): Rotation Speed 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPTEX-026 (`fx_pptex_026.json`): Initial Rotation -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPTEX-027 (`fx_pptex_027.json`): Initial Rotation 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPTEX-028 (`fx_pptex_028.json`): Composite With Original "yes": the word is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPTEX-029 (`fx_pptex_029.json`): A texture layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Emitter's second system: particles thrown by particles (D-711)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/particle_emitter_aux_reference.py` works the expected frames, `Fixtures/particle_emitter_aux/expected_particle_emitter_aux.json`, 16 by 10, tolerance 2e-5; each particle's numbers for some cases are in `Fixtures/particle_emitter_aux/particles_particle_emitter_aux.json`, tolerance 1e-7; the media are in `Fixtures/particle_emitter_aux/media/`. Checked by `tests/b581_particle_emitter_aux.rs`; the rule is in document 21.
+
+FX-PEAUX-001 (`fx_peaux_001.json`): The settings as added, the second system off: FX-PEMIT-001 at frames 0, 6 and 12. Frames 0, 6, 12.
+
+FX-PEAUX-002 (`fx_peaux_002.json`): A trail: one particle crossing to the right leaves a still dot a frame, each fading out over half a second, at frames 20 and 30. Frames 20, 30.
+
+FX-PEAUX-003 (`fx_peaux_003.json`): The trail's dots shrinking to nothing instead of fading (Aux Size at Death 0, Aux Opacity at Death 100). Frames 20.
+
+FX-PEAUX-004 (`fx_peaux_004.json`): Aux Velocity 20: the dots thrown out every way as it goes. Frames 20.
+
+FX-PEAUX-005 (`fx_peaux_005.json`): Aux Inherit Velocity 100 and no Aux Velocity: the dots ride along with the particle, over it. Frames 20.
+
+FX-PEAUX-006 (`fx_peaux_006.json`): Aux Set Color Own, red: a red trail behind a white particle. Frames 20.
+
+FX-PEAUX-007 (`fx_peaux_007.json`): The particle coloured Over Life, the trail From Main: each dot the particle's colour when it was dropped. Frames 20.
+
+FX-PEAUX-008 (`fx_peaux_008.json`): Aux Particle Type Streak, thrown at 20: short lines. Frames 20.
+
+FX-PEAUX-009 (`fx_peaux_009.json`): Glowing aux spheres 3 across, Add. Frames 20.
+
+FX-PEAUX-010 (`fx_peaux_010.json`): At Bounce: the fountain's particles throw four sparks at each bounce on the floor, at frames 24 and 36. Frames 24, 36.
+
+FX-PEAUX-011 (`fx_peaux_011.json`): At Bounce with Floor Action None: no bounce, so nothing thrown; FX-PEMIT-028's burst. Frames 12.
+
+FX-PEAUX-012 (`fx_peaux_012.json`): The particle lives 0.5 seconds, its trail 1 second: at frame 24 the particle is gone and its trail is still fading. Frames 18, 24.
+
+FX-PEAUX-013 (`fx_peaux_013.json`): Gravity 40 and Aux Velocity 10: the sparks fall as they go. Frames 20.
+
+FX-PEAUX-014 (`fx_peaux_014.json`): Aux Particles/sec keyed from 0 at frame 0 to 48 at frame 20 on a burst: read at each thrower's birth, so the later ones leave thicker trails. Frames 24.
+
+FX-PEAUX-015 (`fx_peaux_015.json`): Aux Opacity at Death keyed from 0 at frame 0 to 100 at frame 20: read at the frame drawn. Frames 20.
+
+FX-PEAUX-016 (`fx_peaux_016.json`): FX-PEAUX-002 with the layer starting at frame 10: frame 30 the same as its frame 20. Frames 10, 30.
+
+FX-PEAUX-017 (`fx_peaux_017.json`): FX-PEAUX-004 with the layer moved 3 pixels right. Frames 20.
+
+FX-PEAUX-018 (`fx_peaux_018.json`): Random Seed 7 on FX-PEAUX-004: different sparks. Frames 20.
+
+FX-PEAUX-019 (`fx_peaux_019.json`): Aux Particles/sec 0: nothing thrown; the particle alone. Frames 20.
+
+FX-PEAUX-020 (`fx_peaux_020.json`): Aux Life 0: nothing thrown lives; the particle alone. Frames 20.
+
+FX-PEAUX-021 (`fx_peaux_021.json`): The sparking trail through a composition camera 12 pixels in front, the emitter 6 pixels behind the layer: the sparks bigger as they come nearer. Frames 20.
+
+FX-PEAUX-022 (`fx_peaux_022.json`): A burst every way, each particle trailing short-lived dots, at frames 6, 12 and 24. Frames 6, 12, 24.
+
+FX-PEAUX-023 (`fx_peaux_023.json`): Aux Emit "trail": not one of off, continuously, at_bounce. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-024 (`fx_peaux_024.json`): Aux Particle Type "sprite". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-025 (`fx_peaux_025.json`): Aux Set Color "gradient". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-026 (`fx_peaux_026.json`): Aux Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-027 (`fx_peaux_027.json`): Aux Particles/sec 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-028 (`fx_peaux_028.json`): Aux Life -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-029 (`fx_peaux_029.json`): Aux Inherit Velocity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEAUX-030 (`fx_peaux_030.json`): Aux Opacity at Death 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Grid's points from a layer's shape, and strings (D-712)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/particle_grid_shape_reference.py` works the expected frames, `Fixtures/particle_grid_shape/expected_particle_grid_shape.json`, 16 by 10, tolerance 2e-5; each particle's numbers for some cases are in `Fixtures/particle_grid_shape/particles_particle_grid_shape.json`, tolerance 1e-7; the media are in `Fixtures/particle_grid_shape/media/`. Checked by `tests/b582_particle_grid_shape.rs`; the rule is in document 21.
+
+FX-PGSHP-001 (`fx_pgshp_001.json`): Base Form Layer with no Base Layer named: drawn as Box Grid, FX-PGRID-003's fine grid. Frames 0.
+
+FX-PGSHP-002 (`fx_pgshp_002.json`): Layer, the ring: a dot at each pixel centre on the ring, none inside or outside it. Frames 0.
+
+FX-PGSHP-003 (`fx_pgshp_003.json`): Layer, the block letters TA: dots in the letters' shape. Frames 0.
+
+FX-PGSHP-004 (`fx_pgshp_004.json`): Layer, half clear: only the left half's dots, white. Frames 0.
+
+FX-PGSHP-005 (`fx_pgshp_005.json`): Layer, opacity rising left to right, on a grid between pixel centres: the dots where it is half or more. Frames 0.
+
+FX-PGSHP-006 (`fx_pgshp_006.json`): The ring coloured by the ramp: Color Map and Base Layer together. Frames 0.
+
+FX-PGSHP-007 (`fx_pgshp_007.json`): The letters turned 40 degrees about Y and dispersed: the shape moves with the form. Frames 0.
+
+FX-PGSHP-008 (`fx_pgshp_008.json`): The ring rippling and drifting, Flow X 12, at frames 0 and 12. Frames 0, 12.
+
+FX-PGSHP-009 (`fx_pgshp_009.json`): The ring two deep, 10 pixels front to back: the far ring smaller. Frames 0.
+
+FX-PGSHP-010 (`fx_pgshp_010.json`): The letters as glowing spheres, added. Frames 0.
+
+FX-PGSHP-011 (`fx_pgshp_011.json`): The ring at Opacity Random 60, Random Seed 3: the same points, some fainter. Frames 0.
+
+FX-PGSHP-012 (`fx_pgshp_012.json`): Sphere Layered ignores the Base Layer: FX-PGRID-021's ball. Frames 0.
+
+FX-PGSHP-013 (`fx_pgshp_013.json`): Box Strings: 3 strings, each a line through its 6 points. Frames 0.
+
+FX-PGSHP-014 (`fx_pgshp_014.json`): Box Strings rippling, Flow X 12, at frames 0 and 12: wavy lines. Frames 0, 12.
+
+FX-PGSHP-015 (`fx_pgshp_015.json`): Box Strings twisted 120 degrees, 2 deep and 12 pixels front to back. Frames 0.
+
+FX-PGSHP-016 (`fx_pgshp_016.json`): One point a string: nothing drawn. Frames 0.
+
+FX-PGSHP-017 (`fx_pgshp_017.json`): Box Strings coloured by the ramp. Frames 0.
+
+FX-PGSHP-018 (`fx_pgshp_018.json`): Box Strings at Opacity 50, Size 3, added. Frames 0.
+
+FX-PGSHP-019 (`fx_pgshp_019.json`): Box Strings turned 30 degrees about Z, through a composition camera 12 pixels in front. Frames 0.
+
+FX-PGSHP-020 (`fx_pgshp_020.json`): Box Strings with Color Map half clear: the lines starting in the clear half are not drawn. Frames 0.
+
+FX-PGSHP-021 (`fx_pgshp_021.json`): Box Strings as Stars: Particle Type has no say, FX-PGSHP-013's lines. Frames 0.
+
+FX-PGSHP-022 (`fx_pgshp_022.json`): Box Strings at Size 0.2: lines one pixel wide, at full opacity. Frames 0.
+
+FX-PGSHP-023 (`fx_pgshp_023.json`): Box Strings with Size keyed from 1 at frame 0 to 4 at frame 24, at frame 12. Frames 12.
+
+FX-PGSHP-024 (`fx_pgshp_024.json`): Base Form "text": not a word (a text layer is named as the Base Layer instead). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGSHP-025 (`fx_pgshp_025.json`): Base Form "Box_Strings": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGSHP-026 (`fx_pgshp_026.json`): Base Layer 5: not a layer's name. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGSHP-027 (`fx_pgshp_027.json`): Particle Type "streak" on Box Strings: still not a Particle Grid kind. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Playground's further mapper properties (D-713)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/particle_mapper_physics_reference.py` works the expected frames, `Fixtures/particle_mapper_physics/expected_particle_mapper_physics.json`, 16 by 10, tolerance 2e-5; each particle's numbers for some cases are in `Fixtures/particle_mapper_physics/particles_particle_mapper_physics.json`, tolerance 1e-7; the media are in `Fixtures/particle_mapper_physics/media/`. Checked by `tests/b583_particle_mapper_physics.rs`; the rule is in document 21.
+
+FX-PMPH-001 (`fx_pmph_001.json`): Persistent, red to X Scale 0.5 to 3: the grid's dots stretched wider from left to right. Frames 6.
+
+FX-PMPH-002 (`fx_pmph_002.json`): Persistent, red to Y Scale 2 and green to Angle 0 to 90: tall dots, the lower row turned further. Frames 6.
+
+FX-PMPH-003 (`fx_pmph_003.json`): Persistent, red to Angular Velocity 0 to 360: the exploded holder's pieces spin, faster to the right. Frames 12.
+
+FX-PMPH-004 (`fx_pmph_004.json`): Persistent, red to Torque -720 to 720: pieces on the left spin up one way, on the right the other. Frames 12.
+
+FX-PMPH-005 (`fx_pmph_005.json`): Persistent, red to Lifespan 0.13 to 0.73 seconds: the fountain's dots die young on the left. Frames 24.
+
+FX-PMPH-006 (`fx_pmph_006.json`): Persistent Lifespan 0.51 seconds everywhere: only the fountain's dots younger than that are drawn. Frames 24.
+
+FX-PMPH-007 (`fx_pmph_007.json`): Persistent Kinetic Friction 15: the fountain's dots slow and stay lower. Frames 24.
+
+FX-PMPH-008 (`fx_pmph_008.json`): Persistent Static Friction 50 on the grid falling at 40: it stays where it was born. Frames 6.
+
+FX-PMPH-009 (`fx_pmph_009.json`): Persistent Static Friction 30 on the grid falling at 40: not enough, it falls as without it. Frames 6.
+
+FX-PMPH-010 (`fx_pmph_010.json`): The wall with Persistent Kinetic Friction 8: the dots still bounce inside the box, slowing. Frames 36.
+
+FX-PMPH-011 (`fx_pmph_011.json`): Persistent, red to X Scale 0.5 to 1.5 on the Layer Map: each grid point the logo, narrower on the left. Frames 3.
+
+FX-PMPH-012 (`fx_pmph_012.json`): Persistent, green to Y Scale 0.5 to 2 on the exploded holder: pieces squashed at the top, drawn out at the bottom. Frames 6.
+
+FX-PMPH-013 (`fx_pmph_013.json`): Fireworks, Persistent Lifespan 0.8 seconds: the shells burst, and each spark lives 0.8 seconds from its own birth: at frame 44 the first burst is gone and the second shell still climbing. Frames 44.
+
+FX-PMPH-014 (`fx_pmph_014.json`): Persistent for the Cannon only, red to X Scale 3: the grid's dots stay round, the fountain's stretched. Frames 24.
+
+FX-PMPH-015 (`fx_pmph_015.json`): Persistent, Max Red keyed 0 to 720 over frames 0 to 12, red to Torque: the pieces spin up harder as time goes on. Frames 12.
+
+FX-PMPH-016 (`fx_pmph_016.json`): Persistent X Scale 2 with Auto-Orient: the fountain's dots stretched along the way they move. Frames 24.
+
+FX-PMPH-017 (`fx_pmph_017.json`): Ephemeral Set, red to X Scale 0 to 3: drawn stretched by where they are, narrow on the left. Frames 6.
+
+FX-PMPH-018 (`fx_pmph_018.json`): Ephemeral Multiply, green to Y Scale 1 to 3: the lower row drawn taller. Frames 6.
+
+FX-PMPH-019 (`fx_pmph_019.json`): Ephemeral Add, red to Angular Velocity 0 to 360: pieces spin by where they are, the spin not kept. Frames 12.
+
+FX-PMPH-020 (`fx_pmph_020.json`): Ephemeral Set, red to Torque -720 to 720: the pieces' spin pushed while they stand there. Frames 12.
+
+FX-PMPH-021 (`fx_pmph_021.json`): Ephemeral Set, red to Lifespan 0 to 1 second: a dot drawn only while younger than the ramp under it says. Frames 24.
+
+FX-PMPH-022 (`fx_pmph_022.json`): Ephemeral Multiply, green to Lifespan: an endless lifespan stays endless, the fountain as without it. Frames 24.
+
+FX-PMPH-023 (`fx_pmph_023.json`): Ephemeral Set, red to Kinetic Friction 0 to 40: dots on the right braked, only while there. Frames 24.
+
+FX-PMPH-024 (`fx_pmph_024.json`): Ephemeral Set, red to Static Friction 0 to 80 on the grid falling at 40: the right half stays, the left half falls. Frames 6.
+
+FX-PMPH-025 (`fx_pmph_025.json`): Both: Persistent red to X Scale 2, Ephemeral Set green to Y Scale 0.5 to 2. Frames 6.
+
+FX-PMPH-026 (`fx_pmph_026.json`): Persistent Map Red To "gradient_velocity", not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMPH-027 (`fx_pmph_027.json`): Ephemeral Map Green To "character", not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMPH-028 (`fx_pmph_028.json`): Ephemeral Map Blue To "font_size", not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Plane's Textured Square (D-714)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/particle_plane_square_reference.py` works the expected frames, `Fixtures/particle_plane_square/expected_particle_plane_square.json`, 16 by 10, tolerance 2e-5; the media are in `Fixtures/particle_plane_square/media/`. Checked by `tests/b584_particle_plane_square.rs`; the rule is in document 21.
+
+FX-PPSQ-001 (`fx_ppsq_001.json`): Textured Square with no texture: a square in the Color Map's colour, where FX-PPLANE-002 draws its disc. Frames 20.
+
+FX-PPSQ-002 (`fx_ppsq_002.json`): Textured Square with the dot texture: its red, green, blue and white quarters, upright, the red at the top left. Frames 20.
+
+FX-PPSQ-003 (`fx_ppsq_003.json`): Initial Rotation 360: the square turned by its own random amount. Frames 20.
+
+FX-PPSQ-004 (`fx_ppsq_004.json`): Rotation Speed 90 a second: at 10.8 frames old, turned about 40 degrees clockwise. Frames 20.
+
+FX-PPSQ-005 (`fx_ppsq_005.json`): Rotation Speed keyed from -180 at frame 0 to 180 at frame 24: read at the particle's birth, so it turns anticlockwise for life. Frames 20.
+
+FX-PPSQ-006 (`fx_ppsq_006.json`): The 20 by 12 texture on the square: taken down a level, its blue checker greying. Frames 20.
+
+FX-PPSQ-007 (`fx_ppsq_007.json`): Two textured squares, Composite: the newer over the older. Frames 20.
+
+FX-PPSQ-008 (`fx_ppsq_008.json`): The two, Add. Frames 20.
+
+FX-PPSQ-009 (`fx_ppsq_009.json`): The two, Screen, over the drawing (Composite With Original on), Max Opacity 70. Frames 20.
+
+FX-PPSQ-010 (`fx_ppsq_010.json`): The textured square faded out over its life (Opacity Map Fade Out). Frames 20.
+
+FX-PPSQ-011 (`fx_ppsq_011.json`): The texture layer starting at frame 15: at frame 10 nothing is drawn; at frame 20 it is FX-PPSQ-002. Frames 10, 20.
+
+FX-PPSQ-012 (`fx_ppsq_012.json`): A texture layer not in the composition, `gone`: the effect is left out, the drawing shows, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 20.
+
+FX-PPSQ-013 (`fx_ppsq_013.json`): FX-PPSQ-002 with the layer moved 3 pixels right. Frames 20.
+
+FX-PPSQ-014 (`fx_ppsq_014.json`): A burst of turning textured squares, Rotation Speed 180 and Initial Rotation 360, at frames 12 and 24. Frames 12, 24.
+
+FX-PPSQ-015 (`fx_ppsq_015.json`): A tiny textured square, size 3: 1.4 pixels across and fainter, the texture taken down to its last level. Frames 20.
+
+FX-PPSQ-016 (`fx_ppsq_016.json`): A large square, size 60, turned by its own random amount (Initial Rotation 360): its corners reach past the disc's radius. Frames 20.
+
+FX-PPSQ-017 (`fx_ppsq_017.json`): Particle Type "Textured Square": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPSQ-018 (`fx_ppsq_018.json`): Particle Type "textured_polygon": not one of the plane's kinds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Playground's Mass (D-715)
+
+Listed here on 2026-10-15 from the fixture files themselves (the cases were written on 2026-10-13 and were missing from this catalogue). Each case's own description is copied from its `says` line. `tools/particle_mapper_mass_reference.py` works the expected frames, `Fixtures/particle_mapper_mass/expected_particle_mapper_mass.json`, 16 by 10, tolerance 2e-5; each particle's numbers for some cases are in `Fixtures/particle_mapper_mass/particles_particle_mapper_mass.json`, tolerance 1e-7; the media are in `Fixtures/particle_mapper_mass/media/`. Checked by `tests/b585_particle_mapper_mass.rs`; the rule is in document 21.
+
+FX-PMASS-001 (`fx_pmass_001.json`): Persistent, red to Mass 0.5 to 4, green to Y Force 60: the grid pushed down, the light dots on the left furthest. Frames 6.
+
+FX-PMASS-002 (`fx_pmass_002.json`): Persistent Mass 2 with Y Force 60: the grid falls as with Mass 1 and Y Force 30. Frames 6.
+
+FX-PMASS-003 (`fx_pmass_003.json`): Persistent Mass 0 with Y Force 60: the force does nothing, the grid stays. Frames 6.
+
+FX-PMASS-004 (`fx_pmass_004.json`): Persistent Mass -1 with Y Force 60: as Mass 0, the grid stays. Frames 6.
+
+FX-PMASS-005 (`fx_pmass_005.json`): Persistent Mass 3 under Gravity 40 and no force: Gravity pulls every mass alike, the grid falls as without it. Frames 6.
+
+FX-PMASS-006 (`fx_pmass_006.json`): The fountain, red to Mass 1 to 5, blue to X Force 40: blown right, the heavy dots on the right less. Frames 24.
+
+FX-PMASS-007 (`fx_pmass_007.json`): Ephemeral Set, red to Mass 0.5 to 4, with Persistent Y Force 60: the push by where each dot is, step by step. Frames 6.
+
+FX-PMASS-008 (`fx_pmass_008.json`): Ephemeral Multiply, green to Mass 1 to 4, with Persistent Y Force 60: the lower row heavier while there. Frames 6.
+
+FX-PMASS-009 (`fx_pmass_009.json`): Persistent Mass 2, Y Force 50 and Static Friction 30 on the grid: the pull is 25, so it stays; at Mass 1 it would fall. Frames 6.
+
+FX-PMASS-010 (`fx_pmass_010.json`): Fireworks, red to Mass 1 to 4, blue to X Force 40: the sparks keep their shell's mass and drift right. Frames 30.
+
+FX-PMASS-011 (`fx_pmass_011.json`): The wall with Persistent Mass 2 and Y Force 60: the dots still bounce inside the box. Frames 36.
+
+FX-PMASS-012 (`fx_pmass_012.json`): Persistent, Max Red keyed 1 to 6 over frames 0 to 6, red to Mass, with Y Force 60: the push weakens as time goes on. Frames 6.
+
+FX-PMASS-013 (`fx_pmass_013.json`): The exploded holder, red to Mass 1 to 4, green to Y Force 0 to 80. Frames 12.
+
+FX-PMASS-014 (`fx_pmass_014.json`): Persistent for the Cannon only, Mass 4 and X Force 40: the fountain blown right a quarter as far, the grid's dots not pushed at all. Frames 24.
+
+FX-PMASS-015 (`fx_pmass_015.json`): Persistent Map Red To "Mass", a capital M: the words are lowercase. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMASS-016 (`fx_pmass_016.json`): Ephemeral Map Green To "weight", not a property. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

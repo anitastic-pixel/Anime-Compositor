@@ -12,8 +12,10 @@ what Particle Space already had (D-611), and one new switch:
 - **Composite With Original**: Off (as before) draws the particles on an empty layer, so the
   layer's own picture disappears. On draws them over the layer's picture.
 
-Textured Square is still refused on the Plane: fixture FX-PPLANE-055 expects it to be, and
-changing that is your decision. Black Matte and Hold Particle Release are still not built (no
+Textured Square was refused on the Plane when this was built. **Changed since, by D-714
+(2026-10-13, your decision):** the Plane now has Textured Square too, and the refusal check
+FX-PPLANE-055 uses the word "cube" instead, which the Plane still refuses. Its own sheet is
+`verification/B-584_playtest.md`. Black Matte and Hold Particle Release are still not built (no
 source says what they do).
 
 The check, `verification/D-710_particle_plane_texture_table.md` (164 of 164), holds every pixel

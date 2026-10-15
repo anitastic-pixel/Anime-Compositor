@@ -69,8 +69,8 @@ What the discipline bought is visible in the answer's shape. The cache that was 
 | Anime line smoothing | G3 | B-30, built | 5 | 4 | 4 | - |
 | Line recolor and color key | G3 | B-35 and B-41, built | 5 | 3 | 3 | - |
 | Directional cel blur | G3 | B-36, built | 4 | 3 | 3 | - |
-| Particle system | Parked | Defer | 2 | 5 | 5 | - |
-| Tracking and roto automation | Parked | Defer | 3 | 5 | 5 | - |
+| Particle system | G4 (un-parked) | Opened by the owner on 2026-10-12 (D-600); built from D-610 on (B-490 onward) | 2 | 5 | 5 | - |
+| Tracking and roto automation | G4 (motion tracking un-parked) | Motion from footage opened by the owner on 2026-10-12 (D-600): our own motion estimate, Pixel Motion Blur, Timewarp and Warp Stabilizer, built D-650 to D-653. Roto automation, 3D Camera Tracker, mocha shape and Object Matte stay out by the owner's choice in D-600 | 3 | 5 | 5 | - |
 | Full 3D renderer | Excluded | Reject | 1 | 5 | 5 | - |
 | Drawing and vector animation | Excluded | Reject | 2 | 5 | 5 | - |
 | AEP importer | Excluded | Reject | 3 | 5 | 5 | - |
@@ -84,7 +84,7 @@ A feature does not enter a build because its value score is high. It must identi
 
 D-248 (2026-10-02) promotes one narrow surface beside the excluded drawing line: Sketch, notes drawn over the cut that are never exported, built last in the redesign (W-46) and hidden at first. Drawing as a way of making the picture stays excluded.
 
-Implementation agents may not build anything on the parked or excluded lists. Promotion is an owner decision recorded in document 14, never a judgment call made inside an implementation task.
+Implementation agents may not build anything still on the parked or excluded lists. (Particles and motion tracking left the parked list on 2026-10-12 by D-600; the rule still holds for everything that remains parked or excluded.) Promotion is an owner decision recorded in document 14, never a judgment call made inside an implementation task.
 
 ## Review cadence
 

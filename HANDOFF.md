@@ -1,6 +1,6 @@
 # Session handoff
 
-Rewritten 2026-09-08, at the end of B-12c; its state brought up to date on 2026-09-27, at G4. Read this first when opening Claude Code in this
+Rewritten 2026-09-08, at the end of B-12c; its state brought up to date on 2026-09-27, at G4, and again on 2026-10-15. Read this first when opening Claude Code in this
 directory. It is orientation only: what this project is, what state it is in today, and the things
 a fresh session gets wrong. What each unit of work settled is in `Markdown/15_Initial_Backlog.md`
 entry by entry, and the evidence is one file per unit under `verification/`.
@@ -36,7 +36,8 @@ rather than declaring it done.
 **G0 to G3 are passed; G4 is current (D-167, 2026-09-27).** The editor does what the planning pack
 set out to do and more: exposure timing, layers, masks, shape layers, parenting, the camera,
 expressions, precompositions, adjustment layers, the graph editor, EXR, WAV, packaging, GIF and MP4
-export, over ninety effects, most of them also drawn by the graphics card, and an After
+export, 269 built-in effects (counted from the `core.` effect ids in `src/effects.rs` on
+2026-10-15), most of them also drawn by the graphics card, and an After
 Effects-style window around it. Every decision the owner had not yet answered was accepted on
 2026-09-27, and every playtest then waiting was accepted without a separate run.
 
@@ -45,6 +46,19 @@ described at the end of `Markdown/15_Initial_Backlog.md`. The tool is for the ow
 release work (installer, signing, licence texts, a clean-machine test) waits, and so does the name
 (D-11). `Markdown/00_Start_Here.md` is the running record of what was built when and what the owner
 said about it; read its last paragraphs for the latest state.
+
+**Since 2026-09-27** (from `git log` and documents 00, 14 and 15; the latest unit is B-605, 2026-10-14):
+
+- The redesign was built screen by screen from the Sandbox page (D-248, W-39 to W-47), with the
+  text tool (D-263) and Sketch, notes drawn over the cut (D-261).
+- The graphics-card speed plan (GPU plan G1 to G13, from B-151) was built.
+- `docs/effects/EFFECTS.md` (2026-10-08) checks the effects against After Effects' own list, and
+  the missing rows were built from it in the owner's order, several lanes at a time.
+- The parked big projects were opened and built: particles, 3D surfaces, motion from footage, and
+  liquify and mesh warp (D-600, 2026-10-12), and Screen Key (D-540).
+- Sound: reading, hearing it in step and exporting it (D-638).
+- On 2026-10-14, audits and architecture reviews: bug fixes, faster heavy effects, unknown file
+  data kept with its layer (ADR-008), and four new commands (B-602 to B-605).
 
 ## Things a fresh session is likely to get wrong
 
@@ -71,11 +85,17 @@ mutates source files on purpose, and the other run's artifacts come out wrong.
 `src/` and `tests/` are the `anime_compositor` crate; `app/` is `anime_compositor_app`, the Tauri
 shell and the page. `Markdown/` is the specification, `docs/adr/` the decision records, `Schemas/`
 the project schema, `Fixtures/` the fixture data and expected values, `verification/` the artifacts
-the owner reads, `tools/` the few generators and checks that are not `cargo test`, `Licenses/` the
+the owner reads, `tools/` (about 367 entries) mostly the independent `*_reference.py` scripts that
+work each effect's expected values out a second way, plus the photographs and app tools
+(`capture_window.ps1`, `app_snapshot.py`, `app_stability.ps1`), `watch_rebuild.ps1`,
+`package.ps1`, `offline_check.ps1`, `gen_dependencies.py` and `audit_references.py`; `Licenses/` the
 archived licence texts, `design/` interface design work, `spikes/` the quarantined G0 code.
 `CONTEXT.md` is the vocabulary; `AGENTS.md` and `CLAUDE.md` are the enforceable agent rules.
 
-`cargo test --workspace` is the build. Two things are not in it and are run by hand: the
+**Never run a bare `cargo test` or `cargo test --workspace`:** it builds every test program and
+fills the drive with 100 GB or more. Build and run only the named tests a change needs, for
+example `cargo test --release --test <name>`, `cargo test --lib`, or `-p anime_compositor_app`.
+Two things are not in the ordinary test runs and are run by hand: the
 `#[ignore]`d timing tests (`tests/t06_envelope.rs`, `tests/b12b_declared_fixture.rs`,
 `tests/b10_full_shot.rs`) and the photographs (`tools/capture_window.ps1`). The cross-reference
 audit (`python tools/audit_references.py`, which reports a named file that does not exist or a

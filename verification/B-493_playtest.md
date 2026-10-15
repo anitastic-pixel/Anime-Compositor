@@ -21,7 +21,7 @@ were born, so whatever is under the layer shows through around them.
 Adobe publishes no formula and no settings when added, so the rules and those settings are ours,
 written down in document 21 and in `tools/particle_playground_reference.py`.
 
-The check, `verification/D-613_particle_playground_table.md` (243 of 243 checks pass), holds every pixel to numbers
+The check, `verification/D-613_particle_playground_table.md` (338 of 338 checks pass), holds every pixel to numbers
 worked out by a separate program before the code existed, and every particle's place and speed to
 within a ten-millionth. The pictures are in `verification/D-613 pictures/`, drawn over the street
 picture of D-506.
