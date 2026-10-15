@@ -287,6 +287,9 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     // file alone, and five crates under it: `core_maths` (sums the standard library leaves out),
     // and four Unicode property tables (`unicode-bidi-mirroring`, `unicode-ccc`,
     // `unicode-properties`, `unicode-script`).
+    // D-639's sound import (B-518) added `symphonia` and seven `symphonia-*` crates under it, which
+    // read FLAC, MP3, Ogg and Vorbis files from disk, and `lazy_static` and `regex-lite` that they
+    // use. None opens a socket; the check above says so.
     // B-44's `wgpu` (D-100) added the rest: its core, its shader compiler `naga`, the Direct3D 12
     // and Vulkan halves (`ash`, `gpu-*`, `libloading`), and their helpers. None opens a socket;
     // the check above says so.
@@ -297,12 +300,14 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
          crossbeam-epoch, crossbeam-utils, document-features, either, equivalent, exr, fax, \
          fdeflate, flate2, foldhash, gif, gpu-alloc, gpu-alloc-types, gpu-allocator, \
          gpu-descriptor, gpu-descriptor-types, half, hashbrown, hexf-parse, image, image-webp, \
-         indexmap, itoa, lebe, libloading, libm, litrs, lock_api, log, memchr, miniz_oxide, \
+         indexmap, itoa, lazy_static, lebe, libloading, libm, litrs, lock_api, log, memchr, miniz_oxide, \
          moxcms, naga, num-complex, num-traits, once_cell, ordered-float, parking_lot, \
          parking_lot_core, paste, png, pollster, presser, proc-macro2, profiling, pulp, \
          pulp-wasm-simd-flag, pxfm, quick-error, quote, range-alloc, raw-cpuid, \
-         raw-window-handle, rayon, rayon-core, reborrow, renderdoc-sys, rustc-hash, rustybuzz, scopeguard, \
-         serde_core, serde_json, simd-adler32, smallvec, spirv, static_assertions, syn, \
+         raw-window-handle, rayon, rayon-core, reborrow, regex-lite, renderdoc-sys, rustc-hash, rustybuzz, scopeguard, \
+         serde_core, serde_json, simd-adler32, smallvec, spirv, static_assertions, symphonia, symphonia-bundle-flac, symphonia-bundle-mp3, \
+         symphonia-codec-vorbis, symphonia-common, symphonia-core, symphonia-format-ogg, \
+         symphonia-metadata, syn, \
          thiserror, thiserror-impl, tiff, ttf-parser, unicode-bidi-mirroring, unicode-ccc, unicode-ident, unicode-properties, unicode-script, unicode-width, weezl, wgpu, wgpu-core, \
          wgpu-core-deps-windows-linux-android, wgpu-hal, wgpu-types, windows, \
          windows-collections, windows-core, windows-future, windows-implement, windows-interface, \
