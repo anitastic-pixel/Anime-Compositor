@@ -86,8 +86,8 @@ One row per identifier this build can print, and the table where a person can re
 
 | Identifier | Why there is no code for it |
 |---|---|
-| `GPU_BACKEND_FAILED` | The only GPU path is B-44's viewer picture, and a card that fails there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed). |
-| `GPU_OUT_OF_MEMORY` | The only GPU path is B-44's viewer picture, and a card out of memory there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, proposed). |
+| `GPU_BACKEND_FAILED` | The only GPU path is B-44's viewer picture, and a card that fails there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted). |
+| `GPU_OUT_OF_MEMORY` | The only GPU path is B-44's viewer picture, and a card out of memory there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted). |
 | `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
 | `DEPENDENCY_LICENSE_UNRESOLVED` | A distribution-time check rather than a running one: tools/archive_licenses.py and docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them. |
 

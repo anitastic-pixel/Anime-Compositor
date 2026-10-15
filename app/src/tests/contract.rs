@@ -1855,17 +1855,22 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     // names the panel puts in a request, and a name the command does not read is a field a
     // person can type into that changes nothing.
     for (type_id, params) in EFFECT_KINDS {
+        // D-642: a sound effect goes on the sound layer and only there.
+        let on = match *type_id {
+            "core.noise_gate" | "core.compressor" | "core.distortion" => sound_id.as_str(),
+            _ => "layer-4",
+        };
         report.check(
             &format!("the panel's `{type_id}` is an effect this build has"),
             "added",
-            match run(&viewer, &format!("effect.add?layer=layer-4&type={type_id}")) {
+            match run(&viewer, &format!("effect.add?layer={on}&type={type_id}")) {
                 said if said.starts_with("Add ") => "added".to_string(),
                 said => said,
             },
         );
         let effects = layer_of(
             &serde_json::from_str::<serde_json::Value>(&state(&viewer)).expect("JSON"),
-            "layer-4",
+            on,
         )["effects"]
             .clone();
         // Found by its type: line smoothing and selective colour blur go to the top of the
@@ -1892,7 +1897,7 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
             "accepted",
             match run(
                 &viewer,
-                &format!("effect.set_parameters?layer=layer-4&effect={instance}{sent}"),
+                &format!("effect.set_parameters?layer={on}&effect={instance}{sent}"),
             ) {
                 said if said.starts_with("Set ") || said.starts_with("Change ") => {
                     "accepted".to_string()
