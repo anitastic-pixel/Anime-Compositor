@@ -143,9 +143,8 @@ B-446: Turbulent Noise (D-445) and Fractal Noise (D-128, D-299), one engine, tak
 | FX-TURBNOISE-031 frame 0: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031 frame 4: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-032 frame 0: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032 frame 4: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.8e-7 | yes |
+| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FRACTAL-001 frame 0: The settings as they start: size 100, complexity 4, contrast 100, brightness 0, evolution 0, speed 0, seed 0, black to white, opacity 100, normal. The card is covered by grey clouds so large that the drawing sees a small part of one cell: close greys, near the middle. Every pixel keeps its covering, the empty ones stay empty, and with speed 0 frame 4 is frame 0. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-001 frame 4: The settings as they start: size 100, complexity 4, contrast 100, brightness 0, evolution 0, speed 0, seed 0, black to white, opacity 100, normal. The card is covered by grey clouds so large that the drawing sees a small part of one cell: close greys, near the middle. Every pixel keeps its covering, the empty ones stay empty, and with speed 0 frame 4 is frame 0. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -369,4 +368,4 @@ B-446: Turbulent Noise (D-445) and Fractal Noise (D-128, D-299), one engine, tak
 
 ## Result
 
-330 of 330 checks pass.
+329 of 329 checks pass.

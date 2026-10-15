@@ -81,8 +81,8 @@ B-276, after Lumetri Color under our own name, its first unit: Basic Correction 
 | FX-GRADE-033 frame 0: Vignette amount 5.5, above 5. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-GRADE-033 frame 4: Vignette amount 5.5, above 5. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-GRADE-033: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-GRADE-034 frame 0: Vignette roundness -20: Lumetri's squarer vignette, below 0, which this effect does not draw (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-GRADE-034 frame 4: Vignette roundness -20: Lumetri's squarer vignette, below 0, which this effect does not draw (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-GRADE-034 frame 0: Vignette roundness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-GRADE-034 frame 4: Vignette roundness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-GRADE-034: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## The file
@@ -130,7 +130,7 @@ B-276, after Lumetri Color under our own name, its first unit: Basic Correction 
 | fx_grade_031.json is refused in a sentence naming look intensity | Color Grade's look intensity runs from 0 to 200, and this is -1. | yes |
 | fx_grade_032.json is refused in a sentence naming shadow tint hue | Color Grade's shadow tint hue runs from 0 to 360, and this is 361. | yes |
 | fx_grade_033.json is refused in a sentence naming vignette amount | Color Grade's vignette amount runs from -5 to 5, and this is 5.5. | yes |
-| fx_grade_034.json is refused in a sentence naming vignette roundness | Color Grade's vignette roundness runs from 0 to 100, and this is -20. | yes |
+| fx_grade_034.json is refused in a sentence naming vignette roundness | Color Grade's vignette roundness runs from -100 to 100, and this is -101. | yes |
 | a file with a Color Grade whose exposure is a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Color Grade without its look is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 

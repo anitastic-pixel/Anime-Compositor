@@ -59,7 +59,7 @@ B-305, after After Effects' Lens Flare: the flare a bright light makes shining i
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing: the flare is drawn on the layer as it is | 0 | yes |
-| a half-size draft preview changes no setting: the flare's place is a share of the drawing and its parts' sizes shares of its diagonal | LensFlare { flare_center: [30.0, 30.0], flare_brightness: 100.0, lens_type: "zoom", blend_with_original: 0.0 } | yes |
+| a half-size draft preview changes no setting: the flare's place is a share of the drawing and its parts' sizes shares of its diagonal | LensFlare { flare_center: [30.0, 30.0], flare_brightness: 100.0, lens_type: "zoom", blend_with_original: 0.0, dirt: LensDirt { layer: String(""), opacity: 100.0, inherit: 0.0, exposure: 0.0, gamma: 1.0, repeat: "on", map: None } } | yes |
 
 ## The file
 
