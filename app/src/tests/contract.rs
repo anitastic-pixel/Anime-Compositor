@@ -6157,37 +6157,129 @@ fn cell(text: &str) -> String {
 /// edit to every other Curl Noise setting in an older project, because the panel sends all of
 /// them at once.
 ///
-/// Reads the `if parameter(query, "x").is_some() { number("x")? } else { N }` form only; the
-/// `num("x", start.x)` form takes its value from a struct and is not read here.
+/// Reads the window's `if parameter(query, "x").is_some() { number("x")? } else { N }` form and
+/// the project reader's `effect_number_or(params, "x", at, N)`; the `num("x", start.x)` form
+/// takes its value from a struct and is not read here. The settings tables in
+/// src/effects.rs are not read either; the 2026-10-15 run of every effect through the real
+/// panel found Color Grade's and Particle Playground's starts there.
 #[test]
 fn a_setting_an_older_project_leaves_out_shows_its_as_added_value() {
-    let source = source();
     let page = page();
     let effects = std::fs::read_to_string(repo("src/effects.rs")).expect("read src/effects.rs");
+    let persist = std::fs::read_to_string(repo("src/persist.rs")).expect("read src/persist.rs");
     let (mut checked, mut wrong) = (0, Vec::new());
-    for (at, _) in source.match_indices("if parameter(query, \"") {
-        let name = source[at + 21..].split('"').next().unwrap_or_default();
-        let shape = format!("if parameter(query, \"{name}\").is_some() {{ number(\"{name}\")? }} else {{ ");
-        let Some(tail) = source[at..].strip_prefix(shape.as_str()) else { continue };
-        let value: String = tail.chars().take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-').collect();
-        let Ok(value) = value.parse::<f64>() else { continue };
-        // The effect is the nearest `NAME => Ok(Effect::` above, and NAME its identifier's constant.
-        let Some(arm_end) = source[..at].rfind(" => Ok(Effect::") else { continue };
-        let arm = source[..arm_end].rsplit(char::is_whitespace).next().unwrap_or_default();
-        let Some(type_id) = effects.split(&format!("pub const {arm}: &str = \"")).nth(1) else { continue };
-        let type_id = type_id.split('"').next().unwrap_or_default();
-        let Some(block) = page.split(&format!("'{type_id}': [")).nth(1) else { continue };
-        let block = block.split("]],").next().unwrap_or_default();
-        let Some(row) = block.split(&format!("['{name}', '")).nth(1) else { continue };
-        let row = row.split(']').next().unwrap_or_default();
-        // What follows the row's last quoted text: nothing, or `, 100`, or `, null, 100`.
-        let start = row[row.rfind('\'').unwrap_or(0) + 1..].rsplit(',').next().unwrap_or_default().trim();
-        let start = if start.is_empty() { 0.0 } else { start.parse::<f64>().unwrap_or(f64::NAN) };
-        checked += 1;
-        if start != value {
-            wrong.push(format!("{type_id} {name}: the window reads {value}, the panel shows {start}"));
+    // Where the setting's name starts after `opening`, the text after its as-added value, and
+    // the text before its effect's constant.
+    let window = source();
+    let reads = [
+        (
+            window.as_str(),
+            "if parameter(query, \"",
+            "\").is_some() { number(\"{}\")? } else { ",
+            " => Ok(Effect::",
+        ),
+        (
+            persist.as_str(),
+            "effect_number_or(params, \"",
+            "\", at, ",
+            " => Some(crate::effects::Effect::",
+        ),
+    ];
+    for (source, opening, between, arm_mark) in reads {
+        for (at, _) in source.match_indices(opening) {
+            let name = source[at + opening.len()..]
+                .split('"')
+                .next()
+                .unwrap_or_default();
+            let shape = format!("{opening}{name}{}", between.replace("{}", name));
+            let Some(tail) = source[at..].strip_prefix(shape.as_str()) else {
+                continue;
+            };
+            let value: String = tail
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
+                .collect();
+            let Ok(value) = value.parse::<f64>() else {
+                continue;
+            };
+            // The effect is the nearest `NAME => Ok(Effect::` above, and NAME its identifier's constant.
+            let Some(arm_end) = source[..at].rfind(arm_mark) else {
+                continue;
+            };
+            let arm = source[..arm_end]
+                .rsplit(char::is_whitespace)
+                .next()
+                .unwrap_or_default();
+            let arm = arm.trim_start_matches("crate::effects::");
+            let Some(type_id) = effects.split(&format!("pub const {arm}: &str = \"")).nth(1) else {
+                continue;
+            };
+            let type_id = type_id.split('"').next().unwrap_or_default();
+            let Some(block) = page.split(&format!("'{type_id}': [")).nth(1) else {
+                continue;
+            };
+            let block = block.split("]],").next().unwrap_or_default();
+            let Some(row) = block.split(&format!("['{name}', '")).nth(1) else {
+                continue;
+            };
+            let row = row.split(']').next().unwrap_or_default();
+            // What follows the row's last quoted text: nothing, or `, 100`, or `, null, 100`.
+            let start = row[row.rfind('\'').unwrap_or(0) + 1..]
+                .rsplit(',')
+                .next()
+                .unwrap_or_default()
+                .trim();
+            let start = if start.is_empty() {
+                0.0
+            } else {
+                start.parse::<f64>().unwrap_or(f64::NAN)
+            };
+            checked += 1;
+            if start != value {
+                wrong.push(format!(
+                    "{type_id} {name}: a project without it reads {value}, the panel shows {start}"
+                ));
+            }
         }
     }
-    assert!(checked >= 30, "only {checked} settings were found to compare; the reading has drifted");
-    assert!(wrong.is_empty(), "the panel starts these at a value the window does not: {wrong:#?}");
+    assert!(
+        checked >= 60,
+        "only {checked} settings were found to compare; the reading has drifted"
+    );
+    assert!(
+        wrong.is_empty(),
+        "the panel starts these at a value the app does not: {wrong:#?}"
+    );
+}
+
+/// Every effect the page names has a numbers entry, even an empty one: without it the card
+/// says this build does not have the effect and offers no settings, as Toner's did.
+#[test]
+fn every_effect_the_page_names_has_a_settings_entry() {
+    let page = page();
+    let table = |name: &str| {
+        let from = page
+            .find(&format!("\nconst {name} = {{"))
+            .unwrap_or_else(|| panic!("no {name} in the page"));
+        let to = from + page[from..].find("\n};").expect("the table ends");
+        page[from..to].to_string()
+    };
+    let (names, params) = (table("EFFECT_NAMES"), table("EFFECT_PARAMS"));
+    let types: Vec<&str> = names
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix('\'')?.split('\'').next())
+        .collect();
+    assert!(
+        types.len() > 200,
+        "only {} effects were read from EFFECT_NAMES",
+        types.len()
+    );
+    let missing: Vec<&&str> = types
+        .iter()
+        .filter(|t| !params.contains(&format!("\n  '{t}': ")))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "these effects have no EFFECT_PARAMS entry: {missing:#?}"
+    );
 }

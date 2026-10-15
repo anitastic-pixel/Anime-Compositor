@@ -11150,6 +11150,8 @@ const EFFECT_PARAMS = {
     ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly the streaks show']],
   // D-182: no numbers; its file is chosen on the card.
   'core.color_lookup': [],
+  // B-247: no numbers; its tones and colours are on the card.
+  'core.toner': [],
   // D-183: along the line only; the length is halved for a half-size draft.
   'core.line_blur': [['length', 'Length', 1, 0.5, 'px along the line, 0 to 50'],
     ['strength', 'Strength', 1, 1, '%, 0 to 100']],
@@ -11820,19 +11822,19 @@ const EFFECT_PARAMS = {
     ['persistent_older_younger_than', 'Persistent Older/Younger Than', 1, 0.1, '-1000 to 1000 seconds: above 0 the Persistent Property Mapper takes particles older than this, below 0 younger; 0 takes all'],
     ['persistent_age_feather', 'Persistent Age Feather', 1, 0.1, '0 to 1000 seconds, how gradually older or younger ones are taken'],
     ['persistent_min_red', 'Persistent Min Red', 1, 0.1, '-10000 to 10000, the value where the map’s red is 0'],
-    ['persistent_max_red', 'Persistent Max Red', 1, 0.1, '-10000 to 10000, the value where the map’s red is full'],
+    ['persistent_max_red', 'Persistent Max Red', 1, 0.1, '-10000 to 10000, the value where the map’s red is full', '', 1],
     ['persistent_min_green', 'Persistent Min Green', 1, 0.1, '-10000 to 10000, the value where the map’s green is 0'],
-    ['persistent_max_green', 'Persistent Max Green', 1, 0.1, '-10000 to 10000, the value where the map’s green is full'],
+    ['persistent_max_green', 'Persistent Max Green', 1, 0.1, '-10000 to 10000, the value where the map’s green is full', '', 1],
     ['persistent_min_blue', 'Persistent Min Blue', 1, 0.1, '-10000 to 10000, the value where the map’s blue is 0'],
-    ['persistent_max_blue', 'Persistent Max Blue', 1, 0.1, '-10000 to 10000, the value where the map’s blue is full'],
+    ['persistent_max_blue', 'Persistent Max Blue', 1, 0.1, '-10000 to 10000, the value where the map’s blue is full', '', 1],
     ['ephemeral_older_younger_than', 'Ephemeral Older/Younger Than', 1, 0.1, '-1000 to 1000 seconds: above 0 the Ephemeral Property Mapper takes particles older than this, below 0 younger; 0 takes all'],
     ['ephemeral_age_feather', 'Ephemeral Age Feather', 1, 0.1, '0 to 1000 seconds, how gradually older or younger ones are taken'],
     ['ephemeral_min_red', 'Ephemeral Min Red', 1, 0.1, '-10000 to 10000, the value where the map’s red is 0'],
-    ['ephemeral_max_red', 'Ephemeral Max Red', 1, 0.1, '-10000 to 10000, the value where the map’s red is full'],
+    ['ephemeral_max_red', 'Ephemeral Max Red', 1, 0.1, '-10000 to 10000, the value where the map’s red is full', '', 1],
     ['ephemeral_min_green', 'Ephemeral Min Green', 1, 0.1, '-10000 to 10000, the value where the map’s green is 0'],
-    ['ephemeral_max_green', 'Ephemeral Max Green', 1, 0.1, '-10000 to 10000, the value where the map’s green is full'],
+    ['ephemeral_max_green', 'Ephemeral Max Green', 1, 0.1, '-10000 to 10000, the value where the map’s green is full', '', 1],
     ['ephemeral_min_blue', 'Ephemeral Min Blue', 1, 0.1, '-10000 to 10000, the value where the map’s blue is 0'],
-    ['ephemeral_max_blue', 'Ephemeral Max Blue', 1, 0.1, '-10000 to 10000, the value where the map’s blue is full'],
+    ['ephemeral_max_blue', 'Ephemeral Max Blue', 1, 0.1, '-10000 to 10000, the value where the map’s blue is full', '', 1],
     ['random_seed', 'Random Seed', 1, 1, '0 to 10000 a number, a different seed gives different particles']],
   'core.particle_grid': [['form_center', 'Form Center', 2, 1, '% of the width and height, -1000 to 1000, where its middle is'],
     ['form_size_x', 'Form Size X', 1, 1, '0 to 100000 pixels, how wide the grid or ball is'],
@@ -12001,7 +12003,7 @@ const EFFECT_PARAMS = {
   'core.cross_blur': [['radius_x', 'Radius X', 1, 0.5, '0 to 500 px, the blur across'],
     ['radius_y', 'Radius Y', 1, 0.5, '0 to 500 px, the blur down']],
   'core.spin_zoom_blur': [['amount', 'Amount', 1, 0.5, '-360 to 360: degrees for the turns, % of the distance for the zooms'],
-    ['quality', 'Quality', 1, 1, '1 to 100; 50 is a sample a pixel of path, less shows separate copies'],
+    ['quality', 'Quality', 1, 1, '1 to 100; 50 is a sample a pixel of path, less shows separate copies', '', 50],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
   'core.fast_zoom_blur': [['amount', 'Amount', 1, 0.5, '0 to 100, % of the distance to the centre'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
@@ -12302,8 +12304,8 @@ const EFFECT_PARAMS = {
     ['distortion_speed', 'Distortion Speed', 1, 1, '0 to 100, how fast the wobbles move'],
     ['random_seed', 'Random Seed', 1, 1, '0 to 10000, a different flicker and wobble for each'],
     // D-565.
-    ['start_roundness', 'Start Roundness', 1, 1, '0 to 100, the shape of the core at its start: 100 round, 0 flat'],
-    ['end_roundness', 'End Roundness', 1, 1, '0 to 100, the shape of the core at its end: 100 round, 0 flat']],
+    ['start_roundness', 'Start Roundness', 1, 1, '0 to 100, the shape of the core at its start: 100 round, 0 flat', '', 100],
+    ['end_roundness', 'End Roundness', 1, 1, '0 to 100, the shape of the core at its end: 100 round, 0 flat', '', 100]],
   'core.scribble': [['mask', 'Mask', 1, 1, 'the mask numbered so, 1 to 1000, for Single Mask'],
     ['edge_width', 'Edge Width', 1, 1, 'pixels, 0 to 1000, how wide the band is for the edge fill types'],
     ['opacity', 'Opacity', 1, 1, '%, 0 to 100'],
@@ -12419,17 +12421,17 @@ const EFFECT_PARAMS = {
     ['highlight_wheel_amount', 'Highlight Wheel Amount', 1, 1, '0 to 100'],
     ['highlight_lightness', 'Highlight Lightness', 1, 1, '-100 to 100'],
     ['key_hue', 'Key Hue', 1, 1, 'degrees, 0 to 360, the colour the secondary picks'],
-    ['key_hue_range', 'Key Hue Range', 1, 1, 'degrees, 0 to 180, 180 every hue'],
+    ['key_hue_range', 'Key Hue Range', 1, 1, 'degrees, 0 to 180, 180 every hue', '', 180],
     ['key_hue_softness', 'Key Hue Softness', 1, 1, 'degrees, 0 to 180'],
     ['key_saturation_low', 'Key Saturation Low', 1, 1, '0 to 100'],
-    ['key_saturation_high', 'Key Saturation High', 1, 1, '0 to 100'],
+    ['key_saturation_high', 'Key Saturation High', 1, 1, '0 to 100', '', 100],
     ['key_lightness_low', 'Key Lightness Low', 1, 1, '0 to 100'],
-    ['key_lightness_high', 'Key Lightness High', 1, 1, '0 to 100'],
+    ['key_lightness_high', 'Key Lightness High', 1, 1, '0 to 100', '', 100],
     ['key_softness', 'Key Softness', 1, 1, '0 to 100, the saturation and lightness edges'],
     ['secondary_temperature', 'Secondary Temperature', 1, 1, '-100 to 100'],
     ['secondary_tint', 'Secondary Tint', 1, 1, '-100 to 100'],
     ['secondary_contrast', 'Secondary Contrast', 1, 1, '-100 to 100'],
-    ['secondary_saturation', 'Secondary Saturation', 1, 1, '0 to 200, 100 as it was'],
+    ['secondary_saturation', 'Secondary Saturation', 1, 1, '0 to 200, 100 as it was', '', 100],
     ['secondary_wheel_hue', 'Secondary Wheel Hue', 1, 1, 'degrees, 0 to 360'],
     ['secondary_wheel_amount', 'Secondary Wheel Amount', 1, 1, '0 to 100'],
     ['secondary_lightness', 'Secondary Lightness', 1, 1, '-100 to 100, the midtones with three wheels'],
@@ -13960,6 +13962,12 @@ const fxTextOf = (pts) => pts.map((p) => p.map(number).join(' ')).join(', ');
 // The curve each Curves card shows, by instance, for as long as the window is open.
 const curvesShown = new Map();
 const CURVE_COLOURS = { master: '#d8d8dc', red: '#e0605a', green: '#5ac06a', blue: '#5a8ae0', alpha: '#a0a0a8' };
+// The curve shown for an effect, one of its own; Color Grade's are curve_master and so on.
+const curveShownOf = (id, lists) => {
+  const s = curvesShown.get(id);
+  return lists.some((l) => l[0] === s) ? s : lists[0][0];
+};
+const curveColour = (name) => CURVE_COLOURS[name.replace(/^curve_/, '')];
 
 // D-111's graph, in against out on 0 to 255, one curve at a time. A press on the graph adds a
 // point on the line there and drags it; a point is dragged by itself, cannot pass its
@@ -13971,7 +13979,7 @@ function fxCurves(k, id, channels, label) {
   c.title = 'Press to add a point, drag a point to move it, drag it off or double-click it to '
     + 'take it away';
   const g = c.getContext('2d');
-  const shown = () => curvesShown.get(id) || 'master';
+  const shown = () => curveShownOf(id, channels);
   const X = (v) => (v / 255) * S;
   const Y = (v) => S - (v / 255) * S;
   const line = (pts, colour, width) => {
@@ -14004,14 +14012,14 @@ function fxCurves(k, id, channels, label) {
     for (const [name] of channels) {
       if (name !== shown() && k.words[name] !== '0 0, 255 255') {
         g.globalAlpha = 0.35;
-        line(fxPointsOf(k.words[name]), CURVE_COLOURS[name], 1);
+        line(fxPointsOf(k.words[name]), curveColour(name), 1);
         g.globalAlpha = 1;
       }
     }
     const pts = fxPointsOf(k.words[shown()]);
-    line(pts, CURVE_COLOURS[shown()], 1.5);
+    line(pts, curveColour(shown()), 1.5);
     g.fillStyle = '#141414';
-    g.strokeStyle = CURVE_COLOURS[shown()];
+    g.strokeStyle = curveColour(shown());
     for (const [x, y] of pts) {
       g.fillRect(X(x) - 3, Y(y) - 3, 6, 6);
       g.strokeRect(X(x) - 3, Y(y) - 3, 6, 6);
@@ -14618,7 +14626,8 @@ function effectRow(layer, fx, at, of) {
     const parts = known.map(([name]) => '&' + name + '=' + encodeURIComponent(keyed(name)
       ? [].concat(propOf(layer, fxName(fx, name)).base).join(',') : typed(name)));
     if (chosen) parts.push('&colors=' + encodeURIComponent(chosen.join(',')));
-    for (const w in words) parts.push('&' + w + '=' + encodeURIComponent(words[w]));
+    // A colour the file leaves out stays out, so the app gives it its as-added colour.
+    for (const w in words) if (words[w] !== undefined) parts.push('&' + w + '=' + encodeURIComponent(words[w]));
     go('/effect.set_parameters' + where + parts.join('') + extra);
   };
   // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
@@ -14954,7 +14963,7 @@ function effectRow(layer, fx, at, of) {
   // D-111: the graph of the curve picked above it, and its points as text under it, in then
   // out, a comma between points, for exact numbers and the keyboard. Enter or leaving the box
   // sends it; Escape puts it back. Points are not keyed.
-  const curveShown = spec.lists && (curvesShown.get(fx.instance_id) || spec.lists[0][0]);
+  const curveShown = spec.lists && curveShownOf(fx.instance_id, spec.lists);
   if (spec.lists) {
     const which = document.createElement('select');
     which.setAttribute('aria-label', label + ' curve shown');
