@@ -629,7 +629,8 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
         // Already initialised on this thread is an answer too, and not a failure.
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         MFStartup(MF_VERSION, MFSTARTUP_FULL).map_err(said)?;
-        let read = || -> windows::core::Result<(u32, usize, Vec<f32>)> {
+        // Also how many samples the decoder put before 0, which it has then skipped itself.
+        let read = || -> windows::core::Result<(u32, usize, Vec<f32>, usize)> {
             let reader = MFCreateSourceReaderFromURL(&HSTRING::from(path.as_os_str()), None)?;
             let first = MF_SOURCE_READER_FIRST_AUDIO_STREAM.0 as u32;
             reader.SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS.0 as u32, false)?;
@@ -642,6 +643,7 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
             let rate = got.GetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND)?;
             let channels = (got.GetUINT32(&MF_MT_AUDIO_NUM_CHANNELS)? as usize).max(1);
             let mut x: Vec<f32> = Vec::new();
+            let mut start_at = None;
             loop {
                 let (mut flags, mut time, mut sample) = (0u32, 0i64, None);
                 reader.ReadSample(
@@ -660,6 +662,7 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
                     // Where the piece starts, to the nearest sample: before 0 is the start delay.
                     let at =
                         (time as i128 * rate as i128 + 5_000_000).div_euclid(10_000_000) as i64;
+                    start_at.get_or_insert(at);
                     let skip = ((-at).max(0) as usize * channels).min(piece.len());
                     let start = at.max(0) as usize * channels;
                     if start > x.len() {
@@ -673,16 +676,23 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
                     break;
                 }
             }
-            Ok((rate, channels, x))
+            Ok((
+                rate,
+                channels,
+                x,
+                start_at.map_or(0, |a: i64| (-a).max(0) as usize),
+            ))
         };
         let result = read();
         let _ = MFShutdown();
-        let (rate, channels, mut x) = result.map_err(said)?;
+        let (rate, channels, mut x, skipped) = result.map_err(said)?;
         if let Some((silence, skip, keep, track)) =
             std::fs::read(path).ok().as_deref().and_then(edit_list)
         {
             let at = |n: u64| (n as u128 * rate as u128 / track.max(1) as u128) as usize * channels;
-            x.drain(..at(skip).min(x.len()));
+            // Windows 11's decoder starts at the delay, at 0; Windows Server's decoder
+            // (GitHub's computer) starts before 0 by the edit list's skip, and has skipped it.
+            x.drain(..at(skip).saturating_sub(skipped * channels).min(x.len()));
             if let Some(keep) = keep {
                 x.truncate(at(keep));
             }
