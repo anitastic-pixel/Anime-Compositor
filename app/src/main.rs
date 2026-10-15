@@ -1563,7 +1563,7 @@ fn serve_seen(
             anime_compositor::perf::end_capture();
             return allow_the_page_to_read_this(Response::builder().status(500))
                 .header("content-type", "text/plain; charset=utf-8")
-                .body(diagnostic.message.into_bytes())
+                .body(diagnostic.sentence().into_bytes())
                 .expect("build the diagnostic response")
         }
     };
@@ -1710,7 +1710,7 @@ fn finished(pixels: Vec<u8>, width: usize, height: usize, frame: i32, log: Frame
         height,
         fell_back: log.ids_at(frame).contains(&DiagnosticId::GpuPreviewOnCpu),
         on_processor: log.on_processor().join(", "),
-        warnings: log.finish().iter().map(|d| format!("{}: {}", d.id.as_str(), d.message)).collect(),
+        warnings: log.finish().iter().map(|d| format!("{}: {}", d.id.as_str(), d.sentence())).collect(),
     }
 }
 
@@ -1844,9 +1844,9 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
     // Document 28's PROJECT_RECOVERY_AVAILABLE, at the one moment it can be acted on. A person
     // who is told about unsaved work an hour after opening the project has already redone it.
     let candidates = persist::recovery_candidates(path);
-    let mut notes: Vec<String> = loaded.warnings.iter().map(note).collect();
+    let mut notes: Vec<String> = loaded.warnings.iter().map(Diagnostic::note).collect();
     if let Some(diagnostic) = persist::recovery_diagnostic(&candidates) {
-        notes.push(note(&diagnostic));
+        notes.push(diagnostic.note());
     }
 
     Ok(Viewer {
@@ -2006,25 +2006,6 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
     .to_string()
 }
 
-/// One diagnostic as the window says it: what happened, then what to do about it.
-fn sentence(diagnostic: &Diagnostic) -> String {
-    match &diagnostic.remediation {
-        Some(next) => format!("{} {}", diagnostic.message, next),
-        None => diagnostic.message.clone(),
-    }
-}
-
-/// W-25: a diagnostic as the notes strip carries it: the sentence, then after a tab its document
-/// 28 code and detail, which the page shows only when the error details are opened.
-fn note(diagnostic: &Diagnostic) -> String {
-    format!(
-        "{}\t{} {}",
-        sentence(diagnostic),
-        diagnostic.id.as_str(),
-        diagnostic.detail.replace(['\n', '\t'], " ")
-    )
-}
-
 /// The project the window opens on when it was not given one.
 ///
 /// The reference shot, resolved against this crate's source directory, so it only works from a
@@ -2129,7 +2110,7 @@ fn save(viewer: &Mutex<Viewer>) -> String {
     };
     match write(viewer, &path) {
         Ok(()) => format!("Saved to {}", path.display()),
-        Err(diagnostic) => sentence(&diagnostic),
+        Err(diagnostic) => diagnostic.sentence(),
     }
 }
 
@@ -2149,7 +2130,7 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
         let to = path.parent().unwrap_or(Path::new("."));
         let mut copy = Document::new(persist::rebased(viewer.document.project(), &viewer.root, to));
         if let Err(diagnostic) = persist::save(path, &mut copy, &viewer.preserved) {
-            return sentence(&diagnostic);
+            return diagnostic.sentence();
         }
         if let (None, Some(folder)) = (&viewer.path, unsaved_folder()) {
             forget_unsaved(&folder);
@@ -2211,7 +2192,7 @@ fn take(viewer: &Mutex<Viewer>, path: &Path) -> bool {
             true
         }
         Err(diagnostic) => {
-            viewer.notes = vec![note(&diagnostic)];
+            viewer.notes = vec![diagnostic.note()];
             viewer.status = format!("{} could not be opened.", path.display());
             false
         }
@@ -2294,7 +2275,7 @@ fn autosave_tick_in(viewer: &mut Viewer, now: Instant, unsaved: Option<&Path>) -
             }
             // A failed autosave is said out loud rather than swallowed. It is the one moment the
             // person can still do something about it — the work is in memory and nowhere else.
-            Err(diagnostic) => sentence(&diagnostic),
+            Err(diagnostic) => diagnostic.sentence(),
         },
     )
 }
@@ -2323,7 +2304,7 @@ fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -
             Some(folder) => {
                 let mut taken = match open(snapshot) {
                     Ok(taken) => taken,
-                    Err(diagnostic) => return sentence(&diagnostic),
+                    Err(diagnostic) => return diagnostic.sentence(),
                 };
                 let project = taken.document.project().clone();
                 taken.document = Document::recovered(project.clone(), Project::new(project.id));
@@ -2342,14 +2323,14 @@ fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -
     };
     let mut taken = match open(snapshot) {
         Ok(taken) => taken,
-        Err(diagnostic) => return sentence(&diagnostic),
+        Err(diagnostic) => return diagnostic.sentence(),
     };
     // The project as the file has it, which is the baseline the recovered document is dirty
     // against. If it cannot be read, the snapshot is not opened either: a window that could not
     // say what the file holds cannot say what is outstanding.
     let saved = match persist::load(&project) {
         Ok(saved) => saved,
-        Err(diagnostic) => return sentence(&diagnostic),
+        Err(diagnostic) => return diagnostic.sentence(),
     };
     taken.document = Document::recovered(
         taken.document.project().clone(),
@@ -2451,7 +2432,7 @@ fn edit(viewer: &Mutex<Viewer>, command: Command) -> String {
     let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
     match viewer.document.apply(command) {
         Ok(record) => record.label.clone(),
-        Err(diagnostic) => sentence(&diagnostic),
+        Err(diagnostic) => diagnostic.sentence(),
     }
 }
 
@@ -2797,14 +2778,14 @@ fn drag_update(viewer: &Mutex<Viewer>, command: Command) -> String {
     let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
     if !viewer.document.drag_in_progress() {
         if let Err(diagnostic) = viewer.document.begin_drag() {
-            return sentence(&diagnostic);
+            return diagnostic.sentence();
         }
     }
     match viewer.document.update_drag(command) {
         // Not the label: a scrub sends these several times a second and the status line is for
         // reading. What it moved to is the useful half.
         Ok(()) => "Dragging.".to_string(),
-        Err(diagnostic) => sentence(&diagnostic),
+        Err(diagnostic) => diagnostic.sentence(),
     }
 }
 
@@ -2901,21 +2882,21 @@ fn import_cut(viewer: &Mutex<Viewer>, folder: &Path) -> String {
         Err(refused) => {
             let refusal = refused.refusal.diagnostic();
             let mut held = viewer.lock().expect("the viewer lock was poisoned");
-            held.notes.push(note(&refusal));
+            held.notes.push(refusal.note());
             held.notes
-                .extend(refused.notes.iter().map(|n| note(&n.diagnostic())));
-            return format!("Nothing was imported. {}", sentence(&refusal));
+                .extend(refused.notes.iter().map(|n| n.diagnostic().note()));
+            return format!("Nothing was imported. {}", refusal.sentence());
         }
     };
     let id = {
         let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
         let (id, commands) = timesheet::commands(&cut, held.document.project(), &held.root);
         if let Err(diagnostic) = held.document.apply_all(commands) {
-            return sentence(&diagnostic);
+            return diagnostic.sentence();
         }
         held.notes
-            .extend(cut.notes.iter().map(|n| note(&n.diagnostic())));
-        held.notes.extend(cut.media.iter().map(note));
+            .extend(cut.notes.iter().map(|n| n.diagnostic().note()));
+        held.notes.extend(cut.media.iter().map(Diagnostic::note));
         id
     };
     show(viewer, &id);
@@ -2965,7 +2946,7 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
                 match exr_io::read(file) {
                     Ok(picture) => told.extend(picture.diagnostic(file)),
                     Err(refused) => {
-                        return format!("Nothing was imported. {}", sentence(&refused));
+                        return format!("Nothing was imported. {}", refused.sentence());
                     }
                 }
             }
@@ -2986,7 +2967,7 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
             {
                 let mut held = viewer.lock().expect("the viewer lock was poisoned");
                 if held.document.project().assets.iter().any(|a| a.id == id) {
-                    held.notes.extend(told.iter().map(note));
+                    held.notes.extend(told.iter().map(Diagnostic::note));
                 }
             }
             return format!(
@@ -2996,7 +2977,7 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
         }
     }
     let result = media::import_sequence(files);
-    let told: Vec<String> = result.diagnostics.iter().map(sentence).collect();
+    let told: Vec<String> = result.diagnostics.iter().map(Diagnostic::sentence).collect();
     let Some(sequence) = result.asset else {
         let mut said = match files.len() {
             1 => "The chosen file does not form an image sequence, so nothing was imported."
@@ -3037,7 +3018,7 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
         if !held.document.project().assets.iter().any(|a| a.id == id) {
             return said;
         }
-        held.notes.extend(result.diagnostics.iter().map(note));
+        held.notes.extend(result.diagnostics.iter().map(Diagnostic::note));
     }
     let (lo, hi) = sequence
         .range()
@@ -3108,9 +3089,9 @@ fn import_sounds(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
         let mut held = viewer.lock().expect("the viewer lock was poisoned");
         if held.document.project().assets.iter().any(|a| a.id == id) {
             if let Some(told) = &told {
-                warned = format!("{warned} {}", sentence(told));
+                warned = format!("{warned} {}", told.sentence());
             }
-            held.notes.extend(told.iter().map(note));
+            held.notes.extend(told.iter().map(Diagnostic::note));
         }
     }
     let picture = if video {
@@ -3309,7 +3290,7 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
     let candidate =
         match persist::relink_candidate(held.document.project(), asset, files, &held.root) {
             Ok(candidate) => candidate,
-            Err(diagnostic) => return sentence(&diagnostic),
+            Err(diagnostic) => return diagnostic.sentence(),
         };
     let existing = held
         .document
@@ -3391,7 +3372,7 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
          has changed yet.",
         existing.name, candidate.pattern,
     );
-    for note in candidate.diagnostics.iter().map(sentence) {
+    for note in candidate.diagnostics.iter().map(Diagnostic::sentence) {
         said.push(' ');
         said.push_str(&note);
     }
@@ -9847,7 +9828,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
-                Err(diagnostic) => sentence(&diagnostic),
+                Err(diagnostic) => diagnostic.sentence(),
             });
         }
         "edit.undo" => return Some(undo(viewer)),
@@ -10483,7 +10464,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             commands.extend(parents);
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
-                Err(diagnostic) => sentence(&diagnostic),
+                Err(diagnostic) => diagnostic.sentence(),
             });
         }
         // W-26: a composition deleted from the project panel, one entry to undo. The core keeps
@@ -10631,7 +10612,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 commands.extend(locks);
                 match held.document.apply_all(commands) {
                     Ok(_) => Ok((copy, name)),
-                    Err(diagnostic) => Err(sentence(&diagnostic)),
+                    Err(diagnostic) => Err(diagnostic.sentence()),
                 }
             };
             return Some(match made {
@@ -10821,7 +10802,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             ];
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
-                Err(diagnostic) => sentence(&diagnostic),
+                Err(diagnostic) => diagnostic.sentence(),
             });
         }
         // D-314: After Effects' Time-Reverse Keyframes, on the chosen keys, as one entry to undo.
@@ -10946,7 +10927,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
             return Some(match held.document.apply_all(removes.into_iter().chain(sets).collect()) {
                 Ok(record) => record.label.clone(),
-                Err(diagnostic) => sentence(&diagnostic),
+                Err(diagnostic) => diagnostic.sentence(),
             });
         }
         // W-17: every chosen key moved by the same distance, as one entry to undo. Each is named
@@ -11119,7 +11100,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .collect();
                 return Some(match held.document.apply_all(commands) {
                     Ok(record) => record.label.clone(),
-                    Err(diagnostic) => sentence(&diagnostic),
+                    Err(diagnostic) => diagnostic.sentence(),
                 });
             }
             // B-19a: a key dragged in the graph goes up and down as well as along, and one drag
@@ -11192,7 +11173,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             }
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
-                Err(diagnostic) => sentence(&diagnostic),
+                Err(diagnostic) => diagnostic.sentence(),
             });
         }
         // B-18c: D-67's Pre-compose. The core says what it is made of and refuses a choice that
@@ -11224,14 +11205,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 &name,
             ) {
                 Ok(commands) => commands,
-                Err(diagnostic) => return Some(sentence(&diagnostic)),
+                Err(diagnostic) => return Some(diagnostic.sentence()),
             };
             return Some(match held.document.apply_all(commands) {
                 Ok(_) => format!(
                     "{name} holds the chosen layers now, and one layer shows it here. \
                      Double-click that layer to open it. Ctrl+Z puts them back."
                 ),
-                Err(diagnostic) => sentence(&diagnostic),
+                Err(diagnostic) => diagnostic.sentence(),
             });
         }
         _ => {}
@@ -13298,7 +13279,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     };
                     let pasted = match persist::read_effects(&text) {
                         Ok(pasted) => pasted,
-                        Err(diagnostic) => return Some(sentence(&diagnostic)),
+                        Err(diagnostic) => return Some(diagnostic.sentence()),
                     };
                     let next = unused_effect_id(project)
                         .as_str()
@@ -13439,7 +13420,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         unparent.push(command);
         match held.document.apply_all(unparent) {
             Ok(record) => record.label.clone(),
-            Err(diagnostic) => sentence(&diagnostic),
+            Err(diagnostic) => diagnostic.sentence(),
         }
     } else if id == "property.drag_update" || parameter(query, "drag").is_some() {
         drag_update(viewer, command)
@@ -13727,7 +13708,7 @@ fn what_the_export_did(report: &ExportReport, into: &Path) -> String {
                 .to_string(),
         );
     }
-    lines.extend(report.diagnostics.iter().map(sentence));
+    lines.extend(report.diagnostics.iter().map(Diagnostic::sentence));
     lines.join(" ")
 }
 
@@ -13899,7 +13880,7 @@ fn collect_into(viewer: &Mutex<Viewer>, into: &Path) -> String {
     );
     drop(held);
     if let Err(diagnostic) = written {
-        return sentence(&diagnostic);
+        return diagnostic.sentence();
     }
     // The counts are read back from the manifest just written, so the sentence cannot disagree
     // with it.
@@ -13959,8 +13940,8 @@ fn check_package(viewer: &Mutex<Viewer>) -> String {
     let rows = match package::check(&path) {
         Ok(rows) => rows,
         Err(diagnostic) => {
-            held.notes = vec![note(&diagnostic)];
-            return sentence(&diagnostic);
+            held.notes = vec![diagnostic.note()];
+            return diagnostic.sentence();
         }
     };
     held.notes = rows
@@ -13968,7 +13949,7 @@ fn check_package(viewer: &Mutex<Viewer>) -> String {
         .filter_map(|row| {
             row.diagnostic
                 .as_ref()
-                .map(|d| format!("{}: {}", row.path, note(d)))
+                .map(|d| format!("{}: {}", row.path, d.note()))
         })
         .collect();
     let counts: Vec<String> = [
@@ -15779,7 +15760,7 @@ fn ask_where_to_save_the_log(app: &AppHandle) {
 fn ask_where_to_export_presets(app: &AppHandle, name: &str, presets: &str) -> String {
     let text = match persist::write_presets(presets) {
         Ok(text) => text,
-        Err(refused) => return sentence(&refused),
+        Err(refused) => return refused.sentence(),
     };
     let count = persist::read_presets(&text).map_or(0, |p| p.len());
     let handle = app.clone();
@@ -15956,7 +15937,7 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
     });
     match held.document.apply_all(commands) {
         Ok(_) => format!("{what} now uses {name}."),
-        Err(diagnostic) => sentence(&diagnostic),
+        Err(diagnostic) => diagnostic.sentence(),
     }
 }
 
@@ -15988,7 +15969,7 @@ fn starter_presets() -> String {
 /// in, or the sentence refusing it whole. A name in `have` comes in with " 2", or the next number
 /// free both in the window and in the file.
 fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_json::Value, String), String> {
-    let read = persist::read_presets(text).map_err(|refused| sentence(&refused))?;
+    let read = persist::read_presets(text).map_err(|refused| refused.sentence())?;
     // Each effect goes on as the file wrote it; `effect.paste` reads it by the same rules again.
     let root: serde_json::Value = serde_json::from_str(text).expect("read_presets read it as JSON");
     let mut taken: Vec<String> = have.iter().cloned().chain(read.iter().map(|p| p.name.clone())).collect();
@@ -22755,7 +22736,7 @@ mod editing {
                     picture.image.height(),
                     picture.adjusted.len()
                 ),
-                Some(Err(refused)) => sentence(&refused),
+                Some(Err(refused)) => refused.sentence(),
                 None => "(nothing written)".to_string(),
             },
         );

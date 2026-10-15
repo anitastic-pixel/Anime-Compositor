@@ -449,6 +449,20 @@ impl Diagnostic {
         self.remediation = Some(remediation.into());
         self
     }
+
+    /// One diagnostic as the window says it: what happened, then what to do about it.
+    pub fn sentence(&self) -> String {
+        match &self.remediation {
+            Some(next) => format!("{} {}", self.message, next),
+            None => self.message.clone(),
+        }
+    }
+
+    /// W-25: a diagnostic as the notes strip carries it: the sentence, then after a tab its
+    /// document 28 code and detail, which the page shows only when the error details are opened.
+    pub fn note(&self) -> String {
+        format!("{}\t{} {}", self.sentence(), self.id.as_str(), self.detail.replace(['\n', '\t'], " "))
+    }
 }
 
 /// The multi-line form a user would see in a diagnostics panel.
