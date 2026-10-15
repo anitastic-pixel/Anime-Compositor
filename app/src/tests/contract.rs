@@ -6150,3 +6150,44 @@ const KEYBOARD_NOTES: &[&str] = &[
 fn cell(text: &str) -> String {
     text.replace('|', r"\|")
 }
+
+/// A setting added after projects were already saved is read as its as-added value when a
+/// project leaves it out, and the panel must show and send that same value. A panel row with
+/// no start value shows 0 and sends 0: Curl Noise's Scale (1 to 10000) then refused every
+/// edit to every other Curl Noise setting in an older project, because the panel sends all of
+/// them at once.
+///
+/// Reads the `if parameter(query, "x").is_some() { number("x")? } else { N }` form only; the
+/// `num("x", start.x)` form takes its value from a struct and is not read here.
+#[test]
+fn a_setting_an_older_project_leaves_out_shows_its_as_added_value() {
+    let source = source();
+    let page = page();
+    let effects = std::fs::read_to_string(repo("src/effects.rs")).expect("read src/effects.rs");
+    let (mut checked, mut wrong) = (0, Vec::new());
+    for (at, _) in source.match_indices("if parameter(query, \"") {
+        let name = source[at + 21..].split('"').next().unwrap_or_default();
+        let shape = format!("if parameter(query, \"{name}\").is_some() {{ number(\"{name}\")? }} else {{ ");
+        let Some(tail) = source[at..].strip_prefix(shape.as_str()) else { continue };
+        let value: String = tail.chars().take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-').collect();
+        let Ok(value) = value.parse::<f64>() else { continue };
+        // The effect is the nearest `NAME => Ok(Effect::` above, and NAME its identifier's constant.
+        let Some(arm_end) = source[..at].rfind(" => Ok(Effect::") else { continue };
+        let arm = source[..arm_end].rsplit(char::is_whitespace).next().unwrap_or_default();
+        let Some(type_id) = effects.split(&format!("pub const {arm}: &str = \"")).nth(1) else { continue };
+        let type_id = type_id.split('"').next().unwrap_or_default();
+        let Some(block) = page.split(&format!("'{type_id}': [")).nth(1) else { continue };
+        let block = block.split("]],").next().unwrap_or_default();
+        let Some(row) = block.split(&format!("['{name}', '")).nth(1) else { continue };
+        let row = row.split(']').next().unwrap_or_default();
+        // What follows the row's last quoted text: nothing, or `, 100`, or `, null, 100`.
+        let start = row[row.rfind('\'').unwrap_or(0) + 1..].rsplit(',').next().unwrap_or_default().trim();
+        let start = if start.is_empty() { 0.0 } else { start.parse::<f64>().unwrap_or(f64::NAN) };
+        checked += 1;
+        if start != value {
+            wrong.push(format!("{type_id} {name}: the window reads {value}, the panel shows {start}"));
+        }
+    }
+    assert!(checked >= 30, "only {checked} settings were found to compare; the reading has drifted");
+    assert!(wrong.is_empty(), "the panel starts these at a value the window does not: {wrong:#?}");
+}

@@ -10843,8 +10843,8 @@ const EFFECT_PARAMS = {
     ['opacity', 'Opacity', 1, 0.5, '0 to 100'],
     // D-647: the Transform and Sub Settings.
     ['rotation', 'Rotation', 1, 1, 'degrees, turns the clouds round the layer’s middle', 'dial'],
-    ['sub_influence', 'Sub Influence', 1, 0.5, 'per cent, 0 to 100, how strong each finer layer of detail is'],
-    ['sub_scaling', 'Sub Scaling', 1, 0.5, 'per cent, 10 to 100, how much smaller each finer layer of detail is'],
+    ['sub_influence', 'Sub Influence', 1, 0.5, 'per cent, 0 to 100, how strong each finer layer of detail is', '', 50],
+    ['sub_scaling', 'Sub Scaling', 1, 0.5, 'per cent, 10 to 100, how much smaller each finer layer of detail is', '', 50],
     ['sub_rotation', 'Sub Rotation', 1, 1, 'degrees, turns each finer layer of detail further', 'dial'],
     ['sub_offset', 'Sub Offset', 2, 1, 'pixels, x then y, slides each finer layer of detail further']],
   // D-129.
@@ -12234,7 +12234,7 @@ const EFFECT_PARAMS = {
     ['size', 'Size', 1, 1, 'pixels, 1 to 1000, how big the swirls are'],
     ['offset', 'Offset', 2, 1, 'pixels, x then y, slides the noise'],
     ['rotation', 'Rotation', 1, 1, 'degrees, turns the noise round the layer’s middle', 'dial'],
-    ['scale', 'Scale', 1, 1, 'per cent, 1 to 10000, makes the noise bigger or smaller round the layer’s middle'],
+    ['scale', 'Scale', 1, 1, 'per cent, 1 to 10000, makes the noise bigger or smaller round the layer’s middle', '', 100],
     ['evolution', 'Evolution', 1, 1, 'degrees; key it to change the noise, a full turn a new one', 'dial'],
     ['turbulence_speed', 'Turbulence Speed', 1, 1, '0 to 200, how fast the noise changes by itself'],
     ['swirl', 'Swirl', 1, 1, 'degrees, -360 to 360, turns the flow with the noise; 0 flows without gathering'],
