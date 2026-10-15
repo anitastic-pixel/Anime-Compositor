@@ -12954,19 +12954,23 @@ pub fn fx_draws(effect: &crate::effects::Effect) -> bool {
 
 impl Gpu {
     /// The fastest Direct3D 12 or Vulkan card on the machine, or why there is none.
+    ///
+    /// `ANIME_COMPOSITOR_SOFTWARE_CARD` set takes Windows' software card instead. Only the
+    /// GitHub check sets it, because its computer has no graphics card; the app never does.
     pub fn new() -> Result<Gpu, String> {
+        let software = std::env::var_os("ANIME_COMPOSITOR_SOFTWARE_CARD").is_some();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::DX12 | wgpu::Backends::VULKAN,
             ..Default::default()
         });
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
+            force_fallback_adapter: software,
             compatible_surface: None,
         }))
         .map_err(|e| format!("no Direct3D 12 or Vulkan graphics card answered ({e})"))?;
         let info = adapter.get_info();
-        if info.device_type == wgpu::DeviceType::Cpu {
+        if info.device_type == wgpu::DeviceType::Cpu && !software {
             return Err(format!(
                 "the only one found, {}, is the processor pretending to be a card",
                 info.name
