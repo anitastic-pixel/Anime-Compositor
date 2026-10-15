@@ -510,6 +510,30 @@ pub fn median(mut v: Vec<f64>) -> f64 {
     v[v.len() / 2]
 }
 
+/// The loop of an effect's timing test: every eighth frame of 0 to 239 asked for as the viewer
+/// asks, whole, `passes` times through one cache, after the card forgets what it held; drawn by
+/// the processor when `cpu`, by the card otherwise. Each frame's milliseconds, the first pass's
+/// apart from the passes after it.
+pub fn time_passes(gpu: &mut Gpu, cpu: bool, passes: usize, project: &Project, comp: &Id, root: &Path, quality: PreviewQuality) -> (Vec<f64>, Vec<f64>) {
+    let mut cache = CelCache::viewer();
+    gpu.forget();
+    let (mut first, mut times) = (Vec::new(), Vec::new());
+    for pass in 0..passes {
+        for frame in (0..240).step_by(8) {
+            let mut log = FrameLog::new(3);
+            let t = std::time::Instant::now();
+            if cpu {
+                drop(preview::preview_frame_cached(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame"));
+            } else {
+                drop(preview::preview_frame_srgb8(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu).expect("GPU frame"));
+            }
+            let ms = t.elapsed().as_secs_f64() * 1000.0;
+            if pass > 0 { times.push(ms) } else { first.push(ms) }
+        }
+    }
+    (first, times)
+}
+
 /// The reference shot, its three layers given the effects `stack` makes for each.
 pub fn reference(stack: impl Fn(&str) -> J) -> Project {
     let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");

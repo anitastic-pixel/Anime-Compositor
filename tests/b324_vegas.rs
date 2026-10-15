@@ -15,7 +15,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{keys, median, said, set, town, Table, MAIN, TOWN};
+use effect_table::{keys, median, said, set, time_passes, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -392,22 +392,7 @@ fn b324_vegas_timing() {
             J::Array(v)
         });
         let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let mut cache = CelCache::viewer();
-        gpu.forget();
-        let (mut first, mut times) = (Vec::new(), Vec::new());
-        for pass in 0..8 {
-            for frame in (0..240).step_by(8) {
-                let mut log = FrameLog::new(3);
-                let t = std::time::Instant::now();
-                if cpu {
-                    drop(preview::preview_frame_cached(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame"));
-                } else {
-                    drop(preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
-                }
-                let ms = t.elapsed().as_secs_f64() * 1000.0;
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
-            }
-        }
+        let (first, times) = time_passes(&mut gpu, cpu, 8, &project, &comp, &root, PreviewQuality::Full);
         let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
     }
     let out = std::env::var("B324_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-324_timing_raw.md"));

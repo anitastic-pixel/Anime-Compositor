@@ -27,6 +27,8 @@ use anime_compositor::render;
 use anime_compositor::OutputDepth;
 use serde_json::{json, Value};
 
+mod effect_table;
+use effect_table::time_passes;
 mod common;
 use common::repo;
 
@@ -407,18 +409,7 @@ fn b226_gpu_last_four_timing() {
             reference: true,
         };
         let quality = PreviewQuality::Full;
-        let mut cache = CelCache::viewer();
-        gpu.forget();
-        let (mut first, mut times) = (Vec::new(), Vec::new());
-        for pass in 0..8 {
-            for frame in (0..240).step_by(8) {
-                let mut log = FrameLog::new(3);
-                let t = std::time::Instant::now();
-                drop(preview::preview_frame_srgb8(&shot.project, &shot.comp, frame, &shot.root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
-                let ms = t.elapsed().as_secs_f64() * 1000.0;
-                if pass > 0 { times.push(ms) } else { first.push(ms) }
-            }
-        }
+        let (first, times) = time_passes(&mut gpu, false, 8, &shot.project, &shot.comp, &shot.root, quality);
         let n = left(&shot, 100, quality).iter().take(3).map(|k| k.to_string()).collect::<Vec<_>>().join(" / ");
         let _ = writeln!(s, "| {} | {} | {n} | {:.1} | {:.1} |", shot.name, quality.label(), median(first), median(times));
     }
