@@ -164649,6 +164649,25 @@ The build's test must read `host.json`, place each case's shape at its frame and
 | FX-SHPG-026 | An expression on a group's number: keys only, as a shape's other numbers. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
 
 
+## Open mask fixtures
+
+D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
+
+The build's test must draw each case's frames within the tolerance, warning of nothing on opening and nothing on frame 4; open and save each case's file and find what it held, `closed` included where it was written and nowhere else; open, close and open a mask again by command and find each one step to undo; and refuse each refused file with the diagnostic, naming the word.
+
+| case | says | the build must give |
+| --- | --- | --- |
+| FX-MSKO-001 | An open roof of three points as Mask 1, stroked: nothing along the bottom. | frame 0 as written |
+| FX-MSKO-002 | The same roof closed, `closed` left out: the bottom is drawn too. | frame 0 as written |
+| FX-MSKO-003 | The open roof, End 50: the left leg alone, half of its open length. | frame 0 as written |
+| FX-MSKO-004 | An open mask of two points, a line: drawn along, and no warning that it has too few points. | frame 0 as written, no warning |
+| FX-MSKO-005 | A curved ring, open: no piece back from its last point to its first. | frame 0 as written |
+| FX-MSKO-006 | Every mask, sequentially, End 60: the open roof, then a closed box, one length end to end. | frame 0 as written |
+| FX-MSKO-010 | Two open masks and a closed box of mode Add with `closed` written as true, no effect: the open masks cut nothing. | frames 0 and 4 the drawing cut by the box alone; saved, `closed` true kept |
+| FX-MSKO-020 | `closed` that is not true or false. | `refused_closed_word.json` refused, `PROJECT_SCHEMA_INVALID`, naming closed |
+| FX-MSKO-021 | An open mask of mode Add. | `refused_open_add.json` refused, `PROJECT_SCHEMA_INVALID`, naming closed |
+
+
 ## Color Lookup fixtures
 
 D-182, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/cube_lut/`, holding the Invert fixtures' drawing of colour bands (`media/bands.png`, described under Invert fixtures) with one Color Lookup (`core.color_lookup`) on it, and a lookup asset `asset-lut` whose file is under `luts/`, unmoved unless the case says. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
