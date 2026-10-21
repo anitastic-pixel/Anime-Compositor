@@ -1,0 +1,1027 @@
+{
+  "cases": {
+    "FX-SHPG-001": {
+      "says": "A shape in a group: moved to the group's position, its opacity halved, its gradient moved with it.",
+      "shape": 0,
+      "frame": 0,
+      "placed": {
+        "points": [
+          {
+            "point": [
+              240.0,
+              110.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              240.0,
+              190.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              160.0,
+              190.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              160.0,
+              110.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "fill_opacity": 0.5,
+        "fill_start": [
+          160.0,
+          150.0
+        ],
+        "fill_end": [
+          240.0,
+          150.0
+        ],
+        "stroke_opacity": 0.5,
+        "stroke_width": 4.0
+      }
+    },
+    "FX-SHPG-002": {
+      "says": "Half way through the group's rotation key, the square is turned 45 degrees clockwise about (200, 150).",
+      "shape": 0,
+      "frame": 12,
+      "placed": {
+        "points": [
+          {
+            "point": [
+              256.5685424949238,
+              150.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              200.0,
+              206.5685424949238
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              143.4314575050762,
+              150.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              200.0,
+              93.4314575050762
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "fill_opacity": 0.5,
+        "fill_start": [
+          171.7157287525381,
+          121.7157287525381
+        ],
+        "fill_end": [
+          228.2842712474619,
+          178.2842712474619
+        ],
+        "stroke_opacity": 0.5,
+        "stroke_width": 4.0
+      }
+    },
+    "FX-SHPG-003": {
+      "says": "A shape in a group in a group: scaled, skewed and moved by its own group, then by the outer one; its stroke's width scaled by the square root of the scale's area.",
+      "shape": 1,
+      "frame": 0,
+      "placed": {
+        "points": [
+          {
+            "point": [
+              248.72894439671754,
+              142.847092948762
+            ],
+            "in": [
+              -10.467958741280526,
+              -1.1307105549988024
+            ],
+            "out": [
+              10.467958741280526,
+              1.1307105549988024
+            ]
+          },
+          {
+            "point": [
+              266.3179719908904,
+              150.68244418924914
+            ],
+            "in": [
+              0.7538070366658682,
+              -3.1966344446900403
+            ],
+            "out": [
+              -0.7538070366658682,
+              3.1966344446900403
+            ]
+          },
+          {
+            "point": [
+              245.99916763972104,
+              154.4231302942415
+            ],
+            "in": [
+              10.467958741280526,
+              1.1307105549988024
+            ],
+            "out": [
+              -10.467958741280526,
+              -1.1307105549988024
+            ]
+          },
+          {
+            "point": [
+              228.41014004554822,
+              146.58777905375436
+            ],
+            "in": [
+              -0.7538070366658682,
+              3.1966344446900403
+            ],
+            "out": [
+              0.7538070366658682,
+              -3.1966344446900403
+            ]
+          }
+        ],
+        "stroke_opacity": 0.5,
+        "stroke_width": 1.7320508075688776
+      }
+    },
+    "FX-SHPG-004": {
+      "says": "The same at frame 24, the outer group turned 90 degrees.",
+      "shape": 1,
+      "frame": 24,
+      "placed": {
+        "points": [
+          {
+            "point": [
+              207.152907051238,
+              198.72894439671754
+            ],
+            "in": [
+              1.1307105549988017,
+              -10.467958741280526
+            ],
+            "out": [
+              -1.1307105549988017,
+              10.467958741280526
+            ]
+          },
+          {
+            "point": [
+              199.31755581075086,
+              216.31797199089036
+            ],
+            "in": [
+              3.1966344446900403,
+              0.7538070366658681
+            ],
+            "out": [
+              -3.1966344446900403,
+              -0.7538070366658681
+            ]
+          },
+          {
+            "point": [
+              195.5768697057585,
+              195.99916763972104
+            ],
+            "in": [
+              -1.1307105549988017,
+              10.467958741280526
+            ],
+            "out": [
+              1.1307105549988017,
+              -10.467958741280526
+            ]
+          },
+          {
+            "point": [
+              203.41222094624564,
+              178.41014004554822
+            ],
+            "in": [
+              -3.1966344446900403,
+              -0.7538070366658681
+            ],
+            "out": [
+              3.1966344446900403,
+              0.7538070366658681
+            ]
+          }
+        ],
+        "stroke_opacity": 0.5,
+        "stroke_width": 1.7320508075688776
+      }
+    },
+    "FX-SHPG-005": {
+      "says": "A shape in no group is drawn where its path is, as before.",
+      "shape": 2,
+      "frame": 0,
+      "placed": {
+        "points": [
+          {
+            "point": [
+              30,
+              260
+            ],
+            "in": [
+              0,
+              0
+            ],
+            "out": [
+              0,
+              0
+            ]
+          },
+          {
+            "point": [
+              90,
+              260
+            ],
+            "in": [
+              0,
+              0
+            ],
+            "out": [
+              0,
+              0
+            ]
+          },
+          {
+            "point": [
+              60,
+              210
+            ],
+            "in": [
+              0,
+              0
+            ],
+            "out": [
+              0,
+              0
+            ]
+          }
+        ],
+        "fill_opacity": 0.8
+      }
+    },
+    "FX-SHPG-006": {
+      "says": "A parametric star in a group whose position is keyed: half way at frame 12.",
+      "shape": 3,
+      "frame": 12,
+      "placed": {
+        "points": [
+          {
+            "point": [
+              340.0,
+              50.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              348.8167787843871,
+              67.86474508437578
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              368.5316954888546,
+              70.72949016875158
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              354.2658477444273,
+              84.63525491562422
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              357.6335575687742,
+              104.27050983124843
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              340.0,
+              95.0
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              322.36644243122583,
+              104.27050983124843
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              325.7341522555727,
+              84.63525491562422
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              311.4683045111454,
+              70.72949016875158
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "point": [
+              331.1832212156129,
+              67.86474508437578
+            ],
+            "in": [
+              0.0,
+              0.0
+            ],
+            "out": [
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "fill_opacity": 1
+      }
+    },
+    "FX-SHPG-007": {
+      "says": "Saved again: each group as read, `blend` included; each shape keeps its group; every path as read, not placed.",
+      "saved": {
+        "groups": [
+          {
+            "name": "Body",
+            "transform": {
+              "anchor": {
+                "base": [
+                  0,
+                  0
+                ],
+                "keyframes": []
+              },
+              "position": {
+                "base": [
+                  200,
+                  150
+                ],
+                "keyframes": []
+              },
+              "scale": {
+                "base": [
+                  100,
+                  100
+                ],
+                "keyframes": []
+              },
+              "rotation": {
+                "base": 0,
+                "keyframes": [
+                  {
+                    "frame": 0,
+                    "value": 0,
+                    "interp": "linear"
+                  },
+                  {
+                    "frame": 24,
+                    "value": 90,
+                    "interp": "linear"
+                  }
+                ]
+              },
+              "opacity": {
+                "base": 0.5,
+                "keyframes": []
+              },
+              "skew": {
+                "base": 0,
+                "keyframes": []
+              },
+              "skew_axis": {
+                "base": 0,
+                "keyframes": []
+              }
+            }
+          },
+          {
+            "name": "Arm",
+            "parent": 0,
+            "transform": {
+              "anchor": {
+                "base": [
+                  10,
+                  0
+                ],
+                "keyframes": []
+              },
+              "position": {
+                "base": [
+                  60,
+                  0
+                ],
+                "keyframes": []
+              },
+              "scale": {
+                "base": [
+                  150,
+                  50
+                ],
+                "keyframes": []
+              },
+              "rotation": {
+                "base": 0,
+                "keyframes": []
+              },
+              "opacity": {
+                "base": 1,
+                "keyframes": []
+              },
+              "skew": {
+                "base": 20,
+                "keyframes": []
+              },
+              "skew_axis": {
+                "base": 30,
+                "keyframes": []
+              }
+            }
+          },
+          {
+            "name": "Drift",
+            "transform": {
+              "anchor": {
+                "base": [
+                  0,
+                  0
+                ],
+                "keyframes": []
+              },
+              "position": {
+                "base": [
+                  0,
+                  0
+                ],
+                "keyframes": [
+                  {
+                    "frame": 0,
+                    "value": [
+                      0,
+                      0
+                    ],
+                    "interp": "linear"
+                  },
+                  {
+                    "frame": 24,
+                    "value": [
+                      40,
+                      20
+                    ],
+                    "interp": "linear"
+                  }
+                ]
+              },
+              "scale": {
+                "base": [
+                  100,
+                  100
+                ],
+                "keyframes": []
+              },
+              "rotation": {
+                "base": 0,
+                "keyframes": []
+              },
+              "opacity": {
+                "base": 1,
+                "keyframes": []
+              },
+              "skew": {
+                "base": 0,
+                "keyframes": []
+              },
+              "skew_axis": {
+                "base": 0,
+                "keyframes": []
+              }
+            },
+            "blend": "multiply"
+          }
+        ],
+        "shape_groups": [
+          0,
+          1,
+          null,
+          2
+        ],
+        "paths": [
+          {
+            "base": {
+              "points": [
+                {
+                  "point": [
+                    40,
+                    -40
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    40,
+                    40
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    -40,
+                    40
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    -40,
+                    -40
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                }
+              ]
+            },
+            "keyframes": []
+          },
+          {
+            "base": {
+              "points": [
+                {
+                  "point": [
+                    0,
+                    -10.0
+                  ],
+                  "in": [
+                    -8.284271247461902,
+                    0
+                  ],
+                  "out": [
+                    8.284271247461902,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    15.0,
+                    0
+                  ],
+                  "in": [
+                    0,
+                    -5.522847498307934
+                  ],
+                  "out": [
+                    0,
+                    5.522847498307934
+                  ]
+                },
+                {
+                  "point": [
+                    0,
+                    10.0
+                  ],
+                  "in": [
+                    8.284271247461902,
+                    0
+                  ],
+                  "out": [
+                    -8.284271247461902,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    -15.0,
+                    0
+                  ],
+                  "in": [
+                    0,
+                    5.522847498307934
+                  ],
+                  "out": [
+                    0,
+                    -5.522847498307934
+                  ]
+                }
+              ]
+            },
+            "keyframes": []
+          },
+          {
+            "base": {
+              "points": [
+                {
+                  "point": [
+                    30,
+                    260
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    90,
+                    260
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "point": [
+                    60,
+                    210
+                  ],
+                  "in": [
+                    0,
+                    0
+                  ],
+                  "out": [
+                    0,
+                    0
+                  ]
+                }
+              ]
+            },
+            "keyframes": []
+          },
+          {
+            "base": {
+              "points": [
+                {
+                  "point": [
+                    320.0,
+                    40.0
+                  ],
+                  "in": [
+                    -0.0,
+                    -0.0
+                  ],
+                  "out": [
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "point": [
+                    328.8167787843871,
+                    57.864745084375784
+                  ],
+                  "in": [
+                    -0.0,
+                    -0.0
+                  ],
+                  "out": [
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "point": [
+                    348.5316954888546,
+                    60.72949016875158
+                  ],
+                  "in": [
+                    -0.0,
+                    -0.0
+                  ],
+                  "out": [
+                    0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "point": [
+                    334.2658477444273,
+                    74.63525491562422
+                  ],
+                  "in": [
+                    0.0,
+                    -0.0
+                  ],
+                  "out": [
+                    -0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "point": [
+                    337.6335575687742,
+                    94.27050983124843
+                  ],
+                  "in": [
+                    0.0,
+                    -0.0
+                  ],
+                  "out": [
+                    -0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "point": [
+                    320.0,
+                    85.0
+                  ],
+                  "in": [
+                    0.0,
+                    -0.0
+                  ],
+                  "out": [
+                    -0.0,
+                    0.0
+                  ]
+                },
+                {
+                  "point": [
+                    302.36644243122583,
+                    94.27050983124843
+                  ],
+                  "in": [
+                    0.0,
+                    0.0
+                  ],
+                  "out": [
+                    -0.0,
+                    -0.0
+                  ]
+                },
+                {
+                  "point": [
+                    305.7341522555727,
+                    74.63525491562422
+                  ],
+                  "in": [
+                    0.0,
+                    0.0
+                  ],
+                  "out": [
+                    -0.0,
+                    -0.0
+                  ]
+                },
+                {
+                  "point": [
+                    291.4683045111454,
+                    60.72949016875158
+                  ],
+                  "in": [
+                    -0.0,
+                    0.0
+                  ],
+                  "out": [
+                    0.0,
+                    -0.0
+                  ]
+                },
+                {
+                  "point": [
+                    311.1832212156129,
+                    57.86474508437579
+                  ],
+                  "in": [
+                    -0.0,
+                    0.0
+                  ],
+                  "out": [
+                    0.0,
+                    -0.0
+                  ]
+                }
+              ]
+            },
+            "keyframes": []
+          }
+        ]
+      }
+    },
+    "FX-SHPG-020": {
+      "says": "A shape in a group the layer does not have.",
+      "file": "refused_shape_group.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "group"
+    },
+    "FX-SHPG-021": {
+      "says": "A group inside a group the layer does not have.",
+      "file": "refused_parent.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "parent"
+    },
+    "FX-SHPG-022": {
+      "says": "Groups inside each other in a loop.",
+      "file": "refused_loop.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "parent"
+    },
+    "FX-SHPG-023": {
+      "says": "An opacity above 1.",
+      "file": "refused_opacity.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "opacity"
+    },
+    "FX-SHPG-024": {
+      "says": "A skew key past 85 degrees, though the base is fine.",
+      "file": "refused_skew.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "skew"
+    },
+    "FX-SHPG-025": {
+      "says": "A transform without its rotation.",
+      "file": "refused_no_rotation.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "rotation"
+    },
+    "FX-SHPG-026": {
+      "says": "An expression on a group's number: keys only, as a shape's other numbers.",
+      "file": "refused_expression.json",
+      "refused": "PROJECT_SCHEMA_INVALID",
+      "names": "expression"
+    }
+  }
+}

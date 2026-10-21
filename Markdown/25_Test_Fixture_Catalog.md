@@ -164625,6 +164625,30 @@ The build's test must read `host.json`, find each case's outline as the shape's 
 | FX-SHPP-026 | A key whose radius is below 0, though the base is fine. | `refused_keyed_radius.json` refused, `PROJECT_SCHEMA_INVALID`, naming radius |
 
 
+## Shape group fixtures
+
+D-738 (b), accepted on 2026-10-21. `tools/shape_group_reference.py` writes `Fixtures/shape_groups/`. `host.json` is a 400 by 300 composition at 24 fps holding one shape layer of four shapes and three groups: `Body` at (200, 150) with opacity 0.5, its rotation keyed linear from 0 at frame 0 to 90 at frame 24; `Arm`, inside `Body`, at (60, 0) with anchor (10, 0), scale 150 by 50 and a skew of 20 along 30 degrees; and `Drift`, its position keyed linear from (0, 0) at frame 0 to (40, 20) at frame 24, which also keeps `blend`, a field this build does not know. `Torso`, an 80 square about (0, 0) with a linear gradient fill and a 4 px stroke, is in `Body`; `Hand`, a parametric 30 by 20 ellipse with a 2 px stroke, is in `Arm`; `Free`, a triangle, is in no group; `Badge`, a parametric five-pointed star at (320, 70), is in `Drift`. `expected_shape_groups.json` gives, for each drawn case, a shape, a frame and the shape as placed there: its points as a path's are written, its fill's opacity and gradient points and its stroke's opacity and width, numbers within 1e-9; for the saved case, the groups, each shape's group and every path the saved project must hold; and for each refused file the diagnostic and a word its message must contain.
+
+The build's test must read `host.json`, place each case's shape at its frame and find its points and paint as given, and draw each grouped shape exactly as a plain shape of its placed outline and paint is drawn; save the project and find the groups, `blend` included, each shape's group and every path as read; and refuse each refused file with the diagnostic, naming the word.
+
+| case | says | the build must give |
+| --- | --- | --- |
+| FX-SHPG-001 | A shape in a group: moved to the group's position, its opacity halved, its gradient moved with it. | shape 0 at frame 0: 4 points and its paint as written |
+| FX-SHPG-002 | Half way through the group's rotation key, the square is turned 45 degrees clockwise about (200, 150). | shape 0 at frame 12: 4 points and its paint as written |
+| FX-SHPG-003 | A shape in a group in a group: scaled, skewed and moved by its own group, then by the outer one; its stroke's width scaled by the square root of the scale's area. | shape 1 at frame 0: 4 points and its paint as written |
+| FX-SHPG-004 | The same at frame 24, the outer group turned 90 degrees. | shape 1 at frame 24: 4 points and its paint as written |
+| FX-SHPG-005 | A shape in no group is drawn where its path is, as before. | shape 2 at frame 0: 3 points and its paint as written |
+| FX-SHPG-006 | A parametric star in a group whose position is keyed: half way at frame 12. | shape 3 at frame 12: 10 points and its paint as written |
+| FX-SHPG-007 | Saved again: each group as read, `blend` included; each shape keeps its group; every path as read, not placed. | the groups, each shape's group and every path as read |
+| FX-SHPG-020 | A shape in a group the layer does not have. | `refused_shape_group.json` refused, `PROJECT_SCHEMA_INVALID`, naming group |
+| FX-SHPG-021 | A group inside a group the layer does not have. | `refused_parent.json` refused, `PROJECT_SCHEMA_INVALID`, naming parent |
+| FX-SHPG-022 | Groups inside each other in a loop. | `refused_loop.json` refused, `PROJECT_SCHEMA_INVALID`, naming parent |
+| FX-SHPG-023 | An opacity above 1. | `refused_opacity.json` refused, `PROJECT_SCHEMA_INVALID`, naming opacity |
+| FX-SHPG-024 | A skew key past 85 degrees, though the base is fine. | `refused_skew.json` refused, `PROJECT_SCHEMA_INVALID`, naming skew |
+| FX-SHPG-025 | A transform without its rotation. | `refused_no_rotation.json` refused, `PROJECT_SCHEMA_INVALID`, naming rotation |
+| FX-SHPG-026 | An expression on a group's number: keys only, as a shape's other numbers. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
+
+
 ## Color Lookup fixtures
 
 D-182, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/cube_lut/`, holding the Invert fixtures' drawing of colour bands (`media/bands.png`, described under Invert fixtures) with one Color Lookup (`core.color_lookup`) on it, and a lookup asset `asset-lut` whose file is under `luts/`, unmoved unless the case says. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
