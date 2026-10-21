@@ -5699,7 +5699,7 @@ pub(crate) fn spectrum_marks(
     let bands = levels.len();
     let (feet, closed) = sound_feet(
         bands,
-        outline.as_deref(),
+        outline.as_ref().map(|(o, closed)| (o.as_slice(), *closed)),
         use_polar_path == "on",
         [*start_point, *end_point],
         size,
@@ -5760,12 +5760,13 @@ pub(crate) fn spectrum_marks(
 }
 
 /// D-420, D-421: where `n` marks stand, at (b + 1/2) / n of the way, and the way they face, and
-/// whether the way is closed: round the mask `outline` (the drawing's own pixels); round the
+/// whether the way is closed: along the mask `outline` (the drawing's own pixels), round it when
+/// it is closed (D-737); round the
 /// first of `points` from straight up, clockwise (`polar`); or along the line from the first of
 /// `points` to the second, facing to its left.
 fn sound_feet(
     n: usize,
-    outline: Option<&[(f64, f64)]>,
+    outline: Option<(&[(f64, f64)], bool)>,
     polar: bool,
     [start, end]: [[f64; 2]; 2],
     size: (usize, usize),
@@ -5773,16 +5774,16 @@ fn sound_feet(
 ) -> (Vec<((f64, f64), (f64, f64))>, bool) {
     let t: Vec<f64> = (0..n).map(|b| (b as f64 + 0.5) / n as f64).collect();
     match outline {
-        Some(o) => {
+        Some((o, closed)) => {
             let o: Vec<(f64, f64)> = o
                 .iter()
                 .map(|&(x, y)| (x + ox as f64, y + oy as f64))
                 .collect();
             (
                 t.iter()
-                    .map(|&u| crate::along::point_along(&o, u))
+                    .map(|&u| crate::along::point_along(&o, u, closed))
                     .collect(),
-                true,
+                closed,
             )
         }
         None if polar => {
@@ -6028,7 +6029,7 @@ pub(crate) fn waveform_marks(
     let shown = levels.len() / 2;
     let (feet, closed) = sound_feet(
         shown,
-        outline.as_deref(),
+        outline.as_ref().map(|(o, closed)| (o.as_slice(), *closed)),
         false,
         [*start_point, *end_point],
         size,

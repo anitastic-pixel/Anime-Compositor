@@ -123,19 +123,21 @@ pub(crate) fn facing(dx: f64, dy: f64) -> (f64, f64) {
 }
 
 /// D-420: the point a share `u` of the way round the closed outline `o` (0 its first point, 1
-/// back to it), and the facing of the piece it falls on.
-pub(crate) fn point_along(o: &[(f64, f64)], u: f64) -> ((f64, f64), (f64, f64)) {
+/// back to it), and the facing of the piece it falls on. D-737: along it, from its first point to
+/// its last, when it is open.
+pub(crate) fn point_along(o: &[(f64, f64)], u: f64, closed: bool) -> ((f64, f64), (f64, f64)) {
     if o.is_empty() {
         return ((0.0, 0.0), (0.0, -1.0));
     }
+    let pieces = if closed { o.len() } else { o.len() - 1 };
     let piece = |i: usize| (o[i], o[(i + 1) % o.len()]);
     let length = |(a, b): ((f64, f64), (f64, f64))| (b.0 - a.0).hypot(b.1 - a.1);
-    let total: f64 = (0..o.len()).map(|i| length(piece(i))).sum();
+    let total: f64 = (0..pieces).map(|i| length(piece(i))).sum();
     if total == 0.0 {
         return (o[0], (0.0, -1.0));
     }
     let (s, mut walked) = (u * total, 0.0);
-    for i in 0..o.len() {
+    for i in 0..pieces {
         let (a, b) = piece(i);
         let l = length((a, b));
         if l > 0.0 && walked + l >= s {
@@ -147,7 +149,7 @@ pub(crate) fn point_along(o: &[(f64, f64)], u: f64) -> ((f64, f64), (f64, f64)) 
         }
         walked += l;
     }
-    let (a, b) = (0..o.len())
+    let (a, b) = (0..pieces)
         .rev()
         .map(piece)
         .find(|(a, b)| a != b)

@@ -151,10 +151,10 @@ pub struct MaskKey {
     pub interp: Interp,
 }
 
-/// D-77's mask: a closed path, plus everything that shapes the coverage it gives.
+/// D-77's mask: a path, plus everything that shapes the coverage it gives.
 ///
-/// Closed by definition, as document 19 has always said: the last point joins the first, and no
-/// point is repeated to close it.
+/// Closed unless `closed` says otherwise (D-737): the last point joins the first, and no point is
+/// repeated to close it.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Mask {
     pub name: String,
@@ -174,6 +174,9 @@ pub struct Mask {
     /// number's own field is the base. A number without keys has no entry, as a shape's style
     /// has none (D-170).
     pub tracks: BTreeMap<String, Property>,
+    /// D-737: false for an open mask, which has no piece from its last point back to its first,
+    /// encloses nothing and so has the mode None.
+    pub closed: bool,
     /// ADR-008: the record this mask was read from, which saving writes over.
     pub record: crate::model::FileRecord,
 }
@@ -194,6 +197,7 @@ impl Default for Mask {
             points: Vec::new(),
             keys: Vec::new(),
             tracks: BTreeMap::new(),
+            closed: true,
             record: Default::default(),
         }
     }
@@ -325,9 +329,9 @@ impl Mask {
     /// because it is the expensive half and the caller wants the two reasons apart.
     ///
     /// Fewer than three points is not a polygon. It has no interior, so it cannot be normalized
-    /// into one and there is nothing to draw.
+    /// into one and there is nothing to draw. D-737: an open mask is a line, and two will do.
     pub fn has_enough_points(&self) -> bool {
-        self.points.len() >= 3
+        self.points.len() >= if self.closed { 3 } else { 2 }
     }
 
     /// Whether this mask is one this build will draw.
@@ -342,7 +346,7 @@ impl Mask {
     /// has already passed the cheap checks. D-77 asks it of the points and not of the flattened
     /// curve, which keeps it the handful of pairs it has always been.
     pub fn is_renderable(&self) -> bool {
-        self.enabled && self.has_enough_points() && is_simple(&self.vertices())
+        self.enabled && self.has_enough_points() && (!self.closed || is_simple(&self.vertices()))
     }
 
     /// The closed outline this mask's path draws, as points to sample between.
@@ -354,6 +358,11 @@ impl Mask {
     /// that order, so the count is the same on every machine.
     pub fn outline(&self) -> Vec<(f64, f64)> {
         flatten(&self.points, true)
+    }
+
+    /// D-737: the path as an effect that draws along it takes it, open or closed as the mask is.
+    pub fn path(&self) -> Vec<(f64, f64)> {
+        flatten(&self.points, self.closed)
     }
 }
 

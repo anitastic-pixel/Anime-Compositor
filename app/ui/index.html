@@ -6114,8 +6114,14 @@ function maskGroup(comp, layer) {
     mode.setAttribute('aria-label', 'Mode of ' + mask.name + ' on ' + layer.name);
     mode.append(...MASK_MODES.map((m) => new Option(m[0].toUpperCase() + m.slice(1), m)));
     mode.value = mask.mode;
+    // D-737: an open mask encloses nothing, so its mode is None until it is closed.
+    mode.disabled = mask.closed === false;
     mode.onclick = (e) => e.stopPropagation();
     mode.onchange = () => set('mode=' + mode.value);
+    const shut = iconButton(mask.closed === false ? 'Open' : 'Closed',
+      (mask.closed === false ? 'Close ' : 'Open ') + mask.name, () => set('closed=1'));
+    shut.className = 'mflag';
+    shut.setAttribute('aria-pressed', String(mask.closed === false));
     const invert = iconButton('Inverted', (mask.inverted ? 'Do not invert ' : 'Invert ') + mask.name, () => set('inverted=1'));
     invert.className = 'mflag';
     invert.setAttribute('aria-pressed', String(!!mask.inverted));
@@ -6126,7 +6132,7 @@ function maskGroup(comp, layer) {
     const gone = iconButton('Delete', 'Delete ' + mask.name + ' from ' + layer.name,
       () => command('/mask.delete?layer=' + encodeURIComponent(layer.id) + '&mask=' + at));
     gone.className = 'mflag';
-    head.querySelector('.value').replaceChildren(mode, ' ', invert, ' ', on, ' ', gone);
+    head.querySelector('.value').replaceChildren(mode, ' ', shut, ' ', invert, ' ', on, ' ', gone);
     const rows = indent([li], 1);
     if (!groupOpen(layer.id, g)) return rows;
     rows.push(...indent(MASK_PROPS.flatMap((what) => propTrack(comp, layer, g + ':' + what)), 2));
@@ -7132,9 +7138,8 @@ function useTool(which) {
     : which === 'zoom' ? 'The zoom: click to zoom in about that spot, Alt+click to zoom out.'
     : which === 'text' ? 'The text tool: click where the words should start, drag a box for words that wrap, or click words to type in them.'
     : which === 'anchor' ? 'The anchor point tool: drag a layer to move its anchor; the picture stays where it is. Ctrl lands it on a corner, a side or the middle; double-click the tool to centre it.'
-    : which === 'pen' ? (shapes
-      ? 'The pen: click to place points; click the first point to close the shape, or Enter to leave it open.'
-      : 'The pen: click to place points, and click the first point to close the mask.')
+    : which === 'pen' ? 'The pen: click to place points; click the first point to close the '
+      + (shapes ? 'shape' : 'mask') + ', or Enter to leave it open.'
     : 'The ' + ({ rounded: 'rounded rectangle' }[which] || which) + ' tool: drag '
       + (which === 'polygon' || which === 'star' ? 'out from the middle' : 'across the layer') + ' to '
       + (shapes || !selected() ? 'draw a shape.' : 'mask it.');
@@ -7391,7 +7396,8 @@ function addMask(layer, points, closed = true, query = null) {
   twirled.add(layer.id);
   shown.delete(layer.id);
   if (!groupOpen(layer.id, g)) toggleGroup(layer.id, g);
-  return command((drawsShapes(layer) ? '/shape.add?closed=' + (closed ? 1 : 0) + '&' : '/mask.add?')
+  // D-737: a mask may be left open too, a line of mode None for the effects that draw along it.
+  return command((drawsShapes(layer) ? '/shape.add?' : '/mask.add?') + 'closed=' + (closed ? 1 : 0) + '&'
     + 'layer=' + encodeURIComponent(layer.id) + (query || maskQuery(points)));
 }
 
@@ -7805,11 +7811,8 @@ stage.onpointerdown = (e) => {
         addMask(layer, points);
       } else {
         penDraft = (penDraft || []).concat([[lx, ly, 0, 0, 0, 0]]);
-        $('status').textContent = drawsShapes(layer)
-          ? 'Click the first point to close the shape, Enter to leave it open, or Escape to start again.'
-          : penDraft.length < 3
-          ? 'Place at least three points; then click the first to close the mask.'
-          : 'Click the first point to close the mask, or Escape to start again.';
+        $('status').textContent = 'Click the first point to close the ' + (drawsShapes(layer) ? 'shape' : 'mask')
+          + ', Enter to leave it open, or Escape to start again.';
         drawBoxes();
         // B-24j, D-80: holding on and dragging pulls a pair of handles out of the point just
         // placed, mirrored about it, which is how After Effects' pen draws a curve as it goes.
@@ -20210,6 +20213,7 @@ addEventListener('keydown', (e) => {
   // B-24c: with the pen in hand, Enter closes the mask being drawn and Escape abandons it, as
   // After Effects has them, and each takes the key before the rename and the letting go do.
   // B-25c: on a shape layer Enter leaves the path open, and two points are enough for a line.
+  // D-737: on any other layer too, as After Effects' pen leaves a mask open.
   // B-24k, D-81: Enter and Escape put the free transform box away, as After Effects has them,
   // before either renames anything or lets anything go.
   else if ((e.key === 'Enter' || e.key === 'Escape') && !el && !dragging && freeBoxOn(selected())) {
@@ -20217,12 +20221,11 @@ addEventListener('keydown', (e) => {
     freeBox = null;
     drawBoxes();
   }
-  else if (e.key === 'Enter' && !el && penDraft && selected()
-    && penDraft.length >= (drawsShapes(selected()) ? 2 : 3)) {
+  else if (e.key === 'Enter' && !el && penDraft && selected() && penDraft.length >= 2) {
     e.preventDefault();
     const points = penDraft;
     penDraft = null;
-    addMask(selected(), points, !drawsShapes(selected()));
+    addMask(selected(), points, false);
   }
   else if (e.key === 'Enter' && !el) { e.preventDefault(); beginRename(); }
   else if (e.key === 'Escape' && (penDraft || tool !== 'select')) { e.preventDefault(); useTool('select'); }

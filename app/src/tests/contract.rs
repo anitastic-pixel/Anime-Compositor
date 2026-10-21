@@ -300,7 +300,7 @@ const WIRING: &[(&str, &str, &str)] = &[
     (
         "the pen, the rectangle and the ellipse on a shape layer",
         "shape.add",
-        "command((drawsShapes(layer) ? '/shape.add?closed=' + (closed ? 1 : 0) + '&' : '/mask.add?')",
+        "command((drawsShapes(layer) ? '/shape.add?' : '/mask.add?') + 'closed=' + (closed ? 1 : 0) + '&'",
     ),
     (
         "a shape's fill and stroke in the layer's panel",

@@ -3600,7 +3600,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                         DiagnosticId::MaskInvalidOutline,
                         Severity::Error,
                         format!(
-                            "A mask needs at least three points, and this one has {}.",
+                            "A mask needs at least {} points, and this one has {}.",
+                            if m.closed { "three" } else { "two" },
                             m.points.len()
                         ),
                         "Document 19: a polygon mask is a closed ordered list of vertices. Fewer \
@@ -3644,15 +3645,32 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                         ));
                     }
                 }
+                // D-737: an open mask encloses nothing, so it adds or takes away nothing.
+                if !m.closed && m.mode != crate::mask::MaskMode::None {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::CommandInvalidValue,
+                        Severity::Error,
+                        format!(
+                            "Mask \"{}\" is open, so its mode is None: it encloses nothing to \
+                             add or take away.",
+                            m.name
+                        ),
+                        "D-737: an open mask is a line for effects that draw along a path. The \
+                         masks are unchanged."
+                            .to_string(),
+                    )
+                    .with_remediation("Close the mask first, then set its mode."));
+                }
                 // D-294: a key's outline is refused for crossing just as the path's is. P-26 set
                 // a crossing wedge as a key, which the layer then drew unmasked on those frames.
+                // D-737: an open mask may cross itself; it encloses nothing.
                 let crossing = std::iter::once(m.vertices())
                     .chain(
                         m.keys
                             .iter()
                             .map(|k| k.points.iter().map(|p| p.point).collect()),
                     )
-                    .position(|v| !crate::mask::is_simple(&v));
+                    .position(|v| m.closed && !crate::mask::is_simple(&v));
                 if let Some(at) = crossing {
                     let which = match at {
                         0 => String::new(),

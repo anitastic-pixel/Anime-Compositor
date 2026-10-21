@@ -4429,7 +4429,7 @@ fn resolve_rest(
                     masks
                         .get(n)
                         .filter(|m| m.enabled && m.points.len() >= 2)
-                        .map(|m| (m.outline(), true))
+                        .map(|m| (m.path(), m.closed))
                 }
             };
             let count = if text {
@@ -4501,9 +4501,10 @@ fn resolve_rest(
         if alpha_mode == "off" {
             continue;
         }
+        // D-737: an open mask encloses nothing, so it cuts no matte either.
         let drawn: Vec<crate::mask::Mask> = masks
             .iter()
-            .filter(|m| m.is_renderable())
+            .filter(|m| m.is_renderable() && m.closed)
             .map(|m| crate::mask::Mask {
                 mode: crate::mask::MaskMode::Add,
                 ..m.clone()
@@ -4537,7 +4538,7 @@ fn resolve_rest(
             f64,
             [f64; 2],
             &mut Option<Vec<f64>>,
-            &mut Option<Vec<(f64, f64)>>,
+            &mut Option<(Vec<(f64, f64)>, bool)>,
             Hear,
         ) = match &mut instance.effect {
             crate::effects::Effect::AudioSpectrum {
@@ -4617,7 +4618,7 @@ fn resolve_rest(
                 .get(path.floor() as usize - 1)
                 .filter(|m| m.enabled && m.points.len() >= 2)
             {
-                Some(m) => *outline = Some(m.outline()),
+                Some(m) => *outline = Some((m.path(), m.closed)),
                 None => {
                     log.record(
                         frame,

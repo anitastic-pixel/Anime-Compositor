@@ -750,6 +750,10 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             map.insert("feather_px".into(), number("feather", m.feather_px));
             map.insert("expansion_px".into(), number("expansion", m.expansion_px));
             map.insert("path".into(), path_json(was, &m.points, &m.keys));
+            // D-737: written false for an open mask; true only where the file had it.
+            if !m.closed || map.contains_key("closed") {
+                map.insert("closed".into(), J::from(m.closed));
+            }
             J::Object(map)
         })
         .collect();
@@ -12764,7 +12768,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
                     "Nothing was lost. Saving this project writes the mask back unchanged.",
                 ),
             );
-        } else if mask.has_enough_points() && !crate::mask::is_simple(&mask.vertices()) {
+        } else if mask.closed
+            && mask.has_enough_points()
+            && !crate::mask::is_simple(&mask.vertices())
+        {
             warnings.push(
                 Diagnostic::new(
                     DiagnosticId::MaskInvalidOutline,
@@ -13366,7 +13373,20 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
         None => format!("Mask {}", index + 1),
         Some(n) => as_str(n, &format!("{at}/name"))?.to_string(),
     };
+    // D-737: an open mask encloses nothing, so its mode is None.
+    let closed_at = format!("{at}/closed");
+    let closed = match v.get("closed") {
+        None => true,
+        Some(c) => as_bool(c, &closed_at)?,
+    };
+    if !closed && mode != crate::mask::MaskMode::None {
+        return Err(invalid(
+            &closed_at,
+            "an open mask of mode none, since it encloses nothing to add or take away (D-737)",
+        ));
+    }
     Ok(crate::mask::Mask {
+        closed,
         keys,
         name,
         enabled: match v.get("enabled") {

@@ -9138,7 +9138,7 @@ fn masks_are_drawn_and_set_from_the_window() {
             .iter()
             .map(|m| {
                 format!(
-                    "{} {} {} points, opacity {}, feather {}, expansion {}{}{}",
+                    "{} {} {} points, opacity {}, feather {}, expansion {}{}{}{}",
                     m["name"].as_str().unwrap_or("(no name)"),
                     m["mode"].as_str().unwrap_or("(no mode)"),
                     m["path"]["base"]["points"]
@@ -9154,6 +9154,11 @@ fn masks_are_drawn_and_set_from_the_window() {
                     },
                     if m["enabled"] == serde_json::Value::Bool(false) {
                         ", off"
+                    } else {
+                        ""
+                    },
+                    if m["closed"] == serde_json::Value::Bool(false) {
+                        ", open"
                     } else {
                         ""
                     },
@@ -9354,6 +9359,48 @@ fn masks_are_drawn_and_set_from_the_window() {
             &viewer,
             &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=-1"),
         ),
+    );
+
+    // D-737: the pen's Enter sends `closed=0`, and two points are a line; the timeline's switch
+    // opens a mask (mode None) and closes it (mode Add), one undo step each.
+    run(&viewer, "edit.undo");
+    run(&viewer, "edit.undo");
+    run(
+        &viewer,
+        &format!("mask.add?closed=0&layer={cel}&points=0,0,0,0,0,0;10,10,0,0,0,0"),
+    );
+    report.check(
+        "D-737: Enter's `closed=0` adds an open mask of mode None, and two points are enough",
+        "Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; \
+         Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off; \
+         Mask 3 none 2 points, opacity 1, feather 0, expansion 0, open",
+        masks_of(&viewer),
+    );
+    run(&viewer, &format!("mask.set?layer={cel}&mask=0&closed=1"));
+    report.check(
+        "D-737: the switch opens Mask 1, so its mode is None",
+        "Mask 1 none 4 points",
+        masks_of(&viewer)
+            .split(", opacity")
+            .next()
+            .unwrap_or_default()
+            .to_string(),
+    );
+    report.check(
+        "D-737: a mode on the open mask is refused, with the reason",
+        "Mask \"Mask 1\" is open, so its mode is None: it encloses nothing to add or take \
+         away. Close the mask first, then set its mode.",
+        run(&viewer, &format!("mask.set?layer={cel}&mask=0&mode=add")),
+    );
+    run(&viewer, &format!("mask.set?layer={cel}&mask=0&closed=1"));
+    report.check(
+        "D-737: the switch again closes it, mode Add",
+        "Mask 1 add 4 points",
+        masks_of(&viewer)
+            .split(", opacity")
+            .next()
+            .unwrap_or_default()
+            .to_string(),
     );
 
     write_artifact(

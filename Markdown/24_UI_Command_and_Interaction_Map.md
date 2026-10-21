@@ -65,10 +65,10 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.set_drawing_dissolve | Set a drawn layer's Drawing dissolve, 0 to 100 frames (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | layer.add_solid | Add a solid layer above the selected layer, the composition's size and covering it (D-74; in the window since B-23c, 2026-09-19) | Ctrl+Y | yes |
 | solid.set | Set one solid's colour, width and height, as one step of history (D-74; in the window since B-23c, 2026-09-19) | none | yes |
-| mask.add | Draw a mask on the selected layer, added to the end of its list (D-77; in the window since B-24c, 2026-09-20) | G for the pen, Q for the rectangle and the ellipse | yes |
+| mask.add | Draw a mask on the selected layer, added to the end of its list (D-77; in the window since B-24c, 2026-09-20); with `closed=0`, left open, mode None, as the pen's Enter leaves it (D-737, since B-611, 2026-10-21) | G for the pen, Q for the rectangle and the ellipse | yes |
 | mask.add_remove_key | Put a key on a mask's path at the frame on screen, or take one off; the first key sets the path moving and the last one off leaves the mask where it stands (D-77; in the window since B-24d, 2026-09-20) | none | yes |
 | mask.set_path | Move a mask's points and handles, at the key under the playhead when the path moves; a drag is one step of history (D-77; in the window since B-24c, 2026-09-20) | arrow keys on a chosen point | yes |
-| mask.set | Set one mask's mode, opacity, feather, expansion, inversion, name, or whether it is on (D-77; in the window since B-24c, 2026-09-20); or move one of its path's keys along its row, ease it or hold it, the key named by its frame (since B-24e, 2026-09-22) | none | yes |
+| mask.set | Set one mask's mode, opacity, feather, expansion, inversion, name, or whether it is on (D-77; in the window since B-24c, 2026-09-20); or move one of its path's keys along its row, ease it or hold it, the key named by its frame (since B-24e, 2026-09-22); or, with `closed`, open or close it: opened its mode is None, closed it is Add (D-737, since B-611, 2026-10-21) | none | yes |
 | mask.delete | Take one mask off a layer (D-77; in the window since B-24c, 2026-09-20) | none | yes |
 | layer.add_shape | Add an empty shape layer above the selected layer, its space the composition's (D-78; in the window since B-25c, 2026-09-21) | none | yes |
 | layer.add_text | Add a text layer on top, "Text" in the font that comes with the program, its first line starting where the viewer was clicked, the composition's size and covering it (D-263); with `box`, words wrapping in the box dragged, kerning on (D-264) | the Text tool in the viewer's tools; Layer › New › Text; the command finder | yes |
@@ -345,7 +345,7 @@ D-319, the working depth. The window's Working depth row is Display (0 to 1) or 
 D-280, with no new command ID. Effect controls no longer sends `layer.set_parent`, `layer.set_matte`, `layer.set_blend_mode`, the mask commands or the transform commands; the timeline sends the same commands.
 - The layer row's Parent column is a list (None or a layer) beside the pick whip.
 - The Blending group holds Blend mode and Track matte.
-- Each mask's row holds its mode, Inverted, On/Off (`mask.set` with `enabled`) and Delete (`mask.delete`). Its name takes Tab and Enter to pick the mask.
+- Each mask's row holds its mode, Closed or Open (`mask.set` with `closed`; D-737, the mode list greyed while it is open), Inverted, On/Off (`mask.set` with `enabled`) and Delete (`mask.delete`). Its name takes Tab and Enter to pick the mask.
 - Effect controls' "Show on the timeline" opens the layer with Transform, Blending and Masks open.
 
 D-281, Sketch views, with no new command ID.

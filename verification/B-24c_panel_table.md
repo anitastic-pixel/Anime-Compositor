@@ -32,5 +32,9 @@ What a mask looks like on the picture and on the timeline, whether the pen close
 | D-298: Mask 1's feather keyed 8 at frame 0 and 28 at frame 10 is 18 at frame 5 | 18.0 | 18.0 | pass |
 | D-298: and the panel's plain feather box is refused while it has keys, with where to set it | Mask 1's feather has keys. Set it on a frame with property.set_base and prop=mask:0:feather. | Mask 1's feather has keys. Set it on a frame with property.set_base and prop=mask:0:feather. | pass |
 | D-298: a feather key below 0 is refused by the core, with the reason | Mask "Mask 1" was given a feather of -1 pixels, which is below 0. Set a value inside the range and send the masks again. | Mask "Mask 1" was given a feather of -1 pixels, which is below 0. Set a value inside the range and send the masks again. | pass |
+| D-737: Enter's `closed=0` adds an open mask of mode None, and two points are enough | Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off; Mask 3 none 2 points, opacity 1, feather 0, expansion 0, open | Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off; Mask 3 none 2 points, opacity 1, feather 0, expansion 0, open | pass |
+| D-737: the switch opens Mask 1, so its mode is None | Mask 1 none 4 points | Mask 1 none 4 points | pass |
+| D-737: a mode on the open mask is refused, with the reason | Mask "Mask 1" is open, so its mode is None: it encloses nothing to add or take away. Close the mask first, then set its mode. | Mask "Mask 1" is open, so its mode is None: it encloses nothing to add or take away. Close the mask first, then set its mode. | pass |
+| D-737: the switch again closes it, mode Add | Mask 1 add 4 points | Mask 1 add 4 points | pass |
 
-**20 of 20 checks pass.**
+**24 of 24 checks pass.**

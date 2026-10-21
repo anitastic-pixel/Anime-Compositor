@@ -12781,9 +12781,18 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                     .map(|n| format!("Mask {n}"))
                                     .find(|name| masks.iter().all(|m| &m.name != name))
                                     .expect("the numbers do not run out");
+                                // D-737: `closed=0` leaves the pen's path open, a line of mode
+                                // None that cuts nothing.
+                                let closed = parameter(query, "closed").as_deref() != Some("0");
                                 masks.push(anime_compositor::mask::Mask {
                                     name,
                                     points,
+                                    closed,
+                                    mode: if closed {
+                                        anime_compositor::mask::MaskMode::Add
+                                    } else {
+                                        anime_compositor::mask::MaskMode::None
+                                    },
                                     ..Default::default()
                                 });
                             } else {
@@ -12844,6 +12853,18 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             }
                             if let Some(name) = parameter(query, "name") {
                                 masks[at].name = name;
+                            }
+                            // D-737: a switch like the two above, as a shape's `closed` is. Opening
+                            // a mask makes it a line, mode None; closing it gives it Add, the mode
+                            // a new mask has.
+                            if parameter(query, "closed").is_some() {
+                                let mask = &mut masks[at];
+                                mask.closed = !mask.closed;
+                                mask.mode = if mask.closed {
+                                    anime_compositor::mask::MaskMode::Add
+                                } else {
+                                    anime_compositor::mask::MaskMode::None
+                                };
                             }
                         }
                     }

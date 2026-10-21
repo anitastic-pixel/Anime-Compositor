@@ -4075,7 +4075,8 @@ pub enum Effect {
         duration_averaging: String,
         composite: String,
         levels: Option<Vec<f64>>,
-        outline: Option<Vec<(f64, f64)>>,
+        /// The mask's path and, D-737, whether it is closed.
+        outline: Option<(Vec<(f64, f64)>, bool)>,
     },
     /// D-421: after After Effects' Audio Waveform. `audio_layer`, `start_point`, `end_point`,
     /// `path`, `maximum_height`, `audio_duration`, `audio_offset`, `thickness`, `softness`,
@@ -4102,7 +4103,8 @@ pub enum Effect {
         display_options: String,
         composite: String,
         levels: Option<Vec<f64>>,
-        outline: Option<Vec<(f64, f64)>>,
+        /// The mask's path and, D-737, whether it is closed.
+        outline: Option<(Vec<(f64, f64)>, bool)>,
     },
     /// D-416: after After Effects' Fractal. The Mandelbrot or Julia set (`set_choice`, one of
     /// [`FRACTAL_SETS`]) of z^n + c (`equation` "z2" to "z6"), each view a centre (-10 to 10), a
