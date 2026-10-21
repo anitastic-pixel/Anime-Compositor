@@ -1,0 +1,181 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-parametric-shapes",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 400,
+      "height": 300,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 25,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 25
+      },
+      "layer_order": [
+        "shapes"
+      ],
+      "layers": [
+        {
+          "id": "shapes",
+          "kind": "shape",
+          "name": "shapes",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 25,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "shapes": [
+            {
+              "name": "Box",
+              "enabled": true,
+              "closed": true,
+              "parametric": {
+                "type": "rectangle",
+                "size": {
+                  "base": [
+                    120,
+                    80
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    100,
+                    80
+                  ],
+                  "keyframes": [],
+                  "expression": {
+                    "text": "wiggle(2, 10)",
+                    "enabled": true
+                  }
+                },
+                "roundness": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        160.0,
+                        40.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        160.0,
+                        120.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40.0,
+                        120.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40.0,
+                        40.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.21586050011389926,
+                  0.21586050011389926,
+                  0.21586050011389926
+                ],
+                "opacity": 1
+              },
+              "stroke": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

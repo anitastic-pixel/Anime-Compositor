@@ -164600,6 +164600,31 @@ The build's test must read each file with `persist::read_presets`, apply the pre
 | FX-ANP-S12 | The starter preset "Wipe reveal" applied at frame 10 to `big`. | `big` at 10 | effects: length 1; effects/-1/parameters/completion: keys [[10, 100], [22, 0]] |
 
 
+## Parametric shape fixtures
+
+D-738 (a), accepted on 2026-10-21. `tools/parametric_shape_reference.py` writes `Fixtures/parametric_shapes/`. `host.json` is a 400 by 300 composition at 24 fps holding one shape layer of five parametric shapes: `Box`, a 120 by 80 rectangle at (100, 80) with a roundness of 0; `Rounded`, a rectangle at (300, 80) with a roundness of 20 whose size is keyed, linear, from 100 by 60 at frame 0 to 160 by 100 at frame 24; `Oval`, a 140 by 90 ellipse at (100, 210) that also keeps a `roundness` an ellipse does not use and `bulge`, a field this build does not know; `Star`, five points at (300, 210), radii 60 and 30; and `Hex`, a polygon of 6.7 points (six) at (200, 150) turned 30 degrees, radius 40, outer roundness 50. Each shape's `path` holds its outline at its settings' bases. `expected_parametric_shapes.json` gives, for each drawn case, a shape, a frame and its outline there as a path's points are written, `point`, `in` and `out`, numbers within 1e-9; for the saved case, each shape's type and the path the saved project must hold; and for each refused file the diagnostic and a word its message must contain.
+
+The build's test must read `host.json`, find each case's outline as the shape's path at that frame, and draw each parametric shape exactly as a plain shape of that outline is drawn; save the project and find every shape's type, its path as its base outline with no keys, and the oval's `roundness` and `bulge` as they were read; and refuse each refused file with the diagnostic, naming the word.
+
+| case | says | the build must give |
+| --- | --- | --- |
+| FX-SHPP-001 | A rectangle with a roundness of 0: four corners, top right first, clockwise. | shape 0 at frame 0: 4 points as written |
+| FX-SHPP-002 | A rounded rectangle at its first size key: eight points, a handle on each pointing to its corner. | shape 1 at frame 0: 8 points as written |
+| FX-SHPP-003 | Half way between its size keys the rectangle is half way between the two sizes; the roundness stays 20. | shape 1 at frame 12: 8 points as written |
+| FX-SHPP-004 | At its last size key. | shape 1 at frame 24: 8 points as written |
+| FX-SHPP-005 | An ellipse: four points, top first, handles along the edge; the roundness it keeps draws nothing. | shape 2 at frame 0: 4 points as written |
+| FX-SHPP-006 | A five-pointed star: ten corners, outer and inner by turns, the first straight up; no roundness, no handles. | shape 3 at frame 0: 10 points as written |
+| FX-SHPP-007 | A polygon of 6.7 points has six (floor), turned 30 degrees, with handles at 50% roundness. | shape 4 at frame 0: 6 points as written |
+| FX-SHPP-008 | Saved again: every shape keeps its type, its path is its outline at the settings' bases with no keys, and the oval keeps the roundness its type does not use and `bulge`, a field this build does not know. | each shape's type and base outline; shape 2's roundness and bulge as read |
+| FX-SHPP-020 | A parametric shape is closed; one written open is refused. | `refused_open.json` refused, `PROJECT_SCHEMA_INVALID`, naming closed |
+| FX-SHPP-021 | A type this build does not have. | `refused_type.json` refused, `PROJECT_SCHEMA_INVALID`, naming heart |
+| FX-SHPP-022 | A rectangle without its size. | `refused_no_size.json` refused, `PROJECT_SCHEMA_INVALID`, naming size |
+| FX-SHPP-023 | A size below 0. | `refused_negative_size.json` refused, `PROJECT_SCHEMA_INVALID`, naming size |
+| FX-SHPP-024 | A polygon of fewer than 3 points. | `refused_two_points.json` refused, `PROJECT_SCHEMA_INVALID`, naming points |
+| FX-SHPP-025 | An expression on a setting: keys only, as a shape's other numbers. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
+| FX-SHPP-026 | A key whose radius is below 0, though the base is fine. | `refused_keyed_radius.json` refused, `PROJECT_SCHEMA_INVALID`, naming radius |
+
+
 ## Color Lookup fixtures
 
 D-182, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/cube_lut/`, holding the Invert fixtures' drawing of colour bands (`media/bands.png`, described under Invert fixtures) with one Color Lookup (`core.color_lookup`) on it, and a lookup asset `asset-lut` whose file is under `luts/`, unmoved unless the case says. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
