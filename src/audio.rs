@@ -548,12 +548,13 @@ fn by_symphonia(raw: Vec<u8>, ext: &str, name: &str) -> Result<Sound, Diagnostic
 
 /// D-639: where an MP4 or MOV says its sound starts and how long it lasts, from the first sound
 /// track's edit list: (silence first, samples to skip, samples to keep), at the track's own
-/// rate, and that rate. The encoder's start delay is told this way, and Windows' decoder does not skip it.
+/// rate, that rate, and the track's whole length at it (`mdhd`, the start delay included). The
+/// encoder's start delay is told this way.
 /// `None` for a file with no edit list, or that is not an MP4 at all (a raw `.aac`).
 // ponytail: the first edit only, after any empty ones. The iTunes gapless note some encoders
 // write instead is not read; add it if such a file is met.
 #[cfg_attr(not(windows), allow(dead_code))]
-fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64)> {
+fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64, u64)> {
     let u32_be = |at: usize| Some(u32::from_be_bytes(b.get(at..at + 4)?.try_into().ok()?) as u64);
     let u64_be = |at: usize| Some(u64::from_be_bytes(b.get(at..at + 8)?.try_into().ok()?));
     // The boxes inside `a..e`, as (four letters, start of the body, end).
@@ -589,7 +590,13 @@ fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64)> {
         if b.get(find(&mdia, b"hdlr")?.0 + 8..)?.get(..4)? != b"soun" {
             continue;
         }
-        let rate = timescale(find(&mdia, b"mdhd")?.0)?;
+        let mdhd = find(&mdia, b"mdhd")?.0;
+        let rate = timescale(mdhd)?;
+        let whole = if b.get(mdhd)? == &1 {
+            u64_be(mdhd + 24)?
+        } else {
+            u32_be(mdhd + 16)?
+        };
         let (ea, ee) = find(&trak, b"edts")?;
         let (la, _) = find(&boxes(ea, ee)?, b"elst")?;
         let wide = b.get(la)? == &1;
@@ -607,7 +614,13 @@ fn edit_list(b: &[u8]) -> Option<(u64, u64, Option<u64>, u64)> {
                 silence += length;
                 continue;
             }
-            return Some((silence, start as u64, (length > 0).then_some(length), rate));
+            return Some((
+                silence,
+                start as u64,
+                (length > 0).then_some(length),
+                rate,
+                whole,
+            ));
         }
         return None;
     }
@@ -629,8 +642,7 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
         // Already initialised on this thread is an answer too, and not a failure.
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         MFStartup(MF_VERSION, MFSTARTUP_FULL).map_err(said)?;
-        // Also how many samples the decoder put before 0, which it has then skipped itself.
-        let read = || -> windows::core::Result<(u32, usize, Vec<f32>, usize)> {
+        let read = || -> windows::core::Result<(u32, usize, Vec<f32>)> {
             let reader = MFCreateSourceReaderFromURL(&HSTRING::from(path.as_os_str()), None)?;
             let first = MF_SOURCE_READER_FIRST_AUDIO_STREAM.0 as u32;
             reader.SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS.0 as u32, false)?;
@@ -643,7 +655,6 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
             let rate = got.GetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND)?;
             let channels = (got.GetUINT32(&MF_MT_AUDIO_NUM_CHANNELS)? as usize).max(1);
             let mut x: Vec<f32> = Vec::new();
-            let mut start_at = None;
             loop {
                 let (mut flags, mut time, mut sample) = (0u32, 0i64, None);
                 reader.ReadSample(
@@ -662,7 +673,6 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
                     // Where the piece starts, to the nearest sample: before 0 is the start delay.
                     let at =
                         (time as i128 * rate as i128 + 5_000_000).div_euclid(10_000_000) as i64;
-                    start_at.get_or_insert(at);
                     let skip = ((-at).max(0) as usize * channels).min(piece.len());
                     let start = at.max(0) as usize * channels;
                     if start > x.len() {
@@ -676,23 +686,21 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
                     break;
                 }
             }
-            Ok((
-                rate,
-                channels,
-                x,
-                start_at.map_or(0, |a: i64| (-a).max(0) as usize),
-            ))
+            Ok((rate, channels, x))
         };
         let result = read();
         let _ = MFShutdown();
-        let (rate, channels, mut x, skipped) = result.map_err(said)?;
-        if let Some((silence, skip, keep, track)) =
+        let (rate, channels, mut x) = result.map_err(said)?;
+        if let Some((silence, skip, keep, track, whole)) =
             std::fs::read(path).ok().as_deref().and_then(edit_list)
         {
             let at = |n: u64| (n as u128 * rate as u128 / track.max(1) as u128) as usize * channels;
-            // Windows 11's decoder starts at the delay, at 0; Windows Server's decoder
-            // (GitHub's computer) starts before 0 by the edit list's skip, and has skipped it.
-            x.drain(..at(skip).saturating_sub(skipped * channels).min(x.len()));
+            // Windows 11's decoder gives the start delay and the whole track, which is at least
+            // `whole` long; Windows Server's (GitHub's computer) has already skipped the delay,
+            // so gives less than `whole`, as its last block pads less than the delay it took off.
+            if x.len() >= at(whole) {
+                x.drain(..at(skip).min(x.len()));
+            }
             if let Some(keep) = keep {
                 x.truncate(at(keep));
             }
