@@ -13509,3 +13509,103 @@ fn a_parametric_shape_is_drawn_and_switched_from_the_window() {
         Some(10)
     );
 }
+
+/// B-610, D-738 (b): shapes grouped, a group's numbers set and keyed, a grouped point dragged
+/// where it is drawn, and Ungroup, from the window. The core's half is
+/// `verification/B-610_shape_groups_table.md`.
+#[test]
+fn shapes_are_grouped_and_ungrouped_from_the_window() {
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    run(&viewer, "layer.add_shape");
+    let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let layer = |viewer: &Mutex<Viewer>| shown_layer(viewer, "Shape Layer 1");
+    let square = "points=0,0,0,0,0,0;20,0,0,0,0,0;20,20,0,0,0,0;0,20,0,0,0,0";
+    for _ in 0..3 {
+        run(&viewer, &format!("shape.add?layer={id}&{square}"));
+    }
+    run(&viewer, &format!("shape.group?layer={id}&shapes=0,1"));
+    let l = layer(&viewer);
+    assert_eq!(l["groups"][0]["name"], "Group 1");
+    assert_eq!(l["shapes"][0]["group"], 0);
+    assert_eq!(l["shapes"][1]["group"], 0);
+    assert!(l["shapes"][2].get("group").is_none());
+    assert!(
+        run(&viewer, &format!("shape.group?layer={id}&shapes=0,2")).contains("different groups")
+    );
+
+    run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:position&value=50,20&frame=0"),
+    );
+    assert_eq!(
+        layer(&viewer)["groups"][0]["transform"]["position"]["base"].to_string(),
+        "[50,20]"
+    );
+    let drawn = |viewer: &Mutex<Viewer>| {
+        let body = boxes(viewer, 0, None).into_body();
+        let answer: serde_json::Value =
+            serde_json::from_slice(&body).expect("the boxes answer is JSON");
+        answer["values"][&id].clone()
+    };
+    let now = drawn(&viewer);
+    assert_eq!(
+        now["shapes"][0][1],
+        serde_json::json!([70.0, 20.0, 0.0, 0.0, 0.0, 0.0])
+    );
+    assert_eq!(
+        now["shapes"][2][1],
+        serde_json::json!([20.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    );
+    assert_eq!(now["group:0:position"], serde_json::json!([50.0, 20.0]));
+    assert!(run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:skew&value=90&frame=0")
+    )
+    .contains("skew"));
+
+    // A point dragged to where it is drawn is kept where the group's own space has it.
+    run(
+        &viewer,
+        &format!(
+            "shape.set_path?layer={id}&shape=0&frame=0&points=50,20,0,0,0,0;80,20,0,0,0,0;70,40,0,0,0,0;50,40,0,0,0,0"
+        ),
+    );
+    assert_eq!(
+        layer(&viewer)["shapes"][0]["path"]["base"]["points"][1]["point"].to_string(),
+        "[30,0]"
+    );
+
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=group:0:rotation&frame=0"),
+    );
+    assert_eq!(
+        layer(&viewer)["groups"][0]["transform"]["rotation"]["keyframes"]
+            .as_array()
+            .map(Vec::len),
+        Some(1)
+    );
+
+    run(&viewer, &format!("shape.ungroup?layer={id}&group=0"));
+    let l = layer(&viewer);
+    assert!(l["groups"].as_array().is_none_or(Vec::is_empty));
+    assert!(l["shapes"][0].get("group").is_none());
+    assert_eq!(
+        drawn(&viewer)["shapes"][0][1],
+        serde_json::json!([30.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    );
+    run(&viewer, "edit.undo");
+    assert_eq!(layer(&viewer)["shapes"][1]["group"], 0);
+
+    run(&viewer, &format!("shape.set?layer={id}&shape=2&group=0"));
+    assert_eq!(layer(&viewer)["shapes"][2]["group"], 0);
+    assert!(run(&viewer, &format!("shape.set?layer={id}&shape=2&group=4")).contains("group"));
+    run(&viewer, &format!("shape.set?layer={id}&shape=2&group=none"));
+    assert!(layer(&viewer)["shapes"][2].get("group").is_none());
+}

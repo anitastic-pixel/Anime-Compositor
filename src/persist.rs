@@ -798,6 +798,11 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 map.insert("enabled".into(), J::from(s.enabled));
                 map.insert("closed".into(), J::from(s.closed));
                 map.insert("path".into(), path_json(was, &s.points, &s.keys));
+                // D-738 (b): the group it is in, by place; none is no key.
+                match s.group {
+                    Some(g) => map.insert("group".into(), J::from(g)),
+                    None => map.remove("group"),
+                };
                 // D-738 (a): the settings, merged over the record they were read from, so a
                 // setting the type does not use and a field this build does not know are kept.
                 // `path` above is the outline at their bases, for a reader without D-738.
@@ -902,6 +907,28 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             })
             .collect();
         owned.push(("shapes", J::Array(shapes)));
+        // D-738 (b): the groups, each merged over the record it was read from, written where
+        // there is one or the file had the key.
+        if !layer.shape_groups.is_empty() || base.is_some_and(|b| b.get("groups").is_some()) {
+            let groups = layer.shape_groups.iter().map(|g| {
+                let was = g.record.get().and_then(J::as_object);
+                let mut map = was.cloned().unwrap_or_else(Map::new);
+                map.insert("name".into(), J::from(g.name.as_str()));
+                match g.parent {
+                    Some(p) => map.insert("parent".into(), J::from(p)),
+                    None => map.remove("parent"),
+                };
+                let was = was.and_then(|w| w.get("transform"));
+                let mut t = was.and_then(J::as_object).cloned().unwrap_or_default();
+                for (name, property) in &g.transform {
+                    let before = was.and_then(|w| w.get(name));
+                    t.insert(name.clone(), property_json(before, property, 1.0));
+                }
+                map.insert("transform".into(), J::Object(t));
+                J::Object(map)
+            });
+            owned.push(("groups", J::Array(groups.collect())));
+        }
     }
     // D-66: an adjustment layer has no drawing, so the three keys about one are not written.
     // D-74: nor are they for a solid, whose drawing is its `solid` record.
@@ -12435,6 +12462,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     // D-78: a shape layer's drawing is its `shapes` list, and like a solid it has no exposures
     // and no source offset -- there is no footage behind it to offset into.
     let mut shapes: Vec<crate::shape::Shape> = Vec::new();
+    let mut shape_groups: Vec<crate::shape::Group> = Vec::new();
     if kind == LayerKind::Shape {
         for key in ["exposure_spans", "source_offset_frames"] {
             if v.get(key).is_some() {
@@ -12452,6 +12480,16 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             .enumerate()
         {
             shapes.push(parse_shape(s, &format!("{at}/{i}"), i)?);
+        }
+        // D-738 (b): the groups its shapes name by place.
+        if let Some(g) = v.get("groups").filter(|g| !g.is_null()) {
+            let at = format!("{pointer}/groups");
+            for (i, g) in as_array(g, &at)?.iter().enumerate() {
+                shape_groups.push(parse_group(g, &format!("{at}/{i}"))?);
+            }
+        }
+        if let Some(p) = crate::shape::groups_problem(&shape_groups, &shapes) {
+            return Err(invalid(&format!("{pointer}/groups"), &p));
         }
     } else if v.get("shapes").is_some() {
         return Err(invalid(
@@ -12852,6 +12890,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         pan: None,
         solid,
         shapes,
+        shape_groups,
         text,
         timesheet,
         key_drawings,
@@ -13125,6 +13164,10 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
         },
         record: crate::model::FileRecord::new(v),
         parametric,
+        group: match v.get("group").filter(|g| !g.is_null()) {
+            None => None,
+            Some(g) => Some(as_u32(g, &format!("{at}/group"))? as usize),
+        },
     };
     match shape.problem() {
         Some(p) => Err(invalid(at, &p)),
@@ -13155,6 +13198,37 @@ fn parse_parametric(p: &J, at: &str) -> Result<crate::shape::Parametric, Diagnos
         settings.insert(name.to_string(), property);
     }
     Ok(crate::shape::Parametric { kind, settings })
+}
+
+/// D-738 (b): a group's name, the group it sits in and its transform; the ranges, that every
+/// number is there and that the groups make no loop are `shape::groups_problem`'s.
+fn parse_group(g: &J, at: &str) -> Result<crate::shape::Group, Diagnostic> {
+    as_object(g, at)?;
+    let name = as_str(field(g, at, "name")?, &format!("{at}/name"))?.to_string();
+    let parent = match g.get("parent").filter(|p| !p.is_null()) {
+        None => None,
+        Some(p) => Some(as_u32(p, &format!("{at}/parent"))? as usize),
+    };
+    let here = format!("{at}/transform");
+    let t = field(g, at, "transform")?;
+    as_object(t, &here)?;
+    let mut transform = std::collections::BTreeMap::new();
+    for name in crate::shape::GROUP_PROPERTIES {
+        let Some(p) = t.get(name) else { continue };
+        let value = if matches!(name, "anchor" | "position" | "scale") {
+            "vec2"
+        } else {
+            "scalar"
+        };
+        let property = parse_property(p, &format!("{here}/{name}"), value, false, false, 1.0)?;
+        transform.insert(name.to_string(), property);
+    }
+    Ok(crate::shape::Group {
+        name,
+        parent,
+        transform,
+        record: crate::model::FileRecord::new(g),
+    })
 }
 
 /// D-169: three one-number properties; their ranges are `Shape::problem`'s.
@@ -14742,6 +14816,7 @@ impl Preset {
                         s
                     })
                     .collect(),
+                groups: None,
             });
         }
         for (k, e) in self.effects.iter().enumerate() {

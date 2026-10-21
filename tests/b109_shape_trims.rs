@@ -196,6 +196,7 @@ fn b109_shape_trims() {
             composition: Id::new(COMP),
             layer_id,
             shapes,
+            groups: None,
         })
         .unwrap();
     let preserved = persist::load_str(&base).unwrap().preserved;

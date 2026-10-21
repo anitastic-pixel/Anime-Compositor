@@ -178,8 +178,10 @@ const SENT: &[&str] = &[
     "shape.add",
     "shape.add_remove_key",
     "shape.delete",
+    "shape.group",
     "shape.set",
     "shape.set_path",
+    "shape.ungroup",
     "sheet.write_action",
     "sketch.add_stroke",
     "sketch.clear",
@@ -669,6 +671,9 @@ const REACHED: &[(&str, &str)] = &[
     ("shape.set_path", "a command the window answers"),
     ("shape.set", "a command the window answers"),
     ("shape.delete", "a command the window answers"),
+    // D-738 (b), accepted on 2026-10-21: shape groups.
+    ("shape.group", "a command the window answers"),
+    ("shape.ungroup", "a command the window answers"),
     // D-79, accepted on 2026-09-22: one pair for both kinds of path, since a mask's points
     // and a shape's are the same points.
     ("path.add_point", "a command the window answers"),
@@ -1663,6 +1668,8 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
         &viewer,
         &format!("shape.add?layer={shape_id}&points=0,0,0,0,0,0;9,9,0,0,0,0;0,9,0,0,0,0"),
     );
+    // D-738 (b): and that shape in a group, because a layer with none writes no `groups`.
+    run(&viewer, &format!("shape.group?layer={shape_id}&shapes=0"));
     // B-24b: and a mask on layer-3, because a layer with none writes no `masks` key at all.
     // It goes in through the core rather than through a URL: the window has no mask command
     // until B-24c, and this check is about the panel reading a field that is there.
@@ -1787,7 +1794,7 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
                     "gain_db" => sound.get(&field),
                     "pan" => panned.get(&field),
                     "solid" => solid.get(&field),
-                    "shapes" => shape.get(&field),
+                    "shapes" | "groups" => shape.get(&field),
                     "source_text" => words.get(&field),
                     "timesheet" => from_sheet.get(&field),
                     "mix" => mixed.get(&field),

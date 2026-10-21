@@ -366,6 +366,205 @@ impl Parametric {
     }
 }
 
+/// D-738 (b): a group's transform, by the names the file gives its numbers.
+pub const GROUP_PROPERTIES: [&str; 7] = [
+    "anchor",
+    "position",
+    "scale",
+    "rotation",
+    "opacity",
+    "skew",
+    "skew_axis",
+];
+
+/// D-738 (b): a turn of the plane, `[a, b, c, d, e, f]` taking (x, y) to
+/// (a x + c y + e, b x + d y + f).
+pub type Turn = [f64; 6];
+
+const STILL: Turn = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+
+/// `a` after `b`.
+fn mul(a: &Turn, b: &Turn) -> Turn {
+    [
+        a[0] * b[0] + a[2] * b[1],
+        a[1] * b[0] + a[3] * b[1],
+        a[0] * b[2] + a[2] * b[3],
+        a[1] * b[2] + a[3] * b[3],
+        a[0] * b[4] + a[2] * b[5] + a[4],
+        a[1] * b[4] + a[3] * b[5] + a[5],
+    ]
+}
+
+/// Clockwise on screen, y running down.
+fn rotate(degrees: f64) -> Turn {
+    let (s, c) = degrees.to_radians().sin_cos();
+    [c, s, -s, c, 0.0, 0.0]
+}
+
+/// A point by the whole turn, or a handle (`linear`) by the turn without its move.
+pub fn apply(m: &Turn, (x, y): (f64, f64), linear: bool) -> (f64, f64) {
+    let (e, f) = if linear { (0.0, 0.0) } else { (m[4], m[5]) };
+    (m[0] * x + m[2] * y + e, m[1] * x + m[3] * y + f)
+}
+
+/// The turn that undoes `m`, or `None` where `m` flattens the plane.
+pub fn invert(m: &Turn) -> Option<Turn> {
+    let det = m[0] * m[3] - m[1] * m[2];
+    if det.abs() < 1e-12 || !det.is_finite() {
+        return None;
+    }
+    let (a, b, c, d) = (m[3] / det, -m[1] / det, -m[2] / det, m[0] / det);
+    Some([a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])])
+}
+
+/// D-738 (b): some of a shape layer's shapes, placed together by one transform, as After
+/// Effects' group is; a group may sit in another.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Group {
+    pub name: String,
+    /// The place in the layer's groups of the group this one sits in; `None` is the layer.
+    pub parent: Option<usize>,
+    /// Every name in [`GROUP_PROPERTIES`]: scale in per cent, opacity 0 to 1, angles in degrees.
+    pub transform: BTreeMap<String, Property>,
+    /// ADR-008: the record this group was read from, which saving writes over.
+    pub record: crate::model::FileRecord,
+}
+
+impl Group {
+    /// A group that places its shapes where their paths are.
+    pub fn new(name: impl Into<String>, parent: Option<usize>) -> Group {
+        let pair = |x, y| Property::constant(Value::Vec2(x, y));
+        let one = |n| Property::constant(Value::Scalar(n));
+        let transform = [
+            ("anchor", pair(0.0, 0.0)),
+            ("position", pair(0.0, 0.0)),
+            ("scale", pair(100.0, 100.0)),
+            ("rotation", one(0.0)),
+            ("opacity", one(1.0)),
+            ("skew", one(0.0)),
+            ("skew_axis", one(0.0)),
+        ];
+        Group {
+            name: name.into(),
+            parent,
+            transform: transform
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+            record: Default::default(),
+        }
+    }
+
+    /// This group's own turn and opacity at a frame: T(position) R(rotation) K(skew) S(scale)
+    /// T(-anchor), K being the shear x' = x - tan(skew) y along the skew axis, as lottie-web
+    /// (MIT) writes After Effects' group transform down.
+    fn turn(&self, frame: i32) -> (Turn, f64) {
+        let get = |n: &str| self.transform.get(n).map(|p| p.value_at(frame));
+        let two = |n: &str| get(n).and_then(|v| v.as_vec2()).unwrap_or((0.0, 0.0));
+        let one = |n: &str| get(n).and_then(|v| v.as_scalar()).unwrap_or(0.0);
+        let ((ax, ay), (px, py), (sx, sy)) = (two("anchor"), two("position"), two("scale"));
+        let axis = one("skew_axis");
+        let shear = [1.0, 0.0, -one("skew").to_radians().tan(), 1.0, 0.0, 0.0];
+        let mut m = [1.0, 0.0, 0.0, 1.0, -ax, -ay];
+        m = mul(&[sx / 100.0, 0.0, 0.0, sy / 100.0, 0.0, 0.0], &m);
+        m = mul(&mul(&rotate(-axis), &mul(&shear, &rotate(axis))), &m);
+        m = mul(&rotate(one("rotation")), &m);
+        (mul(&[1.0, 0.0, 0.0, 1.0, px, py], &m), one("opacity"))
+    }
+
+    /// What is outside D-738's ranges in this group's transform, as a sentence.
+    fn problem(&self) -> Option<String> {
+        for name in GROUP_PROPERTIES {
+            let what = format!("group \"{}\"'s {}", self.name, name.replace('_', " "));
+            let Some(p) = self.transform.get(name) else {
+                return Some(format!("{what}, which is missing"));
+            };
+            if p.expression().is_some() {
+                return Some(format!("no expression on {what}: it takes keys only"));
+            }
+            if p.split().is_some() || p.keyframes().iter().any(|k| k.spatial.is_some()) {
+                return Some(format!("{what} kept whole, with no motion path"));
+            }
+            let (lo, hi) = match name {
+                "scale" => (-100000.0, 100000.0),
+                "opacity" => (0.0, 1.0),
+                "skew" => (-85.0, 85.0),
+                _ => (f64::NEG_INFINITY, f64::INFINITY),
+            };
+            let pair = matches!(name, "anchor" | "position" | "scale");
+            for v in std::iter::once(p.base()).chain(p.keyframes().iter().map(|k| k.value)) {
+                let numbers = match (pair, v) {
+                    (true, Value::Vec2(a, b)) => vec![a, b],
+                    (false, Value::Scalar(n)) => vec![n],
+                    _ => {
+                        let count = if pair { "two numbers" } else { "one number" };
+                        return Some(format!("{what} of {count}"));
+                    }
+                };
+                if let Some(n) = numbers.iter().find(|n| !(lo..=hi).contains(*n)) {
+                    return Some(format!("{what} from {lo} to {hi}, not {n}"));
+                }
+            }
+        }
+        None
+    }
+}
+
+/// D-738 (b): the whole turn and opacity of `group`, every group it sits in included.
+pub fn placing(groups: &[Group], mut group: Option<usize>, frame: i32) -> (Turn, f64) {
+    let (mut m, mut o) = (STILL, 1.0);
+    // At most one step a group: [`groups_problem`] refuses a loop, and this never hangs on one.
+    for _ in 0..groups.len() {
+        let Some(g) = group.and_then(|g| groups.get(g)) else {
+            break;
+        };
+        let (gm, go) = g.turn(frame);
+        (m, o) = (mul(&gm, &m), o * go);
+        group = g.parent;
+    }
+    (m, o)
+}
+
+/// D-738 (b): what is wrong with a layer's groups and its shapes' places in them, as a sentence.
+/// The loader refuses on it with `PROJECT_SCHEMA_INVALID` and the commands with
+/// `COMMAND_INVALID_VALUE`.
+pub fn groups_problem(groups: &[Group], shapes: &[Shape]) -> Option<String> {
+    for (i, g) in groups.iter().enumerate() {
+        if let Some(p) = g.parent {
+            if p >= groups.len() || p == i {
+                return Some(format!(
+                    "group \"{}\"'s parent to be another of the layer's {} groups, not {p}",
+                    g.name,
+                    groups.len()
+                ));
+            }
+        }
+        // A chain longer than the list has come back on itself.
+        let mut up = g.parent;
+        for _ in 0..groups.len() {
+            up = up.and_then(|u| groups[u].parent);
+        }
+        if up.is_some() {
+            return Some(format!(
+                "group \"{}\" not inside itself, but its parent leads back to it",
+                g.name
+            ));
+        }
+        if let Some(p) = g.problem() {
+            return Some(p);
+        }
+    }
+    shapes.iter().find_map(|s| {
+        s.group.filter(|g| *g >= groups.len()).map(|g| {
+            format!(
+                "shape \"{}\"'s group to be one of the layer's {} groups, not {g}",
+                s.name,
+                groups.len()
+            )
+        })
+    })
+}
+
 /// D-170: how a stroke turns a corner. Round is D-78's, and what a stroke has unless told.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Join {
@@ -604,6 +803,8 @@ pub struct Shape {
     /// settings at each frame. `points` then holds its outline at the settings' bases, which is
     /// what the file's `path` is written from, and `keys` is empty.
     pub parametric: Option<Parametric>,
+    /// D-738 (b): the place in the layer's groups of the group this shape is in.
+    pub group: Option<usize>,
 }
 
 impl Default for Shape {
@@ -620,6 +821,7 @@ impl Default for Shape {
             tracks: BTreeMap::new(),
             record: Default::default(),
             parametric: None,
+            group: None,
         }
     }
 }
@@ -663,6 +865,43 @@ impl Shape {
                 for (v, channel) in values.iter_mut().zip(track) {
                     *v = channel.value_at(frame).as_scalar().unwrap_or(*v);
                 }
+            }
+        }
+        now
+    }
+
+    /// D-738 (b): this shape at a frame, placed by its group and every group that group is in:
+    /// points by the whole turn, handles by its linear part, gradient points as points, fill and
+    /// stroke opacity by every group's opacity, stroke width by the square root of the turn's
+    /// size. A shape in no group is [`Shape::at`] unchanged.
+    pub fn placed(&self, groups: &[Group], frame: i32) -> Shape {
+        let mut now = self.at(frame);
+        if self.group.is_none() {
+            return now;
+        }
+        let (m, o) = placing(groups, self.group, frame);
+        for p in &mut now.points {
+            p.point = apply(&m, p.point, false);
+            p.in_handle = apply(&m, p.in_handle, true);
+            p.out_handle = apply(&m, p.out_handle, true);
+        }
+        let place = |g: &mut Gradient| {
+            for end in [&mut g.start, &mut g.end] {
+                let (x, y) = apply(&m, end.base().as_vec2().unwrap_or_default(), false);
+                *end = Property::constant(Value::Vec2(x, y));
+            }
+        };
+        if let Some(f) = now.fill.as_mut() {
+            f.opacity *= o;
+            if let Some(g) = f.gradient.as_mut() {
+                place(g);
+            }
+        }
+        if let Some(s) = now.stroke.as_mut() {
+            s.opacity *= o;
+            s.width_px *= (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
+            if let Some(g) = s.gradient.as_mut() {
+                place(g);
             }
         }
         now

@@ -83,7 +83,7 @@ Document 24 was changed first, in its own commit (852f7c9), before this code.
   - **Controls**: two new ones, the Search box and the warning chip, so 83 now. Both are real buttons the Tab key stops at.
   - **Keys**: "2" is new, so 47 now.
   - **Shortcuts**: document 24's new Ctrl+N and Ctrl+Alt+N rows, and Ctrl+N pressing New composition.
-  - **One new row**: "every menu line and top bar button the page runs by name is a line of the command palette". Its result is "all of them are". The table is `verification/B-12c_keyboard_table.md`, 186 of 186 checks (185 when W-39 was built).
+  - **One new row**: "every menu line and top bar button the page runs by name is a line of the command palette". Its result is "all of them are". The table is `verification/B-12c_keyboard_table.md`, 188 of 188 checks (185 when W-39 was built).
 - `verification/B-12b_command_map_table.md` and `verification/B-12d_new_composition_table.md` were regenerated with the new keys.
 - All 80 of the app's tests pass.
 - The export tests pass: `t08_export`, `h04_exported_file`, `t07e_roundtrip_export` and `d48_export_threads`. The engine code was not touched; only the page and the test lists changed.

@@ -199,6 +199,7 @@ fn b110_shape_styles() {
             composition: Id::new(COMP),
             layer_id: layer.id.clone(),
             shapes,
+            groups: None,
         })
         .unwrap();
     let preserved = persist::load_str(&base).unwrap().preserved;

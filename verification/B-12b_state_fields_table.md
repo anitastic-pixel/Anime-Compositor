@@ -46,7 +46,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | `comp.work_area` is in the answer | present | present | pass |
-| the panels read 31 fields out of one of its layers | true | true | pass |
+| the panels read 32 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
 | `layer.blend_mode` is in the answer | present | present | pass |
 | `layer.composition_id` is in the answer | present | present | pass |
@@ -57,6 +57,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.exposure_spans` is in the answer | present | present | pass |
 | `layer.frame_blend` is in the answer | present | present | pass |
 | `layer.gain_db` is in the answer | present | present | pass |
+| `layer.groups` is in the answer | present | present | pass |
 | `layer.id` is in the answer | present | present | pass |
 | `layer.in_frame` is in the answer | present | present | pass |
 | `layer.kind` is in the answer | present | present | pass |
@@ -647,4 +648,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**626 of 626 checks pass.**
+**627 of 627 checks pass.**

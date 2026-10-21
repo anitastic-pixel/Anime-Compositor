@@ -156,8 +156,10 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `shape.add` can be asked for without a mouse | yes | yes | pass |
 | `shape.add_remove_key` can be asked for without a mouse | yes | yes | pass |
 | `shape.delete` can be asked for without a mouse | yes | yes | pass |
+| `shape.group` can be asked for without a mouse | yes | yes | pass |
 | `shape.set` can be asked for without a mouse | yes | yes | pass |
 | `shape.set_path` can be asked for without a mouse | yes | yes | pass |
+| `shape.ungroup` can be asked for without a mouse | yes | yes | pass |
 | `sheet` can be asked for without a mouse | yes | yes | pass |
 | `sheet.write_action` can be asked for without a mouse | yes | yes | pass |
 | `sketch-png` can be asked for without a mouse | yes | yes | pass |
@@ -216,4 +218,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**186 of 186 checks pass.**
+**188 of 188 checks pass.**

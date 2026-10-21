@@ -929,6 +929,9 @@ pub struct Layer {
     /// which is why nothing here says one. A shape's path is D-77's record unchanged, so it may
     /// move exactly as a mask's path does.
     pub shapes: Vec<crate::shape::Shape>,
+    /// D-738 (b): a shape layer's groups, which its shapes name by place, and empty on every
+    /// other kind.
+    pub shape_groups: Vec<crate::shape::Group>,
     /// D-263: a text layer's words, font, size, colour, place and alignment, and `None` on
     /// every other kind.
     pub text: Option<crate::text::Text>,
@@ -1030,6 +1033,7 @@ impl Layer {
             pan: None,
             solid: None,
             shapes: Vec::new(),
+            shape_groups: Vec::new(),
             text: None,
             timesheet: None,
             key_drawings: Vec::new(),

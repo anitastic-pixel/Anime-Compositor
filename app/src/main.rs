@@ -1002,7 +1002,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             serde_json::json!(layer
                                 .shapes
                                 .iter()
-                                .map(|s| six(s.points_at(frame)))
+                                .map(|s| six(s.placed(&layer.shape_groups, frame).points))
                                 .collect::<Vec<_>>()),
                         );
                     }
@@ -1026,6 +1026,16 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                                 _ => serde_json::Value::Array(now),
                             };
                             at.insert(format!("shape:{i}:{name}"), now);
+                        }
+                    }
+                    // D-738 (b): and every group's seven, as the file holds them.
+                    for (i, group) in layer.shape_groups.iter().enumerate() {
+                        for (name, p) in &group.transform {
+                            let now = match p.value_at(frame) {
+                                Value::Vec2(x, y) => serde_json::json!([x, y]),
+                                Value::Scalar(n) => serde_json::json!(n),
+                            };
+                            at.insert(format!("group:{i}:{name}"), now);
                         }
                     }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
@@ -10100,8 +10110,10 @@ const ANSWERS: &[&str] = &[
     "shape.add",
     "shape.add_remove_key",
     "shape.delete",
+    "shape.group",
     "shape.set",
     "shape.set_path",
+    "shape.ungroup",
     "sheet.write_action",
     "sketch.add_stroke",
     "sketch.clear",
@@ -12844,6 +12856,79 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // B-25c: D-78's shapes, the mask commands' twin. The same read-change-send of
                 // the whole list, because SET_SHAPES takes the whole list, and the same pen: which
                 // of the two it draws is decided by the kind of layer chosen.
+                // D-738 (b): Group puts the chosen shapes, all in one group or in none, in a new
+                // group inside that one; Ungroup gives a group's shapes and groups to the group it
+                // is in and takes it away, its transform with it, as After Effects' does.
+                "shape.group" | "shape.ungroup" => {
+                    if layer.kind != LayerKind::Shape {
+                        return Some(format!(
+                            "\"{}\" is not a shape layer, so it has no shapes to group.",
+                            layer.name
+                        ));
+                    }
+                    let mut shapes = layer.shapes.clone();
+                    let mut groups = layer.shape_groups.clone();
+                    if id == "shape.group" {
+                        let chosen: Option<Vec<usize>> = parameter(query, "shapes").and_then(|v| {
+                            v.split(',')
+                                .map(|n| n.trim().parse().ok().filter(|n| *n < shapes.len()))
+                                .collect()
+                        });
+                        let Some(chosen) = chosen.filter(|c| !c.is_empty()) else {
+                            return Some(format!(
+                                "Which shapes? Say shapes=0,2; \"{}\" has {}.",
+                                layer.name,
+                                shapes.len()
+                            ));
+                        };
+                        let parent = shapes[chosen[0]].group;
+                        if chosen.iter().any(|&s| shapes[s].group != parent) {
+                            return Some(
+                                "Those shapes are in different groups. Choose shapes that sit \
+                                 together."
+                                    .to_string(),
+                            );
+                        }
+                        let name = (1..)
+                            .map(|n| format!("Group {n}"))
+                            .find(|name| groups.iter().all(|g| &g.name != name))
+                            .expect("the numbers do not run out");
+                        groups.push(anime_compositor::shape::Group::new(name, parent));
+                        for &s in &chosen {
+                            shapes[s].group = Some(groups.len() - 1);
+                        }
+                    } else {
+                        let gone = match parameter(query, "group").and_then(|g| g.parse().ok()) {
+                            Some(g) if g < groups.len() => g,
+                            _ => {
+                                return Some(format!(
+                                    "Which group? \"{}\" has {}.",
+                                    layer.name,
+                                    groups.len()
+                                ))
+                            }
+                        };
+                        let up = groups.remove(gone).parent;
+                        // Into the group above, then every later place one lower.
+                        let renumber = |g: Option<usize>| match g {
+                            Some(g) if g == gone => up.map(|u| u - usize::from(u > gone)),
+                            Some(g) => Some(g - usize::from(g > gone)),
+                            None => None,
+                        };
+                        for s in &mut shapes {
+                            s.group = renumber(s.group);
+                        }
+                        for g in &mut groups {
+                            g.parent = renumber(g.parent);
+                        }
+                    }
+                    Command::SetShapes {
+                        composition,
+                        layer_id: layer.id.clone(),
+                        shapes,
+                        groups: Some(groups),
+                    }
+                }
                 "shape.add" | "shape.set_path" | "shape.set" | "shape.delete"
                 | "shape.add_remove_key" => {
                     if layer.kind != LayerKind::Shape {
@@ -12923,10 +13008,28 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 Some(p) => Ok(p.outline(None)),
                                 None => mask_points(query),
                             };
-                            let points = match points {
+                            let mut points = match points {
                                 Ok(points) => points,
                                 Err(sentence) => return Some(sentence),
                             };
+                            // D-738 (b): the page sends a grouped shape's points where they are
+                            // drawn, and its path holds them in the group's own space.
+                            if let Some(g) = shapes.get(at).and_then(|s| s.group) {
+                                use anime_compositor::shape::{apply, invert, placing};
+                                let frame = frame_parameter(query, "frame").unwrap_or(0);
+                                let (m, _) = placing(&layer.shape_groups, Some(g), frame);
+                                let Some(back) = invert(&m) else {
+                                    return Some(format!(
+                                        "\"{}\"'s group is scaled to nothing here, so its points cannot be placed.",
+                                        shapes[at].name
+                                    ));
+                                };
+                                for p in &mut points {
+                                    p.point = apply(&back, p.point, false);
+                                    p.in_handle = apply(&back, p.in_handle, true);
+                                    p.out_handle = apply(&back, p.out_handle, true);
+                                }
+                            }
                             if id == "shape.add" {
                                 // A closed shape comes with a fill and an open one with a stroke,
                                 // so that what was just drawn can be seen: an open path has
@@ -12980,6 +13083,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition,
                         layer_id,
                         shapes,
+                        groups: None,
                     }
                 }
                 // W-26: the shy switch, read from the document as the other toggles are.
@@ -13265,6 +13369,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .and_then(mask_prop)
                         .expect("the guard above");
                     match mask_key_command(id, query, composition, layer, which) {
+                        Ok(command) => command,
+                        Err(said) => return Some(said),
+                    }
+                }
+                // D-738 (b): and all five about a shape group's transform.
+                "keyframe.add_remove"
+                | "keyframe.move"
+                | "keyframe.set_interp"
+                | "property.set_base"
+                | "property.drag_update"
+                    if parameter(query, "prop").as_deref().and_then(group_prop).is_some() =>
+                {
+                    let which = parameter(query, "prop")
+                        .as_deref()
+                        .and_then(group_prop)
+                        .expect("the guard above");
+                    match group_key_command(id, query, composition, layer, which) {
                         Ok(command) => command,
                         Err(said) => return Some(said),
                     }
@@ -15701,6 +15822,7 @@ fn with_path(
             composition,
             layer_id,
             shapes,
+            groups: None,
         }
     } else {
         Command::SetMasks {
@@ -15827,6 +15949,58 @@ fn shape_key_command(
         composition,
         layer_id: layer.id.clone(),
         shapes,
+        groups: None,
+    })
+}
+
+/// D-738 (b): `group:<n>:position` and its six siblings name a shape group's transform wherever
+/// a request names a property. The names are the core's `GROUP_PROPERTIES`.
+fn group_prop(prop: &str) -> Option<(usize, &'static str)> {
+    let (at, name) = prop.strip_prefix("group:")?.split_once(':')?;
+    let name = anime_compositor::shape::GROUP_PROPERTIES
+        .into_iter()
+        .find(|n| *n == name)?;
+    Some((at.parse().ok()?, name))
+}
+
+/// D-738 (b): the five requests about a group's number, by the rules `shape_key_command` keeps.
+/// Anchor, position and scale are two numbers, said as a point is; scale in per cent and opacity
+/// from 0 to 1, as the file holds them. `groups_problem` has the last word on the ranges.
+fn group_key_command(
+    id: &str,
+    query: Option<&str>,
+    composition: Id,
+    layer: &Layer,
+    (at, name): (usize, &str),
+) -> Result<Command, String> {
+    let mut groups = layer.shape_groups.clone();
+    let Some(group) = groups.get_mut(at) else {
+        return Err(format!("{} has no group {at}.", layer.name));
+    };
+    let Some(now) = group.transform.get(name).cloned() else {
+        return Err(format!("\"{}\" has no {name}.", group.name));
+    };
+    let pair = matches!(name, "anchor" | "position" | "scale");
+    let values = match id {
+        "property.set_base" | "property.drag_update" => vec![parameter(query, "value")
+            .and_then(|text| match pair {
+                true => property_value(Prop::Position, &text),
+                false => text.trim().parse().ok().map(Value::Scalar),
+            })
+            .ok_or_else(|| match pair {
+                true => "What two numbers? Say value=x,y.".to_string(),
+                false => "What number? Say value=50.".to_string(),
+            })?],
+        _ => Vec::new(),
+    };
+    let mut channels = vec![now];
+    edit_channels(id, query, &mut channels, values, "This number")?;
+    group.transform.insert(name.to_string(), channels.remove(0));
+    Ok(Command::SetShapes {
+        composition,
+        layer_id: layer.id.clone(),
+        shapes: layer.shapes.clone(),
+        groups: Some(groups),
     })
 }
 
@@ -16088,6 +16262,17 @@ fn shape_settings(
     }
     // B-110b, D-170: how a stroke turns its corners and ends its open lines, and how far a
     // mitre may reach. D-170's range for the limit is the core's to refuse.
+    // D-738 (b): the group the shape is in, by place, or none; the core refuses a place the
+    // layer has no group at.
+    match parameter(query, "group").as_deref().map(str::trim) {
+        None => {}
+        Some("none") => shape.group = None,
+        Some(text) => {
+            shape.group = Some(text.parse().map_err(|_| {
+                format!("\"{text}\" is not a group. It is a group's number, or none.")
+            })?)
+        }
+    }
     let join = parameter(query, "join");
     let cap = parameter(query, "cap");
     let limit = number("miter_limit", "a mitre limit")?;

@@ -518,6 +518,8 @@ pub enum Command {
         composition: Id,
         layer_id: Id,
         shapes: Vec<crate::shape::Shape>,
+        /// D-738 (b): the layer's groups with them, or `None` to keep the groups it has.
+        groups: Option<Vec<crate::shape::Group>>,
     },
     /// Document 24's `effect.add`. B-07.
     ///
@@ -3700,7 +3702,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer_mut(project, &comp_id, layer_id)?.masks = masks;
         }
         Command::SetShapes {
-            layer_id, shapes, ..
+            layer_id,
+            shapes,
+            groups,
+            ..
         } => {
             // D-78: a file may carry a shape of fewer than two points and be told so, but nothing
             // in the window may make one, which is document 28's ERROR on a command. A shape
@@ -3748,11 +3753,23 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     .with_remediation("Set a value inside the range and send the shapes again."));
                 }
             }
+            // D-738 (b): the groups sent, or the layer's own, and every shape's place in them.
+            let groups = groups.clone().unwrap_or_else(|| layer.shape_groups.clone());
+            if let Some(p) = crate::shape::groups_problem(&groups, shapes) {
+                return Err(Diagnostic::new(
+                    DiagnosticId::CommandInvalidValue,
+                    Severity::Error,
+                    format!("The shapes cannot be drawn: they need {p}."),
+                    "D-738's groups. The shapes are unchanged.".to_string(),
+                )
+                .with_remediation("Set a value inside the range and send the shapes again."));
+            }
             let mut shapes = shapes.clone();
             for s in &mut shapes {
                 s.keys.sort_by_key(|k| k.frame);
             }
             layer.shapes = shapes;
+            layer.shape_groups = groups;
         }
         Command::AddEffect {
             layer_id,
