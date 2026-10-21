@@ -1,0 +1,10 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Hollow",
+      "kind": "animation",
+      "transform": {}
+    }
+  ]
+}

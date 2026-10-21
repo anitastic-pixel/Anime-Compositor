@@ -1,0 +1,15 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Tilt",
+      "kind": "animation",
+      "transform": {
+        "rotation": {
+          "base": 45,
+          "keyframes": []
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Wiggle shake",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [],
+          "expression": {
+            "text": "wiggle(12, 15)",
+            "enabled": true
+          }
+        }
+      }
+    }
+  ]
+}

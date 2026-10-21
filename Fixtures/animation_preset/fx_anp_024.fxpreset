@@ -1,0 +1,40 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Fade in",
+      "transform": {
+        "opacity": {
+          "base": 0,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "interp": "linear"
+            },
+            {
+              "frame": 12,
+              "value": 1,
+              "interp": "linear"
+            }
+          ]
+        }
+      },
+      "effects": [
+        {
+          "instance_id": "anp-wipe",
+          "type_id": "core.linear_wipe",
+          "enabled": true,
+          "parameters": {
+            "completion": {
+              "base": 100,
+              "keyframes": []
+            },
+            "angle": 90,
+            "feather": 40
+          }
+        }
+      ]
+    }
+  ]
+}

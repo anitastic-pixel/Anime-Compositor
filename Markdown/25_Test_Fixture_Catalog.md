@@ -164553,6 +164553,53 @@ D-181, accepted on 2026-09-28. `tools/starter_presets_reference.py` writes `Fixt
 | 8 | Dream haze | adjustment | `core.diffusion`, `core.vibrance` |
 | 9 | Speed lines | adjustment | `core.speed_lines` |
 
+## Animation preset fixtures
+
+D-739, accepted on 2026-10-21. `tools/animation_preset_reference.py` writes `Fixtures/animation_preset/` and `Fixtures/starter_presets/animation.fxpreset`, the twelve starter animation presets. `host.json` is a 1920 by 1080 composition at 24 fps holding `big`, a solid filling it with an opacity key of its own at frame 40; `small`, a 200 by 100 solid at (300, 200) turned 30 degrees; `lines`, a shape layer of two lines, the second trimmed; and `words`, a text layer; each is taken from a committed fixture. `expected_animation_preset.json` gives each case's preset file, the layer, the frame, and what that layer's record in the saved project must then hold, by a path inside the record (`effects/-1` is the last effect): every key as [frame, value] (frames exact, values within 1e-9, scale in per cent), a path's key frames, key kinds, an expression, a base, a list's length, or a value exactly. A refused file must give the diagnostic named and a message naming the word; a refused application must give a sentence naming the word and leave the layer as it was.
+
+The build's test must read each file with `persist::read_presets`, apply the preset to the layer of `host.json` at the frame through the commands the program uses, save the project, and find these values. Every starter preset must read and, applied at frame 10 to the layer it is for, put its first key at frame 10. A file of all twelve written with `persist::write_presets` must read back as the same presets.
+
+| case | says | applied | the build must give |
+| --- | --- | --- | --- |
+| FX-ANP-001 | Fade in applied at frame 10: its first key lands on frame 10, and the layer's own key at 40 stays. | `big` at 10 | transform/opacity: keys [[10, 0], [22, 1], [40, 0.5]] |
+| FX-ANP-002 | Pop in on a 200 by 100 layer: the same numbers as on a 1920 by 1080 one, never scaled to the layer. | `small` at 10 | transform/scale: keys [[10, [0, 0]], [18, [110, 110]], [22, [100, 100]]] |
+| FX-ANP-003 | Pop in on the 1920 by 1080 layer, to set beside FX-ANP-002. | `big` at 10 | transform/scale: keys [[10, [0, 0]], [18, [110, 110]], [22, [100, 100]]] |
+| FX-ANP-004 | Slide in from the left on the small layer: the keys are added to where it is, so it ends where it was. | `small` at 10 | transform/position: keys [[10, [-1620, 200]], [22, [300, 200]]] |
+| FX-ANP-005 | The same slide on the big layer: the same distance, 1920 pixels, from its own place. | `big` at 10 | transform/position: keys [[10, [-960, 540]], [22, [960, 540]]] |
+| FX-ANP-006 | Wiggle shake has no keys: the expression goes on and nothing moves in time. | `big` at 30 | transform/position: expression "wiggle(12, 15)" |
+| FX-ANP-007 | An animation preset of effects only: the wipe's keys move to the frame, where an effect preset's would not. | `big` at 30 | effects: length 1; effects/-1/parameters/completion: keys [[30, 100], [42, 0]] |
+| FX-ANP-008 | The first key is the earliest anywhere in the preset: here the effect's, at 2, before the opacity's at 4. | `big` at 20 | transform/opacity: keys [[22, 0], [34, 1], [40, 0.5]]; effects: length 1; effects/-1/parameters/completion: keys [[20, 100], [26, 0]] |
+| FX-ANP-009 | Write-on on a shape layer: every shape's trim, the untrimmed one's too, takes the keys. | `lines` at 10 | shapes/0/trim/start: base 0, keys []; shapes/0/trim/end: keys [[10, 0], [34, 100]]; shapes/0/trim/offset: base 0, keys []; shapes/1/trim/start: base 0, keys []; shapes/1/trim/end: keys [[10, 0], [34, 100]]; shapes/1/trim/offset: base 0, keys [] |
+| FX-ANP-010 | Write-on on a solid, which has no shapes: refused, and the layer is unchanged. | `big` at 10 | refused, naming shape layer; nothing changed |
+| FX-ANP-011 | A mask goes on after the layer's own, its path and feather keys moved; a field this build does not know, `tension`, is kept with it and saved, never dropped. | `small` at 10 | masks: length 1; masks/0/path: frames [10, 20]; masks/0/feather_px: keys [[10, 18], [20, 149]]; masks/0/expansion_px: keys [[10, 0], [20, 62]]; masks/0/tension: equals 2 |
+| FX-ANP-012 | Typewriter on a text layer: the Text Animator's Start keys begin at the frame. | `words` at 10 | effects: length 1; effects/-1/parameters/start: keys [[10, 0], [34, 100]] |
+| FX-ANP-013 | A key's kind (D-69) comes with it. | `small` at 10 | transform/rotation: keys [[10, 0], [16, 90], [22, 0]]; transform/rotation: kinds ["bezier", "continuous", "bezier"] |
+| FX-ANP-014 | A property with neither keys nor an expression sets the layer's value. | `small` at 10 | transform/rotation: base 45, keys [] |
+| FX-ANP-015 | Spin in on the small layer, turned 30 degrees: the turn is added to its own, the scale is not. | `small` at 10 | transform/rotation: keys [[10, -150], [22, 30]]; transform/scale: keys [[10, [0, 0]], [22, [100, 100]]] |
+| FX-ANP-020 | A transform property this build does not have would be lost, so the file is refused. | read only | refused, `PRESET_FILE_INVALID`, naming skew |
+| FX-ANP-021 | A field in a property this build would not write back. | read only | refused, `PRESET_FILE_INVALID`, naming loop |
+| FX-ANP-022 | A field in one key, likewise. | read only | refused, `PRESET_FILE_INVALID`, naming velocity |
+| FX-ANP-023 | A kind of preset this build does not have. | read only | refused, `PRESET_FILE_INVALID`, naming motion |
+| FX-ANP-024 | An effect preset, without `kind`, holding a transform is refused as D-180 refuses it. | read only | refused, `PRESET_FILE_INVALID`, naming transform |
+| FX-ANP-025 | An animation preset with nothing in it. | read only | refused, `PRESET_FILE_INVALID`, naming Nothing |
+| FX-ANP-026 | A position taken apart into X and Y is not one a preset holds. | read only | refused, `PRESET_FILE_INVALID`, naming position |
+| FX-ANP-027 | A field in a trim this build would not write back. | read only | refused, `PRESET_FILE_INVALID`, naming bounce |
+| FX-ANP-028 | Something else the rule does not name, on an animation preset. | read only | refused, `PRESET_FILE_INVALID`, naming thumbnail |
+| FX-ANP-029 | An empty transform is nothing in it too. | read only | refused, `PRESET_FILE_INVALID`, naming Hollow |
+| FX-ANP-S01 | The starter preset "Fade in" applied at frame 10 to `big`. | `big` at 10 | transform/opacity: keys [[10, 0], [22, 1], [40, 0.5]] |
+| FX-ANP-S02 | The starter preset "Fade out" applied at frame 10 to `big`. | `big` at 10 | transform/opacity: keys [[10, 1], [22, 0], [40, 0.5]] |
+| FX-ANP-S03 | The starter preset "Pop in" applied at frame 10 to `small`. | `small` at 10 | transform/scale: keys [[10, [0, 0]], [18, [110, 110]], [22, [100, 100]]] |
+| FX-ANP-S04 | The starter preset "Slide in from the left" applied at frame 10 to `small`. | `small` at 10 | transform/position: keys [[10, [-1620, 200]], [22, [300, 200]]] |
+| FX-ANP-S05 | The starter preset "Slide in from the right" applied at frame 10 to `small`. | `small` at 10 | transform/position: keys [[10, [2220, 200]], [22, [300, 200]]] |
+| FX-ANP-S06 | The starter preset "Slide in from the top" applied at frame 10 to `small`. | `small` at 10 | transform/position: keys [[10, [300, -880]], [22, [300, 200]]] |
+| FX-ANP-S07 | The starter preset "Slide in from the bottom" applied at frame 10 to `small`. | `small` at 10 | transform/position: keys [[10, [300, 1280]], [22, [300, 200]]] |
+| FX-ANP-S08 | The starter preset "Spin in" applied at frame 10 to `big`. | `big` at 10 | transform/rotation: keys [[10, -180], [22, 0]]; transform/scale: keys [[10, [0, 0]], [22, [100, 100]]] |
+| FX-ANP-S09 | The starter preset "Wiggle shake" applied at frame 10 to `big`. | `big` at 10 | transform/position: expression "wiggle(12, 15)" |
+| FX-ANP-S10 | The starter preset "Typewriter" applied at frame 10 to `words`. | `words` at 10 | effects: length 1; effects/-1/parameters/start: keys [[10, 0], [34, 100]] |
+| FX-ANP-S11 | The starter preset "Write-on" applied at frame 10 to `lines`. | `lines` at 10 | shapes/0/trim/start: base 0, keys []; shapes/0/trim/end: keys [[10, 0], [34, 100]]; shapes/0/trim/offset: base 0, keys []; shapes/1/trim/start: base 0, keys []; shapes/1/trim/end: keys [[10, 0], [34, 100]]; shapes/1/trim/offset: base 0, keys [] |
+| FX-ANP-S12 | The starter preset "Wipe reveal" applied at frame 10 to `big`. | `big` at 10 | effects: length 1; effects/-1/parameters/completion: keys [[10, 100], [22, 0]] |
+
+
 ## Color Lookup fixtures
 
 D-182, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/cube_lut/`, holding the Invert fixtures' drawing of colour bands (`media/bands.png`, described under Invert fixtures) with one Color Lookup (`core.color_lookup`) on it, and a lookup asset `asset-lut` whose file is under `luts/`, unmoved unless the case says. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.

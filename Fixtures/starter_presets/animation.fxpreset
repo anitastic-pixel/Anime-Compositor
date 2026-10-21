@@ -1,0 +1,498 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Fade in",
+      "kind": "animation",
+      "transform": {
+        "opacity": {
+          "base": 0,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "interp": "linear"
+            },
+            {
+              "frame": 12,
+              "value": 1,
+              "interp": "linear"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Fade out",
+      "kind": "animation",
+      "transform": {
+        "opacity": {
+          "base": 1,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 1,
+              "interp": "linear"
+            },
+            {
+              "frame": 12,
+              "value": 0,
+              "interp": "linear"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Pop in",
+      "kind": "animation",
+      "transform": {
+        "scale": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 8,
+              "value": [
+                110,
+                110
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                100,
+                100
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Slide in from the left",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                -1920,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ],
+          "added": true
+        }
+      }
+    },
+    {
+      "name": "Slide in from the right",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                1920,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ],
+          "added": true
+        }
+      }
+    },
+    {
+      "name": "Slide in from the top",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                0,
+                -1080
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ],
+          "added": true
+        }
+      }
+    },
+    {
+      "name": "Slide in from the bottom",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                0,
+                1080
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ],
+          "added": true
+        }
+      }
+    },
+    {
+      "name": "Spin in",
+      "kind": "animation",
+      "transform": {
+        "rotation": {
+          "base": 0,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -180,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": 0,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ],
+          "added": true
+        },
+        "scale": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                100,
+                100
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Wiggle shake",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [],
+          "expression": {
+            "text": "wiggle(12, 15)",
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "name": "Typewriter",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-typewriter",
+          "type_id": "core.text_animator",
+          "enabled": true,
+          "parameters": {
+            "position": [
+              0,
+              0
+            ],
+            "scale": [
+              100,
+              100
+            ],
+            "rotation": 0,
+            "opacity": 0,
+            "fill": "off",
+            "color": [
+              1,
+              0,
+              0
+            ],
+            "tracking": 0,
+            "start": {
+              "base": 0,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 0,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 24,
+                  "value": 100,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "end": 100,
+            "offset": 0,
+            "amount": 100,
+            "based_on": "characters",
+            "shape": "square",
+            "smoothness": 0,
+            "ease_high": 0,
+            "ease_low": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Write-on",
+      "kind": "animation",
+      "trim": {
+        "start": {
+          "base": 0,
+          "keyframes": []
+        },
+        "end": {
+          "base": 0,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 24,
+              "value": 100,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ]
+        },
+        "offset": {
+          "base": 0,
+          "keyframes": []
+        }
+      }
+    },
+    {
+      "name": "Wipe reveal",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-wipe",
+          "type_id": "core.linear_wipe",
+          "enabled": true,
+          "parameters": {
+            "completion": {
+              "base": 100,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 100,
+                  "interp": "ease",
+                  "ease": [
+                    0.3333333333333333,
+                    0,
+                    0.6666666666666666,
+                    1
+                  ]
+                },
+                {
+                  "frame": 12,
+                  "value": 0,
+                  "interp": "ease",
+                  "ease": [
+                    0.3333333333333333,
+                    0,
+                    0.6666666666666666,
+                    1
+                  ]
+                }
+              ]
+            },
+            "angle": 90,
+            "feather": 40
+          }
+        }
+      ]
+    }
+  ]
+}

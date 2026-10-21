@@ -1,0 +1,50 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Swing",
+      "kind": "animation",
+      "transform": {
+        "rotation": {
+          "base": 0,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 6,
+              "value": 90,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ],
+              "kind": "continuous"
+            },
+            {
+              "frame": 12,
+              "value": 0,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

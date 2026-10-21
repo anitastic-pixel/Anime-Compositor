@@ -1,0 +1,58 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Typewriter",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-typewriter",
+          "type_id": "core.text_animator",
+          "enabled": true,
+          "parameters": {
+            "position": [
+              0,
+              0
+            ],
+            "scale": [
+              100,
+              100
+            ],
+            "rotation": 0,
+            "opacity": 0,
+            "fill": "off",
+            "color": [
+              1,
+              0,
+              0
+            ],
+            "tracking": 0,
+            "start": {
+              "base": 0,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 0,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 24,
+                  "value": 100,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "end": 100,
+            "offset": 0,
+            "amount": 100,
+            "based_on": "characters",
+            "shape": "square",
+            "smoothness": 0,
+            "ease_high": 0,
+            "ease_low": 0
+          }
+        }
+      ]
+    }
+  ]
+}

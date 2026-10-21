@@ -1,0 +1,369 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-animation-preset-host",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 96,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 96
+      },
+      "layer_order": [
+        "big",
+        "small",
+        "lines",
+        "words"
+      ],
+      "layers": [
+        {
+          "id": "big",
+          "kind": "solid",
+          "name": "big",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 96,
+          "transform": {
+            "anchor": {
+              "base": [
+                960.0,
+                540.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": [
+                {
+                  "frame": 40,
+                  "value": 0.5,
+                  "interp": "linear"
+                }
+              ]
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "solid": {
+            "color": [
+              0.2,
+              0.4,
+              0.8
+            ],
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "id": "small",
+          "kind": "solid",
+          "name": "small",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 96,
+          "transform": {
+            "anchor": {
+              "base": [
+                100.0,
+                50.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                300,
+                200
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 30,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "solid": {
+            "color": [
+              0.9,
+              0.5,
+              0.1
+            ],
+            "width": 200,
+            "height": 100
+          }
+        },
+        {
+          "id": "lines",
+          "kind": "shape",
+          "name": "lines",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 96,
+          "shapes": [
+            {
+              "name": "Shape 1",
+              "enabled": true,
+              "closed": false,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        1,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        5,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": null,
+              "stroke": {
+                "color": [
+                  0.8,
+                  0.2,
+                  0.1
+                ],
+                "opacity": 1.0,
+                "width_px": 1.0,
+                "cap": "butt"
+              }
+            },
+            {
+              "name": "Shape 2",
+              "enabled": true,
+              "closed": false,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        1,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        5,
+                        1
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": null,
+              "stroke": {
+                "color": [
+                  0.8,
+                  0.2,
+                  0.1
+                ],
+                "opacity": 1.0,
+                "width_px": 1.0,
+                "cap": "butt"
+              },
+              "trim": {
+                "start": {
+                  "base": 25,
+                  "keyframes": []
+                },
+                "end": {
+                  "base": 75,
+                  "keyframes": []
+                },
+                "offset": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              }
+            }
+          ],
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "words",
+          "kind": "text",
+          "name": "words",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 96,
+          "transform": {
+            "anchor": {
+              "base": [
+                640,
+                180
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "Typewriter text",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 100,
+            "color": [
+              1,
+              1,
+              1
+            ],
+            "at": [
+              80,
+              200
+            ],
+            "align": "left"
+          }
+        }
+      ]
+    }
+  ]
+}

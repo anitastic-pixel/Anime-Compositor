@@ -1,0 +1,47 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Wipe reveal",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-wipe",
+          "type_id": "core.linear_wipe",
+          "enabled": true,
+          "parameters": {
+            "completion": {
+              "base": 100,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": 100,
+                  "interp": "ease",
+                  "ease": [
+                    0.3333333333333333,
+                    0,
+                    0.6666666666666666,
+                    1
+                  ]
+                },
+                {
+                  "frame": 12,
+                  "value": 0,
+                  "interp": "ease",
+                  "ease": [
+                    0.3333333333333333,
+                    0,
+                    0.6666666666666666,
+                    1
+                  ]
+                }
+              ]
+            },
+            "angle": 90,
+            "feather": 40
+          }
+        }
+      ]
+    }
+  ]
+}

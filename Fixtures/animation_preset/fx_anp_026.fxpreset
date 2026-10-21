@@ -1,0 +1,32 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Apart",
+      "kind": "animation",
+      "transform": {
+        "position": {
+          "x": {
+            "base": 0,
+            "keyframes": [
+              {
+                "frame": 0,
+                "value": 0,
+                "interp": "linear"
+              },
+              {
+                "frame": 12,
+                "value": 100,
+                "interp": "linear"
+              }
+            ]
+          },
+          "y": {
+            "base": 0,
+            "keyframes": []
+          }
+        }
+      }
+    }
+  ]
+}

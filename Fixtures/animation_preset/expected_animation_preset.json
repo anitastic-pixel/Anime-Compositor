@@ -1,0 +1,883 @@
+{
+  "cases": {
+    "FX-ANP-001": {
+      "file": "fx_anp_001.fxpreset",
+      "says": "Fade in applied at frame 10: its first key lands on frame 10, and the layer's own key at 40 stays.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/opacity",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              22,
+              1
+            ],
+            [
+              40,
+              0.5
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-002": {
+      "file": "fx_anp_002.fxpreset",
+      "says": "Pop in on a 200 by 100 layer: the same numbers as on a 1920 by 1080 one, never scaled to the layer.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/scale",
+          "keys": [
+            [
+              10,
+              [
+                0,
+                0
+              ]
+            ],
+            [
+              18,
+              [
+                110,
+                110
+              ]
+            ],
+            [
+              22,
+              [
+                100,
+                100
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-003": {
+      "file": "fx_anp_003.fxpreset",
+      "says": "Pop in on the 1920 by 1080 layer, to set beside FX-ANP-002.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/scale",
+          "keys": [
+            [
+              10,
+              [
+                0,
+                0
+              ]
+            ],
+            [
+              18,
+              [
+                110,
+                110
+              ]
+            ],
+            [
+              22,
+              [
+                100,
+                100
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-004": {
+      "file": "fx_anp_004.fxpreset",
+      "says": "Slide in from the left on the small layer: the keys are added to where it is, so it ends where it was.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "keys": [
+            [
+              10,
+              [
+                -1620,
+                200
+              ]
+            ],
+            [
+              22,
+              [
+                300,
+                200
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-005": {
+      "file": "fx_anp_005.fxpreset",
+      "says": "The same slide on the big layer: the same distance, 1920 pixels, from its own place.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "keys": [
+            [
+              10,
+              [
+                -960,
+                540
+              ]
+            ],
+            [
+              22,
+              [
+                960,
+                540
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-006": {
+      "file": "fx_anp_006.fxpreset",
+      "says": "Wiggle shake has no keys: the expression goes on and nothing moves in time.",
+      "layer": "big",
+      "at": 30,
+      "expect": [
+        {
+          "path": "transform/position",
+          "expression": "wiggle(12, 15)"
+        }
+      ]
+    },
+    "FX-ANP-007": {
+      "file": "fx_anp_007.fxpreset",
+      "says": "An animation preset of effects only: the wipe's keys move to the frame, where an effect preset's would not.",
+      "layer": "big",
+      "at": 30,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/completion",
+          "keys": [
+            [
+              30,
+              100
+            ],
+            [
+              42,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-008": {
+      "file": "fx_anp_008.fxpreset",
+      "says": "The first key is the earliest anywhere in the preset: here the effect's, at 2, before the opacity's at 4.",
+      "layer": "big",
+      "at": 20,
+      "expect": [
+        {
+          "path": "transform/opacity",
+          "keys": [
+            [
+              22,
+              0
+            ],
+            [
+              34,
+              1
+            ],
+            [
+              40,
+              0.5
+            ]
+          ]
+        },
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/completion",
+          "keys": [
+            [
+              20,
+              100
+            ],
+            [
+              26,
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-009": {
+      "file": "fx_anp_009.fxpreset",
+      "says": "Write-on on a shape layer: every shape's trim, the untrimmed one's too, takes the keys.",
+      "layer": "lines",
+      "at": 10,
+      "expect": [
+        {
+          "path": "shapes/0/trim/start",
+          "base": 0,
+          "keys": []
+        },
+        {
+          "path": "shapes/0/trim/end",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              34,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "shapes/0/trim/offset",
+          "base": 0,
+          "keys": []
+        },
+        {
+          "path": "shapes/1/trim/start",
+          "base": 0,
+          "keys": []
+        },
+        {
+          "path": "shapes/1/trim/end",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              34,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "shapes/1/trim/offset",
+          "base": 0,
+          "keys": []
+        }
+      ]
+    },
+    "FX-ANP-010": {
+      "file": "fx_anp_010.fxpreset",
+      "says": "Write-on on a solid, which has no shapes: refused, and the layer is unchanged.",
+      "layer": "big",
+      "at": 10,
+      "apply_refused": "shape layer"
+    },
+    "FX-ANP-011": {
+      "file": "fx_anp_011.fxpreset",
+      "says": "A mask goes on after the layer's own, its path and feather keys moved; a field this build does not know, `tension`, is kept with it and saved, never dropped.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "masks",
+          "length": 1
+        },
+        {
+          "path": "masks/0/path",
+          "frames": [
+            10,
+            20
+          ]
+        },
+        {
+          "path": "masks/0/feather_px",
+          "keys": [
+            [
+              10,
+              18
+            ],
+            [
+              20,
+              149
+            ]
+          ]
+        },
+        {
+          "path": "masks/0/expansion_px",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              20,
+              62
+            ]
+          ]
+        },
+        {
+          "path": "masks/0/tension",
+          "equals": 2
+        }
+      ]
+    },
+    "FX-ANP-012": {
+      "file": "fx_anp_012.fxpreset",
+      "says": "Typewriter on a text layer: the Text Animator's Start keys begin at the frame.",
+      "layer": "words",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/start",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              34,
+              100
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-013": {
+      "file": "fx_anp_013.fxpreset",
+      "says": "A key's kind (D-69) comes with it.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/rotation",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              16,
+              90
+            ],
+            [
+              22,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "transform/rotation",
+          "kinds": [
+            "bezier",
+            "continuous",
+            "bezier"
+          ]
+        }
+      ]
+    },
+    "FX-ANP-014": {
+      "file": "fx_anp_014.fxpreset",
+      "says": "A property with neither keys nor an expression sets the layer's value.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/rotation",
+          "base": 45,
+          "keys": []
+        }
+      ]
+    },
+    "FX-ANP-015": {
+      "file": "fx_anp_015.fxpreset",
+      "says": "Spin in on the small layer, turned 30 degrees: the turn is added to its own, the scale is not.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/rotation",
+          "keys": [
+            [
+              10,
+              -150
+            ],
+            [
+              22,
+              30
+            ]
+          ]
+        },
+        {
+          "path": "transform/scale",
+          "keys": [
+            [
+              10,
+              [
+                0,
+                0
+              ]
+            ],
+            [
+              22,
+              [
+                100,
+                100
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-020": {
+      "file": "fx_anp_020.fxpreset",
+      "says": "A transform property this build does not have would be lost, so the file is refused.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "skew"
+    },
+    "FX-ANP-021": {
+      "file": "fx_anp_021.fxpreset",
+      "says": "A field in a property this build would not write back.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "loop"
+    },
+    "FX-ANP-022": {
+      "file": "fx_anp_022.fxpreset",
+      "says": "A field in one key, likewise.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "velocity"
+    },
+    "FX-ANP-023": {
+      "file": "fx_anp_023.fxpreset",
+      "says": "A kind of preset this build does not have.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "motion"
+    },
+    "FX-ANP-024": {
+      "file": "fx_anp_024.fxpreset",
+      "says": "An effect preset, without `kind`, holding a transform is refused as D-180 refuses it.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "transform"
+    },
+    "FX-ANP-025": {
+      "file": "fx_anp_025.fxpreset",
+      "says": "An animation preset with nothing in it.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "Nothing"
+    },
+    "FX-ANP-026": {
+      "file": "fx_anp_026.fxpreset",
+      "says": "A position taken apart into X and Y is not one a preset holds.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "position"
+    },
+    "FX-ANP-027": {
+      "file": "fx_anp_027.fxpreset",
+      "says": "A field in a trim this build would not write back.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "bounce"
+    },
+    "FX-ANP-028": {
+      "file": "fx_anp_028.fxpreset",
+      "says": "Something else the rule does not name, on an animation preset.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "thumbnail"
+    },
+    "FX-ANP-029": {
+      "file": "fx_anp_029.fxpreset",
+      "says": "An empty transform is nothing in it too.",
+      "refused": "PRESET_FILE_INVALID",
+      "names": "Hollow"
+    },
+    "FX-ANP-S01": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Fade in",
+      "about": "The layer fades up from nothing over half a second.",
+      "says": "The starter preset \"Fade in\" applied at frame 10 to `big`.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/opacity",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              22,
+              1
+            ],
+            [
+              40,
+              0.5
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S02": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Fade out",
+      "about": "The layer fades away over half a second, from the playhead.",
+      "says": "The starter preset \"Fade out\" applied at frame 10 to `big`.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/opacity",
+          "keys": [
+            [
+              10,
+              1
+            ],
+            [
+              22,
+              0
+            ],
+            [
+              40,
+              0.5
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S03": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Pop in",
+      "about": "The layer grows from nothing, overshoots a little and settles at full size.",
+      "says": "The starter preset \"Pop in\" applied at frame 10 to `small`.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/scale",
+          "keys": [
+            [
+              10,
+              [
+                0,
+                0
+              ]
+            ],
+            [
+              18,
+              [
+                110,
+                110
+              ]
+            ],
+            [
+              22,
+              [
+                100,
+                100
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S04": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Slide in from the left",
+      "about": "The layer slides in from the left and stops where it is now.",
+      "says": "The starter preset \"Slide in from the left\" applied at frame 10 to `small`.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "keys": [
+            [
+              10,
+              [
+                -1620,
+                200
+              ]
+            ],
+            [
+              22,
+              [
+                300,
+                200
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S05": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Slide in from the right",
+      "about": "The layer slides in from the right and stops where it is now.",
+      "says": "The starter preset \"Slide in from the right\" applied at frame 10 to `small`.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "keys": [
+            [
+              10,
+              [
+                2220,
+                200
+              ]
+            ],
+            [
+              22,
+              [
+                300,
+                200
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S06": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Slide in from the top",
+      "about": "The layer slides in from the top and stops where it is now.",
+      "says": "The starter preset \"Slide in from the top\" applied at frame 10 to `small`.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "keys": [
+            [
+              10,
+              [
+                300,
+                -880
+              ]
+            ],
+            [
+              22,
+              [
+                300,
+                200
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S07": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Slide in from the bottom",
+      "about": "The layer slides in from the bottom and stops where it is now.",
+      "says": "The starter preset \"Slide in from the bottom\" applied at frame 10 to `small`.",
+      "layer": "small",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "keys": [
+            [
+              10,
+              [
+                300,
+                1280
+              ]
+            ],
+            [
+              22,
+              [
+                300,
+                200
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S08": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Spin in",
+      "about": "The layer turns in half a turn while it grows to full size.",
+      "says": "The starter preset \"Spin in\" applied at frame 10 to `big`.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/rotation",
+          "keys": [
+            [
+              10,
+              -180
+            ],
+            [
+              22,
+              0
+            ]
+          ]
+        },
+        {
+          "path": "transform/scale",
+          "keys": [
+            [
+              10,
+              [
+                0,
+                0
+              ]
+            ],
+            [
+              22,
+              [
+                100,
+                100
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S09": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Wiggle shake",
+      "about": "The layer shakes about where it is, twelve times a second, up to fifteen pixels. An expression, so it has no keys.",
+      "says": "The starter preset \"Wiggle shake\" applied at frame 10 to `big`.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "transform/position",
+          "expression": "wiggle(12, 15)"
+        }
+      ]
+    },
+    "FX-ANP-S10": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Typewriter",
+      "about": "The letters appear one by one over a second. For a text layer.",
+      "says": "The starter preset \"Typewriter\" applied at frame 10 to `words`.",
+      "layer": "words",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/start",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              34,
+              100
+            ]
+          ]
+        }
+      ]
+    },
+    "FX-ANP-S11": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Write-on",
+      "about": "Each line draws itself along its path over a second. For a shape layer.",
+      "says": "The starter preset \"Write-on\" applied at frame 10 to `lines`.",
+      "layer": "lines",
+      "at": 10,
+      "expect": [
+        {
+          "path": "shapes/0/trim/start",
+          "base": 0,
+          "keys": []
+        },
+        {
+          "path": "shapes/0/trim/end",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              34,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "shapes/0/trim/offset",
+          "base": 0,
+          "keys": []
+        },
+        {
+          "path": "shapes/1/trim/start",
+          "base": 0,
+          "keys": []
+        },
+        {
+          "path": "shapes/1/trim/end",
+          "keys": [
+            [
+              10,
+              0
+            ],
+            [
+              34,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "shapes/1/trim/offset",
+          "base": 0,
+          "keys": []
+        }
+      ]
+    },
+    "FX-ANP-S12": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Wipe reveal",
+      "about": "The layer is wiped on from the left over half a second.",
+      "says": "The starter preset \"Wipe reveal\" applied at frame 10 to `big`.",
+      "layer": "big",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/completion",
+          "keys": [
+            [
+              10,
+              100
+            ],
+            [
+              22,
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

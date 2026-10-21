@@ -1,0 +1,75 @@
+{
+  "preset_file_version": 0,
+  "presets": [
+    {
+      "name": "Spin in",
+      "kind": "animation",
+      "transform": {
+        "rotation": {
+          "base": 0,
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": -180,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": 0,
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ],
+          "added": true
+        },
+        "scale": {
+          "base": [
+            0,
+            0
+          ],
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": [
+                0,
+                0
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            },
+            {
+              "frame": 12,
+              "value": [
+                100,
+                100
+              ],
+              "interp": "ease",
+              "ease": [
+                0.3333333333333333,
+                0,
+                0.6666666666666666,
+                1
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
