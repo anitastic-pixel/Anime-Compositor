@@ -13092,26 +13092,7 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
         tracks,
         trim: match v.get("trim").filter(|t| !t.is_null()) {
             None => None,
-            Some(t) => {
-                // D-169: three one-number properties; their ranges are `Shape::problem`'s.
-                let at = format!("{at}/trim");
-                as_object(t, &at)?;
-                let number = |key: &str| {
-                    parse_property(
-                        field(t, &at, key)?,
-                        &format!("{at}/{key}"),
-                        "scalar",
-                        false,
-                        false,
-                        1.0,
-                    )
-                };
-                Some(crate::shape::Trim {
-                    start: number("start")?,
-                    end: number("end")?,
-                    offset: number("offset")?,
-                })
-            }
+            Some(t) => Some(parse_trim(t, &format!("{at}/trim"))?),
         },
         record: crate::model::FileRecord::new(v),
     };
@@ -13119,6 +13100,26 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
         Some(p) => Err(invalid(at, &p)),
         None => Ok(shape),
     }
+}
+
+/// D-169: three one-number properties; their ranges are `Shape::problem`'s.
+fn parse_trim(t: &J, at: &str) -> Result<crate::shape::Trim, Diagnostic> {
+    as_object(t, at)?;
+    let number = |key: &str| {
+        parse_property(
+            field(t, at, key)?,
+            &format!("{at}/{key}"),
+            "scalar",
+            false,
+            false,
+            1.0,
+        )
+    };
+    Ok(crate::shape::Trim {
+        start: number("start")?,
+        end: number("end")?,
+        offset: number("offset")?,
+    })
 }
 
 /// D-168's gradient record. Its shape is read here; its ranges, and that its points carry no
@@ -14504,11 +14505,325 @@ pub const STARTER_ABOUT: [&str; 9] = [
     "Focus lines rushing in to the middle of the frame. Best on an adjustment layer.",
 ];
 
+/// D-739: the starter animation presets, as `tools/animation_preset_reference.py` writes them.
+pub const STARTER_ANIMATIONS: &str = include_str!("../Fixtures/starter_presets/animation.fxpreset");
+
+/// D-739: the sentence the Effects panel shows for each starter animation preset, in order.
+pub const STARTER_ANIMATIONS_ABOUT: [&str; 12] = [
+    "The layer fades up from nothing over half a second.",
+    "The layer fades away over half a second, from the playhead.",
+    "The layer grows from nothing, overshoots a little and settles at full size.",
+    "The layer slides in from the left and stops where it is now.",
+    "The layer slides in from the right and stops where it is now.",
+    "The layer slides in from the top and stops where it is now.",
+    "The layer slides in from the bottom and stops where it is now.",
+    "The layer turns in half a turn while it grows to full size.",
+    "The layer shakes about where it is, twelve times a second, up to fifteen pixels. An expression, so it has no keys.",
+    "The letters appear one by one over a second. For a text layer.",
+    "Each line draws itself along its path over a second. For a shape layer.",
+    "The layer is wiped on from the left over half a second.",
+];
+
 /// D-180: one preset read from a preset file.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Preset {
     pub name: String,
     pub effects: Vec<crate::effects::EffectInstance>,
+    /// D-739: the rest of an animation preset; `None` on an effect preset.
+    pub animation: Option<Animation>,
+}
+
+/// D-739: what an animation preset holds besides effects, read as a project's are.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Animation {
+    /// Each property, and whether its values are added to the layer's own.
+    pub transform: Vec<(Prop, Property, bool)>,
+    pub masks: Vec<crate::mask::Mask>,
+    pub trim: Option<crate::shape::Trim>,
+}
+
+impl Preset {
+    /// D-739: the earliest key anywhere in an animation preset. An effect preset's keys stay at
+    /// their frames (FX-PRE-003), so it has none to move by.
+    fn first_key(&self) -> Option<i32> {
+        let a = self.animation.as_ref()?;
+        a.transform
+            .iter()
+            .map(|(_, p, _)| p)
+            .chain(a.masks.iter().flat_map(|m| m.tracks.values()))
+            .chain(a.trim.iter().flat_map(|t| [&t.start, &t.end, &t.offset]))
+            .chain(
+                self.effects
+                    .iter()
+                    .flat_map(|e| e.tracks.values().flatten()),
+            )
+            .flat_map(|p| p.keyframes().iter().map(|k| k.frame))
+            .chain(a.masks.iter().flat_map(|m| m.keys.iter().map(|k| k.frame)))
+            .min()
+    }
+
+    /// D-739: the commands that put this preset on `layer` with its first key at frame `at`, its
+    /// effects numbered from `fx-{next_effect}` on. Applied together they are one step to undo.
+    /// A trim on a layer that is not a shape layer refuses the whole preset, in a sentence.
+    pub fn commands(
+        &self,
+        composition: &Id,
+        layer: &Layer,
+        at: i32,
+        next_effect: u64,
+    ) -> Result<Vec<Command>, String> {
+        use crate::command::Target;
+        let none = Animation::default();
+        let a = self.animation.as_ref().unwrap_or(&none);
+        if a.trim.is_some() && layer.kind != LayerKind::Shape {
+            return Err(format!(
+                "\"{}\" trims the lines of a shape layer, and {} is not a shape layer. Nothing was changed.",
+                self.name, layer.name
+            ));
+        }
+        let by = self.first_key().map_or(0, |first| at - first);
+        let c = || composition.clone();
+        let target = Target::Layer(layer.id.clone());
+        let mut out = Vec::new();
+        for (prop, p, added) in &a.transform {
+            let prop = *prop;
+            let own = layer.transform.get(prop).map(|o| o.value_at(at));
+            let plus = |v: Value| match (added, v, own) {
+                (true, Value::Scalar(a), Some(Value::Scalar(b))) => Value::Scalar(a + b),
+                (true, Value::Vec2(a, b), Some(Value::Vec2(c, d))) => Value::Vec2(a + c, b + d),
+                _ => v,
+            };
+            let mut kinds: Vec<(crate::model::Kind, Vec<i32>)> = Vec::new();
+            for k in p.keyframes() {
+                out.push(Command::SetKeyframe {
+                    composition: c(),
+                    target: target.clone(),
+                    prop,
+                    frame: k.frame + by,
+                    value: plus(k.value),
+                    interp: k.interp,
+                    spatial: k.spatial,
+                });
+                // ponytail: a plain key landing on one of the layer's keys keeps that key's kind,
+                // as `SetKeyframe` does for any edit.
+                if k.kind != crate::model::Kind::Bezier {
+                    match kinds.iter_mut().find(|(kind, _)| *kind == k.kind) {
+                        Some((_, frames)) => frames.push(k.frame + by),
+                        None => kinds.push((k.kind, vec![k.frame + by])),
+                    }
+                }
+            }
+            for (kind, frames) in kinds {
+                out.push(Command::SetKeyKind {
+                    composition: c(),
+                    target: target.clone(),
+                    prop,
+                    frames,
+                    kind,
+                });
+            }
+            let roving: Vec<i32> = p
+                .keyframes()
+                .iter()
+                .filter(|k| k.roving)
+                .map(|k| k.frame + by)
+                .collect();
+            if !roving.is_empty() {
+                out.push(Command::SetKeyRoving {
+                    composition: c(),
+                    target: target.clone(),
+                    prop,
+                    frames: roving,
+                    roving: true,
+                });
+            }
+            match p.expression() {
+                Some(e) => out.push(Command::SetExpression {
+                    composition: c(),
+                    target: target.clone(),
+                    prop,
+                    expression: Some(e.clone()),
+                }),
+                None if p.keyframes().is_empty() => out.push(Command::SetPropertyBase {
+                    composition: c(),
+                    target: target.clone(),
+                    prop,
+                    value: plus(p.base()),
+                }),
+                None => {}
+            }
+        }
+        if !a.masks.is_empty() {
+            let mut masks = layer.masks.clone();
+            masks.extend(a.masks.iter().cloned().map(|mut m| {
+                for k in &mut m.keys {
+                    k.frame += by;
+                }
+                for t in m.tracks.values_mut() {
+                    t.shift_keyframes(by);
+                }
+                m
+            }));
+            out.push(Command::SetMasks {
+                composition: c(),
+                layer_id: layer.id.clone(),
+                masks,
+            });
+        }
+        if let Some(trim) = &a.trim {
+            let mut trim = trim.clone();
+            for p in [&mut trim.start, &mut trim.end, &mut trim.offset] {
+                p.shift_keyframes(by);
+            }
+            out.push(Command::SetShapes {
+                composition: c(),
+                layer_id: layer.id.clone(),
+                shapes: layer
+                    .shapes
+                    .iter()
+                    .cloned()
+                    .map(|mut s| {
+                        s.trim = Some(trim.clone());
+                        s
+                    })
+                    .collect(),
+            });
+        }
+        for (k, e) in self.effects.iter().enumerate() {
+            let mut e = e.clone();
+            e.instance_id = Id::new(format!("fx-{}", next_effect + k as u64));
+            e.shift_keys(by);
+            out.push(Command::AddEffect {
+                composition: c(),
+                layer_id: layer.id.clone(),
+                effect: e,
+                index: None,
+            });
+        }
+        Ok(out)
+    }
+}
+
+/// D-739: one preset as the window keeps it, read by a preset file's rules, to be applied.
+pub fn read_preset(text: &str) -> Result<Preset, Diagnostic> {
+    let remedy = "Nothing was changed.";
+    let one: J = serde_json::from_str(text).map_err(|e| {
+        Diagnostic::new(
+            DiagnosticId::PresetFileInvalid,
+            Severity::Error,
+            "This preset cannot be applied: the window sent it garbled.",
+            e.to_string(),
+        )
+        .with_remediation(remedy)
+    })?;
+    let file = serde_json::json!({ "preset_file_version": PRESET_FILE_VERSION, "presets": [one] });
+    let mut read = presets_whole(&file.to_string(), "applied", remedy)?;
+    Ok(read.remove(0))
+}
+
+/// D-739: the first key `kept` holds that `written` does not, looked for all the way down, so
+/// that what this build would not write back is named rather than lost.
+fn unwritten(kept: &J, written: &J) -> Option<String> {
+    match (kept, written) {
+        (J::Object(a), J::Object(b)) => a.iter().find_map(|(k, v)| match b.get(k) {
+            None => Some(k.clone()),
+            Some(w) => unwritten(v, w),
+        }),
+        (J::Array(a), J::Array(b)) => a.iter().zip(b).find_map(|(v, w)| unwritten(v, w)),
+        _ => None,
+    }
+}
+
+/// D-739: an animation preset's transform, masks and trim, each read as a project's are, or
+/// what to say refusing it and where. A mask keeps what this build does not know, as a project's
+/// does; anything else this build would not write back refuses the preset.
+fn read_animation(
+    preset: &Map<String, J>,
+    at: &str,
+    name: &str,
+) -> Result<Animation, (String, String)> {
+    let schema = |what: &str, d: Diagnostic| {
+        (
+            format!("the {what} in the preset \"{name}\" is not written as a project writes one."),
+            d.detail,
+        )
+    };
+    let lost = |what: &str, extra: String, at: &str| {
+        (
+            format!("the preset \"{name}\" holds \"{extra}\" in its {what}, which this build would lose."),
+            format!("At {at}."),
+        )
+    };
+    let mut out = Animation::default();
+    if let Some(t) = preset.get("transform") {
+        let at = format!("{at}/transform");
+        let t = as_object(t, &at).map_err(|d| schema("transform", d))?;
+        for (key, v) in t {
+            let here = format!("{at}/{key}");
+            let Some(prop) = [
+                Prop::Anchor,
+                Prop::Position,
+                Prop::Scale,
+                Prop::Rotation,
+                Prop::Opacity,
+            ]
+            .into_iter()
+            .find(|p| p.as_str() == key) else {
+                return Err(lost("transform", key.clone(), &here));
+            };
+            if v.get("x").is_some() || v.get("y").is_some() {
+                return Err((
+                    format!("the preset \"{name}\" holds its position taken apart into X and Y. Join them before saving it."),
+                    format!("At {here}."),
+                ));
+            }
+            let mut record = v.clone();
+            let added = match record.as_object_mut().and_then(|m| m.remove("added")) {
+                None => false,
+                Some(a) => as_bool(&a, &format!("{here}/added")).map_err(|d| schema(key, d))?,
+            };
+            // D-22: the file stores scale as a percentage and the model as a factor.
+            let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
+            let property = parse_property(
+                &record,
+                &here,
+                prop.kind(),
+                prop == Prop::Position,
+                false,
+                factor,
+            )
+            .map_err(|d| schema(key, d))?;
+            if let Some(extra) = unwritten(&record, &property_json(None, &property, factor)) {
+                return Err(lost(key, extra, &here));
+            }
+            out.transform.push((prop, property, added));
+        }
+    }
+    if let Some(list) = preset.get("masks") {
+        let at = format!("{at}/masks");
+        for (i, m) in as_array(list, &at)
+            .map_err(|d| schema("masks", d))?
+            .iter()
+            .enumerate()
+        {
+            out.masks
+                .push(parse_mask(m, &format!("{at}/{i}"), i).map_err(|d| schema("masks", d))?);
+        }
+    }
+    if let Some(t) = preset.get("trim") {
+        let at = format!("{at}/trim");
+        let trim = parse_trim(t, &at).map_err(|d| schema("trim", d))?;
+        let written = serde_json::json!({
+            "start": property_json(None, &trim.start, 1.0),
+            "end": property_json(None, &trim.end, 1.0),
+            "offset": property_json(None, &trim.offset, 1.0),
+        });
+        if let Some(extra) = unwritten(t, &written) {
+            return Err(lost("trim", extra, &at));
+        }
+        out.trim = Some(trim);
+    }
+    Ok(out)
 }
 
 /// D-180: a preset file, read whole or refused whole (document 19's "Effect preset files").
@@ -14614,7 +14929,23 @@ fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Di
                 format!("At {at}."),
             ));
         };
-        if let Some(extra) = lost(preset, &["name", "effects"]) {
+        // D-739: an animation preset says so; a preset that does not is an effect preset.
+        let animation = match preset.get("kind") {
+            None => false,
+            Some(J::String(k)) if k == "animation" => true,
+            Some(k) => {
+                return Err(refuse(
+                    format!("preset {which} is of the kind {k}, which this build does not have."),
+                    format!("At {at}/kind."),
+                ))
+            }
+        };
+        let known: &[&str] = if animation {
+            &["name", "kind", "effects", "transform", "masks", "trim"]
+        } else {
+            &["name", "effects"]
+        };
+        if let Some(extra) = lost(preset, known) {
             return Err(refuse(
                 format!("preset {which} holds \"{extra}\", which a preset does not have and this build would lose."),
                 format!("At {at}/{extra}."),
@@ -14636,7 +14967,16 @@ fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Di
             ));
         }
         let effects = match preset.get("effects") {
-            Some(list) if list.as_array().is_some_and(|l| !l.is_empty()) => list,
+            None if animation => Vec::new(),
+            Some(list) if animation || list.as_array().is_some_and(|l| !l.is_empty()) => {
+                effects_whole(list, &format!("{at}/effects"), done, remedy).map_err(|d| {
+                    if d.id == DiagnosticId::ProjectSchemaInvalid {
+                        refuse(format!("an effect in the preset \"{name}\" is not written as a project writes one."), d.detail)
+                    } else {
+                        d
+                    }
+                })?
+            }
             _ => {
                 return Err(refuse(
                     format!("the preset \"{name}\" has no effects."),
@@ -14644,14 +14984,29 @@ fn presets_whole(text: &str, done: &str, remedy: &str) -> Result<Vec<Preset>, Di
                 ))
             }
         };
-        let effects = effects_whole(effects, &format!("{at}/effects"), done, remedy).map_err(|d| {
-            if d.id == DiagnosticId::ProjectSchemaInvalid {
-                refuse(format!("an effect in the preset \"{name}\" is not written as a project writes one."), d.detail)
-            } else {
-                d
+        let animation = match animation {
+            false => None,
+            true => {
+                let a =
+                    read_animation(preset, &at, &name).map_err(|(said, at)| refuse(said, at))?;
+                if effects.is_empty()
+                    && a.transform.is_empty()
+                    && a.masks.is_empty()
+                    && a.trim.is_none()
+                {
+                    return Err(refuse(
+                        format!("the preset \"{name}\" has nothing in it."),
+                        format!("At {at}."),
+                    ));
+                }
+                Some(a)
             }
-        })?;
-        out.push(Preset { name, effects });
+        };
+        out.push(Preset {
+            name,
+            effects,
+            animation,
+        });
     }
     Ok(out)
 }

@@ -1928,6 +1928,7 @@
     <button data-run="Paste effects"></button>
     <hr>
     <button data-run="Save the effects as a preset"></button>
+    <button data-run="Save as animation preset"></button>
     <button data-run="Export presets"></button>
     <button data-run="Import presets"></button>
   </div></span>
@@ -5370,6 +5371,7 @@ function paletteLines() {
     ['Find an effect or preset', 'Ctrl+Space', fxConsole],
     ['Paste effects', 'Ctrl+V', pasteCopiedEffects],
     ['Save the effects as a preset', '', () => savePreset()],
+    ['Save as animation preset', '', () => saveAnimationPreset()],
     ['Export presets', '', () => exportPresets()],
     ['Import presets', '', importPresets],
     ['Show changed properties', 'UU', () => showProps('changed')],
@@ -5750,6 +5752,7 @@ function layerMenu(x, y, first = []) {
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
     // hand, and `mask.add` must be reachable without one.
     ['New mask', 'G for the pen', newMask, selected() && selected().kind !== 'audio'],
+    ['Save as animation preset\u2026', '', () => saveAnimationPreset(), !!selected()],
     ['Shy or not shy', '', () => toggleLayers('shy')],
     ['Bring to front', 'Ctrl+Shift+]', () => toEnd(true)],
     ['Send to back', 'Ctrl+Shift+[', () => toEnd(false)],
@@ -14524,6 +14527,7 @@ function effectRow(layer, fx, at, of) {
       ['Copy all effects', '', () => copyEffects(layer.effects || [])],
       ['Paste effects', 'Ctrl+V', pasteCopiedEffects, clip === 'effects' && copiedEffects.length > 0],
       ['Save the effects as a preset\u2026', '', () => savePreset(layer)],
+      ['Save as animation preset\u2026', '', () => saveAnimationPreset(layer)],
     ]);
   };
   head.onpointerdown = (e) => {
@@ -18782,7 +18786,10 @@ function fxStore(name, value) {
   try { localStorage.setItem(name, JSON.stringify(value)); } catch (e) { /* kept for this run only */ }
 }
 let favouriteEffects = fxStored('favouriteEffects').filter((t) => EFFECT_NAMES[t]);
-let effectPresets = fxStored('effectPresets').filter((p) => p && typeof p.name === 'string' && Array.isArray(p.effects));
+let effectPresets = fxStored('effectPresets').filter((p) => p && typeof p.name === 'string' && (Array.isArray(p.effects) || p.kind === 'animation'));
+// D-739: an animation preset carries `kind: "animation"` and any of transform, masks, trim and
+// effects, and goes on by `preset.apply`, its first key at the frame on screen.
+const moving = (p) => !!p && p.kind === 'animation';
 // D-181: the starter presets, the same on every window and never stored by it. Rust sends them
 // with the sentence the panel shows; none of the window's own presets shares their names.
 let starterPresets = [];
@@ -18793,9 +18800,22 @@ const layerById = (id) => layers().find((l) => l.id === id);
 // A line of the panel or the console is an effect's type, or 'preset:' and a preset's name.
 const presetOf = (key) => allPresets().find((p) => 'preset:' + p.name === key);
 const itemName = (key) => (key.startsWith('preset:') ? key.slice(7) : EFFECT_NAMES[key]);
+const TRANSFORM_NAMES = { anchor: 'Anchor point', position: 'Position', scale: 'Scale', rotation: 'Rotation', opacity: 'Opacity' };
+const effectNames = (effects) => (effects || []).map((fx) => EFFECT_NAMES[fxKey(fx)] || fx.type_id);
+function presetParts(p) {
+  const masks = (p.masks || []).length;
+  return [
+    ...Object.keys(p.transform || {}).map((k) => TRANSFORM_NAMES[k] || k),
+    ...(masks ? [masks === 1 ? '1 mask' : masks + ' masks'] : []),
+    ...(p.trim ? ['Trim paths'] : []),
+    ...effectNames(p.effects),
+  ];
+}
 function itemAbout(key) {
   const preset = presetOf(key);
-  return preset ? (preset.about ? 'Built in. ' + preset.about + '\n' : '') + 'Preset: ' + preset.effects.map((fx) => EFFECT_NAMES[fxKey(fx)] || fx.type_id).join(', ')
+  return preset ? (preset.about ? 'Built in. ' + preset.about + '\n' : '')
+    + (moving(preset) ? 'Animation preset, from the frame on screen: ' + presetParts(preset).join(', ')
+      : 'Preset: ' + effectNames(preset.effects).join(', '))
     : EFFECT_ABOUT[key] || '';
 }
 function itemWords(key) {
@@ -18803,12 +18823,18 @@ function itemWords(key) {
     + (key.startsWith('preset:') ? itemAbout(key) : EFFECT_SEARCH[key] || ''));
 }
 function itemFolder(key) {
-  return key.startsWith('preset:') ? 'Presets'
+  return key.startsWith('preset:') ? (moving(presetOf(key)) ? 'Animation presets' : 'Presets')
     : (EFFECT_GROUPS.find(([, ids]) => ids.includes(key)) || ['Other'])[0];
 }
 function applyItem(key, layerId) {
   if (!key.startsWith('preset:')) return addEffect(key, layerId);
   const preset = presetOf(key);
+  if (moving(preset)) {
+    if (!layerById(layerId)) return undefined;
+    const { about, ...sent } = preset;
+    return command('/preset.apply?layer=' + encodeURIComponent(layerId) + '&frame=' + frame
+      + '&preset=' + encodeURIComponent(JSON.stringify(sent)));
+  }
   return preset ? pasteEffects(preset.effects, layerId) : undefined;
 }
 // Several layers one after another, each its own entry to undo.
@@ -18869,20 +18895,36 @@ function forgetPreset(name) {
   drawEffectList();
 }
 // A name asked for in a small box at the top of the window: Enter keeps it, Escape does not.
-function askName(title, start, hint, done) {
+// D-739: `choices`, [label, ticked] pairs, are ticks under the name, and `done` gets the ticked
+// ones' places after it.
+function askName(title, start, hint, done, choices = []) {
   const box = document.createElement('div');
   box.className = 'menu palette';
   box.setAttribute('role', 'dialog');
   box.setAttribute('aria-label', title);
   const input = Object.assign(document.createElement('input'), { type: 'text', value: start, placeholder: title });
   input.setAttribute('aria-label', title);
-  box.append(input, Object.assign(document.createElement('p'), { className: 'hint', textContent: hint }));
+  box.append(input);
+  const ticks = choices.map(([label, on]) => {
+    const tick = Object.assign(document.createElement('input'), { type: 'checkbox', checked: on });
+    const line = document.createElement('label');
+    line.className = 'hint';
+    line.style.display = 'block';
+    line.append(tick, ' ' + label);
+    box.append(line);
+    return tick;
+  });
+  box.append(Object.assign(document.createElement('p'), { className: 'hint', textContent: hint }));
   const away = (p) => { if (!box.contains(p.target)) close(); };
   const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
-  input.onkeydown = (k) => {
+  box.onkeydown = (k) => {
     k.stopPropagation();
     if (k.key === 'Escape') { k.preventDefault(); close(); }
-    else if (k.key === 'Enter' && input.value.trim()) { k.preventDefault(); close(); done(input.value.trim()); }
+    else if (k.key === 'Enter' && input.value.trim()) {
+      k.preventDefault();
+      close();
+      done(input.value.trim(), ticks.flatMap((t, i) => (t.checked ? [i] : [])));
+    }
   };
   // D-273: asked inside a window, the name goes in that window, or the window would cover it.
   (document.querySelector('dialog[open]') || document.body).append(box);
@@ -18901,27 +18943,68 @@ function savePreset(layer = selected()) {
   }
   askName('Name the preset', stack.map((fx) => EFFECT_NAMES[fxKey(fx)]).join(' + '),
     'Enter keeps it in the Effects panel under Presets, Escape does not. The same name replaces the old one.',
-    (name) => keepPreset(name, stack));
+    (name) => keepPreset(name, { effects: stack }));
+}
+// D-739: what on a layer moves, as an animation preset. Transform properties with keys or an
+// expression, its masks, the first shape's keyed trim, and its effects, each a tick.
+function saveAnimationPreset(layer = selected()) {
+  if (!layer) { $('status').textContent = 'Select a layer to keep its animation as a preset.'; return; }
+  const t = layer.transform || {};
+  const animated = (p) => !!p && ((p.keyframes || []).length > 0 || !!p.expression);
+  const parts = [];
+  for (const k of Object.keys(TRANSFORM_NAMES)) {
+    if (k === 'position' && isSplit(layer)) continue;
+    if (animated(t[k])) parts.push([TRANSFORM_NAMES[k], true, (p) => { (p.transform ||= {})[k] = t[k]; }]);
+  }
+  const masks = layer.masks || [];
+  if (masks.length) {
+    const keyed = masks.some((m) => JSON.stringify(m).includes('"keyframes":[{'));
+    parts.push([masks.length === 1 ? 'The mask' : 'The ' + masks.length + ' masks', keyed, (p) => { p.masks = masks; }]);
+  }
+  const trim = (layer.shapes || []).map((sh) => sh.trim).find((tr) => tr && Object.values(tr).some(animated));
+  if (trim) parts.push(['Trim paths', true, (p) => { p.trim = trim; }]);
+  const effects = layer.effects || [];
+  const odd = effects.filter((fx) => !EFFECT_NAMES[fxKey(fx)]).map((fx) => fx.type_id);
+  if (effects.length && !odd.length) parts.push(['Effects: ' + effectNames(effects).join(', '), true, (p) => { p.effects = effects; }]);
+  const split = isSplit(layer) && ['x', 'y'].some((a) => animated(t.position[a]));
+  if (!parts.length) {
+    $('status').textContent = split
+      ? 'This layer\u2019s position is separated into X and Y. Join them again to keep it in an animation preset.'
+      : 'Nothing on ' + layer.name + ' is animated. Set keys or an expression first.';
+    return;
+  }
+  askName('Name the animation preset', layer.name + ' animation',
+    'Tick what it keeps. Enter keeps it in the Effects panel under Animation presets, Escape does not. The same name replaces the old one.'
+    + (split ? ' Position is separated into X and Y, so it is not offered; join them to keep it.' : '')
+    + (odd.length ? ' Effects are not offered: this build does not have ' + odd.join(', ') + '.' : ''),
+    (name, picked) => {
+      if (!picked.length) { $('status').textContent = 'Nothing was ticked, so no preset was kept.'; return; }
+      const body = { kind: 'animation' };
+      for (const i of picked) parts[i][2](body);
+      keepPreset(name, JSON.parse(JSON.stringify(body)));
+    }, parts.map(([label, on]) => [label, on]));
 }
 // One of the window's own presets, kept under `name`: the same name replaces it, and a built-in
-// preset's name is refused.
-function keepPreset(name, effects) {
+// preset's name is refused. `body` is the preset less its name.
+function keepPreset(name, body) {
   if (builtIn(name)) { $('status').textContent = '"' + name + '" is a built-in preset\u2019s name. Choose another.'; return; }
   const replaced = effectPresets.some((p) => p.name === name);
   // D-191: a preset keeps no layer of this composition; its layer settings are left at none.
-  const kept = JSON.parse(JSON.stringify(effects));
-  for (const fx of kept) for (const [w] of EFFECT_WORDS[fxKey(fx)]?.layers || []) fx.parameters[w] = '';
-  effectPresets = [...effectPresets.filter((p) => p.name !== name), { name, effects: kept }];
+  const { about, ...kept } = JSON.parse(JSON.stringify({ ...body, name }));
+  for (const fx of kept.effects || []) for (const [w] of EFFECT_WORDS[fxKey(fx)]?.layers || []) fx.parameters[w] = '';
+  effectPresets = [...effectPresets.filter((p) => p.name !== name), kept];
   fxStore('effectPresets', effectPresets);
   drawEffectList();
+  const n = (kept.effects || []).length;
   $('status').textContent = (replaced ? 'Replaced the preset "' : 'Saved the preset "') + name + '": '
-    + effects.length + (effects.length === 1 ? ' effect' : ' effects') + ' with their settings.';
+    + (moving(kept) ? presetParts(kept).join(', ') + '.'
+      : n + (n === 1 ? ' effect' : ' effects') + ' with their settings.');
 }
 function copyPreset(name) {
   const preset = presetOf('preset:' + name);
   askName('Name the copy', name + ' copy',
     'Enter keeps it under Presets as one of your own, to change or remove. Escape does not.',
-    (to) => keepPreset(to, preset.effects));
+    (to) => keepPreset(to, preset));
 }
 $('savepreset').onclick = () => savePreset();
 // D-180: presets to a .fxpreset file and back. Rust asks where, checks the file whole, and hands
@@ -18929,7 +19012,7 @@ $('savepreset').onclick = () => savePreset();
 function exportPresets(list = effectPresets) {
   if (!list.length) { $('status').textContent = 'There are no presets of your own to export yet. Save a layer\u2019s effects as a preset first; a built-in one exports alone from its menu.'; return; }
   command('/presets-export?name=' + encodeURIComponent(list.length === 1 ? list[0].name : 'presets')
-    + '&presets=' + encodeURIComponent(JSON.stringify(list.map((p) => ({ name: p.name, effects: p.effects })))));
+    + '&presets=' + encodeURIComponent(JSON.stringify(list.map(({ about, ...p }) => p))));
 }
 function importPresets() {
   command('/presets-import?' + allPresets().map((p) => 'have=' + encodeURIComponent(p.name)).join('&'));
@@ -18939,6 +19022,7 @@ window.receivePresets = (list, said) => {
     effectPresets = [...effectPresets, ...list];
     fxStore('effectPresets', effectPresets);
     closedFolders.delete('Presets');
+    closedFolders.delete('Animation presets');
     drawEffectList();
   }
   $('status').textContent = said;
@@ -19050,7 +19134,10 @@ function drawEffectList() {
   const folders = [
     ...(words.length || !favouriteEffects.length ? [] : [['Favourites', favouriteEffects]]),
     ...(words.length || !recentEffects.length ? [] : [['Recently used', recentEffects]]),
-    ...(allPresets().length ? [['Presets', allPresets().map((p) => 'preset:' + p.name)]] : []),
+    ...[['Presets', false], ['Animation presets', true]].flatMap(([folder, kind]) => {
+      const ids = allPresets().filter((p) => moving(p) === kind).map((p) => 'preset:' + p.name);
+      return ids.length ? [[folder, ids]] : [];
+    }),
     ...EFFECT_GROUPS,
     ['Other', Object.keys(EFFECT_NAMES).filter((t) => !grouped.has(t))],
   ];
@@ -19142,7 +19229,7 @@ stage.addEventListener('drop', (e) => {
 const FAMILY_COLOURS = {
   'Blur & Sharpen': '#7fa7d9', 'Color Correction': '#d98f7f', 'Light & Glow': '#e8c46a', 'Lines & Mattes': '#b0b0b8',
   'Distort': '#9f7fd9', 'Generate': '#7fd9b5', 'Stylize': '#d97fb8', 'Camera & Lens': '#7fd0d9', 'Time': '#c4a46a',
-  'Transition': '#a6d97f', 'Presets': '#e8b06a', 'Other': '#8e8e96',
+  'Transition': '#a6d97f', 'Presets': '#e8b06a', 'Animation presets': '#e8b06a', 'Other': '#8e8e96',
 };
 const fxFamiliesOpen = new Set();
 function fxConsole() {

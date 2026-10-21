@@ -10089,6 +10089,7 @@ const ANSWERS: &[&str] = &[
     "media.relink",
     "path.add_point",
     "path.remove_point",
+    "preset.apply",
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
@@ -13947,6 +13948,34 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     unparent = adds;
                     last
                 }
+                // D-739: an animation preset, its keys starting at `frame`, as one step to undo.
+                "preset.apply" => {
+                    let Some(text) = parameter(query, "preset") else {
+                        return Some("Which preset? Choose one in the presets list.".to_string());
+                    };
+                    let preset = match persist::read_preset(&text) {
+                        Ok(preset) => preset,
+                        Err(diagnostic) => return Some(diagnostic.sentence()),
+                    };
+                    let at = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    let next = unused_effect_id(project)
+                        .as_str()
+                        .strip_prefix("fx-")
+                        .and_then(|n| n.parse::<u64>().ok())
+                        .unwrap_or(1);
+                    let mut all = match preset.commands(&composition, layer, at, next) {
+                        Ok(all) => all,
+                        Err(said) => return Some(said),
+                    };
+                    let Some(last) = all.pop() else {
+                        return Some(format!("\"{}\" has nothing in it to apply.", preset.name));
+                    };
+                    unparent = all;
+                    last
+                }
                 // The other six all name an instance that is already on the layer, so the
                 // lookup and its refusal are written once.
                 "effect.delete"
@@ -16939,17 +16968,30 @@ fn tell_the_page_about_presets(app: &AppHandle, list: Option<serde_json::Value>,
 }
 
 /// D-181: the starter presets as the page keeps presets, `{name, about, effects}`, the effects as
-/// the file wrote them, since `effect.paste` reads them by the same rules again.
+/// the file wrote them, since `effect.paste` reads them by the same rules again. D-739: then the
+/// starter animation presets, whole with their `about`, since `preset.apply` reads them again.
 fn starter_presets() -> String {
     let root: serde_json::Value =
         serde_json::from_str(persist::STARTER_PRESETS).expect("the starter presets are JSON");
-    let list: Vec<serde_json::Value> = root["presets"]
+    let mut list: Vec<serde_json::Value> = root["presets"]
         .as_array()
         .expect("the starter presets are a list")
         .iter()
         .zip(persist::STARTER_ABOUT)
         .map(|(p, about)| serde_json::json!({ "name": p["name"], "about": about, "effects": p["effects"] }))
         .collect();
+    let moving: serde_json::Value =
+        serde_json::from_str(persist::STARTER_ANIMATIONS).expect("the starter animations are JSON");
+    for (p, about) in moving["presets"]
+        .as_array()
+        .expect("the starter animations are a list")
+        .iter()
+        .zip(persist::STARTER_ANIMATIONS_ABOUT)
+    {
+        let mut p = p.clone();
+        p["about"] = about.into();
+        list.push(p);
+    }
     serde_json::Value::Array(list).to_string()
 }
 
@@ -16962,7 +17004,8 @@ fn imported_presets(
     have: &[String],
 ) -> Result<(serde_json::Value, String), String> {
     let read = persist::read_presets(text).map_err(|refused| refused.sentence())?;
-    // Each effect goes on as the file wrote it; `effect.paste` reads it by the same rules again.
+    // Each preset goes on as the file wrote it; `effect.paste` and `preset.apply` read it by the
+    // same rules again.
     let root: serde_json::Value = serde_json::from_str(text).expect("read_presets read it as JSON");
     let mut taken: Vec<String> = have
         .iter()
@@ -16982,7 +17025,9 @@ fn imported_presets(
             taken.push(new.clone());
             name = new;
         }
-        list.push(serde_json::json!({ "name": name, "effects": root["presets"][i]["effects"] }));
+        let mut whole = root["presets"][i].clone();
+        whole["name"] = name.into();
+        list.push(whole);
     }
     let mut said = match list.len() {
         1 => format!("Imported 1 preset from {file}."),

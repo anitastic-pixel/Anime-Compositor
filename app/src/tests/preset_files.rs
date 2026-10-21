@@ -36,13 +36,16 @@ fn a_name_the_window_has_comes_in_with_a_number() {
 #[test]
 fn the_starter_presets_go_to_the_page_whole() {
     let sent: serde_json::Value = serde_json::from_str(&starter_presets()).unwrap();
-    let read = persist::read_presets(persist::STARTER_PRESETS).unwrap();
+    let mut read = persist::read_presets(persist::STARTER_PRESETS).unwrap();
+    read.extend(persist::read_presets(persist::STARTER_ANIMATIONS).unwrap());
     let sent = sent.as_array().unwrap();
     assert_eq!(sent.len(), read.len());
     for (s, r) in sent.iter().zip(&read) {
         assert_eq!(s["name"], r.name.as_str());
         assert!(!s["about"].as_str().unwrap().is_empty());
-        assert_eq!(s["effects"].as_array().unwrap().len(), r.effects.len());
+        let effects = s["effects"].as_array().map_or(0, Vec::len);
+        assert_eq!(effects, r.effects.len());
+        assert_eq!(s["kind"] == "animation", r.animation.is_some());
     }
 }
 

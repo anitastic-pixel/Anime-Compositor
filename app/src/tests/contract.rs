@@ -167,6 +167,7 @@ const SENT: &[&str] = &[
     "media.relink",
     "path.add_point",
     "path.remove_point",
+    "preset.apply",
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
