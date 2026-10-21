@@ -2016,7 +2016,7 @@
     <button class="ico" data-run="Hand tool" data-tool="hand" aria-pressed="false" aria-label="Hand tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5V6a1.5 1.5 0 013 0v5M11 10.5V4.5a1.5 1.5 0 013 0v6M14 10.5V6a1.5 1.5 0 013 0v7.5c0 4-2.4 6.5-6 6.5-3 0-4.6-1.7-5.6-4L4 13a1.4 1.4 0 012.4-1.4L8 13.5"/></svg></button>
     <button class="ico" data-run="Zoom tool" data-tool="zoom" aria-pressed="false" aria-label="Zoom tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></svg></button>
     <button class="ico" data-run="Pen tool" data-tool="pen" aria-pressed="false" aria-label="Pen tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14l2.2-6.5L11 1l4 4-6.5 6.8z" fill="none" stroke="currentColor" stroke-linejoin="round"/><circle cx="6.6" cy="9.4" r="1.1" fill="currentColor"/></svg></button>
-    <button class="ico" data-run="Shape tool" data-tool="rectangle ellipse" aria-pressed="false" aria-label="Shape tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="5.5" width="8" height="8" fill="none" stroke="currentColor"/><circle cx="10.5" cy="5.5" r="4" fill="none" stroke="currentColor"/></svg></button>
+    <button class="ico" data-run="Shape tool" data-tool="rectangle rounded ellipse polygon star" aria-pressed="false" aria-label="Shape tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="5.5" width="8" height="8" fill="none" stroke="currentColor"/><circle cx="10.5" cy="5.5" r="4" fill="none" stroke="currentColor"/></svg></button>
     <button class="ico" data-run="Text tool" data-tool="text" aria-pressed="false" aria-label="Text tool: click the picture where the words start"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5h14M12 5v14M9 19h6"/></svg></button>
   </span>
   <button id="findcommand" class="search" title="Find any command (Ctrl+Shift+P)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor"/><path d="M10 10l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg>Search <kbd>Ctrl+Shift+P</kbd></button>
@@ -6682,7 +6682,7 @@ function drawBoxes() {
   // way the motion path above shows its own. A layer that is not on this frame has no map from
   // its own pixels to the frame, so there is nothing to draw and nothing to press.
   const shaper = selected();
-  const space = shaper ? layerSpace(shaper) : null;
+  const space = shaper ? layerSpace(shaper) : penDraft ? frameSpace() : null;
   if (!space) freeBoxOn(null); // B-24k: no layer chosen puts the box away too.
   // B-24i: every chosen point is lit, and the chosen handle with them.
   const litPoint = (layer, at, i, which) => (which < 0
@@ -6700,7 +6700,7 @@ function drawBoxes() {
       shape.setAttribute('points', outlineOf(points, mask.closed !== false)
         .map((p) => space.toFrame(p[0], p[1]).join(',')).join(' '));
       drawn.push(shape);
-      if (at !== maskPicked || shaper.locked) return;
+      if (at !== maskPicked || shaper.locked || mask.parametric) return;
       points.forEach((p, i) => {
         // A handle is an offset from its own point, so it is drawn from the point it belongs to.
         for (const which of [0, 1]) {
@@ -7135,7 +7135,9 @@ function useTool(which) {
     : which === 'pen' ? (shapes
       ? 'The pen: click to place points; click the first point to close the shape, or Enter to leave it open.'
       : 'The pen: click to place points, and click the first point to close the mask.')
-    : 'The ' + which + ' tool: drag across the layer to ' + (shapes ? 'draw a shape.' : 'mask it.');
+    : 'The ' + ({ rounded: 'rounded rectangle' }[which] || which) + ' tool: drag '
+      + (which === 'polygon' || which === 'star' ? 'out from the middle' : 'across the layer') + ' to '
+      + (shapes || !selected() ? 'draw a shape.' : 'mask it.');
   drawBoxes();
 }
 
@@ -7260,6 +7262,72 @@ function shapePoints(kind, x0, y0, x1, y1) {
   ];
 }
 
+// D-738 (a): After Effects' five shape tools, in the order Q steps through them.
+const SHAPE_TOOLS = ['rectangle', 'rounded', 'ellipse', 'polygon', 'star'];
+const PARAMETRIC_SETTINGS = {
+  rectangle: ['size', 'position', 'roundness'],
+  ellipse: ['size', 'position'],
+  polygon: ['points', 'position', 'rotation', 'outer_radius', 'outer_roundness'],
+  star: ['points', 'position', 'rotation', 'inner_radius', 'outer_radius', 'inner_roundness', 'outer_roundness'],
+};
+// What a drag from x0, y0 to x1, y1 draws: a rectangle or an ellipse corner to corner, a
+// polygon or a star out from its middle, a point towards the pointer. A rounded rectangle starts
+// at 16 and a polygon or a star at five points, a star's inner radius half its outer one.
+function shapeSettings(kind, x0, y0, x1, y1) {
+  if (kind === 'polygon' || kind === 'star') {
+    const r = Math.hypot(x1 - x0, y1 - y0);
+    return { type: kind, position: [x0, y0], points: 5,
+      rotation: Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI + 90,
+      outer_radius: r, inner_radius: r / 2, outer_roundness: 0, inner_roundness: 0 };
+  }
+  return { type: kind === 'ellipse' ? 'ellipse' : 'rectangle', position: [(x0 + x1) / 2, (y0 + y1) / 2],
+    size: [Math.abs(x1 - x0), Math.abs(y1 - y0)], roundness: kind === 'rounded' ? 16 : 0 };
+}
+const shapeQuery = (st) => '&parametric=' + st.type + '&position=' + st.position.map(number).join(',')
+  + (st.size ? '&size=' + st.size.map(number).join(',') + '&roundness=' + number(st.roundness)
+    : '&radius=' + number(st.outer_radius) + '&points=' + st.points + '&rotation=' + number(st.rotation));
+// The outline those settings draw, as `Parametric::outline` in shape.rs works it, so the drag
+// can show it and a mask, which has no settings, can take it.
+function parametricOutline(st) {
+  const [x, y] = st.position;
+  const at = (px, py, i, o) => [px, py, i[0], i[1], o[0], o[1]];
+  const none = [0, 0];
+  if (st.type === 'ellipse') {
+    const [w, h] = [st.size[0] / 2, st.size[1] / 2];
+    const [kw, kh] = [KAPPA * w, KAPPA * h];
+    return [at(x, y - h, [-kw, 0], [kw, 0]), at(x + w, y, [0, -kh], [0, kh]),
+      at(x, y + h, [kw, 0], [-kw, 0]), at(x - w, y, [0, kh], [0, -kh])];
+  }
+  if (st.type === 'rectangle') {
+    const [w, h] = [st.size[0] / 2, st.size[1] / 2];
+    const r = Math.min(st.roundness, w, h);
+    if (!r) return [at(x + w, y - h, none, none), at(x + w, y + h, none, none), at(x - w, y + h, none, none), at(x - w, y - h, none, none)];
+    const k = KAPPA * r;
+    return [at(x + w, y - h + r, [0, -k], none), at(x + w, y + h - r, none, [0, k]),
+      at(x + w - r, y + h, [k, 0], none), at(x - w + r, y + h, none, [-k, 0]),
+      at(x - w, y + h - r, [0, k], none), at(x - w, y - h + r, none, [0, -k]),
+      at(x - w + r, y - h, [-k, 0], none), at(x + w - r, y - h, none, [k, 0])];
+  }
+  const n = Math.max(1, Math.floor(st.points));
+  const star = st.type === 'star';
+  const count = star ? 2 * n : n;
+  const turn = -Math.PI / 2 + st.rotation * Math.PI / 180;
+  return Array.from({ length: count }, (_, i) => {
+    const [rad, round] = !star || i % 2 === 0 ? [st.outer_radius, st.outer_roundness]
+      : [st.inner_radius, st.inner_roundness];
+    const a = turn + i * 2 * Math.PI / count;
+    const len = 2 * Math.PI * rad / (4 * n) * round / 100;
+    const [tx, ty] = [-Math.sin(a) * len, Math.cos(a) * len];
+    return at(x + rad * Math.cos(a), y + rad * Math.sin(a), [-tx, -ty], [tx, ty]);
+  });
+}
+// With no layer chosen a shape tool draws on the frame, which is a new shape layer's own pixels:
+// that layer is laid over the frame exactly.
+function frameSpace() {
+  const per = perFramePixel();
+  return { toLayer: (x, y) => [x * per, y * per], toFrame: (x, y) => [x / per, y / per] };
+}
+
 // Where a layer's own pixels land on the frame, and back again.
 //
 // D-77 holds a mask in layer space, before the transform, and the window draws frames: a point
@@ -7313,7 +7381,8 @@ function sendMaskPath(layer, at, points, how = '') {
 // A mask drawn. The tool goes back to the selection tool afterwards, as After Effects' shape
 // tools do not but its pen does; a person who has just drawn one wants to move its points.
 // B-25c: on a shape layer it is a shape, and the pen may leave it open.
-function addMask(layer, points, closed = true) {
+// D-738 (a): `query` in place of the points sends a shape drawn from its settings.
+function addMask(layer, points, closed = true, query = null) {
   maskPicked = pathsOf(layer).length;
   useTool('select');
   // D-272: the new path's group opens under the layer, as After Effects shows a mask just drawn;
@@ -7323,7 +7392,7 @@ function addMask(layer, points, closed = true) {
   shown.delete(layer.id);
   if (!groupOpen(layer.id, g)) toggleGroup(layer.id, g);
   return command((drawsShapes(layer) ? '/shape.add?closed=' + (closed ? 1 : 0) + '&' : '/mask.add?')
-    + 'layer=' + encodeURIComponent(layer.id) + maskQuery(points));
+    + 'layer=' + encodeURIComponent(layer.id) + (query || maskQuery(points)));
 }
 
 // B-24c: a rectangular mask over the whole of the selected layer, which is the menu's way in
@@ -7627,7 +7696,8 @@ stage.onpointerdown = (e) => {
   const layer = selected();
   // B-24c: the mask tools, first of all, because a press with one of them chosen means the mask
   // and nothing else — it must not select the layer under the pointer or move it.
-  const shaping = layer && !layer.locked ? layerSpace(layer) : null;
+  const shaping = layer && !layer.locked ? layerSpace(layer)
+    : !layer && SHAPE_TOOLS.includes(tool) && composition() ? frameSpace() : null;
   if (tool === 'text') {
     e.preventDefault();
     // D-264: on a text layer's words the tool types into them; a drag draws the box paragraph
@@ -7762,24 +7832,37 @@ stage.onpointerdown = (e) => {
     // The rectangle and the ellipse are drawn corner to corner, the shape following the
     // pointer, and sent once at release: one shape, one thing to undo. A press that never
     // moved is not a mask, and Escape lets go of it.
+    // D-738 (a): on a shape layer, or with no layer chosen, it is a shape drawn from its settings.
     const kind = tool;
     let drawn = false;
+    let settings = null;
     stage.setPointerCapture(e.pointerId);
     const escape = (k) => { if (k.key === 'Escape') stop(false); };
-    const stop = (keep) => {
+    const stop = async (keep) => {
       stage.onpointermove = null;
       stage.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
       const drew = penDraft;
       penDraft = null;
-      if (keep && drawn && drew) addMask(layer, drew);
-      else drawBoxes();
+      if (!(keep && drawn && drew)) return drawBoxes();
+      if (layer && !drawsShapes(layer)) return addMask(layer, drew);
+      let on = layer;
+      if (!on) {
+        const had = new Set(layers().map((l) => l.id));
+        await command('/layer.add_shape');
+        on = layers().find((l) => !had.has(l.id));
+        if (!on) return;
+        choose([on.id]);
+      }
+      addMask(on, null, true, shapeQuery(settings));
     };
     stage.onpointermove = (m) => {
       const [mx, my] = shaping.toLayer(...atCanvas(m));
       if (Math.abs(mx - lx) < 1 && Math.abs(my - ly) < 1) return;
       drawn = true;
-      penDraft = shapePoints(kind, lx, ly, mx, my);
+      settings = shapeSettings(kind, lx, ly, mx, my);
+      penDraft = kind === 'rectangle' || kind === 'ellipse' ? shapePoints(kind, lx, ly, mx, my)
+        : parametricOutline(settings);
       drawBoxes();
     };
     stage.onpointerup = () => stop(true);
@@ -7790,7 +7873,7 @@ stage.onpointerdown = (e) => {
   // layer under the pointer, for the reason the motion path's handles come first: these are the
   // smallest things on the picture. The whole path travels with every step, because the core
   // takes a mask's path whole, and `&drag=1` makes one pull one entry in the history.
-  const pullable = shaping && pathsOf(layer)[maskPicked]
+  const pullable = shaping && pathsOf(layer)[maskPicked] && !pathsOf(layer)[maskPicked].parametric
     ? maskPath(layer, maskPicked).flatMap((p, i) => [
       { i, which: -1, at: shaping.toFrame(p[0], p[1]) },
       ...(p[2] || p[3] ? [{ i, which: 0, at: shaping.toFrame(p[0] + p[2], p[1] + p[3]) }] : []),
@@ -8679,12 +8762,19 @@ const pathAt = (layer, prop) => pathsNamed(layer, prop.split(':')[0])[prop.split
 // B-110b: and a paint's `fill_color`, `fill_opacity`, `stroke_color`, `stroke_opacity` and
 // `stroke_width`, as D-170 gives them: the file writes one plain while it has no keys.
 const SHAPE_PROPS = ['fill_start', 'fill_end', 'stroke_start', 'stroke_end', 'trim_start', 'trim_end', 'trim_offset',
-  'fill_color', 'fill_opacity', 'stroke_color', 'stroke_opacity', 'stroke_width'];
+  'fill_color', 'fill_opacity', 'stroke_color', 'stroke_opacity', 'stroke_width',
+  // D-738 (a): a parametric shape's settings, `path_` and the setting's name.
+  'path_size', 'path_position', 'path_roundness', 'path_points', 'path_rotation', 'path_inner_radius',
+  'path_outer_radius', 'path_inner_roundness', 'path_outer_roundness'];
 const isGrad = (prop) => /^shape:\d+:/.test(prop) && SHAPE_PROPS.includes(prop.split(':')[2]);
 function gradOf(layer, prop) {
   const [, at, which] = prop.split(':');
-  const [group, end] = which.split('_');
+  const [group, end] = [which.slice(0, which.indexOf('_')), which.slice(which.indexOf('_') + 1)];
   const shape = (layer.shapes || [])[at] || {};
+  if (group === 'path') {
+    const held = (shape.parametric || {})[end];
+    return held === undefined ? {} : held && held.keyframes ? held : { base: held };
+  }
   if (group !== 'trim' && end !== 'start' && end !== 'end') {
     const held = (shape[group] || {})[end === 'width' ? 'width_px' : end];
     return held === undefined ? {} : held && held.keyframes ? held : { base: held };
@@ -8722,7 +8812,7 @@ function propLabel(layer, prop) {
   if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
   if (isMaskNum(prop)) return 'Mask ' + prop.split(':')[2];
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
-    + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace('_', ' ');
+    + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace(/^path_/, '').replaceAll('_', ' ');
   if (prop === 'time_remap') return 'Time Remap';
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
@@ -9044,7 +9134,11 @@ function propScrubs(layer, prop) {
       ...(per === 100 || /^shape:\d+:trim_(start|end)$/.test(prop) ? { min: 0, max: 100 }
         : prop === 'zoom' ? { min: 0.01 }
           : /^mask:\d+:feather$/.test(prop) ? { min: 0 }
-            : /^mask:\d+:expansion$/.test(prop) ? { min: -8192, max: 8192 } : {}),
+            : /^mask:\d+:expansion$/.test(prop) ? { min: -8192, max: 8192 }
+              // D-738 (a)'s ranges.
+              : /^shape:\d+:path_points$/.test(prop) ? { min: 3, max: 100 }
+                : /^shape:\d+:path_\w*roundness$/.test(prop) && !/:path_roundness$/.test(prop) ? { min: -1000, max: 1000 }
+                  : /^shape:\d+:path_(size|roundness|\w+_radius)$/.test(prop) ? { min: 0, max: 100000 } : {}),
       label: prop + (held.length > 1 ? ' ' + 'xy'[i] : ''),
       title: 'Drag to change ' + prop + ', press to type it, or use the arrow keys',
       step: STEP[prop],
@@ -9452,7 +9546,7 @@ function drawInspector() {
   // it back in the colour showing.
   if (layer.kind === 'shape') {
     const shapes = layer.shapes || [];
-    if (!shapes.length) field(dl, 'Shapes', 'none yet: draw one with the pen (G), or the rectangle or ellipse (Q)');
+    if (!shapes.length) field(dl, 'Shapes', 'none yet: draw one with the pen (G), or a shape tool (Q)');
     for (const [at, shape] of shapes.entries()) {
       const set = (what) => command('/shape.set?layer=' + encodeURIComponent(layer.id)
         + '&shape=' + at + '&' + what);
@@ -9468,12 +9562,25 @@ function drawInspector() {
       };
       field(dl, shape.name, '');
       dl.lastChild.append(
-        button(at === maskPicked ? 'Editing' : 'Edit points', at === maskPicked,
-          () => { maskPicked = at; drawBoxes(); drawInspector(); }),
+        ...(shape.parametric ? [] : [button(at === maskPicked ? 'Editing' : 'Edit points', at === maskPicked,
+          () => { maskPicked = at; drawBoxes(); drawInspector(); })]),
         button(shape.closed ? 'Closed' : 'Open', !shape.closed, () => set('closed=1')),
         button(shape.enabled ? 'On' : 'Off', !shape.enabled, () => set('enabled=1')),
         button('Delete', false, () => command('/shape.delete?layer='
           + encodeURIComponent(layer.id) + '&shape=' + at)));
+      // D-738 (a): a rectangle, ellipse, polygon or star is drawn from its settings, each keyed as
+      // a point or a number is. A polygon and a star switch into each other, and Convert to
+      // Bezier Path makes any of them a plain path of the points it has now.
+      const kind = shape.parametric && shape.parametric.type;
+      if (kind) {
+        field(dl, kind[0].toUpperCase() + kind.slice(1), '');
+        if (kind === 'polygon' || kind === 'star') {
+          dl.lastChild.append(button('Polygon', kind === 'polygon', () => set('polystar=polygon')),
+            button('Star', kind === 'star', () => set('polystar=star')));
+        }
+        dl.lastChild.append(button('Convert to Bezier Path', false, () => set('bezier=1')));
+        for (const name of PARAMETRIC_SETTINGS[kind]) propRow(dl, layer, 'shape:' + at + ':path_' + name);
+      }
       for (const [what, named, paint] of [['fill', 'Fill', shape.fill], ['stroke', 'Stroke', shape.stroke]]) {
         field(dl, named, '');
         const pick = labelled(document.createElement('input'), named + ' colour');
@@ -20120,7 +20227,8 @@ addEventListener('keydown', (e) => {
   // two shape tools, V comes back to the selection tool; both as After Effects has them.
   else if (e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); $('checker').click(); }
   else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); useTool('pen'); }
-  else if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); useTool(tool === 'rectangle' ? 'ellipse' : 'rectangle'); }
+  // D-738 (a): Q steps through After Effects' five shape tools.
+  else if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); useTool(SHAPE_TOOLS[(SHAPE_TOOLS.indexOf(tool) + 1) % SHAPE_TOOLS.length]); }
   else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); useTool('select'); }
   else if (e.key === 'h' || e.key === 'H') { e.preventDefault(); useTool('hand'); }
   else if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); useTool('zoom'); }

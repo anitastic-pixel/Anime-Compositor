@@ -13435,3 +13435,77 @@ fn the_session_log_records_what_the_window_draws() {
         report.rows
     );
 }
+
+/// B-609, D-738 (a): a shape drawn from its settings, from the window. The core's half is
+/// `verification/B-609_parametric_shapes_table.md`.
+#[test]
+fn a_parametric_shape_is_drawn_and_switched_from_the_window() {
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    run(&viewer, "layer.add_shape");
+    let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let first = |viewer: &Mutex<Viewer>| shown_layer(viewer, "Shape Layer 1")["shapes"][0].clone();
+    run(
+        &viewer,
+        &format!("shape.add?layer={id}&parametric=polygon&position=200,150&radius=40&rotation=30"),
+    );
+    let s = first(&viewer);
+    assert_eq!(s["parametric"]["type"], "polygon");
+    assert_eq!(s["parametric"]["points"]["base"], 5.0);
+    assert_eq!(s["closed"], true);
+    assert_eq!(
+        s["path"]["base"]["points"].as_array().map(Vec::len),
+        Some(5)
+    );
+    assert!(run(
+        &viewer,
+        &format!(
+            "shape.set_path?layer={id}&shape=0&frame=0&points=0,0,0,0,0,0;9,0,0,0,0,0;9,9,0,0,0,0"
+        )
+    )
+    .contains("Convert to Bezier Path"));
+    assert!(run(
+        &viewer,
+        &format!("shape.add_remove_key?layer={id}&shape=0&frame=0")
+    )
+    .contains("Convert to Bezier Path"));
+    run(
+        &viewer,
+        &format!("shape.set?layer={id}&shape=0&polystar=star"),
+    );
+    let s = first(&viewer);
+    assert_eq!(s["parametric"]["type"], "star");
+    assert_eq!(s["parametric"]["inner_radius"]["base"], 20.0);
+    assert_eq!(
+        s["path"]["base"]["points"].as_array().map(Vec::len),
+        Some(10)
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:path_outer_radius&frame=0"),
+    );
+    assert_eq!(
+        first(&viewer)["parametric"]["outer_radius"]["keyframes"]
+            .as_array()
+            .map(Vec::len),
+        Some(1)
+    );
+    assert!(run(&viewer, &format!("shape.add?layer={id}&parametric=heart")).contains("heart"));
+    assert!(run(
+        &viewer,
+        &format!("shape.add?layer={id}&parametric=polygon&points=2")
+    )
+    .contains("points"));
+    run(&viewer, &format!("shape.set?layer={id}&shape=0&bezier=1"));
+    let s = first(&viewer);
+    assert!(s.get("parametric").is_none());
+    assert_eq!(
+        s["path"]["base"]["points"].as_array().map(Vec::len),
+        Some(10)
+    );
+}

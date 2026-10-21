@@ -154,8 +154,9 @@ impl Gradient {
     }
 }
 
-/// Every name [`Shape::channels`] answers to.
-pub const SHAPE_PROPERTIES: [&str; 12] = [
+/// Every name [`Shape::channels`] answers to. D-738 (a): a parametric shape's settings are
+/// `path_` and the setting's name in [`ParametricKind::settings`].
+pub const SHAPE_PROPERTIES: [&str; 21] = [
     "fill_start",
     "fill_end",
     "stroke_start",
@@ -168,7 +169,202 @@ pub const SHAPE_PROPERTIES: [&str; 12] = [
     "stroke_color",
     "stroke_opacity",
     "stroke_width",
+    "path_size",
+    "path_position",
+    "path_roundness",
+    "path_points",
+    "path_rotation",
+    "path_inner_radius",
+    "path_outer_radius",
+    "path_inner_roundness",
+    "path_outer_roundness",
 ];
+
+/// D-738 (a): what a parametric shape is drawn as.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ParametricKind {
+    Rectangle,
+    Ellipse,
+    Polygon,
+    Star,
+}
+
+impl ParametricKind {
+    pub const NAMES: [&str; 4] = ["rectangle", "ellipse", "polygon", "star"];
+    pub fn as_str(self) -> &'static str {
+        Self::NAMES[self as usize]
+    }
+    pub fn named(name: &str) -> Option<ParametricKind> {
+        use ParametricKind::*;
+        [Rectangle, Ellipse, Polygon, Star]
+            .into_iter()
+            .find(|k| k.as_str() == name)
+    }
+    /// The settings this kind is drawn from, by the names the file gives them.
+    pub fn settings(self) -> &'static [&'static str] {
+        match self {
+            ParametricKind::Rectangle => &["size", "position", "roundness"],
+            ParametricKind::Ellipse => &["size", "position"],
+            ParametricKind::Polygon => &[
+                "points",
+                "position",
+                "rotation",
+                "outer_radius",
+                "outer_roundness",
+            ],
+            ParametricKind::Star => &[
+                "points",
+                "position",
+                "rotation",
+                "inner_radius",
+                "outer_radius",
+                "inner_roundness",
+                "outer_roundness",
+            ],
+        }
+    }
+}
+
+/// Whether a parametric setting is two numbers; the rest are one.
+pub fn is_pair(setting: &str) -> bool {
+    matches!(setting, "size" | "position")
+}
+
+/// 4/3 (sqrt 2 - 1): the handle, as a share of the radius, that draws a quarter circle.
+const KAPPA: f64 = 0.552_284_749_830_793_4;
+
+/// D-738 (a): a rectangle, an ellipse, a polygon or a star by its settings, each keyed as any
+/// number is, its outline worked from them as After Effects draws it (lottie-web, MIT, writes
+/// the same arithmetic down).
+#[derive(Clone, PartialEq, Debug)]
+pub struct Parametric {
+    pub kind: ParametricKind,
+    /// The kind's settings by their names in [`ParametricKind::settings`]; a star switched to a
+    /// polygon keeps its inner ones here, unused, for switching back.
+    pub settings: BTreeMap<String, Property>,
+}
+
+impl Parametric {
+    /// The outline at a composition frame, or at the settings' bases with `None`: centred on
+    /// `position`, starting at the top right (a rectangle), the top (an ellipse) or straight up
+    /// turned by `rotation` (a polygon or a star), then clockwise on screen.
+    pub fn outline(&self, frame: Option<i32>) -> Vec<MaskPoint> {
+        let get = |name: &str| {
+            self.settings.get(name).map(|p| match frame {
+                Some(f) => p.value_at(f),
+                None => p.base(),
+            })
+        };
+        let one = |name: &str| get(name).and_then(|v| v.as_scalar()).unwrap_or(0.0);
+        let two = |name: &str| get(name).and_then(|v| v.as_vec2()).unwrap_or((0.0, 0.0));
+        let (x, y) = two("position");
+        let at = |px: f64, py: f64, i: (f64, f64), o: (f64, f64)| MaskPoint {
+            point: (px, py),
+            in_handle: i,
+            out_handle: o,
+        };
+        let none = (0.0, 0.0);
+        match self.kind {
+            ParametricKind::Ellipse => {
+                let (w, h) = two("size");
+                let (w, h) = (w / 2.0, h / 2.0);
+                let (kw, kh) = (KAPPA * w, KAPPA * h);
+                vec![
+                    at(x, y - h, (-kw, 0.0), (kw, 0.0)),
+                    at(x + w, y, (0.0, -kh), (0.0, kh)),
+                    at(x, y + h, (kw, 0.0), (-kw, 0.0)),
+                    at(x - w, y, (0.0, kh), (0.0, -kh)),
+                ]
+            }
+            ParametricKind::Rectangle => {
+                let (w, h) = two("size");
+                let (w, h) = (w / 2.0, h / 2.0);
+                let r = one("roundness").min(w).min(h);
+                if r == 0.0 {
+                    return vec![
+                        at(x + w, y - h, none, none),
+                        at(x + w, y + h, none, none),
+                        at(x - w, y + h, none, none),
+                        at(x - w, y - h, none, none),
+                    ];
+                }
+                // Each point beside a corner has one handle, pointing to that corner.
+                let k = KAPPA * r;
+                vec![
+                    at(x + w, y - h + r, (0.0, -k), none),
+                    at(x + w, y + h - r, none, (0.0, k)),
+                    at(x + w - r, y + h, (k, 0.0), none),
+                    at(x - w + r, y + h, none, (-k, 0.0)),
+                    at(x - w, y + h - r, (0.0, k), none),
+                    at(x - w, y - h + r, none, (0.0, -k)),
+                    at(x - w + r, y - h, (-k, 0.0), none),
+                    at(x + w - r, y - h, none, (k, 0.0)),
+                ]
+            }
+            ParametricKind::Polygon | ParametricKind::Star => {
+                let n = one("points").floor().max(1.0);
+                let star = self.kind == ParametricKind::Star;
+                let count = if star { 2.0 * n } else { n } as usize;
+                let step = std::f64::consts::TAU / count as f64;
+                let turn = -std::f64::consts::FRAC_PI_2 + one("rotation").to_radians();
+                (0..count)
+                    .map(|i| {
+                        let outer = !star || i % 2 == 0;
+                        let (rad, round) = if outer {
+                            (one("outer_radius"), one("outer_roundness"))
+                        } else {
+                            (one("inner_radius"), one("inner_roundness"))
+                        };
+                        let a = turn + i as f64 * step;
+                        // Along the circle's tangent, clockwise on screen.
+                        let len = std::f64::consts::TAU * rad / (4.0 * n) * round / 100.0;
+                        let (tx, ty) = (-a.sin() * len, a.cos() * len);
+                        at(x + rad * a.cos(), y + rad * a.sin(), (-tx, -ty), (tx, ty))
+                    })
+                    .collect()
+            }
+        }
+    }
+
+    /// What is outside D-738's ranges, as a sentence: every setting the kind has, at its base
+    /// and at every key, and keys only.
+    fn problem(&self) -> Option<String> {
+        let kind = self.kind.as_str();
+        for name in self.kind.settings() {
+            let what = format!("a {kind}'s {}", name.replace('_', " "));
+            let Some(p) = self.settings.get(*name) else {
+                return Some(format!("{what}, which is missing"));
+            };
+            if p.expression().is_some() {
+                return Some(format!("no expression on {what}: it takes keys only"));
+            }
+            let (lo, hi) = match *name {
+                "position" | "rotation" => (f64::NEG_INFINITY, f64::INFINITY),
+                "points" => (3.0, 100.0),
+                "inner_roundness" | "outer_roundness" => (-1000.0, 1000.0),
+                _ => (0.0, 100000.0),
+            };
+            for v in std::iter::once(p.base()).chain(p.keyframes().iter().map(|k| k.value)) {
+                let numbers = match (is_pair(name), v) {
+                    (true, Value::Vec2(a, b)) => vec![a, b],
+                    (false, Value::Scalar(n)) => vec![n],
+                    _ => {
+                        let count = if is_pair(name) {
+                            "two numbers"
+                        } else {
+                            "one number"
+                        };
+                        return Some(format!("{what} of {count}"));
+                    }
+                };
+                if let Some(n) = numbers.iter().find(|n| !(lo..=hi).contains(*n)) {
+                    return Some(format!("{what} from {lo} to {hi}, not {n}"));
+                }
+            }
+        }
+        None
+    }
+}
 
 /// D-170: how a stroke turns a corner. Round is D-78's, and what a stroke has unless told.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -404,6 +600,10 @@ pub struct Shape {
     pub tracks: BTreeMap<String, Vec<Property>>,
     /// ADR-008: the record this shape was read from, which saving writes over.
     pub record: crate::model::FileRecord,
+    /// D-738 (a): a rectangle, ellipse, polygon or star whose outline is worked from its
+    /// settings at each frame. `points` then holds its outline at the settings' bases, which is
+    /// what the file's `path` is written from, and `keys` is empty.
+    pub parametric: Option<Parametric>,
 }
 
 impl Default for Shape {
@@ -419,6 +619,7 @@ impl Default for Shape {
             trim: None,
             tracks: BTreeMap::new(),
             record: Default::default(),
+            parametric: None,
         }
     }
 }
@@ -446,6 +647,7 @@ impl Shape {
         let mut now = Shape {
             points: self.points_at(frame),
             keys: Vec::new(),
+            parametric: None,
             ..self.clone()
         };
         if let Some(g) = now.fill.as_mut().and_then(|f| f.gradient.as_mut()) {
@@ -482,6 +684,11 @@ impl Shape {
     /// channel: three for a colour, one for anything else. `None` where the shape has no such
     /// thing, as a gradient point on a fill without a gradient.
     pub fn channels(&self, name: &str) -> Option<Vec<Property>> {
+        if let Some(setting) = name.strip_prefix("path_") {
+            let p = self.parametric.as_ref()?;
+            p.kind.settings().contains(&setting).then_some(())?;
+            return p.settings.get(setting).map(|p| vec![p.clone()]);
+        }
         let mut shape = self.clone();
         if let Some(values) = shape.style_mut(name) {
             return Some(self.tracks.get(name).cloned().unwrap_or_else(|| {
@@ -497,6 +704,14 @@ impl Shape {
     /// Puts back what [`Shape::channels`] handed out. A style keeps its bases as its plain
     /// numbers and its keys, if it has any left, as its track.
     pub fn set_channels(&mut self, name: &str, channels: Vec<Property>) -> Option<()> {
+        if let Some(setting) = name.strip_prefix("path_") {
+            let p = self.parametric.as_mut()?;
+            p.kind.settings().contains(&setting).then_some(())?;
+            p.settings
+                .insert(setting.to_string(), channels.into_iter().next()?);
+            self.points = p.outline(None);
+            return Some(());
+        }
         if let Some(values) = self.style_mut(name) {
             for (v, channel) in values.iter_mut().zip(&channels) {
                 *v = channel.base().as_scalar().unwrap_or(*v);
@@ -540,6 +755,9 @@ impl Shape {
 
     /// The path at a composition frame: document 20's rules, shared with a mask's path.
     pub fn points_at(&self, frame: i32) -> Vec<MaskPoint> {
+        if let Some(p) = &self.parametric {
+            return p.outline(Some(frame));
+        }
         crate::mask::points_at(&self.points, &self.keys, frame)
     }
 
@@ -565,6 +783,20 @@ impl Shape {
     /// The commands refuse on this with `COMMAND_INVALID_VALUE` and the loader with
     /// `PROJECT_SCHEMA_INVALID`; both say the same sentence, because it is the same rule.
     pub fn problem(&self) -> Option<String> {
+        if let Some(p) = &self.parametric {
+            let kind = p.kind.as_str();
+            if !self.closed {
+                return Some(format!("a {kind} to be closed, not open"));
+            }
+            if !self.keys.is_empty() {
+                return Some(format!(
+                    "no keys on a {kind}'s path: its settings take the keys"
+                ));
+            }
+            if let Some(said) = p.problem() {
+                return Some(said);
+            }
+        }
         if let Some(p) = self.style_problem() {
             return Some(p);
         }

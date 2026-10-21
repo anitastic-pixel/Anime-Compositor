@@ -12870,6 +12870,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             }
                         },
                     };
+                    // D-738 (a): a rectangle, ellipse, polygon or star is drawn from its settings.
+                    if matches!(id, "shape.set_path" | "shape.add_remove_key") {
+                        if let Some(p) = &shapes[at].parametric {
+                            return Some(format!(
+                                "\"{}\" is a {}, drawn from its settings, so its points cannot be moved one by one. Key its settings, or Convert to Bezier Path first.",
+                                shapes[at].name,
+                                p.kind.as_str()
+                            ));
+                        }
+                    }
                     let key = |frame, points| anime_compositor::mask::MaskKey {
                         frame,
                         points,
@@ -12900,7 +12910,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             }
                         }
                         "shape.add" | "shape.set_path" => {
-                            let points = match mask_points(query) {
+                            let parametric = match parameter(query, "parametric") {
+                                Some(kind) if id == "shape.add" => {
+                                    match parametric_shape(query, &kind) {
+                                        Ok(p) => Some(p),
+                                        Err(sentence) => return Some(sentence),
+                                    }
+                                }
+                                _ => None,
+                            };
+                            let points = match &parametric {
+                                Some(p) => Ok(p.outline(None)),
+                                None => mask_points(query),
+                            };
+                            let points = match points {
                                 Ok(points) => points,
                                 Err(sentence) => return Some(sentence),
                             };
@@ -12911,7 +12934,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 // with a line only looks like a mask. Grey, as a new solid is.
                                 let grey = anime_compositor::color::srgb_to_linear(128.0 / 255.0)
                                     as f64;
-                                let closed = parameter(query, "closed").as_deref() != Some("0");
+                                let closed = parametric.is_some()
+                                    || parameter(query, "closed").as_deref() != Some("0");
                                 let name = (1..)
                                     .map(|n| format!("Shape {n}"))
                                     .find(|name| shapes.iter().all(|s| &s.name != name))
@@ -12927,6 +12951,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                     }),
                                     stroke: (!closed)
                                         .then(|| anime_compositor::shape::Stroke::new([1.0; 3], 4.0)),
+                                    parametric,
                                     ..Default::default()
                                 });
                             } else if shapes[at].keys.is_empty() {
@@ -15762,11 +15787,14 @@ fn shape_key_command(
     };
     let called = shape.name.clone();
     let (group, which) = name.split_once('_').expect("every name has one");
-    let point = group != "trim" && matches!(which, "start" | "end");
+    let point = group != "trim" && matches!(which, "start" | "end")
+        || group == "path" && anime_compositor::shape::is_pair(which);
     let colour = which == "color";
     let Some(mut channels) = shape.channels(name) else {
         return Err(match group {
             "trim" => format!("\"{called}\" has no trim."),
+            // D-738 (a): a drawn path, or a setting this kind has not.
+            "path" => format!("\"{called}\" has no {} setting.", which.replace('_', " ")),
             _ if point => format!("\"{called}\" has no {group} gradient."),
             _ => format!("\"{called}\" has no {group}."),
         });
@@ -16213,6 +16241,39 @@ fn shape_settings(
     if parameter(query, "enabled").is_some() {
         shape.enabled = !shape.enabled;
     }
+    // D-738 (a): After Effects' Type switch between a polygon and a star. A star switched to a
+    // polygon keeps its inner settings, unused, for switching back; a polygon switched to a star
+    // starts with an inner radius half its outer one.
+    if let Some(to) = parameter(query, "polystar") {
+        use anime_compositor::shape::ParametricKind::{Polygon, Star};
+        let Some(p) = shape
+            .parametric
+            .as_mut()
+            .filter(|p| matches!(p.kind, Polygon | Star))
+        else {
+            return Err(format!("\"{}\" is not a polygon or a star.", shape.name));
+        };
+        p.kind = match to.as_str() {
+            "star" => Star,
+            "polygon" => Polygon,
+            _ => return Err(format!("\"{to}\" is not polygon or star.")),
+        };
+        let outer = p.settings["outer_radius"].base().as_scalar().unwrap_or(0.0);
+        p.settings
+            .entry("inner_radius".into())
+            .or_insert_with(|| Property::constant(Value::Scalar(outer / 2.0)));
+        p.settings
+            .entry("inner_roundness".into())
+            .or_insert_with(|| Property::constant(Value::Scalar(0.0)));
+        shape.points = p.outline(None);
+    }
+    // D-738 (a): Convert to Bezier Path: the outline at the settings' bases, their keys dropped.
+    if parameter(query, "bezier").is_some() {
+        let Some(p) = shape.parametric.take() else {
+            return Err(format!("\"{}\" is already a Bezier path.", shape.name));
+        };
+        shape.points = p.outline(None);
+    }
     if parameter(query, "closed").is_some() {
         shape.closed = !shape.closed;
     }
@@ -16220,6 +16281,51 @@ fn shape_settings(
         shape.name = name;
     }
     Ok(())
+}
+
+/// D-738 (a): a new rectangle, ellipse, polygon or star as the shape tool sends it:
+/// `parametric=` its kind, `position=x,y`, `size=w,h`, `roundness`, `radius` (the outer one; a
+/// star's inner is half of it), `points` and `rotation`. Ranges are the core's to refuse.
+fn parametric_shape(
+    query: Option<&str>,
+    kind: &str,
+) -> Result<anime_compositor::shape::Parametric, String> {
+    let Some(kind) = anime_compositor::shape::ParametricKind::named(kind) else {
+        return Err(format!(
+            "\"{kind}\" is not a shape to draw. Say rectangle, ellipse, polygon or star."
+        ));
+    };
+    let numbers = |key: &str, default: &[f64]| -> Result<Vec<f64>, String> {
+        let Some(text) = parameter(query, key) else {
+            return Ok(default.to_vec());
+        };
+        text.split(',')
+            .map(|n| n.trim().parse::<f64>().ok())
+            .collect::<Option<Vec<f64>>>()
+            .filter(|n| n.len() == default.len())
+            .ok_or_else(|| match default.len() {
+                2 => format!("\"{text}\" is not a {key}. Say {key}=x,y."),
+                _ => format!("\"{text}\" is not a {key}. It is a number."),
+            })
+    };
+    let radius = numbers("radius", &[50.0])?[0];
+    let mut settings = std::collections::BTreeMap::new();
+    for name in kind.settings() {
+        let value = match *name {
+            "size" | "position" => {
+                let default = if *name == "size" { 100.0 } else { 0.0 };
+                let n = numbers(name, &[default, default])?;
+                Value::Vec2(n[0], n[1])
+            }
+            "outer_radius" => Value::Scalar(radius),
+            "inner_radius" => Value::Scalar(radius / 2.0),
+            "points" => Value::Scalar(numbers("points", &[5.0])?[0]),
+            "roundness" | "rotation" => Value::Scalar(numbers(name, &[0.0])?[0]),
+            _ => Value::Scalar(0.0),
+        };
+        settings.insert(name.to_string(), Property::constant(value));
+    }
+    Ok(anime_compositor::shape::Parametric { kind, settings })
 }
 
 /// B-24c: a mask's path as the page sends it, `x,y,in_x,in_y,out_x,out_y` per point, separated

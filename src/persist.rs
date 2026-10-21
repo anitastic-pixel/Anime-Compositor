@@ -798,6 +798,26 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 map.insert("enabled".into(), J::from(s.enabled));
                 map.insert("closed".into(), J::from(s.closed));
                 map.insert("path".into(), path_json(was, &s.points, &s.keys));
+                // D-738 (a): the settings, merged over the record they were read from, so a
+                // setting the type does not use and a field this build does not know are kept.
+                // `path` above is the outline at their bases, for a reader without D-738.
+                match &s.parametric {
+                    None => {
+                        map.remove("parametric");
+                    }
+                    Some(p) => {
+                        let was = was.and_then(|w| w.get("parametric"));
+                        let mut m = was.and_then(J::as_object).cloned().unwrap_or_default();
+                        m.insert("type".into(), J::from(p.kind.as_str()));
+                        for (name, property) in &p.settings {
+                            m.insert(
+                                name.clone(),
+                                property_json(was.and_then(|w| w.get(name)), property, 1.0),
+                            );
+                        }
+                        map.insert("parametric".into(), J::Object(m));
+                    }
+                }
                 // Absent and null both mean "no fill" on the way in, and null is written on the
                 // way out so that a file that had one and lost it says so rather than keeping it.
                 let was_paint =
@@ -12971,7 +12991,16 @@ fn parse_path(
 /// path of fewer than two points, which the caller warns about.
 fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Diagnostic> {
     as_object(v, at)?;
-    let (points, keys) = parse_path(field(v, at, "path")?, &format!("{at}/path"))?;
+    // D-738 (a): a parametric shape's path is worked out from its settings and never read; the
+    // file holds it only for a reader without D-738.
+    let parametric = match v.get("parametric").filter(|p| !p.is_null()) {
+        None => None,
+        Some(p) => Some(parse_parametric(p, &format!("{at}/parametric"))?),
+    };
+    let (points, keys) = match &parametric {
+        Some(p) => (p.outline(None), Vec::new()),
+        None => parse_path(field(v, at, "path")?, &format!("{at}/path"))?,
+    };
     // D-170: a colour, an opacity or a width written as a property record is keyed. Its keys are
     // taken out here and its base left in its place, which is what is read below, as an effect's
     // keyed settings are (D-68).
@@ -13095,11 +13124,37 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             Some(t) => Some(parse_trim(t, &format!("{at}/trim"))?),
         },
         record: crate::model::FileRecord::new(v),
+        parametric,
     };
     match shape.problem() {
         Some(p) => Err(invalid(at, &p)),
         None => Ok(shape),
     }
+}
+
+/// D-738 (a): the type and the settings it is drawn from; their ranges are `Shape::problem`'s.
+fn parse_parametric(p: &J, at: &str) -> Result<crate::shape::Parametric, Diagnostic> {
+    as_object(p, at)?;
+    let names = crate::shape::ParametricKind::NAMES;
+    let here = format!("{at}/type");
+    let kind = as_str(field(p, at, "type")?, &here)?;
+    // The type found is named, so a file from a later build says which type it has.
+    let Some(kind) = crate::shape::ParametricKind::named(kind) else {
+        let names = names.join(", ");
+        return Err(invalid(&here, &format!("one of {names}, not \"{kind}\"")));
+    };
+    let mut settings = std::collections::BTreeMap::new();
+    for name in kind.settings() {
+        let value = if crate::shape::is_pair(name) {
+            "vec2"
+        } else {
+            "scalar"
+        };
+        let here = format!("{at}/{name}");
+        let property = parse_property(field(p, at, name)?, &here, value, false, false, 1.0)?;
+        settings.insert(name.to_string(), property);
+    }
+    Ok(crate::shape::Parametric { kind, settings })
 }
 
 /// D-169: three one-number properties; their ranges are `Shape::problem`'s.
