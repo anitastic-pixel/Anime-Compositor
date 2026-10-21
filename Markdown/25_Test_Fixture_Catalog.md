@@ -164649,6 +164649,28 @@ The build's test must read `host.json`, place each case's shape at its frame and
 | FX-SHPG-026 | An expression on a group's number: keys only, as a shape's other numbers. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
 
 
+## Repeater fixtures
+
+D-738 (c), accepted on 2026-10-21. `tools/shape_repeater_reference.py` writes `Fixtures/shape_repeaters/`, its group transforms `tools/shape_group_reference.py`'s. `host.json` is a 400 by 300 composition at 24 fps holding one shape layer of four shapes and three repeating groups: `Row` at (60, 150), its copies keyed linear from 4 at frame 0 to 2 at frame 24, each 70 to the right of the one before, opacity from 1 down to 0.25, composite below; `Fan` at (300, 150), 6 copies, its offset keyed linear from -1 at frame 0 to 1 at frame 24, each copy turned 30 degrees, scaled 90 by 80 and moved 5, composite above, which also keeps `blend_mode`, a field this build does not know; and `Stack`, inside `Row`, 2 copies 20 apart, opacity from 0.5 to 1, composite above. `Dot`, a 30 square with a fill and a 2 px stroke, is in `Row`; `Plain`, a triangle, is in no group; `Pip`, a small triangle, is in `Stack`; `Petal`, a 60 by 10 bar with a 1 px stroke, is in `Fan`. `expected_shape_repeaters.json` gives, for each drawn case, every shape the layer draws at the frame in drawing order, later over earlier: its name, the copy of each repeating group it is, its points as a path's are written, its fill's and stroke's opacity and its stroke's width, numbers within 1e-9; for the saved case, the groups the saved project must hold; and for each refused file the diagnostic and a word its message must contain.
+
+The build's test must read `host.json`, list the shapes drawn at each case's frame and find them in the order given, each placed as written, and draw them exactly as plain shapes of those outlines and paint are drawn; save the project and find every repeater as read, `blend_mode` included; and refuse each refused file with the diagnostic, naming the word.
+
+| case | says | the build must give |
+| --- | --- | --- |
+| FX-SHPR-001 | Frame 0: Row's four squares 70 apart, fading from 1 to 0.25, each under the one before; each square's Stack draws its Pip twice, 20 apart, the first at half opacity; Plain; then Fan's six bars an offset of -1 back, each turned 30 degrees, scaled 90 by 80 and moved 5 from the one before, each over the one before. | at frame 0: 19 shapes drawn, in order, each placed as written |
+| FX-SHPR-002 | Frame 6: Row's copies at 3.5, so four squares with the opacity ramp over four and the last at half of its; Fan's offset -0.5, half a step back. | at frame 6: 19 shapes drawn, in order, each placed as written |
+| FX-SHPR-003 | Frame 12: Row's copies 3; Fan's offset 0, its first bar where the bar is drawn. | at frame 12: 16 shapes drawn, in order, each placed as written |
+| FX-SHPR-004 | Frame 18: Row's copies 2.5; Fan's offset 0.5, every bar half a step on. | at frame 18: 16 shapes drawn, in order, each placed as written |
+| FX-SHPR-005 | Saved again: each group's repeater as read, `blend_mode` included. | every group's repeater as read |
+| FX-SHPR-020 | Copies below 0. | `refused_copies.json` refused, `PROJECT_SCHEMA_INVALID`, naming copies |
+| FX-SHPR-021 | A copies key past 1000, though the base is fine. | `refused_copies_key.json` refused, `PROJECT_SCHEMA_INVALID`, naming copies |
+| FX-SHPR-022 | An offset past 1000. | `refused_offset.json` refused, `PROJECT_SCHEMA_INVALID`, naming offset |
+| FX-SHPR-023 | A start opacity above 1. | `refused_opacity.json` refused, `PROJECT_SCHEMA_INVALID`, naming start opacity |
+| FX-SHPR-024 | A composite that is neither below nor above. | `refused_composite.json` refused, `PROJECT_SCHEMA_INVALID`, naming composite |
+| FX-SHPR-025 | A repeater without its rotation. | `refused_no_rotation.json` refused, `PROJECT_SCHEMA_INVALID`, naming rotation |
+| FX-SHPR-026 | An expression on a repeater's number: keys only. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
+
+
 ## Open mask fixtures
 
 D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
