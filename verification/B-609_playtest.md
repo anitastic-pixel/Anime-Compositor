@@ -30,7 +30,7 @@ Fixture check `tests/b609_parametric_shapes.rs`: 34 of 34 (see `B-609_parametric
 ## Pictures (`B-609 pictures/`)
 
 - `all.png`: every picture below on one sheet.
-- `00_fixture_f00/f12/f24.png`: the five fixture shapes at frames 0, 12 and 24 (the rounded rectangle is keyed in the fixture).
+- `00_fixture_f00.png`, `00_fixture_f12.png`, `00_fixture_f24.png`: the five fixture shapes at frames 0, 12 and 24 (the rounded rectangle is keyed in the fixture).
 - `01_box_size_keyed_f12.png`: the box halfway through its keyed size.
 - `02_star_as_polygon.png`: the star switched to a polygon.
 - `03_hex_as_bezier.png`: the hex after Convert to Bezier Path (looks the same, now plain points).
