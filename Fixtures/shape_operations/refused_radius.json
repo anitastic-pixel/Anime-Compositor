@@ -1,0 +1,1807 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-shape-operations",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 600,
+      "height": 400,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 25,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 25
+      },
+      "layer_order": [
+        "shapes"
+      ],
+      "layers": [
+        {
+          "id": "shapes",
+          "kind": "shape",
+          "name": "shapes",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 25,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "shapes": [
+            {
+              "name": "Box",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        40,
+                        -40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        40
+                      ],
+                      "in": [
+                        15,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        -15
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        -40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.2,
+                  0.5,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 0
+            },
+            {
+              "name": "Penta",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        2.4492935982947065e-15,
+                        -40.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        38.04226065180614,
+                        -12.360679774997896
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        23.511410091698927,
+                        32.3606797749979
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -23.51141009169892,
+                        32.3606797749979
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -38.042260651806146,
+                        -12.360679774997891
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  0.6,
+                  0.1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 1
+            },
+            {
+              "name": "Bar",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        50,
+                        -12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        50,
+                        12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        -12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.9,
+                  0.2,
+                  0.5
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 2
+            },
+            {
+              "name": "Line",
+              "enabled": true,
+              "closed": false,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        -40,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": null,
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 3
+            },
+            {
+              "name": "Card",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        40,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.3,
+                  0.8,
+                  0.4
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 4
+            },
+            {
+              "name": "Tri",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        -35,
+                        25
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        35,
+                        25
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        -35
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.8,
+                  0.8,
+                  0.2
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 5
+            },
+            {
+              "name": "Star",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        2.4492935982947065e-15,
+                        -40.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        9.40456403667957,
+                        -12.94427190999916
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        38.04226065180614,
+                        -12.360679774997896
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        15.216904260722456,
+                        4.944271909999158
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        23.511410091698927,
+                        32.3606797749979
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        9.797174393178826e-16,
+                        16.0
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -23.51141009169892,
+                        32.3606797749979
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -15.216904260722456,
+                        4.94427190999916
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -38.042260651806146,
+                        -12.360679774997891
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -9.404564036679572,
+                        -12.944271909999157
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  0.3,
+                  0.2
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 6
+            },
+            {
+              "name": "Hook",
+              "enabled": true,
+              "closed": false,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        -30,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        50
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        30,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": null,
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 6
+            },
+            {
+              "name": "Oval",
+              "enabled": true,
+              "closed": true,
+              "parametric": {
+                "type": "ellipse",
+                "size": {
+                  "base": [
+                    70,
+                    50
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                }
+              },
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        0,
+                        -25.0
+                      ],
+                      "in": [
+                        -19.32996624407777,
+                        0
+                      ],
+                      "out": [
+                        19.32996624407777,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        35.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        -13.807118745769836
+                      ],
+                      "out": [
+                        0,
+                        13.807118745769836
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        25.0
+                      ],
+                      "in": [
+                        19.32996624407777,
+                        0
+                      ],
+                      "out": [
+                        -19.32996624407777,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -35.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        13.807118745769836
+                      ],
+                      "out": [
+                        0,
+                        -13.807118745769836
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.5,
+                  0.3,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 7
+            },
+            {
+              "name": "Disc",
+              "enabled": true,
+              "closed": true,
+              "parametric": {
+                "type": "ellipse",
+                "size": {
+                  "base": [
+                    60,
+                    60
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                }
+              },
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        0,
+                        -30.0
+                      ],
+                      "in": [
+                        -16.568542494923804,
+                        0
+                      ],
+                      "out": [
+                        16.568542494923804,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        30.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        -16.568542494923804
+                      ],
+                      "out": [
+                        0,
+                        16.568542494923804
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        30.0
+                      ],
+                      "in": [
+                        16.568542494923804,
+                        0
+                      ],
+                      "out": [
+                        -16.568542494923804,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -30.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        16.568542494923804
+                      ],
+                      "out": [
+                        0,
+                        -16.568542494923804
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.2,
+                  0.9,
+                  0.9
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 8
+            },
+            {
+              "name": "Tile",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        30,
+                        -12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        30,
+                        12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -30,
+                        12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -30,
+                        -12
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  0.8,
+                  0.3
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 10
+            },
+            {
+              "name": "Plain",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        50,
+                        350
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        110,
+                        350
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        80,
+                        290
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "opacity": 1
+              },
+              "stroke": null
+            }
+          ],
+          "groups": [
+            {
+              "name": "Corners",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    60,
+                    70
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "round_corners",
+                  "radius": {
+                    "base": 0,
+                    "keyframes": [
+                      {
+                        "frame": 0,
+                        "value": 0,
+                        "interp": "linear"
+                      },
+                      {
+                        "frame": 24,
+                        "value": 30,
+                        "interp": "linear"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Puff",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    170,
+                    70
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "pucker_bloat",
+                  "amount": {
+                    "base": 0,
+                    "keyframes": [
+                      {
+                        "frame": 0,
+                        "value": -60,
+                        "interp": "linear"
+                      },
+                      {
+                        "frame": 24,
+                        "value": 60,
+                        "interp": "linear"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "repeater": {
+                "copies": {
+                  "base": 2,
+                  "keyframes": []
+                },
+                "offset": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "composite": "below",
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    90,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "start_opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "end_opacity": {
+                  "base": 1,
+                  "keyframes": []
+                }
+              }
+            },
+            {
+              "name": "Swirl",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    380,
+                    70
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "round_corners",
+                  "radius": {
+                    "base": -1,
+                    "keyframes": []
+                  }
+                },
+                {
+                  "type": "twist",
+                  "angle": {
+                    "base": 120,
+                    "keyframes": []
+                  },
+                  "center": {
+                    "base": [
+                      0,
+                      0
+                    ],
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Zig",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    510,
+                    70
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "zig_zag",
+                  "size": {
+                    "base": 6,
+                    "keyframes": []
+                  },
+                  "ridges": {
+                    "base": 4,
+                    "keyframes": []
+                  },
+                  "points": "corner"
+                }
+              ]
+            },
+            {
+              "name": "Wobble",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    60,
+                    200
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "wiggle",
+                  "size": {
+                    "base": 6,
+                    "keyframes": []
+                  },
+                  "detail": {
+                    "base": 2,
+                    "keyframes": []
+                  },
+                  "wiggles_per_second": {
+                    "base": 2,
+                    "keyframes": []
+                  },
+                  "correlation": {
+                    "base": 25,
+                    "keyframes": []
+                  },
+                  "seed": {
+                    "base": 7,
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Grow",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    180,
+                    200
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "offset",
+                  "amount": {
+                    "base": 8,
+                    "keyframes": []
+                  },
+                  "join": "round",
+                  "miter_limit": {
+                    "base": 4,
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Spike",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    310,
+                    200
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "offset",
+                  "amount": {
+                    "base": 6,
+                    "keyframes": []
+                  },
+                  "join": "miter",
+                  "miter_limit": {
+                    "base": 2,
+                    "keyframes": []
+                  },
+                  "note": "kept"
+                }
+              ],
+              "blend": "multiply"
+            },
+            {
+              "name": "Cut",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    440,
+                    200
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "offset",
+                  "amount": {
+                    "base": 0,
+                    "keyframes": [
+                      {
+                        "frame": 0,
+                        "value": -10,
+                        "interp": "linear"
+                      },
+                      {
+                        "frame": 24,
+                        "value": 10,
+                        "interp": "linear"
+                      }
+                    ]
+                  },
+                  "join": "bevel",
+                  "miter_limit": {
+                    "base": 4,
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Waves",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    540,
+                    200
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "zig_zag",
+                  "size": {
+                    "base": 8,
+                    "keyframes": []
+                  },
+                  "ridges": {
+                    "base": 3,
+                    "keyframes": []
+                  },
+                  "points": "smooth"
+                }
+              ]
+            },
+            {
+              "name": "Outer",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    300,
+                    320
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "twist",
+                  "angle": {
+                    "base": 60,
+                    "keyframes": []
+                  },
+                  "center": {
+                    "base": [
+                      0,
+                      0
+                    ],
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Inner",
+              "parent": 9,
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    150,
+                    150
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "round_corners",
+                  "radius": {
+                    "base": 10,
+                    "keyframes": []
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

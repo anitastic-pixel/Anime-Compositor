@@ -164671,6 +164671,31 @@ The build's test must read `host.json`, list the shapes drawn at each case's fra
 | FX-SHPR-026 | An expression on a repeater's number: keys only. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
 
 
+## Path operation fixtures
+
+D-738 (d), accepted on 2026-10-21. `tools/shape_operation_reference.py` writes `Fixtures/shape_operations/`, its group transforms `tools/shape_group_reference.py`'s and its repeater `tools/shape_repeater_reference.py`'s. `host.json` is a 600 by 400 composition at 24 fps holding one shape layer of eleven groups and twelve shapes: `Corners` rounds a square with one handled point, its radius keyed linear from 0 at frame 0 to 30 at frame 24; `Puff` puckers and bloats a pentagon, its amount keyed from -60 to 60, under a repeater of 2 copies 90 apart; `Swirl` rounds a bar by 6, then twists it 120 degrees; `Zig` zig-zags an open line, size 6, 4 ridges, corner points; `Wobble` wiggles a card, size 6, detail 2, 2 wiggles a second, correlation 25, seed 7; `Grow` offsets a triangle by 8 with round joins; `Spike` offsets a star and an open hook by 6 with mitred joins limited to 2, its operation keeping `note` and the group keeping `blend`, fields this build does not know; `Cut` offsets a parametric ellipse with bevel joins, its amount keyed from -10 to 10; `Waves` zig-zags a parametric circle, size 8, 3 ridges, smooth points; `Inner`, inside `Outer`, rounds a bar by 10 and is scaled 150 per cent, then `Outer` twists it 60 degrees; `Plain`, a triangle, is in no group. `expected_shape_operations.json` gives, for each drawn case, every shape drawn at the frame in drawing order, its points, handles relative, its fill's and stroke's opacity and its stroke's width, numbers within 1e-9; for the saved case, the groups the saved project must hold; and for each refused file the diagnostic and a word its message must contain.
+
+The build's test must read `host.json`, list the shapes drawn at each case's frame in the order given, each with the points written within 1e-9, and draw them exactly as plain shapes of those points and paint are drawn; save the project and find every group's operations as read, `note` and `blend` included; and refuse each refused file with the diagnostic, naming the word.
+
+| case | says | the build must give |
+| --- | --- | --- |
+| FX-SHPO-001 | Frame 0: Corners' radius 0 leaves its square as it is; Puff's pentagon puckered 60 per cent, twice; Swirl's bar rounded 6 and twisted 120 degrees; Zig's line zig-zagged 6 with 4 ridges; Wobble's card wiggled; Grow's triangle offset 8 with round joins; Spike's star offset 6 with mitres cut to bevels past 2, its open hook along one side; Cut's oval offset 10 inward; Waves' circle zig-zagged smooth; Inner's tile rounded 10, scaled 150 per cent, then twisted 60 by Outer; Plain as it is. | at frame 0: 13 shapes drawn, 234 points in all, each as written |
+| FX-SHPO-002 | Frame 6: Corners' radius 7.5; Puff -30; Wobble's points somewhere else; Cut's offset -5. | at frame 6: 13 shapes drawn, 237 points in all, each as written |
+| FX-SHPO-003 | Frame 12: Corners' radius 15; Puff's amount 0 leaves its pentagon as it is; Cut's offset 0 leaves its oval as it is. | at frame 12: 13 shapes drawn, 133 points in all, each as written |
+| FX-SHPO-004 | Frame 24: Corners' radius 30, the side with a handled point left alone at that point; Puff bloated 60 per cent; Cut's oval offset 10 outward. | at frame 24: 13 shapes drawn, 345 points in all, each as written |
+| FX-SHPO-005 | Saved again: each group's operations as read, Spike's `note` and `blend`, fields this build does not know, included. | every group's operations as read |
+| FX-SHPO-020 | An operation of a type this build does not know. | `refused_type.json` refused, `PROJECT_SCHEMA_INVALID`, naming spin |
+| FX-SHPO-021 | A radius below 0. | `refused_radius.json` refused, `PROJECT_SCHEMA_INVALID`, naming radius |
+| FX-SHPO-022 | A pucker and bloat key past 100, though the base is fine. | `refused_amount_key.json` refused, `PROJECT_SCHEMA_INVALID`, naming amount |
+| FX-SHPO-023 | Ridges past 100. | `refused_ridges.json` refused, `PROJECT_SCHEMA_INVALID`, naming ridges |
+| FX-SHPO-024 | Zig zag points that are neither corner nor smooth. | `refused_points.json` refused, `PROJECT_SCHEMA_INVALID`, naming points |
+| FX-SHPO-025 | An offset join that is not miter, round or bevel. | `refused_join.json` refused, `PROJECT_SCHEMA_INVALID`, naming join |
+| FX-SHPO-026 | A miter limit below 1. | `refused_miter_limit.json` refused, `PROJECT_SCHEMA_INVALID`, naming miter_limit |
+| FX-SHPO-027 | A wiggle without its seed. | `refused_no_seed.json` refused, `PROJECT_SCHEMA_INVALID`, naming seed |
+| FX-SHPO-028 | A correlation past 100. | `refused_correlation.json` refused, `PROJECT_SCHEMA_INVALID`, naming correlation |
+| FX-SHPO-029 | An expression on an operation's number: keys only. | `refused_expression.json` refused, `PROJECT_SCHEMA_INVALID`, naming expression |
+| FX-SHPO-030 | Nine operations on one group: eight at most. | `refused_nine.json` refused, `PROJECT_SCHEMA_INVALID`, naming operations |
+
 ## Open mask fixtures
 
 D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
