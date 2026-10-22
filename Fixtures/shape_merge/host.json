@@ -1,0 +1,1987 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-shape-merge",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 600,
+      "height": 400,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 25,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 25
+      },
+      "layer_order": [
+        "shapes"
+      ],
+      "layers": [
+        {
+          "id": "shapes",
+          "kind": "shape",
+          "name": "shapes",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 25,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "shapes": [
+            {
+              "name": "Sun",
+              "enabled": true,
+              "closed": true,
+              "parametric": {
+                "type": "ellipse",
+                "size": {
+                  "base": [
+                    80,
+                    80
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                }
+              },
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        0,
+                        -40.0
+                      ],
+                      "in": [
+                        -22.091389993231736,
+                        0
+                      ],
+                      "out": [
+                        22.091389993231736,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        -22.091389993231736
+                      ],
+                      "out": [
+                        0,
+                        22.091389993231736
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        40.0
+                      ],
+                      "in": [
+                        22.091389993231736,
+                        0
+                      ],
+                      "out": [
+                        -22.091389993231736,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        22.091389993231736
+                      ],
+                      "out": [
+                        0,
+                        -22.091389993231736
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  0.6,
+                  0.1
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 3
+              },
+              "group": 0
+            },
+            {
+              "name": "Moon",
+              "enabled": true,
+              "closed": true,
+              "parametric": {
+                "type": "ellipse",
+                "size": {
+                  "base": [
+                    60,
+                    60
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    30,
+                    0
+                  ],
+                  "keyframes": [
+                    {
+                      "frame": 0,
+                      "value": [
+                        30,
+                        0
+                      ],
+                      "interp": "linear"
+                    },
+                    {
+                      "frame": 24,
+                      "value": [
+                        75,
+                        0
+                      ],
+                      "interp": "linear"
+                    }
+                  ]
+                }
+              },
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        30,
+                        -30.0
+                      ],
+                      "in": [
+                        -16.568542494923804,
+                        0
+                      ],
+                      "out": [
+                        16.568542494923804,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        60.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        -16.568542494923804
+                      ],
+                      "out": [
+                        0,
+                        16.568542494923804
+                      ]
+                    },
+                    {
+                      "point": [
+                        30,
+                        30.0
+                      ],
+                      "in": [
+                        16.568542494923804,
+                        0
+                      ],
+                      "out": [
+                        -16.568542494923804,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        0.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        16.568542494923804
+                      ],
+                      "out": [
+                        0,
+                        -16.568542494923804
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.2,
+                  0.4,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 0
+            },
+            {
+              "name": "Slab",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        50,
+                        -50
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        50,
+                        50
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        50
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        -50
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.9,
+                  0.2,
+                  0.5
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 1
+            },
+            {
+              "name": "Hole",
+              "enabled": true,
+              "closed": true,
+              "parametric": {
+                "type": "ellipse",
+                "size": {
+                  "base": [
+                    30,
+                    30
+                  ],
+                  "keyframes": [
+                    {
+                      "frame": 0,
+                      "value": [
+                        30,
+                        30
+                      ],
+                      "interp": "linear"
+                    },
+                    {
+                      "frame": 24,
+                      "value": [
+                        90,
+                        90
+                      ],
+                      "interp": "linear"
+                    }
+                  ]
+                },
+                "position": {
+                  "base": [
+                    30,
+                    0
+                  ],
+                  "keyframes": []
+                }
+              },
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        30,
+                        -15.0
+                      ],
+                      "in": [
+                        -8.284271247461902,
+                        0
+                      ],
+                      "out": [
+                        8.284271247461902,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        45.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        -8.284271247461902
+                      ],
+                      "out": [
+                        0,
+                        8.284271247461902
+                      ]
+                    },
+                    {
+                      "point": [
+                        30,
+                        15.0
+                      ],
+                      "in": [
+                        8.284271247461902,
+                        0
+                      ],
+                      "out": [
+                        -8.284271247461902,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        15.0,
+                        0
+                      ],
+                      "in": [
+                        0,
+                        8.284271247461902
+                      ],
+                      "out": [
+                        0,
+                        -8.284271247461902
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0,
+                  0,
+                  0
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 1
+            },
+            {
+              "name": "Wide",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        50,
+                        -20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        50,
+                        20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        -20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.3,
+                  0.8,
+                  0.4
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 2
+            },
+            {
+              "name": "Peak",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        0,
+                        -55
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        45,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -45,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 2
+            },
+            {
+              "name": "Left",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        15,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        15,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -45,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -45,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.5,
+                  0.3,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 3
+            },
+            {
+              "name": "Right",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        45,
+                        -20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        45,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -15,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -15,
+                        -20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 3
+            },
+            {
+              "name": "A",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        20,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        20,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.2,
+                  0.9,
+                  0.5
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 4
+            },
+            {
+              "name": "B",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        40,
+                        -20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -20,
+                        40
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -20,
+                        -20
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 4
+            },
+            {
+              "name": "Spoke",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        50,
+                        -6
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        50,
+                        6
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        6
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -50,
+                        -6
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  0.85,
+                  0.2
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  0,
+                  0,
+                  0
+                ],
+                "opacity": 1,
+                "width_px": 1
+              },
+              "group": 6
+            },
+            {
+              "name": "P1",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        10,
+                        -25
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        10,
+                        25
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        25
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -40,
+                        -25
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.2,
+                  0.9,
+                  0.9
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 7
+            },
+            {
+              "name": "P2",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        40,
+                        -15
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        40,
+                        35
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -10,
+                        35
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -10,
+                        -15
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 7
+            },
+            {
+              "name": "J1",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        0,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -30,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        -30,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  0.4,
+                  0.3
+                ],
+                "opacity": 1
+              },
+              "stroke": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1,
+                "width_px": 2
+              },
+              "group": 8
+            },
+            {
+              "name": "J2",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        30,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        30,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        0,
+                        -30
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  1,
+                  1,
+                  1
+                ],
+                "opacity": 1
+              },
+              "stroke": null,
+              "group": 8
+            },
+            {
+              "name": "Plain",
+              "enabled": true,
+              "closed": true,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        20,
+                        390
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        80,
+                        390
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        50,
+                        340
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              },
+              "fill": {
+                "color": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "opacity": 1
+              },
+              "stroke": null
+            }
+          ],
+          "groups": [
+            {
+              "name": "Union",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    90,
+                    90
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "add"
+                }
+              ]
+            },
+            {
+              "name": "Bite",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    250,
+                    90
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "subtract"
+                }
+              ]
+            },
+            {
+              "name": "Overlap",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    390,
+                    90
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "intersect"
+                }
+              ]
+            },
+            {
+              "name": "Xor",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    520,
+                    90
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "exclude"
+                }
+              ],
+              "repeater": {
+                "copies": {
+                  "base": 2,
+                  "keyframes": []
+                },
+                "offset": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "composite": "below",
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    120
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "start_opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "end_opacity": {
+                  "base": 1,
+                  "keyframes": []
+                }
+              }
+            },
+            {
+              "name": "Keep",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    90,
+                    250
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "merge"
+                },
+                {
+                  "type": "round_corners",
+                  "radius": {
+                    "base": 8,
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Wheel",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    250,
+                    260
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "add"
+                },
+                {
+                  "type": "round_corners",
+                  "radius": {
+                    "base": 3,
+                    "keyframes": []
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Spokes",
+              "parent": 5,
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "repeater": {
+                "copies": {
+                  "base": 6,
+                  "keyframes": []
+                },
+                "offset": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "composite": "below",
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 30,
+                  "keyframes": []
+                },
+                "start_opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "end_opacity": {
+                  "base": 1,
+                  "keyframes": []
+                }
+              }
+            },
+            {
+              "name": "Puffed",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    400,
+                    260
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "pucker_bloat",
+                  "amount": {
+                    "base": 30,
+                    "keyframes": []
+                  }
+                },
+                {
+                  "type": "merge",
+                  "mode": "add"
+                }
+              ]
+            },
+            {
+              "name": "Join",
+              "transform": {
+                "anchor": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": []
+                },
+                "position": {
+                  "base": [
+                    520,
+                    330
+                  ],
+                  "keyframes": []
+                },
+                "scale": {
+                  "base": [
+                    100,
+                    100
+                  ],
+                  "keyframes": []
+                },
+                "rotation": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "opacity": {
+                  "base": 1,
+                  "keyframes": []
+                },
+                "skew": {
+                  "base": 0,
+                  "keyframes": []
+                },
+                "skew_axis": {
+                  "base": 0,
+                  "keyframes": []
+                }
+              },
+              "operations": [
+                {
+                  "type": "merge",
+                  "mode": "add",
+                  "note": "kept"
+                }
+              ],
+              "blend": "multiply"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
