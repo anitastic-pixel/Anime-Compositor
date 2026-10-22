@@ -415,7 +415,14 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
         check(what, "true".into(), page.contains(marker).to_string());
     }
 
-    let ms = |r: &Response<Vec<u8>>| header(r, "x-ms");
+    // The run's own times go to the test output, not the table, so the table changes only when a
+    // verdict does.
+    eprintln!(
+        "B-163: this run's window took {} ms for the Draft stand-in of frame 30 and {} ms for \
+         its Full picture",
+        header(rough, "x-ms"),
+        header(sharp, "x-ms")
+    );
     write_table(
         &rows,
         "verification/B-163_refine_on_stop_table.md",
@@ -425,15 +432,9 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
          the hand stops the same frame is made at Full and replaces it. The scrub rows run the \
          page's own decision lines on a pretend clock (a Draft frame 40 ms, a Full one 300 ms); \
          the window rows ask the real request handler for the frames that scrub sent.",
-        &format!(
-            "## What this does not cover\n\nHow it feels in the window, which is the playtest \
-             sheet, `verification/B-162_B-163_playtest.md`. For scale, this run's window took \
-             {} ms for the Draft stand-in of frame 30 and {} ms for its Full picture, on the \
-             CPU, in a test build sharing the machine with other builds: a note, not a \
-             measurement.",
-            ms(rough),
-            ms(sharp)
-        ),
+        "## What this does not cover\n\nHow it feels in the window, which is the playtest \
+         sheet, `verification/B-162_B-163_playtest.md`. How long this run's window took is \
+         printed by the test, not written here, since it differs every run.",
     );
     assert!(rows.iter().all(|(_, e, a)| e == a), "{rows:#?}");
 }

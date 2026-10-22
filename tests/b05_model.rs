@@ -252,8 +252,12 @@ fn b05_model_and_undo() {
     );
     report.check(
         "reorder: an untouched layer is bit-identical afterwards",
-        format!("{layer4_before_move:?}"),
-        format!("{:?}", layer_named(&doc, "layer-4")),
+        "identical",
+        if format!("{layer4_before_move:?}") == format!("{:?}", layer_named(&doc, "layer-4")) {
+            "identical"
+        } else {
+            "different"
+        },
     );
     doc.undo();
     report.check(
@@ -1214,8 +1218,12 @@ fn b05_model_and_undo() {
     doc.undo();
     report.check(
         "matte: undoing the delete restores the target and the dependent exactly",
-        format!("{fx_before_delete:?}"),
-        format!("{:?}", layer_named(&doc, "layer-fx")),
+        "identical",
+        if format!("{fx_before_delete:?}") == format!("{:?}", layer_named(&doc, "layer-fx")) {
+            "identical"
+        } else {
+            "different"
+        },
     );
     report.check(
         "matte: the restored target is back in its original position",
