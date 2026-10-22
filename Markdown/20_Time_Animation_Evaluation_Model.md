@@ -30,7 +30,7 @@ A layer is active on `[in_frame, out_frame)`. Its integer local frame is:
 
 A layer with a `time_stretch` other than 100 (D-216) reads its source and its keys at a time that may fall between two local frames; see Time stretch, frame blending and the drawing dissolve below. A layer with a `time_remap` (D-323) reads its source at the time its remap keys give; see Time remapping below.
 
-Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13); trimming and changing source offset are distinct commands.
+Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13): the transform's, depth's, Time Remap's, every effect setting's, every mask's, every shape's, shape group's, repeater's and path operation's, and a sound layer's level and pan (D-740, FX-LSHIFT in document 25); the exposures and the timesheet are in source frames and do not move; trimming and changing source offset are distinct commands.
 
 A composition layer (D-67, accepted on 2026-09-18) shows its composition at `local_frame`, by the same formula; outside that composition's own `[start_frame, start_frame + duration_frames)` the layer's picture is transparent (FX-PRE-006, FX-PRE-007). Frame numbers pass between the two, not seconds: the two compositions' rates are not compared. Time remapping (D-323, below) changes which inner frame is shown, never this rule.
 

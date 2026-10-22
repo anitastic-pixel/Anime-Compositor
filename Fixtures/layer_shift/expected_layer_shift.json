@@ -1,0 +1,517 @@
+{
+ "decision": "D-740",
+ "cases": [
+  {
+   "id": "FX-LSHIFT-001",
+   "project": "sound_layer/fx_slay_001.json",
+   "composition": "comp-main",
+   "layer": "sound0",
+   "kind": "audio",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/gain_db/keyframes",
+     10
+    ],
+    [
+     "/gain_db/keyframes",
+     34
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-002",
+   "project": "sound_layer/fx_slay_005.json",
+   "composition": "comp-main",
+   "layer": "sound0",
+   "kind": "audio",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/pan/keyframes",
+     10
+    ],
+    [
+     "/pan/keyframes",
+     34
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-003",
+   "project": "fill/fx_fill_018.json",
+   "composition": "comp-main",
+   "layer": "art",
+   "kind": "raster",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/masks/*/path/keyframes",
+     10
+    ],
+    [
+     "/masks/*/path/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-004",
+   "project": "projects/keyed_settings_project.json",
+   "composition": "comp-1",
+   "layer": "layer-1",
+   "kind": "solid",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/effects/*/parameters/brightness/keyframes",
+     10
+    ],
+    [
+     "/effects/*/parameters/brightness/keyframes",
+     12
+    ],
+    [
+     "/effects/*/parameters/brightness/keyframes",
+     44
+    ],
+    [
+     "/effects/*/parameters/offset/keyframes",
+     10
+    ],
+    [
+     "/effects/*/parameters/offset/keyframes",
+     44
+    ],
+    [
+     "/effects/*/parameters/taper_radius/keyframes",
+     10
+    ],
+    [
+     "/effects/*/parameters/taper_radius/keyframes",
+     22
+    ],
+    [
+     "/effects/*/parameters/vertical_radius/keyframes",
+     10
+    ],
+    [
+     "/effects/*/parameters/vertical_radius/keyframes",
+     22
+    ],
+    [
+     "/masks/*/expansion_px/keyframes",
+     10
+    ],
+    [
+     "/masks/*/expansion_px/keyframes",
+     44
+    ],
+    [
+     "/masks/*/feather_px/keyframes",
+     10
+    ],
+    [
+     "/masks/*/feather_px/keyframes",
+     44
+    ],
+    [
+     "/masks/*/path/keyframes",
+     10
+    ],
+    [
+     "/masks/*/path/keyframes",
+     44
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-005",
+   "project": "shapes/fx_shp_017.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/path/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/path/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-006",
+   "project": "shape_styles/fx_shp_115.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/stroke/width_px/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/stroke/width_px/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-007",
+   "project": "shape_styles/fx_shp_116.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/fill/color/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/fill/color/keyframes",
+     14
+    ],
+    [
+     "/shapes/*/fill/opacity/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/fill/opacity/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-008",
+   "project": "shape_styles/fx_shp_117.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/stroke/color/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/stroke/color/keyframes",
+     12
+    ],
+    [
+     "/shapes/*/stroke/opacity/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/stroke/opacity/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-009",
+   "project": "shape_gradients/fx_shp_051.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/fill/gradient/end/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/fill/gradient/end/keyframes",
+     14
+    ],
+    [
+     "/shapes/*/fill/gradient/start/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/fill/gradient/start/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-010",
+   "project": "parametric_shapes/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/parametric/size/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/parametric/size/keyframes",
+     34
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-011",
+   "project": "shape_trims/fx_shp_083.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/trim/end/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/trim/end/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-012",
+   "project": "shape_groups/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/groups/*/transform/position/keyframes",
+     10
+    ],
+    [
+     "/groups/*/transform/position/keyframes",
+     34
+    ],
+    [
+     "/groups/*/transform/rotation/keyframes",
+     10
+    ],
+    [
+     "/groups/*/transform/rotation/keyframes",
+     34
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-013",
+   "project": "shape_repeaters/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/groups/*/repeater/copies/keyframes",
+     10
+    ],
+    [
+     "/groups/*/repeater/copies/keyframes",
+     34
+    ],
+    [
+     "/groups/*/repeater/offset/keyframes",
+     10
+    ],
+    [
+     "/groups/*/repeater/offset/keyframes",
+     34
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-014",
+   "project": "shape_operations/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": -7,
+   "keys": [
+    [
+     "/groups/*/operations/*/amount/keyframes",
+     -7
+    ],
+    [
+     "/groups/*/operations/*/amount/keyframes",
+     17
+    ],
+    [
+     "/groups/*/operations/*/amount/keyframes",
+     -7
+    ],
+    [
+     "/groups/*/operations/*/amount/keyframes",
+     17
+    ],
+    [
+     "/groups/*/operations/*/radius/keyframes",
+     -7
+    ],
+    [
+     "/groups/*/operations/*/radius/keyframes",
+     17
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-015",
+   "project": "time_remap/fx_tremap_010.json",
+   "composition": "comp-main",
+   "layer": "bar",
+   "kind": "raster",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/time_remap/keyframes",
+     10
+    ],
+    [
+     "/time_remap/keyframes",
+     15
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-016",
+   "project": "keykind/fx_sep_001.json",
+   "composition": "comp-main",
+   "layer": "bg",
+   "kind": "raster",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/transform/position/x/keyframes",
+     10
+    ],
+    [
+     "/transform/position/x/keyframes",
+     14
+    ],
+    [
+     "/transform/position/y/keyframes",
+     10
+    ],
+    [
+     "/transform/position/y/keyframes",
+     14
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-017",
+   "project": "shape_merge/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 10,
+   "keys": [
+    [
+     "/shapes/*/parametric/position/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/parametric/position/keyframes",
+     34
+    ],
+    [
+     "/shapes/*/parametric/size/keyframes",
+     10
+    ],
+    [
+     "/shapes/*/parametric/size/keyframes",
+     34
+    ]
+   ]
+  },
+  {
+   "id": "FX-LSHIFT-018",
+   "project": "layer_shift/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "kind": "shape",
+   "in_frame": 5,
+   "keys": [
+    [
+     "/depth/keyframes",
+     5
+    ],
+    [
+     "/depth/keyframes",
+     9
+    ],
+    [
+     "/shapes/*/fill/gradient/end/keyframes",
+     5
+    ],
+    [
+     "/shapes/*/fill/gradient/end/keyframes",
+     9
+    ],
+    [
+     "/shapes/*/fill/gradient/start/keyframes",
+     5
+    ],
+    [
+     "/shapes/*/fill/gradient/start/keyframes",
+     9
+    ],
+    [
+     "/shapes/*/stroke/gradient/end/keyframes",
+     5
+    ],
+    [
+     "/shapes/*/stroke/gradient/end/keyframes",
+     9
+    ],
+    [
+     "/shapes/*/stroke/gradient/start/keyframes",
+     5
+    ],
+    [
+     "/shapes/*/stroke/gradient/start/keyframes",
+     9
+    ],
+    [
+     "/transform/anchor/keyframes",
+     5
+    ],
+    [
+     "/transform/anchor/keyframes",
+     9
+    ],
+    [
+     "/transform/opacity/keyframes",
+     5
+    ],
+    [
+     "/transform/opacity/keyframes",
+     9
+    ],
+    [
+     "/transform/rotation/keyframes",
+     5
+    ],
+    [
+     "/transform/rotation/keyframes",
+     9
+    ],
+    [
+     "/transform/scale/keyframes",
+     5
+    ],
+    [
+     "/transform/scale/keyframes",
+     9
+    ]
+   ]
+  }
+ ]
+}

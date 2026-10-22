@@ -164711,6 +164711,33 @@ The build's test must read `host.json`, list the shapes drawn at each case's fra
 | FX-SHPM-020 | A merge mode this build does not know. | `refused_mode.json` refused, `PROJECT_SCHEMA_INVALID`, naming mode |
 | FX-SHPM-021 | A merge without its mode. | `refused_no_mode.json` refused, `PROJECT_SCHEMA_INVALID`, naming mode |
 
+## Layer shift fixtures
+
+D-740, accepted on 2026-10-22, built as B-615. `tools/layer_shift_reference.py` writes `Fixtures/layer_shift/`. `expected_layer_shift.json` holds 18 cases. Each names a project in `Fixtures/`, a layer in it holding keys, and the frame its in point is moved to, 10 frames later (5 for `host.json`, 7 earlier for `shape_operations/host.json`); and lists every key the layer holds, an entry with a `frame` in an array named `keyframes` or `keys` anywhere in its record, as `[where, frame]` after the move, `where` its path from the layer, array places written `*`, in order of `where` and within one in the file's order. `host.json` is `shape_gradients/fx_shp_051.json`'s shape layer given a keyed depth, keyed anchor, scale, rotation and opacity, and a stroke whose gradient's start and end are keyed, which no other fixture keys.
+
+The build's test must read each project, move the layer with `layer.shift`, and find in the saved layer every key listed at its frame; find everything else saved as before the move but the in and out points, each moved the same; and find, after one undo, the project saved as before.
+
+| Case | Project | Layer | Moved to | Keys | Where they sit |
+|---|---|---|---|---|---|
+| FX-LSHIFT-001 | `sound_layer/fx_slay_001.json` | sound0 | 10 | 2 | gain_db |
+| FX-LSHIFT-002 | `sound_layer/fx_slay_005.json` | sound0 | 10 | 2 | pan |
+| FX-LSHIFT-003 | `fill/fx_fill_018.json` | art | 10 | 2 | masks/path |
+| FX-LSHIFT-004 | `projects/keyed_settings_project.json` | layer-1 | 10 | 15 | effects/parameters/brightness, effects/parameters/offset, effects/parameters/taper_radius, effects/parameters/vertical_radius, masks/expansion_px, masks/feather_px, masks/path |
+| FX-LSHIFT-005 | `shapes/fx_shp_017.json` | shapes | 10 | 2 | shapes/path |
+| FX-LSHIFT-006 | `shape_styles/fx_shp_115.json` | shapes | 10 | 2 | shapes/stroke/width_px |
+| FX-LSHIFT-007 | `shape_styles/fx_shp_116.json` | shapes | 10 | 4 | shapes/fill/color, shapes/fill/opacity |
+| FX-LSHIFT-008 | `shape_styles/fx_shp_117.json` | shapes | 10 | 4 | shapes/stroke/color, shapes/stroke/opacity |
+| FX-LSHIFT-009 | `shape_gradients/fx_shp_051.json` | shapes | 10 | 4 | shapes/fill/gradient/end, shapes/fill/gradient/start |
+| FX-LSHIFT-010 | `parametric_shapes/host.json` | shapes | 10 | 2 | shapes/parametric/size |
+| FX-LSHIFT-011 | `shape_trims/fx_shp_083.json` | shapes | 10 | 2 | shapes/trim/end |
+| FX-LSHIFT-012 | `shape_groups/host.json` | shapes | 10 | 4 | groups/transform/position, groups/transform/rotation |
+| FX-LSHIFT-013 | `shape_repeaters/host.json` | shapes | 10 | 4 | groups/repeater/copies, groups/repeater/offset |
+| FX-LSHIFT-014 | `shape_operations/host.json` | shapes | -7 | 6 | groups/operations/amount, groups/operations/radius |
+| FX-LSHIFT-015 | `time_remap/fx_tremap_010.json` | bar | 10 | 2 | time_remap |
+| FX-LSHIFT-016 | `keykind/fx_sep_001.json` | bg | 10 | 4 | transform/position/x, transform/position/y |
+| FX-LSHIFT-017 | `shape_merge/host.json` | shapes | 10 | 4 | shapes/parametric/position, shapes/parametric/size |
+| FX-LSHIFT-018 | `layer_shift/host.json` | shapes | 5 | 18 | depth, shapes/fill/gradient/end, shapes/fill/gradient/start, shapes/stroke/gradient/end, shapes/stroke/gradient/start, transform/anchor, transform/opacity, transform/rotation, transform/scale |
+
 ## Open mask fixtures
 
 D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
