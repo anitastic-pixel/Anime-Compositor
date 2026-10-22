@@ -8792,8 +8792,15 @@ const MASK_PROPS = ['feather', 'opacity', 'expansion'];
 const isMaskNum = (prop) => /^mask:\d+:/.test(prop) && MASK_PROPS.includes(prop.split(':')[2]);
 // D-738 (b): a shape group's transform, `group:<n>:position` and so on, as the file holds it.
 const GROUP_PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'skew', 'skew_axis'];
-const isGroupNum = (prop) => /^group:\d+:/.test(prop) && GROUP_PROPS.includes(prop.split(':')[2]);
-const groupNumOf = (layer, prop) => ((((layer.groups || [])[prop.split(':')[1]] || {}).transform || {})[prop.split(':')[2]]) || {};
+// D-738 (c): and its repeater's, `group:<n>:repeater_copies` and so on.
+const REPEATER_PROPS = ['copies', 'offset', 'anchor', 'position', 'scale', 'rotation', 'start_opacity', 'end_opacity']
+  .map((name) => 'repeater_' + name);
+const isGroupNum = (prop) => /^group:\d+:/.test(prop) && GROUP_PROPS.concat(REPEATER_PROPS).includes(prop.split(':')[2]);
+const groupNumOf = (layer, prop) => {
+  const g = (layer.groups || [])[prop.split(':')[1]] || {};
+  const name = prop.split(':')[2];
+  return (name.startsWith('repeater_') ? (g.repeater || {})[name.slice(9)] : (g.transform || {})[name]) || {};
+};
 function maskNumOf(layer, prop) {
   const [, at, which] = prop.split(':');
   const held = (masksOf(layer)[at] || {})[which === 'opacity' ? which : which + '_px'];
@@ -8815,13 +8822,15 @@ const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
       .map((which) => 'shape:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length))
     .concat(masksOf(layer).flatMap((_, at) => MASK_PROPS
       .map((which) => 'mask:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length))
-    .concat((layer.groups || []).flatMap((_, at) => GROUP_PROPS
+    .concat((layer.groups || []).flatMap((_, at) => GROUP_PROPS.concat(REPEATER_PROPS)
       .map((which) => 'group:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length)));
 // What a property is called on screen: its own name, or the effect's and the setting's words.
 function propLabel(layer, prop) {
   if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
   if (isMaskNum(prop)) return 'Mask ' + prop.split(':')[2];
-  if (isGroupNum(prop)) return ((layer.groups || [])[prop.split(':')[1]] || {}).name + ' ' + prop.split(':')[2].replace('_', ' ');
+  // D-738 (c): a repeater's numbers short enough for the panel, its transform's four as "copy ...".
+  if (isGroupNum(prop)) return ((layer.groups || [])[prop.split(':')[1]] || {}).name + ' ' + prop.split(':')[2]
+    .replace(/^repeater_(anchor|position|scale|rotation)$/, 'copy $1').replace(/^repeater_/, '').replaceAll('_', ' ');
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
     + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace(/^path_/, '').replaceAll('_', ' ');
   if (prop === 'time_remap') return 'Time Remap';
@@ -9119,7 +9128,7 @@ function propScrubs(layer, prop) {
   // long. Both are turned over here and turned back on the way out, so what reaches the command
   // is the number the file wants. The lens's factor is the composition's own width, because a
   // 50 mm lens is 50 mm of a 36 mm back however wide the picture is.
-  const per = prop === 'opacity' || /^(shape:\d+:\w+_|mask:\d+:|group:\d+:)opacity$/.test(prop) ? 100
+  const per = prop === 'opacity' || /^(shape:\d+:\w+_|mask:\d+:|group:\d+:|group:\d+:repeater_\w+_)opacity$/.test(prop) ? 100
     : prop === 'zoom' ? 36 / composition().width
       : 1;
   const held = transformValue(layer, prop).map((v) => v * per);
@@ -9142,14 +9151,18 @@ function propScrubs(layer, prop) {
     return scrubValue({
       value: v,
       suffix: SUFFIX[prop] || (isMaskNum(prop) ? (per === 100 ? '%' : ' px')
-        : isGroupNum(prop) ? { rotation: '\u00b0', skew: '\u00b0', skew_axis: '\u00b0', scale: '%', opacity: '%' }[prop.split(':')[2]] || '' : ''),
+        : isGroupNum(prop) ? { rotation: '\u00b0', skew: '\u00b0', skew_axis: '\u00b0', scale: '%', opacity: '%',
+          repeater_rotation: '\u00b0', repeater_scale: '%', repeater_start_opacity: '%', repeater_end_opacity: '%' }[prop.split(':')[2]] || '' : ''),
       ...(per === 100 || /^shape:\d+:trim_(start|end)$/.test(prop) ? { min: 0, max: 100 }
         : prop === 'zoom' ? { min: 0.01 }
           : /^mask:\d+:feather$/.test(prop) ? { min: 0 }
             : /^mask:\d+:expansion$/.test(prop) ? { min: -8192, max: 8192 }
               // D-738 (b)'s ranges.
               : /^group:\d+:skew$/.test(prop) ? { min: -85, max: 85 }
-                : /^group:\d+:scale$/.test(prop) ? { min: -100000, max: 100000 }
+                : /^group:\d+:(repeater_)?scale$/.test(prop) ? { min: -100000, max: 100000 }
+                  // D-738 (c)'s.
+                  : /^group:\d+:repeater_copies$/.test(prop) ? { min: 0, max: 1000 }
+                    : /^group:\d+:repeater_offset$/.test(prop) ? { min: -1000, max: 1000 }
               // D-738 (a)'s ranges.
               : /^shape:\d+:path_points$/.test(prop) ? { min: 3, max: 100 }
                 : /^shape:\d+:path_\w*roundness$/.test(prop) && !/:path_roundness$/.test(prop) ? { min: -1000, max: 1000 }
@@ -9704,6 +9717,22 @@ function drawInspector() {
       b.onclick = () => command('/shape.ungroup?layer=' + encodeURIComponent(layer.id) + '&group=' + at);
       dl.lastChild.append(b);
       for (const name of GROUP_PROPS) propRow(dl, layer, 'group:' + at + ':' + name);
+      // D-738 (c): its repeater, added or removed, drawn below or above, and its eight numbers.
+      const repeat = (query) => command('/shape.repeater?layer=' + encodeURIComponent(layer.id) + '&group=' + at + '&' + query);
+      field(dl, 'Repeater', '');
+      const r = document.createElement('button');
+      r.textContent = g.repeater ? 'Remove Repeater' : 'Add Repeater';
+      r.setAttribute('aria-label', r.textContent + ' on ' + g.name);
+      r.onclick = () => repeat('on=' + (g.repeater ? 0 : 1));
+      dl.lastChild.append(r);
+      if (!g.repeater) continue;
+      const composite = document.createElement('select');
+      composite.setAttribute('aria-label', 'Composite of ' + g.name + "'s repeater");
+      composite.append(new Option('Below', 'below'), new Option('Above', 'above'));
+      composite.value = g.repeater.composite === 'above' ? 'above' : 'below';
+      composite.onchange = () => repeat('composite=' + composite.value);
+      dl.lastChild.append(composite);
+      for (const name of REPEATER_PROPS) propRow(dl, layer, 'group:' + at + ':' + name);
     }
   }
   // D-280: Transform, the blend mode, masks, the track matte and the parent live on the timeline

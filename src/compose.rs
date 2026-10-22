@@ -2901,12 +2901,8 @@ fn resolve_held(
         // the layer. The paths are resolved to this frame first, exactly as a mask's are and for
         // the same reason: what the rasterizer sees holds plain numbers.
         layer.timing().local_frame(frame)?;
-        // D-738 (b): each placed by its groups.
-        let now: Vec<crate::shape::Shape> = layer
-            .shapes
-            .iter()
-            .map(|s| s.placed(&layer.shape_groups, at))
-            .collect();
+        // D-738 (b), (c): each placed by its groups, a repeating group's drawn once a copy.
+        let now = crate::shape::drawn(&layer.shapes, &layer.shape_groups, at);
         for s in &now {
             // Said per frame, as an undrawable mask is, because that is what marks an export's
             // fidelity incomplete. The warning raised when the file opened is not enough: a

@@ -179,6 +179,7 @@ const SENT: &[&str] = &[
     "shape.add_remove_key",
     "shape.delete",
     "shape.group",
+    "shape.repeater",
     "shape.set",
     "shape.set_path",
     "shape.ungroup",
@@ -674,6 +675,8 @@ const REACHED: &[(&str, &str)] = &[
     // D-738 (b), accepted on 2026-10-21: shape groups.
     ("shape.group", "a command the window answers"),
     ("shape.ungroup", "a command the window answers"),
+    // D-738 (c), accepted on 2026-10-21: repeaters.
+    ("shape.repeater", "a command the window answers"),
     // D-79, accepted on 2026-09-22: one pair for both kinds of path, since a mask's points
     // and a shape's are the same points.
     ("path.add_point", "a command the window answers"),

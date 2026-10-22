@@ -13656,3 +13656,86 @@ fn shapes_are_grouped_and_ungrouped_from_the_window() {
     run(&viewer, &format!("shape.set?layer={id}&shape=2&group=none"));
     assert!(layer(&viewer)["shapes"][2].get("group").is_none());
 }
+
+/// B-612, D-738 (c): a group's repeater added, its composite set, its numbers set and keyed, and
+/// removed, from the window. The core's half is `verification/B-612_shape_repeaters_table.md`.
+#[test]
+fn a_group_repeats_from_the_window() {
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    run(&viewer, "layer.add_shape");
+    let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let layer = |viewer: &Mutex<Viewer>| shown_layer(viewer, "Shape Layer 1");
+    let square = "points=0,0,0,0,0,0;20,0,0,0,0,0;20,20,0,0,0,0;0,20,0,0,0,0";
+    run(&viewer, &format!("shape.add?layer={id}&{square}"));
+    run(&viewer, &format!("shape.group?layer={id}&shapes=0"));
+    assert!(run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:repeater_copies&value=5&frame=0")
+    )
+    .contains("no repeater"));
+
+    run(&viewer, &format!("shape.repeater?layer={id}&group=0&on=1"));
+    let r = &layer(&viewer)["groups"][0]["repeater"];
+    assert_eq!(r["composite"], "below");
+    assert_eq!(r["copies"]["base"], 3.0);
+    assert_eq!(r["position"]["base"].to_string(), "[100,0]");
+
+    run(
+        &viewer,
+        &format!("shape.repeater?layer={id}&group=0&composite=above"),
+    );
+    assert_eq!(
+        layer(&viewer)["groups"][0]["repeater"]["composite"],
+        "above"
+    );
+    assert!(run(
+        &viewer,
+        &format!("shape.repeater?layer={id}&group=0&composite=up")
+    )
+    .contains("composite"));
+
+    run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:repeater_copies&value=5&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:repeater_position&value=30,10&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=group:0:repeater_rotation&frame=0"),
+    );
+    let r = &layer(&viewer)["groups"][0]["repeater"];
+    assert_eq!(r["copies"]["base"], 5.0);
+    assert_eq!(r["position"]["base"].to_string(), "[30,10]");
+    assert_eq!(r["rotation"]["keyframes"].as_array().map(Vec::len), Some(1));
+    let body = boxes(&viewer, 0, None).into_body();
+    let answer: serde_json::Value =
+        serde_json::from_slice(&body).expect("the boxes answer is JSON");
+    assert_eq!(answer["values"][&id]["group:0:repeater_copies"], 5.0);
+    // Out of range is the core's to refuse.
+    assert!(!run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:repeater_copies&value=5000&frame=0")
+    )
+    .is_empty());
+    assert_eq!(
+        layer(&viewer)["groups"][0]["repeater"]["copies"]["base"],
+        5.0
+    );
+
+    run(&viewer, &format!("shape.repeater?layer={id}&group=0&on=0"));
+    assert!(layer(&viewer)["groups"][0].get("repeater").is_none());
+    run(&viewer, "edit.undo");
+    assert_eq!(
+        layer(&viewer)["groups"][0]["repeater"]["copies"]["base"],
+        5.0
+    );
+}

@@ -377,6 +377,18 @@ pub const GROUP_PROPERTIES: [&str; 7] = [
     "skew_axis",
 ];
 
+/// D-738 (c): a repeater's numbers, by the names the file gives them.
+pub const REPEATER_PROPERTIES: [&str; 8] = [
+    "copies",
+    "offset",
+    "anchor",
+    "position",
+    "scale",
+    "rotation",
+    "start_opacity",
+    "end_opacity",
+];
+
 /// D-738 (b): a turn of the plane, `[a, b, c, d, e, f]` taking (x, y) to
 /// (a x + c y + e, b x + d y + f).
 pub type Turn = [f64; 6];
@@ -426,8 +438,109 @@ pub struct Group {
     pub parent: Option<usize>,
     /// Every name in [`GROUP_PROPERTIES`]: scale in per cent, opacity 0 to 1, angles in degrees.
     pub transform: BTreeMap<String, Property>,
+    /// D-738 (c): what draws the group's contents again and again, as After Effects' Repeater at
+    /// the foot of a group's contents does.
+    pub repeater: Option<Repeater>,
     /// ADR-008: the record this group was read from, which saving writes over.
     pub record: crate::model::FileRecord,
+}
+
+/// D-738 (c): a group's repeater.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Repeater {
+    /// Each copy drawn over the one before it; false is After Effects' Below, the first on top.
+    pub above: bool,
+    /// Every name in [`REPEATER_PROPERTIES`]: scale in per cent, opacities 0 to 1, rotation in
+    /// degrees.
+    pub numbers: BTreeMap<String, Property>,
+    /// ADR-008: the record this repeater was read from, which saving writes over.
+    pub record: crate::model::FileRecord,
+}
+
+impl Default for Repeater {
+    /// After Effects' new Repeater: three copies, each 100 to the right of the one before.
+    fn default() -> Repeater {
+        let pair = |x, y| Property::constant(Value::Vec2(x, y));
+        let one = |n| Property::constant(Value::Scalar(n));
+        let numbers = [
+            ("copies", one(3.0)),
+            ("offset", one(0.0)),
+            ("anchor", pair(0.0, 0.0)),
+            ("position", pair(100.0, 0.0)),
+            ("scale", pair(100.0, 100.0)),
+            ("rotation", one(0.0)),
+            ("start_opacity", one(1.0)),
+            ("end_opacity", one(1.0)),
+        ];
+        Repeater {
+            above: false,
+            numbers: numbers
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+            record: Default::default(),
+        }
+    }
+}
+
+impl Repeater {
+    /// Each copy's turn and opacity at a frame, first to last; `None` for a copy whose turn is
+    /// not finite, which is not drawn. Copy i is turned by R(i + offset), R(k + f) being the
+    /// whole step k times (undone, below 0) and then the fraction f of it; the step turns about
+    /// the anchor, then scales about it, then moves.
+    pub fn copies(&self, frame: i32) -> Vec<Option<(Turn, f64)>> {
+        let get = |n: &str| self.numbers.get(n).map(|p| p.value_at(frame));
+        let two = |n: &str| get(n).and_then(|v| v.as_vec2()).unwrap_or((0.0, 0.0));
+        let one = |n: &str| get(n).and_then(|v| v.as_scalar()).unwrap_or(0.0);
+        let ((ax, ay), (px, py), (sx, sy)) = (two("anchor"), two("position"), two("scale"));
+        let rotation = one("rotation");
+        let about = |m: Turn| {
+            mul(
+                &[1.0, 0.0, 0.0, 1.0, ax, ay],
+                &mul(&m, &[1.0, 0.0, 0.0, 1.0, -ax, -ay]),
+            )
+        };
+        let part = |f: f64| {
+            let s = [
+                1.0 + (sx / 100.0 - 1.0) * f,
+                0.0,
+                0.0,
+                1.0 + (sy / 100.0 - 1.0) * f,
+                0.0,
+                0.0,
+            ];
+            let m = mul(&about(s), &about(rotate(rotation * f)));
+            mul(&[1.0, 0.0, 0.0, 1.0, px * f, py * f], &m)
+        };
+        let whole = part(1.0);
+        let back = invert(&whole);
+        // D-738 (c)'s range holds copies to 0..=1000; the clamp only keeps a bad number cheap.
+        let copies = one("copies").clamp(0.0, 1000.0);
+        let count = copies.ceil() as usize;
+        let (offset, start, end) = (one("offset"), one("start_opacity"), one("end_opacity"));
+        (0..count)
+            .map(|i| {
+                let n = i as f64 + offset;
+                let k = n.floor();
+                let by = if k >= 0.0 { Some(whole) } else { back };
+                let mut m = STILL;
+                for _ in 0..k.abs() as usize {
+                    m = mul(&m, &by?);
+                }
+                m = mul(&m, &part(n - k));
+                let ramp = if count > 1 {
+                    i as f64 / (count - 1) as f64
+                } else {
+                    0.0
+                };
+                let mut o = start + (end - start) * ramp;
+                if i + 1 == count && copies != count as f64 {
+                    o *= copies - copies.floor();
+                }
+                m.iter().all(|v| v.is_finite()).then_some((m, o))
+            })
+            .collect()
+    }
 }
 
 impl Group {
@@ -451,6 +564,7 @@ impl Group {
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), v))
                 .collect(),
+            repeater: None,
             record: Default::default(),
         }
     }
@@ -472,57 +586,180 @@ impl Group {
         (mul(&[1.0, 0.0, 0.0, 1.0, px, py], &m), one("opacity"))
     }
 
-    /// What is outside D-738's ranges in this group's transform, as a sentence.
+    /// What is outside D-738's ranges in this group's transform and its repeater, as a sentence.
     fn problem(&self) -> Option<String> {
-        for name in GROUP_PROPERTIES {
-            let what = format!("group \"{}\"'s {}", self.name, name.replace('_', " "));
-            let Some(p) = self.transform.get(name) else {
-                return Some(format!("{what}, which is missing"));
-            };
-            if p.expression().is_some() {
-                return Some(format!("no expression on {what}: it takes keys only"));
-            }
-            if p.split().is_some() || p.keyframes().iter().any(|k| k.spatial.is_some()) {
-                return Some(format!("{what} kept whole, with no motion path"));
-            }
-            let (lo, hi) = match name {
-                "scale" => (-100000.0, 100000.0),
-                "opacity" => (0.0, 1.0),
-                "skew" => (-85.0, 85.0),
-                _ => (f64::NEG_INFINITY, f64::INFINITY),
-            };
-            let pair = matches!(name, "anchor" | "position" | "scale");
-            for v in std::iter::once(p.base()).chain(p.keyframes().iter().map(|k| k.value)) {
-                let numbers = match (pair, v) {
-                    (true, Value::Vec2(a, b)) => vec![a, b],
-                    (false, Value::Scalar(n)) => vec![n],
-                    _ => {
-                        let count = if pair { "two numbers" } else { "one number" };
-                        return Some(format!("{what} of {count}"));
-                    }
-                };
-                if let Some(n) = numbers.iter().find(|n| !(lo..=hi).contains(*n)) {
-                    return Some(format!("{what} from {lo} to {hi}, not {n}"));
-                }
-            }
-        }
-        None
+        let whose = format!("group \"{}\"'s", self.name);
+        numbers_problem(&whose, &self.transform, &GROUP_PROPERTIES).or_else(|| {
+            let r = self.repeater.as_ref()?;
+            numbers_problem(
+                &format!("{whose} repeater"),
+                &r.numbers,
+                &REPEATER_PROPERTIES,
+            )
+        })
     }
 }
 
-/// D-738 (b): the whole turn and opacity of `group`, every group it sits in included.
-pub fn placing(groups: &[Group], mut group: Option<usize>, frame: i32) -> (Turn, f64) {
+/// D-738 (b), (c): what is outside the ranges in a group's or a repeater's numbers, as a
+/// sentence, each named after `whose`.
+fn numbers_problem(
+    whose: &str,
+    numbers: &BTreeMap<String, Property>,
+    names: &[&str],
+) -> Option<String> {
+    for &name in names {
+        let what = format!("{whose} {}", name.replace('_', " "));
+        let Some(p) = numbers.get(name) else {
+            return Some(format!("{what}, which is missing"));
+        };
+        if p.expression().is_some() {
+            return Some(format!("no expression on {what}: it takes keys only"));
+        }
+        if p.split().is_some() || p.keyframes().iter().any(|k| k.spatial.is_some()) {
+            return Some(format!("{what} kept whole, with no motion path"));
+        }
+        let (lo, hi) = match name {
+            "scale" => (-100000.0, 100000.0),
+            "opacity" | "start_opacity" | "end_opacity" => (0.0, 1.0),
+            "skew" => (-85.0, 85.0),
+            "copies" => (0.0, 1000.0),
+            "offset" => (-1000.0, 1000.0),
+            _ => (f64::NEG_INFINITY, f64::INFINITY),
+        };
+        let pair = matches!(name, "anchor" | "position" | "scale");
+        for v in std::iter::once(p.base()).chain(p.keyframes().iter().map(|k| k.value)) {
+            let numbers = match (pair, v) {
+                (true, Value::Vec2(a, b)) => vec![a, b],
+                (false, Value::Scalar(n)) => vec![n],
+                _ => {
+                    let count = if pair { "two numbers" } else { "one number" };
+                    return Some(format!("{what} of {count}"));
+                }
+            };
+            if let Some(n) = numbers.iter().find(|n| !(lo..=hi).contains(*n)) {
+                return Some(format!("{what} from {lo} to {hi}, not {n}"));
+            }
+        }
+    }
+    None
+}
+
+/// D-738 (b): the whole turn and opacity of `group`, every group it sits in included. A
+/// repeater is left out: this is where its first copy is with an offset of 0.
+pub fn placing(groups: &[Group], group: Option<usize>, frame: i32) -> (Turn, f64) {
+    chain_turn(groups, group, frame, |_| Some((STILL, 1.0))).expect("every copy is there")
+}
+
+/// D-738 (b), (c): [`placing`], each group's turn being its transform after `copy`'s turn for
+/// it; `None` where `copy` has none, a copy that is not drawn.
+fn chain_turn(
+    groups: &[Group],
+    mut group: Option<usize>,
+    frame: i32,
+    copy: impl Fn(usize) -> Option<(Turn, f64)>,
+) -> Option<(Turn, f64)> {
     let (mut m, mut o) = (STILL, 1.0);
     // At most one step a group: [`groups_problem`] refuses a loop, and this never hangs on one.
     for _ in 0..groups.len() {
-        let Some(g) = group.and_then(|g| groups.get(g)) else {
+        let Some(g) = group.and_then(|at| groups.get(at).map(|g| (at, g))) else {
             break;
         };
-        let (gm, go) = g.turn(frame);
-        (m, o) = (mul(&gm, &m), o * go);
-        group = g.parent;
+        let (gm, go) = g.1.turn(frame);
+        let (cm, co) = copy(g.0)?;
+        (m, o) = (mul(&mul(&gm, &cm), &m), o * go * co);
+        group = g.1.parent;
     }
-    (m, o)
+    Some((m, o))
+}
+
+/// D-738 (c): every shape a layer draws at a frame, in drawing order, later over earlier, each
+/// placed by its groups. A repeating group's shapes are drawn together where the first of them is
+/// in the list, copy by copy, each copy holding them in the list's order; with no repeater this
+/// is each shape placed, in the list's order, as D-738 (b) draws them.
+pub fn drawn(shapes: &[Shape], groups: &[Group], frame: i32) -> Vec<Shape> {
+    if groups.iter().all(|g| g.repeater.is_none()) {
+        return shapes.iter().map(|s| s.placed(groups, frame)).collect();
+    }
+    let chains: Vec<Vec<usize>> = shapes
+        .iter()
+        .map(|s| {
+            let mut c = Vec::new();
+            let mut up = s.group;
+            while let Some(g) = up.filter(|_| c.len() < groups.len()) {
+                c.push(g);
+                up = groups.get(g).and_then(|g| g.parent);
+            }
+            c
+        })
+        .collect();
+    let copies: Vec<Option<(bool, Vec<Option<(Turn, f64)>>)>> = groups
+        .iter()
+        .map(|g| g.repeater.as_ref().map(|r| (r.above, r.copies(frame))))
+        .collect();
+    let mut out = Vec::new();
+    let mut chosen = vec![0; groups.len()];
+    let walk = Walk {
+        shapes,
+        groups,
+        frame,
+        chains: &chains,
+        copies: &copies,
+    };
+    walk.scope(None, &mut chosen, &mut out);
+    out
+}
+
+/// D-738 (c): what [`drawn`] works through.
+struct Walk<'a> {
+    shapes: &'a [Shape],
+    groups: &'a [Group],
+    frame: i32,
+    /// Each shape's groups, its own first, out to the layer.
+    chains: &'a [Vec<usize>],
+    /// Each repeating group's composite and copies.
+    copies: &'a [Option<(bool, Vec<Option<(Turn, f64)>>)>],
+}
+
+impl Walk<'_> {
+    /// The shapes in `scope`, a group or the layer, each copy of a repeating group inside it in
+    /// turn, `chosen` holding the copy of each repeating group outside it.
+    fn scope(&self, scope: Option<usize>, chosen: &mut [usize], out: &mut Vec<Shape>) {
+        let mut done = vec![false; self.groups.len()];
+        for (i, chain) in self.chains.iter().enumerate() {
+            let at = match scope {
+                None => Some(chain.len()),
+                Some(g) => chain.iter().position(|&c| c == g),
+            };
+            match at {
+                None => {}
+                Some(0) => {
+                    let copy = |g: usize| match &self.copies[g] {
+                        None => Some((STILL, 1.0)),
+                        Some((_, list)) => list.get(chosen[g]).copied().flatten(),
+                    };
+                    let s = &self.shapes[i];
+                    if let Some((m, o)) = chain_turn(self.groups, s.group, self.frame, copy) {
+                        out.push(s.placed_by(self.frame, s.group.map(|_| (m, o))));
+                    }
+                }
+                Some(at) => {
+                    let g = chain[at - 1];
+                    if std::mem::replace(&mut done[g], true) {
+                        continue;
+                    }
+                    let Some((above, list)) = &self.copies[g] else {
+                        self.scope(Some(g), chosen, out);
+                        continue;
+                    };
+                    let (above, n) = (*above, list.len());
+                    for c in 0..n {
+                        chosen[g] = if above { c } else { n - 1 - c };
+                        self.scope(Some(g), chosen, out);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// D-738 (b): what is wrong with a layer's groups and its shapes' places in them, as a sentence.
@@ -875,11 +1112,16 @@ impl Shape {
     /// stroke opacity by every group's opacity, stroke width by the square root of the turn's
     /// size. A shape in no group is [`Shape::at`] unchanged.
     pub fn placed(&self, groups: &[Group], frame: i32) -> Shape {
+        let turn = self.group.map(|_| placing(groups, self.group, frame));
+        self.placed_by(frame, turn)
+    }
+
+    /// [`Shape::placed`] by a turn and opacity already worked out; `None` leaves it as it is.
+    fn placed_by(&self, frame: i32, turn: Option<(Turn, f64)>) -> Shape {
         let mut now = self.at(frame);
-        if self.group.is_none() {
+        let Some((m, o)) = turn else {
             return now;
-        }
-        let (m, o) = placing(groups, self.group, frame);
+        };
         for p in &mut now.points {
             p.point = apply(&m, p.point, false);
             p.in_handle = apply(&m, p.in_handle, true);

@@ -1037,6 +1037,15 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             };
                             at.insert(format!("group:{i}:{name}"), now);
                         }
+                        // D-738 (c): and its repeater's eight, `group:<n>:repeater_copies` and on.
+                        let numbers = group.repeater.iter().flat_map(|r| &r.numbers);
+                        for (name, p) in numbers {
+                            let now = match p.value_at(frame) {
+                                Value::Vec2(x, y) => serde_json::json!([x, y]),
+                                Value::Scalar(n) => serde_json::json!(n),
+                            };
+                            at.insert(format!("group:{i}:repeater_{name}"), now);
+                        }
                     }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
@@ -10111,6 +10120,7 @@ const ANSWERS: &[&str] = &[
     "shape.add_remove_key",
     "shape.delete",
     "shape.group",
+    "shape.repeater",
     "shape.set",
     "shape.set_path",
     "shape.ungroup",
@@ -12947,6 +12957,47 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition,
                         layer_id: layer.id.clone(),
                         shapes,
+                        groups: Some(groups),
+                    }
+                }
+                // D-738 (c): a group's repeater added (After Effects' three copies, 100 apart),
+                // taken away, or its composite set: on=1, on=0, composite=below|above.
+                "shape.repeater" => {
+                    let mut groups = layer.shape_groups.clone();
+                    let at = parameter(query, "group").and_then(|g| g.parse::<usize>().ok());
+                    let Some(group) = at.and_then(|g| groups.get_mut(g)) else {
+                        return Some(format!(
+                            "Which group? \"{}\" has {}.",
+                            layer.name,
+                            groups.len()
+                        ));
+                    };
+                    match parameter(query, "on").as_deref() {
+                        Some("1") => {
+                            group.repeater.get_or_insert_with(Default::default);
+                        }
+                        Some("0") => group.repeater = None,
+                        Some(other) => return Some(format!("on={other}? Say on=1 or on=0.")),
+                        None => {}
+                    }
+                    if let Some(composite) = parameter(query, "composite") {
+                        let Some(r) = group.repeater.as_mut() else {
+                            return Some(format!("\"{}\" has no repeater.", group.name));
+                        };
+                        r.above = match composite.as_str() {
+                            "above" => true,
+                            "below" => false,
+                            other => {
+                                return Some(format!(
+                                    "composite={other}? Say composite=below or composite=above."
+                                ))
+                            }
+                        };
+                    }
+                    Command::SetShapes {
+                        composition,
+                        layer_id: layer.id.clone(),
+                        shapes: layer.shapes.clone(),
                         groups: Some(groups),
                     }
                 }
@@ -15975,13 +16026,16 @@ fn shape_key_command(
 }
 
 /// D-738 (b): `group:<n>:position` and its six siblings name a shape group's transform wherever
-/// a request names a property. The names are the core's `GROUP_PROPERTIES`.
-fn group_prop(prop: &str) -> Option<(usize, &'static str)> {
+/// a request names a property. The names are the core's `GROUP_PROPERTIES`; D-738 (c)'s
+/// `group:<n>:repeater_copies` and its seven siblings, `REPEATER_PROPERTIES`, name its repeater's.
+fn group_prop(prop: &str) -> Option<(usize, &'static str, bool)> {
+    use anime_compositor::shape::{GROUP_PROPERTIES, REPEATER_PROPERTIES};
     let (at, name) = prop.strip_prefix("group:")?.split_once(':')?;
-    let name = anime_compositor::shape::GROUP_PROPERTIES
-        .into_iter()
-        .find(|n| *n == name)?;
-    Some((at.parse().ok()?, name))
+    let found = match name.strip_prefix("repeater_") {
+        Some(name) => (REPEATER_PROPERTIES.into_iter().find(|n| *n == name)?, true),
+        None => (GROUP_PROPERTIES.into_iter().find(|n| *n == name)?, false),
+    };
+    Some((at.parse().ok()?, found.0, found.1))
 }
 
 /// D-738 (b): the five requests about a group's number, by the rules `shape_key_command` keeps.
@@ -15992,14 +16046,22 @@ fn group_key_command(
     query: Option<&str>,
     composition: Id,
     layer: &Layer,
-    (at, name): (usize, &str),
+    (at, name, repeater): (usize, &str, bool),
 ) -> Result<Command, String> {
     let mut groups = layer.shape_groups.clone();
     let Some(group) = groups.get_mut(at) else {
         return Err(format!("{} has no group {at}.", layer.name));
     };
-    let Some(now) = group.transform.get(name).cloned() else {
-        return Err(format!("\"{}\" has no {name}.", group.name));
+    let gname = group.name.clone();
+    let numbers = match repeater {
+        false => &mut group.transform,
+        true => match group.repeater.as_mut() {
+            Some(r) => &mut r.numbers,
+            None => return Err(format!("\"{gname}\" has no repeater.")),
+        },
+    };
+    let Some(now) = numbers.get(name).cloned() else {
+        return Err(format!("\"{gname}\" has no {name}."));
     };
     let pair = matches!(name, "anchor" | "position" | "scale");
     let values = match id {
@@ -16016,7 +16078,7 @@ fn group_key_command(
     };
     let mut channels = vec![now];
     edit_channels(id, query, &mut channels, values, "This number")?;
-    group.transform.insert(name.to_string(), channels.remove(0));
+    numbers.insert(name.to_string(), channels.remove(0));
     Ok(Command::SetShapes {
         composition,
         layer_id: layer.id.clone(),

@@ -929,6 +929,23 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                     t.insert(name.clone(), property_json(before, property, 1.0));
                 }
                 map.insert("transform".into(), J::Object(t));
+                // D-738 (c): the repeater merged over the record it was read from.
+                match &g.repeater {
+                    Some(r) => {
+                        let was = r.record.get().and_then(J::as_object);
+                        let mut m = was.cloned().unwrap_or_default();
+                        let composite = if r.above { "above" } else { "below" };
+                        m.insert("composite".into(), J::from(composite));
+                        for (name, property) in &r.numbers {
+                            let before = was.and_then(|w| w.get(name));
+                            m.insert(name.clone(), property_json(before, property, 1.0));
+                        }
+                        map.insert("repeater".into(), J::Object(m));
+                    }
+                    None => {
+                        map.remove("repeater");
+                    }
+                }
                 J::Object(map)
             });
             owned.push(("groups", J::Array(groups.collect())));
@@ -13230,10 +13247,41 @@ fn parse_group(g: &J, at: &str) -> Result<crate::shape::Group, Diagnostic> {
         let property = parse_property(p, &format!("{here}/{name}"), value, false, false, 1.0)?;
         transform.insert(name.to_string(), property);
     }
+    // D-738 (c): its repeater; a number missing or out of range is `groups_problem`'s to say.
+    let repeater = match g.get("repeater").filter(|r| !r.is_null()) {
+        None => None,
+        Some(r) => {
+            let here = format!("{at}/repeater");
+            as_object(r, &here)?;
+            let above = as_enum(
+                field(r, &here, "composite")?,
+                &format!("{here}/composite"),
+                &["below", "above"],
+            )? == "above";
+            let mut numbers = std::collections::BTreeMap::new();
+            for name in crate::shape::REPEATER_PROPERTIES {
+                let Some(p) = r.get(name) else { continue };
+                let value = if matches!(name, "anchor" | "position" | "scale") {
+                    "vec2"
+                } else {
+                    "scalar"
+                };
+                let property =
+                    parse_property(p, &format!("{here}/{name}"), value, false, false, 1.0)?;
+                numbers.insert(name.to_string(), property);
+            }
+            Some(crate::shape::Repeater {
+                above,
+                numbers,
+                record: crate::model::FileRecord::new(r),
+            })
+        }
+    };
     Ok(crate::shape::Group {
         name,
         parent,
         transform,
+        repeater,
         record: crate::model::FileRecord::new(g),
     })
 }
