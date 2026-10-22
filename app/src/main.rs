@@ -877,6 +877,8 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                 .layers_in_order()
                 .map(|layer| {
                     let target = || expr::Target::Layer(layer.id.clone());
+                    // D-216: a stretched layer's keys play at its key time, not at the frame.
+                    let t = layer.key_time(frame as f64);
                     let at: serde_json::Map<String, serde_json::Value> = layer
                         .transform
                         .value_at(frame)
@@ -885,7 +887,9 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             let property = layer.transform.get(prop).expect("one of the five");
                             // B-19g: `resolve` costs a read of the keys where there is no
                             // expression, and knows a separated position's halves may have one.
-                            let (value, e) = expr::resolve(comp, property, target, prop, frame);
+                            // D-742: at the key time, as the picture reads them.
+                            let (value, e) =
+                                expr::resolve_at(comp, property, target, prop, frame, t);
                             failed(layer.id.as_str(), prop.as_str(), e);
                             // D-22: the file holds a scale as a percentage, and a whole
                             // number as a whole number, so the panel reads 100 and not 100.0.
@@ -915,7 +919,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                         }
                     }
                     let plane = layer.depth.as_ref().map_or(0.0, |d| {
-                        let (v, e) = expr::resolve(comp, d, target, Prop::Depth, frame);
+                        let (v, e) = expr::resolve_at(comp, d, target, Prop::Depth, frame, t);
                         failed(layer.id.as_str(), Prop::Depth.as_str(), e);
                         v.as_scalar().unwrap_or(0.0)
                     });
@@ -930,15 +934,14 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     );
                     // D-323: and the Time Remap, read at the key time as it is drawn.
                     if let Some(remap) = &layer.time_remap {
-                        let t = remap.value_at_time(layer.key_time(frame as f64));
-                        at.insert("time_remap".to_string(), serde_json::json!(t.as_scalar()));
+                        let v = remap.value_at_time(t);
+                        at.insert("time_remap".to_string(), serde_json::json!(v.as_scalar()));
                     }
                     // B-19d: and every keyed setting of its effects, under the name the page
                     // gives it, for the reason the depth is here. D-291: and every one with an
                     // expression, after it, with the reason beside one that fails.
                     for fx in layer.effects.iter().filter(|fx| !fx.tracks.is_empty()) {
-                        let (now, failures) =
-                            expr::effect_at(comp, &layer.id, fx, frame, frame as f64);
+                        let (now, failures) = expr::effect_at(comp, &layer.id, fx, frame, t);
                         for (name, e) in failures {
                             let prop = format!("fx:{}:{name}", fx.instance_id);
                             failed(layer.id.as_str(), &prop, Some(e));
@@ -959,7 +962,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                         .enumerate()
                         .filter(|(_, m)| !m.tracks.is_empty())
                     {
-                        let now = m.at_time(layer.key_time(frame as f64));
+                        let now = m.at_time(t);
                         for name in m.tracks.keys() {
                             let v = now.channel(name).and_then(|p| p.base().as_scalar());
                             at.insert(format!("mask:{i}:{name}"), serde_json::json!(v));
@@ -992,7 +995,11 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             serde_json::json!(layer
                                 .masks
                                 .iter()
-                                .map(|m| six(m.points_at(frame)))
+                                .map(|m| {
+                                    six(anime_compositor::mask::points_at_time(
+                                        &m.points, &m.keys, t,
+                                    ))
+                                })
                                 .collect::<Vec<_>>()),
                         );
                     }
@@ -18689,3 +18696,6 @@ mod keyed_settings;
 #[cfg(test)]
 #[path = "tests/key_requests.rs"]
 mod key_requests;
+#[cfg(test)]
+#[path = "tests/stretched_values.rs"]
+mod stretched_values;
