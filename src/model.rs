@@ -999,6 +999,45 @@ pub struct Timesheet {
 }
 
 impl Layer {
+    /// D-740: every key the layer holds `by` frames later, as a layer's keys travel with its bar
+    /// (the owner's decision of 2026-09-13). The exposures and the timesheet are in source frames
+    /// and stay. A kind of key added to a layer is added here, and both moving and trimming a
+    /// layer then move it.
+    pub(crate) fn shift_keys(&mut self, by: i32) {
+        let t = &mut self.transform;
+        let props = [
+            &mut t.anchor,
+            &mut t.position,
+            &mut t.scale,
+            &mut t.rotation,
+            &mut t.opacity,
+        ];
+        let optional = [
+            &mut self.depth,
+            &mut self.time_remap,
+            &mut self.gain_keys,
+            &mut self.pan,
+        ];
+        for property in props.into_iter().chain(optional.into_iter().flatten()) {
+            property.shift_keyframes(by);
+        }
+        for instance in &mut self.effects {
+            instance.shift_keys(by);
+        }
+        for mask in &mut self.masks {
+            mask.keys.iter_mut().for_each(|key| key.frame += by);
+            mask.tracks
+                .values_mut()
+                .for_each(|track| track.shift_keyframes(by));
+        }
+        for shape in &mut self.shapes {
+            shape.shift_keys(by);
+        }
+        for group in &mut self.shape_groups {
+            group.shift_keys(by);
+        }
+    }
+
     /// A layer covering one composition span with an identity transform.
     pub fn new(
         id: Id,

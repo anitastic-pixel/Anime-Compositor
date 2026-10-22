@@ -3005,33 +3005,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer.out_frame += by;
             layer.in_frame = *in_frame;
             // The owner's decision of 2026-09-13: the keys travel with the bar, as in After
-            // Effects. Every key moves by the same amount, so no two can land on one frame.
-            for prop in [
-                Prop::Anchor,
-                Prop::Position,
-                Prop::Scale,
-                Prop::Rotation,
-                Prop::Opacity,
-            ] {
-                if let Some(property) = layer.transform.get_mut(prop) {
-                    property.shift_keyframes(by);
-                }
-            }
-            // B-13d: and the depth, which is keyed like the five and so travels like the five.
-            // Without this a layer dragged along the timeline kept its depth animation where it
-            // was and came apart from itself, which the five have been protected from since the
-            // owner's decision of 2026-09-13.
-            if let Some(depth) = &mut layer.depth {
-                depth.shift_keyframes(by);
-            }
-            // D-323: and its Time Remap, keyed in the same composition frames (FX-TREMAP-048).
-            if let Some(remap) = &mut layer.time_remap {
-                remap.shift_keyframes(by);
-            }
-            // D-68: and the keys of its effects' settings, for the same reason.
-            for instance in &mut layer.effects {
-                instance.shift_keys(by);
-            }
+            // Effects, every one of them (D-740). Every key moves by the same amount, so no two
+            // can land on one frame.
+            layer.shift_keys(by);
         }
         Command::TrimLayer {
             layer_id,
@@ -3071,34 +3047,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer.in_frame = *in_frame;
             layer.out_frame = *out_frame;
             if d != x {
-                for prop in [
-                    Prop::Anchor,
-                    Prop::Position,
-                    Prop::Scale,
-                    Prop::Rotation,
-                    Prop::Opacity,
-                ] {
-                    if let Some(property) = layer.transform.get_mut(prop) {
-                        property.shift_keyframes(d - x);
-                    }
-                }
-                if let Some(depth) = &mut layer.depth {
-                    depth.shift_keyframes(d - x);
-                }
-                if let Some(remap) = &mut layer.time_remap {
-                    remap.shift_keyframes(d - x);
-                }
-                for instance in &mut layer.effects {
-                    instance.shift_keys(d - x);
-                }
-                for mask in &mut layer.masks {
-                    for key in &mut mask.keys {
-                        key.frame += d - x;
-                    }
-                    for track in mask.tracks.values_mut() {
-                        track.shift_keyframes(d - x);
-                    }
-                }
+                layer.shift_keys(d - x);
             }
         }
         Command::SetPropertyBase {

@@ -707,6 +707,26 @@ impl Repeater {
 }
 
 impl Group {
+    /// D-740: every key of its transform, its repeater and its operations `by` frames later.
+    pub(crate) fn shift_keys(&mut self, by: i32) {
+        let repeater = self
+            .repeater
+            .iter_mut()
+            .flat_map(|r| r.numbers.values_mut());
+        let operations = self
+            .operations
+            .iter_mut()
+            .flat_map(|o| o.numbers.values_mut());
+        for property in self
+            .transform
+            .values_mut()
+            .chain(repeater)
+            .chain(operations)
+        {
+            property.shift_keyframes(by);
+        }
+    }
+
     /// A group that places its shapes where their paths are.
     pub fn new(name: impl Into<String>, parent: Option<usize>) -> Group {
         let pair = |x, y| Property::constant(Value::Vec2(x, y));
@@ -1378,6 +1398,37 @@ pub struct Shape {
     /// D-738 (d): a shape Merge Paths made, drawn from these outlines, each open or closed, in
     /// place of `points`. Only [`drawn`] gives one; never saved.
     pub outlines: Option<Vec<(Vec<MaskPoint>, bool)>>,
+}
+
+impl Shape {
+    /// D-740: every key of the path, its styles, gradients, trim and parametric settings `by`
+    /// frames later.
+    pub(crate) fn shift_keys(&mut self, by: i32) {
+        self.keys.iter_mut().for_each(|key| key.frame += by);
+        let gradients = [
+            self.fill.as_mut().and_then(|f| f.gradient.as_mut()),
+            self.stroke.as_mut().and_then(|s| s.gradient.as_mut()),
+        ];
+        let points = gradients
+            .into_iter()
+            .flatten()
+            .flat_map(|g| [&mut g.start, &mut g.end]);
+        let trim = self
+            .trim
+            .iter_mut()
+            .flat_map(|t| [&mut t.start, &mut t.end, &mut t.offset]);
+        let settings = self
+            .parametric
+            .iter_mut()
+            .flat_map(|p| p.settings.values_mut());
+        for property in (self.tracks.values_mut().flatten())
+            .chain(points)
+            .chain(trim)
+            .chain(settings)
+        {
+            property.shift_keyframes(by);
+        }
+    }
 }
 
 impl Default for Shape {
