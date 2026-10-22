@@ -6085,7 +6085,9 @@ function layerGroups(comp, layer) {
   if (layer.time_remap) rows.push(...tracks(['time_remap'], 1));
   if (masksOf(layer).length && layer.kind !== 'null') group('masks', 'Masks', () => maskGroup(comp, layer));
   if ((layer.shapes || []).length) {
-    group('contents', 'Contents', () => [...indent(shapeRows(comp, layer), 1), ...tracks(propsOf(layer).filter(isGrad), 1)]);
+    // D-738 (b) to (d): and every keyed group, repeater and operation number, as the flat list has them.
+    group('contents', 'Contents', () => [...indent(shapeRows(comp, layer), 1),
+      ...tracks(propsOf(layer).filter((prop) => isGrad(prop) || isGroupNum(prop)), 1)]);
   }
   const fx = propsOf(layer).filter(isFx);
   if (fx.length) group('effects', 'Effects', () => tracks(fx, 1));
@@ -16310,7 +16312,7 @@ function easeKeys(sides) {
   // key under the playhead on the selected layers.
   const targets = pickedKeys.size
     ? [...pickedKeys].map(keyParts)
-    : movable().flatMap((layer) => PROPS.map((prop) => [layer, prop, frame]));
+    : movable().flatMap((layer) => propsOf(layer).map((prop) => [layer, prop, frame]));
   // One curve per segment however many chosen keys touch it: two neighbours both eased would
   // otherwise send the segment between them twice, the second without the first's half.
   const curves = new Map();
