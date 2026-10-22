@@ -1,0 +1,1918 @@
+{
+ "decision": "D-741",
+ "cases": [
+  {
+   "id": "FX-KREQ-001",
+   "project": "shape_trims/fx_shp_083.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "move",
+   "by": 3,
+   "chosen": [
+    "shape:0:trim_end|0",
+    "shape:0:trim_end|4"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/shapes/0/trim/end",
+     3,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/shapes/0/trim/end",
+     7,
+     100,
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-002",
+   "project": "shape_trims/fx_shp_083.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "delete",
+   "by": 0,
+   "chosen": [
+    "shape:0:trim_end|0",
+    "shape:0:trim_end|4"
+   ],
+   "refused": false,
+   "keys": [],
+   "bases": [
+    [
+     "/shapes/0/trim/end",
+     0
+    ]
+   ]
+  },
+  {
+   "id": "FX-KREQ-003",
+   "project": "shape_trims/fx_shp_083.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "reverse",
+   "by": 0,
+   "chosen": [
+    "shape:0:trim_end|0",
+    "shape:0:trim_end|4"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/shapes/0/trim/end",
+     0,
+     100,
+     "linear",
+     null
+    ],
+    [
+     "/shapes/0/trim/end",
+     4,
+     0,
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-004",
+   "project": "shape_trims/fx_shp_083.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "move",
+   "by": 4,
+   "chosen": [
+    "shape:0:trim_end|0"
+   ],
+   "refused": true,
+   "keys": [
+    [
+     "/shapes/0/trim/end",
+     0,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/shapes/0/trim/end",
+     4,
+     100,
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-005",
+   "project": "key_requests/host.json",
+   "composition": "comp-1",
+   "layer": "layer-1",
+   "request": "move",
+   "by": 2,
+   "chosen": [
+    "mask:0|0",
+    "mask:0|34",
+    "mask:1|0",
+    "mask:1|34",
+    "mask:0:feather|0",
+    "mask:0:feather|34"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/effects/0/parameters/brightness",
+     0,
+     -88,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/brightness",
+     2,
+     -2,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/brightness",
+     34,
+     -88,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/offset",
+     0,
+     [
+      0,
+      0
+     ],
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/offset",
+     34,
+     [
+      0,
+      410
+     ],
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/1/parameters/taper_radius",
+     0,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/taper_radius",
+     12,
+     240,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/vertical_radius",
+     0,
+     190,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/vertical_radius",
+     12,
+     120,
+     "linear",
+     null
+    ],
+    [
+     "/masks/0/expansion_px",
+     0,
+     0,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/expansion_px",
+     34,
+     62,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/feather_px",
+     2,
+     18,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/feather_px",
+     36,
+     149,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/path",
+     2,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         0
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         0
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         108
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         108
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/path",
+     36,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         408
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         408
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/expansion_px",
+     0,
+     0,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/expansion_px",
+     34,
+     62,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/feather_px",
+     0,
+     18,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/feather_px",
+     34,
+     149,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/path",
+     2,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         408
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         408
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/path",
+     36,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         600
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         600
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         708
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         708
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-006",
+   "project": "key_requests/host.json",
+   "composition": "comp-1",
+   "layer": "layer-1",
+   "request": "delete",
+   "by": 0,
+   "chosen": [
+    "mask:0:feather|34",
+    "mask:1|0"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/effects/0/parameters/brightness",
+     0,
+     -88,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/brightness",
+     2,
+     -2,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/brightness",
+     34,
+     -88,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/offset",
+     0,
+     [
+      0,
+      0
+     ],
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/offset",
+     34,
+     [
+      0,
+      410
+     ],
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/1/parameters/taper_radius",
+     0,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/taper_radius",
+     12,
+     240,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/vertical_radius",
+     0,
+     190,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/vertical_radius",
+     12,
+     120,
+     "linear",
+     null
+    ],
+    [
+     "/masks/0/expansion_px",
+     0,
+     0,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/expansion_px",
+     34,
+     62,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/feather_px",
+     0,
+     18,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/path",
+     0,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         0
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         0
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         108
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         108
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/path",
+     34,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         408
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         408
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/expansion_px",
+     0,
+     0,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/expansion_px",
+     34,
+     62,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/feather_px",
+     0,
+     18,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/feather_px",
+     34,
+     149,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/path",
+     34,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         600
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         600
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         708
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         708
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-007",
+   "project": "key_requests/host.json",
+   "composition": "comp-1",
+   "layer": "layer-1",
+   "request": "reverse",
+   "by": 0,
+   "chosen": [
+    "mask:0|0",
+    "mask:0|34",
+    "mask:0:expansion|0",
+    "mask:0:expansion|34"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/effects/0/parameters/brightness",
+     0,
+     -88,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/brightness",
+     2,
+     -2,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/brightness",
+     34,
+     -88,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/offset",
+     0,
+     [
+      0,
+      0
+     ],
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/0/parameters/offset",
+     34,
+     [
+      0,
+      410
+     ],
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/effects/1/parameters/taper_radius",
+     0,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/taper_radius",
+     12,
+     240,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/vertical_radius",
+     0,
+     190,
+     "linear",
+     null
+    ],
+    [
+     "/effects/1/parameters/vertical_radius",
+     12,
+     120,
+     "linear",
+     null
+    ],
+    [
+     "/masks/0/expansion_px",
+     0,
+     62,
+     "ease",
+     [
+      0.33333333333333337,
+      0,
+      0.6666666666666667,
+      1
+     ]
+    ],
+    [
+     "/masks/0/expansion_px",
+     34,
+     0,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/feather_px",
+     0,
+     18,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/feather_px",
+     34,
+     149,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/0/path",
+     0,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         408
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         408
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.33333333333333337,
+      0,
+      0.6666666666666667,
+      1
+     ]
+    ],
+    [
+     "/masks/0/path",
+     34,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         0
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         0
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2020,
+         108
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -100,
+         108
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/expansion_px",
+     0,
+     0,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/expansion_px",
+     34,
+     62,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/feather_px",
+     0,
+     18,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/feather_px",
+     34,
+     149,
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/path",
+     0,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         300
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         408
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         408
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ],
+    [
+     "/masks/1/path",
+     34,
+     {
+      "points": [
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         600
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         600
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         2060,
+         708
+        ]
+       },
+       {
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ],
+        "point": [
+         -60,
+         708
+        ]
+       }
+      ]
+     },
+     "ease",
+     [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      1
+     ]
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-008",
+   "project": "shape_groups/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "move",
+   "by": 5,
+   "chosen": [
+    "group:0:rotation|0",
+    "group:0:rotation|24",
+    "group:2:position|0",
+    "group:2:position|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/transform/rotation",
+     5,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/groups/0/transform/rotation",
+     29,
+     90,
+     "linear",
+     null
+    ],
+    [
+     "/groups/2/transform/position",
+     5,
+     [
+      0,
+      0
+     ],
+     "linear",
+     null
+    ],
+    [
+     "/groups/2/transform/position",
+     29,
+     [
+      40,
+      20
+     ],
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-009",
+   "project": "shape_groups/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "delete",
+   "by": 0,
+   "chosen": [
+    "group:0:rotation|24",
+    "group:2:position|0"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/transform/rotation",
+     0,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/groups/2/transform/position",
+     24,
+     [
+      40,
+      20
+     ],
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-010",
+   "project": "shape_groups/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "reverse",
+   "by": 0,
+   "chosen": [
+    "group:0:rotation|0",
+    "group:0:rotation|24",
+    "group:2:position|0",
+    "group:2:position|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/transform/rotation",
+     0,
+     90,
+     "linear",
+     null
+    ],
+    [
+     "/groups/0/transform/rotation",
+     24,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/groups/2/transform/position",
+     0,
+     [
+      40,
+      20
+     ],
+     "linear",
+     null
+    ],
+    [
+     "/groups/2/transform/position",
+     24,
+     [
+      0,
+      0
+     ],
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-011",
+   "project": "shape_repeaters/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "move",
+   "by": 4,
+   "chosen": [
+    "group:0:repeater_copies|0",
+    "group:0:repeater_copies|24",
+    "group:1:repeater_offset|0",
+    "group:1:repeater_offset|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/repeater/copies",
+     4,
+     4,
+     "linear",
+     null
+    ],
+    [
+     "/groups/0/repeater/copies",
+     28,
+     2,
+     "linear",
+     null
+    ],
+    [
+     "/groups/1/repeater/offset",
+     4,
+     -1,
+     "linear",
+     null
+    ],
+    [
+     "/groups/1/repeater/offset",
+     28,
+     1,
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-012",
+   "project": "shape_repeaters/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "reverse",
+   "by": 0,
+   "chosen": [
+    "group:0:repeater_copies|0",
+    "group:0:repeater_copies|24",
+    "group:1:repeater_offset|0",
+    "group:1:repeater_offset|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/repeater/copies",
+     0,
+     2,
+     "linear",
+     null
+    ],
+    [
+     "/groups/0/repeater/copies",
+     24,
+     4,
+     "linear",
+     null
+    ],
+    [
+     "/groups/1/repeater/offset",
+     0,
+     1,
+     "linear",
+     null
+    ],
+    [
+     "/groups/1/repeater/offset",
+     24,
+     -1,
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-013",
+   "project": "shape_operations/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "move",
+   "by": 6,
+   "chosen": [
+    "group:0:op0_radius|0",
+    "group:0:op0_radius|24",
+    "group:1:op0_amount|24",
+    "group:7:op0_amount|0",
+    "group:7:op0_amount|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/operations/0/radius",
+     6,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/groups/0/operations/0/radius",
+     30,
+     30,
+     "linear",
+     null
+    ],
+    [
+     "/groups/1/operations/0/amount",
+     0,
+     -60,
+     "linear",
+     null
+    ],
+    [
+     "/groups/1/operations/0/amount",
+     30,
+     60,
+     "linear",
+     null
+    ],
+    [
+     "/groups/7/operations/0/amount",
+     6,
+     -10,
+     "linear",
+     null
+    ],
+    [
+     "/groups/7/operations/0/amount",
+     30,
+     10,
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-014",
+   "project": "shape_operations/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "delete",
+   "by": 0,
+   "chosen": [
+    "group:1:op0_amount|0",
+    "group:1:op0_amount|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/groups/0/operations/0/radius",
+     0,
+     0,
+     "linear",
+     null
+    ],
+    [
+     "/groups/0/operations/0/radius",
+     24,
+     30,
+     "linear",
+     null
+    ],
+    [
+     "/groups/7/operations/0/amount",
+     0,
+     -10,
+     "linear",
+     null
+    ],
+    [
+     "/groups/7/operations/0/amount",
+     24,
+     10,
+     "linear",
+     null
+    ]
+   ],
+   "bases": [
+    [
+     "/groups/1/operations/0/amount",
+     -60
+    ]
+   ]
+  },
+  {
+   "id": "FX-KREQ-015",
+   "project": "parametric_shapes/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "move",
+   "by": 2,
+   "chosen": [
+    "shape:1:path_size|0",
+    "shape:1:path_size|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/shapes/1/parametric/size",
+     2,
+     [
+      100,
+      60
+     ],
+     "linear",
+     null
+    ],
+    [
+     "/shapes/1/parametric/size",
+     26,
+     [
+      160,
+      100
+     ],
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  },
+  {
+   "id": "FX-KREQ-016",
+   "project": "parametric_shapes/host.json",
+   "composition": "comp-main",
+   "layer": "shapes",
+   "request": "reverse",
+   "by": 0,
+   "chosen": [
+    "shape:1:path_size|0",
+    "shape:1:path_size|24"
+   ],
+   "refused": false,
+   "keys": [
+    [
+     "/shapes/1/parametric/size",
+     0,
+     [
+      160,
+      100
+     ],
+     "linear",
+     null
+    ],
+    [
+     "/shapes/1/parametric/size",
+     24,
+     [
+      100,
+      60
+     ],
+     "linear",
+     null
+    ]
+   ],
+   "bases": []
+  }
+ ]
+}

@@ -164738,6 +164738,31 @@ The build's test must read each project, move the layer with `layer.shift`, and 
 | FX-LSHIFT-017 | `shape_merge/host.json` | shapes | 10 | 4 | shapes/parametric/position, shapes/parametric/size |
 | FX-LSHIFT-018 | `layer_shift/host.json` | shapes | 5 | 18 | depth, shapes/fill/gradient/end, shapes/fill/gradient/start, shapes/stroke/gradient/end, shapes/stroke/gradient/start, transform/anchor, transform/opacity, transform/rotation, transform/scale |
 
+## Key request fixtures
+
+D-741, accepted on 2026-10-22, built as B-616. `tools/key_requests_reference.py` writes `Fixtures/key_requests/`. `expected_key_requests.json` holds 16 cases. Each names a project in `Fixtures/`, a layer, a request (`move` by a number of frames, `delete`, `reverse`) and the keys chosen, as `property|frame`; says whether it is refused; lists every key the layer holds afterwards, as it was when refused, as `[where, frame, value, interp, ease]`, `where` its record's path from the layer, in order of `where` and frame; and lists in `bases` each number left with no keys and its value. `host.json` is `projects/keyed_settings_project.json` with its mask copied as a second, subtract mask moved 40 right and 300 down, so one layer holds two keyed paths.
+
+The build's test must open each project, send the request with each chosen key named `layer|property|frame`, find it done or, for FX-KREQ-004, refused; find in the saved layer every key listed, at its frame with its value and ease, and no other; find each number in `bases` holding that value; find everything else saved as before; and find, after one undo, the project saved as before.
+
+| Case | Project | Layer | Request | Keys chosen | Keys afterwards |
+|---|---|---|---|---|---|
+| FX-KREQ-001 | `shape_trims/fx_shp_083.json` | shapes | move by 3 | shape:0:trim_end|0, shape:0:trim_end|4 | 2 keys in 1 place |
+| FX-KREQ-002 | `shape_trims/fx_shp_083.json` | shapes | delete | shape:0:trim_end|0, shape:0:trim_end|4 | 0 keys in 0 places |
+| FX-KREQ-003 | `shape_trims/fx_shp_083.json` | shapes | reverse | shape:0:trim_end|0, shape:0:trim_end|4 | 2 keys in 1 place |
+| FX-KREQ-004 | `shape_trims/fx_shp_083.json` | shapes | move by 4 | shape:0:trim_end|0 | refused, nothing moves |
+| FX-KREQ-005 | `key_requests/host.json` | layer-1 | move by 2 | mask:0|0, mask:0|34, mask:1|0, mask:1|34, mask:0:feather|0, mask:0:feather|34 | 21 keys in 10 places |
+| FX-KREQ-006 | `key_requests/host.json` | layer-1 | delete | mask:0:feather|34, mask:1|0 | 19 keys in 10 places |
+| FX-KREQ-007 | `key_requests/host.json` | layer-1 | reverse | mask:0|0, mask:0|34, mask:0:expansion|0, mask:0:expansion|34 | 21 keys in 10 places |
+| FX-KREQ-008 | `shape_groups/host.json` | shapes | move by 5 | group:0:rotation|0, group:0:rotation|24, group:2:position|0, group:2:position|24 | 4 keys in 2 places |
+| FX-KREQ-009 | `shape_groups/host.json` | shapes | delete | group:0:rotation|24, group:2:position|0 | 2 keys in 2 places |
+| FX-KREQ-010 | `shape_groups/host.json` | shapes | reverse | group:0:rotation|0, group:0:rotation|24, group:2:position|0, group:2:position|24 | 4 keys in 2 places |
+| FX-KREQ-011 | `shape_repeaters/host.json` | shapes | move by 4 | group:0:repeater_copies|0, group:0:repeater_copies|24, group:1:repeater_offset|0, group:1:repeater_offset|24 | 4 keys in 2 places |
+| FX-KREQ-012 | `shape_repeaters/host.json` | shapes | reverse | group:0:repeater_copies|0, group:0:repeater_copies|24, group:1:repeater_offset|0, group:1:repeater_offset|24 | 4 keys in 2 places |
+| FX-KREQ-013 | `shape_operations/host.json` | shapes | move by 6 | group:0:op0_radius|0, group:0:op0_radius|24, group:1:op0_amount|24, group:7:op0_amount|0, group:7:op0_amount|24 | 6 keys in 3 places |
+| FX-KREQ-014 | `shape_operations/host.json` | shapes | delete | group:1:op0_amount|0, group:1:op0_amount|24 | 4 keys in 2 places |
+| FX-KREQ-015 | `parametric_shapes/host.json` | shapes | move by 2 | shape:1:path_size|0, shape:1:path_size|24 | 2 keys in 1 place |
+| FX-KREQ-016 | `parametric_shapes/host.json` | shapes | reverse | shape:1:path_size|0, shape:1:path_size|24 | 2 keys in 1 place |
+
 ## Open mask fixtures
 
 D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
