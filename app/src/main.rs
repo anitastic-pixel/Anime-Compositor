@@ -11459,6 +11459,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     None => (f.round() as i32, (lo + hi - f).round() as i32),
                 };
             let (mut removes, mut sets) = (Vec::new(), Vec::new());
+            // D-741: a layer's paths' and masks', shapes' and groups' numbers' keys, by layer.
+            let mut owned: std::collections::BTreeMap<
+                String,
+                std::collections::BTreeMap<String, Vec<(i32, i32)>>,
+            > = Default::default();
             for ((named, prop), frames) in rows {
                 let layer = comp.layer(&Id::new(&named));
                 if layer.is_none() && named != CAMERA_ROW {
@@ -11467,22 +11472,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 let mut moves: Vec<(i32, i32)> = frames.iter().map(|&f| place(layer, f)).collect();
                 moves.sort();
                 moves.dedup();
-                if let (Some(which), Some(layer)) = (path_prop(&prop), layer) {
-                    let made = with_path(composition.clone(), layer, which, |_, keys| {
-                        let new = reversed(
-                            &keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(),
-                            &moves,
-                        )?;
-                        for (k, (frame, interp)) in keys.iter_mut().zip(new) {
-                            (k.frame, k.interp) = (frame, interp);
-                        }
-                        keys.sort_by_key(|k| k.frame);
-                        Ok(())
-                    });
-                    match made {
-                        Ok(command) => sets.push(command),
-                        Err(said) => return Some(said),
-                    }
+                if layer.is_some() && layer_keyed(&prop) {
+                    owned.entry(named).or_default().insert(prop, moves);
                     continue;
                 }
                 if let (Some((instance, setting)), Some(layer)) = (effect_setting(&prop), layer) {
@@ -11564,6 +11555,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     });
                 }
             }
+            for (named, chosen) in owned {
+                let layer = comp.layer(&Id::new(&named)).expect("found above");
+                match layer_keys_commands(id, &composition, layer, &chosen) {
+                    Ok(commands) => sets.extend(commands),
+                    Err(said) => return Some(said),
+                }
+            }
             return Some(
                 match held
                     .document
@@ -11604,8 +11602,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 (String, String, String),
                 Vec<((i32, i32), Option<String>)>,
             > = Default::default();
-            let mut paths: std::collections::BTreeMap<(String, (bool, usize)), Vec<(i32, i32)>> =
-                Default::default();
+            // D-741: a layer's paths' and masks', shapes' and groups' numbers' keys, by layer.
+            let mut owned: std::collections::BTreeMap<
+                String,
+                std::collections::BTreeMap<String, Vec<(i32, i32)>>,
+            > = Default::default();
             let all_values = parameters(query, "value");
             let mut key_values = Vec::new();
             let named_count = parameters(query, "key").len();
@@ -11616,11 +11617,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 else {
                     return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
                 };
-                // B-24f: a path's keys, by layer and path. A value sent with one is the graph's
-                // travelled distance and not something a path can hold, so it is not read.
-                if let (Some(which), Some(at)) = (path_prop(prop), stored(layer, at)) {
-                    paths
-                        .entry((layer.to_string(), which))
+                // B-24f: a path's keys, by layer and path, and since D-741 a mask's, shape's and
+                // group's numbers'. A value sent with one is not read: the graph draws no curve
+                // for them, and a path's is its travelled distance, not something it can hold.
+                if let (true, Some(at)) = (layer_keyed(prop), stored(layer, at)) {
+                    owned
+                        .entry(layer.to_string())
+                        .or_default()
+                        .entry(prop.to_string())
                         .or_default()
                         .push(at);
                     continue;
@@ -11701,12 +11705,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     keys: list,
                 });
             }
-            // B-24f: each path's chosen keys moved by the same distance or taken out, as the one
-            // command for its layer's masks or shapes. The last key taken off leaves the path
-            // with the shape the first of them had, as the stopwatch's last key does.
-            for ((named, which), chosen) in paths {
+            // B-24f, D-741: each layer's chosen keys of its paths and numbers moved by the same
+            // distance or taken out, as one command for its masks and one for its shapes.
+            for (named, chosen) in owned {
                 let removing = id == "keyframe.add_remove";
-                if !removing && chosen.iter().all(|(at, to)| at == to) {
+                if !removing && chosen.values().flatten().all(|(at, to)| at == to) {
                     continue;
                 }
                 let Some(layer) = held
@@ -11717,31 +11720,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 else {
                     return Some(format!("There is no layer {named} here."));
                 };
-                let made = with_path(composition.clone(), layer, which, |base, keys| {
-                    let named = |frame: i32| chosen.iter().find(|(at, _)| *at == frame);
-                    if let Some((at, _)) = chosen
-                        .iter()
-                        .find(|(at, _)| keys.iter().all(|k| k.frame != *at))
-                    {
-                        return Err(format!("This path has no key at frame {at}."));
-                    }
-                    if removing {
-                        let first = keys.iter().find(|k| named(k.frame).is_some()).cloned();
-                        keys.retain(|k| named(k.frame).is_none());
-                        if let (true, Some(first)) = (keys.is_empty(), first) {
-                            *base = first.points;
-                        }
-                    } else {
-                        for k in keys.iter_mut() {
-                            if let Some((_, to)) = named(k.frame) {
-                                k.frame = *to;
-                            }
-                        }
-                    }
-                    Ok(())
-                });
-                match made {
-                    Ok(command) => fx_commands.push(command),
+                match layer_keys_commands(id, &composition, layer, &chosen) {
+                    Ok(commands) => fx_commands.extend(commands),
                     Err(said) => return Some(said),
                 }
             }
@@ -15959,6 +15939,201 @@ fn with_path(
     })
 }
 
+/// D-741: whether a property name is one of a layer's masks', shapes' or groups', whose keys go
+/// back as the layer's masks or shapes whole rather than one key at a time.
+fn layer_keyed(prop: &str) -> bool {
+    path_prop(prop).is_some()
+        || shape_prop(prop).is_some()
+        || mask_prop(prop).is_some()
+        || group_prop(prop).is_some()
+}
+
+/// D-741: the chosen keys of a layer's paths and of its masks', shapes' and groups' numbers, by
+/// property, each as the frame it is on and the one it goes to, moved (`keyframe.move`), taken
+/// out (`keyframe.add_remove`) or reversed (`keyframe.reverse`) in one copy of the layer's masks,
+/// shapes and groups, and sent back as one command for each, so that keys of several of them on
+/// one layer go together. The last key of a path or number taken out leaves it as the first
+/// chosen key of it held.
+fn layer_keys_commands(
+    id: &str,
+    composition: &Id,
+    layer: &Layer,
+    chosen: &std::collections::BTreeMap<String, Vec<(i32, i32)>>,
+) -> Result<Vec<Command>, String> {
+    let (mut masks, mut shapes, mut groups) = (
+        layer.masks.clone(),
+        layer.shapes.clone(),
+        layer.shape_groups.clone(),
+    );
+    let (mut masks_changed, mut shapes_changed, mut groups_changed) = (false, false, false);
+    let no = |prop: &str| format!("{} has no {prop}.", layer.name);
+    for (prop, moves) in chosen {
+        if let Some((shape, at)) = path_prop(prop) {
+            let path = if shape {
+                shapes.get_mut(at).map(|s| (&mut s.points, &mut s.keys))
+            } else {
+                masks.get_mut(at).map(|m| (&mut m.points, &mut m.keys))
+            };
+            let (base, keys) = path.ok_or_else(|| no(prop))?;
+            let new = retimed(
+                id,
+                &keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(),
+                moves,
+                "This path",
+            )?;
+            let first = keys
+                .iter()
+                .find(|k| moves.iter().any(|m| m.0 == k.frame))
+                .cloned();
+            *keys = std::mem::take(keys)
+                .into_iter()
+                .zip(new)
+                .filter_map(|(k, new)| {
+                    new.map(|(frame, interp)| anime_compositor::mask::MaskKey {
+                        frame,
+                        interp,
+                        ..k
+                    })
+                })
+                .collect();
+            keys.sort_by_key(|k| k.frame);
+            if let (true, Some(first)) = (keys.is_empty(), first) {
+                *base = first.points;
+            }
+            if shape {
+                shapes_changed = true;
+            } else {
+                masks_changed = true;
+            }
+        } else if let Some((at, name)) = shape_prop(prop) {
+            let shape = shapes.get_mut(at).ok_or_else(|| no(prop))?;
+            let mut channels = shape.channels(name).ok_or_else(|| no(prop))?;
+            retime_channels(id, &mut channels, moves)?;
+            shape.set_channels(name, channels);
+            shapes_changed = true;
+        } else if let Some((at, name)) = mask_prop(prop) {
+            let mask = masks.get_mut(at).ok_or_else(|| no(prop))?;
+            let mut channels = vec![mask.channel(name).ok_or_else(|| no(prop))?];
+            retime_channels(id, &mut channels, moves)?;
+            mask.set_channel(name, channels.remove(0));
+            masks_changed = true;
+        } else if let Some((at, name, part)) = group_prop(prop) {
+            let numbers = groups.get_mut(at).and_then(|g| match part {
+                GroupPart::Transform => Some(&mut g.transform),
+                GroupPart::Repeater => g.repeater.as_mut().map(|r| &mut r.numbers),
+                GroupPart::Operation(k) => g.operations.get_mut(k).map(|o| &mut o.numbers),
+            });
+            let number = numbers
+                .and_then(|n| n.get_mut(name))
+                .ok_or_else(|| no(prop))?;
+            let mut channels = vec![number.clone()];
+            retime_channels(id, &mut channels, moves)?;
+            *number = channels.remove(0);
+            groups_changed = true;
+        } else {
+            return Err(no(prop));
+        }
+    }
+    let mut commands = Vec::new();
+    if masks_changed {
+        commands.push(Command::SetMasks {
+            composition: composition.clone(),
+            layer_id: layer.id.clone(),
+            masks,
+        });
+    }
+    if shapes_changed || groups_changed {
+        commands.push(Command::SetShapes {
+            composition: composition.clone(),
+            layer_id: layer.id.clone(),
+            shapes,
+            groups: groups_changed.then_some(groups),
+        });
+    }
+    Ok(commands)
+}
+
+/// D-741: [`retimed`] on a number's channels, which are keyed together. A reversed key's path
+/// handles swap ends, as a property's do.
+fn retime_channels(
+    id: &str,
+    channels: &mut [Property],
+    moves: &[(i32, i32)],
+) -> Result<(), String> {
+    let old = channels[0].keyframes().to_vec();
+    let new = retimed(
+        id,
+        &old.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(),
+        moves,
+        "This number",
+    )?;
+    let first = old
+        .iter()
+        .position(|k| moves.iter().any(|m| m.0 == k.frame));
+    for channel in channels.iter_mut() {
+        let keys = channel.keyframes().to_vec();
+        for k in &keys {
+            channel.remove_keyframe(k.frame);
+        }
+        for (k, new) in keys.iter().zip(&new) {
+            let Some((frame, interp)) = *new else {
+                continue;
+            };
+            let turn = id == "keyframe.reverse" && moves.iter().any(|m| m.0 == k.frame);
+            let spatial = match turn {
+                true => k.spatial.map(|[ix, iy, ox, oy]| [ox, oy, ix, iy]),
+                false => k.spatial,
+            };
+            channel.set_keyframe(Keyframe {
+                frame,
+                interp,
+                spatial,
+                ..*k
+            });
+        }
+        if let (true, Some(i)) = (channel.keyframes().is_empty(), first) {
+            channel.set_base(keys[i].value);
+        }
+    }
+    Ok(())
+}
+
+/// D-741: each of a list's keys, as (frame, ease) in order, after the chosen ones, `(on, to)`
+/// sorted by `on`, are moved, reversed by [`reversed`], or taken out, `None`. A key put onto one
+/// that is not chosen is refused. `this` is what the keys are on, said in a refusal.
+fn retimed(
+    id: &str,
+    keys: &[(i32, Interp)],
+    moves: &[(i32, i32)],
+    this: &str,
+) -> Result<Vec<Option<(i32, Interp)>>, String> {
+    if let Some((at, _)) = moves.iter().find(|(at, _)| keys.iter().all(|k| k.0 != *at)) {
+        return Err(format!("{this} has no key at frame {at}."));
+    }
+    let to = |frame: i32| moves.iter().find(|m| m.0 == frame).map(|m| m.1);
+    let new: Vec<Option<(i32, Interp)>> = match id {
+        "keyframe.reverse" => reversed(keys, moves)?.into_iter().map(Some).collect(),
+        "keyframe.add_remove" => keys
+            .iter()
+            .map(|k| to(k.0).is_none().then_some(*k))
+            .collect(),
+        _ => keys
+            .iter()
+            .map(|k| Some((to(k.0).unwrap_or(k.0), k.1)))
+            .collect(),
+    };
+    let mut landed: Vec<i32> = new.iter().flatten().map(|k| k.0).collect();
+    landed.sort();
+    if let Some(on) = landed.windows(2).find(|w| w[0] == w[1]) {
+        return Err(format!(
+            "{this} would have a second key at frame {}, where a key that is not chosen is. \
+             Choose it too, or move it first.",
+            on[0]
+        ));
+    }
+    Ok(new)
+}
+
 /// B-24f: the three single-key requests about a path's key - the diamond, a move and an ease -
 /// by the rules `mask.add_remove_key` and `effect_key_command` already keep. A key moved onto
 /// another is refused by the core, as a property's is.
@@ -18508,3 +18683,9 @@ mod blur_outline;
 #[cfg(test)]
 #[path = "tests/keyed_settings.rs"]
 mod keyed_settings;
+
+/// D-741: chosen keys of a mask's, a shape's and a group's numbers moved, deleted and reversed
+/// together, as the timeline sends them.
+#[cfg(test)]
+#[path = "tests/key_requests.rs"]
+mod key_requests;
