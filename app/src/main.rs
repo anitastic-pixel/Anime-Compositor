@@ -1046,6 +1046,16 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             };
                             at.insert(format!("group:{i}:repeater_{name}"), now);
                         }
+                        // D-738 (d): and each operation's, `group:<n>:op<k>_radius` and on.
+                        for (k, o) in group.operations.iter().enumerate() {
+                            for (name, p) in &o.numbers {
+                                let now = match p.value_at(frame) {
+                                    Value::Vec2(x, y) => serde_json::json!([x, y]),
+                                    Value::Scalar(n) => serde_json::json!(n),
+                                };
+                                at.insert(format!("group:{i}:op{k}_{name}"), now);
+                            }
+                        }
                     }
                     (layer.id.as_str().to_string(), serde_json::Value::Object(at))
                 })
@@ -10120,6 +10130,7 @@ const ANSWERS: &[&str] = &[
     "shape.add_remove_key",
     "shape.delete",
     "shape.group",
+    "shape.operation",
     "shape.repeater",
     "shape.set",
     "shape.set_path",
@@ -12993,6 +13004,49 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 ))
                             }
                         };
+                    }
+                    Command::SetShapes {
+                        composition,
+                        layer_id: layer.id.clone(),
+                        shapes: layer.shapes.clone(),
+                        groups: Some(groups),
+                    }
+                }
+                // D-738 (d): a group's path operation added at the foot of its list, After
+                // Effects' new one of a type, or the `op`th removed or its choice set:
+                // add=<type>, remove=<k>, op=<k>&choice=<word>.
+                "shape.operation" => {
+                    use anime_compositor::shape::{Operation, OPERATIONS};
+                    let mut groups = layer.shape_groups.clone();
+                    let at = parameter(query, "group").and_then(|g| g.parse::<usize>().ok());
+                    let Some(group) = at.and_then(|g| groups.get_mut(g)) else {
+                        return Some(format!(
+                            "Which group? \"{}\" has {}.",
+                            layer.name,
+                            groups.len()
+                        ));
+                    };
+                    let names = || OPERATIONS.map(|o| o.0).join(", ");
+                    let op = |key: &str| parameter(query, key).and_then(|k| k.parse::<usize>().ok());
+                    if let Some(kind) = parameter(query, "add") {
+                        let Some(o) = Operation::new(&kind) else {
+                            return Some(format!("add={kind}? Say one of {}.", names()));
+                        };
+                        group.operations.push(o);
+                    } else if let Some(k) = op("remove") {
+                        if k >= group.operations.len() {
+                            return Some(format!("\"{}\" has no operation {k}.", group.name));
+                        }
+                        group.operations.remove(k);
+                    } else if let (Some(k), Some(word)) = (op("op"), parameter(query, "choice")) {
+                        let Some(o) = group.operations.get_mut(k) else {
+                            return Some(format!("\"{}\" has no operation {k}.", group.name));
+                        };
+                        o.choice = Some(word);
+                    } else {
+                        return Some(
+                            "Say add=<type>, remove=<k>, or op=<k>&choice=<word>.".to_string(),
+                        );
                     }
                     Command::SetShapes {
                         composition,
@@ -16025,15 +16079,36 @@ fn shape_key_command(
     })
 }
 
+/// Which of a group's sets of numbers a `group:` property names.
+#[derive(Clone, Copy)]
+enum GroupPart {
+    Transform,
+    Repeater,
+    Operation(usize),
+}
+
 /// D-738 (b): `group:<n>:position` and its six siblings name a shape group's transform wherever
 /// a request names a property. The names are the core's `GROUP_PROPERTIES`; D-738 (c)'s
-/// `group:<n>:repeater_copies` and its seven siblings, `REPEATER_PROPERTIES`, name its repeater's.
-fn group_prop(prop: &str) -> Option<(usize, &'static str, bool)> {
-    use anime_compositor::shape::{GROUP_PROPERTIES, REPEATER_PROPERTIES};
+/// `group:<n>:repeater_copies` and its seven siblings, `REPEATER_PROPERTIES`, name its repeater's;
+/// D-738 (d)'s `group:<n>:op<k>_radius` and the like, `OPERATIONS`' numbers, its `k`th operation's.
+fn group_prop(prop: &str) -> Option<(usize, &'static str, GroupPart)> {
+    use anime_compositor::shape::{GROUP_PROPERTIES, OPERATIONS, REPEATER_PROPERTIES};
     let (at, name) = prop.strip_prefix("group:")?.split_once(':')?;
-    let found = match name.strip_prefix("repeater_") {
-        Some(name) => (REPEATER_PROPERTIES.into_iter().find(|n| *n == name)?, true),
-        None => (GROUP_PROPERTIES.into_iter().find(|n| *n == name)?, false),
+    let op = name
+        .strip_prefix("op")
+        .and_then(|rest| rest.split_once('_'));
+    let found = if let Some((k, name)) = op.filter(|(k, _)| k.parse::<usize>().is_ok()) {
+        let mut all = OPERATIONS.iter().flat_map(|o| o.1.iter().map(|n| n.0));
+        (
+            all.find(|n| *n == name)?,
+            GroupPart::Operation(k.parse().ok()?),
+        )
+    } else if let Some(name) = name.strip_prefix("repeater_") {
+        let name = REPEATER_PROPERTIES.into_iter().find(|n| *n == name)?;
+        (name, GroupPart::Repeater)
+    } else {
+        let name = GROUP_PROPERTIES.into_iter().find(|n| *n == name)?;
+        (name, GroupPart::Transform)
     };
     Some((at.parse().ok()?, found.0, found.1))
 }
@@ -16046,24 +16121,28 @@ fn group_key_command(
     query: Option<&str>,
     composition: Id,
     layer: &Layer,
-    (at, name, repeater): (usize, &str, bool),
+    (at, name, part): (usize, &str, GroupPart),
 ) -> Result<Command, String> {
     let mut groups = layer.shape_groups.clone();
     let Some(group) = groups.get_mut(at) else {
         return Err(format!("{} has no group {at}.", layer.name));
     };
     let gname = group.name.clone();
-    let numbers = match repeater {
-        false => &mut group.transform,
-        true => match group.repeater.as_mut() {
+    let numbers = match part {
+        GroupPart::Transform => &mut group.transform,
+        GroupPart::Repeater => match group.repeater.as_mut() {
             Some(r) => &mut r.numbers,
             None => return Err(format!("\"{gname}\" has no repeater.")),
+        },
+        GroupPart::Operation(k) => match group.operations.get_mut(k) {
+            Some(o) => &mut o.numbers,
+            None => return Err(format!("\"{gname}\" has no operation {k}.")),
         },
     };
     let Some(now) = numbers.get(name).cloned() else {
         return Err(format!("\"{gname}\" has no {name}."));
     };
-    let pair = matches!(name, "anchor" | "position" | "scale");
+    let pair = matches!(name, "anchor" | "position" | "scale" | "center");
     let values = match id {
         "property.set_base" | "property.drag_update" => vec![parameter(query, "value")
             .and_then(|text| match pair {

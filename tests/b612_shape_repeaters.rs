@@ -145,7 +145,7 @@ fn b612_shape_repeaters() {
     for (cid, c) in expected["cases"].as_object().unwrap() {
         if let Some(wanted) = c.get("drawn").and_then(J::as_array) {
             let frame = c["frame"].as_i64().unwrap() as i32;
-            let drawn = shape::drawn(&layer.shapes, &layer.shape_groups, frame);
+            let drawn = shape::drawn(&layer.shapes, &layer.shape_groups, frame, 24.0);
             row(
                 cid,
                 &format!("frame {frame}: how many shapes are drawn"),

@@ -2901,8 +2901,10 @@ fn resolve_held(
         // the layer. The paths are resolved to this frame first, exactly as a mask's are and for
         // the same reason: what the rasterizer sees holds plain numbers.
         layer.timing().local_frame(frame)?;
-        // D-738 (b), (c): each placed by its groups, a repeating group's drawn once a copy.
-        let now = crate::shape::drawn(&layer.shapes, &layer.shape_groups, at);
+        // D-738 (b), (c), (d): each placed by its groups, a repeating group's drawn once a copy,
+        // each path changed by its groups' operations.
+        let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+        let now = crate::shape::drawn(&layer.shapes, &layer.shape_groups, at, fps);
         for s in &now {
             // Said per frame, as an undrawable mask is, because that is what marks an export's
             // fidelity incomplete. The warning raised when the file opened is not enough: a

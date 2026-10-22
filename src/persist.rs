@@ -946,6 +946,26 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                         map.remove("repeater");
                     }
                 }
+                // D-738 (d): the operations, each merged over the record it was read from.
+                if g.operations.is_empty() {
+                    map.remove("operations");
+                } else {
+                    let ops = g.operations.iter().map(|o| {
+                        let was = o.record.get().and_then(J::as_object);
+                        let mut m = was.cloned().unwrap_or_default();
+                        m.insert("type".into(), J::from(o.kind.as_str()));
+                        let kind = crate::shape::OPERATIONS.iter().find(|k| k.0 == o.kind);
+                        if let (Some((name, _)), Some(w)) = (kind.and_then(|k| k.2), &o.choice) {
+                            m.insert(name.into(), J::from(w.as_str()));
+                        }
+                        for (name, property) in &o.numbers {
+                            let before = was.and_then(|w| w.get(name));
+                            m.insert(name.clone(), property_json(before, property, 1.0));
+                        }
+                        J::Object(m)
+                    });
+                    map.insert("operations".into(), J::Array(ops.collect()));
+                }
                 J::Object(map)
             });
             owned.push(("groups", J::Array(groups.collect())));
@@ -13277,11 +13297,44 @@ fn parse_group(g: &J, at: &str) -> Result<crate::shape::Group, Diagnostic> {
             })
         }
     };
+    // D-738 (d): its operations; a type, number or choice out of place is `groups_problem`'s.
+    let mut operations = Vec::new();
+    if let Some(list) = g.get("operations").filter(|o| !o.is_null()) {
+        let here = format!("{at}/operations");
+        let Some(list) = list.as_array() else {
+            return Err(invalid(&here, "a list"));
+        };
+        for (k, o) in list.iter().enumerate() {
+            let here = format!("{here}/{k}");
+            as_object(o, &here)?;
+            let kind = as_str(field(o, &here, "type")?, &format!("{here}/type"))?;
+            let shape = crate::shape::OPERATIONS.iter().find(|t| t.0 == kind);
+            let mut numbers = std::collections::BTreeMap::new();
+            for &(name, ..) in shape.map_or(&[][..], |t| t.1) {
+                let Some(p) = o.get(name) else { continue };
+                let value = if name == "center" { "vec2" } else { "scalar" };
+                let property =
+                    parse_property(p, &format!("{here}/{name}"), value, false, false, 1.0)?;
+                numbers.insert(name.to_string(), property);
+            }
+            let choice = match shape.and_then(|t| t.2).and_then(|(n, _)| o.get(n)) {
+                None => None,
+                Some(w) => Some(as_str(w, &here)?.to_string()),
+            };
+            operations.push(crate::shape::Operation {
+                kind: kind.to_string(),
+                choice,
+                numbers,
+                record: crate::model::FileRecord::new(o),
+            });
+        }
+    }
     Ok(crate::shape::Group {
         name,
         parent,
         transform,
         repeater,
+        operations,
         record: crate::model::FileRecord::new(g),
     })
 }

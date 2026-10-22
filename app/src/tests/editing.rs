@@ -13739,3 +13739,102 @@ fn a_group_repeats_from_the_window() {
         5.0
     );
 }
+
+/// B-613, D-738 (d): a group's path operations added, their choices and numbers set and keyed,
+/// and removed, from the window. The core's half is
+/// `verification/B-613_shape_operations_table.md`.
+#[test]
+fn a_group_operates_from_the_window() {
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    run(&viewer, "layer.add_shape");
+    let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let layer = |viewer: &Mutex<Viewer>| shown_layer(viewer, "Shape Layer 1");
+    let square = "points=0,0,0,0,0,0;20,0,0,0,0,0;20,20,0,0,0,0;0,20,0,0,0,0";
+    run(&viewer, &format!("shape.add?layer={id}&{square}"));
+    run(&viewer, &format!("shape.group?layer={id}&shapes=0"));
+    assert!(run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&add=spin")
+    )
+    .contains("add=spin"));
+
+    run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&add=round_corners"),
+    );
+    run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&add=offset"),
+    );
+    let ops = &layer(&viewer)["groups"][0]["operations"];
+    assert_eq!(ops[0]["type"], "round_corners");
+    assert_eq!(ops[0]["radius"]["base"], 10.0);
+    assert_eq!(ops[1]["join"], "miter");
+    assert_eq!(ops[1]["miter_limit"]["base"], 4.0);
+
+    run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&op=1&choice=round"),
+    );
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"][1]["join"],
+        "round"
+    );
+    // A word the choice does not have is the core's to refuse.
+    assert!(!run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&op=1&choice=sharp")
+    )
+    .is_empty());
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"][1]["join"],
+        "round"
+    );
+
+    run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:op0_radius&value=4&frame=0"),
+    );
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=group:0:op1_amount&frame=0"),
+    );
+    let ops = &layer(&viewer)["groups"][0]["operations"];
+    assert_eq!(ops[0]["radius"]["base"], 4.0);
+    assert_eq!(
+        ops[1]["amount"]["keyframes"].as_array().map(Vec::len),
+        Some(1)
+    );
+    let body = boxes(&viewer, 0, None).into_body();
+    let answer: serde_json::Value =
+        serde_json::from_slice(&body).expect("the boxes answer is JSON");
+    assert_eq!(answer["values"][&id]["group:0:op0_radius"], 4.0);
+    assert!(!run(
+        &viewer,
+        &format!("property.set_base?layer={id}&prop=group:0:op0_radius&value=-1&frame=0")
+    )
+    .is_empty());
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"][0]["radius"]["base"],
+        4.0
+    );
+
+    run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&remove=0"),
+    );
+    let ops = &layer(&viewer)["groups"][0]["operations"];
+    assert_eq!(ops.as_array().map(Vec::len), Some(1));
+    assert_eq!(ops[0]["type"], "offset");
+    run(&viewer, "edit.undo");
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"][0]["type"],
+        "round_corners"
+    );
+}

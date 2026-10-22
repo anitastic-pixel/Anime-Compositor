@@ -389,6 +389,158 @@ pub const REPEATER_PROPERTIES: [&str; 8] = [
     "end_opacity",
 ];
 
+/// D-738 (d): each path operation's type, its numbers with their ranges and After Effects' new
+/// values (`center` is two numbers, the rest one), and its choice with its words, the first
+/// After Effects' new one.
+#[allow(clippy::type_complexity)]
+pub const OPERATIONS: [(&str, &[(&str, f64, f64, f64)], Option<(&str, &[&str])>); 6] = [
+    ("round_corners", &[("radius", 0.0, 100000.0, 10.0)], None),
+    ("pucker_bloat", &[("amount", -100.0, 100.0, 0.0)], None),
+    (
+        "twist",
+        &[
+            ("angle", f64::NEG_INFINITY, f64::INFINITY, 0.0),
+            ("center", f64::NEG_INFINITY, f64::INFINITY, 0.0),
+        ],
+        None,
+    ),
+    (
+        "zig_zag",
+        &[("size", 0.0, 10000.0, 10.0), ("ridges", 0.0, 100.0, 5.0)],
+        Some(("points", &["corner", "smooth"])),
+    ),
+    (
+        "wiggle",
+        &[
+            ("size", 0.0, 10000.0, 10.0),
+            ("detail", 0.0, 100.0, 3.0),
+            ("wiggles_per_second", 0.0, 1000.0, 2.0),
+            ("correlation", 0.0, 100.0, 50.0),
+            ("seed", 0.0, 100000.0, 0.0),
+        ],
+        None,
+    ),
+    (
+        "offset",
+        &[
+            ("amount", -10000.0, 10000.0, 10.0),
+            ("miter_limit", 1.0, 100.0, 4.0),
+        ],
+        Some(("join", &["miter", "round", "bevel"])),
+    ),
+];
+
+/// D-738 (d): at most this many operations on one group.
+pub const MOST_OPERATIONS: usize = 8;
+
+/// D-738 (d): one of a group's path operations, as After Effects' Round Corners, Pucker & Bloat,
+/// Twist, Zig Zag, Wiggle Paths or Offset Paths at the foot of a group's contents.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Operation {
+    /// Its type, a name in [`OPERATIONS`].
+    pub kind: String,
+    /// Its choice's word, where its type has a choice.
+    pub choice: Option<String>,
+    /// Its numbers by the file's names.
+    pub numbers: BTreeMap<String, Property>,
+    /// ADR-008: the record this operation was read from, which saving writes over.
+    pub record: crate::model::FileRecord,
+}
+
+impl Operation {
+    /// After Effects' new operation of a type, or `None` for a type there is not.
+    pub fn new(kind: &str) -> Option<Operation> {
+        let (_, numbers, choice) = OPERATIONS.iter().find(|o| o.0 == kind)?;
+        let numbers = numbers
+            .iter()
+            .map(|&(name, _, _, d)| {
+                let v = if name == "center" {
+                    Value::Vec2(d, d)
+                } else {
+                    Value::Scalar(d)
+                };
+                (name.to_string(), Property::constant(v))
+            })
+            .collect();
+        Some(Operation {
+            kind: kind.to_string(),
+            choice: choice.map(|(_, words)| words[0].to_string()),
+            numbers,
+            record: Default::default(),
+        })
+    }
+
+    /// The path this operation gives at a frame, `seconds` in.
+    fn apply(&self, pts: Vec<MaskPoint>, closed: bool, frame: i32, seconds: f64) -> Vec<MaskPoint> {
+        use crate::shape_ops as ops;
+        let get = |n: &str| self.numbers.get(n).map(|p| p.value_at(frame));
+        let one = |n: &str| get(n).and_then(|v| v.as_scalar()).unwrap_or(0.0);
+        let choice = self.choice.as_deref().unwrap_or("");
+        match self.kind.as_str() {
+            "round_corners" => ops::round_corners(pts, closed, one("radius")),
+            "pucker_bloat" => ops::pucker_bloat(pts, one("amount")),
+            "twist" => {
+                let center = get("center").and_then(|v| v.as_vec2()).unwrap_or_default();
+                ops::twist(pts, closed, one("angle"), center)
+            }
+            "zig_zag" => ops::zig_zag(pts, closed, one("size"), one("ridges"), choice == "smooth"),
+            "wiggle" => {
+                let w = ops::Wiggle {
+                    size: one("size"),
+                    detail: one("detail"),
+                    per_second: one("wiggles_per_second"),
+                    correlation: one("correlation"),
+                    seed: one("seed"),
+                };
+                ops::wiggle(pts, closed, &w, seconds)
+            }
+            "offset" => {
+                let join = match choice {
+                    "round" => ops::Join::Round,
+                    "bevel" => ops::Join::Bevel,
+                    _ => ops::Join::Miter,
+                };
+                ops::offset(pts, closed, one("amount"), join, one("miter_limit"))
+            }
+            _ => pts,
+        }
+    }
+
+    /// What is wrong with this operation, the `k`th of `whose`, as a sentence.
+    fn problem(&self, whose: &str, k: usize) -> Option<String> {
+        let what = format!("{whose} operation {} ({})", k + 1, self.kind);
+        let Some((_, numbers, choice)) = OPERATIONS.iter().find(|o| o.0 == self.kind) else {
+            let names: Vec<&str> = OPERATIONS.iter().map(|o| o.0).collect();
+            return Some(format!(
+                "{whose} operation {} to be one of {}, not \"{}\"",
+                k + 1,
+                names.join(", "),
+                self.kind
+            ));
+        };
+        for &(name, lo, hi, _) in *numbers {
+            let said = number_problem(
+                &format!("{what} {name}"),
+                self.numbers.get(name),
+                (lo, hi),
+                name == "center",
+            );
+            if said.is_some() {
+                return said;
+            }
+        }
+        let (name, words) = (*choice)?;
+        match self.choice.as_deref() {
+            Some(w) if words.contains(&w) => None,
+            other => Some(format!(
+                "{what} {name} to be one of {}, not {}",
+                words.join(", "),
+                other.map_or("missing".to_string(), |w| format!("\"{w}\""))
+            )),
+        }
+    }
+}
+
 /// D-738 (b): a turn of the plane, `[a, b, c, d, e, f]` taking (x, y) to
 /// (a x + c y + e, b x + d y + f).
 pub type Turn = [f64; 6];
@@ -441,6 +593,9 @@ pub struct Group {
     /// D-738 (c): what draws the group's contents again and again, as After Effects' Repeater at
     /// the foot of a group's contents does.
     pub repeater: Option<Repeater>,
+    /// D-738 (d): what changes every path drawn in the group, in order, before its repeater and
+    /// its transform place it.
+    pub operations: Vec<Operation>,
     /// ADR-008: the record this group was read from, which saving writes over.
     pub record: crate::model::FileRecord,
 }
@@ -565,6 +720,7 @@ impl Group {
                 .map(|(k, v)| (k.to_string(), v))
                 .collect(),
             repeater: None,
+            operations: Vec::new(),
             record: Default::default(),
         }
     }
@@ -586,17 +742,29 @@ impl Group {
         (mul(&[1.0, 0.0, 0.0, 1.0, px, py], &m), one("opacity"))
     }
 
-    /// What is outside D-738's ranges in this group's transform and its repeater, as a sentence.
+    /// What is outside D-738's ranges in this group's transform, its repeater and its
+    /// operations, as a sentence.
     fn problem(&self) -> Option<String> {
         let whose = format!("group \"{}\"'s", self.name);
-        numbers_problem(&whose, &self.transform, &GROUP_PROPERTIES).or_else(|| {
-            let r = self.repeater.as_ref()?;
-            numbers_problem(
-                &format!("{whose} repeater"),
-                &r.numbers,
-                &REPEATER_PROPERTIES,
-            )
-        })
+        if self.operations.len() > MOST_OPERATIONS {
+            return Some(format!(
+                "{whose} operations to be at most {MOST_OPERATIONS}, not {}",
+                self.operations.len()
+            ));
+        }
+        numbers_problem(&whose, &self.transform, &GROUP_PROPERTIES)
+            .or_else(|| {
+                let r = self.repeater.as_ref()?;
+                numbers_problem(
+                    &format!("{whose} repeater"),
+                    &r.numbers,
+                    &REPEATER_PROPERTIES,
+                )
+            })
+            .or_else(|| {
+                let mut each = self.operations.iter().enumerate();
+                each.find_map(|(k, o)| o.problem(&whose, k))
+            })
     }
 }
 
@@ -609,16 +777,7 @@ fn numbers_problem(
 ) -> Option<String> {
     for &name in names {
         let what = format!("{whose} {}", name.replace('_', " "));
-        let Some(p) = numbers.get(name) else {
-            return Some(format!("{what}, which is missing"));
-        };
-        if p.expression().is_some() {
-            return Some(format!("no expression on {what}: it takes keys only"));
-        }
-        if p.split().is_some() || p.keyframes().iter().any(|k| k.spatial.is_some()) {
-            return Some(format!("{what} kept whole, with no motion path"));
-        }
-        let (lo, hi) = match name {
+        let range = match name {
             "scale" => (-100000.0, 100000.0),
             "opacity" | "start_opacity" | "end_opacity" => (0.0, 1.0),
             "skew" => (-85.0, 85.0),
@@ -627,18 +786,41 @@ fn numbers_problem(
             _ => (f64::NEG_INFINITY, f64::INFINITY),
         };
         let pair = matches!(name, "anchor" | "position" | "scale");
-        for v in std::iter::once(p.base()).chain(p.keyframes().iter().map(|k| k.value)) {
-            let numbers = match (pair, v) {
-                (true, Value::Vec2(a, b)) => vec![a, b],
-                (false, Value::Scalar(n)) => vec![n],
-                _ => {
-                    let count = if pair { "two numbers" } else { "one number" };
-                    return Some(format!("{what} of {count}"));
-                }
-            };
-            if let Some(n) = numbers.iter().find(|n| !(lo..=hi).contains(*n)) {
-                return Some(format!("{what} from {lo} to {hi}, not {n}"));
+        if let Some(said) = number_problem(&what, numbers.get(name), range, pair) {
+            return Some(said);
+        }
+    }
+    None
+}
+
+/// D-738 (b), (c), (d): what is wrong with one keyed number, `what`, as a sentence: missing, an
+/// expression, a motion path, the wrong count, or a value or key outside `lo..=hi`.
+fn number_problem(
+    what: &str,
+    p: Option<&Property>,
+    (lo, hi): (f64, f64),
+    pair: bool,
+) -> Option<String> {
+    let Some(p) = p else {
+        return Some(format!("{what}, which is missing"));
+    };
+    if p.expression().is_some() {
+        return Some(format!("no expression on {what}: it takes keys only"));
+    }
+    if p.split().is_some() || p.keyframes().iter().any(|k| k.spatial.is_some()) {
+        return Some(format!("{what} kept whole, with no motion path"));
+    }
+    for v in std::iter::once(p.base()).chain(p.keyframes().iter().map(|k| k.value)) {
+        let numbers = match (pair, v) {
+            (true, Value::Vec2(a, b)) => vec![a, b],
+            (false, Value::Scalar(n)) => vec![n],
+            _ => {
+                let count = if pair { "two numbers" } else { "one number" };
+                return Some(format!("{what} of {count}"));
             }
+        };
+        if let Some(n) = numbers.iter().find(|n| !(lo..=hi).contains(*n)) {
+            return Some(format!("{what} from {lo} to {hi}, not {n}"));
         }
     }
     None
@@ -675,9 +857,12 @@ fn chain_turn(
 /// D-738 (c): every shape a layer draws at a frame, in drawing order, later over earlier, each
 /// placed by its groups. A repeating group's shapes are drawn together where the first of them is
 /// in the list, copy by copy, each copy holding them in the list's order; with no repeater this
-/// is each shape placed, in the list's order, as D-738 (b) draws them.
-pub fn drawn(shapes: &[Shape], groups: &[Group], frame: i32) -> Vec<Shape> {
-    if groups.iter().all(|g| g.repeater.is_none()) {
+/// is each shape placed, in the list's order, as D-738 (b) draws them. D-738 (d): each group's
+/// operations change its paths, in its own space, before its repeater and transform place them;
+/// `fps` is the composition's, which Wiggle Paths keeps time by.
+pub fn drawn(shapes: &[Shape], groups: &[Group], frame: i32, fps: f64) -> Vec<Shape> {
+    let operated = groups.iter().any(|g| !g.operations.is_empty());
+    if !operated && groups.iter().all(|g| g.repeater.is_none()) {
         return shapes.iter().map(|s| s.placed(groups, frame)).collect();
     }
     let chains: Vec<Vec<usize>> = shapes
@@ -704,6 +889,7 @@ pub fn drawn(shapes: &[Shape], groups: &[Group], frame: i32) -> Vec<Shape> {
         frame,
         chains: &chains,
         copies: &copies,
+        seconds: operated.then_some(frame as f64 / fps),
     };
     walk.scope(None, &mut chosen, &mut out);
     out
@@ -718,9 +904,39 @@ struct Walk<'a> {
     chains: &'a [Vec<usize>],
     /// Each repeating group's composite and copies.
     copies: &'a [Option<(bool, Vec<Option<(Turn, f64)>>)>],
+    /// D-738 (d): the frame in seconds, where any group has operations.
+    seconds: Option<f64>,
 }
 
 impl Walk<'_> {
+    /// D-738 (d): shape `i`'s path at the frame, changed by each group's operations and then
+    /// placed by its turn and its copy's, its own group first, out to the layer.
+    fn operated(
+        &self,
+        i: usize,
+        seconds: f64,
+        copy: impl Fn(usize) -> Option<(Turn, f64)>,
+    ) -> Vec<MaskPoint> {
+        let s = &self.shapes[i];
+        let mut pts = s.points_at(self.frame);
+        for &g in &self.chains[i] {
+            let group = &self.groups[g];
+            for o in &group.operations {
+                if pts.len() <= crate::shape_ops::LIMIT {
+                    pts = o.apply(pts, s.closed, self.frame, seconds);
+                }
+            }
+            let (cm, _) = copy(g).unwrap_or((STILL, 1.0));
+            let m = mul(&group.turn(self.frame).0, &cm);
+            for p in &mut pts {
+                p.point = apply(&m, p.point, false);
+                p.in_handle = apply(&m, p.in_handle, true);
+                p.out_handle = apply(&m, p.out_handle, true);
+            }
+        }
+        pts
+    }
+
     /// The shapes in `scope`, a group or the layer, each copy of a repeating group inside it in
     /// turn, `chosen` holding the copy of each repeating group outside it.
     fn scope(&self, scope: Option<usize>, chosen: &mut [usize], out: &mut Vec<Shape>) {
@@ -739,7 +955,11 @@ impl Walk<'_> {
                     };
                     let s = &self.shapes[i];
                     if let Some((m, o)) = chain_turn(self.groups, s.group, self.frame, copy) {
-                        out.push(s.placed_by(self.frame, s.group.map(|_| (m, o))));
+                        let mut now = s.placed_by(self.frame, s.group.map(|_| (m, o)));
+                        if let Some(seconds) = self.seconds {
+                            now.points = self.operated(i, seconds, copy);
+                        }
+                        out.push(now);
                     }
                 }
                 Some(at) => {

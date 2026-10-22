@@ -57,6 +57,7 @@ pub mod selective_blur;
 pub mod session_log;
 pub mod sha256;
 pub mod shape;
+mod shape_ops;
 pub mod simulate;
 mod soft_glow;
 pub mod text;
