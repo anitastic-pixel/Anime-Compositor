@@ -18699,3 +18699,7 @@ mod key_requests;
 #[cfg(test)]
 #[path = "tests/stretched_values.rs"]
 mod stretched_values;
+/// B-619: the page's lists of shape, mask, group, repeater and path operation names are the core's.
+#[cfg(test)]
+#[path = "tests/name_lists.rs"]
+mod name_lists;
