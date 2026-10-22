@@ -8805,6 +8805,7 @@ const OPERATIONS = {
   wiggle: ['Wiggle Paths', [['size', 0, 10000, ''], ['detail', 0, 100, ''], ['wiggles_per_second', 0, 1000, ''],
     ['correlation', 0, 100, '%'], ['seed', 0, 100000, '']]],
   offset: ['Offset Paths', [['amount', -10000, 10000, ''], ['miter_limit', 1, 100, '']], ['join', ['miter', 'round', 'bevel']]],
+  merge: ['Merge Paths', [], ['mode', ['add', 'merge', 'subtract', 'intersect', 'exclude']]],
 };
 // The operation a `group:<n>:op<k>_<name>` names, and the line about its number in OPERATIONS.
 const opOf = (layer, prop) => {

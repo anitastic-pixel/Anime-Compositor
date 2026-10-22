@@ -2909,7 +2909,8 @@ fn resolve_held(
             // Said per frame, as an undrawable mask is, because that is what marks an export's
             // fidelity incomplete. The warning raised when the file opened is not enough: a
             // picture would otherwise go out with a shape silently missing from it.
-            if s.enabled && !s.has_enough_points() {
+            // A merge that leaves nothing has drawn what it was asked to.
+            if s.enabled && s.outlines.is_none() && !s.has_enough_points() {
                 log.record(
                     frame,
                     layer.name.clone(),

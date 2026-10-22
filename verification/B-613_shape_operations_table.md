@@ -66,7 +66,7 @@ Written by `tests/b613_shape_operations.rs` from `Fixtures/shape_operations/`, a
 | FX-SHPO-004 | drawn as plain shapes of those outlines and paint | the same pixels | the same pixels | yes |
 | FX-SHPO-005 | the groups and their operations, note and blend included | as the reference | as the reference | yes |
 | FX-SHPO-005 | saved, then read again | the same operations | the same operations | yes |
-| FX-SHPO-020 | refused_type.json | refused, PROJECT_SCHEMA_INVALID, naming spin | refused, PROJECT_SCHEMA_INVALID: At /compositions/0/layers/0/groups: expected group "Corners"'s operation 2 to be one of round_corners, pucker_bloat, twist, zig_zag, wiggle, offset, not "spin". | yes |
+| FX-SHPO-020 | refused_type.json | refused, PROJECT_SCHEMA_INVALID, naming spin | refused, PROJECT_SCHEMA_INVALID: At /compositions/0/layers/0/groups: expected group "Corners"'s operation 2 to be one of round_corners, pucker_bloat, twist, zig_zag, wiggle, offset, merge, not "spin". | yes |
 | FX-SHPO-021 | refused_radius.json | refused, PROJECT_SCHEMA_INVALID, naming radius | refused, PROJECT_SCHEMA_INVALID: At /compositions/0/layers/0/groups: expected group "Swirl"'s operation 1 (round_corners) radius from 0 to 100000, not -1. | yes |
 | FX-SHPO-022 | refused_amount_key.json | refused, PROJECT_SCHEMA_INVALID, naming amount | refused, PROJECT_SCHEMA_INVALID: At /compositions/0/layers/0/groups: expected group "Puff"'s operation 1 (pucker_bloat) amount from -100 to 100, not 150. | yes |
 | FX-SHPO-023 | refused_ridges.json | refused, PROJECT_SCHEMA_INVALID, naming ridges | refused, PROJECT_SCHEMA_INVALID: At /compositions/0/layers/0/groups: expected group "Zig"'s operation 1 (zig_zag) ridges from 0 to 100, not 500. | yes |

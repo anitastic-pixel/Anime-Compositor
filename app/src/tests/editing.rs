@@ -13838,3 +13838,59 @@ fn a_group_operates_from_the_window() {
         "round_corners"
     );
 }
+
+/// D-738 (d), B-614: Merge Paths is added from the same list, its mode picked from its own, a mode
+/// it does not have refused, and undo takes it back.
+#[test]
+fn a_group_merges_from_the_window() {
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    run(&viewer, "layer.add_shape");
+    let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let layer = |viewer: &Mutex<Viewer>| shown_layer(viewer, "Shape Layer 1");
+    let square = "points=0,0,0,0,0,0;20,0,0,0,0,0;20,20,0,0,0,0;0,20,0,0,0,0";
+    let other = "points=10,10,0,0,0,0;30,10,0,0,0,0;30,30,0,0,0,0;10,30,0,0,0,0";
+    run(&viewer, &format!("shape.add?layer={id}&{square}"));
+    run(&viewer, &format!("shape.add?layer={id}&{other}"));
+    run(&viewer, &format!("shape.group?layer={id}&shapes=0,1"));
+    run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&add=merge"),
+    );
+    let merge = &layer(&viewer)["groups"][0]["operations"][0];
+    assert_eq!(merge["type"], "merge");
+    assert_eq!(merge["mode"], "add");
+
+    run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&op=0&choice=subtract"),
+    );
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"][0]["mode"],
+        "subtract"
+    );
+    assert!(!run(
+        &viewer,
+        &format!("shape.operation?layer={id}&group=0&op=0&choice=union")
+    )
+    .is_empty());
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"][0]["mode"],
+        "subtract"
+    );
+
+    run(&viewer, "edit.undo");
+    assert_eq!(layer(&viewer)["groups"][0]["operations"][0]["mode"], "add");
+    run(&viewer, "edit.undo");
+    assert_eq!(
+        layer(&viewer)["groups"][0]["operations"]
+            .as_array()
+            .map_or(0, Vec::len),
+        0
+    );
+}

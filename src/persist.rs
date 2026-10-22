@@ -13212,6 +13212,7 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             None => None,
             Some(g) => Some(as_u32(g, &format!("{at}/group"))? as usize),
         },
+        outlines: None,
     };
     match shape.problem() {
         Some(p) => Err(invalid(at, &p)),

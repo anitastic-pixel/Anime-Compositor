@@ -463,6 +463,190 @@ pub fn offset(
         .collect()
 }
 
+/// A merge over more sides than this, all its paths' together, leaves them as they are.
+pub const MOST_SIDES: usize = 20_000;
+
+/// Whether a point is inside outlines by the even-odd rule, `mask::point_inside`'s ray.
+fn inside(outlines: &[Vec<P>], (x, y): P) -> bool {
+    let mut k = false;
+    for c in outlines {
+        let n = c.len();
+        for i in 0..n {
+            let ((x0, y0), (x1, y1)) = (c[i], c[(i + 1) % n]);
+            if (y0 <= y) != (y1 <= y) {
+                let t = (y - y0) / (y1 - y0);
+                if x < x0 + t * (x1 - x0) {
+                    k = !k;
+                }
+            }
+        }
+    }
+    k
+}
+
+/// A point as a map key, -0 and 0 the same as they compare.
+fn key(p: P) -> (u64, u64) {
+    ((p.0 + 0.0).to_bits(), (p.1 + 0.0).to_bits())
+}
+
+/// Merge Paths' add, subtract, intersect and exclude: the outlines of the area in any of
+/// `shapes`, in the first and none of the rest, in all, or in an odd number, each shape's paths
+/// flattened (D-77), an open one closed straight, its area by the even-odd rule. Corners only,
+/// each closed, the area on each side's (-dy, dx) side; `None` over [`MOST_SIDES`] sides.
+/// Worked exactly as `tools/shape_merge_reference.py` writes it down.
+pub fn merge(shapes: &[&[(Vec<MaskPoint>, bool)]], mode: &str) -> Option<Vec<Vec<P>>> {
+    const EPS: f64 = 1e-9;
+    const D: f64 = 1e-6;
+    const BOX: f64 = 1e-6;
+    let regions: Vec<Vec<Vec<P>>> = shapes
+        .iter()
+        .map(|s| {
+            s.iter()
+                .map(|(pts, closed)| crate::mask::flatten(pts, *closed))
+                .collect()
+        })
+        .collect();
+    let mut segs: Vec<(P, P)> = Vec::new();
+    for c in regions.iter().flatten() {
+        for i in 0..c.len() {
+            let (a, b) = (c[i], c[(i + 1) % c.len()]);
+            if a != b {
+                segs.push((a, b));
+            }
+        }
+    }
+    if segs.len() > MOST_SIDES {
+        return None;
+    }
+    let member = |p: P| {
+        let ins: Vec<bool> = regions.iter().map(|r| inside(r, p)).collect();
+        match mode {
+            "add" => ins.iter().any(|&k| k),
+            "subtract" => ins.first() == Some(&true) && !ins[1..].iter().any(|&k| k),
+            "intersect" => ins.iter().all(|&k| k),
+            _ => ins.iter().filter(|&&k| k).count() % 2 == 1,
+        }
+    };
+    let within = |f: f64| EPS < f && f < 1.0 - EPS;
+    let mut cuts: Vec<Vec<(f64, P)>> = segs
+        .iter()
+        .map(|&(a, b)| vec![(0.0, a), (1.0, b)])
+        .collect();
+    let boxes: Vec<[f64; 4]> = segs
+        .iter()
+        .map(|&(a, b)| [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)])
+        .collect();
+    // ponytail: every pair of sides is asked, n² under MOST_SIDES; a sweep if merges grow.
+    for s in 0..segs.len() {
+        let ((px, py), (bx, by)) = segs[s];
+        let (rx, ry) = (bx - px, by - py);
+        for t in s + 1..segs.len() {
+            let (bs, bt) = (boxes[s], boxes[t]);
+            if bt[0] > bs[2] + BOX
+                || bt[2] < bs[0] - BOX
+                || bt[1] > bs[3] + BOX
+                || bt[3] < bs[1] - BOX
+            {
+                continue;
+            }
+            let ((qx, qy), (dx, dy)) = segs[t];
+            let (ux, uy) = (dx - qx, dy - qy);
+            let (wx, wy) = (qx - px, qy - py);
+            let den = rx * uy - ry * ux;
+            if den != 0.0 {
+                let ts = (wx * uy - wy * ux) / den;
+                let tu = (wx * ry - wy * rx) / den;
+                let end = |f: f64| f.abs() <= EPS || (f - 1.0).abs() <= EPS;
+                if within(ts) && within(tu) {
+                    let p = (px + ts * rx, py + ts * ry);
+                    cuts[s].push((ts, p));
+                    cuts[t].push((tu, p));
+                } else if within(ts) && end(tu) {
+                    let e = if tu.abs() <= EPS {
+                        segs[t].0
+                    } else {
+                        segs[t].1
+                    };
+                    cuts[s].push((ts, e));
+                } else if within(tu) && end(ts) {
+                    let e = if ts.abs() <= EPS {
+                        segs[s].0
+                    } else {
+                        segs[s].1
+                    };
+                    cuts[t].push((tu, e));
+                }
+                continue;
+            }
+            let (rr, uu) = (rx * rx + ry * ry, ux * ux + uy * uy);
+            if (wx * ry - wy * rx).abs() > 1e-9 * rr.sqrt() {
+                continue;
+            }
+            for e in [segs[t].0, segs[t].1] {
+                let f = ((e.0 - px) * rx + (e.1 - py) * ry) / rr;
+                if within(f) {
+                    cuts[s].push((f, e));
+                }
+            }
+            for e in [segs[s].0, segs[s].1] {
+                let f = ((e.0 - qx) * ux + (e.1 - qy) * uy) / uu;
+                if within(f) {
+                    cuts[t].push((f, e));
+                }
+            }
+        }
+    }
+    let mut kept: Vec<(P, P)> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for mut cs in cuts {
+        cs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        for w in cs.windows(2) {
+            let (a, b) = (w[0].1, w[1].1);
+            if a == b {
+                continue;
+            }
+            let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+            let length = dx.hypot(dy);
+            let (nx, ny) = (-dy / length, dx / length);
+            let (mx, my) = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+            let left = member((mx + D * nx, my + D * ny));
+            if left == member((mx - D * nx, my - D * ny)) {
+                continue;
+            }
+            let e = if left { (a, b) } else { (b, a) };
+            if seen.insert((key(e.0), key(e.1))) {
+                kept.push(e);
+            }
+        }
+    }
+    let mut starts: std::collections::HashMap<(u64, u64), Vec<usize>> = Default::default();
+    for (i, e) in kept.iter().enumerate() {
+        starts.entry(key(e.0)).or_default().push(i);
+    }
+    let mut used = vec![false; kept.len()];
+    let mut out = Vec::new();
+    for i in 0..kept.len() {
+        if std::mem::replace(&mut used[i], true) {
+            continue;
+        }
+        let (a, mut end) = kept[i];
+        let mut c = vec![a];
+        while end != a {
+            let next = starts
+                .get(&key(end))
+                .and_then(|js| js.iter().copied().find(|&j| !used[j]));
+            c.push(end);
+            let Some(j) = next else { break };
+            used[j] = true;
+            end = kept[j].1;
+        }
+        if c.len() >= 3 {
+            out.push(c);
+        }
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

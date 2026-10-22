@@ -391,9 +391,9 @@ pub const REPEATER_PROPERTIES: [&str; 8] = [
 
 /// D-738 (d): each path operation's type, its numbers with their ranges and After Effects' new
 /// values (`center` is two numbers, the rest one), and its choice with its words, the first
-/// After Effects' new one.
+/// After Effects' new one. `merge` is Merge Paths, worked in [`drawn`] rather than path by path.
 #[allow(clippy::type_complexity)]
-pub const OPERATIONS: [(&str, &[(&str, f64, f64, f64)], Option<(&str, &[&str])>); 6] = [
+pub const OPERATIONS: [(&str, &[(&str, f64, f64, f64)], Option<(&str, &[&str])>); 7] = [
     ("round_corners", &[("radius", 0.0, 100000.0, 10.0)], None),
     ("pucker_bloat", &[("amount", -100.0, 100.0, 0.0)], None),
     (
@@ -428,13 +428,21 @@ pub const OPERATIONS: [(&str, &[(&str, f64, f64, f64)], Option<(&str, &[&str])>)
         ],
         Some(("join", &["miter", "round", "bevel"])),
     ),
+    (
+        "merge",
+        &[],
+        Some((
+            "mode",
+            &["add", "merge", "subtract", "intersect", "exclude"],
+        )),
+    ),
 ];
 
 /// D-738 (d): at most this many operations on one group.
 pub const MOST_OPERATIONS: usize = 8;
 
 /// D-738 (d): one of a group's path operations, as After Effects' Round Corners, Pucker & Bloat,
-/// Twist, Zig Zag, Wiggle Paths or Offset Paths at the foot of a group's contents.
+/// Twist, Zig Zag, Wiggle Paths, Offset Paths or Merge Paths at the foot of a group's contents.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Operation {
     /// Its type, a name in [`OPERATIONS`].
@@ -889,10 +897,74 @@ pub fn drawn(shapes: &[Shape], groups: &[Group], frame: i32, fps: f64) -> Vec<Sh
         frame,
         chains: &chains,
         copies: &copies,
-        seconds: operated.then_some(frame as f64 / fps),
     };
+    if operated {
+        let seconds = frame as f64 / fps;
+        return walk
+            .gather(None, &mut chosen, seconds)
+            .into_iter()
+            .map(Item::into_shape)
+            .collect();
+    }
     walk.scope(None, &mut chosen, &mut out);
     out
+}
+
+/// D-738 (d): a shape on its way through [`Walk::gather`]: its paint placed, its paths in the
+/// space of the group being worked, and whether a merge made it.
+struct Item {
+    shape: Shape,
+    paths: Vec<(Vec<MaskPoint>, bool)>,
+    merged: bool,
+}
+
+impl Item {
+    fn into_shape(self) -> Shape {
+        let mut shape = self.shape;
+        if self.merged {
+            shape.points = Vec::new();
+            shape.outlines = Some(self.paths);
+        } else if let Some((points, _)) = self.paths.into_iter().next() {
+            shape.points = points;
+        }
+        shape
+    }
+}
+
+/// D-738 (d): Merge Paths over every shape a group has drawn so far: one shape painted as the
+/// first, its outlines theirs (`merge`) or those of their areas' sum, difference, overlap or
+/// odd overlap.
+fn merge(items: Vec<Item>, mode: &str) -> Vec<Item> {
+    let Some(first) = items.first() else {
+        return items;
+    };
+    let paths = if mode == "merge" {
+        items
+            .iter()
+            .flat_map(|it| it.paths.iter().cloned())
+            .collect()
+    } else {
+        let shapes: Vec<&[(Vec<MaskPoint>, bool)]> = items.iter().map(|it| &it.paths[..]).collect();
+        let Some(outlines) = crate::shape_ops::merge(&shapes, mode) else {
+            return items;
+        };
+        outlines
+            .into_iter()
+            .map(|c| {
+                (
+                    c.into_iter()
+                        .map(|(x, y)| MaskPoint::corner(x, y))
+                        .collect(),
+                    true,
+                )
+            })
+            .collect()
+    };
+    vec![Item {
+        shape: first.shape.clone(),
+        paths,
+        merged: true,
+    }]
 }
 
 /// D-738 (c): what [`drawn`] works through.
@@ -904,37 +976,85 @@ struct Walk<'a> {
     chains: &'a [Vec<usize>],
     /// Each repeating group's composite and copies.
     copies: &'a [Option<(bool, Vec<Option<(Turn, f64)>>)>],
-    /// D-738 (d): the frame in seconds, where any group has operations.
-    seconds: Option<f64>,
 }
 
 impl Walk<'_> {
-    /// D-738 (d): shape `i`'s path at the frame, changed by each group's operations and then
-    /// placed by its turn and its copy's, its own group first, out to the layer.
-    fn operated(
-        &self,
-        i: usize,
-        seconds: f64,
-        copy: impl Fn(usize) -> Option<(Turn, f64)>,
-    ) -> Vec<MaskPoint> {
-        let s = &self.shapes[i];
-        let mut pts = s.points_at(self.frame);
-        for &g in &self.chains[i] {
-            let group = &self.groups[g];
-            for o in &group.operations {
-                if pts.len() <= crate::shape_ops::LIMIT {
-                    pts = o.apply(pts, s.closed, self.frame, seconds);
+    /// Group `g`'s copy `chosen` holds, its turn and opacity; `None` for one not drawn.
+    fn copy(&self, g: usize, chosen: &[usize]) -> Option<(Turn, f64)> {
+        match &self.copies[g] {
+            None => Some((STILL, 1.0)),
+            Some((_, list)) => list.get(chosen[g]).copied().flatten(),
+        }
+    }
+
+    /// D-738 (d): [`Walk::scope`]'s shapes, each group's operations, its merges included,
+    /// worked on what it has drawn before its repeater's copy and its transform place it, `scope`'s
+    /// own included. Paint is placed whole, as [`Walk::scope`] places it.
+    fn gather(&self, scope: Option<usize>, chosen: &mut [usize], seconds: f64) -> Vec<Item> {
+        let mut items = Vec::new();
+        let mut done = vec![false; self.groups.len()];
+        for (i, chain) in self.chains.iter().enumerate() {
+            let at = match scope {
+                None => Some(chain.len()),
+                Some(g) => chain.iter().position(|&c| c == g),
+            };
+            match at {
+                None => {}
+                Some(0) => {
+                    let s = &self.shapes[i];
+                    let copy = |g: usize| self.copy(g, chosen);
+                    if let Some((m, o)) = chain_turn(self.groups, s.group, self.frame, copy) {
+                        items.push(Item {
+                            shape: s.placed_by(self.frame, s.group.map(|_| (m, o))),
+                            paths: vec![(s.points_at(self.frame), s.closed)],
+                            merged: false,
+                        });
+                    }
+                }
+                Some(at) => {
+                    let g = chain[at - 1];
+                    if std::mem::replace(&mut done[g], true) {
+                        continue;
+                    }
+                    let Some((above, list)) = &self.copies[g] else {
+                        items.extend(self.gather(Some(g), chosen, seconds));
+                        continue;
+                    };
+                    let (above, n) = (*above, list.len());
+                    for c in 0..n {
+                        chosen[g] = if above { c } else { n - 1 - c };
+                        items.extend(self.gather(Some(g), chosen, seconds));
+                    }
                 }
             }
-            let (cm, _) = copy(g).unwrap_or((STILL, 1.0));
-            let m = mul(&group.turn(self.frame).0, &cm);
-            for p in &mut pts {
-                p.point = apply(&m, p.point, false);
-                p.in_handle = apply(&m, p.in_handle, true);
-                p.out_handle = apply(&m, p.out_handle, true);
+        }
+        let Some(g) = scope else {
+            return items;
+        };
+        let group = &self.groups[g];
+        for o in &group.operations {
+            if o.kind == "merge" {
+                items = merge(items, o.choice.as_deref().unwrap_or("add"));
+                continue;
+            }
+            for (pts, closed) in items.iter_mut().flat_map(|it| &mut it.paths) {
+                if pts.len() <= crate::shape_ops::LIMIT {
+                    *pts = o.apply(std::mem::take(pts), *closed, self.frame, seconds);
+                }
             }
         }
-        pts
+        let (cm, _) = self.copy(g, chosen).unwrap_or((STILL, 1.0));
+        let m = mul(&group.turn(self.frame).0, &cm);
+        for p in items
+            .iter_mut()
+            .flat_map(|it| &mut it.paths)
+            .flat_map(|(pts, _)| pts)
+        {
+            p.point = apply(&m, p.point, false);
+            p.in_handle = apply(&m, p.in_handle, true);
+            p.out_handle = apply(&m, p.out_handle, true);
+        }
+        items
     }
 
     /// The shapes in `scope`, a group or the layer, each copy of a repeating group inside it in
@@ -949,17 +1069,10 @@ impl Walk<'_> {
             match at {
                 None => {}
                 Some(0) => {
-                    let copy = |g: usize| match &self.copies[g] {
-                        None => Some((STILL, 1.0)),
-                        Some((_, list)) => list.get(chosen[g]).copied().flatten(),
-                    };
                     let s = &self.shapes[i];
+                    let copy = |g: usize| self.copy(g, chosen);
                     if let Some((m, o)) = chain_turn(self.groups, s.group, self.frame, copy) {
-                        let mut now = s.placed_by(self.frame, s.group.map(|_| (m, o)));
-                        if let Some(seconds) = self.seconds {
-                            now.points = self.operated(i, seconds, copy);
-                        }
-                        out.push(now);
+                        out.push(s.placed_by(self.frame, s.group.map(|_| (m, o))));
                     }
                 }
                 Some(at) => {
@@ -1262,6 +1375,9 @@ pub struct Shape {
     pub parametric: Option<Parametric>,
     /// D-738 (b): the place in the layer's groups of the group this shape is in.
     pub group: Option<usize>,
+    /// D-738 (d): a shape Merge Paths made, drawn from these outlines, each open or closed, in
+    /// place of `points`. Only [`drawn`] gives one; never saved.
+    pub outlines: Option<Vec<(Vec<MaskPoint>, bool)>>,
 }
 
 impl Default for Shape {
@@ -1279,6 +1395,7 @@ impl Default for Shape {
             record: Default::default(),
             parametric: None,
             group: None,
+            outlines: None,
         }
     }
 }
@@ -1476,7 +1593,7 @@ impl Shape {
 
     /// Whether this shape puts anything into the layer's picture.
     pub fn is_renderable(&self) -> bool {
-        self.enabled && self.has_enough_points()
+        self.enabled && (self.outlines.is_some() || self.has_enough_points())
     }
 
     /// What is outside D-78's ranges, as a sentence, or `None` for a shape that may exist.
@@ -1720,13 +1837,39 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
         if !shape.is_renderable() {
             continue;
         }
-        let outline = shape.outline();
+        // D-738 (d): a merged shape's outlines, each flattened as one shape's path is.
+        let outlines: Vec<(Vec<(f64, f64)>, bool)> = match &shape.outlines {
+            Some(o) => o
+                .iter()
+                .map(|(p, closed)| (crate::mask::flatten(p, *closed), *closed))
+                .collect(),
+            None => vec![(shape.outline(), shape.closed)],
+        };
         // The fill first, then the stroke over this shape's own fill. D-78 fixes that order, and
         // it is why FX-SHP-008's shared columns carry the stroke and not a mixture.
         if let Some(fill) = &shape.fill {
             // An open path is closed for the purpose of filling it, by a straight line from its
             // last point to its first: the even-odd ray already wraps, so nothing is added here.
-            let f = crate::mask::scanline_field(&outline, width, height, 0);
+            // Several outlines are filled as one ring: each closed, then a step back to the first
+            // one's first point, so every step out to the next is walked there and back and
+            // crosses nothing.
+            let ring;
+            let outline: &[(f64, f64)] = match &outlines[..] {
+                [(one, _)] => one,
+                many => {
+                    let home = many.iter().find_map(|(l, _)| l.first().copied());
+                    let mut steps = Vec::new();
+                    for (l, _) in many {
+                        if let (Some(&start), Some(home)) = (l.first(), home) {
+                            steps.extend_from_slice(l);
+                            steps.extend([start, home]);
+                        }
+                    }
+                    ring = steps;
+                    &ring
+                }
+            };
+            let f = crate::mask::scanline_field(outline, width, height, 0);
             paint(
                 data,
                 &f,
@@ -1737,14 +1880,13 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
             );
         }
         if let Some(stroke) = &shape.stroke {
-            let lines: Vec<(Vec<(f64, f64)>, bool)> = match shape
-                .trim
-                .as_ref()
-                .and_then(|t| t.lines(&outline, shape.closed))
-            {
-                Some(stretch) => stretch.into_iter().map(|l| (l, false)).collect(),
-                None => vec![(outline.clone(), shape.closed)],
-            };
+            let mut lines: Vec<(Vec<(f64, f64)>, bool)> = Vec::new();
+            for (outline, closed) in &outlines {
+                match shape.trim.as_ref().and_then(|t| t.lines(outline, *closed)) {
+                    Some(stretch) => lines.extend(stretch.into_iter().map(|l| (l, false))),
+                    None => lines.push((outline.clone(), *closed)),
+                }
+            }
             let r = stroke.width_px / 2.0;
             let f = if stroke.join == Join::Round && stroke.cap == Cap::Round {
                 // D-78's coverage, unchanged.

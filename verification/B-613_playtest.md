@@ -46,7 +46,7 @@ Fixture check `tests/b613_shape_operations.rs`: 73 of 73 (see `B-613_shape_opera
 
 ## How this differs from After Effects
 
-- Merge Paths is not here yet. It comes in its own build, B-614.
+- Merge Paths came in its own build, B-614 (see `B-614_playtest.md`).
 - An operation belongs to a group and changes everything in the group. To change only part of a group, group that part.
 - Offset Paths gives straight sides only. On a curve it makes many short sides, close enough not to show. Where shrinking folds a shape over itself, the fold is filled in alternation.
 - Wiggle Paths moves smoothly at random from its seed, but not with After Effects' own random numbers, so the same seed wiggles differently. It has no smooth/corner points and no temporal or spatial phase.
