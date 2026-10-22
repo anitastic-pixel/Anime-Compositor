@@ -164738,6 +164738,21 @@ The build's test must read each project, move the layer with `layer.shift`, and 
 | FX-LSHIFT-017 | `shape_merge/host.json` | shapes | 10 | 4 | shapes/parametric/position, shapes/parametric/size |
 | FX-LSHIFT-018 | `layer_shift/host.json` | shapes | 5 | 18 | depth, shapes/fill/gradient/end, shapes/fill/gradient/start, shapes/stroke/gradient/end, shapes/stroke/gradient/start, transform/anchor, transform/opacity, transform/rotation, transform/scale |
 
+## Stretched value fixtures
+
+D-742, accepted on 2026-10-22, built as B-617. `tools/stretched_values_reference.py` writes `Fixtures/stretched_values/`. `host.json` holds one composition, `comp-main`, with one composition layer, `nest`, starting at frame 4, ending before 44 and stretched to 200 percent, over a nested composition of one solid. Its position, rotation and depth, its mask's path and feather and its Fractal Noise's Brightness and Offset are keyed at 4 and 24, every key linear. `expected_stretched_values.json` holds six cases, each a frame, its key time and the value of each box there under the name and in the form the window gives it: an effect setting as a list of its numbers, the mask's path under `masks` as six numbers a point (point, in handle, out handle).
+
+The build's test must open `host.json`, ask the window for its boxes on each case's frame, and find each value within 1e-9.
+
+| Case | Frame | Key time | Position | Rotation | Depth | Feather | Brightness | Offset |
+|---|---|---|---|---|---|---|---|---|
+| FX-SVAL-001 | 2 | 3 | 60, 60 | 0 | 0 | 0 | -80 | 0, 0 |
+| FX-SVAL-002 | 4 | 4 | 60, 60 | 0 | 0 | 0 | -80 | 0, 0 |
+| FX-SVAL-003 | 11 | 7.5 | 74, 67 | 15.75 | -17.5 | 7 | -66 | 17.5, -8.75 |
+| FX-SVAL-004 | 14 | 9 | 80, 70 | 22.5 | -25 | 10 | -60 | 25, -12.5 |
+| FX-SVAL-005 | 24 | 14 | 100, 80 | 45 | -50 | 20 | -40 | 50, -25 |
+| FX-SVAL-006 | 43 | 23.5 | 138, 99 | 87.75 | -97.5 | 39 | -2 | 97.5, -48.75 |
+
 ## Key request fixtures
 
 D-741, accepted on 2026-10-22, built as B-616. `tools/key_requests_reference.py` writes `Fixtures/key_requests/`. `expected_key_requests.json` holds 16 cases. Each names a project in `Fixtures/`, a layer, a request (`move` by a number of frames, `delete`, `reverse`) and the keys chosen, as `property|frame`; says whether it is refused; lists every key the layer holds afterwards, as it was when refused, as `[where, frame, value, interp, ease]`, `where` its record's path from the layer, in order of `where` and frame; and lists in `bases` each number left with no keys and its value. `host.json` is `projects/keyed_settings_project.json` with its mask copied as a second, subtract mask moved 40 right and 300 down, so one layer holds two keyed paths.
