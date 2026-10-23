@@ -11,39 +11,52 @@ Contrast, Brightness, Clip HDR Results and Channel. Adobe publishes no formula; 
 below are this program's own rule, built on P0-19's value noise (`grade::value`, D-127, D-128),
 and nothing is ported.
 
+D-749 replaces D-446's look (and D-680's walk) with one fitted to After Effects' own pictures in
+five tutorials (the audit's rows 8, 13 and 14): a smooth value noise carried along the curl's
+flow lines, so the texture is large, soft marbling that grows with Size and Scale and whose
+swirls grow with Sample Radius; Flow Softness the After Effects way round (higher is crisper);
+and Speed and Turbulence Speed added up frame by frame, so a keyed speed moves the noise on
+from where it is instead of jumping.
+
 The rule, at a point p of the drawing's own pixels (its top-left corner (0, 0), however far an
 effect above grew the buffer):
 
-1. The field's size is s = size 2^(-density / 50); it drifts speed / 10 pixels a frame towards
-   Direction (0 up, 90 right), so p' = p - offset - drift frame. Its depth is
-   z = (evolution + turbulence_speed frame / 10) / 360.
-2. The noise N: four octaves of P0-19's smooth value noise for seed 0, octave o at
-   (p' / s 2^o, z 2^o) on channel 8 o, weighted 1, r, r^2, r^3 with r = 0.7 - 0.4 smoothness / 100,
-   over the sum of the weights; and its slope, worked exactly from the smoothing curve's own
-   slope 30 t^2 (1 - t)^2, over all eight corners of each cell.
-3. The flow: the slope turned by -90 degrees + swirl N degrees (at Swirl 0 exactly the curl,
-   which never gathers or spreads), then its across part times min(1, 2 (1 - b)) and its down part
-   times min(1, 2 b), b = vertical_bias / 100, and divided by the larger of its length and 1 / s
-   (D-680): one long where the slope is at least one per noise size, shorter where it is weaker,
-   nought where it is nought. With a picture (S4) the same 1 / s, s from Size and Density.
-4. The seed: P0-19's value noise on channel 7 at (p' / (s / 50), z), blocks and smooth mixed by
-   edge_definition / 100 (1 all blocks).
-5. These four numbers, the flow's two, N and the seed, are worked for every pixel of the buffer
-   and M = ceil(sample_radius) + 2 round it, kept in single precision, as the card keeps them.
-6. Final Render: from the pixel's middle the flow is followed both ways, n = floor(sample_count)
-   steps, step i moving h = sample_radius / n times the flow read at its start (D-680: not made
-   one long, so the walk slows where the flow is weak), reading the four numbers between pixels
-   as `render::sample_bilinear` does, until the flow is under 1e-6 long. Each step is read at
-   u = max(1, ceil(h)) evenly spaced points (its j-th at j / u of the step), the last giving the
-   next step's flow; the seed is averaged with weight 1 at the middle and 1 - (i - 1 + j / u) /
-   (n + 1) at each point read. The brightening G = 1 + (W / sqrt(Q) - 1) min(1, D / (2
-   sample_radius)), W and Q the sum and the squares' sum of 1 and 1 - i / (n + 1) over the steps
-   taken, D the distance walked both ways (h times the flow's length, summed); L is the average
-   times G. With f = flow_softness / 100, the lines are
-   N + (1 - f) min(1, sample_radius / 8) (L - N), then times 1 - flow_falloff / 100 (0.5 - 0.5 N),
-   and the grey is 0.5 + 0.5 times that.
-   Input Noise: the grey is 0.5 + 0.5 N. Curl Generation: red 0.5 + 0.5 the flow across, green
-   0.5 + 0.5 the flow down, the flow made one long (D-680), blue 0.5 + 0.5 N.
+1. Travel: the drift and the depth add up the frames before this one. At frame F the drift is
+   the sum over the frames f from 0 to F - 1 of speed(f) / 10 pixels towards direction(f) (0 up,
+   90 right), times 24 / the composition's frames a second, and the depth's travel the same sum
+   of turbulence_speed(f) / 10 (a frame before 0 counts back). With Speed not keyed the drift is
+   speed F / 10 at 24 frames a second, as before D-749.
+2. The point: with c the drawing's middle, theta = rotation, m = 100 / scale, d = p - (offset +
+   drift) - c, the noise is read at q = c + m (d_x cos + d_y sin, -d_x sin + d_y cos). With
+   Perspective Offset on, octave o of the value noise (step 4) is read at q + (1 - 0.5^o) T(offset
+   + drift), T the same turn and scale without c.
+3. The flow: the noise sizes are s = 2 size 2^(-density / 50) pixels for the flow and 1.6 s for
+   the value. With b = vertical_bias / 100, the flow is stretched by a_x = 1 + max(0, 1 - 2 b)
+   across and a_y = 1 + max(0, 2 b - 1) down. The potential psi is P0-19's smooth value noise,
+   one octave, two lattices: lattice A on channel 0 at (X, Y) = (q_x / (s a_x), q_y / (s a_y), z),
+   z = (evolution + the depth's travel) / 360; lattice B on channel 4 at (X cos 0.7 - Y sin 0.7
+   + 0.37, X sin 0.7 + Y cos 0.7 + 0.61, z); their sum over sqrt 2. Its slope (psi_X, psi_Y) is
+   worked exactly over all eight corners of each cell, lattice B's turned back by -0.7. The flow
+   is w = sigma (psi_Y / a_y, -psi_X / a_x), sigma = swirl / 180; it moves the point s w pixels
+   per unit of trace time. It is the curl of a stretched noise, so it never gathers or spreads.
+4. The value V: four octaves of the same two-lattice noise (channels 8 o and 8 o + 4), octave o
+   at (q_x / (1.6 s g_x) 2^o, q_y / (1.6 s g_y) 2^o, z 2^o), g_x = 1 + 0.6 max(0, 1 - 2 b),
+   g_y = 1 + 0.6 max(0, 2 b - 1), weighted 1, r, r^2, r^3 with r = 0.4 (1 - smoothness / 100),
+   over the sum of the weights.
+5. The trace: from q, the flow is followed backwards for tau = 0.045 sample_radius units of
+   trace time, in n = floor(sample_count) equal parts; each part in k = max(1, ceil(tau / n /
+   0.1)) steps of h = tau / n / k, each step the midpoint rule (w1 at the point, w2 at the point
+   less h / 2 s w1, the point less h s w2). V is read at q (V0) and at the end of each part:
+   n + 1 values, their mean M and the last E. With tau 0 or Swirl 0 the point does not move.
+6. The grey: with crisp = (flow_softness / 100)^0.37 and the gain C = 2 2^((edge_definition -
+   50) / 50), out = crisp E + (1 - crisp) M, and Final Render's grey is
+   0.5 + 0.5 C out (1 - flow_falloff / 100 (0.5 - 0.5 V0)). Input Noise: 0.5 + 0.5 C V0, so
+   Sample Radius 0 is Input Noise. Curl Generation: red 0.5 + 0.5 the flow across, green
+   0.5 + 0.5 the flow down, the flow w at q made one long and brought back to the picture's
+   directions (divided by m, then turned by theta), nought where it is nought; blue
+   0.5 + 0.5 C V0.
+   The four numbers, the direction's two, C V0 and the grey, are kept in single precision, as
+   the card keeps them.
 7. Each channel o becomes 0.5 + (o - 0.5) contrast / 100 + brightness / 100, held at 0, and at 1
    too unless Clip HDR Results is off in a composition that works in Float.
 8. Channel RGB: the colour, through the sRGB curve, replaces the pixel's at its covering; Red,
@@ -52,7 +65,7 @@ effect above grew the buffer):
 
 A pixel that does not show is left.
 
-D-583, Source This Layer or Other Layer: steps 2's noise and slope come from a picture instead.
+D-583, Source This Layer or Other Layer: steps 3 and 4's noise comes from a picture instead.
 
 S1. The picture: This Layer, the layer's pixels as they reach the effect (the whole buffer, so
     what an effect above grew is in it); Other Layer, D-189's map of the layer `source_layer`
@@ -64,14 +77,19 @@ S2. Its lightness plane: each pixel's luminance (`grade::phase_of`: Rec. 709 wei
     straight linear colour, through the sRGB curve) times its covering, so an empty pixel is 0,
     kept in single precision. With Softness above 0 the plane is blurred by D-109's Gaussian with
     the edges held, sigma softness / 10 pixels, its sums in single precision.
-S3. At the point p, after the slide of step 1 (p' = p - offset - drift frame), the plane is read
-    at p' on the picture (This Layer: p' plus the buffer corner's distance from the drawing's),
-    pixel centres at halves, between pixels as document 21's bilinear does; outside the plane
-    0, or with Mirror at Edge on, the pixel mirrored back in (... 1 0 | 0 1 ... w-1 | w-1 ...).
-    The picture is read at its own size: Size and Density set only the seed's blocks (step 4).
-S4. N = 2 L(p') - 1, and the slope is L one pixel right less L one pixel left, across, and the
-    same down; a slope under 1e-5 long is nought. Smoothness and the depth do not touch N;
-    Evolution and Turbulence Speed still move the seed. Steps 3 to 8 are unchanged.
+S3. The point is q = p - (offset + drift), unturned and unscaled; the plane L is read at q on the
+    picture (This Layer: q plus the buffer corner's distance from the drawing's), pixel centres
+    at halves, between pixels as document 21's bilinear does; outside the plane 0, or with Mirror
+    at Edge on, the pixel mirrored back in (... 1 0 | 0 1 ... w-1 | w-1 ...).
+S4. V = 2 L - 1 wherever the trace reads it, and the flow is w = sigma (s g_y / 2, -s g_x / 2),
+    g_x L one pixel right less L one pixel left and g_y the same down (nought where (g_x, g_y)
+    is under 1e-5 long), made 1 / 9 long where it is longer, s from Size and Density, so the
+    point moves at most s / 9 pixels per unit of trace time (Sample Radius pixels in all at Size
+    100, Density 0). The trace's parts (step 5) are each in k = max(1, ceil(tau / n / 0.1),
+    ceil(tau / n s / 9)) steps, so no step moves the point more than a pixel and a flow line
+    keeps to the picture's own edges. Rotation, Scale, Perspective Offset, Smoothness, Vertical
+    Bias, Evolution and Turbulence Speed do nothing with a picture. Steps 5 to 8 are otherwise
+    unchanged.
 
 Settings: `source` `internal` (when added), `this_layer` or `other_layer`; `source_layer`
 D-189's layer word, "" (when added); `softness` 0 to 100, 0; `source_mapping` `fill` (when
@@ -85,7 +103,8 @@ to 100, 10 when added; `direction` -100000 to 100000 degrees, 0; `size` 1 to 100
 50; `flow_falloff` 0 to 100, 0; `view` `final_render` (when added), `input_noise` or
 `curl_generation`; `contrast` 0 to 1000, 100; `brightness` -1000 to 1000, 0; `clip_hdr_results`
 `on` (when added) or `off`; `channel` `rgb` (when added), `red`, `green`, `blue` or `alpha`.
-Every number can be keyed.
+D-646's Transform (`tools/curl_transform_reference.py`): `rotation`, `scale` and
+`perspective_offset`, written only when not as added. Every number can be keyed.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, keeping the single-precision steps the rule names.
@@ -96,13 +115,8 @@ expected frames are in `Fixtures/curl_noise/expected_curl_noise.json`.
 
 D-583 (D-566): FX-CURL-033 recorded This Layer refused while it was not built and is now a
 working This Layer case; FX-CURL-034 stays refused, now for naming no layer, its frames unchanged.
-033 was first written with the settings as they start (flow lines 30 long, 12 samples). The build
-missed it at one pixel, (6, 7), by 9.9e-5 against 2e-5: the build holds the drawing's decoded
-pixels in single precision from its own power, this file in double, so a few lightness values
-differ in the last bit, and 30-pixel flow lines crossing the card's sharp edges magnify that
-about a thousand times. Before any code was committed against it, 033 took the small cells and
-lines the other D-583 cases use (the coordinator's ruling, 2026-10-12); the settings as they
-start are compared card against processor on the reference shot by B-461 instead.
+033 takes the small cells and lines the other D-583 cases use (the coordinator's ruling,
+2026-10-12): flow lines crossing the card's sharp edges magnify the last bit of a lightness value.
 
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
@@ -127,6 +141,7 @@ from motion_tile_reference import motion_tile  # noqa: E402
 from noise_reference import DRAWINGS, u  # noqa: E402
 
 W, H = R.W, R.H
+FPS = 24  # every case's composition
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "curl_noise"
 TOLERANCE = 2e-5  # document 25's default for a filter
 RANGES = {"speed": (0, 100), "direction": (-100000, 100000), "size": (1, 1000),
@@ -135,16 +150,19 @@ RANGES = {"speed": (0, 100), "direction": (-100000, 100000), "size": (1, 1000),
           "smoothness": (0, 100), "vertical_bias": (0, 100), "sample_count": (3, 24),
           "sample_radius": (0, 200), "flow_softness": (0, 100), "edge_definition": (0, 100),
           "flow_falloff": (0, 100), "contrast": (0, 1000), "brightness": (-1000, 1000),
-          "softness": (0, 100)}
+          "softness": (0, 100), "rotation": (-100000, 100000), "scale": (1, 10000)}
 WORDS = ("source", "view", "clip_hdr_results", "channel")
 # D-583: written only when not as added (D-304), so the files before it are unchanged.
 SOURCE_KEYS = {"source_layer": "", "softness": 0, "source_mapping": "fill",
                "mirror_at_edge": "off"}
+# D-646's Transform, the same.
+TRANSFORM_KEYS = {"rotation": 0, "scale": 100, "perspective_offset": "off"}
 NAMES = ("source", "speed", "direction", "size", "offset", "evolution", "turbulence_speed",
          "swirl", "density", "smoothness", "vertical_bias", "sample_count", "sample_radius",
          "flow_softness", "edge_definition", "flow_falloff", "view", "contrast", "brightness",
          "clip_hdr_results", "channel")
 CHANNELS = ("rgb", "red", "green", "blue", "alpha")
+TURN = (math.cos(0.7), math.sin(0.7))
 
 
 def f32(v):
@@ -159,21 +177,6 @@ def fade(t):
 
 def slope(t):
     return 30 * t * t * (1 - t) * (1 - t)
-
-
-def value(ch, x, y, z, block):
-    """grade::value for seed 0, a corner that weighs nothing skipped."""
-    i, j, k = math.floor(x), math.floor(y), math.floor(z)
-    s = [0.0, 0.0, fade(z - k)] if block else [fade(x - i), fade(y - j), fade(z - k)]
-    v = 0.0
-    for corner in range(8):
-        d = [corner & 1, (corner >> 1) & 1, corner >> 2]
-        w = 1.0
-        for a in range(3):
-            w *= s[a] if d[a] == 1 else 1 - s[a]
-        if w != 0:
-            v += w * u(0, i + d[0], j + d[1], k + d[2], ch)
-    return v
 
 
 def value_slope(ch, x, y, z):
@@ -195,16 +198,59 @@ def value_slope(ch, x, y, z):
     return v, gx, gy
 
 
-def setup(n, frame_no):
-    s = n["size"] * 2 ** (-n["density"] / 50)
-    t = math.radians(n["direction"])
-    drift = (math.sin(t) * n["speed"] / 10, -math.cos(t) * n["speed"] / 10)
-    z = (n["evolution"] + n["turbulence_speed"] * frame_no / 10) / 360
-    r = 0.7 - 0.4 * n["smoothness"] / 100
+def two(ch, x, y, z):
+    """Steps 3 and 4's two lattices: the value and its slope across and down."""
+    c, s = TURN
+    a = value_slope(ch, x, y, z)
+    b = value_slope(ch + 4, x * c - y * s + 0.37, x * s + y * c + 0.61, z)
+    q = 1 / math.sqrt(2)
+    return ((a[0] + b[0]) * q, (a[1] + b[1] * c + b[2] * s) * q, (a[2] - b[1] * s + b[2] * c) * q)
+
+
+def travel(c, frame_no):
+    """Step 1: the drift and the depth's travel at the frame, added up over the frames before."""
+    dx = dy = dz = 0.0
+    way = 1 if frame_no >= 0 else -1
+    for f in (range(frame_no) if way == 1 else range(frame_no, 0)):
+        sp, t = held(c, "speed", f), math.radians(held(c, "direction", f))
+        dx += way * math.sin(t) * sp / 10 * 24 / FPS
+        dy += way * -math.cos(t) * sp / 10 * 24 / FPS
+        dz += way * held(c, "turbulence_speed", f) / 10 * 24 / FPS
+    return dx, dy, dz
+
+
+def setup(n, moved):
+    s = 2 * n["size"] * 2 ** (-n["density"] / 50)
     b = n["vertical_bias"] / 100
-    return {"s": s, "shift": (n["offset"][0] + drift[0] * frame_no, n["offset"][1] + drift[1] * frame_no),
-            "z": z, "amps": [1, r, r * r, r * r * r], "bias": (min(1.0, 2 * (1 - b)), min(1.0, 2 * b)),
-            "edge": n["edge_definition"] / 100}
+    shift = (n["offset"][0] + moved[0], n["offset"][1] + moved[1])
+    mx = my = 100 / n["scale"]
+    t = math.radians(n["rotation"])
+    turn = None if n["rotation"] == 0 and mx == 1 and my == 1 else (math.cos(t), math.sin(t), mx, my)
+    k = {"s": s, "shift": shift, "z": (n["evolution"] + moved[2]) / 360, "turn": turn,
+         "a": (1 + max(0.0, 1 - 2 * b), 1 + max(0.0, 2 * b - 1)),
+         "g": (1 + 0.6 * max(0.0, 1 - 2 * b), 1 + 0.6 * max(0.0, 2 * b - 1)),
+         "r": 0.4 * (1 - n["smoothness"] / 100), "sigma": n["swirl"] / 180,
+         "tau": 0.045 * n["sample_radius"], "steps": math.floor(n["sample_count"]),
+         "crisp": (n["flow_softness"] / 100) ** 0.37,
+         "gain": 2 * 2 ** ((n["edge_definition"] - 50) / 50), "ff": n["flow_falloff"] / 100}
+    sx, sy = (lin(k, *shift) if n["perspective_offset"] == "on" else (0.0, 0.0))
+    k["slide"] = [((1 - 0.5 ** o) * sx, (1 - 0.5 ** o) * sy) for o in range(4)]
+    return k
+
+
+def lin(k, x, y):
+    """T: the turn and scale without the middle."""
+    if k["turn"] is None:
+        return x, y
+    c, s, mx, my = k["turn"]
+    return (x * c + y * s) * mx, (-x * s + y * c) * my
+
+
+def point(k, px, py):
+    """Step 2's q."""
+    cx, cy = W / 2, H / 2
+    dx, dy = lin(k, px - k["shift"][0] - cx, py - k["shift"][1] - cy)
+    return cx + dx, cy + dy
 
 
 def plane_at(src, x, y):
@@ -228,65 +274,77 @@ def plane_at(src, x, y):
     return (1 - uy) * top + uy * bottom
 
 
-def field_at(k, swirl, px, py, src=None):
-    """The four numbers at the drawing's point (px, py), kept in single precision. D-583: with
-    a picture `src`, N and its slope are the picture's (steps S3 and S4)."""
-    x, y = px - k["shift"][0], py - k["shift"][1]
-    s = k["s"]
+def capped(wx, wy, most):
+    ln = math.hypot(wx, wy)
+    return (wx * most / ln, wy * most / ln) if ln > most else (wx, wy)
+
+
+def flow(k, qx, qy, src):
+    """Step 3's w (S4's with a picture)."""
     if src is None:
-        nv = gx = gy = total = 0.0
-        fine = 1.0
-        for o in range(4):
-            v, a, b = value_slope(8 * o, x / s * fine, y / s * fine, k["z"] * fine)
-            amp = k["amps"][o]
-            nv += amp * v
-            gx += amp * fine * a
-            gy += amp * fine * b
-            total += amp
-            fine *= 2
-        nv, gx, gy = nv / total, gx / total / s, gy / total / s
-    else:
-        bx, by = x + src["origin"][0], y + src["origin"][1]
-        nv = 2 * plane_at(src, bx, by) - 1
-        gx = plane_at(src, bx + 1, by) - plane_at(src, bx - 1, by)
-        gy = plane_at(src, bx, by + 1) - plane_at(src, bx, by - 1)
-        if math.hypot(gx, gy) < 1e-5:
-            gx = gy = 0.0
-    t = math.radians(-90 + swirl * nv)
-    c, sn = math.cos(t), math.sin(t)
-    vx = (c * gx - sn * gy) * k["bias"][0]
-    vy = (sn * gx + c * gy) * k["bias"][1]
-    length = max(math.hypot(vx, vy), 1 / s)
-    d = (vx / length, vy / length)
-    cell, e = s / 50, k["edge"]
-    sx, sy = x / cell, y / cell
-    if e == 1:
-        seed = value(7, sx, sy, k["z"], True)
-    elif e == 0:
-        seed = value(7, sx, sy, k["z"], False)
-    else:
-        seed = e * value(7, sx, sy, k["z"], True) + (1 - e) * value(7, sx, sy, k["z"], False)
-    return [f32(d[0]), f32(d[1]), f32(nv), f32(seed)]
+        ax, ay = k["a"]
+        _, gx, gy = two(0, qx / (k["s"] * ax), qy / (k["s"] * ay), k["z"])
+        return k["sigma"] * gy / ay, -k["sigma"] * gx / ax
+    bx, by = qx + src["origin"][0], qy + src["origin"][1]
+    gx = plane_at(src, bx + 1, by) - plane_at(src, bx - 1, by)
+    gy = plane_at(src, bx, by + 1) - plane_at(src, bx, by - 1)
+    if math.hypot(gx, gy) < 1e-5:
+        return 0.0, 0.0
+    return capped(k["sigma"] * k["s"] * gy / 2, -k["sigma"] * k["s"] * gx / 2, 1 / 9)
 
 
-def bilinear(get, gw, gh, x, y):
-    """render::sample_bilinear on the field, its weights and sums in single precision."""
-    fx, fy = x - 0.5, y - 0.5
-    x0, y0 = math.floor(fx), math.floor(fy)
-    ux, uy = fx - x0, fy - y0
-    out = [0.0] * 4
-    for dy, wy in ((0, 1 - uy), (1, uy)):
-        sy = y0 + dy
-        if wy == 0 or sy < 0 or sy >= gh:
-            continue
-        for dx, wx in ((0, 1 - ux), (1, ux)):
-            sx = x0 + dx
-            if wx == 0 or sx < 0 or sx >= gw:
-                continue
-            weight = f32(wx * wy)
-            p = get(sx, sy)
-            out = [f32(out[c] + f32(p[c] * weight)) for c in range(4)]
-    return out
+def value(k, qx, qy, src):
+    """Step 4's V (S4's with a picture)."""
+    if src is not None:
+        return 2 * plane_at(src, qx + src["origin"][0], qy + src["origin"][1]) - 1
+    gx, gy = k["g"]
+    v = total = 0.0
+    amp, fine = 1.0, 1.0
+    for o in range(4):
+        x = (qx + k["slide"][o][0]) / (1.6 * k["s"] * gx) * fine
+        y = (qy + k["slide"][o][1]) / (1.6 * k["s"] * gy) * fine
+        v += amp * two(8 * o, x, y, k["z"] * fine)[0]
+        total += amp
+        amp *= k["r"]
+        fine *= 2
+    return v / total
+
+
+def curl_at(k, px, py, src=None):
+    """Steps 2 to 6 at the drawing's point (px, py): the direction's two, C V0 and the grey, in
+    single precision."""
+    if src is None:
+        qx, qy = point(k, px, py)
+    else:
+        qx, qy = px - k["shift"][0], py - k["shift"][1]
+    v0 = value(k, qx, qy, src)
+    wx, wy = flow(k, qx, qy, src)
+    end, total = v0, v0
+    if k["tau"] > 0 and k["sigma"] != 0:
+        d = k["tau"] / k["steps"]
+        parts = max(1, math.ceil(d / 0.1))
+        if src is not None:
+            parts = max(parts, math.ceil(d * k["s"] / 9))
+        h, s = d / parts, k["s"]
+        for _ in range(k["steps"]):
+            for _ in range(parts):
+                ax, ay = flow(k, qx, qy, src)
+                bx, by = flow(k, qx - h / 2 * s * ax, qy - h / 2 * s * ay, src)
+                qx, qy = qx - h * s * bx, qy - h * s * by
+            end = value(k, qx, qy, src)
+            total += end
+        mean = total / (k["steps"] + 1)
+    else:
+        mean = v0
+    out = k["crisp"] * end + (1 - k["crisp"]) * mean
+    grey = 0.5 + 0.5 * k["gain"] * out * (1 - k["ff"] * (0.5 - 0.5 * v0))
+    if src is None and k["turn"] is not None:
+        c, s, mx, my = k["turn"]
+        x, y = wx / mx, wy / my
+        wx, wy = x * c - y * s, x * s + y * c
+    ln = math.hypot(wx, wy)
+    dx, dy = (wx / ln, wy / ln) if ln > 0 else (0.0, 0.0)
+    return [f32(dx), f32(dy), f32(k["gain"] * v0), f32(grey)]
 
 
 def luminance(p):
@@ -339,21 +397,9 @@ def picture(layer, n, w, src_map):
             "mirror": w["mirror_at_edge"] == "on"}
 
 
-def curl_noise(layer, n, w, frame_no, float_depth, src_map=None):
-    k = setup(n, frame_no)
-    radius, steps = n["sample_radius"], math.floor(n["sample_count"])
-    margin = math.ceil(radius) + 2
-    gw, gh = layer["w"] + 2 * margin, layer["h"] + 2 * margin
-    memo = {}
+def curl_noise(layer, n, w, moved, float_depth, src_map=None):
+    k = setup(n, moved)
     src = picture(layer, n, w, src_map)
-
-    def get(gx, gy):
-        if (gx, gy) not in memo:
-            memo[(gx, gy)] = field_at(k, n["swirl"], layer["left"] + gx - margin + 0.5,
-                                      layer["top"] + gy - margin + 0.5, src)
-        return memo[(gx, gy)]
-
-    fs, ff = n["flow_softness"] / 100, n["flow_falloff"] / 100
     hold = not (w["clip_hdr_results"] == "off" and float_depth)
     px = []
     for j in range(layer["h"]):
@@ -366,43 +412,13 @@ def curl_noise(layer, n, w, frame_no, float_depth, src_map=None):
             if a <= 0 or not (-16 <= x < W + 16 and -16 <= y < H + 16):
                 px.append(p)
                 continue
-            dx, dy, nv, seed = get(i + margin, j + margin)
+            dx, dy, cv, grey = curl_at(k, x + 0.5, y + 0.5, src)
             if w["view"] == "input_noise":
-                o = [0.5 + 0.5 * nv] * 3
+                o = [0.5 + 0.5 * cv] * 3
             elif w["view"] == "curl_generation":
-                # D-680: the direction is shown one long.
-                ln = math.hypot(dx, dy)
-                ux, uy = (dx / ln, dy / ln) if ln > 0 else (0.0, 0.0)
-                o = [0.5 + 0.5 * ux, 0.5 + 0.5 * uy, 0.5 + 0.5 * nv]
+                o = [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * cv]
             else:
-                h = radius / steps
-                u = max(1, math.ceil(h))
-                sw, sws, ss, tw, walked = 1.0, 1.0, seed, 1.0, 0.0
-                for way in (1, -1):
-                    qx, qy = i + margin + 0.5, j + margin + 0.5
-                    ex, ey = dx, dy
-                    for step in range(1, steps + 1):
-                        length = math.hypot(ex, ey)
-                        if length < 1e-6:
-                            break
-                        walked += h * length
-                        mx, my = way * h * ex, way * h * ey
-                        for sub in range(1, u + 1):
-                            f = sub / u
-                            ux, uy, _, sv = bilinear(get, gw, gh, qx + f * mx, qy + f * my)
-                            wt = 1 - (step - 1 + f) / (steps + 1)
-                            ss += wt * sv
-                            tw += wt
-                        ex, ey = ux, uy
-                        qx, qy = qx + mx, qy + my
-                        wt = 1 - step / (steps + 1)
-                        sw += wt
-                        sws += wt * wt
-                gain = 1 + (sw / math.sqrt(sws) - 1) * min(1.0, walked / max(2 * radius, 1e-9))
-                lines = ss / tw * gain
-                mixed = nv + (1 - fs) * min(1.0, radius / 8) * (lines - nv)
-                v = 0.5 + 0.5 * (mixed * (1 - ff * (0.5 - 0.5 * nv)))
-                o = [v] * 3
+                o = [grey] * 3
             o = [0.5 + (v - 0.5) * n["contrast"] / 100 + n["brightness"] / 100 for v in o]
             o = [min(1.0, max(0.0, v)) if hold else max(0.0, v) for v in o]
             ch = w["channel"]
@@ -426,14 +442,15 @@ def case(source="internal", speed=10, direction=0, size=100, offset=(0, 0), evol
          sample_count=12, sample_radius=30, flow_softness=20, edge_definition=50, flow_falloff=0,
          view="final_render", contrast=100, brightness=0, clip_hdr_results="on", channel="rgb",
          shift=0, tile=False, float_depth=False, source_layer="", softness=0,
-         source_mapping="fill", mirror_at_edge="off"):
+         source_mapping="fill", mirror_at_edge="off", rotation=0, scale=100,
+         perspective_offset="off"):
     c = dict(locals())
     c["drawing"] = "card"
     return c
 
 
 def small(**k):
-    """Cells of 6 pixels and flow lines 4 long, so the card's 16 by 10 shows them."""
+    """Noise of 12 pixels (Size 6) and flow lines of radius 4, so the card's 16 by 10 shows them."""
     return case(**{"size": 6, "sample_radius": 4, "sample_count": 6, **k})
 
 
@@ -471,11 +488,12 @@ def the_map(c):
 
 def render(c, frame_no):
     n = {k: held(c, k, frame_no) for k in RANGES}
+    n.update(perspective_offset=c["perspective_offset"])
     if c["source"] == "other_layer" and c["source_layer"] not in MAPS:
         return plain(c)  # D-189: a layer not in the composition, the frame without the effect
     words = {k: c[k] for k in WORDS + ("mirror_at_edge",)}
-    return frame(curl_noise(layer_of(c), n, words, frame_no, c["float_depth"], the_map(c)),
-                 c["shift"])
+    return frame(curl_noise(layer_of(c), n, words, travel(c, frame_no), c["float_depth"],
+                            the_map(c)), c["shift"])
 
 
 def plain(c):
@@ -488,25 +506,27 @@ CASES = {
     "FX-CURL-001": ("The settings as they start: size 100, so across the 16 by 10 card the noise "
                     "is one soft cloud, swirling slowly; every shown pixel is a grey, the empty "
                     "pixels stay empty and the soft edge keeps its half covering.", case(), [0, 4]),
-    "FX-CURL-002": ("Size 6, sample radius 4, 6 samples: grey flow lines through cells of 6 "
-                    "pixels.", small(), [0, 2]),
-    "FX-CURL-003": ("View Input Noise: the smooth noise the flow follows, without its lines.",
+    "FX-CURL-002": ("Size 6, sample radius 4, 6 samples: the value noise, 19.2 pixels across, "
+                    "carried a little along the flow of a noise 12 pixels across.", small(),
+                    [0, 2]),
+    "FX-CURL-003": ("View Input Noise: the smooth noise the flow carries, before it moves.",
                     small(view="input_noise"), [0]),
     "FX-CURL-004": ("View Curl Generation: red is the flow across, green the flow down, blue the "
                     "noise.", small(view="curl_generation"), [0]),
-    "FX-CURL-005": ("Sample Radius 0: no lines, so the frame is FX-CURL-003's Input Noise.",
+    "FX-CURL-005": ("Sample Radius 0: no trace, so the frame is FX-CURL-003's Input Noise.",
                     small(sample_radius=0), [0]),
-    "FX-CURL-006": ("Flow Softness 100: the lines softened away, FX-CURL-003's Input Noise again.",
+    "FX-CURL-006": ("Flow Softness 100 (D-749: higher is crisper): only the end of each trace "
+                    "is shown, not its average, so it differs from FX-CURL-002.",
                     small(flow_softness=100), [0]),
-    "FX-CURL-007": ("Swirl 0, Curl Generation: the flow is the noise's curl, crossing its slope at "
-                    "a right angle.", small(swirl=0, view="curl_generation"), [0]),
-    "FX-CURL-008": ("Swirl 180, Curl Generation: the flow turns with the noise, unlike "
+    "FX-CURL-007": ("Swirl 0, Curl Generation (D-749: Swirl is the flow's speed): no flow, so red "
+                    "and green are the middle grey.", small(swirl=0, view="curl_generation"), [0]),
+    "FX-CURL-008": ("Swirl 180, Curl Generation: the flow is the noise's curl, unlike "
                     "FX-CURL-007's.", small(swirl=180, view="curl_generation"), [0]),
-    "FX-CURL-009": ("Vertical Bias 100, Curl Generation: the flow only runs up and down, so red is "
-                    "the middle grey throughout.", small(vertical_bias=100, view="curl_generation"),
+    "FX-CURL-009": ("Vertical Bias 100, Curl Generation: the noise is stretched tall, so the flow "
+                    "runs mostly up and down.", small(vertical_bias=100, view="curl_generation"),
                     [0]),
-    "FX-CURL-010": ("Vertical Bias 0, Curl Generation: the flow only runs across, so green is the "
-                    "middle grey throughout.", small(vertical_bias=0, view="curl_generation"), [0]),
+    "FX-CURL-010": ("Vertical Bias 0, Curl Generation: the noise is stretched wide, so the flow "
+                    "runs mostly across.", small(vertical_bias=0, view="curl_generation"), [0]),
     "FX-CURL-011": ("Speed 20, Direction 90, Turbulence Speed 0, Input Noise: the noise drifts 2 "
                     "pixels right a frame, so frame 1 is frame 0 moved 2 right.",
                     small(speed=20, direction=90, turbulence_speed=0, view="input_noise"), [0, 1]),
@@ -516,19 +536,20 @@ CASES = {
                     "place.", small(turbulence_speed=100, speed=0), [0, 2]),
     "FX-CURL-014": ("Evolution 90, still: a different noise from FX-CURL-002's.",
                     small(evolution=90, **STILL), [0]),
-    "FX-CURL-015": ("Density 50: the field's cells half the size, so it is size 3 at density 0, "
+    "FX-CURL-015": ("Density 50: the noise half the size, so it is size 3 at density 0, "
                     "FX-CURL-016.", small(density=50, **STILL), [0]),
     "FX-CURL-016": ("Size 3, still.", small(size=3, **STILL), [0]),
     "FX-CURL-017": ("Smoothness 0, still, Input Noise: the fine octaves stronger.",
                     small(smoothness=0, view="input_noise", **STILL), [0]),
-    "FX-CURL-018": ("Smoothness 100, still, Input Noise: the fine octaves weaker.",
+    "FX-CURL-018": ("Smoothness 100, still, Input Noise: the coarse octave alone.",
                     small(smoothness=100, view="input_noise", **STILL), [0]),
-    "FX-CURL-019": ("Edge Definition 100, still: the lines streak blocky seeds.",
+    "FX-CURL-019": ("Edge Definition 100, still (D-749: the gain, 4): the greys four times as far "
+                    "from the middle as FX-CURL-020's, held at black and white.",
                     small(edge_definition=100, **STILL), [0]),
-    "FX-CURL-020": ("Edge Definition 0, still: the lines streak smooth seeds.",
+    "FX-CURL-020": ("Edge Definition 0, still: the gain 1, soft greys.",
                     small(edge_definition=0, **STILL), [0]),
-    "FX-CURL-021": ("Flow Falloff 100, still: the lines fade where the noise is low.",
-                    small(flow_falloff=100, **STILL), [0]),
+    "FX-CURL-021": ("Flow Falloff 100, still: the greys fade towards the middle where the noise is "
+                    "low.", small(flow_falloff=100, **STILL), [0]),
     "FX-CURL-022": ("Contrast 300, Brightness 10, still: harder greys, held in 0 and 1.",
                     small(contrast=300, brightness=10, **STILL), [0]),
     "FX-CURL-023": ("Contrast 300, Brightness 10, Clip HDR Results off, in a composition that "
@@ -546,7 +567,7 @@ CASES = {
                     "FX-CURL-028.", small(sample_count=3.9, **STILL), [0]),
     "FX-CURL-028": ("Sample Count 3, still.", small(sample_count=3, **STILL), [0]),
     "FX-CURL-029": ("Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the "
-                    "Input Noise, frame 4 long lines.",
+                    "Input Noise, frame 4 a longer trace.",
                     small(sample_radius=keyed((0, 0), (4, 8)), **STILL), [0, 2, 4]),
     "FX-CURL-030": ("FX-CURL-002 moved three pixels right: the noise is the drawing's own, so it "
                     "moves with it.", small(shift=3), [0]),
@@ -561,13 +582,13 @@ CASES = {
                           sample_radius=6.5, flow_softness=10, edge_definition=30, flow_falloff=40,
                           contrast=150, brightness=-5, channel="green"), [0, 3]),
     # D-583 (D-566: FX-CURL-033 was refused while This Layer was not built).
-    "FX-CURL-033": ("Source This Layer, small cells and lines, otherwise as added: the card's own "
-                    "lightness is the noise, so its flat patches are even greys streaked by the "
-                    "seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a "
-                    "frame.",
+    "FX-CURL-033": ("Source This Layer, small noise and radius, otherwise as added: the card's own "
+                    "lightness is the noise, carried along its own edges; Speed 10 slides it 1 "
+                    "pixel up a frame.",
                     small(source="this_layer"), [0, 4]),
-    "FX-CURL-045": ("Source This Layer, still, Input Noise: each shown pixel's grey is its own "
-                    "luminance times its covering.",
+    "FX-CURL-045": ("Source This Layer, still, Input Noise: each shown pixel's grey is 0.5 + "
+                    "(2 L - 1), L its own luminance times its covering (the gain 2 at Edge "
+                    "Definition 50), held in 0 and 1.",
                     small(source="this_layer", view="input_noise", **STILL), [0]),
     "FX-CURL-046": ("Source This Layer, still, Curl Generation: inside a flat patch there is no "
                     "flow (red and green the middle grey); at the edges the flow runs along them.",
@@ -580,7 +601,7 @@ CASES = {
                     "ramp at its own size in the middle, black round it.",
                     small(source="other_layer", source_layer="ramp", source_mapping="center",
                           view="input_noise", **STILL), [0]),
-    "FX-CURL-049": ("Source Other Layer, \"ramp\", Fill, still: flow lines across the ramp's "
+    "FX-CURL-049": ("Source Other Layer, \"ramp\", Fill, still: the ramp carried across its own "
                     "slope.", small(source="other_layer", source_layer="ramp", **STILL), [0]),
     "FX-CURL-050": ("Source This Layer, Softness 20, still, Input Noise: FX-CURL-045's greys "
                     "blurred, sigma 2 pixels.",
@@ -606,6 +627,12 @@ CASES = {
                     "Input Noise: frame 0 is FX-CURL-045.",
                     small(source="this_layer", softness=keyed((0, 0), (4, 30)), view="input_noise",
                           **STILL), [0, 4]),
+    # D-749 (row 14): speeds are added up frame by frame.
+    "FX-CURL-078": ("Speed keyed from 0 at frame 0 to 40 at frame 4, Direction 90, Turbulence "
+                    "Speed 0, Input Noise: the drift adds up 0, 1, 2 and 3 pixels, so frame 4 is "
+                    "frame 0 moved 6 right (not the 16 that speed 40 times 4 frames would jump to).",
+                    small(speed=keyed((0, 0), (4, 40)), direction=90, turbulence_speed=0,
+                          view="input_noise"), [0, 2, 4]),
 }
 
 INVALID = {
@@ -655,9 +682,9 @@ def project_json(fx, c):
                     "enabled": True,
                     "parameters": {k: (c[k] if k in WORDS else setting_json(c[k]))
                                    for k in NAMES}})
-    for k, v in SOURCE_KEYS.items():
+    for k, v in {**SOURCE_KEYS, **TRANSFORM_KEYS}.items():
         if c[k] != v:
-            effects[-1]["parameters"][k] = setting_json(c[k]) if k == "softness" else c[k]
+            effects[-1]["parameters"][k] = c[k] if isinstance(v, str) else setting_json(c[k])
     comp["layers"][0]["effects"] = effects
     if c["source_layer"] in MAPS:
         p["assets"].append(L.still(c["source_layer"], f"media/{c['source_layer']}.png"))
@@ -669,7 +696,8 @@ def project_json(fx, c):
 
 def write(fx, c):
     name = f"{fx.lower().replace('-', '_')}.json"
-    (OUT / name).write_text(json.dumps(project_json(fx, c), indent=2) + "\n", encoding="utf-8")
+    with open(OUT / name, "w", encoding="utf-8", newline="") as f:
+        f.write(json.dumps(project_json(fx, c), indent=2) + "\n")
     return name
 
 
@@ -695,8 +723,8 @@ def main():
                                  "frames": {"0": before, "4": before},
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
-    (OUT / "expected_curl_noise.json").write_text(json.dumps(expected, indent=1) + "\n",
-                                                  encoding="utf-8")
+    with open(OUT / "expected_curl_noise.json", "w", encoding="utf-8", newline="") as f:
+        f.write(json.dumps(expected, indent=1) + "\n")
     check(expected)
 
 
@@ -712,12 +740,22 @@ def check(expected):
     differ = lambda f, g: sum(not near(f[i], g[i]) for i in shown) > len(shown) * 0.5  # noqa: E731
     soft = at(15, 4)
 
-    # The slope is the noise's own: a small step's change over the step.
-    v0, gx, gy = value_slope(8, 2.3, 7.6, 0.4)
+    # The slope is the noise's own: a small step's change over the step, for both lattices.
     e = 1e-6
-    assert abs((value_slope(8, 2.3 + e, 7.6, 0.4)[0] - v0) / e - gx) < 1e-4
-    assert abs((value_slope(8, 2.3, 7.6 + e, 0.4)[0] - v0) / e - gy) < 1e-4
-    assert abs(v0 - value(8, 2.3, 7.6, 0.4, False)) < 1e-12
+    for fn in (lambda x, y: value_slope(8, x, y, 0.4), lambda x, y: two(8, x, y, 0.4)):
+        v0, gx, gy = fn(2.3, 7.6)
+        assert abs((fn(2.3 + e, 7.6)[0] - v0) / e - gx) < 1e-4
+        assert abs((fn(2.3, 7.6 + e)[0] - v0) / e - gy) < 1e-4
+    # The flow is the curl of the stretched noise: it never gathers or spreads (its divergence,
+    # worked from small steps, is nought), at any bias.
+    for b in (0, 30, 50, 100):
+        n = {k: held(small(vertical_bias=b, swirl=180, **STILL), k, 0) for k in RANGES}
+        n.update(perspective_offset="off", uniform_scaling="on")
+        k = setup(n, (0, 0, 0))
+        for x, y in ((3.2, 4.1), (11.7, 2.2)):
+            div = ((flow(k, x + e, y, None)[0] - flow(k, x - e, y, None)[0])
+                   + (flow(k, x, y + e, None)[1] - flow(k, x, y - e, None)[1])) / (2 * e)
+            assert abs(div) < 1e-4, (b, div)
 
     for f in c["FX-CURL-001"].values():
         for i in range(W * H):
@@ -729,18 +767,18 @@ def check(expected):
                 assert abs(g[0] - g[1]) < 1e-9 and abs(g[1] - g[2]) < 1e-9
         assert f[soft][3] == 128 / 255
     assert not same(c["FX-CURL-001"]["0"], c["FX-CURL-001"]["4"])
-    two = c["FX-CURL-002"]["0"]
-    assert differ(two, drawn) and differ(two, c["FX-CURL-003"]["0"])
-    assert same(c["FX-CURL-005"]["0"], c["FX-CURL-003"]["0"])
-    assert same(c["FX-CURL-006"]["0"], c["FX-CURL-003"]["0"])
+    two_ = c["FX-CURL-002"]["0"]
+    assert differ(two_, drawn) and differ(two_, c["FX-CURL-003"]["0"])
+    assert same(c["FX-CURL-005"]["0"], c["FX-CURL-003"]["0"], 1e-6)  # single precision
+    assert differ(c["FX-CURL-006"]["0"], two_) and differ(c["FX-CURL-006"]["0"], c["FX-CURL-003"]["0"])
     four = c["FX-CURL-004"]["0"]
     assert sum(abs(enc(four[i])[0] - enc(four[i])[1]) > 1e-3 for i in shown) > len(shown) / 2
-    assert differ(c["FX-CURL-007"]["0"], c["FX-CURL-008"]["0"])
-    mid = srgb_to_linear(0.5)
     for i in shown:
-        a = drawn[i][3]
-        assert abs(c["FX-CURL-009"]["0"][i][0] - mid * a) < 1e-6
-        assert abs(c["FX-CURL-010"]["0"][i][1] - mid * a) < 1e-6
+        assert near(enc(c["FX-CURL-007"]["0"][i])[:2], [0.5, 0.5], 1e-6)
+    assert differ(c["FX-CURL-007"]["0"], c["FX-CURL-008"]["0"])
+    across = lambda f, ch: sum(abs(enc(f[i])[ch] - 0.5) for i in shown)  # noqa: E731
+    k9, k10 = c["FX-CURL-009"]["0"], c["FX-CURL-010"]["0"]
+    assert across(k9, 0) < across(k9, 1) and across(k10, 1) < across(k10, 0)
     k11 = c["FX-CURL-011"]
     for y in range(H):
         for x in range(3, W):
@@ -757,7 +795,10 @@ def check(expected):
     assert differ(c["FX-CURL-014"]["0"], render(small(**STILL), 0))
     assert same(c["FX-CURL-015"]["0"], c["FX-CURL-016"]["0"])
     assert differ(c["FX-CURL-017"]["0"], c["FX-CURL-018"]["0"])
-    assert differ(c["FX-CURL-019"]["0"], c["FX-CURL-020"]["0"])
+    k19, k20 = c["FX-CURL-019"]["0"], c["FX-CURL-020"]["0"]
+    for i in shown:
+        g19, g20 = enc(k19[i])[0] - 0.5, enc(k20[i])[0] - 0.5
+        assert abs(g19 - max(-0.5, min(0.5, 4 * g20))) < 1e-5, (g19, g20)
     assert differ(c["FX-CURL-021"]["0"], render(small(**STILL), 0))
     k22, k24 = c["FX-CURL-022"]["0"], c["FX-CURL-024"]["0"]
     assert same(c["FX-CURL-023"]["0"], k22)
@@ -774,11 +815,11 @@ def check(expected):
         assert alpha[i][3] <= drawn[i][3] + 1e-12
     assert same(c["FX-CURL-027"]["0"], c["FX-CURL-028"]["0"])
     k29 = c["FX-CURL-029"]
-    assert same(k29["0"], still_input)
+    assert same(k29["0"], still_input, 1e-6)
     assert differ(k29["4"], k29["0"]) and differ(k29["2"], k29["4"])
     moved = c["FX-CURL-030"]["0"]
-    assert all(moved[at(x, y)] == two[at(x - 3, y)] for x in range(3, W) for y in range(H))
-    assert same(c["FX-CURL-031"]["0"], two)
+    assert all(moved[at(x, y)] == two_[at(x - 3, y)] for x in range(3, W) for y in range(H))
+    assert same(c["FX-CURL-031"]["0"], two_)
     k32 = c["FX-CURL-032"]
     assert differ(k32["0"], k32["3"])
     for i in shown:
@@ -788,7 +829,7 @@ def check(expected):
     assert differ(c["FX-CURL-033"]["0"], c["FX-CURL-033"]["4"])
     k45 = c["FX-CURL-045"]["0"]
     for i in shown:
-        assert abs(enc(k45[i])[0] - luminance(drawn[i])) < 1e-6
+        assert abs(enc(k45[i])[0] - min(1.0, max(0.0, 2 * luminance(drawn[i]) - 0.5))) < 1e-6
     k46, mid_enc = c["FX-CURL-046"]["0"], 0.5
     inner = at(7, 5)  # skin all round
     assert near(enc(k46[inner])[:2], [mid_enc, mid_enc], 1e-6)
@@ -796,11 +837,10 @@ def check(expected):
     k47, k48 = c["FX-CURL-047"]["0"], c["FX-CURL-048"]["0"]
     for y in range(H - 1):
         row = [enc(k47[at(x, y)])[0] for x in range(1, W - 1)]
-        assert all(a < b for a, b in zip(row, row[1:])), y
+        assert all(a <= b for a, b in zip(row, row[1:])) and row[0] < row[-1], y
     for y in range(H - 1):
         for x in range(1, 4):
             assert k48[at(x, y)][:3] == [0.0, 0.0, 0.0]
-    assert abs(enc(k48[at(4, 2)])[0] - 30 / 255) < 1e-6
     assert differ(c["FX-CURL-049"]["0"], k47)
     k50 = c["FX-CURL-050"]["0"]
     rough = lambda f: sum(abs(enc(f[at(x + 1, y)])[0] - enc(f[at(x, y)])[0])  # noqa: E731
@@ -821,6 +861,15 @@ def check(expected):
     assert k55[inner] == k46[inner] and k55 != k46
     k56 = c["FX-CURL-056"]
     assert k56["0"] == k45 and differ(k56["4"], k45)
+    # D-749, row 14: frame 4 is frame 0 moved 6 right, the drift added up.
+    k78 = c["FX-CURL-078"]
+    assert k78["0"] == still_input
+    for y in range(H):
+        for x in range(7, W):
+            i, j = at(x, y), at(x - 6, y)
+            if drawn[i][3] > 0 and drawn[j][3] > 0:
+                assert abs(enc(k78["4"][i])[0] - enc(k78["0"][j])[0]) < 1e-5
+    assert travel(small(speed=10), 7) == (0.0, -7.0, 14.0)  # not keyed: as before D-749
     for fx in INVALID:
         assert c[fx]["0"] == c[fx]["4"] == drawn
     for name, frames in c.items():

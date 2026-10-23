@@ -1,31 +1,28 @@
-"""Curl Noise's Transform (Rotation, Scale, Perspective Offset), worked a second way.
+"""Curl Noise's Transform (Rotation, Scale and Perspective Offset), worked a second way.
 
-D-646 adds to `core.curl_noise` (D-446, D-583; `tools/curl_noise_reference.py`, whose rule this
-file reuses unchanged) the three Transform controls After Effects' Curl Noise lists beside Size
-and Offset. Adobe publishes no formula; the rule below is this program's own, after the same
-controls of Fractal Noise, and nothing is ported.
+D-646 adds to `core.curl_noise` (D-446, D-583; `tools/curl_noise_reference.py`, whose rule, step
+2, this file uses) the Transform controls After Effects' Curl Noise lists beside Size and Offset.
+Adobe publishes no formula; the rule is this program's own, after the same controls of Fractal
+Noise, and nothing is ported.
 
 With c the drawing's middle (its width and height halved, in the drawing's own pixels),
-m = 100 / scale and theta = rotation in degrees, octave o of the noise is read at
+theta = rotation in degrees and m = 100 / scale, the noise is read at
 
-    p_o = p - w_o (offset + drift frame),  w_o = 0.5^o with Perspective Offset on, else 1,
-    q_o = c + m R(-theta) (p_o - c),  R(-theta) (x, y) = (x cos + y sin, -x sin + y cos),
+    q = c + m (d_x cos + d_y sin, -d_x sin + d_y cos),  d = p - (offset + drift) - c,
 
-in place of step 1's p'; so the noise is turned clockwise by Rotation and made Scale per cent
-as big round the drawing's middle, then slid on the picture by Offset and the drift, and with
-Perspective Offset on each finer octave slides half as far as the one before, as if further
-away. The slope, worked in q, is brought back to the picture by m R(theta), before Swirl and
-Vertical Bias, which stay in the picture's own directions. The seed (step 4) is read at q_0.
-With Rotation 0 and Scale 100 q_o is p_o exactly, and with Perspective Offset off p_o is p',
-so every file before D-646 draws as before.
+so it is turned clockwise by Rotation and made Scale per cent as big round the drawing's middle, then slid on the picture by
+Offset and the drift. The trace (D-749) runs in q, and Curl Generation's direction is brought
+back to the picture's directions. With Perspective Offset on, octave o of the value noise is
+read at q + (1 - 0.5^o) T(offset + drift), T the same turn and scale without c, so each finer
+octave slides half as far as the one before, as if further away.
 
-With Source This Layer or Other Layer the picture is read at p' as D-583 says, unturned and
-at its own size (as Size does not scale it); Rotation and Scale turn and scale only the seed,
-and Perspective Offset does nothing.
+With Source This Layer or Other Layer the picture is read at p - (offset + drift) as D-583 says,
+unturned and at its own size, and the Transform does nothing (D-749: the seed it turned before
+is gone).
 
 Settings: `rotation` -100000 to 100000 degrees, 0 when added; `scale` 1 to 10000 per cent,
-100; `perspective_offset` `off` (when added) or `on`. A file without them reads them as added,
-and they are written only when they are not (D-304). Both numbers can be keyed.
+100; `perspective_offset` `off` (when added) or `on`. A file without them reads them as
+added, and they are written only when they are not (D-304). The numbers can be keyed.
 
 **This file never runs the build's code path.** Cases as in `tools/curl_noise_reference.py`:
 a 16 by 10 composition holding Noise's card. The expected frames are in
@@ -38,103 +35,25 @@ and never to make a build pass.
 """
 
 import json
-import math
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import curl_noise_reference as C  # noqa: E402
-from fxkey_reference import keyed, setting_json  # noqa: E402
+from fxkey_reference import keyed  # noqa: E402
 
 W, H = C.W, C.H
 OUT = C.OUT
 TOLERANCE = 2e-5
-C.RANGES.update({"rotation": (-100000, 100000), "scale": (1, 10000)})
-STARTS = {"rotation": 0, "scale": 100, "perspective_offset": "off"}
-
-_setup, _field_at = C.setup, C.field_at
-
-
-def setup(n, frame_no):
-    k = _setup(n, frame_no)
-    t = math.radians(n["rotation"])
-    k["turn"] = (None if n["rotation"] == 0 and n["scale"] == 100
-                 else (math.cos(t), math.sin(t), 100 / n["scale"], (W / 2, H / 2)))
-    k["persp"] = n["perspective_offset"] == "on"
-    return k
+STARTS = C.TRANSFORM_KEYS
+small, render, setup, point, curl_at, project_json = (C.small, C.render, C.setup, C.point,
+                                                      C.curl_at, C.project_json)
 
 
-def point(k, px, py, o):
-    """q_o: the point octave o of the noise is read at."""
-    w = 0.5 ** o if k["persp"] else 1.0
-    x, y = px - w * k["shift"][0], py - w * k["shift"][1]
-    if k["turn"] is None:
-        return x, y
-    c, s, m, (cx, cy) = k["turn"]
-    dx, dy = x - cx, y - cy
-    return cx + (dx * c + dy * s) * m, cy + (-dx * s + dy * c) * m
-
-
-def field_at(k, swirl, px, py, src=None):
-    """`curl_noise_reference.field_at` with the Transform."""
-    s = k["s"]
-    if src is None:
-        nv = gx = gy = total = 0.0
-        fine = 1.0
-        for o in range(4):
-            x, y = point(k, px, py, o)
-            v, a, b = C.value_slope(8 * o, x / s * fine, y / s * fine, k["z"] * fine)
-            amp = k["amps"][o]
-            nv += amp * v
-            gx += amp * fine * a
-            gy += amp * fine * b
-            total += amp
-            fine *= 2
-        nv, gx, gy = nv / total, gx / total / s, gy / total / s
-        if k["turn"] is not None:
-            c, sn, m, _ = k["turn"]
-            gx, gy = (c * gx - sn * gy) * m, (sn * gx + c * gy) * m
-    else:
-        bx = px - k["shift"][0] + src["origin"][0]
-        by = py - k["shift"][1] + src["origin"][1]
-        nv = 2 * C.plane_at(src, bx, by) - 1
-        gx = C.plane_at(src, bx + 1, by) - C.plane_at(src, bx - 1, by)
-        gy = C.plane_at(src, bx, by + 1) - C.plane_at(src, bx, by - 1)
-        if math.hypot(gx, gy) < 1e-5:
-            gx = gy = 0.0
-    t = math.radians(-90 + swirl * nv)
-    c, sn = math.cos(t), math.sin(t)
-    vx = (c * gx - sn * gy) * k["bias"][0]
-    vy = (sn * gx + c * gy) * k["bias"][1]
-    length = max(math.hypot(vx, vy), 1 / s)
-    d = (vx / length, vy / length)
-    cell, e = s / 50, k["edge"]
-    x0, y0 = point(k, px, py, 0)
-    sx, sy = x0 / cell, y0 / cell
-    if e == 1:
-        seed = C.value(7, sx, sy, k["z"], True)
-    elif e == 0:
-        seed = C.value(7, sx, sy, k["z"], False)
-    else:
-        seed = e * C.value(7, sx, sy, k["z"], True) + (1 - e) * C.value(7, sx, sy, k["z"], False)
-    return [C.f32(d[0]), C.f32(d[1]), C.f32(nv), C.f32(seed)]
-
-
-C.setup, C.field_at = setup, field_at
-
-
-def small(rotation=0, scale=100, perspective_offset="off", **k):
-    c = C.small(**k)
-    c.update(rotation=rotation, scale=scale, perspective_offset=perspective_offset)
-    return c
-
-
-def render(c, frame_no):
-    n = {k: C.held(c, k, frame_no) for k in C.RANGES}
-    n["perspective_offset"] = c["perspective_offset"]
-    words = {k: c[k] for k in C.WORDS + ("mirror_at_edge",)}
-    return C.frame(C.curl_noise(C.layer_of(c), n, words, frame_no, c["float_depth"], C.the_map(c)),
-                   c["shift"])
+def numbers(c):
+    n = {k: C.held(c, k, 0) for k in C.RANGES}
+    n.update(perspective_offset=c["perspective_offset"])
+    return n
 
 
 STILL = C.STILL
@@ -165,9 +84,9 @@ CASES = {
                     "Input Noise: the picture is read unturned, so it is FX-CURL-045.",
                     small(source="this_layer", rotation=90, scale=200, perspective_offset="on",
                           view="input_noise", **STILL), [0]),
-    "FX-CURL-069": ("Source This Layer, Rotation 90, still: only the seed is turned, so the lines "
-                    "differ from Rotation 0's.", small(source="this_layer", rotation=90, **STILL),
-                    [0]),
+    "FX-CURL-069": ("Source This Layer, Rotation 90, still: the picture is read unturned, so it "
+                    "is Rotation 0's frame (D-749: the seed Rotation turned is gone).",
+                    small(source="this_layer", rotation=90, **STILL), [0]),
     "FX-CURL-070": ("Rotation keyed from 0 at frame 0 to 90 at frame 4, still, Input Noise: frame "
                     "0 is the unturned noise, frame 4 FX-CURL-061.",
                     small(rotation=keyed((0, 0), (4, 90)), view="input_noise", **STILL), [0, 4]),
@@ -188,18 +107,10 @@ INVALID = {
 }
 
 
-def project_json(fx, c):
-    p = C.project_json(fx, c)
-    params = p["compositions"][0]["layers"][0]["effects"][-1]["parameters"]
-    for k, v in STARTS.items():
-        if c[k] != v:
-            params[k] = c[k] if k == "perspective_offset" else setting_json(c[k])
-    return p
-
-
 def write(fx, c):
     name = f"{fx.lower().replace('-', '_')}.json"
-    (OUT / name).write_text(json.dumps(project_json(fx, c), indent=2) + "\n", encoding="utf-8")
+    with open(OUT / name, "w", encoding="utf-8", newline="") as f:
+        f.write(json.dumps(project_json(fx, c), indent=2) + "\n")
     return name
 
 
@@ -220,8 +131,8 @@ def main():
                                  "frames": {"0": before, "4": before},
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
-    (OUT / "expected_curl_transform.json").write_text(json.dumps(expected, indent=1) + "\n",
-                                                      encoding="utf-8")
+    with open(OUT / "expected_curl_transform.json", "w", encoding="utf-8", newline="") as f:
+        f.write(json.dumps(expected, indent=1) + "\n")
     check(expected)
 
 
@@ -249,16 +160,15 @@ def check(expected):
 
     still_input = render(small(view="input_noise", **STILL), 0)
     assert differ(c["FX-CURL-061"]["0"], still_input)
-    # The slope is turned with the noise: the flow at p is R(90) of the unturned flow at q.
-    k0 = setup({**{n: C.held(small(**STILL), n, 0) for n in C.RANGES}, "perspective_offset": "off"}, 0)
-    k90 = setup({**{n: C.held(small(rotation=90, **STILL), n, 0) for n in C.RANGES},
-                 "perspective_offset": "off"}, 0)
+    # The flow is turned with the noise: the direction at p is R(90) of the unturned one at q,
+    # and the grey is the unturned one's.
+    k0 = setup(numbers(small(**STILL)), (0, 0, 0))
+    k90 = setup(numbers(small(rotation=90, **STILL)), (0, 0, 0))
     for px, py in ((2.5, 3.5), (11.5, 7.5), (8.5, 0.5)):
-        qx, qy = point(k90, px, py, 0)
-        a = field_at(k90, 0, px, py)
-        b = field_at(k0, 0, qx, qy)
+        qx, qy = point(k90, px, py)
+        a, b = curl_at(k90, px, py), curl_at(k0, qx, qy)
         assert near(a[:2], [-b[1], b[0]], 1e-6), (a, b)
-        assert abs(a[2] - b[2]) < 1e-6
+        assert abs(a[2] - b[2]) < 1e-6 and abs(a[3] - b[3]) < 1e-6
     assert same(c["FX-CURL-063"]["0"], c["FX-CURL-064"]["0"], 1e-9)
     assert differ(c["FX-CURL-065"]["0"], render(small(**STILL), 0))
     k66 = c["FX-CURL-066"]
@@ -266,7 +176,7 @@ def check(expected):
     assert differ(k66["1"], old["FX-CURL-011"]["frames"]["1"])
     assert differ(c["FX-CURL-067"]["0"], c["FX-CURL-067"]["2"])
     assert same(c["FX-CURL-068"]["0"], old["FX-CURL-045"]["frames"]["0"], 0)
-    assert differ(c["FX-CURL-069"]["0"], render(small(source="this_layer", **STILL), 0))
+    assert same(c["FX-CURL-069"]["0"], render(small(source="this_layer", **STILL), 0), 0)
     assert same(c["FX-CURL-070"]["0"], still_input, 0)
     assert same(c["FX-CURL-070"]["4"], c["FX-CURL-061"]["0"], 0)
     assert same(c["FX-CURL-071"]["0"], c["FX-CURL-072"]["0"], 0)

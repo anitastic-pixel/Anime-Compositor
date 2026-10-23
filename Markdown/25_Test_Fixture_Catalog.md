@@ -214288,73 +214288,73 @@ FX-DUST-018 (`fx_dust_018.json`): Operate on Alpha "sometimes", which is not one
 
 ### Curl Noise (D-446)
 
-Curl Noise, after After Effects' Curl Noise (Noise & Grain, new in 26.3), `core.curl_noise` (B-326). Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says; `tools/curl_noise_reference.py` works the expected frames, `Fixtures/curl_noise/expected_curl_noise.json`, tolerance 2e-5; the rule is in document 21. Source This Layer and Other Layer are refused with a sentence.
+Curl Noise, after After Effects' Curl Noise (Noise & Grain, new in 26.3), `core.curl_noise` (B-326). Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says; `tools/curl_noise_reference.py` works the expected frames, `Fixtures/curl_noise/expected_curl_noise.json`, tolerance 2e-5; the rule is in document 21. Source This Layer and Other Layer are refused with a sentence. Since D-749 (2026-10-23, audit rows 8, 13 and 14) every working case follows its rule: the noise carried along a curl flow, Flow Softness higher is crisper, Edge Definition a gain, Swirl the flow's speed, and the drift the speeds added up frame by frame. Each case that moved says how many pixels moved and by at most how much (a channel, 0 to 1; FX-CURL-024's are HDR); its first values, those of D-446, D-583 and D-646, are retired. The refused cases (034 to 044, 053, 057 to 060, 074 to 077) are unchanged, and no fixture project file changed: they open as before.
 
-FX-CURL-001 (`fx_curl_001.json`): The settings as they start: size 100, so across the 16 by 10 card the noise is one soft cloud, swirling slowly; every shown pixel is a grey, the empty pixels stay empty and the soft edge keeps its half covering. Frames 0, 4.
+FX-CURL-001 (`fx_curl_001.json`): The settings as they start: size 100, so across the 16 by 10 card the noise is one soft cloud, swirling slowly; every shown pixel is a grey, the empty pixels stay empty and the soft edge keeps its half covering. Frames 0, 4. (D-749: 270 of 320 pixels, at most 0.806 moved; the first values are retired.)
 
-FX-CURL-002 (`fx_curl_002.json`): Size 6, sample radius 4, 6 samples: grey flow lines through cells of 6 pixels. Frames 0, 2.
+FX-CURL-002 (`fx_curl_002.json`): Size 6, sample radius 4, 6 samples: the value noise, 19.2 pixels across, carried a little along the flow of a noise 12 pixels across. Frames 0, 2. (D-749: 270 of 320 pixels, at most 0.984 (says changed) moved; the first values are retired.)
 
-FX-CURL-003 (`fx_curl_003.json`): View Input Noise: the smooth noise the flow follows, without its lines. Frames 0.
+FX-CURL-003 (`fx_curl_003.json`): View Input Noise: the smooth noise the flow carries, before it moves. Frames 0. (D-749: 135 of 160 pixels, at most 0.961 (says changed) moved; the first values are retired.)
 
-FX-CURL-004 (`fx_curl_004.json`): View Curl Generation: red is the flow across, green the flow down, blue the noise. Frames 0.
+FX-CURL-004 (`fx_curl_004.json`): View Curl Generation: red is the flow across, green the flow down, blue the noise. Frames 0. (D-749: 135 of 160 pixels, at most 0.998 moved; the first values are retired.)
 
-FX-CURL-005 (`fx_curl_005.json`): Sample Radius 0: no lines, so the frame is FX-CURL-003's Input Noise. Frames 0.
+FX-CURL-005 (`fx_curl_005.json`): Sample Radius 0: no trace, so the frame is FX-CURL-003's Input Noise. Frames 0. (D-749: 135 of 160 pixels, at most 0.961 (says changed) moved; the first values are retired.)
 
-FX-CURL-006 (`fx_curl_006.json`): Flow Softness 100: the lines softened away, FX-CURL-003's Input Noise again. Frames 0.
+FX-CURL-006 (`fx_curl_006.json`): Flow Softness 100 (D-749: higher is crisper): only the end of each trace is shown, not its average, so it differs from FX-CURL-002. Frames 0. (D-749: 135 of 160 pixels, at most 0.983 (says changed) moved; the first values are retired.)
 
-FX-CURL-007 (`fx_curl_007.json`): Swirl 0, Curl Generation: the flow is the noise's curl, crossing its slope at a right angle. Frames 0.
+FX-CURL-007 (`fx_curl_007.json`): Swirl 0, Curl Generation (D-749: Swirl is the flow's speed): no flow, so red and green are the middle grey. Frames 0. (D-749: 135 of 160 pixels, at most 0.961 (says changed) moved; the first values are retired.)
 
-FX-CURL-008 (`fx_curl_008.json`): Swirl 180, Curl Generation: the flow turns with the noise, unlike FX-CURL-007's. Frames 0.
+FX-CURL-008 (`fx_curl_008.json`): Swirl 180, Curl Generation: the flow is the noise's curl, unlike FX-CURL-007's. Frames 0. (D-749: 135 of 160 pixels, at most 0.995 (says changed) moved; the first values are retired.)
 
-FX-CURL-009 (`fx_curl_009.json`): Vertical Bias 100, Curl Generation: the flow only runs up and down, so red is the middle grey throughout. Frames 0.
+FX-CURL-009 (`fx_curl_009.json`): Vertical Bias 100, Curl Generation: the noise is stretched tall, so the flow runs mostly up and down. Frames 0. (D-749: 135 of 160 pixels, at most 1.000 (says changed) moved; the first values are retired.)
 
-FX-CURL-010 (`fx_curl_010.json`): Vertical Bias 0, Curl Generation: the flow only runs across, so green is the middle grey throughout. Frames 0.
+FX-CURL-010 (`fx_curl_010.json`): Vertical Bias 0, Curl Generation: the noise is stretched wide, so the flow runs mostly across. Frames 0. (D-749: 135 of 160 pixels, at most 0.999 (says changed) moved; the first values are retired.)
 
-FX-CURL-011 (`fx_curl_011.json`): Speed 20, Direction 90, Turbulence Speed 0, Input Noise: the noise drifts 2 pixels right a frame, so frame 1 is frame 0 moved 2 right. Frames 0, 1.
+FX-CURL-011 (`fx_curl_011.json`): Speed 20, Direction 90, Turbulence Speed 0, Input Noise: the noise drifts 2 pixels right a frame, so frame 1 is frame 0 moved 2 right. Frames 0, 1. (D-749: 270 of 320 pixels, at most 0.961 moved; the first values are retired.)
 
-FX-CURL-012 (`fx_curl_012.json`): Offset 3 right, still, Input Noise: the noise moved 3 pixels right. Frames 0.
+FX-CURL-012 (`fx_curl_012.json`): Offset 3 right, still, Input Noise: the noise moved 3 pixels right. Frames 0. (D-749: 135 of 160 pixels, at most 0.948 moved; the first values are retired.)
 
-FX-CURL-013 (`fx_curl_013.json`): Turbulence Speed 100, Speed 0: the noise changes from frame to frame in place. Frames 0, 2.
+FX-CURL-013 (`fx_curl_013.json`): Turbulence Speed 100, Speed 0: the noise changes from frame to frame in place. Frames 0, 2. (D-749: 270 of 320 pixels, at most 0.984 moved; the first values are retired.)
 
-FX-CURL-014 (`fx_curl_014.json`): Evolution 90, still: a different noise from FX-CURL-002's. Frames 0.
+FX-CURL-014 (`fx_curl_014.json`): Evolution 90, still: a different noise from FX-CURL-002's. Frames 0. (D-749: 135 of 160 pixels, at most 0.917 moved; the first values are retired.)
 
-FX-CURL-015 (`fx_curl_015.json`): Density 50: the field's cells half the size, so it is size 3 at density 0, FX-CURL-016. Frames 0.
+FX-CURL-015 (`fx_curl_015.json`): Density 50: the noise half the size, so it is size 3 at density 0, FX-CURL-016. Frames 0. (D-749: 135 of 160 pixels, at most 0.952 (says changed) moved; the first values are retired.)
 
-FX-CURL-016 (`fx_curl_016.json`): Size 3, still. Frames 0.
+FX-CURL-016 (`fx_curl_016.json`): Size 3, still. Frames 0. (D-749: 135 of 160 pixels, at most 0.952 moved; the first values are retired.)
 
-FX-CURL-017 (`fx_curl_017.json`): Smoothness 0, still, Input Noise: the fine octaves stronger. Frames 0.
+FX-CURL-017 (`fx_curl_017.json`): Smoothness 0, still, Input Noise: the fine octaves stronger. Frames 0. (D-749: 135 of 160 pixels, at most 0.835 moved; the first values are retired.)
 
-FX-CURL-018 (`fx_curl_018.json`): Smoothness 100, still, Input Noise: the fine octaves weaker. Frames 0.
+FX-CURL-018 (`fx_curl_018.json`): Smoothness 100, still, Input Noise: the coarse octave alone. Frames 0. (D-749: 135 of 160 pixels, at most 0.988 (says changed) moved; the first values are retired.)
 
-FX-CURL-019 (`fx_curl_019.json`): Edge Definition 100, still: the lines streak blocky seeds. Frames 0.
+FX-CURL-019 (`fx_curl_019.json`): Edge Definition 100, still (D-749: the gain, 4): the greys four times as far from the middle as FX-CURL-020's, held at black and white. Frames 0. (D-749: 135 of 160 pixels, at most 0.996 (says changed) moved; the first values are retired.)
 
-FX-CURL-020 (`fx_curl_020.json`): Edge Definition 0, still: the lines streak smooth seeds. Frames 0.
+FX-CURL-020 (`fx_curl_020.json`): Edge Definition 0, still: the gain 1, soft greys. Frames 0. (D-749: 135 of 160 pixels, at most 0.706 (says changed) moved; the first values are retired.)
 
-FX-CURL-021 (`fx_curl_021.json`): Flow Falloff 100, still: the lines fade where the noise is low. Frames 0.
+FX-CURL-021 (`fx_curl_021.json`): Flow Falloff 100, still: the greys fade towards the middle where the noise is low. Frames 0. (D-749: 135 of 160 pixels, at most 0.834 (says changed) moved; the first values are retired.)
 
-FX-CURL-022 (`fx_curl_022.json`): Contrast 300, Brightness 10, still: harder greys, held in 0 and 1. Frames 0.
+FX-CURL-022 (`fx_curl_022.json`): Contrast 300, Brightness 10, still: harder greys, held in 0 and 1. Frames 0. (D-749: 133 of 160 pixels, at most 1.000 moved; the first values are retired.)
 
-FX-CURL-023 (`fx_curl_023.json`): Contrast 300, Brightness 10, Clip HDR Results off, in a composition that does not work in Float: still held at 1, so the frame is FX-CURL-022's. Frames 0.
+FX-CURL-023 (`fx_curl_023.json`): Contrast 300, Brightness 10, Clip HDR Results off, in a composition that does not work in Float: still held at 1, so the frame is FX-CURL-022's. Frames 0. (D-749: 133 of 160 pixels, at most 1.000 moved; the first values are retired.)
 
-FX-CURL-024 (`fx_curl_024.json`): Contrast 300, Brightness 10, Clip HDR Results off, in a Float composition: past white is kept. Frames 0.
+FX-CURL-024 (`fx_curl_024.json`): Contrast 300, Brightness 10, Clip HDR Results off, in a Float composition: past white is kept. Frames 0. (D-749: 135 of 160 pixels, at most 14.268 moved; the first values are retired.)
 
-FX-CURL-025 (`fx_curl_025.json`): Channel Red, still: only red is replaced; green and blue are the drawing's. Frames 0.
+FX-CURL-025 (`fx_curl_025.json`): Channel Red, still: only red is replaced; green and blue are the drawing's. Frames 0. (D-749: 135 of 160 pixels, at most 0.984 moved; the first values are retired.)
 
-FX-CURL-026 (`fx_curl_026.json`): Channel Alpha, still: the covering times the grey, the colour kept. Frames 0.
+FX-CURL-026 (`fx_curl_026.json`): Channel Alpha, still: the covering times the grey, the colour kept. Frames 0. (D-749: 135 of 160 pixels, at most 0.865 moved; the first values are retired.)
 
-FX-CURL-027 (`fx_curl_027.json`): Sample Count 3.9, still: its whole part counts, so this is sample count 3, FX-CURL-028. Frames 0.
+FX-CURL-027 (`fx_curl_027.json`): Sample Count 3.9, still: its whole part counts, so this is sample count 3, FX-CURL-028. Frames 0. (D-749: 135 of 160 pixels, at most 0.975 moved; the first values are retired.)
 
-FX-CURL-028 (`fx_curl_028.json`): Sample Count 3, still. Frames 0.
+FX-CURL-028 (`fx_curl_028.json`): Sample Count 3, still. Frames 0. (D-749: 135 of 160 pixels, at most 0.975 moved; the first values are retired.)
 
-FX-CURL-029 (`fx_curl_029.json`): Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 long lines. Frames 0, 2, 4.
+FX-CURL-029 (`fx_curl_029.json`): Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 a longer trace. Frames 0, 2, 4. (D-749: 405 of 480 pixels, at most 0.984 (says changed) moved; the first values are retired.)
 
-FX-CURL-030 (`fx_curl_030.json`): FX-CURL-002 moved three pixels right: the noise is the drawing's own, so it moves with it. Frames 0.
+FX-CURL-030 (`fx_curl_030.json`): FX-CURL-002 moved three pixels right: the noise is the drawing's own, so it moves with it. Frames 0. (D-749: 108 of 160 pixels, at most 0.984 moved; the first values are retired.)
 
-FX-CURL-031 (`fx_curl_031.json`): After a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels, so the frame is FX-CURL-002's. Frames 0.
+FX-CURL-031 (`fx_curl_031.json`): After a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels, so the frame is FX-CURL-002's. Frames 0. (D-749: 135 of 160 pixels, at most 0.984 moved; the first values are retired.)
 
-FX-CURL-032 (`fx_curl_032.json`): Swirl -200, Speed 35, Direction 200, Evolution 45, Turbulence Speed 60, Density -30, Smoothness 20, Vertical Bias 70, 9 samples, radius 6.5, Flow Softness 10, Edge Definition 30, Falloff 40, Contrast 150, Brightness -5, Channel Green: the controls together. Frames 0, 3.
+FX-CURL-032 (`fx_curl_032.json`): Swirl -200, Speed 35, Direction 200, Evolution 45, Turbulence Speed 60, Density -30, Smoothness 20, Vertical Bias 70, 9 samples, radius 6.5, Flow Softness 10, Edge Definition 30, Falloff 40, Contrast 150, Brightness -5, Channel Green: the controls together. Frames 0, 3. (D-749: 270 of 320 pixels, at most 0.862 moved; the first values are retired.)
 
-FX-CURL-033 (`fx_curl_033.json`): Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. Frames 0, 4. (Regenerated under D-566 by D-583.)
+FX-CURL-033 (`fx_curl_033.json`): Source This Layer, small noise and radius, otherwise as added: the card's own lightness is the noise, carried along its own edges; Speed 10 slides it 1 pixel up a frame. Frames 0, 4. (Regenerated under D-566 by D-583.) (D-749: 270 of 320 pixels, at most 0.711 (says changed) moved; the first values are retired.)
 
 FX-CURL-034 (`fx_curl_034.json`): Source Other Layer, with Source Layer naming no layer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (Regenerated under D-566 by D-583.)
 
@@ -218520,29 +218520,29 @@ FX-RAIN3D-037 (`fx_rain3d_037.json`): Speed keyed to 30000 at frame 4, above 200
 
 Curl Noise's Source This Layer and Other Layer (B-461), more cases of Curl Noise (D-446) in the same folder and expected file: `tools/curl_noise_reference.py` writes `Fixtures/curl_noise/expected_curl_noise.json`, tolerance 2e-5; the rule is in document 21. FX-CURL-033 and 034, above, were regenerated under D-566 (033 a working This Layer case with small cells and lines, 034 still refused for naming no layer); FX-CURL-033 was first written (0ba12eef) with the settings as they start (flow lines 30 long, 12 samples) and the build missed it at one pixel, (6, 7), by 9.9e-5 against document 25's 2e-5. The cause, traced: the build decodes the drawing's pixels in single precision, the reference in double, so a few lightness values differ in the last bit, and 30-pixel flow lines crossing the card's sharp edges magnify that about 1000 times. By the coordinator's ruling of 2026-10-12, before any code was committed against it, a second fixtures commit (175346ea) gave 033 the small cells and lines the other D-583 cases use; the settings as they start are compared card against processor on the reference shot instead (B-461's "This Layer as added" rows, within 1 level). FX-CURL-001 to 032 and 035 to 044 are unchanged.
 
-FX-CURL-045 (`fx_curl_045.json`): Source This Layer, still, Input Noise: each shown pixel's grey is its own luminance times its covering. Frames 0.
+FX-CURL-045 (`fx_curl_045.json`): Source This Layer, still, Input Noise: each shown pixel's grey is 0.5 + (2 L - 1), L its own luminance times its covering (the gain 2 at Edge Definition 50), held in 0 and 1. Frames 0. (D-749: 127 of 160 pixels, at most 0.286 (says changed) moved; the first values are retired.)
 
-FX-CURL-046 (`fx_curl_046.json`): Source This Layer, still, Curl Generation: inside a flat patch there is no flow (red and green the middle grey); at the edges the flow runs along them. Frames 0.
+FX-CURL-046 (`fx_curl_046.json`): Source This Layer, still, Curl Generation: inside a flat patch there is no flow (red and green the middle grey); at the edges the flow runs along them. Frames 0. (D-749: 135 of 160 pixels, at most 0.485 moved; the first values are retired.)
 
-FX-CURL-047 (`fx_curl_047.json`): Source Other Layer, layer "ramp" (8 by 5 greys), Source Mapping Fill, still, Input Noise: the ramp stretched over the card. Frames 0.
+FX-CURL-047 (`fx_curl_047.json`): Source Other Layer, layer "ramp" (8 by 5 greys), Source Mapping Fill, still, Input Noise: the ramp stretched over the card. Frames 0. (D-749: 135 of 160 pixels, at most 0.475 moved; the first values are retired.)
 
-FX-CURL-048 (`fx_curl_048.json`): Source Other Layer, "ramp", Source Mapping Center, still, Input Noise: the ramp at its own size in the middle, black round it. Frames 0.
+FX-CURL-048 (`fx_curl_048.json`): Source Other Layer, "ramp", Source Mapping Center, still, Input Noise: the ramp at its own size in the middle, black round it. Frames 0. (D-749: 40 of 160 pixels, at most 0.463 moved; the first values are retired.)
 
-FX-CURL-049 (`fx_curl_049.json`): Source Other Layer, "ramp", Fill, still: flow lines across the ramp's slope. Frames 0.
+FX-CURL-049 (`fx_curl_049.json`): Source Other Layer, "ramp", Fill, still: the ramp carried across its own slope. Frames 0. (D-749: 135 of 160 pixels, at most 0.748 (says changed) moved; the first values are retired.)
 
-FX-CURL-050 (`fx_curl_050.json`): Source This Layer, Softness 20, still, Input Noise: FX-CURL-045's greys blurred, sigma 2 pixels. Frames 0.
+FX-CURL-050 (`fx_curl_050.json`): Source This Layer, Softness 20, still, Input Noise: FX-CURL-045's greys blurred, sigma 2 pixels. Frames 0. (D-749: 135 of 160 pixels, at most 0.270 moved; the first values are retired.)
 
-FX-CURL-051 (`fx_curl_051.json`): Source This Layer, Offset 5 right, Mirror at Edge on, still, Input Noise: left of the card's edge the card is read mirrored. Frames 0.
+FX-CURL-051 (`fx_curl_051.json`): Source This Layer, Offset 5 right, Mirror at Edge on, still, Input Noise: left of the card's edge the card is read mirrored. Frames 0. (D-749: 109 of 160 pixels, at most 0.286 moved; the first values are retired.)
 
-FX-CURL-052 (`fx_curl_052.json`): Source This Layer, Offset 5 right, Mirror at Edge off, still, Input Noise: left of the card's edge is black. Frames 0.
+FX-CURL-052 (`fx_curl_052.json`): Source This Layer, Offset 5 right, Mirror at Edge off, still, Input Noise: left of the card's edge is black. Frames 0. (D-749: 82 of 160 pixels, at most 0.286 moved; the first values are retired.)
 
 FX-CURL-053 (`fx_curl_053.json`): Source Other Layer naming "gone", not in the composition: the frames are drawn without the effect, with D-189's warning. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
 
-FX-CURL-054 (`fx_curl_054.json`): FX-CURL-046 moved three pixels right: the picture is the drawing's own, so it moves with it. Frames 0.
+FX-CURL-054 (`fx_curl_054.json`): FX-CURL-046 moved three pixels right: the picture is the drawing's own, so it moves with it. Frames 0. (D-749: 108 of 160 pixels, at most 0.485 moved; the first values are retired.)
 
-FX-CURL-055 (`fx_curl_055.json`): FX-CURL-046 after a Motion Tile that grows the layer: the picture is the layer as it reaches the effect, so at the card's edges the tiles beyond it turn the flow; inside, the frame is FX-CURL-046's. Frames 0.
+FX-CURL-055 (`fx_curl_055.json`): FX-CURL-046 after a Motion Tile that grows the layer: the picture is the layer as it reaches the effect, so at the card's edges the tiles beyond it turn the flow; inside, the frame is FX-CURL-046's. Frames 0. (D-749: 135 of 160 pixels, at most 0.485 moved; the first values are retired.)
 
-FX-CURL-056 (`fx_curl_056.json`): Source This Layer, Softness keyed from 0 at frame 0 to 30 at frame 4, still, Input Noise: frame 0 is FX-CURL-045. Frames 0, 4.
+FX-CURL-056 (`fx_curl_056.json`): Source This Layer, Softness keyed from 0 at frame 0 to 30 at frame 4, still, Input Noise: frame 0 is FX-CURL-045. Frames 0, 4. (D-749: 262 of 320 pixels, at most 0.286 moved; the first values are retired.)
 
 FX-CURL-057 (`fx_curl_057.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -218556,31 +218556,31 @@ FX-CURL-060 (`fx_curl_060.json`): Source Layer 3, a number and not a layer's wor
 
 Curl Noise's Rotation, Scale and Perspective Offset (B-525), more cases in the same folder: `tools/curl_transform_reference.py` writes `Fixtures/curl_noise/expected_curl_transform.json` and `fx_curl_061.json` to `fx_curl_077.json`, the 16 by 10 composition of D-446's cases, tolerance 2e-5. Its check also recomputes FX-CURL-002, 011 and 033 with the new settings as added, bit for bit.
 
-FX-CURL-061 (`fx_curl_061.json`): Rotation 90, still, Input Noise: the noise turned a quarter clockwise round the card's middle. Frames 0.
+FX-CURL-061 (`fx_curl_061.json`): Rotation 90, still, Input Noise: the noise turned a quarter clockwise round the card's middle. Frames 0. (D-749: 135 of 160 pixels, at most 0.948 moved; the first values are retired.)
 
-FX-CURL-062 (`fx_curl_062.json`): Rotation 90, still, Swirl 0, Curl Generation: the flow turned with the noise, a quarter clockwise. Frames 0.
+FX-CURL-062 (`fx_curl_062.json`): Rotation 90, still, Swirl 0, Curl Generation: the flow turned with the noise, a quarter clockwise. Frames 0. (D-749: 135 of 160 pixels, at most 0.948 moved; the first values are retired.)
 
-FX-CURL-063 (`fx_curl_063.json`): Scale 200, still, Input Noise: the noise twice as big round the card's middle, so it is Size 12 with Offset (-8, -5), FX-CURL-064. Frames 0.
+FX-CURL-063 (`fx_curl_063.json`): Scale 200, still, Input Noise: the noise twice as big round the card's middle, so it is Size 12 with Offset (-8, -5), FX-CURL-064. Frames 0. (D-749: 135 of 160 pixels, at most 0.877 moved; the first values are retired.)
 
-FX-CURL-064 (`fx_curl_064.json`): Size 12, Offset (-8, -5), still, Input Noise. Frames 0.
+FX-CURL-064 (`fx_curl_064.json`): Size 12, Offset (-8, -5), still, Input Noise. Frames 0. (D-749: 135 of 160 pixels, at most 0.877 moved; the first values are retired.)
 
-FX-CURL-065 (`fx_curl_065.json`): Scale 50, still: flow lines through cells half the size. Frames 0.
+FX-CURL-065 (`fx_curl_065.json`): Scale 50, still: flow lines through cells half the size. Frames 0. (D-749: 135 of 160 pixels, at most 0.924 moved; the first values are retired.)
 
-FX-CURL-066 (`fx_curl_066.json`): Perspective Offset on, Speed 20, Direction 90, Turbulence Speed 0, Input Noise: at frame 0 nothing has slid, so it is FX-CURL-011's frame 0; at frame 1 the finer octaves have slid less than the coarse one. Frames 0, 1.
+FX-CURL-066 (`fx_curl_066.json`): Perspective Offset on, Speed 20, Direction 90, Turbulence Speed 0, Input Noise: at frame 0 nothing has slid, so it is FX-CURL-011's frame 0; at frame 1 the finer octaves have slid less than the coarse one. Frames 0, 1. (D-749: 270 of 320 pixels, at most 0.961 moved; the first values are retired.)
 
-FX-CURL-067 (`fx_curl_067.json`): Rotation 45, Scale 150, Perspective Offset on, Offset (3, 2), Speed 20, Direction 90: the Transform together, flow lines. Frames 0, 2.
+FX-CURL-067 (`fx_curl_067.json`): Rotation 45, Scale 150, Perspective Offset on, Offset (3, 2), Speed 20, Direction 90: the Transform together, flow lines. Frames 0, 2. (D-749: 270 of 320 pixels, at most 0.678 moved; the first values are retired.)
 
-FX-CURL-068 (`fx_curl_068.json`): Source This Layer, Rotation 90, Scale 200, Perspective Offset on, still, Input Noise: the picture is read unturned, so it is FX-CURL-045. Frames 0.
+FX-CURL-068 (`fx_curl_068.json`): Source This Layer, Rotation 90, Scale 200, Perspective Offset on, still, Input Noise: the picture is read unturned, so it is FX-CURL-045. Frames 0. (D-749: 127 of 160 pixels, at most 0.286 moved; the first values are retired.)
 
-FX-CURL-069 (`fx_curl_069.json`): Source This Layer, Rotation 90, still: only the seed is turned, so the lines differ from Rotation 0's. Frames 0.
+FX-CURL-069 (`fx_curl_069.json`): Source This Layer, Rotation 90, still: the picture is read unturned, so it is Rotation 0's frame (D-749: the seed Rotation turned is gone). Frames 0. (D-749: 135 of 160 pixels, at most 0.599 (says changed) moved; the first values are retired.)
 
-FX-CURL-070 (`fx_curl_070.json`): Rotation keyed from 0 at frame 0 to 90 at frame 4, still, Input Noise: frame 0 is the unturned noise, frame 4 FX-CURL-061. Frames 0, 4.
+FX-CURL-070 (`fx_curl_070.json`): Rotation keyed from 0 at frame 0 to 90 at frame 4, still, Input Noise: frame 0 is the unturned noise, frame 4 FX-CURL-061. Frames 0, 4. (D-749: 270 of 320 pixels, at most 0.961 moved; the first values are retired.)
 
-FX-CURL-071 (`fx_curl_071.json`): Rotation 30, still, after a Motion Tile that grows the layer: turned round the drawing's middle, not the grown buffer's, so it is FX-CURL-072. Frames 0.
+FX-CURL-071 (`fx_curl_071.json`): Rotation 30, still, after a Motion Tile that grows the layer: turned round the drawing's middle, not the grown buffer's, so it is FX-CURL-072. Frames 0. (D-749: 135 of 160 pixels, at most 0.985 moved; the first values are retired.)
 
-FX-CURL-072 (`fx_curl_072.json`): Rotation 30, still. Frames 0.
+FX-CURL-072 (`fx_curl_072.json`): Rotation 30, still. Frames 0. (D-749: 135 of 160 pixels, at most 0.985 moved; the first values are retired.)
 
-FX-CURL-073 (`fx_curl_073.json`): Rotation 360, still: a whole turn, the noise as unturned (within the tolerance). Frames 0.
+FX-CURL-073 (`fx_curl_073.json`): Rotation 360, still: a whole turn, the noise as unturned (within the tolerance). Frames 0. (D-749: 135 of 160 pixels, at most 0.984 moved; the first values are retired.)
 
 FX-CURL-074 (`fx_curl_074.json`): Scale 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -218589,6 +218589,8 @@ FX-CURL-075 (`fx_curl_075.json`): Rotation 200000, above 100000. The file is rea
 FX-CURL-076 (`fx_curl_076.json`): Perspective Offset "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CURL-077 (`fx_curl_077.json`): Scale keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-078 (`fx_curl_078.json`): Speed keyed from 0 at frame 0 to 40 at frame 4, Direction 90, Turbulence Speed 0, Input Noise: the drift adds up 0, 1, 2 and 3 pixels, so frame 4 is frame 0 moved 6 right (not the 16 that speed 40 times 4 frames would jump to). Frames 0, 2, 4. (New with D-749.)
 
 
 ### Particle Space (D-610)
