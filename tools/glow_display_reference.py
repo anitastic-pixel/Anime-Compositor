@@ -17,10 +17,19 @@ In a composition at 8 bpc or 32 bpc (After Effects), and only there:
 - Glow works in display values too. What glows is tested as before, on the pixel itself; its
   light is the pixel's display value, or the tint as written at the pixel's covering; it is
   spread as before; the light and the drawing are laid together in display values and taken
-  back. In units after_effects the colour is multiplied by GI * c, c = t + 16 (1 - t), and the
-  covering is left alone: D-322's rule as Creative COW measured it, which was measured in an
-  After Effects working in display values. D-331's covering divided by c stays for Float, where
-  it matched. Classic units multiply both by the intensity, as before.
+  back. Classic units multiply both by the intensity, as before. D-331's covering divided by c
+  stays for Float, where it matched.
+- D-746 (audit row 12, Wave 1's eighteen tutorial cases) replaced D-337's After Effects units
+  rule, the colour multiplied by GI * (t + 16 (1 - t)), which lit the edge 2 to 10 times too
+  bright. In units after_effects now: based on bright, each of red, green and blue glows on its
+  own when its 8-bit value is at least the threshold's share of 255 (the blue of a blue square
+  glows, its red and green do not); each glowing channel's light is its display value times
+  GI * c / 3, c = t + 16 (1 - t) as before, held at 1, before the spread (a third of Creative
+  COW's strength, fitted on Valeri Visuals' disc and Motion Nations's cases, so 2.33 times the
+  intensity at After Effects' default threshold 60); chosen colours and the tint glow as before,
+  the light held at 1 the same way; the spread is a Gaussian at sigma 0.4 times the radius
+  (Valeri Visuals' white disc at radius 400 measures sigma 161); and the blurred light is laid
+  on at strength 1, the covering as blurred.
 - At 8 bpc the result is then held to 8 bits, as D-330.
 
 Every case is glow_reference's 16 by 10 composition and drawings. The projects go into
@@ -84,22 +93,33 @@ def glow(px, c, top):
         return px
     threshold, radius, intensity = c["threshold"], c["radius"], c["intensity"]
     ae = c["units"] == "after_effects"
+    # D-746: in After Effects units each channel's light is held at 1 after the intensity.
+    s = intensity * GA.strength(1, threshold) / 3
+    held = (lambda v: min(1.0, s * v)) if ae else (lambda v: v)
     source = []
     for p in px:
-        if not G.glows(eight_bit(p), c, threshold, c["tolerance"]):
+        q, a = eight_bit(p), p[3]
+        if ae and c["based_on"] == "bright" and not c["tint"]:
+            # D-746: each channel glows on its own.
+            on = [a > 0 and q[i] * 100 >= threshold * 255 for i in range(3)]
+            e = display(p, top)
+            source.append([held(e[i] / a) * a if on[i] else 0.0 for i in range(3)]
+                          + [a if any(on) else 0.0])
+        elif not G.glows(q, c, threshold, c["tolerance"]):
             source.append([0.0] * 4)
         elif c["tint"]:
-            source.append([v / 255 * p[3] for v in G.hex_color(c["tint"].lower())] + [p[3]])
+            source.append([held(v / 255) * a for v in G.hex_color(c["tint"].lower())] + [a])
         else:
-            source.append(display(p, top))
+            e = display(p, top)
+            source.append([held(e[i] / a) * a for i in range(3)] + [a])
 
-    sigma = 0.3 * radius if ae else radius / 3
+    sigma = 0.4 * radius if ae else radius / 3
     reach = math.ceil((6.5 if ae else 3) * sigma) if sigma > 0 else 0
     one = [math.exp(-(d * d) / (2 * sigma * sigma)) for d in range(-reach, reach + 1)] \
         if reach else [1.0]
     total = sum(one)
     one = [v / total for v in one]
-    k, ka = (GA.strength(intensity, threshold), 1.0) if ae else (intensity, intensity)
+    k, ka = (1.0, 1.0) if ae else (intensity, intensity)
 
     out = []
     for y in range(H):
@@ -170,8 +190,9 @@ BLACK = ("solid", ("#000000", 100))
 CASES = {
     "FX-GLDISP-001": ("32 bpc (After Effects), Glow in After Effects units at tutorial 2's kind "
                       "of setting, threshold 0, radius 4, intensity 0.1: worked in display "
-                      "values, the colour at 1.6 times the blurred light and the covering as "
-                      "blurred, so the halo is brighter and wider than Float's.",
+                      "values, D-746: each channel's light 0.1 x 16 / 3 times its display value, spread "
+                      "at sigma 1.6, laid on at strength 1 with the covering as blurred, so the "
+                      "halo covers more than Float's.",
                       case(effects=[("glow", TUTORIAL)])),
     "FX-GLDISP-002": ("32 bpc (After Effects), tutorial 2's glow layer in small: Solid Composite "
                       "on black, then the same Glow. Opaque, the glow lifts the black round the "
@@ -179,7 +200,8 @@ CASES = {
                       case(effects=[BLACK, ("glow", TUTORIAL)])),
     "FX-GLDISP-003": ("32 bpc (After Effects), Glow with tint #ff4000, threshold 0, intensity "
                       "0.2: the tint is used as written, a display value, so read straight in "
-                      "display values the halo is 3.2 times #ff4000.",
+                      "display values the halo is #ff4000 times 0.2 x 16 / 3, held at 1 "
+                      "(D-746).",
                       case(effects=[("glow", glow_settings(threshold=0, intensity=0.2,
                                                            tint="#ff4000"))])),
     "FX-GLDISP-004": ("32 bpc (After Effects), Glow in classic units, FX-GLOW-001's settings: "
@@ -189,7 +211,8 @@ CASES = {
                       "inside 0 to 1 and screened, in display values.",
                       case(effects=[("glow", glow_settings(operation="screen"))])),
     "FX-GLDISP-006": ("8 bpc, Glow in After Effects units at After Effects' defaults, threshold "
-                      "60, radius 10, intensity 1: in display values, then held to 8 bits, so "
+                      "60, radius 10, intensity 1: in display values by D-746's rule, then held "
+                      "to 8 bits, so "
                       "nothing passes white.",
                       case("eight", [("glow", glow_settings())])),
     "FX-GLDISP-007": ("Float, FX-GLDISP-001's Glow: linear light and D-331's rule as before, "
@@ -255,23 +278,28 @@ def check(expected):
     # Float is D-331's rule, FX-GLOW-AE-004 itself.
     old = json.loads((OUT.parent / "glow_ae" / "expected_glow_ae.json").read_text(encoding="utf-8"))
     assert c["FX-GLDISP-007"] == old["cases"]["FX-GLOW-AE-004"]["frames"]["0"]
-    # In display values the halo in the empty space is brighter and covers more.
+    # In display values the halo in the empty space covers more (D-746: the covering as blurred).
     one, flt = c["FX-GLDISP-001"], c["FX-GLDISP-007"]
     for x, y in ((0, 0), (6, 1), (15, 8)):
         assert one[at(x, y)][3] > 4 * flt[at(x, y)][3], (x, y, one[at(x, y)], flt[at(x, y)])
-        assert lum(one[at(x, y)]) > lum(flt[at(x, y)]), (x, y)
     # On black the layer is opaque everywhere, and the black round the patches is lit.
     two = c["FX-GLDISP-002"]
     assert all(p[3] == 1 for p in two) and lum(two[at(6, 1)]) > 0
-    # The tint as written: straight, in display values, 3.2 times #ff4000 in the far corner.
+    # The tint as written: straight, in display values, #ff4000 times 0.2 x 16 / 3 held at 1 in
+    # the far corner (D-746, laid on at strength 1).
     p = c["FX-GLDISP-003"][at(15, 0)]
     e = display(p, math.inf)
-    assert all(abs(e[ch] / e[3] - 3.2 * v / 255) < 1e-9 for ch, v in enumerate((0xff, 0x40, 0)))
+    assert all(abs(e[ch] / e[3] - min(1, 0.2 * 16 / 3 * v / 255)) < 1e-9
+               for ch, v in enumerate((0xff, 0x40, 0)))
     # Screen holds the glow inside 0 to 1, so the covering never passes 1 and the drawing is
     # never darkened.
     plain = [G.working(p) for row in G.DRAWINGS["patches"] for p in row]
     for p, q in zip(c["FX-GLDISP-005"], plain):
         assert p[3] <= 1 and all(p[ch] >= q[ch] - 1e-9 for ch in range(4))
+    # D-746: each channel glows on its own. At threshold 60 no patch's blue reaches 153 (the
+    # yellow's is 120, the brown's 51), so the halo in the empty space has red and no blue.
+    p = c["FX-GLDISP-006"][at(6, 1)]
+    assert p[0] > 0 and p[2] == 0, p
     # 8 bpc: nothing past white, every value on an 8-bit step.
     for p in c["FX-GLDISP-006"]:
         if p[3] > 0:
