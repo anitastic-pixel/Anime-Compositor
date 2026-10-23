@@ -6,7 +6,8 @@
 //! so a pixel's grey `v` is 0.5 + 0.5 n for the noise `n`, unclamped:
 //! - Invert turns `n` over, so its grey is 1 - v.
 //! - With one octave, Turbulent's noise is 2|n| - 1, so its grey is |2 v - 1|.
-//! - Block noise of one octave at size 4 is one grey over each 4 by 4 cell.
+//! - Block noise of one octave at size 6 is one grey over each 4 by 4 cell (D-756: the cell is two
+//!   thirds of the size).
 //! - Offset (3, 0) is the plain noise moved 3 pixels right.
 //! - Scale Width 50% of size 100 is 50 across and 100 down: Size 50 at Scale Height 200%.
 //! - Cycle 1 repeats every turn, so evolution 90 and 450 degrees draw the same; Cycle 2 repeats
@@ -112,7 +113,7 @@ fn invert_and_turbulent_are_the_greys_worked_by_hand() {
 
 #[test]
 fn block_noise_is_one_grey_a_cell() {
-    let block = frame(json!({"noise_type": "block"}));
+    let block = frame(json!({"noise_type": "block", "size": 6}));
     for (cx, cy) in [(0, 0), (4, 0), (0, 4), (4, 4)] {
         let first = block[cy * 8 + cx];
         for y in cy..cy + 4 {

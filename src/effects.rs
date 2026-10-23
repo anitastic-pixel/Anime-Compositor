@@ -16468,6 +16468,7 @@ pub(crate) fn apply_stack_at(
                 more,
             } => {
                 let look = fractal_look(fractal_type, noise_type, *cycle);
+                let size = fractal_cell(&instance.effect, *size);
                 let f = crate::grade::Fractal {
                     size: size * (scale_width / 100.0),
                     size_y: size * (scale_height / 100.0),
@@ -20523,6 +20524,18 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             dirt: None,
         }),
         _ => None,
+    }
+}
+
+/// D-756: the noise's cell in pixels for a Fractal Noise of `size` drawn for `drawn`, the effect
+/// as the layer holds it. After Effects' Fractal Noise at Scale 100 draws a 66.7-pixel cell, so
+/// Fractal Noise's own size is worked at two thirds; Turbulent Noise, drawn as Fractal Noise
+/// (D-445), keeps its size as the cell, unchanged.
+pub(crate) fn fractal_cell(drawn: &Effect, size: f64) -> f64 {
+    if matches!(drawn, Effect::TurbulentNoise { .. }) {
+        size
+    } else {
+        size / 1.5
     }
 }
 

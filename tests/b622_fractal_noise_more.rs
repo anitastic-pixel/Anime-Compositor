@@ -35,6 +35,8 @@ fn as_fractal(t: &Table, file: &str) -> J {
                 fx["type_id"] = J::from("core.fractal_noise");
                 let p = &mut fx["parameters"];
                 p["speed"] = json!(0);
+                // D-756: Fractal Noise works its cell at two thirds of its size.
+                p["size"] = json!(p["size"].as_f64().unwrap_or(100.0) * 1.5);
                 p["dark_color"] = json!("#000000");
                 p["light_color"] = json!("#ffffff");
             }

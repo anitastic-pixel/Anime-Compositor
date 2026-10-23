@@ -18,11 +18,11 @@ Written by `tests/b200_float_depth.rs`. A composition's working depth is Display
 | FX-BLEND-SCRF-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLEND-SCRF-003 frame 0: FX-BLEND-SCRF-001 in Display: `cs + cd - cs cd` as before D-319, which turns down past white. | largest difference 3.6e-6 | yes |
 | FX-BLEND-SCRF-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FNOISE-HDR-001 frame 0: Float. Fractal Noise, size 4, contrast 300, brightness 50, on the card: the brightest clouds go past white, the darkest still stop at black. | largest difference 1.2e-7 | yes |
+| FX-FNOISE-HDR-001 frame 0: Float. Fractal Noise, size 4, contrast 300, brightness 50, on the card: the brightest clouds go past white, the darkest still stop at black. | largest difference 1.4e-7 | yes |
 | FX-FNOISE-HDR-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FNOISE-HDR-002 frame 0: FX-FNOISE-HDR-001 in Display: held to 0..1, as before D-319. | largest difference 3.4e-8 | yes |
+| FX-FNOISE-HDR-002 frame 0: FX-FNOISE-HDR-001 in Display: held to 0..1, as before D-319. | largest difference 3.0e-8 | yes |
 | FX-FNOISE-HDR-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FNOISE-HDR-003 frame 0: Float. The card two stops up, then FX-FNOISE-HDR-001's noise in Screen: where both are past white the brighter is kept. | largest difference 8.4e-7 | yes |
+| FX-FNOISE-HDR-003 frame 0: Float. The card two stops up, then FX-FNOISE-HDR-001's noise in Screen: where both are past white the brighter is kept. | largest difference 7.6e-7 | yes |
 | FX-FNOISE-HDR-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | fx_blend_addf_001.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_blend_addf_002.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |

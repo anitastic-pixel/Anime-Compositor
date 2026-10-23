@@ -51,6 +51,8 @@ fn fx(id: &str, p: &J) -> J {
 /// never cycling.
 fn fractal(id: &str, p: &J) -> J {
     let mut all = settings(p);
+    // D-756: Fractal Noise works its cell at two thirds of its size, Turbulent Noise at its size.
+    all["size"] = json!(all["size"].as_f64().unwrap() * 1.5);
     for (k, v) in [
         ("speed", json!(0)),
         ("dark_color", json!("#000000")),

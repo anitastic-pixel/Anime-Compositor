@@ -9,7 +9,7 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 | FX-FRACTAL-001 frame 0: The settings as they start: size 100, complexity 4, contrast 100, brightness 0, evolution 0, speed 0, seed 0, black to white, opacity 100, normal. The card is covered by grey clouds so large that the drawing sees a small part of one cell: close greys, near the middle. Every pixel keeps its covering, the empty ones stay empty, and with speed 0 frame 4 is frame 0. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-001 frame 4: The settings as they start: size 100, complexity 4, contrast 100, brightness 0, evolution 0, speed 0, seed 0, black to white, opacity 100, normal. The card is covered by grey clouds so large that the drawing sees a small part of one cell: close greys, near the middle. Every pixel keeps its covering, the empty ones stay empty, and with speed 0 frame 4 is frame 0. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-002 frame 0: Size 4: four pixels a cell, so the greys vary across the card, lighter and darker patches. | largest difference 3.0e-8 | yes |
+| FX-FRACTAL-002 frame 0: Size 4: a cell of 2.7 pixels (D-756), so the greys vary across the card, lighter and darker patches. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FRACTAL-003 frame 0: Size 4, complexity 1.9, which counts as 1: one octave, the smooth value noise itself, softer than FX-FRACTAL-002's four. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -41,18 +41,18 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 | FX-FRACTAL-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FRACTAL-015 frame 0: FX-FRACTAL-014 with its colours written in capitals: the same. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-016 frame 0: Size 4, blend multiply: the card darkened by the clouds, its own colours showing through; the black patch stays black. | largest difference 5.3e-8 | yes |
+| FX-FRACTAL-016 frame 0: Size 4, blend multiply: the card darkened by the clouds, its own colours showing through; the black patch stays black. | largest difference 8.9e-8 | yes |
 | FX-FRACTAL-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-017 frame 0: Size 4, blend screen, opacity 50: the card lightened by the clouds, none darkened; the white patch stays white. | largest difference 2.1e-7 | yes |
+| FX-FRACTAL-017 frame 0: Size 4, blend screen, opacity 50: the card lightened by the clouds, none darkened; the white patch stays white. | largest difference 2.0e-7 | yes |
 | FX-FRACTAL-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-018 frame 0: Size 4, blend add, opacity 50: the clouds added at half strength, not held, so the white patch goes past its covering. | largest difference 2.3e-7 | yes |
+| FX-FRACTAL-018 frame 0: Size 4, blend add, opacity 50: the clouds added at half strength, not held, so the white patch goes past its covering. | largest difference 2.5e-7 | yes |
 | FX-FRACTAL-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FRACTAL-019 frame 0: Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end (132.5 at frame 2): frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-FRACTAL-002. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-019 frame 2: Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end (132.5 at frame 2): frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-FRACTAL-002. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-019 frame 4: Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end (132.5 at frame 2): frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-FRACTAL-002. | largest difference 3.0e-8 | yes |
 | FX-FRACTAL-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-020 frame 0: FX-FRACTAL-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 1.5e-8 | yes |
-| FX-FRACTAL-020 frame 3: FX-FRACTAL-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 1.5e-8 | yes |
+| FX-FRACTAL-020 frame 0: FX-FRACTAL-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 2.6e-8 | yes |
+| FX-FRACTAL-020 frame 3: FX-FRACTAL-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 2.6e-8 | yes |
 | FX-FRACTAL-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FRACTAL-021 frame 0: Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-021 frame 4: Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |

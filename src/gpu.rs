@@ -15856,6 +15856,8 @@ impl Gpu {
                 more,
             } => {
                 let base = crate::grade::mix(seed.floor() as u64);
+                // D-756: as the processor's.
+                let size = crate::effects::fractal_cell(&f.instance.effect, *size);
                 let mut k = vec![
                     size * (scale_width / 100.0),
                     crate::effects::depth(*evolution, *speed, *frame),
