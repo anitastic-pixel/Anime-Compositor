@@ -5,19 +5,28 @@ further out, so straight lines bend into a spiral, as a whirlpool, a spell or a 
 does in a cartoon. Inside a circle of `radius` pixels about `center` (per cent of the drawing's
 own width and height, as Radial Blur's centre is) each pixel takes the picture from a point
 turned back about the centre; the turn is `angle` degrees at the centre itself and falls off
-with the square of the distance to none at the circle's edge. Pixels on or past the circle are
-kept exactly. A positive angle turns the picture clockwise on the screen. It is this program's
-own method, modelled on After Effects' Twirl; nothing is ported. Document 21 is the rule in
-words; this file is the reference for the numbers document 25 pins against it.
+to none at the circle's edge. Pixels on or past the circle are kept exactly. A positive angle
+turns the picture clockwise on the screen. It is this program's own method, modelled on After
+Effects' Twirl; nothing is ported. Document 21 is the rule in words; this file is the reference
+for the numbers document 25 pins against it.
+
+D-744 (2026-10-23) brings it closer to After Effects, measured on tutorial stills: the turn
+falls off as smoothstep, s(t) = t^2 (3 - 2 t), not as t^2, and the circle's size can be given
+as After Effects gives it, `twirl_radius`, per cent of the drawing's larger side (0 to 100,
+After Effects' range). `radius`, pixels, stays: a file from before D-744 holds it, and where it
+is above 0 it is the circle's size, as before; only where it is 0 does `twirl_radius` set it.
 
 The rule. With w, h the drawing's own size, c the centre (center_x / 100 * w, center_y / 100 *
 h) in the drawing's own pixels (an earlier effect that grew the layer does not move it) and P a
-pixel's centre: angle 0 or radius 0 leaves every pixel as it is. Otherwise d = |P - c|; at
-d >= radius the pixel is kept exactly; else t = 1 - d / radius, beta = radians(angle) t^2, and
-the output is document 21's bilinear sample of the layer at c + R(-beta)(P - c), transparent
-outside the layer, with R(b)(x, y) = (x cos b - y sin b, x sin b + y cos b), clockwise on the
-screen for a positive b. Premultiplied red, green, blue and alpha are sampled alike. The layer
-does not grow; the radius is a distance, so a draft scales it.
+pixel's centre: the reach r is radius where radius > 0, else twirl_radius / 100 * max(w, h)
+(twirl_radius 0 where the file has none). Angle 0 or r 0 leaves every pixel as it is. Otherwise
+d = |P - c|; at d >= r the pixel is kept exactly; else t = 1 - d / r,
+beta = radians(angle) t^2 (3 - 2 t), and the output is document 21's bilinear sample of the
+layer at c + R(-beta)(P - c), transparent outside the layer, with
+R(b)(x, y) = (x cos b - y sin b, x sin b + y cos b), clockwise on the screen for a positive b.
+Premultiplied red, green, blue and alpha are sampled alike. The layer does not grow; the radius
+is a distance, so a draft scales it, while twirl_radius is a share of the drawing's own size,
+which a draft scales already.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
@@ -50,15 +59,26 @@ import directional_blur_reference as D  # noqa: E402
 W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "twirl"
 TOLERANCE = 2e-5  # document 25's default for a filter
-RANGES = {"angle": (-3600, 3600), "radius": (0, 10000), "center": (-1000, 1000)}
+RANGES = {"angle": (-3600, 3600), "radius": (0, 10000), "center": (-1000, 1000),
+          "twirl_radius": (0, 100)}
 NAMES = ("angle", "radius", "center")
 
 
 # --- the rule -------------------------------------------------------------------------------
 
-def source(px, py, angle, radius, center, w=W, h=H):
+def smoothstep(t):
+    return t * t * (3 - 2 * t)
+
+
+def reach(radius, twirl_radius, w=W, h=H):
+    """D-744: pixels where radius is above 0, else twirl_radius per cent of the larger side."""
+    return radius if radius > 0 else twirl_radius / 100 * max(w, h)
+
+
+def source(px, py, angle, radius, center, w=W, h=H, twirl_radius=0):
     """Where the pixel whose centre is (px, py), in the drawing's own pixels, takes its picture
     from; None where it is kept exactly."""
+    radius = reach(radius, twirl_radius, w, h)
     if angle == 0 or radius == 0:
         return None
     cx, cy = center[0] / 100 * w, center[1] / 100 * h
@@ -67,18 +87,18 @@ def source(px, py, angle, radius, center, w=W, h=H):
     if d >= radius:
         return None
     t = 1 - d / radius
-    b = math.radians(angle) * t * t
+    b = math.radians(angle) * smoothstep(t)
     # c + R(-b)(P - c)
     return (cx + dx * math.cos(b) + dy * math.sin(b), cy - dx * math.sin(b) + dy * math.cos(b))
 
 
-def twirl(layer, angle, radius, center, drawing=(W, H)):
+def twirl(layer, angle, radius, center, drawing=(W, H), twirl_radius=0):
     """The layer's premultiplied pixels, twirled; its rectangle kept. `drawing` is the drawing's
     own w by h; the layer's `left` and `top` are the growth of earlier effects."""
     out = []
     for i, p in enumerate(layer["px"]):
         x, y = layer["left"] + i % layer["w"] + 0.5, layer["top"] + i // layer["w"] + 0.5
-        at = source(x, y, angle, radius, center, *drawing)
+        at = source(x, y, angle, radius, center, *drawing, twirl_radius=twirl_radius)
         out.append(list(p) if at is None else bilinear(layer, *at))
     return out
 
@@ -112,15 +132,20 @@ DRAWINGS = {"cross": [[cross(x, y) for x in range(W)] for y in range(H)]}
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(angle=90, radius=50, center=(50, 50), shift=0, before=None):
-    """`before` is a directional blur (direction, length) ahead of the twirl."""
+def case(angle=90, radius=50, center=(50, 50), shift=0, before=None, twirl_radius=None):
+    """`before` is a directional blur (direction, length) ahead of the twirl. `twirl_radius`
+    None leaves it out of the file, as a file from before D-744 has it."""
     return {"drawing": "cross", "angle": angle, "radius": radius, "center": center,
-            "shift": shift, "before": before}
+            "shift": shift, "before": before, "twirl_radius": twirl_radius}
+
+
+def names(c):
+    return NAMES + (("twirl_radius",) if c["twirl_radius"] is not None else ())
 
 
 def settings(c, frame_no):
-    held = {}
-    for k in NAMES:
+    held = {"twirl_radius": 0}
+    for k in names(c):
         lo, hi = RANGES[k]
         v = value_at(c[k], frame_no)
         held[k] = ([min(hi, max(lo, u)) for u in v] if isinstance(v, (list, tuple))
@@ -144,7 +169,7 @@ def layer_of(c):
 def render(c, frame_no):
     layer = layer_of(c)
     s = settings(c, frame_no)
-    px = twirl(layer, s["angle"], s["radius"], s["center"])
+    px = twirl(layer, s["angle"], s["radius"], s["center"], twirl_radius=s["twirl_radius"])
     out = []
     for y in range(H):
         for x in range(W):
@@ -162,7 +187,7 @@ def plain(c):
 CASES = {
     "FX-TWIRL-001": ("The settings as they start: angle 90, radius 50, about the middle, the "
                      "point (8, 5). The whole drawing lies inside the circle, so every pixel is "
-                     "turned clockwise, by about 87 degrees beside the centre and by about 61 "
+                     "turned clockwise, by about 90 degrees beside the centre and by about 83 "
                      "at the corners: the two lines bend into a spiral about the middle, and "
                      "column 15 and rows 2 to 9 of column 0, which take their picture from past "
                      "the drawing's top and bottom edges, are empty. Pixels deep in the skin "
@@ -221,6 +246,23 @@ CASES = {
                      "pixels are turned too, and the centre is still the drawing's own point "
                      "(4, 2.5), not a point of the grown layer.",
                      case(center=(25, 25), before=(90, 4)), [0]),
+    "FX-TWIRL-022": ("D-744, the settings as a new Twirl starts: angle 90, radius 0, twirl "
+                     "radius 30, After Effects' start, about the middle. The circle is 30 per "
+                     "cent of the drawing's larger side, 16, so 4.8 pixels: the crossing is "
+                     "swirled, a little wider than FX-TWIRL-005's radius 4, and every pixel 4.8 "
+                     "or more from the middle is kept exactly.",
+                     case(radius=0, twirl_radius=30), [0]),
+    "FX-TWIRL-023": ("Radius 4 with twirl radius 100: radius, in pixels, is above 0, so it is "
+                     "the circle's size and twirl radius is not used; FX-TWIRL-005 exactly.",
+                     case(radius=4, twirl_radius=100), [0]),
+    "FX-TWIRL-024": ("Radius 0, twirl radius keyed from 0 at frame 0 to 60 at frame 4, linear: "
+                     "frame 0 the drawing, frame 2 FX-TWIRL-022, and frame 4 a circle of 9.6 "
+                     "pixels.",
+                     case(radius=0, twirl_radius=keyed((0, 0), (4, 60))), [0, 2, 4]),
+    "FX-TWIRL-025": ("FX-TWIRL-015's directional blur, then radius 0, twirl radius 50 about "
+                     "centre 25, 25: the circle is half the drawing's own larger side, 8 "
+                     "pixels, not half the grown layer's 20.",
+                     case(radius=0, twirl_radius=50, center=(25, 25), before=(90, 4)), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -233,6 +275,8 @@ INVALID = {
     "FX-TWIRL-020": ("Centre 50, 1001, past ten heights.", case(center=(50, 1001))),
     "FX-TWIRL-021": ("Radius keyed to 20000 at frame 4.",
                      case(radius=keyed((0, 50), (4, 20000)))),
+    "FX-TWIRL-026": ("Twirl radius 101, above 100.", case(radius=0, twirl_radius=101)),
+    "FX-TWIRL-027": ("Twirl radius -1, below 0.", case(radius=0, twirl_radius=-1)),
 }
 
 
@@ -254,7 +298,7 @@ def project_json(fx, c):
                         "parameters": {"direction": c["before"][0], "length": c["before"][1]}})
     effects.append({
         "instance_id": f"fx-0-{len(effects)}", "type_id": "core.twirl", "enabled": True,
-        "parameters": {k: setting_json(c[k]) for k in NAMES}})
+        "parameters": {k: setting_json(c[k]) for k in names(c)}})
     comp["layers"][0]["effects"] = effects
     return p
 
@@ -300,7 +344,7 @@ def check(expected):
     near = lambda a, b, e=1e-12: all(abs(p - q) < e for u, v in zip(a, b)  # noqa: E731
                                      for p, q in zip(u, v))
     dist = lambda x, y, cx=8, cy=5: math.hypot(x + 0.5 - cx, y + 0.5 - cy)  # noqa: E731
-    turn = lambda x, y, angle=90, radius=50: angle * (1 - dist(x, y) / radius) ** 2  # noqa: E731
+    turn = lambda x, y, angle=90, radius=50: angle * smoothstep(1 - dist(x, y) / radius)  # noqa: E731
 
     # The rule's own pieces. A positive angle turns the picture clockwise: a pixel right of the
     # centre takes the picture from above it, one below from the right of it.
@@ -308,7 +352,7 @@ def check(expected):
     assert abs(sx - 8) < 1e-12 and abs(sy - 1) < 1e-12
     sx, sy = source(8, 9, 90, 1e300, (50, 50))
     assert abs(sx - 12) < 1e-12 and abs(sy - 5) < 1e-12
-    # The turn is the angle at the centre, falls off with the square of the distance, and the
+    # The turn is the angle at the centre, falls off as smoothstep of the distance, and the
     # distance from the centre is kept.
     assert source(8, 5, 90, 50, (50, 50)) == (8, 5)
     for x in range(W):
@@ -320,7 +364,7 @@ def check(expected):
             assert abs(got - turn(x, y)) < 1e-9, (x, y)
     # On or past the circle nothing moves, and no fixture pixel sits within 1e-5 of it.
     assert source(8 + 4, 5, 90, 4, (50, 50)) is None and source(8 + 3.999, 5, 90, 4, (50, 50))
-    for radius, cx, cy in ((4, 8, 5), (8, 8, 5), (6, 0, 0), (50, 8, 5)):
+    for radius, cx, cy in ((4, 8, 5), (8, 8, 5), (6, 0, 0), (50, 8, 5), (4.8, 8, 5), (9.6, 8, 5)):
         assert all(abs(dist(x, y, cx, cy) - radius) > 1e-5 for x in range(W) for y in range(H))
 
     # Every valid case keeps each channel inside its covering; the invalid ones are the drawing.
@@ -336,7 +380,7 @@ def check(expected):
 
     one = c["FX-TWIRL-001"]["0"]
     assert all(source(x + 0.5, y + 0.5, 90, 50, (50, 50)) for x in range(W) for y in range(H))
-    assert 87 < turn(7, 4) < 88 and 61 < turn(0, 0) < 62 and 61 < turn(15, 9) < 62
+    assert 89.9 < turn(7, 4) < 90 and 82 < turn(0, 0) < 83 and 82 < turn(15, 9) < 83
     # The lines bend: the crossing's arms leave column 8 and row 5.
     assert one[at(8, 1)] != drawn[at(8, 1)] and one[at(2, 5)] != drawn[at(2, 5)]
     assert all(one[at(15, y)] == [0.0] * 4 for y in range(H))
@@ -403,6 +447,28 @@ def check(expected):
     wrong_b = twirl(dict(layer, left=0, top=0), 90, 50, (25, 25))
     assert not near(inside(wrong_a), fifteen, 1e-6) and not near(inside(wrong_b), fifteen, 1e-6)
     assert fifteen != render(case(center=(25, 25)), 0)
+    # D-744: the reach is radius where it is above 0, else twirl_radius of the larger side.
+    assert reach(50, 30) == 50 and reach(0, 30) == 0.3 * 16 and reach(0, 0) == 0
+    assert smoothstep(0) == 0 and smoothstep(1) == 1 and smoothstep(0.5) == 0.5
+    assert abs(smoothstep(0.25) - 0.15625) < 1e-15  # gentler than t^2's 0.0625 near the edge
+    # Grown-layer pixel centres of FX-TWIRL-025 stay clear of its circle, 8 about (4, 2.5).
+    assert all(abs(math.hypot(x + 0.5 - 4, y + 0.5 - 2.5) - 8) > 1e-5
+               for x in range(-2, W + 2) for y in range(-2, H + 2))
+    t22 = c["FX-TWIRL-022"]["0"]
+    for x in range(W):
+        for y in range(H):
+            if dist(x, y) >= 4.8:
+                assert t22[at(x, y)] == drawn[at(x, y)], (x, y)
+    assert sum(t22[i] != drawn[i] for i in range(W * H)) > sum(
+        c["FX-TWIRL-005"]["0"][i] != drawn[i] for i in range(W * H))
+    assert c["FX-TWIRL-023"]["0"] == c["FX-TWIRL-005"]["0"]
+    t24 = c["FX-TWIRL-024"]
+    assert t24["0"] == drawn and near(t24["2"], t22)
+    assert near(t24["4"], render(case(radius=9.6), 0))
+    t25 = c["FX-TWIRL-025"]["0"]
+    layer = layer_of(case(before=(90, 4)))
+    assert near(inside(twirl(layer, 90, 8, (25, 25))), t25)
+    assert not near(inside(twirl(layer, 90, 10, (25, 25))), t25, 1e-6)
     print("checked")
 
 
