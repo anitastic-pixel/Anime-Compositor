@@ -12,6 +12,16 @@ pixel. It is this program's own method, modelled on After Effects' Wave Warp in 
 claimed to match it; nothing is ported. Document 21 is the rule in words; this file is the
 reference for the numbers document 25 pins against it.
 
+D-745 adds two of After Effects' choices, keeping every case above as it was. `shape` "circle"
+bends the wave into half circles: each half wave is the top or the bottom of a circle, so the
+wave rises straight up from the middle line and is flat at its crest. `pinning` holds edges of
+the drawing still: "none" (the start, and what a file without it reads), "all_edges",
+"left_edge", "top_edge", "right_edge", "bottom_edge", "horizontal_edges" (top and bottom) or
+"vertical_edges" (left and right). Each pinned edge scales the push down to nothing at that edge,
+growing in a straight line to the whole push a quarter of the drawing's width (left, right) or
+height (top, bottom) in from it; two pinned edges multiply. Width keeps its meaning, one wave
+every `width` pixels, about twice After Effects' Wave Width for the same look.
+
 The rule. With height 0 the output is the input and nothing grows. Otherwise, with
 "transparent", the input grows by g = ceil(height) transparent pixels on every side; with
 "repeat", g = 0. t = u(direction) = (sin, -cos) of the direction, exact at quarter turns, and
@@ -19,9 +29,13 @@ n = (-t.y, t.x), a quarter turn clockwise from t. Each output pixel, centre (X, 
 drawing's own space (a grown pixel has negative coordinates), takes s = t.x X + t.y Y,
 phi = radians(phase + speed * frame), frame the composition frame, a hidden value, and
 w = sin(2 pi s / width + phi) for "sine" or (2 / pi) asin(sin(2 pi s / width + phi)) for
-"triangle"; the output is document 21's bilinear sample of the input at (X, Y) - height w n,
-transparent outside it, or with "repeat" D-109's held sample, the point first held inside the
-input's pixel centres.
+"triangle"; for "circle", with a = 2 pi s / width + phi, m = floor(a / pi) and u = a / pi - m,
+w = sqrt(1 - (2u - 1)^2), negative where m is odd. The pin p is 1 with pinning "none"; else the
+product, over the pinned edges, of clamp(4 d / size, 0, 1), d the distance of (X, Y) in from
+that edge of the drawing (X, Y, its width - X, its height - Y) and size the drawing's width or
+height across it. The output is document 21's bilinear sample of the input at
+(X, Y) - height p w n, transparent outside it, or with "repeat" D-109's held sample, the point
+first held inside the input's pixel centres.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
@@ -57,6 +71,9 @@ RANGES = {"height": (0, 1000), "width": (1, 10000), "direction": (-3600, 3600),
 NUMBERS = ("height", "width", "direction", "speed", "phase")
 NAMES = ("shape",) + NUMBERS + ("edges",)
 EMPTY = [0.0] * 4
+# D-745: the edges each pinning holds, l t r b.
+PINS = {"none": "", "all_edges": "ltrb", "left_edge": "l", "top_edge": "t", "right_edge": "r",
+        "bottom_edge": "b", "horizontal_edges": "tb", "vertical_edges": "lr"}
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -69,17 +86,32 @@ def wave(shape, width, direction, speed, phase, frame_no, X, Y):
     """w at the point (X, Y) of the drawing's own space, in -1..1."""
     t = unit(direction)
     a = 2 * math.pi * (t[0] * X + t[1] * Y) / width + math.radians(phase + speed * frame_no)
+    if shape == "circle":
+        m = math.floor(a / math.pi)
+        u = a / math.pi - m
+        v = math.sqrt(max(0.0, 1 - (2 * u - 1) ** 2))
+        return -v if m % 2 else v
     return math.sin(a) if shape == "sine" else 2 / math.pi * math.asin(math.sin(a))
 
 
-def push(shape, height, width, direction, speed, phase, frame_no, X, Y):
-    """How far the sample point lies from (X, Y): -height w n."""
+def pin(pinning, w, h, X, Y):
+    """D-745: the share of the push kept at (X, Y) of a drawing w by h."""
+    p = 1.0
+    for e in PINS[pinning]:
+        d, size = {"l": (X, w), "t": (Y, h), "r": (w - X, w), "b": (h - Y, h)}[e]
+        p *= min(1.0, max(0.0, 4 * d / size))
+    return p
+
+
+def push(shape, height, width, direction, speed, phase, frame_no, X, Y, p=1.0):
+    """How far the sample point lies from (X, Y): -height p w n."""
     t = unit(direction)
-    k = -height * wave(shape, width, direction, speed, phase, frame_no, X, Y)
+    k = -height * p * wave(shape, width, direction, speed, phase, frame_no, X, Y)
     return k * -t[1], k * t[0]
 
 
-def warped(layer, shape, height, width, direction, speed, phase, edges, frame_no, x, y):
+def warped(layer, shape, height, width, direction, speed, phase, edges, frame_no, x, y,
+           pinning="none"):
     """The output at pixel (x, y) of the drawing's own space; empty outside the grown layer."""
     if height == 0:
         return layer["px"][y * layer["w"] + x] if 0 <= x < layer["w"] and 0 <= y < layer["h"] \
@@ -88,7 +120,8 @@ def warped(layer, shape, height, width, direction, speed, phase, edges, frame_no
     if not (-g <= x < layer["w"] + g and -g <= y < layer["h"] + g):
         return EMPTY
     X, Y = x + 0.5, y + 0.5
-    dx, dy = push(shape, height, width, direction, speed, phase, frame_no, X, Y)
+    p = pin(pinning, layer["w"], layer["h"], X, Y)
+    dx, dy = push(shape, height, width, direction, speed, phase, frame_no, X, Y, p)
     return bilinear(layer, X + dx, Y + dy, edges)
 
 
@@ -123,10 +156,15 @@ def drawn_layer(name):
 # --- the cases ------------------------------------------------------------------------------
 
 def case(shape="sine", height=10, width=40, direction=90, speed=0, phase=0,
-         edges="transparent", shift=0):
+         edges="transparent", shift=0, pinning=None):
+    """`pinning` None: the file has none, as every file before D-745, and reads as "none"."""
     return {"drawing": "stripes", "shape": shape, "height": height, "width": width,
             "direction": direction, "speed": speed, "phase": phase, "edges": edges,
-            "shift": shift}
+            "shift": shift, "pinning": pinning}
+
+
+def names(c):
+    return NAMES + (("pinning",) if c["pinning"] is not None else ())
 
 
 def held(c, k, frame_no):
@@ -137,7 +175,8 @@ def held(c, k, frame_no):
 def render(c, frame_no):
     layer = drawn_layer(c["drawing"])
     n = [held(c, k, frame_no) for k in NUMBERS]
-    return [warped(layer, c["shape"], *n, c["edges"], frame_no, x - c["shift"], y)
+    return [warped(layer, c["shape"], *n, c["edges"], frame_no, x - c["shift"], y,
+                   c["pinning"] or "none")
             for y in range(H) for x in range(W)]
 
 
@@ -214,6 +253,47 @@ CASES = {
                     "grows by 3, the height rounded up, and the stripes pushed furthest left "
                     "reach into the third column left of the drawing.",
                     case(height=2.5, width=8, direction=0, shift=3), [0]),
+    # D-745.
+    "FX-WAVE-025": ("FX-WAVE-003 with shape circle: each half wave is half a circle, so the "
+                    "push rises steeply from nothing where the sine crosses the middle and "
+                    "stays near its full 2 pixels across most of each half wave.",
+                    case(shape="circle", **WAVE), [0]),
+    "FX-WAVE-026": ("FX-WAVE-025 at direction 0: the half circles run up the drawing and push "
+                    "each row left or right.",
+                    case(shape="circle", direction=0, **WAVE), [0]),
+    "FX-WAVE-027": ("FX-WAVE-003 with pinning all_edges: the push fades to nothing at every "
+                    "edge of the drawing, reaching its whole size 4 pixels in from the left "
+                    "and right and 2.5 from the top and bottom, so the drawing's outline "
+                    "stays put and only its middle waves.",
+                    case(pinning="all_edges", **WAVE), [0]),
+    "FX-WAVE-028": ("Pinning left_edge: column 0 is pushed an eighth as far as in "
+                    "FX-WAVE-003, column 1 three eighths, column 2 five, column 3 seven, and "
+                    "columns 4 on are FX-WAVE-003's.",
+                    case(pinning="left_edge", **WAVE), [0]),
+    "FX-WAVE-029": ("Pinning top_edge: row 0 is pushed a fifth as far as in FX-WAVE-003, row 1 "
+                    "three fifths, and rows 2 on are FX-WAVE-003's.",
+                    case(pinning="top_edge", **WAVE), [0]),
+    "FX-WAVE-030": ("Pinning right_edge: the drawing's right edge, past column 15, holds still; "
+                    "columns 12 to 15 are pushed less, and columns 0 to 11 are FX-WAVE-003's.",
+                    case(pinning="right_edge", **WAVE), [0]),
+    "FX-WAVE-031": ("Pinning bottom_edge: rows 8 and 9 are pushed less, and rows 0 to 7 are "
+                    "FX-WAVE-003's.",
+                    case(pinning="bottom_edge", **WAVE), [0]),
+    "FX-WAVE-032": ("Pinning horizontal_edges, the top and the bottom: FX-WAVE-029 and "
+                    "FX-WAVE-031 together.",
+                    case(pinning="horizontal_edges", **WAVE), [0]),
+    "FX-WAVE-033": ("Pinning vertical_edges, the left and the right: FX-WAVE-028 and "
+                    "FX-WAVE-030 together.",
+                    case(pinning="vertical_edges", **WAVE), [0]),
+    "FX-WAVE-034": ("Pinning none written in the file: FX-WAVE-003 exactly.",
+                    case(pinning="none", **WAVE), [0]),
+    "FX-WAVE-035": ("FX-WAVE-014 with pinning all_edges: the drawing moved three pixels right, "
+                    "its edges still held where the drawing is, so the grown columns left of "
+                    "it stay empty.",
+                    case(direction=0, shift=3, pinning="all_edges", **WAVE), [0]),
+    "FX-WAVE-036": ("FX-WAVE-025 with pinning all_edges and speed 45: the half circles travel "
+                    "while the edges stay put; frame 2 is a quarter wave on.",
+                    case(shape="circle", speed=45, pinning="all_edges", **WAVE), [0, 2]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -228,6 +308,9 @@ INVALID = {
     "FX-WAVE-023": ("Shape \"square\", which is not a choice.", case(shape="square")),
     "FX-WAVE-024": ("Edges \"Repeat\": the word is exact, so a capital is not the choice.",
                     case(edges="Repeat")),
+    "FX-WAVE-037": ("Pinning \"center\", which is not a choice.", case(pinning="center")),
+    "FX-WAVE-038": ("Pinning \"All Edges\", the name on the panel, not the word.",
+                    case(pinning="All Edges")),
 }
 
 
@@ -244,7 +327,7 @@ def project_json(fx, c):
     t["position"] = prop([W / 2 + c["shift"], H / 2])
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.wave_warp", "enabled": True,
-        "parameters": {k: setting_json(c[k]) for k in NAMES}}]
+        "parameters": {k: setting_json(c[k]) for k in names(c)}}]
     return p
 
 
@@ -376,6 +459,47 @@ def check(expected):
     assert any(fourteen[at(x, y)][3] > 0 for x in (1, 2) for y in range(H))  # grown, shown
     assert all(fifteen[at(x, y)] == EMPTY for x in range(3) for y in range(H))
     assert any(c["FX-WAVE-016"]["0"][at(0, y)][3] > 0.1 for y in range(H))
+    # D-745: the circle and the pins.
+    for a in (0.3, 1.0, 2.0, 2.9, 4.0, 5.5, -1.0):
+        X = a * 8 / (2 * math.pi)  # width 8, direction 90: a = 2 pi X / 8
+        v, sv = wave("circle", 8, 90, 0, 0, 0, X, 0), math.sin(a)
+        assert abs(v) >= abs(sv) - 1e-12 and (v > 0) == (sv > 0), a  # rounder, same side
+        assert abs(v * v + (2 * (a / math.pi - math.floor(a / math.pi)) - 1) ** 2 - 1) < 1e-12
+    assert abs(wave("circle", 8, 90, 0, 0, 0, 2, 0) - 1) < 1e-12  # the crest where the sine's is
+    assert wave("circle", 8, 90, 0, 0, 0, 0, 0) == 0
+    assert pin("none", W, H, 0.5, 0.5) == 1
+    assert pin("left_edge", W, H, 0.5, 5) == 0.125 and pin("left_edge", W, H, 3.5, 5) == 0.875
+    assert pin("left_edge", W, H, 4.5, 5) == 1 and pin("left_edge", W, H, -0.5, 5) == 0
+    assert pin("top_edge", W, H, 8, 0.5) == 0.2 and pin("top_edge", W, H, 8, 1.5) == 0.6
+    assert pin("right_edge", W, H, 15.5, 5) == 0.125 and pin("bottom_edge", W, H, 8, 9.5) == 0.2
+    assert pin("all_edges", W, H, 0.5, 0.5) == 0.125 * 0.2
+    for X in [x + 0.5 for x in range(W)]:
+        for Y in [y + 0.5 for y in range(H)]:
+            assert pin("horizontal_edges", W, H, X, Y) == \
+                pin("top_edge", W, H, X, Y) * pin("bottom_edge", W, H, X, Y)
+            assert pin("vertical_edges", W, H, X, Y) == \
+                pin("left_edge", W, H, X, Y) * pin("right_edge", W, H, X, Y)
+    assert c["FX-WAVE-025"]["0"] not in (f3, drawn)
+    assert c["FX-WAVE-026"]["0"] not in (five, drawn)
+    allp = c["FX-WAVE-027"]["0"]
+    assert allp not in (f3, drawn)
+    left = c["FX-WAVE-028"]["0"]
+    assert all(left[at(x, y)] == f3[at(x, y)] for x in range(4, W) for y in range(H))
+    assert any(left[at(x, y)] != f3[at(x, y)] for x in range(4) for y in range(H))
+    top = c["FX-WAVE-029"]["0"]
+    assert all(top[at(x, y)] == f3[at(x, y)] for x in range(W) for y in range(3, H))
+    right = c["FX-WAVE-030"]["0"]
+    assert all(right[at(x, y)] == f3[at(x, y)] for x in range(12) for y in range(H))
+    bottom = c["FX-WAVE-031"]["0"]
+    assert all(bottom[at(x, y)] == f3[at(x, y)] for x in range(W) for y in range(7))
+    assert c["FX-WAVE-032"]["0"] not in (top, bottom, f3)
+    assert c["FX-WAVE-033"]["0"] not in (left, right, f3)
+    assert c["FX-WAVE-034"]["0"] == f3
+    t35 = c["FX-WAVE-035"]["0"]
+    assert all(t35[at(x, y)] == EMPTY for x in range(3) for y in range(H))
+    assert t35 != fourteen
+    t36 = c["FX-WAVE-036"]
+    assert t36["0"] != t36["2"]
     for name, frames in c.items():
         for px in frames.values():
             for p in px:
