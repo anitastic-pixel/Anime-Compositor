@@ -89,6 +89,7 @@ impl Glow {
             operation: self.operation.to_string(),
             tint: self.tint.to_string(),
             units: "classic".into(),
+            look: Default::default(),
         }
     }
 }
@@ -388,9 +389,9 @@ fn b33_glow() {
             }),
         ),
         (
-            "operation \"multiply\"",
+            "operation \"color_dodge\"",
             set(Glow {
-                operation: "multiply",
+                operation: "color_dodge",
                 ..PLAIN
             }),
         ),

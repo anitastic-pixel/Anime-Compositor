@@ -2,7 +2,7 @@
 
 D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bpc and 32 bpc (After Effects) a Glow in After Effects units gives each glowing channel min(1, intensity x (t + 16 (1 - t)) / 3 x its value), spreads it at sigma 0.4 x radius and lays it on at strength 1. Every FX-GLDISP pixel is `Fixtures/glow_display/expected_glow_display.json`, rewritten by `tools/glow_display_reference.py`; the tolerance is 2e-5. The pictures are Wave 1's tutorial frames at a quarter size, After Effects' levels measured from its stills.
 
-## FX-GLDISP-001 to 008 (document 25), D-746's values
+## FX-GLDISP-001 to 016 (document 25): D-746's values, and D-747's further controls from 009
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -22,6 +22,22 @@ D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bp
 | FX-GLDISP-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-008 frame 0: 32 bpc (After Effects), the half-covering patches with Solid Composite #3c286e at opacity 50 and nothing else: laid on in display values, the purple used as written. | largest difference 6.1e-8 | yes |
 | FX-GLDISP-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-009 frame 0: D-747, Composite Original None: the light alone; the patches themselves are gone, and what is left is FX-GLDISP-001's halo less the drawing. | largest difference 8.3e-8 | yes |
+| FX-GLDISP-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-010 frame 0: D-747, Glow Dimensions Horizontal: the light spreads along the rows only, so a row with nothing that glows stays as it was. | largest difference 1.3e-7 | yes |
+| FX-GLDISP-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-011 frame 0: D-747, Glow Colors A & B, Sawtooth A>B, A #ff0000, B #0000ff, intensity 1, on black, Composite Original None: the brightest light is red, the faintest towards blue, each at the light's own strength. | largest difference 1.9e-7 | yes |
+| FX-GLDISP-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-012 frame 0: D-747, Glow Operation Normal, Composite Original On Top, on black: the light covers the picture, so the patches take its colour where it is strong. | largest difference 6.0e-8 | yes |
+| FX-GLDISP-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-013 frame 0: D-747, Glow Operation Normal, Composite Original Behind (After Effects' start), on black: the opaque picture covers its light, so nothing changes. | largest difference 2.1e-7 | yes |
+| FX-GLDISP-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-014 frame 0: D-747, Glow Operation Lighten, On Top, on black: each channel the lighter of the picture and the light. | largest difference 2.1e-7 | yes |
+| FX-GLDISP-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-015 frame 0: D-747, Glow Operation Overlay, Behind, on the empty-cornered patches: where only the light is, the light; where both are, the overlay. | largest difference 2.0e-7 | yes |
+| FX-GLDISP-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-016 frame 0: D-747 at 8 bpc, After Effects' defaults with Glow Dimensions Vertical and Operation Multiply On Top, on black: the light multiplies the picture, then held to 8 bits. | largest difference 1.5e-7 | yes |
+| FX-GLDISP-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## Valeri Visuals, case 2: a white disc on black, threshold 0, radius 400, intensity 2 (a quarter size)
 
@@ -52,4 +68,4 @@ D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bp
 
 ## Result
 
-28 of 28 checks pass.
+44 of 44 checks pass.

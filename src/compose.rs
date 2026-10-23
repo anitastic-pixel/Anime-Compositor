@@ -1451,6 +1451,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-306: the card pushes both ways, unpinned, only.
         && !matches!(&instance.effect, crate::effects::Effect::TurbulentDisplace { displacement, pinning, .. }
             if displacement != "turbulent" || pinning != "none")
+        // D-747: the card adds or screens a Glow's own colours along both axes only.
+        // ponytail: teach the card's glow the other operations if one is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::Glow { operation, look, .. }
+            if !["add", "screen"].contains(&operation.as_str()) || look.composite == "none"
+                || look.dimensions != "both" || look.glow_colors != "original")
         // D-303: the card blurs along both axes only.
         // ponytail: give the card's two passes a still one if a one-way blur is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::GaussianBlur { dimensions, .. } if dimensions != "both")
@@ -5285,11 +5290,12 @@ fn resolve_rest(
                     operation,
                     tint,
                     units,
+                    look,
                 } => {
                     use rayon::prelude::*;
                     let g = crate::glow::settings(
                         &based_on, threshold, &colors, tolerance, radius, intensity, &operation,
-                        &tint, &units,
+                        &tint, &units, &look,
                     );
                     let lit = intensity != 0.0
                         && source

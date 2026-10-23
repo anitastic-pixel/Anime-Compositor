@@ -3905,6 +3905,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             tint: String::new(),
             // D-322: one added from now on takes After Effects' radius and strength.
             units: "after_effects".to_string(),
+            // D-747: and After Effects' starting values for its further controls.
+            look: Default::default(),
         }),
         LINE_RECOLOR => Some(Effect::LineRecolor {
             colors: Vec::new(),
@@ -7109,6 +7111,23 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             tint: word("tint")?,
             // D-322: classic when the command does not say, as a file without it.
             units: word("units").unwrap_or_else(|_| "classic".to_string()),
+            // D-747: each at After Effects' start when the command does not say, as a file without it.
+            look: {
+                let start = anime_compositor::effects::GlowLook::default();
+                let w = |k: &str, s: String| if parameter(query, k).is_some() { word(k) } else { Ok(s) };
+                let n = |k: &str, s: f64| if parameter(query, k).is_some() { number(k) } else { Ok(s) };
+                anime_compositor::effects::GlowLook {
+                    composite: w("composite", start.composite)?,
+                    dimensions: w("dimensions", start.dimensions)?,
+                    glow_colors: w("glow_colors", start.glow_colors)?,
+                    color_looping: w("color_looping", start.color_looping)?,
+                    color_loops: n("color_loops", start.color_loops)?,
+                    color_phase: n("color_phase", start.color_phase)?,
+                    midpoint: n("midpoint", start.midpoint)?,
+                    color_a: w("color_a", start.color_a)?,
+                    color_b: w("color_b", start.color_b)?,
+                }
+            },
         }),
         LINE_RECOLOR => Ok(Effect::LineRecolor {
             colors: colors()?,

@@ -114,7 +114,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.selective_color_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blur, colors, tolerance - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.glow` is an effect this build has | added | added | pass |
-| and the settings it sends for it - threshold, radius, intensity, tolerance, colors, based_on, operation, tint - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - threshold, radius, intensity, tolerance, colors, based_on, operation, tint, composite, dimensions, glow_colors, color_looping, color_loops, color_phase, midpoint, color_a, color_b - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.line_recolor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, colors, new_color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.directional_blur` is an effect this build has | added | added | pass |

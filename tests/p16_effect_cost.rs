@@ -87,6 +87,7 @@ fn glow(radius: f64, based_on: &str) -> Effect {
         operation: "add".to_string(),
         tint: String::new(),
         units: "classic".into(),
+        look: Default::default(),
     }
 }
 

@@ -95,7 +95,7 @@ fn b625_glow_strength() {
          Wave 1's tutorial frames at a quarter size, After Effects' levels measured from its stills.\n",
     );
 
-    t.heading("FX-GLDISP-001 to 008 (document 25), D-746's values");
+    t.heading("FX-GLDISP-001 to 016 (document 25): D-746's values, and D-747's further controls from 009");
     t.fixtures("expected_glow_display.json");
 
     let dir = effect_table::repo("verification/B-625 pictures");

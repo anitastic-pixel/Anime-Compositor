@@ -10902,7 +10902,11 @@ const EFFECT_PARAMS = {
   'core.glow': [['threshold', 'Glow Threshold', 1, 0.5, '0 to 100'],
     ['radius', 'Glow Radius', 1, 0.5, '0 to 500'],
     ['intensity', 'Glow Intensity', 1, 0.02, '0 to 10'],
-    ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
+    ['tolerance', 'Tolerance', 1, 0.5, '0 to 255'],
+    // D-747: After Effects' Glow Colors A & B numbers, used when Glow Colors is A & B.
+    ['color_loops', 'Color Loops', 1, 1, '1 to 127, how many times the colours go round from the brightest light to the faintest', '', 1],
+    ['color_phase', 'Color Phase', 1, 1, '-3600 to 3600 degrees, where along the loop the colours start', 'dial'],
+    ['midpoint', 'A & B Midpoint', 1, 0.5, '0 to 100 per cent, where the half-way mix of A and B falls', '', 50]],
   // D-91. Its colours and its new colour are drawn apart, in effectRow.
   'core.line_recolor': [['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
   // D-92: degrees clockwise from up, and the whole streak in pixels.
@@ -12837,10 +12841,20 @@ const EFFECT_WORDS = {
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
   'core.glow': {
     choices: [['based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]],
-      ['operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]],
+      // D-747: After Effects' other modes where this program has their formula.
+      ['operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen'], ['normal', 'Normal'], ['multiply', 'Multiply'],
+        ['overlay', 'Overlay'], ['soft_light', 'Soft Light'], ['hard_light', 'Hard Light'], ['darken', 'Darken'],
+        ['lighten', 'Lighten'], ['difference', 'Difference'], ['hue', 'Hue'], ['saturation', 'Saturation'],
+        ['color', 'Color'], ['luminosity', 'Luminosity']]],
+      // D-747: After Effects' Composite Original, Glow Dimensions and Glow Colors; Behind, both and Original are its start.
+      ['composite', 'Composite Original', [['behind', 'Behind'], ['on_top', 'On Top'], ['none', 'None']]],
+      ['dimensions', 'Glow Dimensions', [['both', 'Horizontal and Vertical'], ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]],
+      ['glow_colors', 'Glow Colors', [['original', 'Original Colors'], ['a_and_b', 'A & B Colors']]],
+      ['color_looping', 'Color Looping', [['triangle_aba', 'Triangle A>B>A'], ['sawtooth_ab', 'Sawtooth A>B'],
+        ['sawtooth_ba', 'Sawtooth B>A'], ['triangle_bab', 'Triangle B>A>B']]],
       // D-322: After Effects' radius and strength, which a new one takes; a file without units is classic.
       ['units', 'Units', [['classic', 'Classic (older projects)'], ['after_effects', 'After Effects']]]],
-    colours: [['tint', 'Glow Colours', ['Its own colours', 'One colour']]],
+    colours: [['tint', 'Glow Colours', ['Its own colours', 'One colour']], ['color_a', 'Color A'], ['color_b', 'Color B']],
     chosen: (w) => w.based_on === 'colors',
   },
   'core.line_recolor': { colours: [['new_color', 'New Colour']], chosen: () => true },
@@ -14868,6 +14882,11 @@ function effectRow(layer, fx, at, of) {
     // D-542: a file without them has the colours as added.
     words.inner_color ??= '#ffffff';
     words.outer_color ??= '#4080ff';
+  }
+  // D-747: a file without them has After Effects' Color A and Color B.
+  if (fxKey(fx) === 'core.glow') {
+    words.color_a ??= '#ffffff';
+    words.color_b ??= '#000000';
   }
   // D-381: a file without it reads the layer as the pixel is read.
   if (fxKey(fx) === 'core.colorama') {

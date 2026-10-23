@@ -414,3 +414,78 @@ fn soft_physical_glow_is_glow_with_the_physical_falloff() {
         now.effect
     );
 }
+
+/// D-747: After Effects' further Glow controls, typed in the panel, reach the Glow, a key on
+/// A & B Midpoint is saved and opened again, and a send that leaves them out is at their start.
+#[test]
+fn glow_controls_typed_in_the_panel_reach_the_glow() {
+    let viewer = Mutex::new(demo());
+    let said = run(&viewer, "effect.add?layer=layer-3&type=core.glow");
+    assert!(said.starts_with("Add "), "{said}");
+    let id = effects(&viewer)
+        .into_iter()
+        .find(|e| matches!(e.effect, Effect::Glow { .. }))
+        .expect("a Glow")
+        .instance_id
+        .as_str()
+        .to_string();
+    let base = "&based_on=bright&threshold=60&colors=&tolerance=0&radius=10&intensity=1&tint=&units=after_effects";
+    let sent = "&operation=overlay&composite=on_top&dimensions=vertical&glow_colors=a_and_b&color_looping=sawtooth_ba\
+                &color_loops=3&color_phase=90&midpoint=25&color_a=%23FF0000&color_b=%230000ff";
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}{sent}"));
+    assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+    let look = |viewer: &Mutex<Viewer>| match effects(viewer)
+        .into_iter()
+        .find(|e| e.instance_id.as_str() == id)
+        .expect("the glow")
+        .effect
+    {
+        Effect::Glow { operation, look, .. } => (operation, look),
+        other => panic!("{other:?}"),
+    };
+    let (operation, now) = look(&viewer);
+    assert_eq!(operation, "overlay");
+    assert_eq!(
+        (now.composite.as_str(), now.dimensions.as_str(), now.glow_colors.as_str(), now.color_looping.as_str()),
+        ("on_top", "vertical", "a_and_b", "sawtooth_ba")
+    );
+    assert_eq!((now.color_loops, now.color_phase, now.midpoint), (3.0, 90.0, 25.0));
+    assert_eq!((now.color_a.to_lowercase(), now.color_b.to_lowercase()), ("#ff0000".to_string(), "#0000ff".to_string()));
+    // A word After Effects has and this program does not is refused, and nothing changes.
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}{}", sent.replace("on_top", "sideways")));
+    assert!(!said.starts_with("Set ") && !said.starts_with("Change "), "{said}");
+    assert_eq!(look(&viewer).1.composite, "on_top");
+    run(&viewer, &format!("keyframe.add_remove?layer=layer-3&prop=fx:{id}:midpoint&frame=0"));
+    run(&viewer, &format!("property.set_base?layer=layer-3&prop=fx:{id}:midpoint&frame=10&value=75"));
+    let written = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        persist::to_json(held.document.project(), &held.preserved)
+    };
+    let reopened = persist::load_str(&written).unwrap_or_else(|d| panic!("{}: {}", d.message, d.detail));
+    let back = reopened
+        .document
+        .project()
+        .compositions
+        .iter()
+        .find_map(|c| c.layer(&Id::new("layer-3")))
+        .expect("layer-3")
+        .effects
+        .iter()
+        .find(|e| e.instance_id.as_str() == id)
+        .expect("the glow came back")
+        .clone();
+    assert!(
+        matches!(&back.effect, Effect::Glow { look, .. } if look.composite == "on_top" && look.color_loops == 3.0),
+        "{:?}",
+        back.effect
+    );
+    assert_eq!(back.tracks.get("midpoint").map(|t| t[0].keyframes().len()), Some(2));
+    // A send without them, as an older page's, is at After Effects' start.
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}&operation=add"));
+    assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+    let start = look(&viewer).1;
+    assert_eq!(
+        (start.composite.as_str(), start.dimensions.as_str(), start.glow_colors.as_str()),
+        ("behind", "both", "original")
+    );
+}

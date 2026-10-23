@@ -85,8 +85,8 @@ D-89, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/glo
 | FX-GLOW-031 frame 0: A tint written "orange". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-GLOW-031 frame 4: A tint written "orange". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-GLOW-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-GLOW-032 frame 0: Operation "multiply", which is not Add or Screen. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
-| FX-GLOW-032 frame 4: Operation "multiply", which is not Add or Screen. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
+| FX-GLOW-032 frame 0: Operation "color_dodge", a mode After Effects has and this program does not (D-747: until then "multiply" was refused here). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
+| FX-GLOW-032 frame 4: Operation "color_dodge", a mode After Effects has and this program does not (D-747: until then "multiply" was refused here). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-GLOW-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-GLOW-033 frame 0: Based on "dark", which is not bright or colors. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-GLOW-033 frame 4: Based on "dark", which is not bright or colors. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
@@ -135,7 +135,7 @@ D-89, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/glo
 | nine colours is refused with a sentence, and nothing changes | Glow takes up to eight colours, and this has 9. | yes |
 | the colour "#12345" is refused with a sentence, and nothing changes | A chosen colour is written # and six hexadecimal digits, such as #f6d6be, and this is "#12345". | yes |
 | the tint "orange" is refused with a sentence, and nothing changes | Glow's colour is empty or written # and six hexadecimal digits, such as #ff4000, and this is "orange". | yes |
-| operation "multiply" is refused with a sentence, and nothing changes | Glow's operation is "add" or "screen", and this is "multiply". | yes |
+| operation "color_dodge" is refused with a sentence, and nothing changes | Glow's operation is "normal", "add", "multiply", "screen", "overlay", "soft_light", "hard_light", "darken", "lighten", "difference", "hue", "saturation", "color", "luminosity", and this is "color_dodge". | yes |
 | based on "dark" is refused with a sentence, and nothing changes | Glow is based on "bright" or "colors", and this is "dark". | yes |
 | radius keyed to 600 is refused with a sentence, and nothing changes | Glow's radius runs from 0 to 500, and this is 600. | yes |
 | intensity keyed to 20 is refused with a sentence, and nothing changes | Glow's intensity runs from 0 to 10, and this is 20. | yes |

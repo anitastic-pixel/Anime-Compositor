@@ -22,6 +22,22 @@ D-337, from P-26's tutorial 2. Every expected pixel is `Fixtures/glow_display/ex
 | FX-GLDISP-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-008 frame 0: 32 bpc (After Effects), the half-covering patches with Solid Composite #3c286e at opacity 50 and nothing else: laid on in display values, the purple used as written. | largest difference 6.1e-8 | yes |
 | FX-GLDISP-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-009 frame 0: D-747, Composite Original None: the light alone; the patches themselves are gone, and what is left is FX-GLDISP-001's halo less the drawing. | largest difference 8.3e-8 | yes |
+| FX-GLDISP-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-010 frame 0: D-747, Glow Dimensions Horizontal: the light spreads along the rows only, so a row with nothing that glows stays as it was. | largest difference 1.3e-7 | yes |
+| FX-GLDISP-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-011 frame 0: D-747, Glow Colors A & B, Sawtooth A>B, A #ff0000, B #0000ff, intensity 1, on black, Composite Original None: the brightest light is red, the faintest towards blue, each at the light's own strength. | largest difference 1.9e-7 | yes |
+| FX-GLDISP-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-012 frame 0: D-747, Glow Operation Normal, Composite Original On Top, on black: the light covers the picture, so the patches take its colour where it is strong. | largest difference 6.0e-8 | yes |
+| FX-GLDISP-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-013 frame 0: D-747, Glow Operation Normal, Composite Original Behind (After Effects' start), on black: the opaque picture covers its light, so nothing changes. | largest difference 2.1e-7 | yes |
+| FX-GLDISP-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-014 frame 0: D-747, Glow Operation Lighten, On Top, on black: each channel the lighter of the picture and the light. | largest difference 2.1e-7 | yes |
+| FX-GLDISP-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-015 frame 0: D-747, Glow Operation Overlay, Behind, on the empty-cornered patches: where only the light is, the light; where both are, the overlay. | largest difference 2.0e-7 | yes |
+| FX-GLDISP-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-016 frame 0: D-747 at 8 bpc, After Effects' defaults with Glow Dimensions Vertical and Operation Multiply On Top, on black: the light multiplies the picture, then held to 8 bits. | largest difference 1.5e-7 | yes |
+| FX-GLDISP-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | fx_gldisp_002.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_gldisp_006.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_gldisp_008.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
@@ -43,4 +59,4 @@ D-337, from P-26's tutorial 2. Every expected pixel is `Fixtures/glow_display/ex
 
 ## Result
 
-24 of 24 checks pass.
+40 of 40 checks pass.

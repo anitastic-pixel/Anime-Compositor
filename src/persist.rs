@@ -1439,7 +1439,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             operation,
             tint,
             units,
+            look,
         } => {
+            // D-747: each of After Effects' further controls written only when not its start,
+            // what a file without it means, or when the file or a key had it.
+            let start = crate::effects::GlowLook::default();
+            for (key, word, was) in [
+                ("composite", &look.composite, &start.composite),
+                ("dimensions", &look.dimensions, &start.dimensions),
+                ("glow_colors", &look.glow_colors, &start.glow_colors),
+                ("color_looping", &look.color_looping, &start.color_looping),
+                ("color_a", &look.color_a, &start.color_a),
+                ("color_b", &look.color_b, &start.color_b),
+            ] {
+                if word != was || params.contains_key(key) {
+                    params.insert(key.into(), J::from(word.as_str()));
+                }
+            }
+            for (key, v, was) in [
+                ("color_loops", look.color_loops, start.color_loops),
+                ("color_phase", look.color_phase, start.color_phase),
+                ("midpoint", look.midpoint, start.midpoint),
+            ] {
+                if v != was || params.contains_key(key) || instance.tracks.contains_key(key) {
+                    params.insert(key.into(), num(v));
+                }
+            }
             params.insert("based_on".into(), J::from(based_on.as_str()));
             params.insert("threshold".into(), num(*threshold));
             params.insert(
@@ -8825,6 +8850,21 @@ fn parse_effect(
             tint: effect_word(params, "tint", at)?.to_ascii_lowercase(),
             // D-322: a file from before it is classic.
             units: effect_word_or(params, "units", at, "classic")?,
+            // D-747: a file from before it has After Effects' starting values, which draw as it did.
+            look: {
+                let start = crate::effects::GlowLook::default();
+                crate::effects::GlowLook {
+                    composite: effect_word_or(params, "composite", at, &start.composite)?,
+                    dimensions: effect_word_or(params, "dimensions", at, &start.dimensions)?,
+                    glow_colors: effect_word_or(params, "glow_colors", at, &start.glow_colors)?,
+                    color_looping: effect_word_or(params, "color_looping", at, &start.color_looping)?,
+                    color_loops: effect_number_or(params, "color_loops", at, start.color_loops)?,
+                    color_phase: effect_number_or(params, "color_phase", at, start.color_phase)?,
+                    midpoint: effect_number_or(params, "midpoint", at, start.midpoint)?,
+                    color_a: effect_word_or(params, "color_a", at, &start.color_a)?.to_ascii_lowercase(),
+                    color_b: effect_word_or(params, "color_b", at, &start.color_b)?.to_ascii_lowercase(),
+                }
+            },
         }),
         crate::effects::LINE_RECOLOR => Some(crate::effects::Effect::LineRecolor {
             colors: effect_colors(params, at)?,

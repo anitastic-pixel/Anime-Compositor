@@ -725,6 +725,8 @@ pub enum Effect {
         operation: String,
         tint: String,
         units: String,
+        /// D-747: After Effects' further Glow controls; a file without them means `GlowLook::default()`.
+        look: GlowLook,
     },
     /// D-91: `colors` and `tolerance` as D-88's, and `new_color`, the colour `#rrggbb` the chosen
     /// pixels become.
@@ -4628,6 +4630,51 @@ pub enum Effect {
     Unsupported { type_id: String },
 }
 
+/// D-747: After Effects' Glow controls past D-89's, as the file writes them. Words are kept as
+/// written, so a wrong one is reported (`glow_fault`), not lost.
+#[derive(Clone, PartialEq, Debug)]
+pub struct GlowLook {
+    /// Composite Original: "on_top", "behind" or "none".
+    pub composite: String,
+    /// Glow Dimensions: "both", "horizontal" or "vertical".
+    pub dimensions: String,
+    /// Glow Colors: "original" or "a_and_b".
+    pub glow_colors: String,
+    /// Color Looping: "sawtooth_ab", "sawtooth_ba", "triangle_aba" or "triangle_bab".
+    pub color_looping: String,
+    /// Color Loops, 1 to 127; Color Phase, degrees; A & B Midpoint, per cent 0 to 100.
+    pub color_loops: f64,
+    pub color_phase: f64,
+    pub midpoint: f64,
+    pub color_a: String,
+    pub color_b: String,
+}
+
+impl Default for GlowLook {
+    /// After Effects' own starting values, which are also what a file from before D-747 draws
+    /// as: with Add or Screen, the only operations it can have, Behind and On Top are the same.
+    fn default() -> GlowLook {
+        GlowLook {
+            composite: "behind".into(),
+            dimensions: "both".into(),
+            glow_colors: "original".into(),
+            color_looping: "triangle_aba".into(),
+            color_loops: 1.0,
+            color_phase: 0.0,
+            midpoint: 50.0,
+            color_a: "#ffffff".into(),
+            color_b: "#000000".into(),
+        }
+    }
+}
+
+/// D-747: Glow Operation's modes, every one with a blend formula already in this program
+/// (`grade::noise_mixer`, `grade::noise_whole`).
+pub const GLOW_OPERATIONS: [&str; 14] = [
+    "normal", "add", "multiply", "screen", "overlay", "soft_light", "hard_light", "darken",
+    "lighten", "difference", "hue", "saturation", "color", "luminosity",
+];
+
 /// The identifiers used in the project file. Namespaced the way the fixture's
 /// `vendor.future.effect` is, so a built-in and a third-party effect can never collide.
 pub const EXPOSURE: &str = "core.exposure";
@@ -7325,12 +7372,17 @@ impl Effect {
                 tolerance,
                 radius,
                 intensity,
+                look,
                 ..
             } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
                 ("tolerance", vec![tolerance], 0.0, 255.0),
                 ("radius", vec![radius], 0.0, 500.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
+                // D-747.
+                ("color_loops", vec![&mut look.color_loops], 1.0, 127.0),
+                ("color_phase", vec![&mut look.color_phase], -3600.0, 3600.0),
+                ("midpoint", vec![&mut look.midpoint], 0.0, 100.0),
             ],
             Effect::LineRecolor { tolerance, .. } | Effect::SelectColor { tolerance, .. } => {
                 vec![("tolerance", vec![tolerance], 0.0, 255.0)]
@@ -15213,17 +15265,40 @@ fn glow_fault(effect: &Effect) -> Option<String> {
         operation,
         tint,
         units,
+        look,
     } = effect
     else {
         return None;
     };
     let hex = |c: &str| crate::selective_blur::parse_hex(c).is_some();
+    let one_of = |what: &str, word: &str, words: &[&str]| {
+        (!words.contains(&word)).then(|| {
+            format!("Glow's {what} is {}, and this is \"{word}\".", words.iter().map(|w| format!("\"{w}\"")).collect::<Vec<_>>().join(", "))
+        })
+    };
+    // D-747.
+    if let Some(fault) = one_of("operation", operation, &GLOW_OPERATIONS)
+        .or_else(|| one_of("Composite Original", &look.composite, &["on_top", "behind", "none"]))
+        .or_else(|| one_of("Glow Dimensions", &look.dimensions, &["both", "horizontal", "vertical"]))
+        .or_else(|| one_of("Glow Colors", &look.glow_colors, &["original", "a_and_b"]))
+        .or_else(|| {
+            one_of("Color Looping", &look.color_looping, &["sawtooth_ab", "sawtooth_ba", "triangle_aba", "triangle_bab"])
+        })
+    {
+        return Some(fault);
+    }
     Some(if !["bright", "colors"].contains(&based_on.as_str()) {
         format!("Glow is based on \"bright\" or \"colors\", and this is \"{based_on}\".")
     } else if !["classic", "after_effects"].contains(&units.as_str()) {
         format!("Glow's units are \"classic\" or \"after_effects\", and this is \"{units}\".")
-    } else if !["add", "screen"].contains(&operation.as_str()) {
-        format!("Glow's operation is \"add\" or \"screen\", and this is \"{operation}\".")
+    } else if !(1.0..=127.0).contains(&look.color_loops) {
+        format!("Glow's Color Loops run from 1 to 127, and this is {}.", look.color_loops)
+    } else if !(-3600.0..=3600.0).contains(&look.color_phase) {
+        format!("Glow's Color Phase runs from -3600 to 3600 degrees, and this is {}.", look.color_phase)
+    } else if !(0.0..=100.0).contains(&look.midpoint) {
+        format!("Glow's A & B Midpoint runs from 0 to 100, and this is {}.", look.midpoint)
+    } else if let Some(bad) = [&look.color_a, &look.color_b].into_iter().find(|c| !hex(c)) {
+        format!("Glow's Color A and Color B are written # and six hexadecimal digits, such as #ffffff, and this is \"{bad}\".")
     } else if !(0.0..=100.0).contains(threshold) {
         format!("Glow's threshold runs from 0 to 100, and this is {threshold}.")
     } else if !(0.0..=500.0).contains(radius) {
@@ -15825,11 +15900,12 @@ pub(crate) fn apply_stack_at(
                 operation,
                 tint,
                 units,
+                look,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectGlow, || {
                     let mut g = crate::glow::settings(
                         based_on, *threshold, colors, *tolerance, *radius, *intensity, operation,
-                        tint, units,
+                        tint, units, look,
                     );
                     g.display = display;
                     crate::glow::glow(source, &g)

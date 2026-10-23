@@ -384,6 +384,24 @@ pub struct Glow {
     pub after_effects: bool,
     /// D-337: the layer is in display values (8 bpc, 32 bpc (After Effects)); never on the card.
     pub display: bool,
+    /// D-747: Glow Operation (one of `effects::GLOW_OPERATIONS`), Composite Original ("on_top",
+    /// "behind" or "none"), the axes the light spreads along, and A & B colours. The card is
+    /// given add or screen, behind or on top, both axes and the light's own colours only.
+    pub operation: &'static str,
+    pub composite: &'static str,
+    pub axes: (bool, bool),
+    pub ab: Option<GlowAb>,
+}
+
+/// D-747: Glow Colors A & B, as `effects::GlowLook` gives them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GlowAb {
+    pub a: [u8; 3],
+    pub b: [u8; 3],
+    pub looping: &'static str,
+    pub loops: f64,
+    pub phase: f64,
+    pub midpoint: f64,
 }
 
 /// B-50: a Gaussian Blur's sigma (`effects::blur`), already divided for Draft and large enough

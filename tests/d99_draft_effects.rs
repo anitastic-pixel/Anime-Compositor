@@ -112,6 +112,7 @@ fn d99_draft_effects() {
                 operation: "add".into(),
                 tint: String::new(),
                 units: "classic".into(),
+                look: Default::default(),
             },
         ),
         (

@@ -1973,6 +1973,16 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("based_on", "bright"),
             ("operation", "add"),
             ("tint", "%23ff4000"),
+            // D-747.
+            ("composite", "on_top"),
+            ("dimensions", "horizontal"),
+            ("glow_colors", "a_and_b"),
+            ("color_looping", "sawtooth_ab"),
+            ("color_loops", "2"),
+            ("color_phase", "45"),
+            ("midpoint", "40"),
+            ("color_a", "%23ff0000"),
+            ("color_b", "%230000ff"),
         ],
     ),
     // D-91: the colours and the new colour are drawn apart and sent with the tolerance.

@@ -37,6 +37,7 @@ fn glow(units: &str) -> Effect {
         operation: "add".into(),
         tint: String::new(),
         units: units.into(),
+        look: Default::default(),
     }
 }
 
