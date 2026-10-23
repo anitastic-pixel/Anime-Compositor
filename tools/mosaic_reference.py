@@ -17,6 +17,16 @@ covers comes out partly covered. `size` is 1 to 1000, keyable and held inside it
 makes one-pixel blocks and changes nothing, and so does a size below 1 after a draft's
 scaling. The layer does not grow; a draft scales `size`.
 
+D-754 adds After Effects' Horizontal Blocks and Vertical Blocks and its Sharp Colors. A `mode`
+of "count" splits the drawing's own box, d_x by d_y pixels, evenly: pixel (x, y) is in block
+(floor((x - o_x) x across / d_x), floor((y - o_y) x down / d_y)), worked in whole numbers, each
+count taken to the nearest whole number (a half up) and 1 to 1000; pixels an earlier effect grew
+past the drawing go on in blocks of the same width. A `mode` of "size", which a file without one
+reads as, is D-144's rule above, unchanged. `sharp_colors` "on" paints each block the pixel at
+its middle, column (start + end) // 2 of its run (end past its last), row likewise, in place of
+the mean; "off", which a file without one reads as, is the mean. The colour averaging is D-144's,
+unchanged.
+
 Which block a pixel falls in is a choice made from a number, so this file's `check` asserts that
 no pixel of any case sits within 1e-5 of a block's edge unless it sits exactly on it with a size
 that single precision holds exactly, where the build's division is exact too.
@@ -54,6 +64,7 @@ OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "mosaic"
 TOLERANCE = 2e-5  # document 25's default for a filter
 CLIFF = 1e-5      # the spec's margin: no pixel this close to a block's edge but exactly on it
 SIZE = (1, 1000)
+COUNT = (1, 1000)  # D-754: Horizontal and Vertical Blocks
 EMPTY = [0.0] * 4
 
 
@@ -66,12 +77,41 @@ def blocks(n, origin, size):
     return [math.floor((i - origin) / size) for i in range(n)]
 
 
-def mosaic(layer, size):
-    """The layer's premultiplied pixels, each block its mean; its rectangle kept. The layer's
-    `left` and `top` are the growth of earlier effects, so the drawing's corner is at buffer
-    pixel (-left, -top)."""
+def counted(n, origin, count, d):
+    """D-754: the block index of each of n buffer columns (or rows) when the drawing's `d` pixels
+    from `origin` are split evenly into `count` blocks: pixel i is in block
+    floor((i - origin) x count / d), worked in whole numbers, so the edges fall exactly; pixels an
+    earlier effect grew past the drawing go on in blocks of the same width."""
+    return [((i - origin) * count) // d for i in range(n)]
+
+
+def nearest(v):
+    """A count as the effect takes it: the nearest whole number, a half up."""
+    return math.floor(v + 0.5)
+
+
+def mosaic(layer, size, counts=None, sharp=False):
+    """The layer's premultiplied pixels, each block its mean, or with `sharp` (D-754) the pixel
+    at its middle; its rectangle kept. The layer's `left` and `top` are the growth of earlier
+    effects, so the drawing's corner is at buffer pixel (-left, -top). `counts` (D-754), when
+    given, splits the drawing's own box evenly into that many blocks across and down in place of
+    `size`."""
     w, h, src = layer["w"], layer["h"], layer["px"]
-    bx, by = blocks(w, -layer["left"], size), blocks(h, -layer["top"], size)
+    if counts:
+        bx = counted(w, -layer["left"], nearest(counts[0]), w + 2 * layer["left"])
+        by = counted(h, -layer["top"], nearest(counts[1]), h + 2 * layer["top"])
+    else:
+        bx, by = blocks(w, -layer["left"], size), blocks(h, -layer["top"], size)
+    if sharp:
+        # Each block's middle pixel: of its run of columns start to end (end past the last),
+        # column (start + end) // 2, a cut-short block's own middle.
+        def middles(b):
+            runs = {}
+            for i, k in enumerate(b):
+                runs.setdefault(k, [i, i])[1] = i + 1
+            return {k: (s + e) // 2 for k, (s, e) in runs.items()}
+        mx, my = middles(bx), middles(by)
+        return [list(src[my[by[y]] * w + mx[bx[x]]]) for y in range(h) for x in range(w)]
     sums = {}
     for y in range(h):
         for x in range(w):
@@ -111,13 +151,24 @@ DRAWINGS = {"strip": [[strip(x, y) for x in range(W)] for y in range(H)]}
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(size=10, shift=0, before=None):
-    """`before` is a directional blur (direction, length) ahead of the mosaic."""
-    return {"drawing": "strip", "size": size, "shift": shift, "before": before}
+def case(size=10, shift=0, before=None, mode=None, across=10, down=10, sharp=None):
+    """`before` is a directional blur (direction, length) ahead of the mosaic. D-754: `mode`,
+    `across` (Horizontal Blocks), `down` (Vertical Blocks) and `sharp` (Sharp Colors) are written
+    into the file only when `mode` or `sharp` is given; a file from before D-754 has none."""
+    return {"drawing": "strip", "size": size, "shift": shift, "before": before, "mode": mode,
+            "across": across, "down": down, "sharp": sharp}
 
 
 def held(c, frame_no):
     return min(SIZE[1], max(SIZE[0], value_at(c["size"], frame_no)))
+
+
+def counts_at(c, frame_no):
+    """D-754: the case's block counts at the frame, or None in size mode (the mode a file without
+    one reads as)."""
+    if c["mode"] != "count":
+        return None
+    return tuple(min(COUNT[1], max(COUNT[0], value_at(c[k], frame_no))) for k in ("across", "down"))
 
 
 def layer_of(c):
@@ -146,7 +197,8 @@ def placed(layer, px, shift):
 
 def render(c, frame_no):
     layer = layer_of(c)
-    return placed(layer, mosaic(layer, held(c, frame_no)), c["shift"])
+    out = mosaic(layer, held(c, frame_no), counts_at(c, frame_no), c["sharp"] == "on")
+    return placed(layer, out, c["shift"])
 
 
 def plain(c):
@@ -215,6 +267,54 @@ CASES = {
     "FX-MOSAIC-014": ("Size 10.5: blocks columns 0 to 10 and 11 to 15, rows 0 to 9 one block: "
                       "the part of a pixel moves the block's edge past column 10.",
                       case(size=10.5), [0]),
+    # D-754: Horizontal and Vertical Blocks, and Sharp Colors.
+    "FX-MOSAIC-021": ("Mode count, 10 by 10, Sharp Colors off, as a Mosaic starts when it is "
+                      "added: the drawing's 16 columns split evenly into 10 blocks, column x in "
+                      "block floor(10x / 16), so they are 2, 2, 1, 2, 1, 2, 2, 1, 2 and 1 "
+                      "columns wide, and its 10 rows into 10 blocks one row tall; each block "
+                      "the mean of its pixels.",
+                      case(mode="count"), [0]),
+    "FX-MOSAIC-022": ("Mode count, 4 by 2: blocks four columns wide and five rows tall, the "
+                      "drawing split evenly with nothing left over, where size mode's square "
+                      "blocks leave a strip.",
+                      case(mode="count", across=4, down=2), [0]),
+    "FX-MOSAIC-023": ("Mode count, 3 by 3: 16 and 10 do not divide by 3, so the blocks are "
+                      "columns 0 to 5, 6 to 10 and 11 to 15, and rows 0 to 3, 4 to 6 and 7 to 9, "
+                      "as near even as whole pixels allow.",
+                      case(mode="count", across=3, down=3), [0]),
+    "FX-MOSAIC-024": ("Mode count, 1 by 1: one block, the whole drawing, the same as "
+                      "FX-MOSAIC-007.",
+                      case(mode="count", across=1, down=1), [0]),
+    "FX-MOSAIC-025": ("Mode count, 16 by 10, one block a pixel: the drawing untouched.",
+                      case(mode="count", across=16, down=10), [0]),
+    "FX-MOSAIC-026": ("Size 4 with Sharp Colors on: FX-MOSAIC-004's blocks, each taking the "
+                      "pixel at its middle, column and row start + 2, rather than the mean, so "
+                      "every block is one of the drawing's own colours; the bottom row of "
+                      "blocks, rows 8 and 9, cut short, takes row 9.",
+                      case(size=4, sharp="on"), [0]),
+    "FX-MOSAIC-027": ("Mode count, 4 by 2, Sharp Colors on: FX-MOSAIC-022's blocks, each the "
+                      "pixel at its middle, columns 2, 6, 10 and 14 and rows 2 and 7.",
+                      case(mode="count", across=4, down=2, sharp="on"), [0]),
+    "FX-MOSAIC-028": ("Mode count, 4 by 2, the layer moved three pixels right: FX-MOSAIC-022 "
+                      "moved; the blocks split the drawing's own box, so they move with it.",
+                      case(mode="count", across=4, down=2, shift=3), [0, 3]),
+    "FX-MOSAIC-029": ("A directional blur, direction 90 and length 4, then mode count, 4 by 2: "
+                      "the blur grew the layer two pixels on every side, and the counts split "
+                      "the drawing's own box, not the grown one, so the blocks in the frame are "
+                      "FX-MOSAIC-022's, averaged from the blurred pixels; the grown rows above "
+                      "and below are blocks of their own, which the sideways blur left empty.",
+                      case(mode="count", across=4, down=2, before=(90, 4)), [0]),
+    "FX-MOSAIC-030": ("Mode count, Horizontal Blocks keyed from 2 at frame 0 to 6 at frame 4, "
+                      "linear, Vertical Blocks 1: frame 0 is two blocks across, frame 2 four "
+                      "(FX-MOSAIC-022 across, one block down) and frame 4 six.",
+                      case(mode="count", across=keyed((0, 2), (4, 6)), down=1), [0, 2, 4]),
+    "FX-MOSAIC-031": ("Mode count, 2.6 by 3.4: a count is taken to the nearest whole number, "
+                      "so this is 3 by 3, FX-MOSAIC-023.",
+                      case(mode="count", across=2.6, down=3.4), [0]),
+    "FX-MOSAIC-032": ("Size 4 with the mode written as size and Sharp Colors off: the same as "
+                      "FX-MOSAIC-004, which names neither, as every file from before D-754 is "
+                      "read.",
+                      case(size=4, mode="size", sharp="off"), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -226,6 +326,15 @@ INVALID = {
     "FX-MOSAIC-018": ("Size 1001, above 1000.", case(size=1001)),
     "FX-MOSAIC-019": ("Size keyed to 1500 at frame 4.", case(size=keyed((0, 10), (4, 1500)))),
     "FX-MOSAIC-020": ("Size keyed to 0 at frame 4.", case(size=keyed((0, 10), (4, 0)))),
+    # D-754.
+    "FX-MOSAIC-033": ("Mode \"grid\", not one of size and count.", case(mode="grid")),
+    "FX-MOSAIC-034": ("Sharp Colors \"yes\", not on or off.", case(sharp="yes")),
+    "FX-MOSAIC-035": ("Mode count, Horizontal Blocks 0, below 1.", case(mode="count", across=0)),
+    "FX-MOSAIC-036": ("Mode count, Vertical Blocks 1001, above 1000.",
+                      case(mode="count", down=1001)),
+    "FX-MOSAIC-037": ("Mode size, Horizontal Blocks keyed to 0.5 at frame 4: out of range even "
+                      "where size mode does not use it.",
+                      case(mode="size", across=keyed((0, 10), (4, 0.5)))),
 }
 
 
@@ -245,8 +354,14 @@ def project_json(fx, c):
         effects.append({"instance_id": "fx-0-0", "type_id": "core.directional_blur",
                         "enabled": True,
                         "parameters": {"direction": c["before"][0], "length": c["before"][1]}})
+    parameters = {"size": setting_json(c["size"])}
+    if c["mode"] is not None:
+        parameters.update(mode=c["mode"], horizontal=setting_json(c["across"]),
+                          vertical=setting_json(c["down"]))
+    if c["sharp"] is not None:
+        parameters["sharp_colors"] = c["sharp"]
     effects.append({"instance_id": f"fx-0-{len(effects)}", "type_id": "core.mosaic",
-                    "enabled": True, "parameters": {"size": setting_json(c["size"])}})
+                    "enabled": True, "parameters": parameters})
     comp["layers"][0]["effects"] = effects
     return p
 
@@ -338,7 +453,7 @@ def check(expected):
                 assert -1e-12 <= p[3] <= 1 + 1e-12 and all(-1e-12 <= v <= p[3] + 1e-12
                                                           for v in p[:3]), (fx, i)
         cs = (CASES.get(fx) or INVALID.get(fx))[1]
-        if not cs["shift"] and not cs["before"]:
+        if not cs["shift"] and not cs["before"] and cs["sharp"] != "on":
             for px in frames.values():
                 assert close(total(px), total(drawn), 1e-9), fx
         if fx in INVALID:
@@ -421,6 +536,59 @@ def check(expected):
     assert flat(fourteen, range(11), range(H), mean(range(11), range(H)))
     assert flat(fourteen, range(11, 16), range(H), mean(range(11, 16), range(H)))
     assert fourteen != one1
+
+    # D-754: counts split the drawing's box evenly, in whole numbers.
+    assert counted(16, 0, 10, 16) == [0, 0, 1, 1, 2, 3, 3, 4, 5, 5, 6, 6, 7, 8, 8, 9]
+    assert counted(16, 0, 3, 16) == [0] * 6 + [1] * 5 + [2] * 5
+    assert counted(10, 0, 3, 10) == [0] * 4 + [1] * 3 + [2] * 3
+    assert counted(14, 2, 2, 10) == [-1, -1] + [0] * 5 + [1] * 5 + [2, 2]
+    assert nearest(2.5) == 3 and nearest(2.4) == 2 and nearest(3.4) == 3
+    t21 = one("FX-MOSAIC-021")
+    runs21 = [(0, 2), (2, 4), (4, 5), (5, 7), (7, 8), (8, 10), (10, 12), (12, 13), (13, 15),
+              (15, 16)]
+    for a, b in runs21:
+        for y in range(H):
+            assert flat(t21, range(a, b), (y,), mean(range(a, b), (y,)))
+    t22 = one("FX-MOSAIC-022")
+    for bx in range(0, W, 4):
+        for by in (0, 5):
+            assert flat(t22, range(bx, bx + 4), range(by, by + 5),
+                        mean(range(bx, bx + 4), range(by, by + 5)))
+    t23 = one("FX-MOSAIC-023")
+    for xs in (range(0, 6), range(6, 11), range(11, 16)):
+        for ys in (range(0, 4), range(4, 7), range(7, 10)):
+            assert flat(t23, xs, ys, mean(xs, ys))
+    assert one("FX-MOSAIC-024") == one("FX-MOSAIC-007")
+    assert one("FX-MOSAIC-025") == drawn
+    t26 = one("FX-MOSAIC-026")
+    for bx in range(0, W, 4):
+        for by in range(0, H, 4):
+            mid = drawn[at(bx + 2, 9 if by == 8 else by + 2)]
+            assert flat(t26, range(bx, bx + 4), range(by, min(H, by + 4)), mid)
+    assert all(p in drawn for p in t26)  # the drawing's own colours only
+    t27 = one("FX-MOSAIC-027")
+    for bx in range(0, W, 4):
+        for by in (0, 5):
+            assert flat(t27, range(bx, bx + 4), range(by, by + 5), drawn[at(bx + 2, by + 2)])
+    t28 = c["FX-MOSAIC-028"]
+    assert t28["0"] == t28["3"]
+    assert all(t28["0"][at(x, y)] == t22[at(x - 3, y)] for x in range(3, W) for y in range(H))
+    assert all(t28["0"][at(x, y)] == EMPTY for x in range(3) for y in range(H))
+    g29 = case(mode="count", across=4, down=2, before=(90, 4))
+    l29, t29 = layer_of(g29), one("FX-MOSAIC-029")
+    for bx in range(0, W, 4):
+        for by in (0, 5):
+            ps = [l29["px"][gat(x, y)] for x in range(bx, bx + 4) for y in range(by, by + 5)]
+            want = [sum(p[k] for p in ps) / 20 for k in range(4)]
+            assert flat(t29, range(bx, bx + 4), range(by, by + 5), want)
+    m29 = mosaic(l29, 10, (4, 2))
+    assert all(m29[gat(x, y)] == EMPTY for x in range(-2, 18) for y in (-2, -1, 10, 11))
+    t30 = c["FX-MOSAIC-030"]
+    assert t30["2"] == render(case(mode="count", across=4, down=1), 0)
+    assert t30["0"] == render(case(mode="count", across=2, down=1), 0)
+    assert t30["4"] == render(case(mode="count", across=6, down=1), 0)
+    assert one("FX-MOSAIC-031") == t23
+    assert one("FX-MOSAIC-032") == four
     print("checked")
 
 
