@@ -1,6 +1,6 @@
 # D-446: Curl Noise
 
-B-326, after After Effects' Curl Noise (26.3 beta): a four-octave smooth value noise Size pixels across, drifting Speed towards Direction and changing with Evolution and Turbulence Speed; its slope turned a right angle (plus Swirl times the noise) is the flow, which neither gathers nor spreads at Swirl 0, scaled across or down by Vertical Bias. From each pixel the flow is followed both ways, Sample Count steps over Sample Radius pixels, streaking a seed noise (blocky by Edge Definition) into grey flow lines, softened back towards the noise by Flow Softness and faded where the noise is low by Flow Falloff. View shows the lines, the noise, or the flow as colours; Contrast and Brightness follow, held in 0 and 1 unless Clip HDR Results is off in a Float composition; Channel puts the grey into the colour, one channel or the covering. Source This Layer and Other Layer (D-583) are tested by B-461. The rule is this program's own; Adobe publishes none. Every expected pixel is `Fixtures/curl_noise/expected_curl_noise.json`, written by `tools/curl_noise_reference.py` before this code existed and printed in document 25 as FX-CURL-001 to 044. Tolerance 2e-5.
+B-326, after After Effects' Curl Noise (26.3 beta), by D-749's rule (B-628): a four-octave smooth value noise about 3.2 Size pixels across, drifting Speed towards Direction (the speeds added up frame by frame) and changing with Evolution and Turbulence Speed, is carried along the curl of a second smooth noise 2 Size pixels across, stretched across or down by Vertical Bias, at Swirl's speed. From each pixel the flow is followed back for 0.045 Sample Radius units of trace time in Sample Count parts, and the noise read along it makes the grey: its average, or with Flow Softness higher its end (crisper), times Edge Definition's gain (1 at 0, 2 as added, 4 at 100), faded where the noise is low by Flow Falloff. View shows the lines, the noise, or the flow as colours; Contrast and Brightness follow, held in 0 and 1 unless Clip HDR Results is off in a Float composition; Channel puts the grey into the colour, one channel or the covering. Source This Layer and Other Layer (D-583) are tested by B-461. The rule is this program's own; Adobe publishes none. Every expected pixel is `Fixtures/curl_noise/expected_curl_noise.json`, written by `tools/curl_noise_reference.py` before this code existed and printed in document 25 as FX-CURL-001 to 044. Tolerance 2e-5.
 
 ## FX-CURL-001 to 044 (document 25)
 
@@ -9,76 +9,76 @@ B-326, after After Effects' Curl Noise (26.3 beta): a four-octave smooth value n
 | FX-CURL-001 frame 0: The settings as they start: size 100, so across the 16 by 10 card the noise is one soft cloud, swirling slowly; every shown pixel is a grey, the empty pixels stay empty and the soft edge keeps its half covering. | largest difference 3.0e-8 | yes |
 | FX-CURL-001 frame 4: The settings as they start: size 100, so across the 16 by 10 card the noise is one soft cloud, swirling slowly; every shown pixel is a grey, the empty pixels stay empty and the soft edge keeps its half covering. | largest difference 3.0e-8 | yes |
 | FX-CURL-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-002 frame 0: Size 6, sample radius 4, 6 samples: grey flow lines through cells of 6 pixels. | largest difference 3.0e-8 | yes |
-| FX-CURL-002 frame 2: Size 6, sample radius 4, 6 samples: grey flow lines through cells of 6 pixels. | largest difference 3.0e-8 | yes |
+| FX-CURL-002 frame 0: Size 6, sample radius 4, 6 samples: the value noise, 19.2 pixels across, carried a little along the flow of a noise 12 pixels across. | largest difference 3.0e-8 | yes |
+| FX-CURL-002 frame 2: Size 6, sample radius 4, 6 samples: the value noise, 19.2 pixels across, carried a little along the flow of a noise 12 pixels across. | largest difference 3.9e-8 | yes |
 | FX-CURL-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-003 frame 0: View Input Noise: the smooth noise the flow follows, without its lines. | largest difference 3.0e-8 | yes |
+| FX-CURL-003 frame 0: View Input Noise: the smooth noise the flow carries, before it moves. | largest difference 3.0e-8 | yes |
 | FX-CURL-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-004 frame 0: View Curl Generation: red is the flow across, green the flow down, blue the noise. | largest difference 3.0e-8 | yes |
+| FX-CURL-004 frame 0: View Curl Generation: red is the flow across, green the flow down, blue the noise. | largest difference 3.6e-8 | yes |
 | FX-CURL-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-005 frame 0: Sample Radius 0: no lines, so the frame is FX-CURL-003's Input Noise. | largest difference 3.0e-8 | yes |
+| FX-CURL-005 frame 0: Sample Radius 0: no trace, so the frame is FX-CURL-003's Input Noise. | largest difference 3.0e-8 | yes |
 | FX-CURL-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-006 frame 0: Flow Softness 100: the lines softened away, FX-CURL-003's Input Noise again. | largest difference 3.0e-8 | yes |
+| FX-CURL-006 frame 0: Flow Softness 100 (D-749: higher is crisper): only the end of each trace is shown, not its average, so it differs from FX-CURL-002. | largest difference 3.6e-8 | yes |
 | FX-CURL-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-007 frame 0: Swirl 0, Curl Generation: the flow is the noise's curl, crossing its slope at a right angle. | largest difference 3.6e-8 | yes |
+| FX-CURL-007 frame 0: Swirl 0, Curl Generation (D-749: Swirl is the flow's speed): no flow, so red and green are the middle grey. | largest difference 3.0e-8 | yes |
 | FX-CURL-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-008 frame 0: Swirl 180, Curl Generation: the flow turns with the noise, unlike FX-CURL-007's. | largest difference 5.8e-8 | yes |
+| FX-CURL-008 frame 0: Swirl 180, Curl Generation: the flow is the noise's curl, unlike FX-CURL-007's. | largest difference 3.6e-8 | yes |
 | FX-CURL-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-009 frame 0: Vertical Bias 100, Curl Generation: the flow only runs up and down, so red is the middle grey throughout. | largest difference 3.0e-8 | yes |
+| FX-CURL-009 frame 0: Vertical Bias 100, Curl Generation: the noise is stretched tall, so the flow runs mostly up and down. | largest difference 4.0e-8 | yes |
 | FX-CURL-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-010 frame 0: Vertical Bias 0, Curl Generation: the flow only runs across, so green is the middle grey throughout. | largest difference 3.0e-8 | yes |
+| FX-CURL-010 frame 0: Vertical Bias 0, Curl Generation: the noise is stretched wide, so the flow runs mostly across. | largest difference 3.0e-8 | yes |
 | FX-CURL-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-011 frame 0: Speed 20, Direction 90, Turbulence Speed 0, Input Noise: the noise drifts 2 pixels right a frame, so frame 1 is frame 0 moved 2 right. | largest difference 3.0e-8 | yes |
 | FX-CURL-011 frame 1: Speed 20, Direction 90, Turbulence Speed 0, Input Noise: the noise drifts 2 pixels right a frame, so frame 1 is frame 0 moved 2 right. | largest difference 3.0e-8 | yes |
 | FX-CURL-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-012 frame 0: Offset 3 right, still, Input Noise: the noise moved 3 pixels right. | largest difference 3.0e-8 | yes |
+| FX-CURL-012 frame 0: Offset 3 right, still, Input Noise: the noise moved 3 pixels right. | largest difference 3.8e-8 | yes |
 | FX-CURL-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-013 frame 0: Turbulence Speed 100, Speed 0: the noise changes from frame to frame in place. | largest difference 3.0e-8 | yes |
 | FX-CURL-013 frame 2: Turbulence Speed 100, Speed 0: the noise changes from frame to frame in place. | largest difference 3.0e-8 | yes |
 | FX-CURL-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-014 frame 0: Evolution 90, still: a different noise from FX-CURL-002's. | largest difference 3.0e-8 | yes |
+| FX-CURL-014 frame 0: Evolution 90, still: a different noise from FX-CURL-002's. | largest difference 4.3e-8 | yes |
 | FX-CURL-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-015 frame 0: Density 50: the field's cells half the size, so it is size 3 at density 0, FX-CURL-016. | largest difference 3.0e-8 | yes |
+| FX-CURL-015 frame 0: Density 50: the noise half the size, so it is size 3 at density 0, FX-CURL-016. | largest difference 3.0e-8 | yes |
 | FX-CURL-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-016 frame 0: Size 3, still. | largest difference 3.0e-8 | yes |
 | FX-CURL-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-017 frame 0: Smoothness 0, still, Input Noise: the fine octaves stronger. | largest difference 3.0e-8 | yes |
+| FX-CURL-017 frame 0: Smoothness 0, still, Input Noise: the fine octaves stronger. | largest difference 3.4e-8 | yes |
 | FX-CURL-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-018 frame 0: Smoothness 100, still, Input Noise: the fine octaves weaker. | largest difference 3.0e-8 | yes |
+| FX-CURL-018 frame 0: Smoothness 100, still, Input Noise: the coarse octave alone. | largest difference 3.0e-8 | yes |
 | FX-CURL-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-019 frame 0: Edge Definition 100, still: the lines streak blocky seeds. | largest difference 3.0e-8 | yes |
+| FX-CURL-019 frame 0: Edge Definition 100, still (D-749: the gain, 4): the greys four times as far from the middle as FX-CURL-020's, held at black and white. | largest difference 3.0e-8 | yes |
 | FX-CURL-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-020 frame 0: Edge Definition 0, still: the lines streak smooth seeds. | largest difference 3.0e-8 | yes |
+| FX-CURL-020 frame 0: Edge Definition 0, still: the gain 1, soft greys. | largest difference 3.5e-8 | yes |
 | FX-CURL-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-021 frame 0: Flow Falloff 100, still: the lines fade where the noise is low. | largest difference 3.0e-8 | yes |
+| FX-CURL-021 frame 0: Flow Falloff 100, still: the greys fade towards the middle where the noise is low. | largest difference 3.0e-8 | yes |
 | FX-CURL-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-022 frame 0: Contrast 300, Brightness 10, still: harder greys, held in 0 and 1. | largest difference 3.0e-8 | yes |
 | FX-CURL-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-023 frame 0: Contrast 300, Brightness 10, Clip HDR Results off, in a composition that does not work in Float: still held at 1, so the frame is FX-CURL-022's. | largest difference 3.0e-8 | yes |
 | FX-CURL-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-024 frame 0: Contrast 300, Brightness 10, Clip HDR Results off, in a Float composition: past white is kept. | largest difference 4.6e-8 | yes |
+| FX-CURL-024 frame 0: Contrast 300, Brightness 10, Clip HDR Results off, in a Float composition: past white is kept. | largest difference 6.1e-7 | yes |
 | FX-CURL-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-025 frame 0: Channel Red, still: only red is replaced; green and blue are the drawing's. | largest difference 1.3e-7 | yes |
 | FX-CURL-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-026 frame 0: Channel Alpha, still: the covering times the grey, the colour kept. | largest difference 1.5e-7 | yes |
+| FX-CURL-026 frame 0: Channel Alpha, still: the covering times the grey, the colour kept. | largest difference 2.1e-7 | yes |
 | FX-CURL-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-027 frame 0: Sample Count 3.9, still: its whole part counts, so this is sample count 3, FX-CURL-028. | largest difference 3.0e-8 | yes |
 | FX-CURL-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-028 frame 0: Sample Count 3, still. | largest difference 3.0e-8 | yes |
 | FX-CURL-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-029 frame 0: Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 long lines. | largest difference 3.0e-8 | yes |
-| FX-CURL-029 frame 2: Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 long lines. | largest difference 3.0e-8 | yes |
-| FX-CURL-029 frame 4: Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 long lines. | largest difference 3.0e-8 | yes |
+| FX-CURL-029 frame 0: Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 a longer trace. | largest difference 3.0e-8 | yes |
+| FX-CURL-029 frame 2: Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 a longer trace. | largest difference 3.0e-8 | yes |
+| FX-CURL-029 frame 4: Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 a longer trace. | largest difference 3.4e-8 | yes |
 | FX-CURL-029: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-030 frame 0: FX-CURL-002 moved three pixels right: the noise is the drawing's own, so it moves with it. | largest difference 2.3e-8 | yes |
+| FX-CURL-030 frame 0: FX-CURL-002 moved three pixels right: the noise is the drawing's own, so it moves with it. | largest difference 2.6e-8 | yes |
 | FX-CURL-030: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-031 frame 0: After a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels, so the frame is FX-CURL-002's. | largest difference 3.0e-8 | yes |
 | FX-CURL-031: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-032 frame 0: Swirl -200, Speed 35, Direction 200, Evolution 45, Turbulence Speed 60, Density -30, Smoothness 20, Vertical Bias 70, 9 samples, radius 6.5, Flow Softness 10, Edge Definition 30, Falloff 40, Contrast 150, Brightness -5, Channel Green: the controls together. | largest difference 1.9e-7 | yes |
 | FX-CURL-032 frame 3: Swirl -200, Speed 35, Direction 200, Evolution 45, Turbulence Speed 60, Density -30, Smoothness 20, Vertical Bias 70, 9 samples, radius 6.5, Flow Softness 10, Edge Definition 30, Falloff 40, Contrast 150, Brightness -5, Channel Green: the controls together. | largest difference 1.9e-7 | yes |
 | FX-CURL-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-033 frame 0: Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. | largest difference 8.2e-8 | yes |
-| FX-CURL-033 frame 4: Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. | largest difference 7.6e-8 | yes |
+| FX-CURL-033 frame 0: Source This Layer, small noise and radius, otherwise as added: the card's own lightness is the noise, carried along its own edges; Speed 10 slides it 1 pixel up a frame. | largest difference 3.0e-8 | yes |
+| FX-CURL-033 frame 4: Source This Layer, small noise and radius, otherwise as added: the card's own lightness is the noise, carried along its own edges; Speed 10 slides it 1 pixel up a frame. | largest difference 3.0e-8 | yes |
 | FX-CURL-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-034 frame 0: Source Other Layer, with Source Layer naming no layer. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CURL-034 frame 4: Source Other Layer, with Source Layer naming no layer. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -252,44 +252,44 @@ B-326, after After Effects' Curl Noise (26.3 beta): a four-octave smooth value n
 | fx_curl_042.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_curl_043.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_curl_044.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072922 pixels changed | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 0, Full | largest difference 1 of 255, 1255 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 100, Full | largest difference 1 of 255, 1251 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 239, Full | largest difference 1 of 255, 1284 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 0, Draft | largest difference 1 of 255, 80 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 100, Draft | largest difference 1 of 255, 89 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 239, Draft | largest difference 1 of 255, 94 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 0, Full | largest difference 1 of 255, 1196 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 100, Full | largest difference 1 of 255, 1220 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 239, Full | largest difference 1 of 255, 1276 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 0, Draft | largest difference 1 of 255, 93 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 100, Draft | largest difference 1 of 255, 90 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 239, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072810 pixels changed | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 0, Full | largest difference 1 of 255, 1628 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 100, Full | largest difference 1 of 255, 1711 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 239, Full | largest difference 1 of 255, 1614 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 0, Draft | largest difference 1 of 255, 573 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 100, Draft | largest difference 1 of 255, 488 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 239, Draft | largest difference 1 of 255, 605 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2068057 pixels changed | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 0, Full | largest difference 1 of 255, 2248 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 100, Full | largest difference 1 of 255, 2369 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 239, Full | largest difference 1 of 255, 2198 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 0, Draft | largest difference 1 of 255, 85 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 100, Draft | largest difference 1 of 255, 66 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 239, Draft | largest difference 1 of 255, 93 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073402 pixels changed | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 0, Full | largest difference 1 of 255, 891 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 100, Full | largest difference 1 of 255, 1494 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 239, Full | largest difference 1 of 255, 1147 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 0, Draft | largest difference 1 of 255, 54 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 100, Draft | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise as added (size 100, radius 30, 12 samples) on three layers, frame 239, Draft | largest difference 1 of 255, 81 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073599 pixels changed | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 0, Full | largest difference 1 of 255, 1050 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 100, Full | largest difference 1 of 255, 1179 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 239, Full | largest difference 1 of 255, 1164 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 0, Draft | largest difference 1 of 255, 68 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 100, Draft | largest difference 1 of 255, 87 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 20, Curl Generation, swirl 120, vertical bias 70 on three layers, frame 239, Draft | largest difference 1 of 255, 83 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1524448 pixels changed | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 0, Full | largest difference 1 of 255, 2268 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 100, Full | largest difference 1 of 255, 1218 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 239, Full | largest difference 1 of 255, 861 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 0, Draft | largest difference 1 of 255, 239 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 100, Draft | largest difference 1 of 255, 210 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise size 40, radius 12, 8 samples, edges 100, falloff 60, contrast 200, brightness -10, channel Alpha on three layers, frame 239, Draft | largest difference 1 of 255, 228 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2066195 pixels changed | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 0, Full | largest difference 1 of 255, 2110 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 100, Full | largest difference 1 of 255, 2268 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 239, Full | largest difference 1 of 255, 2304 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 0, Draft | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 100, Draft | largest difference 1 of 255, 59 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise radius keyed 2 to 40 and evolution keyed 0 to 720, direction 135, speed 40, smoothness 10, channel Blue on three layers, frame 239, Draft | largest difference 1 of 255, 84 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: the street, in `verification/D-446 pictures/`
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | 1_before.png, the street with no effect; draws cleanly | [] | yes |
-| 2_as_added.png, frame 0, as added: soft swirling grey flow over the whole street; draws cleanly | [], 129600 pixels changed of 129600, the largest by 241 of 255 | yes |
+| 2_as_added.png, frame 0, as added: soft swirling grey flow over the whole street; draws cleanly | [], 129600 pixels changed of 129600, the largest by 255 of 255 | yes |
 | 3_fine_lines.png, frame 0, size 30, radius 20, 16 samples, softness 0, edges 100: fine streaked flow lines; draws cleanly | [], 129600 pixels changed of 129600, the largest by 255 of 255 | yes |
-| 4_curl_generation.png, frame 0, Curl Generation, size 60: the flow as red and green, the noise as blue; draws cleanly | [], 129600 pixels changed of 129600, the largest by 255 of 255 | yes |
-| 5_alpha.png, frame 0, Channel Alpha, size 40, contrast 250: the street shows through the light parts, holes in the dark; draws cleanly | [], 126257 pixels changed of 129600, the largest by 255 of 255 | yes |
+| 4_curl_generation.png, frame 0, Curl Generation, size 60: the flow as red and green, the noise as blue; draws cleanly | [], 129600 pixels changed of 129600, the largest by 250 of 255 | yes |
+| 5_alpha.png, frame 0, Channel Alpha, size 40, contrast 250: the street shows through the light parts, holes in the dark; draws cleanly | [], 96568 pixels changed of 129600, the largest by 255 of 255 | yes |
 | 6_frame_24.png, frame 24, as added at frame 24: the flow has drifted up and changed; draws cleanly | [], 129600 pixels changed of 129600, the largest by 255 of 255 | yes |
 
 ## Result

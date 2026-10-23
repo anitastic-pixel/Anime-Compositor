@@ -66,6 +66,7 @@ fn curl(n: [f64; 18], w: [&str; 4]) -> Effect {
         brightness,
         clip_hdr_results,
         channel,
+        travel: None,
         frame: 0,
         float: false,
     }
@@ -367,13 +368,14 @@ fn holes(a: &[u8], b: &[u8]) -> bool {
 fn b326_curl_noise() {
     let mut t = Table::new(
         "curl_noise",
-        "# D-446: Curl Noise\n\nB-326, after After Effects' Curl Noise (26.3 beta): a four-octave smooth \
-         value noise Size pixels across, drifting Speed towards Direction and changing with Evolution \
-         and Turbulence Speed; its slope turned a right angle (plus Swirl times the noise) is the \
-         flow, which neither gathers nor spreads at Swirl 0, scaled across or down by Vertical Bias. \
-         From each pixel the flow is followed both ways, Sample Count steps over Sample Radius pixels, \
-         streaking a seed noise (blocky by Edge Definition) into grey flow lines, softened back \
-         towards the noise by Flow Softness and faded where the noise is low by Flow Falloff. View \
+        "# D-446: Curl Noise\n\nB-326, after After Effects' Curl Noise (26.3 beta), by D-749's rule (B-628): \
+         a four-octave smooth value noise about 3.2 Size pixels across, drifting Speed towards Direction (the \
+         speeds added up frame by frame) and changing with Evolution and Turbulence Speed, is carried along \
+         the curl of a second smooth noise 2 Size pixels across, stretched across or down by Vertical Bias, \
+         at Swirl's speed. From each pixel the flow is followed back for 0.045 Sample Radius units of \
+         trace time in Sample Count parts, and the noise read along it makes the grey: its average, \
+         or with Flow Softness higher its end (crisper), times Edge Definition's gain (1 at 0, 2 as \
+         added, 4 at 100), faded where the noise is low by Flow Falloff. View \
          shows the lines, the noise, or the flow as colours; Contrast and Brightness follow, held in \
          0 and 1 unless Clip HDR Results is off in a Float composition; Channel puts the grey into \
          the colour, one channel or the covering. Source This Layer and Other Layer (D-583) are \

@@ -3137,6 +3137,46 @@ fn effect_now(
     if let crate::effects::Effect::CurlNoise { float: f, .. } = &mut now.effect {
         *f = float;
     }
+    // D-749: Curl Noise's drift and depth add up the frames from 0 to this one, each frame's
+    // speeds in tenths of a pixel at 24 frames a second, so a keyed speed moves on from where
+    // the noise is. Not keyed, the sum is the settings times the frames.
+    // ponytail: O(frames from 0) reads a frame when a speed is keyed; keep the sums between
+    // frames if long shots crawl.
+    if let crate::effects::Effect::CurlNoise { .. } = &now.effect {
+        let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+        let step = |e: &crate::effects::Effect| match e {
+            crate::effects::Effect::CurlNoise {
+                speed,
+                direction,
+                turbulence_speed,
+                ..
+            } => {
+                let t = direction.to_radians();
+                [
+                    t.sin() * speed / 10.0 * 24.0 / fps,
+                    -t.cos() * speed / 10.0 * 24.0 / fps,
+                    turbulence_speed / 10.0 * 24.0 / fps,
+                ]
+            }
+            _ => [0.0; 3],
+        };
+        let keyed = ["speed", "direction", "turbulence_speed"]
+            .iter()
+            .any(|k| instance.tracks.contains_key(*k));
+        let (frames, way) = if at >= 0 { (0..at, 1.0) } else { (at..0, -1.0) };
+        let moved = if keyed {
+            frames.fold([0.0; 3], |m, f| {
+                let then = crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64));
+                let d = step(&then.0.effect);
+                [m[0] + way * d[0], m[1] + way * d[1], m[2] + way * d[2]]
+            })
+        } else {
+            step(&now.effect).map(|d| d * at as f64)
+        };
+        if let crate::effects::Effect::CurlNoise { travel, .. } = &mut now.effect {
+            *travel = Some(moved);
+        }
+    }
     // D-390: Ripple Pulse's levels, the pulse level now and at each frame of the time span
     // before, read as the layer's keys are; frames read through the layer's time stretch.
     if now.is_valid() {

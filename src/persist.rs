@@ -11865,6 +11865,7 @@ fn parse_effect(
             brightness: effect_number(params, "brightness", at)?,
             clip_hdr_results: effect_word(params, "clip_hdr_results", at)?,
             channel: effect_word(params, "channel", at)?,
+            travel: None,
             frame: 0,
             float: false,
         }),

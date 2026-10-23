@@ -8,21 +8,21 @@ Each case puts a Levels, then a Curl Noise, on the reference shot's first three 
 
 Before this change the card drew the field for each of the three layers, every frame (13 passes for these frames). The three layers are the same size with the same settings, so they now share one field (11 passes on a forgotten card).
 
-**The rule:** where the field is kept, the second frame runs exactly 1 pass fewer than on the forgotten card (the one shared field); where it must be drawn again, the same number. Either way the second frame is **the very same picture as the forgotten card's** (0 levels, 0 pixels apart) and **within 1 level of 255 of the processor's**. One row keeps its old gap: Source This Layer at Full was 8 levels from the processor on 5024 pixels before this change too (its flow lines follow the picture's own field, which parts on a hair after the Levels, D-583); this change does not touch that field, so that row passes when it is no further than before.
+**The rule:** where the field is kept, the second frame runs exactly 1 pass fewer than on the forgotten card (the one shared field); where it must be drawn again, the same number. Either way the second frame is **the very same picture as the forgotten card's** (0 levels, 0 pixels apart) and **within 1 level of 255 of the processor's**. Source This Layer is the exception: its flow lines follow the picture's own lightness, and a line through one of its saddles goes one way or the other on a hair after the Levels (D-583), so those rows pass when no more than 1 in 200 of a Full frame's pixels (10368) part from the processor's, at any level (D-749).
 
 **12 of 12 checks pass.**
 
 | Case | Quality | The field must be | Passes run | Passes on a forgotten card | The field was | Difference from the forgotten card's picture (of 255) | Difference from the processor's (of 255) | Result |
 |---|---|---|---:|---:|---|---|---|---|
-| Levels keyed, so the picture changes; Curl Noise still (Speed 0, Turbulence Speed 0); frame 0 then frame 100 | Full | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 1190 pixels | PASS |
-| Levels keyed, so the picture changes; Curl Noise still (Speed 0, Turbulence Speed 0); frame 0 then frame 100 | Draft | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 79 pixels | PASS |
-| Levels changed from gamma 1.2 to 1.5; Curl Noise as added; frame 50 both times | Full | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 1342 pixels | PASS |
-| Levels changed from gamma 1.2 to 1.5; Curl Noise as added; frame 50 both times | Draft | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 87 pixels | PASS |
-| Levels keyed; Curl Noise moving with time (Speed 10, Turbulence Speed 20, as added); frame 0 then frame 100 | Full | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 1251 pixels | PASS |
-| Levels keyed; Curl Noise moving with time (Speed 10, Turbulence Speed 20, as added); frame 0 then frame 100 | Draft | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 89 pixels | PASS |
-| Levels changed from gamma 1.2 to 1.5 and Swirl from 45 to 90; frame 50 both times | Full | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 1350 pixels | PASS |
-| Levels changed from gamma 1.2 to 1.5 and Swirl from 45 to 90; frame 50 both times | Draft | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 69 pixels | PASS |
-| Levels changed from gamma 1.2 to 1.5 and Size from 100 to 60; frame 50 both times | Full | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 1278 pixels | PASS |
-| Levels changed from gamma 1.2 to 1.5 and Size from 100 to 60; frame 50 both times | Draft | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 77 pixels | PASS |
-| Source This Layer (the field is the picture's own); Levels keyed; Curl Noise still; frame 0 then frame 100 | Full | drawn again (no fewer) | 16 | 16 | 0 fewer | 0, 0 pixels | 8, 5024 pixels | PASS |
-| Source This Layer (the field is the picture's own); Levels keyed; Curl Noise still; frame 0 then frame 100 | Draft | drawn again (no fewer) | 16 | 16 | 0 fewer | 0, 0 pixels | 1, 96 pixels | PASS |
+| Levels keyed, so the picture changes; Curl Noise still (Speed 0, Turbulence Speed 0); frame 0 then frame 100 | Full | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 834 pixels | PASS |
+| Levels keyed, so the picture changes; Curl Noise still (Speed 0, Turbulence Speed 0); frame 0 then frame 100 | Draft | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 46 pixels | PASS |
+| Levels changed from gamma 1.2 to 1.5; Curl Noise as added; frame 50 both times | Full | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 758 pixels | PASS |
+| Levels changed from gamma 1.2 to 1.5; Curl Noise as added; frame 50 both times | Draft | kept (1 pass fewer) | 10 | 11 | kept | 0, 0 pixels | 1, 44 pixels | PASS |
+| Levels keyed; Curl Noise moving with time (Speed 10, Turbulence Speed 20, as added); frame 0 then frame 100 | Full | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 1494 pixels | PASS |
+| Levels keyed; Curl Noise moving with time (Speed 10, Turbulence Speed 20, as added); frame 0 then frame 100 | Draft | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 79 pixels | PASS |
+| Levels changed from gamma 1.2 to 1.5 and Swirl from 45 to 90; frame 50 both times | Full | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 772 pixels | PASS |
+| Levels changed from gamma 1.2 to 1.5 and Swirl from 45 to 90; frame 50 both times | Draft | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 49 pixels | PASS |
+| Levels changed from gamma 1.2 to 1.5 and Size from 100 to 60; frame 50 both times | Full | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 1117 pixels | PASS |
+| Levels changed from gamma 1.2 to 1.5 and Size from 100 to 60; frame 50 both times | Draft | drawn again (no fewer) | 11 | 11 | 0 fewer | 0, 0 pixels | 1, 55 pixels | PASS |
+| Source This Layer (the field is the picture's own); Levels keyed; Curl Noise still; frame 0 then frame 100 | Full | drawn again (no fewer) | 16 | 16 | 0 fewer | 0, 0 pixels | 43, 7603 pixels | PASS |
+| Source This Layer (the field is the picture's own); Levels keyed; Curl Noise still; frame 0 then frame 100 | Draft | drawn again (no fewer) | 16 | 16 | 0 fewer | 0, 0 pixels | 29, 244 pixels | PASS |

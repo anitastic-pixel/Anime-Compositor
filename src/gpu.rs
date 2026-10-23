@@ -9759,11 +9759,11 @@ fn vegas(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
-// D-446, grade::value_slope: the smooth value noise for the seed in `base` and its slope across and
-// down, over all eight corners. Audit P2 (after B-157): the corner and the point's place in it
-// found in double, the rest in single precision; the noise only steers the flow, by far less than
-// a pixel's rounding.
-fn value_slope(ch: u32, p: vec3<f64>) -> vec3<f32> {
+// D-749, grade::value_slope: the smooth value noise for the seed in `base` and its slope across
+// and down, over all eight corners. As audit P2 did: the corner and the point's place in it found
+// in double, the rest in single precision (double runs far slower on the card); the curl checks
+// still land within 1 level of the processor's.
+fn value_slope64(ch: u32, p: vec3<f64>) -> vec3<f64> {
     let c = floor(p);
     let t = vec3<f32>(p - c);
     let s = vec3(fade32(t.x), fade32(t.y), fade32(t.z));
@@ -9778,15 +9778,26 @@ fn value_slope(ch: u32, p: vec3<f64>) -> vec3<f32> {
         out.y += select(-d.x, d.x, e.x == 1u) * w.y * w.z * n;
         out.z += w.x * select(-d.y, d.y, e.y == 1u) * w.z * n;
     }
-    return out;
+    return vec3<f64>(out);
+}
+
+// D-749, grade::curl_two: two lattices, the second turned by 0.7 and moved, over the square root
+// of two; the value and its slope, the second's turned back.
+fn curl_two(ch: u32, x: f64, y: f64, z: f64) -> vec3<f64> {
+    let c = 0.7648421872844885lf;
+    let s = 0.644217687237691lf;
+    let a = value_slope64(ch, vec3(x, y, z));
+    let b = value_slope64(ch + 4u, vec3(x * c - y * s + 0.37lf, x * s + y * c + 0.61lf, z));
+    let q = 0.7071067811865475lf;
+    return vec3((a.x + b.x) * q, (a.y + b.y * c + b.z * s) * q, (a.z - b.y * s + b.z * c) * q);
 }
 
 // D-583, grade::CurlPlane::get: the plane `input`'s alpha at pixel (i, j), 0 outside, or with
-// k[15] 1 mirrored back in (no `%` on a negative).
+// k[33] 1 mirrored back in (no `%` on a negative).
 fn curl_plane_at(i: i32, j: i32) -> f64 {
     let size = vec2<i32>(textureDimensions(input));
     var p = vec2(i, j);
-    if k[15] == 1.0lf {
+    if k[33] == 1.0lf {
         let n = 2 * size;
         p = p - n * (p / n);
         p = select(p, p + n, p < vec2(0));
@@ -9832,163 +9843,120 @@ fn curlsoft(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4(0.0, 0.0, 0.0, o));
 }
 
-// D-446, grade::Curl::at over the field's buffer, the drawing's size and F.g round it: k the
-// field's size, its slide across and down, its depth, the four octaves' weights, the across and
-// down bias, the share of blocks in the seed and the swirl; F.base the seed nought's mix. D-583:
-// k[12] 1 reads the noise from the plane `input` (grade::CurlPlane), the drawing's corner at
-// k[13], k[14] on it, k[15] 1 to mirror at its edges. D-646: k[16] 1 turns the noise round
-// (k[20], k[21]) by cosine k[17], sine k[18] and 100 / Scale k[19]; k[22] 1 slides each finer
-// octave half as far (grade::Curl::point).
-fn curl_point(px: f64, py: f64, o: u32) -> vec2<f64> {
-    var w = 1.0lf;
-    if k[22] == 1.0lf {
-        w = 1.0lf / f64(1u << o);
-    }
-    let x = px - w * k[1];
-    let y = py - w * k[2];
-    if k[16] != 1.0lf {
+// D-749, grade::Curl's numbers in k: the flow's noise size s, the slide across and down, the
+// depth, the drawing's middle, 1 when turned (grade::Curl::turn) then its cosine, sine and 100 /
+// Scale across and down, the flow's stretch across and down, the value's, the octaves' ratio,
+// Swirl's speed, the trace's length, its parts, the crispness, the gain, Flow Falloff, each value
+// octave's slide (k[22..30]), then 1 when the noise is a picture's plane `input` (D-583), the
+// drawing's corner on it and 1 to mirror at its edges. F.base is the seed nought's mix.
+
+// grade::Curl::lin: the turn and scale without the middle.
+fn curl_lin(x: f64, y: f64) -> vec2<f64> {
+    if k[6] != 1.0lf {
         return vec2(x, y);
     }
-    let dx = x - k[20];
-    let dy = y - k[21];
-    return vec2(k[20] + (dx * k[17] + dy * k[18]) * k[19], k[21] + (-dx * k[18] + dy * k[17]) * k[19]);
+    return vec2((x * k[7] + y * k[8]) * k[9], (-x * k[8] + y * k[7]) * k[10]);
 }
 
+// grade::Curl::flow (grade::CurlPlane::flow with a picture).
+fn curl_flow(q: vec2<f64>) -> vec2<f64> {
+    if k[30] == 1.0lf {
+        let b = q + vec2(k[31], k[32]);
+        let gx = curl_plane(b.x + 1.0lf, b.y) - curl_plane(b.x - 1.0lf, b.y);
+        let gy = curl_plane(b.x, b.y + 1.0lf) - curl_plane(b.x, b.y - 1.0lf);
+        if sqrt(gx * gx + gy * gy) < 1e-5lf {
+            return vec2(0.0lf);
+        }
+        let w = vec2(k[16] * k[0] * gy / 2.0lf, -k[16] * k[0] * gx / 2.0lf);
+        let l = sqrt(w.x * w.x + w.y * w.y);
+        let most = 1.0lf / 9.0lf;
+        if l > most {
+            return vec2(w.x * most / l, w.y * most / l);
+        }
+        return w;
+    }
+    let v = curl_two(0u, q.x / (k[0] * k[11]), q.y / (k[0] * k[12]), k[3]);
+    return vec2(k[16] * v.z / k[12], -k[16] * v.y / k[11]);
+}
+
+// grade::Curl::value.
+fn curl_value(q: vec2<f64>) -> f64 {
+    if k[30] == 1.0lf {
+        return 2.0lf * curl_plane(q.x + k[31], q.y + k[32]) - 1.0lf;
+    }
+    var v = 0.0lf;
+    var total = 0.0lf;
+    var amp = 1.0lf;
+    var fine = 1.0lf;
+    for (var o = 0u; o < 4u; o++) {
+        let x = (q.x + k[22u + 2u * o]) / (1.6lf * k[0] * k[13]) * fine;
+        let y = (q.y + k[23u + 2u * o]) / (1.6lf * k[0] * k[14]) * fine;
+        v += amp * curl_two(8u * o, x, y, k[3] * fine).x;
+        total += amp;
+        amp *= k[15];
+        fine *= 2.0lf;
+    }
+    return v / total;
+}
+
+// grade::Curl::at for each pixel of the buffer, the drawing's corner at (F.ox, F.oy): the
+// direction's two, C V0 and the grey.
 @compute @workgroup_size(16, 16)
 fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
     if id.x >= size.x || id.y >= size.y {
         return;
     }
-    let px = f64(i32(id.x) - F.g - F.ox) + 0.5lf;
-    let py = f64(i32(id.y) - F.g - F.oy) + 0.5lf;
-    let x = px - k[1];
-    let y = py - k[2];
-    let s = k[0];
-    var n = 0.0lf;
-    var gx = 0.0lf;
-    var gy = 0.0lf;
-    if k[12] == 1.0lf {
-        let bx = x + k[13];
-        let by = y + k[14];
-        gx = curl_plane(bx + 1.0lf, by) - curl_plane(bx - 1.0lf, by);
-        gy = curl_plane(bx, by + 1.0lf) - curl_plane(bx, by - 1.0lf);
-        if sqrt(gx * gx + gy * gy) < 1e-5lf {
-            gx = 0.0lf;
-            gy = 0.0lf;
-        }
-        n = 2.0lf * curl_plane(bx, by) - 1.0lf;
-    } else {
-        var total = 0.0lf;
-        var fine = 1.0lf;
-        for (var o = 0u; o < 4u; o++) {
-            let amp = k[4u + o];
-            let q = curl_point(px, py, o);
-            let v = vec3<f64>(value_slope(8u * o, vec3(q.x / s * fine, q.y / s * fine, k[3] * fine)));
-            n += amp * v.x;
-            gx += amp * fine * v.y;
-            gy += amp * fine * v.z;
-            total += amp;
-            fine *= 2.0lf;
-        }
-        n = n / total;
-        gx = gx / total / s;
-        gy = gy / total / s;
-        if k[16] == 1.0lf {
-            let tx = (k[17] * gx - k[18] * gy) * k[19];
-            gy = (k[18] * gx + k[17] * gy) * k[19];
-            gx = tx;
-        }
+    let px = f64(i32(id.x) - F.ox) + 0.5lf;
+    let py = f64(i32(id.y) - F.oy) + 0.5lf;
+    var q = vec2(px - k[1], py - k[2]);
+    if k[30] != 1.0lf {
+        let d = curl_lin(q.x - k[4], q.y - k[5]);
+        q = vec2(k[4] + d.x, k[5] + d.y);
     }
-    let t = (-90.0lf + k[11] * n) * 0.017453292519943295lf;
-    let c = cos64(t);
-    let sn = sin64(t);
-    let vx = (c * gx - sn * gy) * k[8];
-    let vy = (sn * gx + c * gy) * k[9];
-    // D-680: at most one long, shorter where the slope falls under one per noise size.
-    let length = max(sqrt(vx * vx + vy * vy), 1.0lf / s);
-    let d = vec2(vx / length, vy / length);
-    let cell = s / 50.0lf;
-    let at = curl_point(px, py, 0u);
-    let q = vec3(at.x / cell, at.y / cell, k[3]);
-    let e = k[10];
-    var seed = 0.0lf;
-    if e == 1.0lf {
-        seed = cell_noise_look(7u, q, true, 0);
-    } else if e == 0.0lf {
-        seed = cell_noise_look(7u, q, false, 0);
-    } else {
-        seed = e * cell_noise_look(7u, q, true, 0) + (1.0lf - e) * cell_noise_look(7u, q, false, 0);
-    }
-    textureStore(output, id.xy, vec4(f32(d.x), f32(d.y), f32(n), f32(seed)));
-}
-
-// D-583: render::sample_bilinear exactly as the CPU sums it: each product rounded to single
-// precision on its own (through double, where a single product is exact), so the card cannot
-// fuse it into the add. Kept for a picture's plane (Audit P2), whose flow lines part on a hair.
-fn curl_sample(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
-    let size = vec2<i32>(textureDimensions(t));
-    let fx = x - 0.5lf;
-    let fy = y - 0.5lf;
-    if !(fx > -1.0lf && fy > -1.0lf && fx < f64(size.x) && fy < f64(size.y)) {
-        return vec4(0.0);
-    }
-    let x0 = floor(fx);
-    let y0 = floor(fy);
-    let ux = fx - x0;
-    let uy = fy - y0;
-    var out = vec4(0.0);
-    for (var j = 0; j < 2; j++) {
-        let wy = select(1.0lf - uy, uy, j == 1);
-        let sy = i32(y0) + j;
-        if wy == 0.0lf || sy < 0 || sy >= size.y {
-            continue;
+    let v0 = curl_value(q);
+    var w = curl_flow(q);
+    var end = v0;
+    var mean = v0;
+    if k[17] > 0.0lf && k[16] != 0.0lf {
+        let steps = u32(k[18]);
+        let d = k[17] / k[18];
+        var parts = max(ceil(d / 0.1lf), 1.0lf);
+        if k[30] == 1.0lf {
+            parts = max(parts, ceil(d * k[0] / 9.0lf));
         }
-        for (var i = 0; i < 2; i++) {
-            let wx = select(1.0lf - ux, ux, i == 1);
-            let sx = i32(x0) + i;
-            if wx == 0.0lf || sx < 0 || sx >= size.x {
-                continue;
+        let h = d / parts;
+        let s = k[0];
+        var total = v0;
+        for (var i = 0u; i < steps; i++) {
+            for (var j = 0u; j < u32(parts); j++) {
+                let a = curl_flow(q);
+                let b = curl_flow(vec2(q.x - h / 2.0lf * s * a.x, q.y - h / 2.0lf * s * a.y));
+                q = vec2(q.x - h * s * b.x, q.y - h * s * b.y);
             }
-            let wt = f64(f32(wx * wy));
-            let v = textureLoad(t, vec2(sx, sy), 0);
-            out += vec4(f32(f64(v.x) * wt), f32(f64(v.y) * wt), f32(f64(v.z) * wt), f32(f64(v.w) * wt));
+            end = curl_value(q);
+            total += end;
         }
+        mean = total / (k[18] + 1.0lf);
     }
-    return out;
+    let out = k[19] * end + (1.0lf - k[19]) * mean;
+    let grey = 0.5lf + 0.5lf * k[20] * out * (1.0lf - k[21] * (0.5lf - 0.5lf * v0));
+    if k[30] != 1.0lf && k[6] == 1.0lf {
+        let x = w.x / k[9];
+        let y = w.y / k[10];
+        w = vec2(x * k[7] - y * k[8], x * k[8] + y * k[7]);
+    }
+    let l = sqrt(w.x * w.x + w.y * w.y);
+    var dir = vec2(0.0lf);
+    if l > 0.0lf {
+        dir = vec2(w.x / l, w.y / l);
+    }
+    textureStore(output, id.xy, vec4(f32(dir.x), f32(dir.y), f32(k[20] * v0), f32(grey)));
 }
 
-// D-583: render::sample_bilinear over the field at the start pixel `base`'s centre plus `r`.
-// Audit P2 (after B-157): the place found from the start pixel, so the numbers stay small, and
-// the sum in single precision.
-fn curl_sample32(t: texture_2d<f32>, base: vec2<i32>, r: vec2<f32>) -> vec4<f32> {
-    let size = vec2<i32>(textureDimensions(t));
-    let c = floor(r);
-    let u = r - c;
-    let o = base + vec2<i32>(c);
-    var out = vec4(0.0);
-    for (var j = 0; j < 2; j++) {
-        let wy = select(1.0 - u.y, u.y, j == 1);
-        let sy = o.y + j;
-        if wy == 0.0 || sy < 0 || sy >= size.y {
-            continue;
-        }
-        for (var i = 0; i < 2; i++) {
-            let wx = select(1.0 - u.x, u.x, i == 1);
-            let sx = o.x + i;
-            if wx == 0.0 || sx < 0 || sx >= size.x {
-                continue;
-            }
-            out += textureLoad(t, vec2(sx, sy), 0) * (wx * wy);
-        }
-    }
-    return out;
-}
-
-// D-446, grade::curl_noise after the field (`other`, F.g round the drawing): k the sample radius,
-// the steps, Flow Softness and Flow Falloff out of 1, the view (0 Final Render, 1 Input Noise, 2
-// Curl Generation), Contrast, Brightness, 1 to hold at white, the channel (0 RGB, 1 to 3 red to
-// blue, 4 alpha), 1 where the field is a picture's plane (D-583).
+// D-446, grade::curl_noise after the field (`other`, the buffer's size): k the view (0 Final
+// Render, 1 Input Noise, 2 Curl Generation), Contrast, Brightness, 1 to hold at white, the
+// channel (0 RGB, 1 to 3 red to blue, 4 alpha).
 @compute @workgroup_size(16, 16)
 fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -10001,94 +9969,20 @@ fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, p);
         return;
     }
-    let m = u32(F.g);
-    let fp = textureLoad(other, id.xy + vec2(m), 0);
-    let dx = f64(fp.x);
-    let dy = f64(fp.y);
-    let n = f64(fp.z);
-    var o = vec3(0.5lf + 0.5lf * n);
-    let view = u32(k[4]);
-    if view == 2u {
-        let length = sqrt(dx * dx + dy * dy);
-        var d = vec2(0.0lf);
-        if length > 0.0lf {
-            d = vec2(dx / length, dy / length);
-        }
-        o = vec3(0.5lf + 0.5lf * d.x, 0.5lf + 0.5lf * d.y, 0.5lf + 0.5lf * n);
-    } else if view == 0u {
-        let radius = k[0];
-        let steps = u32(k[1]);
-        let h = radius / k[1];
-        let subs = max(ceil(h), 1.0lf);
-        var sw = 1.0lf;
-        var sws = 1.0lf;
-        // Audit P2 (after B-157): each step's length and stride stay double; for the noise, the
-        // samples between, their weights and sums are single precision, read from the start
-        // pixel. A picture's plane (k[9] 1) keeps the CPU's reads to the bit, as D-583.
-        let exact = k[9] == 1.0lf;
-        let base = vec2<i32>(id.xy + vec2(m));
-        let start = vec2<f64>(base) + 0.5lf;
-        let subs32 = f32(subs);
-        let last32 = f32(k[1] + 1.0lf);
-        var ss = f64(fp.w);
-        var tw = 1.0lf;
-        var ss32 = 0.0;
-        var tw32 = 0.0;
-        var walked = 0.0lf;
-        for (var way = 0u; way < 2u; way++) {
-            let sign = select(-1.0lf, 1.0lf, way == 0u);
-            var qx = start.x;
-            var qy = start.y;
-            var ex = dx;
-            var ey = dy;
-            for (var i = 1u; i <= steps; i++) {
-                let length = sqrt(ex * ex + ey * ey);
-                if length < 1e-6lf {
-                    break;
-                }
-                walked += h * length;
-                let mx = sign * h * ex;
-                let my = sign * h * ey;
-                let r = vec2<f32>(vec2(qx, qy) - start);
-                let r1 = vec2<f32>(vec2(mx, my));
-                for (var j = 1u; j <= u32(subs); j++) {
-                    var q: vec4<f32>;
-                    if exact {
-                        let f = f64(j) / subs;
-                        q = curl_sample(other, qx + f * mx, qy + f * my);
-                        let wj = 1.0lf - (f64(i - 1u) + f) / (k[1] + 1.0lf);
-                        ss += wj * f64(q.w);
-                        tw += wj;
-                    } else {
-                        let f = f32(j) / subs32;
-                        q = curl_sample32(other, base, r + f * r1);
-                        let wj = 1.0 - (f32(i - 1u) + f) / last32;
-                        ss32 += wj * q.w;
-                        tw32 += wj;
-                    }
-                    if j == u32(subs) {
-                        ex = f64(q.x);
-                        ey = f64(q.y);
-                    }
-                }
-                qx += mx;
-                qy += my;
-                let wt = 1.0lf - f64(i) / (k[1] + 1.0lf);
-                sw += wt;
-                sws += wt * wt;
-            }
-        }
-        let gain = 1.0lf + (sw / sqrt(sws) - 1.0lf) * min(walked / max(2.0lf * radius, 1e-9lf), 1.0lf);
-        let lines = (ss + f64(ss32)) / (tw + f64(tw32)) * gain;
-        let mixed = n + (1.0lf - k[2]) * min(1.0lf, radius / 8.0lf) * (lines - n);
-        o = vec3(0.5lf + 0.5lf * (mixed * (1.0lf - k[3] * (0.5lf - 0.5lf * n))));
+    let fp = textureLoad(other, id.xy, 0);
+    let view = u32(k[0]);
+    var o = vec3(f64(fp.w));
+    if view == 1u {
+        o = vec3(0.5lf + 0.5lf * f64(fp.z));
+    } else if view == 2u {
+        o = vec3(0.5lf + 0.5lf * f64(fp.x), 0.5lf + 0.5lf * f64(fp.y), 0.5lf + 0.5lf * f64(fp.z));
     }
     for (var j = 0u; j < 3u; j++) {
-        let v = 0.5lf + (o[j] - 0.5lf) * k[5] / 100.0lf + k[6] / 100.0lf;
-        o[j] = select(max(v, 0.0lf), clamp(v, 0.0lf, 1.0lf), k[7] == 1.0lf);
+        let v = 0.5lf + (o[j] - 0.5lf) * k[1] / 100.0lf + k[2] / 100.0lf;
+        o[j] = select(max(v, 0.0lf), clamp(v, 0.0lf, 1.0lf), k[3] == 1.0lf);
     }
     var out = p;
-    let channel = u32(k[8]);
+    let channel = u32(k[4]);
     if channel == 0u {
         for (var j = 0u; j < 3u; j++) {
             out[j] = f32(to_linear(o[j]) * a);
@@ -22021,19 +21915,15 @@ impl Gpu {
                 k.extend(bands.concat());
                 same(steps, &passes.vegas, FxParams::default(), &k, None)
             }
-            // D-446: the field over the drawing and a margin round it in one pass, then the flow
-            // lines through it in a second, as grade::curl_noise works them. D-583: This Layer or
-            // Other Layer first makes the picture's lightness plane, blurred by Softness, as
-            // grade::CurlPlane does.
+            // D-446, D-749: each pixel's trace in one pass, as grade::Curl::at works it, then the
+            // view, Contrast, Brightness and the channel in a second, as grade::curl_noise. D-583:
+            // This Layer or Other Layer first makes the picture's lightness plane, blurred by
+            // Softness, as grade::CurlPlane does.
             e @ E::CurlNoise {
                 source,
                 softness,
                 mirror_at_edge,
                 map,
-                sample_count,
-                sample_radius,
-                flow_softness,
-                flow_falloff,
                 view,
                 contrast,
                 brightness,
@@ -22043,12 +21933,21 @@ impl Gpu {
                 ..
             } => {
                 let c = crate::grade::Curl::new(e, (w - 2 * ox, h - 2 * oy)).expect("a Curl Noise");
-                let m = crate::grade::curl_margin(*sample_radius);
-                let (gw, gh) = (w + 2 * m, h + 2 * m);
-                let mut k = vec![c.size, c.shift[0], c.shift[1], c.z];
-                k.extend(c.amps);
-                k.extend(c.bias);
-                k.extend([c.edge, c.swirl]);
+                let mut k = vec![c.s, c.shift[0], c.shift[1], c.z, c.mid[0], c.mid[1]];
+                k.push(c.turn.is_some() as u8 as f64);
+                k.extend(c.turn.unwrap_or_default());
+                k.extend(c.a);
+                k.extend(c.g);
+                k.extend([
+                    c.r,
+                    c.sigma,
+                    c.tau,
+                    c.steps as f64,
+                    c.crisp,
+                    c.gain,
+                    c.ff,
+                ]);
+                k.extend(c.slide.concat());
                 let picture = match source.as_str() {
                     "this_layer" => Some((still.clone(), (w, h), [ox as f64, oy as f64])),
                     "other_layer" => {
@@ -22125,14 +22024,8 @@ impl Gpu {
                 if plane.is_none() {
                     k.extend([0.0; 4]);
                 }
-                // D-646: k[16] 1 turns the noise by k[17..22] (grade::Curl::turn), k[22] 1 slides
-                // each finer octave half as far.
-                k.push(c.turn.is_some() as u8 as f64);
-                k.extend(c.turn.unwrap_or_default());
-                k.push(c.perspective as u8 as f64);
                 let base = crate::grade::mix(0);
                 let p = FxParams {
-                    g: m as i32,
                     base: [base as u32, (base >> 32) as u32],
                     ox: ox as i32,
                     oy: oy as i32,
@@ -22143,7 +22036,7 @@ impl Gpu {
                 let key: Option<Vec<u64>> = plane.is_none().then(|| {
                     k.iter()
                         .map(|v| v.to_bits())
-                        .chain([m, ox, oy, gw, gh].map(|v| v as u64))
+                        .chain([ox, oy, w, h].map(|v| v as u64))
                         .collect()
                 });
                 let kept = key.as_ref().and_then(|key| {
@@ -22155,7 +22048,7 @@ impl Gpu {
                 let field = match kept {
                     Some(field) => field,
                     None => {
-                        let field = self.scratch("D-446 field", gw, gh);
+                        let field = self.scratch("D-446 field", w, h);
                         self.fx_step(
                             steps,
                             &passes.curlfield,
@@ -22165,7 +22058,7 @@ impl Gpu {
                             Some(&k),
                             None,
                             none,
-                            tiles(gw, gh),
+                            tiles(w, h),
                         );
                         if let Some(key) = key {
                             if let Some(working) = &self.working {
@@ -22181,24 +22074,16 @@ impl Gpu {
                 let at =
                     |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
                 let k = [
-                    *sample_radius,
-                    sample_count.floor(),
-                    flow_softness / 100.0,
-                    flow_falloff / 100.0,
                     at(&crate::effects::CURL_VIEWS, view),
                     *contrast,
                     *brightness,
                     !(clip_hdr_results == "off" && *float) as u8 as f64,
                     at(&crate::effects::CURL_CHANNELS, channel),
-                    plane.is_some() as u8 as f64,
                 ];
                 same(
                     steps,
                     &passes.curlflow,
-                    FxParams {
-                        g: m as i32,
-                        ..Default::default()
-                    },
+                    FxParams::default(),
                     &k,
                     Some(&field),
                 )

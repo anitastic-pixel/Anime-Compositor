@@ -94,9 +94,10 @@ fn b525_curl_transform() {
         "curl_noise",
         "# D-646: Curl Noise, Rotation, Scale and Perspective Offset\n\nB-525: `core.curl_noise` takes After Effects' \
          Transform controls. With c the drawing's middle, m = 100 / Scale and theta = Rotation, octave o of the made noise \
-         is read at c + m R(-theta) (p - w_o (Offset + drift frame) - c), w_o = 0.5^o with Perspective Offset on, else 1; \
-         its slope is brought back by m R(theta) before Swirl and Vertical Bias, and the seed is read at octave 0's point. \
-         With Source This Layer or Other Layer the picture is read unturned, so Rotation and Scale move only the seed. \
+         and its flow are read at q = c + m R(-theta) (p - (Offset + drift) - c), and with Perspective Offset on octave o \
+         slides a further (1 - 0.5^o) of the slide, turned and scaled; the trace (D-749) runs in q and Curl \
+         Generation's direction is brought back to the picture's. With Source This Layer or Other Layer the picture is \
+         read unturned and the Transform does nothing (D-749: the seed it once turned is gone). \
          Rotation 0, Scale 100 and Perspective Offset off draw every file before D-646 as before. The rule is this \
          program's own, after Fractal Noise's same controls; Adobe publishes none. Every expected pixel is \
          `Fixtures/curl_noise/expected_curl_transform.json`, written by `tools/curl_transform_reference.py` before this \
@@ -292,7 +293,12 @@ fn b525_curl_transform() {
                 t.row(
                     &format!("the reference shot, Curl Noise {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
-                    d.0 <= 1 && !r && a == b && card == 3,
+                    // D-749, as B-461's This Layer as added: an unblurred picture's flow lines
+                    // may part at its saddles, on at most 1 in 200 of a Full frame's pixels.
+                    (d.0 <= 1 || what.starts_with("This Layer") && d.1 <= 1920 * 1080 / 200)
+                        && !r
+                        && a == b
+                        && card == 3,
                 );
             }
         }

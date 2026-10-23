@@ -1,6 +1,6 @@
 # D-646: Curl Noise, Rotation, Scale and Perspective Offset
 
-B-525: `core.curl_noise` takes After Effects' Transform controls. With c the drawing's middle, m = 100 / Scale and theta = Rotation, octave o of the made noise is read at c + m R(-theta) (p - w_o (Offset + drift frame) - c), w_o = 0.5^o with Perspective Offset on, else 1; its slope is brought back by m R(theta) before Swirl and Vertical Bias, and the seed is read at octave 0's point. With Source This Layer or Other Layer the picture is read unturned, so Rotation and Scale move only the seed. Rotation 0, Scale 100 and Perspective Offset off draw every file before D-646 as before. The rule is this program's own, after Fractal Noise's same controls; Adobe publishes none. Every expected pixel is `Fixtures/curl_noise/expected_curl_transform.json`, written by `tools/curl_transform_reference.py` before this code existed and printed in document 25 as FX-CURL-061 to 077. Tolerance 2e-5.
+B-525: `core.curl_noise` takes After Effects' Transform controls. With c the drawing's middle, m = 100 / Scale and theta = Rotation, octave o of the made noise and its flow are read at q = c + m R(-theta) (p - (Offset + drift) - c), and with Perspective Offset on octave o slides a further (1 - 0.5^o) of the slide, turned and scaled; the trace (D-749) runs in q and Curl Generation's direction is brought back to the picture's. With Source This Layer or Other Layer the picture is read unturned and the Transform does nothing (D-749: the seed it once turned is gone). Rotation 0, Scale 100 and Perspective Offset off draw every file before D-646 as before. The rule is this program's own, after Fractal Noise's same controls; Adobe publishes none. Every expected pixel is `Fixtures/curl_noise/expected_curl_transform.json`, written by `tools/curl_transform_reference.py` before this code existed and printed in document 25 as FX-CURL-061 to 077. Tolerance 2e-5.
 
 ## FX-CURL-061 to 077 (document 25)
 
@@ -10,21 +10,21 @@ B-525: `core.curl_noise` takes After Effects' Transform controls. With c the dra
 | FX-CURL-061: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-062 frame 0: Rotation 90, still, Swirl 0, Curl Generation: the flow turned with the noise, a quarter clockwise. | largest difference 3.0e-8 | yes |
 | FX-CURL-062: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-063 frame 0: Scale 200, still, Input Noise: the noise twice as big round the card's middle, so it is Size 12 with Offset (-8, -5), FX-CURL-064. | largest difference 3.0e-8 | yes |
+| FX-CURL-063 frame 0: Scale 200, still, Input Noise: the noise twice as big round the card's middle, so it is Size 12 with Offset (-8, -5), FX-CURL-064. | largest difference 3.9e-8 | yes |
 | FX-CURL-063: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-064 frame 0: Size 12, Offset (-8, -5), still, Input Noise. | largest difference 3.0e-8 | yes |
+| FX-CURL-064 frame 0: Size 12, Offset (-8, -5), still, Input Noise. | largest difference 3.9e-8 | yes |
 | FX-CURL-064: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-065 frame 0: Scale 50, still: flow lines through cells half the size. | largest difference 3.0e-8 | yes |
+| FX-CURL-065 frame 0: Scale 50, still: flow lines through cells half the size. | largest difference 3.9e-8 | yes |
 | FX-CURL-065: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-066 frame 0: Perspective Offset on, Speed 20, Direction 90, Turbulence Speed 0, Input Noise: at frame 0 nothing has slid, so it is FX-CURL-011's frame 0; at frame 1 the finer octaves have slid less than the coarse one. | largest difference 3.0e-8 | yes |
-| FX-CURL-066 frame 1: Perspective Offset on, Speed 20, Direction 90, Turbulence Speed 0, Input Noise: at frame 0 nothing has slid, so it is FX-CURL-011's frame 0; at frame 1 the finer octaves have slid less than the coarse one. | largest difference 3.0e-8 | yes |
+| FX-CURL-066 frame 1: Perspective Offset on, Speed 20, Direction 90, Turbulence Speed 0, Input Noise: at frame 0 nothing has slid, so it is FX-CURL-011's frame 0; at frame 1 the finer octaves have slid less than the coarse one. | largest difference 5.3e-8 | yes |
 | FX-CURL-066: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-067 frame 0: Rotation 45, Scale 150, Perspective Offset on, Offset (3, 2), Speed 20, Direction 90: the Transform together, flow lines. | largest difference 3.0e-8 | yes |
+| FX-CURL-067 frame 0: Rotation 45, Scale 150, Perspective Offset on, Offset (3, 2), Speed 20, Direction 90: the Transform together, flow lines. | largest difference 3.9e-8 | yes |
 | FX-CURL-067 frame 2: Rotation 45, Scale 150, Perspective Offset on, Offset (3, 2), Speed 20, Direction 90: the Transform together, flow lines. | largest difference 3.0e-8 | yes |
 | FX-CURL-067: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-068 frame 0: Source This Layer, Rotation 90, Scale 200, Perspective Offset on, still, Input Noise: the picture is read unturned, so it is FX-CURL-045. | largest difference 8.5e-8 | yes |
+| FX-CURL-068 frame 0: Source This Layer, Rotation 90, Scale 200, Perspective Offset on, still, Input Noise: the picture is read unturned, so it is FX-CURL-045. | largest difference 3.0e-8 | yes |
 | FX-CURL-068: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-069 frame 0: Source This Layer, Rotation 90, still: only the seed is turned, so the lines differ from Rotation 0's. | largest difference 1.7e-7 | yes |
+| FX-CURL-069 frame 0: Source This Layer, Rotation 90, still: the picture is read unturned, so it is Rotation 0's frame (D-749: the seed Rotation turned is gone). | largest difference 3.0e-8 | yes |
 | FX-CURL-069: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-070 frame 0: Rotation keyed from 0 at frame 0 to 90 at frame 4, still, Input Noise: frame 0 is the unturned noise, frame 4 FX-CURL-061. | largest difference 3.0e-8 | yes |
 | FX-CURL-070 frame 4: Rotation keyed from 0 at frame 0 to 90 at frame 4, still, Input Noise: frame 0 is the unturned noise, frame 4 FX-CURL-061. | largest difference 3.0e-8 | yes |
@@ -116,34 +116,34 @@ B-525: `core.curl_noise` takes After Effects' Transform controls. With c the dra
 | fx_curl_075.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_curl_076.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_curl_077.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| the reference shot, Curl Noise Rotation 30: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2072983 pixels changed, 2054044 differ from as added | yes |
-| the reference shot, Curl Noise Rotation 30 on three layers, frame 0, Full | largest difference 1 of 255, 1279 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 30 on three layers, frame 100, Full | largest difference 1 of 255, 1256 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 30 on three layers, frame 239, Full | largest difference 1 of 255, 1335 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 30 on three layers, frame 0, Draft | largest difference 1 of 255, 81 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 30 on three layers, frame 100, Draft | largest difference 1 of 255, 87 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 30 on three layers, frame 239, Draft | largest difference 1 of 255, 63 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2072869 pixels changed, 2057517 differ from as added | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 0, Full | largest difference 1 of 255, 1251 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 100, Full | largest difference 1 of 255, 1242 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 239, Full | largest difference 1 of 255, 1288 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 0, Draft | largest difference 1 of 255, 97 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 100, Draft | largest difference 1 of 255, 84 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 239, Draft | largest difference 1 of 255, 82 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2073598 pixels changed, 2073600 differ from as added | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 0, Full | largest difference 1 of 255, 1318 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 100, Full | largest difference 1 of 255, 1363 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 239, Full | largest difference 1 of 255, 1282 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 0, Draft | largest difference 1 of 255, 76 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 100, Draft | largest difference 1 of 255, 70 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 239, Draft | largest difference 1 of 255, 91 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2072941 pixels changed, 2053032 differ from as added | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 0, Full | largest difference 1 of 255, 1172 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 100, Full | largest difference 1 of 255, 1324 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 239, Full | largest difference 1 of 255, 1290 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 0, Draft | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 100, Draft | largest difference 1 of 255, 85 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 239, Draft | largest difference 1 of 255, 86 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 30: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2073329 pixels changed, 2059636 differ from as added | yes |
+| the reference shot, Curl Noise Rotation 30 on three layers, frame 0, Full | largest difference 1 of 255, 749 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 30 on three layers, frame 100, Full | largest difference 1 of 255, 1364 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 30 on three layers, frame 239, Full | largest difference 1 of 255, 1193 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 30 on three layers, frame 0, Draft | largest difference 1 of 255, 50 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 30 on three layers, frame 100, Draft | largest difference 1 of 255, 80 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 30 on three layers, frame 239, Draft | largest difference 1 of 255, 86 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2073402 pixels changed, 2063684 differ from as added | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 0, Full | largest difference 1 of 255, 1084 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 100, Full | largest difference 1 of 255, 1129 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 239, Full | largest difference 1 of 255, 1146 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 0, Draft | largest difference 1 of 255, 68 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 100, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation 45, Scale 250, Perspective Offset on, Speed 40 on three layers, frame 239, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2073600 pixels changed, 2073600 differ from as added | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 0, Full | largest difference 1 of 255, 1017 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 100, Full | largest difference 1 of 255, 1370 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 239, Full | largest difference 1 of 255, 1265 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 0, Draft | largest difference 1 of 255, 48 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 100, Draft | largest difference 1 of 255, 91 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Rotation keyed 0 to 720, Curl Generation on three layers, frame 239, Draft | largest difference 1 of 255, 73 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50: the processor's frame 100 differs from the shot without it and from Curl Noise as added, so the comparisons below test the Transform | 2073022 pixels changed, 2063638 differ from as added | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 0, Full | largest difference 2 of 255, 927 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 100, Full | largest difference 2 of 255, 4532 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 239, Full | largest difference 2 of 255, 1626 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 0, Draft | largest difference 1 of 255, 52 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 100, Draft | largest difference 1 of 255, 124 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Rotation 90, Scale 50 on three layers, frame 239, Draft | largest difference 1 of 255, 47 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: the street, in `verification/D-646 pictures/`
 

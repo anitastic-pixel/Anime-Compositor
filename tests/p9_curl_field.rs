@@ -33,11 +33,12 @@ use common::repo;
 /// they share one.
 const FIELDS: u64 = 1;
 
-/// Source This Layer at Full quality, frame 100: the card before this change (abc457d2, measured
-/// 2026-10-14 with this same test) was 8 levels from the processor on 5024 pixels. The flow lines
-/// there follow the picture's own field, which parts on a hair after the Levels (D-583); this
-/// change leaves that field alone, so the row passes when it is no further than before.
-const BEFORE: (u8, usize) = (8, 5024);
+/// Source This Layer: the flow lines follow the picture's own lightness, unblurred, and a line
+/// through one of its saddles goes one way or the other on a hair (D-583); after the Levels the
+/// card's picture differs from the processor's by such hairs. D-749 (B-461's This Layer as
+/// added): such pixels may part, but at most 1 in 200 of a Full frame's. Before D-749 the row
+/// held the card to 8 levels on 5024 pixels (abc457d2, 2026-10-14).
+const SADDLES: usize = 1920 * 1080 / 200;
 
 fn keyed(a: f64, b: f64) -> J {
     json!({"base": a, "keyframes": [{"frame": 0, "value": a, "interp": "linear"}, {"frame": 239, "value": b, "interp": "linear"}]})
@@ -199,7 +200,7 @@ fn p9_curl_field() {
                 && passes + saved == fresh_passes
                 && saved == expected
                 && same == (0, 0)
-                && (cpu.0 <= 1 || (cpu.0 <= BEFORE.0 && cpu.1 <= BEFORE.1));
+                && (cpu.0 <= 1 || case.starts_with("Source This Layer") && cpu.1 <= SADDLES);
             checks += 1;
             passed += pass as usize;
             let _ = writeln!(
@@ -237,11 +238,11 @@ fn p9_curl_field() {
          **The rule:** where the field is kept, the second frame runs exactly 1 pass fewer than on \
          the forgotten card (the one shared field); where it must be drawn again, the same number. \
          Either way the second frame is **the very same picture as the forgotten card's** (0 levels, \
-         0 pixels apart) and **within 1 level of 255 of the processor's**. One row keeps its old \
-         gap: Source This Layer at Full was 8 levels from the processor on 5024 pixels before this \
-         change too (its flow lines follow the picture's own field, which parts on a hair after the \
-         Levels, D-583); this change does not touch that field, so that row passes when it is no \
-         further than before.\n\n\
+         0 pixels apart) and **within 1 level of 255 of the processor's**. Source This Layer is \
+         the exception: its flow lines follow the picture's own lightness, and a line through one of \
+         its saddles goes one way or the other on a hair after the Levels (D-583), so those rows pass \
+         when no more than 1 in 200 of a Full frame's pixels (10368) part from the processor's, at any \
+         level (D-749).\n\n\
          **{passed} of {checks} checks pass.**\n\n\
          | Case | Quality | The field must be | Passes run | Passes on a forgotten card | The field was | Difference from the forgotten card's picture (of 255) | Difference from the processor's (of 255) | Result |\n\
          |---|---|---|---:|---:|---|---|---|---|\n{rows}",

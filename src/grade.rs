@@ -1808,20 +1808,47 @@ pub(crate) fn value_slope(base: u64, ch: u64, x: f64, y: f64, z: f64) -> [f64; 3
     [v, gx, gy]
 }
 
-/// D-446: Curl Noise's settings, read once for a frame: the field's size, how far it has slid,
-/// its depth, the four octaves' weights, the across and down bias, the share of blocks in the
-/// seed and the swirl. D-646: `turn`, None at Rotation 0 and Scale 100, else the turn's cosine
-/// and sine, 100 / Scale and the drawing's middle; `perspective`, Perspective Offset on.
+/// D-749: the turn between Curl Noise's two lattices, the cosine and sine of 0.7.
+pub(crate) const CURL_TURN: (f64, f64) = (0.7648421872844885, 0.644217687237691);
+
+/// D-749: Curl Noise's noise, two lattices of [`value_slope`] (channels `ch` and `ch + 4`, the
+/// second turned by 0.7 and moved (0.37, 0.61)) over the square root of two, so no grid shows:
+/// the value and its slope across and down, the second's slope turned back.
+pub(crate) fn curl_two(base: u64, ch: u64, x: f64, y: f64, z: f64) -> [f64; 3] {
+    let (c, s) = CURL_TURN;
+    let a = value_slope(base, ch, x, y, z);
+    let b = value_slope(base, ch + 4, x * c - y * s + 0.37, x * s + y * c + 0.61, z);
+    let q = 1.0 / 2f64.sqrt();
+    [
+        (a[0] + b[0]) * q,
+        (a[1] + b[1] * c + b[2] * s) * q,
+        (a[2] - b[1] * s + b[2] * c) * q,
+    ]
+}
+
+/// D-749: Curl Noise's settings, read once for a frame, by document 21's rule: the flow's noise
+/// size `s`, the slide (Offset and the drift), the depth, the drawing's middle, the turn (None at
+/// Rotation 0 and Scale 100, else its cosine and sine and 100 / Scale across and down), the flow's
+/// stretch `a` and the value's `g` from Vertical Bias, the octaves' ratio, Swirl's speed, the
+/// trace's length and parts, Flow Softness's crispness, Edge Definition's gain, Flow Falloff, and
+/// each value octave's slide with Perspective Offset (D-646).
 pub(crate) struct Curl {
-    pub size: f64,
+    pub base: u64,
+    pub s: f64,
     pub shift: [f64; 2],
     pub z: f64,
-    pub amps: [f64; 4],
-    pub bias: [f64; 2],
-    pub edge: f64,
-    pub swirl: f64,
-    pub turn: Option<[f64; 5]>,
-    pub perspective: bool,
+    pub mid: [f64; 2],
+    pub turn: Option<[f64; 4]>,
+    pub a: [f64; 2],
+    pub g: [f64; 2],
+    pub r: f64,
+    pub sigma: f64,
+    pub tau: f64,
+    pub steps: usize,
+    pub crisp: f64,
+    pub gain: f64,
+    pub ff: f64,
+    pub slide: [[f64; 2]; 4],
 }
 
 impl Curl {
@@ -1841,113 +1868,163 @@ impl Curl {
             density,
             smoothness,
             vertical_bias,
+            sample_count,
+            sample_radius,
+            flow_softness,
             edge_definition,
+            flow_falloff,
+            travel,
             frame,
             ..
         } = e
         else {
             return None;
         };
-        let t = direction.to_radians();
-        let f = *frame as f64;
-        let drift = [t.sin() * speed / 10.0, -t.cos() * speed / 10.0];
-        let r = 0.7 - 0.4 * smoothness / 100.0;
+        // D-749 step 1: compose adds up the frames before (effects::Effect::CurlNoise's
+        // `travel`); without it the settings held since frame 0 at 24 frames a second.
+        let moved = travel.unwrap_or_else(|| {
+            let (t, f) = (direction.to_radians(), *frame as f64);
+            [
+                t.sin() * speed / 10.0 * f,
+                -t.cos() * speed / 10.0 * f,
+                turbulence_speed / 10.0 * f,
+            ]
+        });
         let b = vertical_bias / 100.0;
-        Some(Curl {
-            size: size * 2f64.powf(-density / 50.0),
-            shift: [offset[0] + drift[0] * f, offset[1] + drift[1] * f],
-            z: (evolution + turbulence_speed * f / 10.0) / 360.0,
-            amps: [1.0, r, r * r, r * r * r],
-            bias: [(2.0 * (1.0 - b)).min(1.0), (2.0 * b).min(1.0)],
-            edge: edge_definition / 100.0,
-            swirl: *swirl,
-            turn: (*rotation != 0.0 || *scale != 100.0).then(|| {
-                let r = rotation.to_radians();
-                [
-                    r.cos(),
-                    r.sin(),
-                    100.0 / scale,
-                    dw as f64 / 2.0,
-                    dh as f64 / 2.0,
-                ]
-            }),
-            perspective: perspective_offset == "on",
-        })
+        let m = 100.0 / scale;
+        let t = rotation.to_radians();
+        let mut curl = Curl {
+            base: mix(0),
+            s: 2.0 * size * 2f64.powf(-density / 50.0),
+            shift: [offset[0] + moved[0], offset[1] + moved[1]],
+            z: (evolution + moved[2]) / 360.0,
+            mid: [dw as f64 / 2.0, dh as f64 / 2.0],
+            turn: (*rotation != 0.0 || m != 1.0).then(|| [t.cos(), t.sin(), m, m]),
+            a: [
+                1.0 + (1.0 - 2.0 * b).max(0.0),
+                1.0 + (2.0 * b - 1.0).max(0.0),
+            ],
+            g: [
+                1.0 + 0.6 * (1.0 - 2.0 * b).max(0.0),
+                1.0 + 0.6 * (2.0 * b - 1.0).max(0.0),
+            ],
+            r: 0.4 * (1.0 - smoothness / 100.0),
+            sigma: swirl / 180.0,
+            tau: 0.045 * sample_radius,
+            steps: sample_count.floor() as usize,
+            crisp: (flow_softness / 100.0).powf(0.37),
+            gain: 2.0 * 2f64.powf((edge_definition - 50.0) / 50.0),
+            ff: flow_falloff / 100.0,
+            slide: [[0.0; 2]; 4],
+        };
+        if perspective_offset == "on" {
+            let (sx, sy) = curl.lin(curl.shift[0], curl.shift[1]);
+            for o in 0..4 {
+                let w = 1.0 - 0.5f64.powi(o as i32);
+                curl.slide[o] = [w * sx, w * sy];
+            }
+        }
+        Some(curl)
     }
 
-    /// D-646: the point octave `o` of the noise is read at for the drawing's point `(px, py)`:
-    /// slid (half as far each octave with Perspective Offset), then turned and scaled round the
-    /// drawing's middle.
-    fn point(&self, px: f64, py: f64, o: usize) -> (f64, f64) {
-        let w = if self.perspective {
-            0.5f64.powi(o as i32)
-        } else {
-            1.0
-        };
-        let (x, y) = (px - w * self.shift[0], py - w * self.shift[1]);
+    /// T: the turn and scale without the middle.
+    fn lin(&self, x: f64, y: f64) -> (f64, f64) {
         match self.turn {
             None => (x, y),
-            Some([c, s, m, cx, cy]) => {
-                let (dx, dy) = (x - cx, y - cy);
-                (cx + (dx * c + dy * s) * m, cy + (-dx * s + dy * c) * m)
+            Some([c, s, mx, my]) => ((x * c + y * s) * mx, (-x * s + y * c) * my),
+        }
+    }
+
+    /// Step 2: the noise's point q for the drawing's point `(px, py)`: slid, then turned and
+    /// scaled round the drawing's middle.
+    pub(crate) fn point(&self, px: f64, py: f64) -> (f64, f64) {
+        let [cx, cy] = self.mid;
+        let (dx, dy) = self.lin(px - self.shift[0] - cx, py - self.shift[1] - cy);
+        (cx + dx, cy + dy)
+    }
+
+    /// Step 3's flow w at q (S4's with a `plane`).
+    fn flow(&self, qx: f64, qy: f64, plane: Option<&CurlPlane>) -> (f64, f64) {
+        match plane {
+            Some(p) => p.flow(qx, qy, self.sigma, self.s),
+            None => {
+                let [ax, ay] = self.a;
+                let [_, gx, gy] = curl_two(self.base, 0, qx / (self.s * ax), qy / (self.s * ay), self.z);
+                (self.sigma * gy / ay, -self.sigma * gx / ax)
             }
         }
     }
 
-    /// The flow across and down (at most one long, D-680), the noise and the seed at the drawing's
-    /// point `(px, py)`, in single precision as the card keeps them. D-583: with a `plane`, the
-    /// noise and its slope are the picture's.
+    /// Step 4's value V at q (S4's 2 L - 1 with a `plane`).
+    fn value(&self, qx: f64, qy: f64, plane: Option<&CurlPlane>) -> f64 {
+        if let Some(p) = plane {
+            return 2.0 * p.read(qx + p.origin[0], qy + p.origin[1]) - 1.0;
+        }
+        let [gx, gy] = self.g;
+        let (mut v, mut total, mut amp, mut fine) = (0.0, 0.0, 1.0, 1.0);
+        for (o, slide) in self.slide.iter().enumerate() {
+            let x = (qx + slide[0]) / (1.6 * self.s * gx) * fine;
+            let y = (qy + slide[1]) / (1.6 * self.s * gy) * fine;
+            v += amp * curl_two(self.base, 8 * o as u64, x, y, self.z * fine)[0];
+            total += amp;
+            amp *= self.r;
+            fine *= 2.0;
+        }
+        v / total
+    }
+
+    /// Steps 2 to 6 at the drawing's point `(px, py)`: the direction's two (Curl Generation),
+    /// C V0 (Input Noise) and Final Render's grey, in single precision as the card keeps them.
+    /// D-583: with a `plane`, the noise and its flow are the picture's.
     pub(crate) fn at(&self, px: f64, py: f64, plane: Option<&CurlPlane>) -> [f32; 4] {
-        let base = mix(0);
-        let s = self.size;
-        let (n, gx, gy) = match plane {
-            Some(p) => p.noise(px - self.shift[0], py - self.shift[1]),
-            None => {
-                let (mut n, mut gx, mut gy, mut total, mut fine) = (0.0, 0.0, 0.0, 0.0, 1.0);
-                for (o, amp) in self.amps.iter().enumerate() {
-                    let (x, y) = self.point(px, py, o);
-                    let [v, a, b] = value_slope(
-                        base,
-                        8 * o as u64,
-                        x / s * fine,
-                        y / s * fine,
-                        self.z * fine,
-                    );
-                    n += amp * v;
-                    gx += amp * fine * a;
-                    gy += amp * fine * b;
-                    total += amp;
-                    fine *= 2.0;
+        let (mut qx, mut qy) = match plane {
+            None => self.point(px, py),
+            Some(_) => (px - self.shift[0], py - self.shift[1]),
+        };
+        let v0 = self.value(qx, qy, plane);
+        let (wx, wy) = self.flow(qx, qy, plane);
+        let mut end = v0;
+        // Step 5: the flow followed backwards, each part's end read.
+        let mean = if self.tau > 0.0 && self.sigma != 0.0 {
+            let d = self.tau / self.steps as f64;
+            // S4: a picture's flow moves the point at most s / 9 pixels per unit (CurlPlane::flow),
+            // so its steps are made at most a pixel.
+            let parts = match plane {
+                None => (d / 0.1).ceil().max(1.0),
+                Some(_) => (d / 0.1).ceil().max((d * self.s / 9.0).ceil()).max(1.0),
+            };
+            let (h, s) = (d / parts, self.s);
+            let mut total = v0;
+            for _ in 0..self.steps {
+                for _ in 0..parts as usize {
+                    let (ax, ay) = self.flow(qx, qy, plane);
+                    let (bx, by) = self.flow(qx - h / 2.0 * s * ax, qy - h / 2.0 * s * ay, plane);
+                    (qx, qy) = (qx - h * s * bx, qy - h * s * by);
                 }
-                let (gx, gy) = (gx / total / s, gy / total / s);
-                // D-646: the slope worked in the turned noise, brought back to the picture.
-                let (gx, gy) = match self.turn {
-                    None => (gx, gy),
-                    Some([c, sn, m, ..]) => ((c * gx - sn * gy) * m, (sn * gx + c * gy) * m),
-                };
-                (n / total, gx, gy)
+                end = self.value(qx, qy, plane);
+                total += end;
             }
-        };
-        let t = (-90.0 + self.swirl * n).to_radians();
-        let (c, sn) = (t.cos(), t.sin());
-        let vx = (c * gx - sn * gy) * self.bias[0];
-        let vy = (sn * gx + c * gy) * self.bias[1];
-        // D-680: one long where the flow is strong, shorter where its slope falls under one per
-        // noise size, so a walk slows at the flow's crossing points.
-        let length = vx.hypot(vy).max(1.0 / s);
-        let d = [vx / length, vy / length];
-        let cell = s / 50.0;
-        let (x, y) = self.point(px, py, 0);
-        let (sx, sy, e) = (x / cell, y / cell, self.edge);
-        let seed = if e == 1.0 {
-            value(base, 7, sx, sy, self.z, true, 0)
-        } else if e == 0.0 {
-            value(base, 7, sx, sy, self.z, false, 0)
+            total / (self.steps as f64 + 1.0)
         } else {
-            e * value(base, 7, sx, sy, self.z, true, 0)
-                + (1.0 - e) * value(base, 7, sx, sy, self.z, false, 0)
+            v0
         };
-        [d[0] as f32, d[1] as f32, n as f32, seed as f32]
+        let out = self.crisp * end + (1.0 - self.crisp) * mean;
+        let grey = 0.5 + 0.5 * self.gain * out * (1.0 - self.ff * (0.5 - 0.5 * v0));
+        // The flow brought back to the picture's directions, made one long.
+        let (wx, wy) = match (plane, self.turn) {
+            (None, Some([c, s, mx, my])) => {
+                let (x, y) = (wx / mx, wy / my);
+                (x * c - y * s, x * s + y * c)
+            }
+            _ => (wx, wy),
+        };
+        let length = wx.hypot(wy);
+        let (dx, dy) = if length > 0.0 {
+            (wx / length, wy / length)
+        } else {
+            (0.0, 0.0)
+        };
+        [dx as f32, dy as f32, (self.gain * v0) as f32, grey as f32]
     }
 }
 
@@ -2032,34 +2109,32 @@ impl CurlPlane {
         (1.0 - uy) * top + uy * bottom
     }
 
-    /// The noise, 2 L - 1, and its slope, L one pixel on less L one pixel back, at the slid point
-    /// `(x, y)` of the drawing; a slope under 1e-5 long is nought.
-    fn noise(&self, x: f64, y: f64) -> (f64, f64, f64) {
+    /// D-749 step S4: the flow at the slid point `(x, y)` of the drawing, from the plane's slope
+    /// (L one pixel on less L one pixel back; under 1e-5 long it is nought), Swirl's `sigma` and
+    /// the noise size `s`, made 1 / 9 long where it is longer: the point moves at most s / 9
+    /// pixels per unit of trace time, Sample Radius pixels in all at Size 100.
+    fn flow(&self, x: f64, y: f64, sigma: f64, s: f64) -> (f64, f64) {
         let (x, y) = (x + self.origin[0], y + self.origin[1]);
-        let (gx, gy) = (
-            self.read(x + 1.0, y) - self.read(x - 1.0, y),
-            self.read(x, y + 1.0) - self.read(x, y - 1.0),
-        );
-        let (gx, gy) = if gx.hypot(gy) < 1e-5 {
-            (0.0, 0.0)
+        let gx = self.read(x + 1.0, y) - self.read(x - 1.0, y);
+        let gy = self.read(x, y + 1.0) - self.read(x, y - 1.0);
+        if gx.hypot(gy) < 1e-5 {
+            return (0.0, 0.0);
+        }
+        let (wx, wy) = (sigma * s * gy / 2.0, -sigma * s * gx / 2.0);
+        let (length, most) = (wx.hypot(wy), 1.0 / 9.0);
+        if length > most {
+            (wx * most / length, wy * most / length)
         } else {
-            (gx, gy)
-        };
-        (2.0 * self.read(x, y) - 1.0, gx, gy)
+            (wx, wy)
+        }
     }
 }
 
-/// D-446: the margin round the buffer the field is worked over, so a flow line from any pixel
-/// stays inside it.
-pub(crate) fn curl_margin(radius: f64) -> usize {
-    radius.ceil() as usize + 2
-}
-
-/// D-446: After Effects' Curl Noise, by document 21's rule: the field worked for every pixel of
-/// `source` and the margin round it, in the drawing's own space (its corner at `(ox, oy)`),
-/// then at each pixel that shows the flow lines (Final Render), the noise (Input Noise) or the
-/// flow and noise as colours (Curl Generation), through Contrast and Brightness, into the
-/// channel chosen. The settings are already valid.
+/// D-446, D-749: After Effects' Curl Noise, by document 21's rule: at each pixel of `source`
+/// that shows, the noise traced back along its flow (Final Render), the noise (Input Noise) or
+/// the flow and noise as colours (Curl Generation), in the drawing's own space (its corner at
+/// `(ox, oy)`), through Contrast and Brightness, into the channel chosen. The settings are
+/// already valid.
 pub(crate) fn curl_noise(
     source: &mut WorkingBuffer,
     e: &crate::effects::Effect,
@@ -2067,10 +2142,6 @@ pub(crate) fn curl_noise(
 ) {
     let crate::effects::Effect::CurlNoise {
         source: word,
-        sample_count,
-        sample_radius,
-        flow_softness,
-        flow_falloff,
         view,
         contrast,
         brightness,
@@ -2091,25 +2162,7 @@ pub(crate) fn curl_noise(
         return;
     }
     let plane = plane.as_ref();
-    let (radius, steps) = (*sample_radius, sample_count.floor());
-    let m = curl_margin(radius);
-    let (w, h) = (source.width(), source.height());
-    let (gw, gh) = (w + 2 * m, h + 2 * m);
-    let mut field = WorkingBuffer::transparent(gw, gh);
-    field
-        .data_mut()
-        .par_chunks_mut(gw * 4)
-        .enumerate()
-        .for_each(|(gy, row)| {
-            for (gx, px) in row.chunks_exact_mut(4).enumerate() {
-                let p = curl.at(
-                    gx as f64 - m as f64 - ox as f64 + 0.5,
-                    gy as f64 - m as f64 - oy as f64 + 0.5,
-                    plane,
-                );
-                px.copy_from_slice(&p);
-            }
-        });
+    let w = source.width();
     let view = crate::effects::CURL_VIEWS
         .iter()
         .position(|v| v == view)
@@ -2118,9 +2171,7 @@ pub(crate) fn curl_noise(
         .iter()
         .position(|c| c == channel)
         .unwrap_or(0);
-    let (fs, ff) = (flow_softness / 100.0, flow_falloff / 100.0);
     let hold = !(clip_hdr_results == "off" && *float);
-    let field = &field;
     source
         .data_mut()
         .par_chunks_mut(w * 4)
@@ -2131,63 +2182,17 @@ pub(crate) fn curl_noise(
                 if a <= 0.0 {
                     continue;
                 }
-                let [dx, dy, n, seed] = field.pixel(x + m, y + m).map(|v| v as f64);
+                let [dx, dy, n, grey] = curl
+                    .at(
+                        x as f64 - ox as f64 + 0.5,
+                        y as f64 - oy as f64 + 0.5,
+                        plane,
+                    )
+                    .map(|v| v as f64);
                 let o = match view {
                     1 => [0.5 + 0.5 * n; 3],
-                    2 => {
-                        // D-680: the direction shown one long, as before.
-                        let length = dx.hypot(dy);
-                        let (dx, dy) = if length > 0.0 {
-                            (dx / length, dy / length)
-                        } else {
-                            (0.0, 0.0)
-                        };
-                        [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n]
-                    }
-                    _ => {
-                        // D-680: each step goes as far as the flow is strong, read at most a pixel
-                        // apart; the brightening grows with how far the walk got.
-                        let step = radius / steps;
-                        let subs = step.ceil().max(1.0);
-                        let (mut sw, mut sws, mut ss, mut tw, mut walked) =
-                            (1.0, 1.0, seed, 1.0, 0.0);
-                        for way in [1.0, -1.0] {
-                            let (mut qx, mut qy) = ((x + m) as f64 + 0.5, (y + m) as f64 + 0.5);
-                            let (mut ex, mut ey) = (dx, dy);
-                            for i in 1..=steps as usize {
-                                let length = ex.hypot(ey);
-                                if length < 1e-6 {
-                                    break;
-                                }
-                                walked += step * length;
-                                let (mx, my) = (way * step * ex, way * step * ey);
-                                for j in 1..=subs as usize {
-                                    let f = j as f64 / subs;
-                                    let s = crate::render::sample_bilinear(
-                                        field,
-                                        qx + f * mx,
-                                        qy + f * my,
-                                    );
-                                    let wt = 1.0 - ((i - 1) as f64 + f) / (steps + 1.0);
-                                    ss += wt * s[3] as f64;
-                                    tw += wt;
-                                    if j == subs as usize {
-                                        (ex, ey) = (s[0] as f64, s[1] as f64);
-                                    }
-                                }
-                                (qx, qy) = (qx + mx, qy + my);
-                                let wt = 1.0 - i as f64 / (steps + 1.0);
-                                sw += wt;
-                                sws += wt * wt;
-                            }
-                        }
-                        let gain = 1.0
-                            + (sw / sws.sqrt() - 1.0)
-                                * (walked / (2.0 * radius).max(1e-9)).min(1.0);
-                        let lines = ss / tw * gain;
-                        let mixed = n + (1.0 - fs) * (radius / 8.0).min(1.0) * (lines - n);
-                        [0.5 + 0.5 * (mixed * (1.0 - ff * (0.5 - 0.5 * n))); 3]
-                    }
+                    2 => [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n],
+                    _ => [grey; 3],
                 };
                 let o = o.map(|v| {
                     let v = 0.5 + (v - 0.5) * contrast / 100.0 + brightness / 100.0;

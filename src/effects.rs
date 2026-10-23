@@ -2989,8 +2989,10 @@ pub enum Effect {
     /// to 1000; `brightness`, -1000 to 1000; `clip_hdr_results`, "on" or "off"; `channel`, one of
     /// [`CURL_CHANNELS`]. D-646: `rotation`, -100000 to 100000 degrees, and `scale`, 1 to 10000
     /// per cent, turn and scale the noise round the drawing's middle; `perspective_offset`, "off"
-    /// or "on", slides each finer octave half as far. `frame` and `float` are not settings and
-    /// are never saved: the composition frame the settings were resolved at, and whether it
+    /// or "on", slides each finer octave half as far. `travel`, `frame` and `float` are not
+    /// settings and are never saved: D-749's drift across and down and the depth's travel added up
+    /// over the frames before (compose fills it; None reads the settings as held since frame 0 at
+    /// 24 frames a second), the composition frame the settings were resolved at, and whether it
     /// works in Float.
     CurlNoise {
         source: String,
@@ -3022,6 +3024,7 @@ pub enum Effect {
         brightness: f64,
         clip_hdr_results: String,
         channel: String,
+        travel: Option<[f64; 3]>,
         frame: i32,
         float: bool,
     },
@@ -11112,11 +11115,12 @@ impl Effect {
                 *grain_size = scale(*grain_size).max(0.5)
             }
             // D-446: the field, its slide and the flow lines keep their size on the picture.
+            // D-749: the trace is in the noise's own size, so Sample Radius is left.
             Effect::CurlNoise {
                 size,
                 offset,
                 speed,
-                sample_radius,
+                travel,
                 softness,
                 ..
             } => {
@@ -11124,7 +11128,9 @@ impl Effect {
                 *size = scale(*size).max(1.0);
                 *offset = offset.map(&scale);
                 *speed = scale(*speed);
-                *sample_radius = scale(*sample_radius);
+                if let Some([x, y, _]) = travel {
+                    (*x, *y) = (scale(*x), scale(*y));
+                }
             }
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),

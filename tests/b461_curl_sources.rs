@@ -137,7 +137,9 @@ fn b461_curl_sources() {
         "# D-583: Curl Noise, Source This Layer and Other Layer\n\nB-461: `core.curl_noise`'s Source takes After \
          Effects' This Layer and Other Layer. The noise is then the picture's lightness (each pixel's luminance times \
          its covering, read between pixels), blurred first by Softness (a Gaussian, sigma Softness / 10 pixels); its \
-         slope, the lightness one pixel on less one pixel back, steers the flow lines as the made noise's does. This \
+         slope, the lightness one pixel on less one pixel back, steers the flow lines along its own edges (D-749: \
+         Swirl's speed times Size, the point moving at most Size / 4.5 pixels per unit of trace time, in steps of at \
+         most a pixel). This \
          Layer reads the layer as it reaches the effect, so it moves with the drawing; Other Layer reads D-189's \
          layer setting Source Layer, fitted to the drawing by Source Mapping (Fill stretches it, Center keeps its own \
          size). Outside the picture is black, or with Mirror at Edge on the picture mirrored back. The rule is this \
@@ -328,19 +330,28 @@ fn b461_curl_sources() {
         .to_srgb8_straight()
     };
     let plain = cpu(&reference(|_| json!([])));
-    for (what, p) in [
-        ("This Layer as added", json!({"source": "this_layer"})),
+    // D-749: a flow line through the unblurred street's lightness can pass a saddle, where a
+    // billionth of a pixel sends it one way or the other (the processor against itself, the
+    // shot shifted 1e-9 pixels: 21 levels on 690 pixels; 1e-6 pixels: 36 levels on 9054). The
+    // card's sums are not the processor's to the last bit, so with Softness 0 such pixels may
+    // part, but at most 1 in 200 of a Full frame's. With Softness the plane is smooth and the
+    // rows hold the card to 1 level everywhere.
+    for (what, p, saddles) in [
+        ("This Layer as added", json!({"source": "this_layer"}), true),
         (
             "This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20",
             json!({"source": "this_layer", "softness": 20, "view": "curl_generation", "mirror_at_edge": "on", "offset": [30, -20]}),
+            false,
         ),
         (
             "Other Layer layer4, Fill, radius 12",
             json!({"source": "other_layer", "source_layer": "layer-4", "sample_radius": 12}),
+            false,
         ),
         (
             "Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha",
             json!({"source": "other_layer", "source_layer": "layer-4", "source_mapping": "center", "softness": keyed(&[(0, json!(0)), (239, json!(40))]), "channel": "alpha"}),
+            false,
         ),
     ] {
         let project = reference(|id| json!([fx("core.curl_noise", &format!("b461-{id}"), &p)]));
@@ -359,7 +370,10 @@ fn b461_curl_sources() {
                 t.row(
                     &format!("the reference shot, Curl Noise {what} on three layers, frame {frame}, {}", quality.label()),
                     &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
-                    d.0 <= 1 && !r && a == b && card == 3,
+                    (d.0 <= 1 || saddles && d.1 <= 1920 * 1080 / 200)
+                        && !r
+                        && a == b
+                        && card == 3,
                 );
             }
         }
@@ -399,7 +413,8 @@ fn b461_curl_sources() {
         said.is_empty() && greys(&own, &before) && own != internal,
     );
 
-    let (input, said) = street(json!({"source": "this_layer", "view": "input_noise"}));
+    // D-749: Input Noise is 0.5 + 0.5 C (2 L - 1), so at Edge Definition 0 (the gain C 1) it is L.
+    let (input, said) = street(json!({"source": "this_layer", "view": "input_noise", "edge_definition": 0}));
     write("3_this_layer_input_noise.png", &input);
     let luminance = |p: &[u8]| 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
     let darker = input
@@ -408,7 +423,7 @@ fn b461_curl_sources() {
         .filter(|(a, b)| (a[0] as f64 - luminance(b)).abs() > 40.0)
         .count();
     t.row(
-        "3_this_layer_input_noise.png, This Layer, View Input Noise: the street in grey, its own lightness; draws cleanly",
+        "3_this_layer_input_noise.png, This Layer, View Input Noise, Edge Definition 0: the street in grey, its own lightness; draws cleanly",
         &format!("{said:?}, {darker} pixels far from the street's lightness"),
         said.is_empty() && greys(&input, &before) && darker < input.len() / 4 / 50,
     );
