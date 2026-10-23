@@ -20,6 +20,18 @@ keeps its own covering, so the gradient never spills past the drawing, and pixel
 show stay as they are. Opacity 0 leaves the layer exactly as it is. Nothing grows, and a draft
 changes nothing: the points are in per cent.
 
+D-758 adds `jitter`, 0 to 100 per cent, keyable, absent 0: fine grain in the mix, the way After
+Effects' 4-Color Gradient offers Jitter against banding. With j = jitter / 1000 and (X, Y) the
+pixel's place in the drawing's own space (whole pixels, the top-left pixel (0, 0)), each w_k
+above is first multiplied by 1 + j u_k, u_k = grade::unit(mix(0), X, Y, 0, k), the seeded
+number in -1..1 Noise uses (noise_reference.u, seed 0, frame 0, channel k): a pixel's four
+weights are each nudged up or down by up to j of themselves (a tenth at Jitter 100), fixed to
+the drawing and the same on every frame. Where some d_k is 0 the weights are 1 and 0 as before, untouched. Jitter 0 is
+D-208's rule exactly. After Effects' own Jitter could not be measured (audit wave 2: the 720p
+tutorial videos cannot show a grain finer than their compression: Jake In Motion's Jitter 0 and
+100 differ by a standard deviation of 0.21 levels), so the grain's strength is this program's
+own, kept small for that reason.
+
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build writes single precision into its buffers.
 
@@ -49,6 +61,7 @@ import recolor_reference as R  # noqa: E402
 from drop_shadow_reference import frame  # noqa: E402
 from motion_tile_reference import motion_tile  # noqa: E402
 from gradient_reference import DRAWINGS, BLENDS  # noqa: E402
+from noise_reference import u as U  # noqa: E402
 
 W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "four_color_gradient"
@@ -56,6 +69,7 @@ TOLERANCE = 2e-5  # document 25's default for a filter
 POINTS = ("point_1", "point_2", "point_3", "point_4")
 COLORS = ("color_1", "color_2", "color_3", "color_4")
 RANGES = {**{k: (-1000, 1000) for k in POINTS}, "blend": (1, 1000), "opacity": (0, 100)}
+JITTER = (0, 100)  # D-758, read apart so a file without it is written as before
 WORDS = COLORS + ("blending_mode",)
 NAMES = tuple(RANGES) + WORDS
 YELLOW, GREEN, MAGENTA, BLUE = "#ffff00", "#00ff00", "#ff00ff", "#0000ff"
@@ -68,7 +82,13 @@ def weights(n, X, Y):
     if min(d) == 0:
         return [1.0 if v == 0 else 0.0 for v in d]
     e = 200 / n["blend"]
-    return [(min(d) / v) ** e for v in d]
+    w = [(min(d) / v) ** e for v in d]
+    j = n.get("jitter", 0) / 1000
+    if j == 0:
+        return w
+    # D-758: the pixel's whole place in the drawing's own space; X, Y are its centre.
+    i, k = math.floor(X), math.floor(Y)
+    return [v * (1 + j * U(0, i, k, 0, q)) for q, v in enumerate(w)]
 
 
 def four_color_gradient(layer, n, colors, mode):
@@ -97,14 +117,16 @@ def four_color_gradient(layer, n, colors, mode):
 
 def case(point_1=(10, 10), point_2=(90, 10), point_3=(10, 90), point_4=(90, 90),
          color_1=YELLOW, color_2=GREEN, color_3=MAGENTA, color_4=BLUE, blend=100, opacity=100,
-         blending_mode="normal", shift=0, tile=False):
+         blending_mode="normal", shift=0, tile=False, jitter=None):
     return {"drawing": "cel", "point_1": point_1, "point_2": point_2, "point_3": point_3,
             "point_4": point_4, "color_1": color_1, "color_2": color_2, "color_3": color_3,
             "color_4": color_4, "blend": blend, "opacity": opacity,
-            "blending_mode": blending_mode, "shift": shift, "tile": tile}
+            "blending_mode": blending_mode, "shift": shift, "tile": tile, "jitter": jitter}
 
 
 def held(c, k, frame_no):
+    if k == "jitter":
+        return 0 if c[k] is None else min(JITTER[1], max(JITTER[0], value_at(c[k], frame_no)))
     lo, hi = RANGES[k]
     v = value_at(c[k], frame_no)
     if isinstance(v, (list, tuple)):
@@ -119,7 +141,7 @@ def layer_of(c):
 
 
 def render(c, frame_no):
-    n = {k: held(c, k, frame_no) for k in RANGES}
+    n = {k: held(c, k, frame_no) for k in tuple(RANGES) + ("jitter",)}
     return frame(four_color_gradient(layer_of(c), n, [c[k] for k in COLORS], c["blending_mode"]),
                  c["shift"])
 
@@ -195,6 +217,40 @@ INVALID = {
                    case(opacity=keyed((0, 100), (4, 101)))),
 }
 
+# D-758: Jitter. FX-4CG-001 to 026 above are unchanged and their files carry no jitter.
+JITTER_CASES = {
+    "FX-4CG-027": ("Jitter 50, the rest as they start: FX-4CG-001 with a fine grain through the "
+                   "colours, each pixel's four weights nudged by up to a twentieth of themselves.",
+                   case(jitter=50), [0]),
+    "FX-4CG-028": ("Jitter 0 written: FX-4CG-001 exactly.", case(jitter=0), [0]),
+    "FX-4CG-029": ("Jitter 100: a stronger grain, each weight nudged by up to a tenth of "
+                   "itself.", case(jitter=100), [0]),
+    "FX-4CG-030": ("Jitter keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is "
+                   "FX-4CG-001, frame 2 jitter 50, FX-4CG-027, and frame 4 FX-4CG-029.",
+                   case(jitter=keyed((0, 0), (4, 100))), [0, 2, 4]),
+    "FX-4CG-031": ("FX-4CG-027 moved three pixels right: the grain is fixed to the drawing, so "
+                   "it moves with it.", case(jitter=50, shift=3), [0]),
+    "FX-4CG-032": ("FX-4CG-027 after a Motion Tile that grows the layer: the grain is the "
+                   "drawing's own, so the frame is FX-4CG-027's.", case(jitter=50, tile=True),
+                   [0]),
+    "FX-4CG-033": ("Jitter 100 with point 1 on the centre of the pixel in column 4 and row 2, "
+                   "FX-4CG-004's: that pixel is still yellow exactly.",
+                   case(jitter=100, point_1=(28.125, 25)), [0]),
+    "FX-4CG-034": ("Jitter 100 with all four colours #6450a0: nudged weights mix one colour, so "
+                   "this is FX-4CG-011.",
+                   case(jitter=100, color_1="#6450a0", color_2="#6450a0", color_3="#6450a0",
+                        color_4="#6450a0"), [0]),
+}
+
+JITTER_INVALID = {
+    "FX-4CG-035": ("Jitter 101, above 100.", case(jitter=101)),
+    "FX-4CG-036": ("Jitter -1, below 0.", case(jitter=-1)),
+    "FX-4CG-037": ("Jitter keyed to 150 at frame 4, above 100.",
+                   case(jitter=keyed((0, 0), (4, 150)))),
+}
+CASES.update(JITTER_CASES)
+INVALID.update(JITTER_INVALID)
+
 
 # --- the project files ----------------------------------------------------------------------
 
@@ -216,6 +272,8 @@ def project_json(fx, c):
                     "enabled": True,
                     "parameters": {k: (c[k] if k in WORDS else setting_json(c[k]))
                                    for k in NAMES}})
+    if c["jitter"] is not None:
+        effects[-1]["parameters"]["jitter"] = setting_json(c["jitter"])
     comp["layers"][0]["effects"] = effects
     return p
 
@@ -264,7 +322,7 @@ def check(expected):
 
     # Every covering kept, and the empty pixels left empty, in every case.
     for fx, frames in c.items():
-        if fx in ("FX-4CG-015",):
+        if fx in ("FX-4CG-015", "FX-4CG-031"):
             continue
         for px in frames.values():
             assert all(px[i][3] == art[i][3] for i in range(W * H)), fx
@@ -320,6 +378,21 @@ def check(expected):
     assert max(reds(far)) - min(reds(far)) < max(reds(one)) - min(reds(one))
     for fx in INVALID:
         assert c[fx]["0"] == c[fx]["4"] == art
+
+    # D-758: Jitter.
+    grain = c["FX-4CG-027"]["0"]
+    assert grain != one and c["FX-4CG-028"]["0"] == one and c["FX-4CG-029"]["0"] != grain
+    # The grain is fine: most pixels differ from FX-4CG-001, by little.
+    moved_by = [max(abs(grain[i][k] - one[i][k]) for k in range(3)) for i in shows]
+    assert sum(v > 1e-6 for v in moved_by) > 0.8 * len(shows) and max(moved_by) < 0.25
+    thirty = c["FX-4CG-030"]
+    assert thirty["0"] == one and thirty["2"] == grain and thirty["4"] == c["FX-4CG-029"]["0"]
+    shifted = c["FX-4CG-031"]["0"]
+    assert all(shifted[at(x, y)] == grain[at(x - 3, y)] for x in range(3, W) for y in range(H))
+    assert c["FX-4CG-032"]["0"] == grain
+    exact = c["FX-4CG-033"]["0"]
+    assert near(exact[at(4, 2)], lin(YELLOW), 1e-12) and exact != dot
+    assert all(near(a, b, 1e-12) for a, b in zip(c["FX-4CG-034"]["0"], flat))
     print("checked")
 
 

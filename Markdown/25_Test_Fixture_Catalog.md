@@ -202912,6 +202912,32 @@ Frame 0: every pixel is the drawing's.
 
 Frame 4: every pixel is the drawing's.
 
+### 4-Color Gradient's jitter (D-758)
+
+4-Color Gradient's `jitter` (B-637). Every case is FX-4CG-001's project with `jitter` written (unmoved, the cel, the settings as they start, unless the case says); FX-4CG-001 to 026 above are unchanged and their files carry no jitter. `tools/four_color_gradient_reference.py` works the expected frames in double precision; they are in `Fixtures/four_color_gradient/expected_four_color_gradient.json` beside 001 to 026's. Tolerance 2e-5. **Checked by what they claim.** The tool checks that every case but 031 keeps each pixel's covering and leaves the empty pixels empty; Jitter 50 moves more than four in five shown pixels from 001 and none by more than 0.25 (027); Jitter 0 is 001 exactly (028); 100 differs from 50 (029); the keyed frames are 001, 027 and 029 (030); the move carries the grain three pixels right (031); after a Motion Tile the frame is 027's (032); the pixel under point 1 is yellow exactly (033); and four equal colours are 011's flat frame (034).
+
+FX-4CG-027 (`fx_4cg_027.json`): Jitter 50, the rest as they start: FX-4CG-001 with a fine grain through the colours, each pixel's four weights nudged by up to a twentieth of themselves. Frames 0.
+
+FX-4CG-028 (`fx_4cg_028.json`): Jitter 0 written: FX-4CG-001 exactly. Frames 0.
+
+FX-4CG-029 (`fx_4cg_029.json`): Jitter 100: a stronger grain, each weight nudged by up to a tenth of itself. Frames 0.
+
+FX-4CG-030 (`fx_4cg_030.json`): Jitter keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is FX-4CG-001, frame 2 jitter 50, FX-4CG-027, and frame 4 FX-4CG-029. Frames 0, 2, 4.
+
+FX-4CG-031 (`fx_4cg_031.json`): FX-4CG-027 moved three pixels right: the grain is fixed to the drawing, so it moves with it. Frames 0.
+
+FX-4CG-032 (`fx_4cg_032.json`): FX-4CG-027 after a Motion Tile that grows the layer: the grain is the drawing's own, so the frame is FX-4CG-027's. Frames 0.
+
+FX-4CG-033 (`fx_4cg_033.json`): Jitter 100 with point 1 on the centre of the pixel in column 4 and row 2, FX-4CG-004's: that pixel is still yellow exactly. Frames 0.
+
+FX-4CG-034 (`fx_4cg_034.json`): Jitter 100 with all four colours #6450a0: nudged weights mix one colour, so this is FX-4CG-011. Frames 0.
+
+FX-4CG-035 (`fx_4cg_035.json`): Jitter 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-4CG-036 (`fx_4cg_036.json`): Jitter -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-4CG-037 (`fx_4cg_037.json`): Jitter keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Cell Pattern fixtures
 
 D-209, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/cell_pattern/`, holding one drawing the same size with one Cell Pattern (`core.cell_pattern`) on it, unmoved unless the case says. The drawing is `Fixtures/cell_pattern/media/card.png`, Noise's card: a box of line #1e1a24 in columns 3 to 12 and rows 1 to 7, filled with skin #f6d6be, with a white patch in columns 5 and 6 and a black one in columns 9 and 10, both in rows 3 and 4, on a grey card #808080 filling rows 0 to 8; column 15 is the skin at half covering, its soft edge, and column 0 and row 9 are empty. Every case but those saying otherwise is four pixels a cell, so the cells show across the small card. Values are linear premultiplied working values, and only the pixels that differ from the drawing, as the case moves it, are listed, a run of rows in one column holding the same pair once: every other pixel is the drawing's own, to 1e-12.
