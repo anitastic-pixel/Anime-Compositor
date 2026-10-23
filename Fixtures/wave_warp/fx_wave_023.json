@@ -89,7 +89,7 @@
               "type_id": "core.wave_warp",
               "enabled": true,
               "parameters": {
-                "shape": "square",
+                "shape": "hexagon",
                 "height": 10,
                 "width": 40,
                 "direction": 90,

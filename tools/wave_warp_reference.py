@@ -22,6 +22,22 @@ growing in a straight line to the whole push a quarter of the drawing's width (l
 height (top, bottom) in from it; two pinned edges multiply. Width keeps its meaning, one wave
 every `width` pixels, about twice After Effects' Wave Width for the same look.
 
+D-755 adds After Effects' remaining wave types, keeping every shape above as it was. With u the
+place in the whole wave, u = a / 2 pi - floor(a / 2 pi), from 0 to 1: "square" is 1 for u under
+a half and -1 from a half on; "sawtooth" 2u - 1, rising straight and dropping at the wave's
+start; "semicircle" 1 - 2 sqrt(1 - (2u - 1)^2), one round arch a wave reaching -1 at its middle,
+the arches meeting in points at 1. Each is placed against the sine as After Effects' stills show
+it (Motion Academy, all at the composition's frame 0: the square's halves on the sine's halves,
+the sawtooth's drop where the sine rises through nothing, the semicircle's points there too).
+"uncircle", which no tutorial shows, is the semicircle turned over: 2 sqrt(1 - (2u - 1)^2) - 1.
+After Effects' "noise" and "smooth_noise" are random; ours are fixed, the same at every frame for
+the same settings, and travel with the phase as the others do: a level r(kind, j) from -1 to 1 at
+each knot j, j = floor(n) with n = 16 a / 2 pi (noise, kind 1, straight lines between knots) or
+n = 2 a / 2 pi (smooth noise, kind 2, joined by f^2 (3 - 2 f), f = n - j). r(kind, j) =
+mix(mix(kind) xor j) / 2^32 * 2 - 1 in 32-bit whole numbers, mix being Scribble's 32-bit mix
+x ^= x >> 16, x *= 0x7feb352d, x ^= x >> 15, x *= 0x846ca68b, x ^= x >> 16, with j taken as its
+32-bit two's complement.
+
 The rule. With height 0 the output is the input and nothing grows. Otherwise, with
 "transparent", the input grows by g = ceil(height) transparent pixels on every side; with
 "repeat", g = 0. t = u(direction) = (sin, -cos) of the direction, exact at quarter turns, and
@@ -91,7 +107,48 @@ def wave(shape, width, direction, speed, phase, frame_no, X, Y):
         u = a / math.pi - m
         v = math.sqrt(max(0.0, 1 - (2 * u - 1) ** 2))
         return -v if m % 2 else v
+    if shape in MORE:
+        return more(shape, a)
     return math.sin(a) if shape == "sine" else 2 / math.pi * math.asin(math.sin(a))
+
+
+# D-755: the remaining wave types.
+MORE = ("square", "sawtooth", "semicircle", "uncircle", "noise", "smooth_noise")
+M32 = 0xFFFFFFFF
+
+
+def mix(x):
+    """Scribble's 32-bit mix."""
+    x ^= x >> 16
+    x = (x * 0x7FEB352D) & M32
+    x ^= x >> 15
+    x = (x * 0x846CA68B) & M32
+    return x ^ (x >> 16)
+
+
+def knot(kind, j):
+    """The noise level at knot j, -1 to 1."""
+    return mix(mix(kind) ^ (int(j) & M32)) / 4294967296.0 * 2 - 1
+
+
+def more(shape, a):
+    q = a / (2 * math.pi)
+    u = q - math.floor(q)
+    arch = math.sqrt(max(0.0, 1 - (2 * u - 1) ** 2))
+    if shape == "square":
+        return 1.0 if u < 0.5 else -1.0
+    if shape == "sawtooth":
+        return 2 * u - 1
+    if shape == "semicircle":
+        return 1 - 2 * arch
+    if shape == "uncircle":
+        return 2 * arch - 1
+    per, kind = (16, 1) if shape == "noise" else (2, 2)
+    n = q * per
+    j = math.floor(n)
+    f = n - j
+    p, nx = knot(kind, j), knot(kind, j + 1)
+    return p + (nx - p) * f if shape == "noise" else p + (nx - p) * f * f * (3 - 2 * f)
 
 
 def pin(pinning, w, h, X, Y):
@@ -294,6 +351,34 @@ CASES = {
     "FX-WAVE-036": ("FX-WAVE-025 with pinning all_edges and speed 45: the half circles travel "
                     "while the edges stay put; frame 2 is a quarter wave on.",
                     case(shape="circle", speed=45, pinning="all_edges", **WAVE), [0, 2]),
+    # D-755.
+    "FX-WAVE-039": ("FX-WAVE-003 with shape square: columns 0 to 3 are pushed down the whole 2 "
+                    "pixels and columns 4 to 7 up, and again from column 8, so the band steps "
+                    "down and up in blocks four pixels wide.",
+                    case(shape="square", **WAVE), [0]),
+    "FX-WAVE-040": ("FX-WAVE-003 with shape sawtooth: the push climbs evenly across each wave of "
+                    "eight columns, from 1.75 pixels one way at column 0 to 1.75 the other at "
+                    "column 7, then drops back at column 8.",
+                    case(shape="sawtooth", **WAVE), [0]),
+    "FX-WAVE-041": ("FX-WAVE-003 with shape semicircle: one round arch a wave, pushing up most "
+                    "at columns 3 and 4 and 11 and 12, and the arches meeting in points at "
+                    "columns 0, 7, 8 and 15, all but unmoved.",
+                    case(shape="semicircle", **WAVE), [0]),
+    "FX-WAVE-042": ("FX-WAVE-041 with shape uncircle: every push the other way.",
+                    case(shape="uncircle", **WAVE), [0]),
+    "FX-WAVE-043": ("Shape noise, height 2, width 40: a fixed uneven push, a new level every "
+                    "two and a half pixels with straight lines between.",
+                    case(shape="noise", height=2, width=40), [0]),
+    "FX-WAVE-044": ("Shape smooth_noise, height 2, width 8: a fixed uneven push, a new level "
+                    "every four pixels joined smoothly.",
+                    case(shape="smooth_noise", **WAVE), [0]),
+    "FX-WAVE-045": ("FX-WAVE-043 with speed 45: the noise travels, the same at every frame for "
+                    "the same settings; frame 2 is phase 90, the pattern a quarter of 40 pixels "
+                    "on.",
+                    case(shape="noise", height=2, width=40, speed=45), [0, 2]),
+    "FX-WAVE-046": ("FX-WAVE-041 with pinning all_edges and direction 0: the arches run up the "
+                    "drawing, pushing each row left or right, held still at its edges.",
+                    case(shape="semicircle", direction=0, pinning="all_edges", **WAVE), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -305,12 +390,16 @@ INVALID = {
     "FX-WAVE-020": ("Speed -361, below -360.", case(speed=-361)),
     "FX-WAVE-021": ("Phase 100001, above 100000.", case(phase=100001)),
     "FX-WAVE-022": ("Height keyed to 1500 at frame 4.", case(height=keyed((0, 10), (4, 1500)))),
-    "FX-WAVE-023": ("Shape \"square\", which is not a choice.", case(shape="square")),
+    # D-755: square became a choice, so the word is now one that never was.
+    "FX-WAVE-023": ("Shape \"hexagon\", which is not a choice.", case(shape="hexagon")),
     "FX-WAVE-024": ("Edges \"Repeat\": the word is exact, so a capital is not the choice.",
                     case(edges="Repeat")),
     "FX-WAVE-037": ("Pinning \"center\", which is not a choice.", case(pinning="center")),
     "FX-WAVE-038": ("Pinning \"All Edges\", the name on the panel, not the word.",
                     case(pinning="All Edges")),
+    # D-755.
+    "FX-WAVE-047": ("Shape \"Smooth Noise\", the name on the panel, not the word.",
+                    case(shape="Smooth Noise")),
 }
 
 
@@ -500,6 +589,40 @@ def check(expected):
     assert t35 != fourteen
     t36 = c["FX-WAVE-036"]
     assert t36["0"] != t36["2"]
+    # D-755: the remaining shapes, against the sine as After Effects' stills place them.
+    for x in range(16):
+        a = 2 * math.pi * (x + 0.5) / 8
+        sq = wave("square", 8, 90, 0, 0, 0, x + 0.5, 0)
+        assert sq == (1.0 if math.sin(a) > 0 else -1.0)  # the square's halves on the sine's
+        saw = wave("sawtooth", 8, 90, 0, 0, 0, x + 0.5, 0)
+        assert abs(saw - (((x % 8) + 0.5) / 4 - 1)) < 1e-12
+        semi = wave("semicircle", 8, 90, 0, 0, 0, x + 0.5, 0)
+        assert semi == -wave("uncircle", 8, 90, 0, 0, 0, x + 0.5, 0)
+    assert wave("semicircle", 8, 90, 0, 0, 0, 0, 0) == 1  # its point where the sine rises
+    assert abs(wave("semicircle", 8, 90, 0, 0, 0, 4, 0) + 1) < 1e-12  # its arch's crest
+    assert abs(wave("sawtooth", 8, 90, 0, 0, 0, 4, 0)) < 1e-12  # through nothing mid-wave
+    assert mix(0) == 0 and knot(1, 0) != knot(2, 0)
+    for X in [i * 0.37 - 20 for i in range(200)]:
+        for sh in ("noise", "smooth_noise"):
+            v = wave(sh, 8, 90, 0, 0, 0, X, 0)
+            assert -1 <= v <= 1
+            d = abs(wave(sh, 8, 90, 0, 0, 0, X + 1e-9, 0) - v)
+            assert d < 1e-6, (sh, X)  # no jumps: the knots are joined
+    knots = [wave("noise", 40, 90, 0, 0, 0, 2.5 * j, 0) for j in range(-8, 8)]
+    assert all(abs(k - knot(1, j)) < 1e-12 for k, j in zip(knots, range(-8, 8)))
+    assert len({round(k, 6) for k in knots}) == len(knots)  # a new level at every knot
+    f39 = c["FX-WAVE-039"]["0"]
+    for x in (0, 1, 2, 3):
+        assert blue(f39[at(x, 6)]) and blue(f39[at(x, 7)]) and not blue(f39[at(x, 4)])
+    for x in (4, 5, 6, 7):
+        assert blue(f39[at(x, 2)]) and blue(f39[at(x, 3)]) and not blue(f39[at(x, 5)])
+    for fx in ("FX-WAVE-040", "FX-WAVE-041", "FX-WAVE-042", "FX-WAVE-043", "FX-WAVE-044",
+               "FX-WAVE-046"):
+        assert c[fx]["0"] not in (f3, drawn, f39), fx
+    assert c["FX-WAVE-041"]["0"] != c["FX-WAVE-042"]["0"]
+    t45 = c["FX-WAVE-045"]
+    assert t45["0"] == c["FX-WAVE-043"]["0"] != t45["2"]
+    assert t45["2"] == render(case(shape="noise", height=2, width=40, phase=90), 0)
     for name, frames in c.items():
         for px in frames.values():
             for p in px:
