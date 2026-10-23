@@ -11073,7 +11073,9 @@ const EFFECT_PARAMS = {
     ['new_seed_every', 'New Seed Every', 1, 1, 'frames, 0 to 100; 0 keeps one seed, 2 to 4 makes lines boil as if redrawn', '', 0],
     // D-411.
     ['drift_direction', 'Drift Direction', 1, 1, 'degrees clockwise from up, the way the ripple travels; 0 rises like heat', 'dial', 0],
-    ['drift_speed', 'Drift Speed', 1, 0.5, 'pixels a frame, 0 to 1000; 0 keeps the ripple in place', '', 0]],
+    ['drift_speed', 'Drift Speed', 1, 0.5, 'pixels a frame, 0 to 1000; 0 keeps the ripple in place', '', 0],
+    // D-757.
+    ['offset', 'Offset (Turbulence)', 2, 1, 'pixels, x then y, -100000 to 100000; slides the warp', '', [0, 0]]],
   // D-128.
   'core.fractal_noise': [['size', 'Size', 1, 0.5, 'pixels a cloud, 1 to 1000'],
     ['complexity', 'Complexity', 1, 1, '1 to 20'],
@@ -12968,7 +12970,7 @@ const EFFECT_WORDS = {
   // D-127.
   // D-306: After Effects' Displacement and Pinning, the ones built.
   'core.turbulent_displace': { choices: [EDGES,
-    ['displacement', 'Displacement', [['turbulent', 'Turbulent'], ['horizontal', 'Horizontal Displacement'], ['vertical', 'Vertical Displacement']]],
+    ['displacement', 'Displacement', [['turbulent', 'Turbulent'], ['bulge', 'Bulge'], ['twist', 'Twist'], ['turbulent_smoother', 'Turbulent Smoother'], ['bulge_smoother', 'Bulge Smoother'], ['twist_smoother', 'Twist Smoother'], ['vertical', 'Vertical Displacement'], ['horizontal', 'Horizontal Displacement'], ['cross', 'Cross Displacement']]],
     ['pinning', 'Pinning', [['none', 'None'], ['all', 'Pin All']]],
     // D-328: After Effects' push, smaller under Size 100, which a new one takes; a file without units is classic.
     ['units', 'Units', [['classic', 'Classic (older projects)'], ['after_effects', 'After Effects']]]] },

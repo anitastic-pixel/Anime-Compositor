@@ -1017,7 +1017,9 @@ pub enum Effect {
     /// (`turbulent_push`). D-410: `new_seed_every`, 0 to 100 frames, its whole part counted;
     /// 0, what a file without it means, keeps one seed (`turbulent_seed`). D-411: `drift_direction`
     /// (degrees, 0 up, 90 right) and `drift_speed` (pixels a frame, a distance), both 0 when a file
-    /// lacks them, slide the field along the direction (`turbulent_drift`).
+    /// lacks them, slide the field along the direction (`turbulent_drift`). D-757: `offset`, x then
+    /// y in pixels, -100000 to 100000, [0, 0] when a file lacks it, slides the field too (a
+    /// distance); `displacement` also takes "cross", "bulge", "twist" and the three "_smoother"s.
     TurbulentDisplace {
         amount: f64,
         size: f64,
@@ -1033,6 +1035,7 @@ pub enum Effect {
         new_seed_every: f64,
         drift_direction: f64,
         drift_speed: f64,
+        offset: [f64; 2],
     },
     /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 20 (D-318), its whole part
     /// counted; `contrast`, 0 to 1000; `brightness`, -1000 to 1000 (D-318, D-326); `evolution`, -100000 to 100000
@@ -4760,6 +4763,18 @@ pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
 pub const CC_VIGNETTE: &str = "core.cc_vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
+/// D-306 and D-757: Turbulent Displace's `displacement` words.
+pub const TURBULENT_WAYS: [&str; 9] = [
+    "turbulent",
+    "horizontal",
+    "vertical",
+    "cross",
+    "bulge",
+    "twist",
+    "turbulent_smoother",
+    "bulge_smoother",
+    "twist_smoother",
+];
 pub const FRACTAL_NOISE: &str = "core.fractal_noise";
 pub const TURBULENT_NOISE: &str = "core.turbulent_noise";
 pub const GRADIENT_MAP: &str = "core.gradient_map";
@@ -7705,6 +7720,7 @@ impl Effect {
                 new_seed_every,
                 drift_direction,
                 drift_speed,
+                offset,
                 ..
             } => vec![
                 ("amount", vec![amount], 0.0, 1000.0),
@@ -7716,6 +7732,7 @@ impl Effect {
                 ("new_seed_every", vec![new_seed_every], 0.0, 100.0),
                 ("drift_direction", vec![drift_direction], -3600.0, 3600.0),
                 ("drift_speed", vec![drift_speed], 0.0, 1000.0),
+                ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
             ],
             Effect::FractalNoise {
                 size,
@@ -11037,10 +11054,12 @@ impl Effect {
                 size,
                 units,
                 drift_speed,
+                offset,
                 ..
             } => {
-                // D-411: the drift is a distance a frame.
+                // D-411: the drift is a distance a frame; D-757: the offset a distance.
                 *drift_speed = scale(*drift_speed);
+                *offset = offset.map(&scale);
                 let push = scale(turbulent_push(*amount, *size, units));
                 // A wave under a pixel is held at one, as its range is, rather than bypassed.
                 *size = scale(*size).max(1.0);
@@ -13593,8 +13612,8 @@ impl Effect {
             Effect::Vignette { color, .. } => hex_fault("Vignette", "colour", color),
             Effect::TurbulentDisplace { edges: e, displacement, pinning, units, .. } => edges(e)
                 .or_else(|| {
-                    (!["turbulent", "horizontal", "vertical"].contains(&displacement.as_str())).then(|| {
-                        format!("{name}'s displacement is \"turbulent\", \"horizontal\" or \"vertical\", and this is \"{displacement}\".")
+                    (!TURBULENT_WAYS.contains(&displacement.as_str())).then(|| {
+                        format!("{name}'s displacement is one of {}, and this is \"{displacement}\".", TURBULENT_WAYS.join(", "))
                     })
                 })
                 .or_else(|| {
@@ -16482,9 +16501,12 @@ pub(crate) fn apply_stack_at(
                 new_seed_every,
                 drift_direction,
                 drift_speed,
+                offset,
             } => {
                 let z = depth(*evolution, *speed, *frame);
-                let drift = turbulent_drift(*drift_direction, *drift_speed, *frame);
+                let d = turbulent_drift(*drift_direction, *drift_speed, *frame);
+                // D-757: the offset slides the field as the drift does.
+                let drift = (d.0 + offset[0], d.1 + offset[1]);
                 let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
                     crate::layer_fx::turbulent_displace(
                         source,

@@ -151,7 +151,7 @@ B-290: PLUGINS.md's pick #17, merged into `core.turbulent_displace` as a drift (
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| a half-size draft preview halves Drift Speed, a distance a frame, and leaves its direction | TurbulentDisplace { amount: 30.0, size: 4.0, complexity: 2.0, evolution: 0.0, speed: 0.0, seed: 0.0, edges: "transparent", frame: 0, displacement: "turbulent", pinning: "none", units: "after_effects", new_seed_every: 0.0, drift_direction: 90.0, drift_speed: 1.0 } | yes |
+| a half-size draft preview halves Drift Speed, a distance a frame, and leaves its direction | TurbulentDisplace { amount: 30.0, size: 4.0, complexity: 2.0, evolution: 0.0, speed: 0.0, seed: 0.0, edges: "transparent", frame: 0, displacement: "turbulent", pinning: "none", units: "after_effects", new_seed_every: 0.0, drift_direction: 90.0, drift_speed: 1.0, offset: [0.0, 0.0] } | yes |
 | the drift leaves the drawing's bounds as they were | 3 against 3 without the drift | yes |
 
 ## Commands

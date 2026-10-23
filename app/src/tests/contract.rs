@@ -2242,6 +2242,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("new_seed_every", "3"),
             ("drift_direction", "0"),
             ("drift_speed", "2"),
+            ("offset", "3,-2"),
             ("units", "after_effects"),
         ],
     ),

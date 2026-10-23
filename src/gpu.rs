@@ -15962,6 +15962,7 @@ impl Gpu {
                 new_seed_every,
                 drift_direction,
                 drift_speed,
+                offset,
                 ..
             } => {
                 let repeat = edges == "repeat";
@@ -15980,8 +15981,9 @@ impl Gpu {
                     push,
                     *size,
                     crate::effects::depth(*evolution, *speed, *frame),
-                    (ox + g) as f64 + d.0,
-                    (oy + g) as f64 + d.1,
+                    // D-757: the offset slides it the same way.
+                    (ox + g) as f64 + d.0 + offset[0],
+                    (oy + g) as f64 + d.1 + offset[1],
                 ];
                 let p = FxParams {
                     count: complexity.floor() as u32,

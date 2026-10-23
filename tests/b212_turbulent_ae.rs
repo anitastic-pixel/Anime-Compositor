@@ -43,6 +43,7 @@ fn turb(units: &str) -> Effect {
         new_seed_every: 0.0,
         drift_direction: 0.0,
         drift_speed: 0.0,
+        offset: [0.0, 0.0],
     }
 }
 

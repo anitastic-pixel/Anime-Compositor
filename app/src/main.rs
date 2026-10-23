@@ -4123,6 +4123,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             new_seed_every: 0.0,
             drift_direction: 0.0,
             drift_speed: 0.0,
+            offset: [0.0, 0.0],
         }),
         // D-128: soft grey clouds, still. D-743: Sub Influence 70 and Sub Scaling 56 as After
         // Effects starts them; a file without them still reads 50 and 50.
@@ -7384,6 +7385,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             // D-411: no drift when the command does not say.
             drift_direction: if parameter(query, "drift_direction").is_some() { number("drift_direction")? } else { 0.0 },
             drift_speed: if parameter(query, "drift_speed").is_some() { number("drift_speed")? } else { 0.0 },
+            // D-757: no offset when the command does not say.
+            offset: if parameter(query, "offset").is_some() { pair("offset")? } else { [0.0, 0.0] },
         }),
         FRACTAL_NOISE => Ok(Effect::FractalNoise {
             size: number("size")?,

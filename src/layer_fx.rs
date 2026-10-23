@@ -1071,14 +1071,9 @@ pub(crate) fn turbulent_displace(
             } else {
                 1.0
             };
-            let mut sx = x;
-            let mut sy = y;
-            if displacement != "vertical" {
-                sx += k * amount * crate::grade::fractal(base, 0, p, octaves);
-            }
-            if displacement != "horizontal" {
-                sy += k * amount * crate::grade::fractal(base, 1, p, octaves);
-            }
+            let (dx, dy) = push(displacement, base, p, octaves);
+            let mut sx = x + k * amount * dx;
+            let mut sy = y + k * amount * dy;
             if repeat {
                 sx = sx.clamp(0.5, w as f64 - 0.5);
                 sy = sy.clamp(0.5, h as f64 - 0.5);
@@ -1087,6 +1082,24 @@ pub(crate) fn turbulent_displace(
         });
     *source = out;
     g
+}
+
+/// D-306's and D-757's push for one unit of amount at the field's point `p`, by `displacement`.
+fn push(displacement: &str, base: u64, (x, y, z): (f64, f64, f64), octaves: usize) -> (f64, f64) {
+    let step = if displacement.ends_with("_smoother") { 0.25 } else { 0.5 };
+    let n = |ch, x, y| crate::grade::fractal_step(base, ch, (x, y, z), octaves, step);
+    match displacement.trim_end_matches("_smoother") {
+        "horizontal" => (n(0, x, y), 0.0),
+        "vertical" => (0.0, n(1, x, y)),
+        "cross" => (n(0, x / 8.0, y), n(1, x, y / 8.0)),
+        kind @ ("bulge" | "twist") => {
+            const H: f64 = 0.25;
+            let gx = (n(0, x + H, y) - n(0, x - H, y)).clamp(-1.0, 1.0);
+            let gy = (n(0, x, y + H) - n(0, x, y - H)).clamp(-1.0, 1.0);
+            if kind == "bulge" { (gx, gy) } else { (-gy, gx) }
+        }
+        _ => (n(0, x, y), n(1, x, y)),
+    }
 }
 
 /// D-131: the whole buffer slid by `shift` pixels, what leaves one edge coming back in at the

@@ -1364,6 +1364,25 @@ pub(crate) fn fractal(base: u64, ch: u64, p: (f64, f64, f64), octaves: usize) ->
     fractal_with(base, ch, p, octaves, Look::default())
 }
 
+/// D-757: [`fractal`] with each octave `step` times the last's strength; 0.5 is [`fractal`]
+/// exactly, Turbulent Displace's Smoother words take 0.25.
+pub(crate) fn fractal_step(
+    base: u64,
+    ch: u64,
+    (x, y, z): (f64, f64, f64),
+    octaves: usize,
+    step: f64,
+) -> f64 {
+    let (mut sum, mut total, mut amp, mut fine) = (0.0, 0.0, 1.0, 1.0);
+    for o in 0..octaves {
+        sum += amp * value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine, false, 0);
+        total += amp;
+        amp *= step;
+        fine *= 2.0;
+    }
+    sum / total
+}
+
 /// D-299: [`fractal`] with its look. Turbulent sums each octave's size, 0 to 1, and maps the
 /// share back to -1..1; octave `o`'s depth is `2^o` times finer, so it repeats after `2^o`
 /// times the cycle's cells.

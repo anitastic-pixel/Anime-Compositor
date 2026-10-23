@@ -1927,6 +1927,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             new_seed_every,
             drift_direction,
             drift_speed,
+            offset,
             ..
         } => {
             params.insert("amount".into(), num(*amount));
@@ -1962,6 +1963,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
+            }
+            // D-757: likewise.
+            if *offset != [0.0, 0.0]
+                || instance.tracks.contains_key("offset")
+                || params.contains_key("offset")
+            {
+                params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
             }
         }
         Effect::FractalNoise {
@@ -9155,6 +9163,11 @@ fn parse_effect(
             new_seed_every: effect_number_or(params, "new_seed_every", at, 0.0)?,
             drift_direction: effect_number_or(params, "drift_direction", at, 0.0)?,
             drift_speed: effect_number_or(params, "drift_speed", at, 0.0)?,
+            // D-757: a file from before it slides nothing.
+            offset: match params.and_then(|p| p.get("offset")) {
+                Some(_) => effect_array(params, "offset", "two numbers, x then y", at)?,
+                None => [0.0, 0.0],
+            },
         }),
         // D-128: the colours are read in small letters, as a new colour is.
         crate::effects::FRACTAL_NOISE => Some(crate::effects::Effect::FractalNoise {
