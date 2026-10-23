@@ -4809,6 +4809,10 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("direction", "200"),
             ("size", "6"),
             ("offset", "2, -1"),
+            // D-750.
+            ("uniform_scaling", "off"),
+            ("scale_width", "150"),
+            ("scale_height", "60"),
             ("evolution", "45"),
             ("turbulence_speed", "60"),
             ("swirl", "-200"),

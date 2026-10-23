@@ -1862,6 +1862,9 @@ impl Curl {
             rotation,
             scale,
             perspective_offset,
+            uniform_scaling,
+            scale_width,
+            scale_height,
             evolution,
             turbulence_speed,
             swirl,
@@ -1891,7 +1894,12 @@ impl Curl {
             ]
         });
         let b = vertical_bias / 100.0;
-        let m = 100.0 / scale;
+        // D-750: Uniform Scaling off scales across and down by Scale Width and Scale Height.
+        let (mx, my) = if uniform_scaling == "on" {
+            (100.0 / scale, 100.0 / scale)
+        } else {
+            (100.0 / scale_width, 100.0 / scale_height)
+        };
         let t = rotation.to_radians();
         let mut curl = Curl {
             base: mix(0),
@@ -1899,7 +1907,7 @@ impl Curl {
             shift: [offset[0] + moved[0], offset[1] + moved[1]],
             z: (evolution + moved[2]) / 360.0,
             mid: [dw as f64 / 2.0, dh as f64 / 2.0],
-            turn: (*rotation != 0.0 || m != 1.0).then(|| [t.cos(), t.sin(), m, m]),
+            turn: (*rotation != 0.0 || mx != 1.0 || my != 1.0).then(|| [t.cos(), t.sin(), mx, my]),
             a: [
                 1.0 + (1.0 - 2.0 * b).max(0.0),
                 1.0 + (2.0 * b - 1.0).max(0.0),

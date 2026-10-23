@@ -6264,6 +6264,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             rotation,
             scale,
             perspective_offset,
+            uniform_scaling,
+            scale_width,
+            scale_height,
             evolution,
             turbulence_speed,
             swirl,
@@ -6309,7 +6312,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::Array(offset.iter().map(|v| num(*v)).collect()),
             );
             // D-646: as D-304, written only if moved, keyed or already in the file.
-            for (key, value, start) in [("rotation", *rotation, 0.0), ("scale", *scale, 100.0)] {
+            // D-750: Scale Width and Scale Height, the same.
+            for (key, value, start) in [
+                ("rotation", *rotation, 0.0),
+                ("scale", *scale, 100.0),
+                ("scale_width", *scale_width, 100.0),
+                ("scale_height", *scale_height, 100.0),
+            ] {
                 if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
@@ -6319,6 +6328,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                     "perspective_offset".into(),
                     J::from(perspective_offset.as_str()),
                 );
+            }
+            if uniform_scaling != "on" || params.contains_key("uniform_scaling") {
+                params.insert("uniform_scaling".into(), J::from(uniform_scaling.as_str()));
             }
             params.insert("evolution".into(), num(*evolution));
             params.insert("turbulence_speed".into(), num(*turbulence_speed));
@@ -11849,6 +11861,10 @@ fn parse_effect(
             rotation: effect_number_or(params, "rotation", at, 0.0)?,
             scale: effect_number_or(params, "scale", at, 100.0)?,
             perspective_offset: effect_word_or(params, "perspective_offset", at, "off")?,
+            // D-750: a file without them reads them as added, Uniform Scaling on (D-304).
+            uniform_scaling: effect_word_or(params, "uniform_scaling", at, "on")?,
+            scale_width: effect_number_or(params, "scale_width", at, 100.0)?,
+            scale_height: effect_number_or(params, "scale_height", at, 100.0)?,
             evolution: effect_number(params, "evolution", at)?,
             turbulence_speed: effect_number(params, "turbulence_speed", at)?,
             swirl: effect_number(params, "swirl", at)?,

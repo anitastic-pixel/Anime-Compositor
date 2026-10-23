@@ -2989,7 +2989,9 @@ pub enum Effect {
     /// to 1000; `brightness`, -1000 to 1000; `clip_hdr_results`, "on" or "off"; `channel`, one of
     /// [`CURL_CHANNELS`]. D-646: `rotation`, -100000 to 100000 degrees, and `scale`, 1 to 10000
     /// per cent, turn and scale the noise round the drawing's middle; `perspective_offset`, "off"
-    /// or "on", slides each finer octave half as far. `travel`, `frame` and `float` are not
+    /// or "on", slides each finer octave half as far. D-750: `uniform_scaling`, "on" or "off";
+    /// with it off, `scale_width` and `scale_height`, 1 to 10000 per cent, scale the noise across
+    /// and down instead of `scale`. `travel`, `frame` and `float` are not
     /// settings and are never saved: D-749's drift across and down and the depth's travel added up
     /// over the frames before (compose fills it; None reads the settings as held since frame 0 at
     /// 24 frames a second), the composition frame the settings were resolved at, and whether it
@@ -3008,6 +3010,9 @@ pub enum Effect {
         rotation: f64,
         scale: f64,
         perspective_offset: String,
+        uniform_scaling: String,
+        scale_width: f64,
+        scale_height: f64,
         evolution: f64,
         turbulence_speed: f64,
         swirl: f64,
@@ -8783,6 +8788,8 @@ impl Effect {
                 offset,
                 rotation,
                 scale,
+                scale_width,
+                scale_height,
                 evolution,
                 turbulence_speed,
                 swirl,
@@ -8805,6 +8812,8 @@ impl Effect {
                 ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
                 ("rotation", vec![rotation], -100000.0, 100000.0),
                 ("scale", vec![scale], 1.0, 10000.0),
+                ("scale_width", vec![scale_width], 1.0, 10000.0),
+                ("scale_height", vec![scale_height], 1.0, 10000.0),
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("turbulence_speed", vec![turbulence_speed], 0.0, 200.0),
                 ("swirl", vec![swirl], -360.0, 360.0),
@@ -14601,6 +14610,9 @@ impl Effect {
             )),
             Effect::CurlNoise { perspective_offset: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Curl Noise's perspective offset is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::CurlNoise { uniform_scaling: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Curl Noise's uniform scaling is \"on\" or \"off\", and this is \"{v}\"."
             )),
             Effect::CurlNoise { view: v, .. } if !CURL_VIEWS.contains(&v.as_str()) => Some(format!(
                 "Curl Noise's view is one of {}, and this is \"{v}\".",
