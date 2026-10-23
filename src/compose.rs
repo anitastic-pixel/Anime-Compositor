@@ -1797,7 +1797,12 @@ fn card_effect(
                 E::WaveWarp { height, .. } | E::Bulge { height, .. } if *height == 0.0 => true,
                 E::Bulge { radius, .. } => *radius <= 0.0,
                 E::Ripple { amplitude, .. } => *amplitude == 0.0,
-                E::Twirl { angle, radius, .. } => *angle == 0.0 || *radius <= 0.0,
+                E::Twirl {
+                    angle,
+                    radius,
+                    twirl_radius,
+                    ..
+                } => *angle == 0.0 || (*radius <= 0.0 && *twirl_radius <= 0.0),
                 E::LinearWipe { completion, .. }
                 | E::RadialWipe { completion, .. }
                 | E::VenetianBlinds { completion, .. }

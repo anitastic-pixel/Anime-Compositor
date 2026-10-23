@@ -4276,11 +4276,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             fade: 0.0,
             frame: 0,
         }),
-        // D-151: a quarter turn at the middle, fifty pixels out.
+        // D-151: a quarter turn at the middle; D-744: out to 30 per cent of the drawing's larger
+        // side, After Effects' start, the radius in pixels left at 0.
         TWIRL => Some(Effect::Twirl {
             angle: 90.0,
-            radius: 50.0,
+            radius: 0.0,
             center: [50.0, 50.0],
+            twirl_radius: 30.0,
         }),
         // D-152: a gentle swell in the middle, fifty pixels out.
         BULGE => Some(Effect::Bulge {
@@ -7511,6 +7513,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             angle: number("angle")?,
             radius: number("radius")?,
             center: pair("center")?,
+            twirl_radius: if parameter(query, "twirl_radius").is_some() { number("twirl_radius")? } else { 0.0 },
         }),
         BULGE => Ok(Effect::Bulge {
             center: pair("center")?,

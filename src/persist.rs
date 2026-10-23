@@ -2227,6 +2227,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             angle,
             radius,
             center,
+            twirl_radius,
         } => {
             params.insert("angle".into(), num(*angle));
             params.insert("radius".into(), num(*radius));
@@ -2234,6 +2235,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 "center".into(),
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
+            // D-744: as D-310, written only if moved, keyed or already in the file.
+            if *twirl_radius != 0.0
+                || instance.tracks.contains_key("twirl_radius")
+                || params.contains_key("twirl_radius")
+            {
+                params.insert("twirl_radius".into(), num(*twirl_radius));
+            }
         }
         Effect::Bulge {
             center,
@@ -9238,6 +9246,8 @@ fn parse_effect(
             angle: effect_number(params, "angle", at)?,
             radius: effect_number(params, "radius", at)?,
             center: effect_array(params, "center", "two numbers, x then y", at)?,
+            // D-744: a file from before it has no twirl radius; its reach is `radius`, pixels.
+            twirl_radius: effect_number_or(params, "twirl_radius", at, 0.0)?,
         }),
         crate::effects::BULGE => Some(crate::effects::Effect::Bulge {
             center: effect_array(params, "center", "two numbers, x then y", at)?,

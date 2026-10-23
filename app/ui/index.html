@@ -11191,10 +11191,11 @@ const EFFECT_PARAMS = {
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360, outward when above 0'],
     ['phase', 'Phase', 1, 1, 'degrees'],
     ['fade', 'Fade', 1, 1, 'pixels out where the rings die away, 0 to 100000, 0 for never']],
-  // D-151.
+  // D-151; D-744: Twirl Radius in per cent, After Effects' own; Radius in pixels from older projects.
   'core.twirl': [['angle', 'Angle', 1, 1, 'degrees at the middle, clockwise when above 0', 'dial'],
-    ['radius', 'Radius', 1, 1, 'pixels, 0 to 10000, how far out it twists'],
-    ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
+    ['twirl_radius', 'Twirl Radius', 1, 1, '% of the larger side of the layer, 0 to 100, how far out it twists (used when Radius is 0)', '', 0],
+    ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['radius', 'Radius (px)', 1, 1, 'pixels, 0 to 10000, from projects made before Twirl Radius; above 0 it is used instead of Twirl Radius']],
   // D-152.
   'core.bulge': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
     ['radius', 'Radius', 1, 1, 'pixels, 0 to 10000, how far out it reaches'],

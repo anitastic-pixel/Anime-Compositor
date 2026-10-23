@@ -3278,9 +3278,9 @@ pub(crate) fn ripple(
 }
 
 /// D-151: each pixel within `radius` of `center`, a point in the buffer, read from a place
-/// turned back round it by `angle` degrees times the square of how near the centre it is, so a
-/// positive angle twists the picture clockwise, most at the middle. The settings are already
-/// valid.
+/// turned back round it by `angle` degrees times smoothstep of how near the centre it is (D-744,
+/// After Effects' falloff; the square before), so a positive angle twists the picture
+/// clockwise, most at the middle. The settings are already valid.
 pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center: (f64, f64)) {
     if angle == 0.0 || radius <= 0.0 {
         return;
@@ -3300,7 +3300,7 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
                 return;
             }
             let t = 1.0 - d / radius;
-            let (sin, cos) = (turn * t * t).sin_cos();
+            let (sin, cos) = (turn * t * t * (3.0 - 2.0 * t)).sin_cos();
             let (sx, sy) = (vx * cos + vy * sin, vy * cos - vx * sin);
             px.copy_from_slice(&sample_bilinear(&drawing, center.0 + sx, center.1 + sy));
         });

@@ -19,6 +19,6 @@ Written by `d256_a_never_saved_project_is_copied_and_offered_again` in `app/src/
 | a snapshot from anywhere else is still refused, as before | There is no project to recover into. | There is no project to recover into. | PASS |
 | recovering the newest copy | Recovered /target/d256_unsaved/Unsaved project.autosave-1.json | Recovered /target/d256_unsaved/Unsaved project.autosave-1.json | PASS |
 | gives an unsaved project: no file of its own, and work outstanding | no file, unsaved | no file, unsaved | PASS |
-| saved into the same folder, it is the same project as the original, byte for byte | 3297 bytes, the same | 3297 bytes, the same | PASS |
+| saved into the same folder, it is the same project as the original, byte for byte | 3339 bytes, the same | 3339 bytes, the same | PASS |
 | and its frame 10 is the original's, every byte | 8294400 bytes, the same | 8294400 bytes, the same | PASS |
 | once it has been saved, the copies are removed | 0 | 0 | PASS |

@@ -4429,7 +4429,7 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             let t = 1.0lf - d / k[3];
             if F.mode == 2u {
-                let turn = k[2] * t * t;
+                let turn = k[2] * t * t * (3.0lf - 2.0lf * t);
                 let s = sin64(turn);
                 let c = cos64(turn);
                 sx = k[0] + (vx * c + vy * s);
@@ -16597,8 +16597,10 @@ impl Gpu {
                 angle,
                 radius,
                 center,
+                twirl_radius,
             } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let radius = &crate::effects::twirl_reach(*radius, *twirl_radius, (w, h), f.origin);
                 same(
                     steps,
                     &passes.warp,

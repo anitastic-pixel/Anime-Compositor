@@ -622,6 +622,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 angle: 90.0,
                 radius: 50.0,
                 center: [50.0, 50.0],
+                twirl_radius: 0.0,
             },
         ),
         (

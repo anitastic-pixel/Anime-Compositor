@@ -17,6 +17,7 @@ fn twirl(angle: f64, radius: f64, center: [f64; 2]) -> Effect {
         angle,
         radius,
         center,
+        twirl_radius: 0.0,
     }
 }
 
@@ -35,7 +36,7 @@ fn b94_twirl() {
     );
 
     t.heading("FX-TWIRL-001 to 021 (document 25)");
-    t.fixtures("expected_twirl.json");
+    t.fixtures_numbered("expected_twirl.json", 1..=21);
 
     t.heading("How far it reaches");
     let got = twirl(3600.0, 10000.0, MIDDLE).bounds_expansion();

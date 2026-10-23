@@ -4,7 +4,7 @@ Written by `tests/b107_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (D
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the twenty-nine done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-165). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**7062 of 7062 checks pass.**
+**7122 of 7122 checks pass.**
 
 The worst comparison is "the reference shot with Black & White frame 0, Full": largest difference 1 of 255, pixels differing: 33060. Its pictures are in `verification/B-107 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -31,7 +31,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Diffusion | 326 | 192 | 1 | 326 of 326 |
 | Wave Warp | 246 | 154 | 1 | 246 of 246 |
 | Ripple | 266 | 174 | 1 | 266 of 266 |
-| Twirl | 216 | 130 | 1 | 216 of 216 |
+| Twirl | 276 | 168 | 1 | 276 of 276 |
 | Bulge | 236 | 150 | 1 | 236 of 236 |
 | Mirror | 246 | 186 | 1 | 246 of 246 |
 | Linear Wipe | 316 | 224 | 1 | 316 of 316 |
@@ -3988,11 +3988,11 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_twirl_014 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_014 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_014 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_twirl_015 frame 0, Full | 1 | 1 | 6 | none | PASS |
-| fx_twirl_015 frame 1, Full | 1 | 1 | 6 | none | PASS |
-| fx_twirl_015 frame 2, Full | 1 | 1 | 6 | none | PASS |
-| fx_twirl_015 frame 3, Full | 1 | 1 | 6 | none | PASS |
-| fx_twirl_015 frame 4, Full | 1 | 1 | 6 | none | PASS |
+| fx_twirl_015 frame 0, Full | 1 | 1 | 1 | none | PASS |
+| fx_twirl_015 frame 1, Full | 1 | 1 | 1 | none | PASS |
+| fx_twirl_015 frame 2, Full | 1 | 1 | 1 | none | PASS |
+| fx_twirl_015 frame 3, Full | 1 | 1 | 1 | none | PASS |
+| fx_twirl_015 frame 4, Full | 1 | 1 | 1 | none | PASS |
 | fx_twirl_015 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_015 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_015 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -4058,6 +4058,66 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_twirl_021 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_twirl_021 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_twirl_021 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_022 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_022 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_023 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_024 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_025 frame 0, Full | 1 | 1 | 3 | none | PASS |
+| fx_twirl_025 frame 1, Full | 1 | 1 | 3 | none | PASS |
+| fx_twirl_025 frame 2, Full | 1 | 1 | 3 | none | PASS |
+| fx_twirl_025 frame 3, Full | 1 | 1 | 3 | none | PASS |
+| fx_twirl_025 frame 4, Full | 1 | 1 | 3 | none | PASS |
+| fx_twirl_025 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_025 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_025 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_025 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_025 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_twirl_026 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_026 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_twirl_027 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_bulge_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_bulge_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_bulge_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
@@ -6980,12 +7040,12 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Ripple frame 0, Draft | 3 | 1 | 75 | none | PASS |
 | the reference shot with Ripple frame 100, Draft | 3 | 1 | 50 | none | PASS |
 | the reference shot with Ripple frame 239, Draft | 3 | 1 | 47 | none | PASS |
-| the reference shot with Twirl frame 0, Full | 3 | 1 | 3733 | none | PASS |
-| the reference shot with Twirl frame 100, Full | 3 | 1 | 1411 | none | PASS |
-| the reference shot with Twirl frame 239, Full | 3 | 1 | 1722 | none | PASS |
-| the reference shot with Twirl frame 0, Draft | 3 | 1 | 126 | none | PASS |
+| the reference shot with Twirl frame 0, Full | 3 | 1 | 3750 | none | PASS |
+| the reference shot with Twirl frame 100, Full | 3 | 1 | 1415 | none | PASS |
+| the reference shot with Twirl frame 239, Full | 3 | 1 | 1739 | none | PASS |
+| the reference shot with Twirl frame 0, Draft | 3 | 1 | 130 | none | PASS |
 | the reference shot with Twirl frame 100, Draft | 3 | 1 | 32 | none | PASS |
-| the reference shot with Twirl frame 239, Draft | 3 | 1 | 45 | none | PASS |
+| the reference shot with Twirl frame 239, Draft | 3 | 1 | 49 | none | PASS |
 | the reference shot with Bulge frame 0, Full | 3 | 1 | 3737 | none | PASS |
 | the reference shot with Bulge frame 100, Full | 3 | 1 | 1410 | none | PASS |
 | the reference shot with Bulge frame 239, Full | 3 | 1 | 1726 | none | PASS |

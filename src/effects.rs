@@ -1249,11 +1249,14 @@ pub enum Effect {
     },
     /// D-151: `angle`, -3600 to 3600 degrees, clockwise when above 0, the turn at the middle;
     /// `radius`, 0 to 10000 pixels, how far out it reaches; `center`, per cent of the drawing's
-    /// width and height, -1000 to 1000 each.
+    /// width and height, -1000 to 1000 each. D-744: `twirl_radius`, 0 to 100, per cent of the
+    /// drawing's larger side, After Effects' Twirl Radius; it sets the reach only where
+    /// `radius` is 0, so a file from before it keeps its reach in pixels.
     Twirl {
         angle: f64,
         radius: f64,
         center: [f64; 2],
+        twirl_radius: f64,
     },
     /// D-152: `center`, per cent of the drawing's width and height, -1000 to 1000 each;
     /// `radius`, 0 to 10000 pixels, how far out it reaches; `height`, -4 to 4, a swell above 0
@@ -7813,10 +7816,12 @@ impl Effect {
                 angle,
                 radius,
                 center,
+                twirl_radius,
             } => vec![
                 ("angle", vec![angle], -3600.0, 3600.0),
                 ("radius", vec![radius], 0.0, 10000.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("twirl_radius", vec![twirl_radius], 0.0, 100.0),
             ],
             Effect::Bulge {
                 center,
@@ -15548,6 +15553,21 @@ pub(crate) fn stabilizer_samples(
 /// D-95: a Radial Blur's centre in the pixels of a buffer `w` by `h`, from its share of the
 /// drawing's own size, with the drawing's corner at `(ox, oy)` in it after the effects above it
 /// grew it.
+/// D-744: Twirl's reach in pixels: `radius` where it is above 0, else `twirl_radius` per cent
+/// of the drawing's own larger side, the layer `w` by `h` less the growth `ox`, `oy` of
+/// effects before it.
+pub(crate) fn twirl_reach(
+    radius: f64,
+    twirl_radius: f64,
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+) -> f64 {
+    if radius > 0.0 {
+        return radius;
+    }
+    twirl_radius / 100.0 * (w - 2 * ox).max(h - 2 * oy) as f64
+}
+
 pub(crate) fn radial_center(
     center: [f64; 2],
     (w, h): (usize, usize),
@@ -18237,10 +18257,13 @@ pub(crate) fn apply_stack_at(
                 angle,
                 radius,
                 center,
+                twirl_radius,
             } => {
-                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                let size = (source.width(), source.height());
+                let c = radial_center(*center, size, (ox, oy));
+                let r = twirl_reach(*radius, *twirl_radius, size, (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectTwirl, || {
-                    crate::layer_fx::twirl(source, *angle, *radius, c)
+                    crate::layer_fx::twirl(source, *angle, r, c)
                 })
             }
             // D-152: the centre is a share of the drawing's own size, as Radial Blur's is.

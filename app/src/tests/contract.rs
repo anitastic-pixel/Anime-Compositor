@@ -2385,7 +2385,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     // D-151: the two numbers and the centre.
-    ("core.twirl", &[("angle", "-270"), ("radius", "120"), ("center", "40,60")]),
+    ("core.twirl", &[("angle", "-270"), ("radius", "120"), ("center", "40,60"), ("twirl_radius", "45")]),
     // D-152: the centre and the two numbers.
     ("core.bulge", &[("center", "40,60"), ("radius", "120"), ("height", "-2"), ("vertical_radius", "80"), ("taper_radius", "30")]),
     // D-153: the centre and the angle.
