@@ -2370,6 +2370,8 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("speed", "12"),
             ("phase", "90"),
             ("edges", "repeat"),
+            // D-745.
+            ("pinning", "left_edge"),
         ],
     ),
     // D-150: the centre and the five numbers.

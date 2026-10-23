@@ -1222,7 +1222,9 @@ pub enum Effect {
     /// degrees clockwise from up, the way the wave runs; `speed`, -360 to 360 degrees a frame;
     /// `phase`, -100000 to 100000 degrees; and `edges`, "transparent" or "repeat". The words are
     /// kept as written, so a wrong one is reported. `frame` is not a setting and is never saved:
-    /// it is the composition frame, as Noise's is.
+    /// it is the composition frame, as Noise's is. D-745: `shape` may also be "circle", and
+    /// `pinning`, one of `WAVE_PINNINGS`' words ("none" where a file has none), holds edges of
+    /// the drawing still.
     WaveWarp {
         shape: String,
         height: f64,
@@ -1231,6 +1233,7 @@ pub enum Effect {
         speed: f64,
         phase: f64,
         edges: String,
+        pinning: String,
         frame: i32,
     },
     /// D-150: `center`, per cent of the drawing's width and height, -1000 to 1000 each;
@@ -5257,6 +5260,27 @@ pub const NOISE_GATE: &str = "core.noise_gate";
 pub const COMPRESSOR: &str = "core.compressor";
 pub const DISTORTION: &str = "core.distortion";
 /// D-644: Distortion's types, in After Effects 26.0's order.
+/// D-745: Wave Warp's pinning words and the drawing's edges each holds still, left, top, right,
+/// bottom.
+pub const WAVE_PINNINGS: [(&str, [bool; 4]); 8] = [
+    ("none", [false, false, false, false]),
+    ("all_edges", [true, true, true, true]),
+    ("left_edge", [true, false, false, false]),
+    ("top_edge", [false, true, false, false]),
+    ("right_edge", [false, false, true, false]),
+    ("bottom_edge", [false, false, false, true]),
+    ("horizontal_edges", [false, true, false, true]),
+    ("vertical_edges", [true, false, true, false]),
+];
+
+/// D-745: the edges `pinning` holds still; none for a word that is not a choice.
+pub fn wave_pins(pinning: &str) -> [bool; 4] {
+    WAVE_PINNINGS
+        .iter()
+        .find(|(word, _)| *word == pinning)
+        .map_or([false; 4], |(_, pins)| *pins)
+}
+
 pub const DISTORTION_TYPES: [&str; 6] = [
     "soft_clip",
     "hard_clip",
@@ -14089,9 +14113,15 @@ impl Effect {
             Effect::Diffusion { second_blend: b, .. } if !["soft_light", "overlay"].contains(&b.as_str()) => Some(format!(
                 "Diffusion's second blend is \"soft_light\" or \"overlay\", and this is \"{b}\"."
             )),
-            Effect::WaveWarp { shape, edges: e, .. } => (!["sine", "triangle"].contains(&shape.as_str()))
-                .then(|| format!("{name}'s shape is \"sine\" or \"triangle\", and this is \"{shape}\"."))
-                .or_else(|| edges(e)),
+            Effect::WaveWarp { shape, edges: e, pinning, .. } => (!["sine", "triangle", "circle"].contains(&shape.as_str()))
+                .then(|| format!("{name}'s shape is \"sine\", \"triangle\" or \"circle\", and this is \"{shape}\"."))
+                .or_else(|| edges(e))
+                .or_else(|| {
+                    (!WAVE_PINNINGS.iter().any(|(word, _)| word == pinning)).then(|| {
+                        let words: Vec<&str> = WAVE_PINNINGS.iter().map(|(word, _)| *word).collect();
+                        format!("{name}'s pinning is one of {}, and this is \"{pinning}\".", words.join(", "))
+                    })
+                }),
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
             )),
@@ -18213,12 +18243,18 @@ pub(crate) fn apply_stack_at(
                 speed,
                 phase,
                 edges,
+                pinning,
                 frame,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectWaveWarp, || {
                     crate::layer_fx::wave_warp(
                         source,
-                        shape == "triangle",
+                        match shape.as_str() {
+                            "triangle" => 1,
+                            "circle" => 2,
+                            _ => 0,
+                        },
+                        wave_pins(pinning),
                         (*height, *width),
                         *direction,
                         phase + speed * *frame as f64,

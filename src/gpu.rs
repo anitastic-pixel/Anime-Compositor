@@ -4380,12 +4380,34 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     switch F.mode {
         case 0u: {
             // k: the drawing's corner in the output, the wave's direction and its normal, the
-            // width, the phase in radians, the height, triangle.
+            // width, the phase in radians, the height, the shape (0 sine, 1 triangle, 2 circle),
+            // and D-745's drawing size and pinned edges, left, top, right, bottom.
             let s = k[2] * (x - k[0]) + k[3] * (y - k[1]);
             let a = 6.283185307179586lf * s / k[6] + k[7];
             var v = sin64(a);
             if k[9] == 1.0lf {
                 v = folded(a) * 2.0lf / 3.141592653589793lf;
+            } else if k[9] == 2.0lf {
+                let m = floor(a / 3.141592653589793lf);
+                let u = a / 3.141592653589793lf - m;
+                v = sqrt(max(1.0lf - (2.0lf * u - 1.0lf) * (2.0lf * u - 1.0lf), 0.0lf));
+                if m - 2.0lf * floor(m / 2.0lf) == 1.0lf {
+                    v = -v;
+                }
+            }
+            let px = x - k[0];
+            let py = y - k[1];
+            if k[12] == 1.0lf {
+                v *= clamp(4.0lf * px / k[10], 0.0lf, 1.0lf);
+            }
+            if k[13] == 1.0lf {
+                v *= clamp(4.0lf * py / k[11], 0.0lf, 1.0lf);
+            }
+            if k[14] == 1.0lf {
+                v *= clamp(4.0lf * (k[10] - px) / k[10], 0.0lf, 1.0lf);
+            }
+            if k[15] == 1.0lf {
+                v *= clamp(4.0lf * (k[11] - py) / k[11], 0.0lf, 1.0lf);
             }
             sx = x - k[8] * v * k[4];
             sy = y - k[8] * v * k[5];
@@ -16527,9 +16549,11 @@ impl Gpu {
                 speed,
                 phase,
                 edges,
+                pinning,
                 frame,
             } => {
                 let repeat = edges == "repeat";
+                let pins = crate::effects::wave_pins(pinning);
                 let g = if repeat { 0 } else { height.ceil() as usize };
                 let (tx, ty) = crate::blurs::along(*direction);
                 let phi = (phase + speed * *frame as f64).to_radians();
@@ -16543,7 +16567,17 @@ impl Gpu {
                     *width,
                     phi,
                     *height,
-                    (shape == "triangle") as u8 as f64,
+                    match shape.as_str() {
+                        "triangle" => 1.0,
+                        "circle" => 2.0,
+                        _ => 0.0,
+                    },
+                    w.saturating_sub(2 * ox) as f64,
+                    h.saturating_sub(2 * oy) as f64,
+                    pins[0] as u8 as f64,
+                    pins[1] as u8 as f64,
+                    pins[2] as u8 as f64,
+                    pins[3] as u8 as f64,
                 ];
                 let out = self.scratch("B-107 wave", w + 2 * g, h + 2 * g);
                 let p = FxParams {

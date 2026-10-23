@@ -22,6 +22,7 @@ fn wave(n: [f64; 5], shape: &str, edges: &str) -> Effect {
         speed: n[3],
         phase: n[4],
         edges: edges.to_string(),
+        pinning: "none".to_string(),
         frame: 0,
     }
 }
@@ -48,7 +49,7 @@ fn b92_wave_warp() {
     );
 
     t.heading("FX-WAVE-001 to 024 (document 25)");
-    t.fixtures("expected_wave_warp.json");
+    t.fixtures_numbered("expected_wave_warp.json", 1..=24);
 
     t.heading("How far it reaches");
     let got = with(0, 2.5).bounds_expansion();

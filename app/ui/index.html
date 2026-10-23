@@ -11180,7 +11180,7 @@ const EFFECT_PARAMS = {
     ['second_amount', 'Second Amount', 1, 1, '0 to 100, how much of the glow is laid on again in soft light or overlay (0, off)']],
   // D-149.
   'core.wave_warp': [['height', 'Height', 1, 0.5, 'pixels, 0 to 1000, how far the wave pushes'],
-    ['width', 'Width', 1, 1, 'pixels, 1 to 10000, how long one wave is'],
+    ['width', 'Width', 1, 1, 'pixels, 1 to 10000: one wave spans Width pixels, about twice AE\'s Width for the same look'],
     ['direction', 'Direction', 1, 1, 'degrees clockwise from up, the way the wave runs', 'dial'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['phase', 'Phase', 1, 1, 'degrees']],
@@ -13025,7 +13025,10 @@ const EFFECT_WORDS = {
   'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]],
     ['second_blend', 'Second Blend', [['soft_light', 'Soft Light'], ['overlay', 'Overlay']]]] },
   // D-149.
-  'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle']]], EDGES] },
+  'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle'], ['circle', 'Circle']]], EDGES,
+    // D-745.
+    ['pinning', 'Pinning', [['none', 'None'], ['all_edges', 'All Edges'], ['left_edge', 'Left Edge'], ['top_edge', 'Top Edge'],
+      ['right_edge', 'Right Edge'], ['bottom_edge', 'Bottom Edge'], ['horizontal_edges', 'Horizontal Edges'], ['vertical_edges', 'Vertical Edges']]]] },
   // D-199.
   'core.light_sweep': {
     choices: [['shape', 'Shape', [['linear', 'Linear'], ['smooth', 'Smooth'], ['sharp', 'Sharp']]],

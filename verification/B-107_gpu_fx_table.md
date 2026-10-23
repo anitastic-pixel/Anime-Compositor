@@ -4,7 +4,7 @@ Written by `tests/b107_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (D
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the twenty-nine done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-165). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**7122 of 7122 checks pass.**
+**7262 of 7262 checks pass.**
 
 The worst comparison is "the reference shot with Black & White frame 0, Full": largest difference 1 of 255, pixels differing: 33060. Its pictures are in `verification/B-107 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -29,7 +29,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Find Edges | 196 | 120 | 1 | 196 of 196 |
 | Sharpen | 306 | 122 | 1 | 306 of 306 |
 | Diffusion | 326 | 192 | 1 | 326 of 326 |
-| Wave Warp | 246 | 154 | 1 | 246 of 246 |
+| Wave Warp | 386 | 274 | 1 | 386 of 386 |
 | Ripple | 266 | 174 | 1 | 266 of 266 |
 | Twirl | 276 | 168 | 1 | 276 of 276 |
 | Bulge | 236 | 150 | 1 | 236 of 236 |
@@ -3588,6 +3588,146 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_wave_024 frame 2, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_wave_024 frame 3, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_wave_024 frame 4, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_025 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_025 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_026 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_027 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_027 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_027 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_027 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_027 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_027 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| fx_wave_027 frame 1, Draft | 1 | 1 | 1 | none | PASS |
+| fx_wave_027 frame 2, Draft | 1 | 1 | 1 | none | PASS |
+| fx_wave_027 frame 3, Draft | 1 | 1 | 1 | none | PASS |
+| fx_wave_027 frame 4, Draft | 1 | 1 | 1 | none | PASS |
+| fx_wave_028 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_028 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_029 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_030 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_031 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_032 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_033 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_034 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_035 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| fx_wave_036 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_036 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_wave_037 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 0, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 1, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 2, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 3, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_037 frame 4, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 0, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 1, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 2, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 3, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_wave_038 frame 4, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_ripple_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_ripple_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_ripple_001 frame 2, Full | 1 | 0 | 0 | none | PASS |

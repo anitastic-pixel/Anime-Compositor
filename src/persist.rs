@@ -2194,6 +2194,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             speed,
             phase,
             edges,
+            pinning,
             ..
         } => {
             params.insert("shape".into(), J::from(shape.as_str()));
@@ -2203,6 +2204,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("speed".into(), num(*speed));
             params.insert("phase".into(), num(*phase));
             params.insert("edges".into(), J::from(edges.as_str()));
+            // D-745: written only when set, so a file from before it is saved as it was.
+            if pinning != "none" || params.contains_key("pinning") {
+                params.insert("pinning".into(), J::from(pinning.as_str()));
+            }
         }
         Effect::Ripple {
             center,
@@ -9231,6 +9236,7 @@ fn parse_effect(
             speed: effect_number(params, "speed", at)?,
             phase: effect_number(params, "phase", at)?,
             edges: effect_word(params, "edges", at)?,
+            pinning: effect_word_or(params, "pinning", at, "none")?,
             frame: 0,
         }),
         crate::effects::RIPPLE => Some(crate::effects::Effect::Ripple {

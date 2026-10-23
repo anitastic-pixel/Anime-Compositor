@@ -4264,6 +4264,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             speed: 0.0,
             phase: 0.0,
             edges: "transparent".to_string(),
+            pinning: "none".to_string(),
             frame: 0,
         }),
         // D-150: rings spreading from the middle.
@@ -7498,6 +7499,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             speed: number("speed")?,
             phase: number("phase")?,
             edges: word("edges")?,
+            pinning: if parameter(query, "pinning").is_some() { word("pinning")? } else { "none".to_string() },
             frame: 0,
         }),
         RIPPLE => Ok(Effect::Ripple {

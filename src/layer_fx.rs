@@ -3189,10 +3189,14 @@ pub(crate) fn diffusion(
 /// long running along `direction`, at `phase` degrees, fixed to the drawing's own space (its
 /// corner at `origin` in `source`). With transparent edges the layer first grows by the height
 /// rounded up, returned; with `repeat` a place past the edge reads the edge. The settings are
-/// already valid; height 0 changes nothing.
+/// already valid; height 0 changes nothing. D-745: `shape` is 0 sine, 1 triangle or 2 circle;
+/// `pins` holds the drawing's left, top, right and bottom edges still, the push growing in a
+/// straight line to its whole size a quarter of the drawing's width or height in.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn wave_warp(
     source: &mut WorkingBuffer,
-    triangle: bool,
+    shape: u32,
+    pins: [bool; 4],
     (height, width): (f64, f64),
     direction: f64,
     phase: f64,
@@ -3203,6 +3207,10 @@ pub(crate) fn wave_warp(
         return 0;
     }
     let g = if repeat { 0 } else { height.ceil() as usize };
+    let (dw, dh) = (
+        source.width().saturating_sub(2 * origin.0) as f64,
+        source.height().saturating_sub(2 * origin.1) as f64,
+    );
     let (w, h) = (source.width() + 2 * g, source.height() + 2 * g);
     let (ox, oy) = ((origin.0 + g) as f64, (origin.1 + g) as f64);
     let (tx, ty) = crate::blurs::along(direction);
@@ -3218,11 +3226,11 @@ pub(crate) fn wave_warp(
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let s = tx * (x - ox) + ty * (y - oy);
             let a = tau * s / width + phi;
-            let v = if triangle {
-                a.sin().asin() * 2.0 / std::f64::consts::PI
-            } else {
-                a.sin()
-            };
+            let v = match shape {
+                1 => a.sin().asin() * 2.0 / std::f64::consts::PI,
+                2 => wave_circle(a),
+                _ => a.sin(),
+            } * wave_pin(pins, (dw, dh), x - ox, y - oy);
             let mut sx = x - height * v * nx;
             let mut sy = y - height * v * ny;
             if repeat {
@@ -3233,6 +3241,29 @@ pub(crate) fn wave_warp(
         });
     *source = out;
     g
+}
+
+/// D-745: the circle wave at `a` radians, each half wave half a circle, on the sine's side.
+pub(crate) fn wave_circle(a: f64) -> f64 {
+    let m = (a / std::f64::consts::PI).floor();
+    let u = a / std::f64::consts::PI - m;
+    let v = (1.0 - (2.0 * u - 1.0).powi(2)).max(0.0).sqrt();
+    if m.rem_euclid(2.0) == 1.0 {
+        -v
+    } else {
+        v
+    }
+}
+
+/// D-745: the share of the push kept at (`x`, `y`) of a `size` drawing, its pinned edges
+/// (left, top, right, bottom) held still.
+pub(crate) fn wave_pin(pins: [bool; 4], (dw, dh): (f64, f64), x: f64, y: f64) -> f64 {
+    let reach = [(x, dw), (y, dh), (dw - x, dw), (dh - y, dh)];
+    pins.iter()
+        .zip(reach)
+        .filter(|(on, _)| **on)
+        .map(|(_, (d, size))| (4.0 * d / size).clamp(0.0, 1.0))
+        .product()
 }
 
 /// D-150: each pixel read from a place pushed toward or away from `center`, a point in the

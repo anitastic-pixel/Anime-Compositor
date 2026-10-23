@@ -80,8 +80,8 @@ D-149, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | with transparent edges, height 2.5 grows the drawing's bounds by 3 pixels | 3 | yes |
 | with repeat edges it grows them by nothing | 0 | yes |
 | at height 0 it grows them by nothing | 0 | yes |
-| a half-size draft preview halves the height and the width | WaveWarp { shape: "sine", height: 5.0, width: 20.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", frame: 0 } | yes |
-| a half-size draft of width 1 holds the width at 1, its range's bottom, rather than leaving the effect out | WaveWarp { shape: "sine", height: 5.0, width: 1.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", frame: 0 } | yes |
+| a half-size draft preview halves the height and the width | WaveWarp { shape: "sine", height: 5.0, width: 20.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", frame: 0 } | yes |
+| a half-size draft of width 1 holds the width at 1, its range's bottom, rather than leaving the effect out | WaveWarp { shape: "sine", height: 5.0, width: 1.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", frame: 0 } | yes |
 
 ## The file
 
@@ -113,7 +113,7 @@ D-149, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | direction 3601 is refused with a sentence, and nothing changes | Wave Warp's direction runs from -3600 to 3600, and this is 3601. | yes |
 | speed -361 is refused with a sentence, and nothing changes | Wave Warp's speed runs from -360 to 360, and this is -361. | yes |
 | phase 100001 is refused with a sentence, and nothing changes | Wave Warp's phase runs from -100000 to 100000, and this is 100001. | yes |
-| shape "square" is refused with a sentence, and nothing changes | Wave Warp's shape is "sine" or "triangle", and this is "square". | yes |
+| shape "square" is refused with a sentence, and nothing changes | Wave Warp's shape is "sine", "triangle" or "circle", and this is "square". | yes |
 | edges "Repeat" is refused with a sentence, and nothing changes | Wave Warp's edges are "transparent" or "repeat", and this is "Repeat". | yes |
 | height keyed to 1500 is refused with a sentence, and nothing changes | Wave Warp's height runs from 0 to 1000, and this is 1500. | yes |
 | every number at its bottom, is taken | taken | yes |
