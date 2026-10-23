@@ -1,4 +1,5 @@
-"""Curl Noise's Transform (Rotation, Scale and Perspective Offset), worked a second way.
+"""Curl Noise's Transform (Rotation, Scale, Perspective Offset, and D-750's Uniform Scaling,
+Scale Width and Scale Height), worked a second way.
 
 D-646 adds to `core.curl_noise` (D-446, D-583; `tools/curl_noise_reference.py`, whose rule, step
 2, this file uses) the Transform controls After Effects' Curl Noise lists beside Size and Offset.
@@ -6,11 +7,13 @@ Adobe publishes no formula; the rule is this program's own, after the same contr
 Noise, and nothing is ported.
 
 With c the drawing's middle (its width and height halved, in the drawing's own pixels),
-theta = rotation in degrees and m = 100 / scale, the noise is read at
+theta = rotation in degrees, mx = my = 100 / scale with Uniform Scaling on, else
+mx = 100 / scale_width and my = 100 / scale_height (D-750), the noise is read at
 
-    q = c + m (d_x cos + d_y sin, -d_x sin + d_y cos),  d = p - (offset + drift) - c,
+    q = c + (mx (d_x cos + d_y sin), my (-d_x sin + d_y cos)),  d = p - (offset + drift) - c,
 
-so it is turned clockwise by Rotation and made Scale per cent as big round the drawing's middle, then slid on the picture by
+so it is turned clockwise by Rotation and made Scale per cent as big (Scale Width per cent as
+wide and Scale Height per cent as tall) round the drawing's middle, then slid on the picture by
 Offset and the drift. The trace (D-749) runs in q, and Curl Generation's direction is brought
 back to the picture's directions. With Perspective Offset on, octave o of the value noise is
 read at q + (1 - 0.5^o) T(offset + drift), T the same turn and scale without c, so each finer
@@ -21,8 +24,10 @@ unturned and at its own size, and the Transform does nothing (D-749: the seed it
 is gone).
 
 Settings: `rotation` -100000 to 100000 degrees, 0 when added; `scale` 1 to 10000 per cent,
-100; `perspective_offset` `off` (when added) or `on`. A file without them reads them as
-added, and they are written only when they are not (D-304). The numbers can be keyed.
+100; `perspective_offset` `off` (when added) or `on`; D-750: `uniform_scaling` `on` (when added)
+or `off`, `scale_width` and `scale_height` 1 to 10000 per cent, 100. A file without them reads
+them as added, so a file from before D-750 reads Uniform Scaling on and is drawn by its Scale;
+they are written only when they are not as added (D-304). The numbers can be keyed.
 
 **This file never runs the build's code path.** Cases as in `tools/curl_noise_reference.py`:
 a 16 by 10 composition holding Noise's card. The expected frames are in
@@ -52,7 +57,7 @@ small, render, setup, point, curl_at, project_json = (C.small, C.render, C.setup
 
 def numbers(c):
     n = {k: C.held(c, k, 0) for k in C.RANGES}
-    n.update(perspective_offset=c["perspective_offset"])
+    n.update(perspective_offset=c["perspective_offset"], uniform_scaling=c["uniform_scaling"])
     return n
 
 
@@ -96,6 +101,23 @@ CASES = {
     "FX-CURL-072": ("Rotation 30, still.", small(rotation=30, **STILL), [0]),
     "FX-CURL-073": ("Rotation 360, still: a whole turn, the noise as unturned (within the "
                     "tolerance).", small(rotation=360, **STILL), [0]),
+    # D-750 (row 15).
+    "FX-CURL-079": ("Uniform Scaling off, Scale Width 200, Scale Height 100, still, Input Noise: "
+                    "the noise twice as wide round the card's middle, as tall as before.",
+                    small(uniform_scaling="off", scale_width=200, view="input_noise", **STILL),
+                    [0]),
+    "FX-CURL-080": ("Uniform Scaling off, Scale Width 200, Scale Height 200, still, Input Noise: "
+                    "FX-CURL-063's Scale 200.",
+                    small(uniform_scaling="off", scale_width=200, scale_height=200,
+                          view="input_noise", **STILL), [0]),
+    "FX-CURL-081": ("Uniform Scaling on, Scale Width 300 and Scale Height 50 written, still, "
+                    "Input Noise: with Uniform Scaling on the two are not read, so it is Scale "
+                    "100's frame.",
+                    small(scale_width=300, scale_height=50, view="input_noise", **STILL), [0]),
+    "FX-CURL-082": ("Uniform Scaling off, Scale Width 7500, Scale Height 5, still (a tutorial's "
+                    "long streaks): the noise stretched far across and squeezed down, so the "
+                    "greys change down the card far more than across it.",
+                    small(uniform_scaling="off", scale_width=7500, scale_height=5, **STILL), [0]),
 }
 
 INVALID = {
@@ -104,6 +126,10 @@ INVALID = {
     "FX-CURL-076": ("Perspective Offset \"yes\", not on or off.", small(perspective_offset="yes")),
     "FX-CURL-077": ("Scale keyed to 20000 at frame 4, above 10000.",
                     small(scale=keyed((0, 100), (4, 20000)))),
+    "FX-CURL-083": ("Scale Width 0.5, below 1.", small(uniform_scaling="off", scale_width=0.5)),
+    "FX-CURL-084": ("Uniform Scaling \"yes\", not on or off.", small(uniform_scaling="yes")),
+    "FX-CURL-085": ("Scale Height keyed to 20000 at frame 4, above 10000.",
+                    small(uniform_scaling="off", scale_height=keyed((0, 100), (4, 20000)))),
 }
 
 
@@ -181,6 +207,18 @@ def check(expected):
     assert same(c["FX-CURL-070"]["4"], c["FX-CURL-061"]["0"], 0)
     assert same(c["FX-CURL-071"]["0"], c["FX-CURL-072"]["0"], 0)
     assert same(c["FX-CURL-073"]["0"], render(small(**STILL), 0), 1e-6)
+    # D-750.
+    assert differ(c["FX-CURL-079"]["0"], still_input)
+    assert same(c["FX-CURL-080"]["0"], c["FX-CURL-063"]["0"], 0)
+    assert same(c["FX-CURL-081"]["0"], still_input, 0)
+    enc = lambda p: C.S.linear_to_srgb(p[0] / p[3])  # noqa: E731
+    k82 = c["FX-CURL-082"]["0"]
+    inside = lambda x, y: drawn[at(x, y)][3] == 1  # noqa: E731
+    across = sum(abs(enc(k82[at(x + 1, y)]) - enc(k82[at(x, y)])) for x in range(W - 1)
+                 for y in range(H) if inside(x, y) and inside(x + 1, y))
+    down = sum(abs(enc(k82[at(x, y + 1)]) - enc(k82[at(x, y)])) for x in range(W)
+               for y in range(H - 1) if inside(x, y) and inside(x, y + 1))
+    assert across * 10 < down, (across, down)
     for fx in INVALID:
         assert c[fx]["0"] == c[fx]["4"] == drawn
     for name, frames in c.items():

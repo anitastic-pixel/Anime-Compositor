@@ -218592,6 +218592,20 @@ FX-CURL-077 (`fx_curl_077.json`): Scale keyed to 20000 at frame 4, above 10000. 
 
 FX-CURL-078 (`fx_curl_078.json`): Speed keyed from 0 at frame 0 to 40 at frame 4, Direction 90, Turbulence Speed 0, Input Noise: the drift adds up 0, 1, 2 and 3 pixels, so frame 4 is frame 0 moved 6 right (not the 16 that speed 40 times 4 frames would jump to). Frames 0, 2, 4. (New with D-749.)
 
+FX-CURL-079 (`fx_curl_079.json`): Uniform Scaling off, Scale Width 200, Scale Height 100, still, Input Noise: the noise twice as wide round the card's middle, as tall as before. Frames 0. (New with D-750.)
+
+FX-CURL-080 (`fx_curl_080.json`): Uniform Scaling off, Scale Width 200, Scale Height 200, still, Input Noise: FX-CURL-063's Scale 200. Frames 0. (New with D-750.)
+
+FX-CURL-081 (`fx_curl_081.json`): Uniform Scaling on, Scale Width 300 and Scale Height 50 written, still, Input Noise: with Uniform Scaling on the two are not read, so it is Scale 100's frame. Frames 0. (New with D-750.)
+
+FX-CURL-082 (`fx_curl_082.json`): Uniform Scaling off, Scale Width 7500, Scale Height 5, still (a tutorial's long streaks): the noise stretched far across and squeezed down, so the greys change down the card far more than across it. Frames 0. (New with D-750.)
+
+FX-CURL-083 (`fx_curl_083.json`): Scale Width 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (New with D-750.)
+
+FX-CURL-084 (`fx_curl_084.json`): Uniform Scaling "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (New with D-750.)
+
+FX-CURL-085 (`fx_curl_085.json`): Scale Height keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (New with D-750.)
+
 
 ### Particle Space (D-610)
 

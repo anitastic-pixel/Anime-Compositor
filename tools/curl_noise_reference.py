@@ -12,11 +12,11 @@ below are this program's own rule, built on P0-19's value noise (`grade::value`,
 and nothing is ported.
 
 D-749 replaces D-446's look (and D-680's walk) with one fitted to After Effects' own pictures in
-five tutorials (the audit's rows 8, 13 and 14): a smooth value noise carried along the curl's
-flow lines, so the texture is large, soft marbling that grows with Size and Scale and whose
-swirls grow with Sample Radius; Flow Softness the After Effects way round (higher is crisper);
+the tutorials the audit's Wave 1 read (the audit's rows 8, 13 and 14): a smooth value noise
+carried along the curl's flow lines, so the texture is large, soft marbling that grows with
+Size and Scale and whose swirls grow with Sample Radius; Flow Softness the After Effects way round (higher is crisper);
 and Speed and Turbulence Speed added up frame by frame, so a keyed speed moves the noise on
-from where it is instead of jumping.
+from where it is instead of jumping. D-750 adds Scale Width, Scale Height and Uniform Scaling.
 
 The rule, at a point p of the drawing's own pixels (its top-left corner (0, 0), however far an
 effect above grew the buffer):
@@ -26,8 +26,9 @@ effect above grew the buffer):
    90 right), times 24 / the composition's frames a second, and the depth's travel the same sum
    of turbulence_speed(f) / 10 (a frame before 0 counts back). With Speed not keyed the drift is
    speed F / 10 at 24 frames a second, as before D-749.
-2. The point: with c the drawing's middle, theta = rotation, m = 100 / scale, d = p - (offset +
-   drift) - c, the noise is read at q = c + m (d_x cos + d_y sin, -d_x sin + d_y cos). With
+2. The point: with c the drawing's middle, theta = rotation, mx = my = 100 / scale with Uniform
+   Scaling on, else mx = 100 / scale_width and my = 100 / scale_height, d = p - (offset + drift)
+   - c, the noise is read at q = c + (mx (d_x cos + d_y sin), my (-d_x sin + d_y cos)). With
    Perspective Offset on, octave o of the value noise (step 4) is read at q + (1 - 0.5^o) T(offset
    + drift), T the same turn and scale without c.
 3. The flow: the noise sizes are s = 2 size 2^(-density / 50) pixels for the flow and 1.6 s for
@@ -53,7 +54,7 @@ effect above grew the buffer):
    0.5 + 0.5 C out (1 - flow_falloff / 100 (0.5 - 0.5 V0)). Input Noise: 0.5 + 0.5 C V0, so
    Sample Radius 0 is Input Noise. Curl Generation: red 0.5 + 0.5 the flow across, green
    0.5 + 0.5 the flow down, the flow w at q made one long and brought back to the picture's
-   directions (divided by m, then turned by theta), nought where it is nought; blue
+   directions (divided by mx and my, then turned by theta), nought where it is nought; blue
    0.5 + 0.5 C V0.
    The four numbers, the direction's two, C V0 and the grey, are kept in single precision, as
    the card keeps them.
@@ -103,8 +104,9 @@ to 100, 10 when added; `direction` -100000 to 100000 degrees, 0; `size` 1 to 100
 50; `flow_falloff` 0 to 100, 0; `view` `final_render` (when added), `input_noise` or
 `curl_generation`; `contrast` 0 to 1000, 100; `brightness` -1000 to 1000, 0; `clip_hdr_results`
 `on` (when added) or `off`; `channel` `rgb` (when added), `red`, `green`, `blue` or `alpha`.
-D-646's Transform (`tools/curl_transform_reference.py`): `rotation`, `scale` and
-`perspective_offset`, written only when not as added. Every number can be keyed.
+D-646 and D-750's Transform (`tools/curl_transform_reference.py`): `rotation`, `scale`,
+`perspective_offset`, `uniform_scaling`, `scale_width` and `scale_height`, written only when not
+as added. Every number can be keyed.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, keeping the single-precision steps the rule names.
@@ -150,13 +152,15 @@ RANGES = {"speed": (0, 100), "direction": (-100000, 100000), "size": (1, 1000),
           "smoothness": (0, 100), "vertical_bias": (0, 100), "sample_count": (3, 24),
           "sample_radius": (0, 200), "flow_softness": (0, 100), "edge_definition": (0, 100),
           "flow_falloff": (0, 100), "contrast": (0, 1000), "brightness": (-1000, 1000),
-          "softness": (0, 100), "rotation": (-100000, 100000), "scale": (1, 10000)}
+          "softness": (0, 100), "rotation": (-100000, 100000), "scale": (1, 10000),
+          "scale_width": (1, 10000), "scale_height": (1, 10000)}
 WORDS = ("source", "view", "clip_hdr_results", "channel")
 # D-583: written only when not as added (D-304), so the files before it are unchanged.
 SOURCE_KEYS = {"source_layer": "", "softness": 0, "source_mapping": "fill",
                "mirror_at_edge": "off"}
-# D-646's Transform, the same.
-TRANSFORM_KEYS = {"rotation": 0, "scale": 100, "perspective_offset": "off"}
+# D-646 and D-750's Transform, the same.
+TRANSFORM_KEYS = {"rotation": 0, "scale": 100, "perspective_offset": "off",
+                  "uniform_scaling": "on", "scale_width": 100, "scale_height": 100}
 NAMES = ("source", "speed", "direction", "size", "offset", "evolution", "turbulence_speed",
          "swirl", "density", "smoothness", "vertical_bias", "sample_count", "sample_radius",
          "flow_softness", "edge_definition", "flow_falloff", "view", "contrast", "brightness",
@@ -223,7 +227,10 @@ def setup(n, moved):
     s = 2 * n["size"] * 2 ** (-n["density"] / 50)
     b = n["vertical_bias"] / 100
     shift = (n["offset"][0] + moved[0], n["offset"][1] + moved[1])
-    mx = my = 100 / n["scale"]
+    if n["uniform_scaling"] == "on":
+        mx = my = 100 / n["scale"]
+    else:
+        mx, my = 100 / n["scale_width"], 100 / n["scale_height"]
     t = math.radians(n["rotation"])
     turn = None if n["rotation"] == 0 and mx == 1 and my == 1 else (math.cos(t), math.sin(t), mx, my)
     k = {"s": s, "shift": shift, "z": (n["evolution"] + moved[2]) / 360, "turn": turn,
@@ -443,7 +450,7 @@ def case(source="internal", speed=10, direction=0, size=100, offset=(0, 0), evol
          view="final_render", contrast=100, brightness=0, clip_hdr_results="on", channel="rgb",
          shift=0, tile=False, float_depth=False, source_layer="", softness=0,
          source_mapping="fill", mirror_at_edge="off", rotation=0, scale=100,
-         perspective_offset="off"):
+         perspective_offset="off", uniform_scaling="on", scale_width=100, scale_height=100):
     c = dict(locals())
     c["drawing"] = "card"
     return c
@@ -488,7 +495,7 @@ def the_map(c):
 
 def render(c, frame_no):
     n = {k: held(c, k, frame_no) for k in RANGES}
-    n.update(perspective_offset=c["perspective_offset"])
+    n.update(perspective_offset=c["perspective_offset"], uniform_scaling=c["uniform_scaling"])
     if c["source"] == "other_layer" and c["source_layer"] not in MAPS:
         return plain(c)  # D-189: a layer not in the composition, the frame without the effect
     words = {k: c[k] for k in WORDS + ("mirror_at_edge",)}
