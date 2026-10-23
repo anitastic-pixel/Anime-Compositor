@@ -40,9 +40,9 @@ moved, and shows you what the relink would do before it does it.
 (`Ctrl+]`, `Ctrl+[`), hide one, lock one. Give a layer its exposure sheet — which drawing is on
 screen for which frames. Set a layer's anchor, position, scale, rotation and opacity, by typing
 a number or by dragging its label; a whole drag is one thing to undo, not thirty. Use one layer
-as another's track matte, showing the matte layer or not. Add, bypass and delete effects, which
-run in the order they were added: this build has three, an exposure adjustment, a Gaussian blur
-and a tint.
+as another's track matte, showing the matte layer or not. Give a layer one of eight blend modes.
+Draw masks with the pen and shape tools, and key any setting over time. Add, bypass, reorder and
+delete effects: this build has about 270, each listed in `docs/effects/EFFECTS.md`.
 
 **Undo.** Everything above, backwards and forwards, `Ctrl+Z` and `Ctrl+Shift+Z`, with the window
 naming what it is about to undo rather than saying "undo".
@@ -58,9 +58,9 @@ the file you saved yourself. If the program stops without saving, the next start
 copies newest first; choosing one opens it as unsaved work against the project on disk, so the
 file is only overwritten if you save it.
 
-**Export.** Writes the shot as a PNG sequence — **Export…** or `Ctrl+M`, into a folder you
-choose. Every frame is written at full size, whatever resolution the preview happens to be
-showing, named for the project and the frame number. It exports the shot as it was when you
+**Export.** Writes the shot — **Export…** or `Ctrl+M` — as a PNG or EXR sequence into a folder you
+choose, or as one animated PNG, GIF or MP4 file. Every frame is written at full size, whatever
+resolution the preview happens to be showing, named for the project and the frame number. It exports the shot as it was when you
 asked, so changing something while it runs does not change what is being written, and you can
 stop it: the frame being written is finished and the rest are not started.
 
@@ -71,18 +71,11 @@ when it arrived, including the parts this version cannot read.
 
 ## What it does not do yet
 
-- **A composition's size, rate and length are fixed once it is made.** There is a control that
-  makes one and no control that changes one afterwards, so a shot that needs a different size is
-  a new composition rather than an edited one.
-- **It cannot draw a mask or make a keyframe.** Both exist in the file format, both are drawn
-  correctly when a project arrives with them, and both survive a save. There is simply no
-  control in this window that creates one, so everything you set here holds for the whole shot.
-- **It cannot change a blend mode or the order of a layer's effects.** The layer panel shows
-  which blend mode a layer has — normal, multiply, screen or add — and all four are composited
-  correctly, but the value comes from the file. Effects run in the order they were added and
-  there is no way to move one.
-- **Three effects.** An exposure adjustment, a Gaussian blur and a tint. A project using any
-  other effect keeps it, renders without it, and says which one it skipped.
+- **Eight layer blend modes.** Normal, Multiply, Screen, Add, Overlay, Soft Light and the two
+  stencils (Alpha and Luma). After Effects has about thirty more.
+- **Not every After Effects effect, and not every setting of the ones it has.**
+  `docs/effects/EFFECTS.md` lists what each effect does and what it leaves out. A project using
+  an effect this build does not have keeps it, renders without it, and says which one it skipped.
 - **An export stops on a missing drawing, and there is no progress bar.** If any frame in the
   range needs a drawing that is not on disk, nothing is written and you are told which frames and
   what to do about it; the checkbox beside the button writes them anyway, with the missing
@@ -92,7 +85,8 @@ when it arrived, including the parts this version cannot read.
   copies; anything newer than the last copy is not in it, and nothing it writes replaces your
   file. Save deliberately.
 - **Previews are drawn on the graphics card when there is one; exports are drawn on the
-  processor.** Video is exported as MP4 (H.264) over black, with no sound.
+  processor.** Video is exported as MP4 (H.264) over black, with sound; there is no video with
+  transparency.
 - **Whether a shot previews at full speed depends on whether its drawings fit in memory.** The
   speed this project measures itself against is 24 frames a second, which allows 41.7 ms a
   frame. The viewer keeps decoded drawings and effect results in memory, up to a quarter of the
