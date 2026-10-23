@@ -562,7 +562,10 @@ pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
 /// D-208: four colours, encoded 0 to 1, pinned to four points in the buffer's pixels, mixed at
 /// each pixel that shows by (nearest distance / distance) to the power 200 / `blend`, and laid on
 /// by `mode` at `opacity`, 0 to 100, as Gradient lays its colour on; each pixel keeps its own
-/// covering. The settings are already valid.
+/// covering. The settings are already valid. D-758: `jitter`, 0 to 100, nudges each weight by
+/// up to `jitter` / 1000 of itself with [`unit`] fixed to the pixel's place in the drawing's own
+/// space (its corner at `(ox, oy)` in `source`); 0 changes nothing.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn four_color_gradient(
     source: &mut WorkingBuffer,
     points: [(f64, f64); 4],
@@ -570,6 +573,8 @@ pub(crate) fn four_color_gradient(
     blend: f64,
     opacity: f64,
     mode: &str,
+    jitter: f64,
+    (ox, oy): (usize, usize),
 ) {
     if opacity == 0.0 {
         return;
@@ -577,6 +582,7 @@ pub(crate) fn four_color_gradient(
     let w = source.width();
     // Squared distances, so the power is halved.
     let (e, o, mix) = (100.0 / blend, opacity / 100.0, mixer(mode));
+    let (j, seed) = (jitter / 1000.0, self::mix(0));
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -589,13 +595,19 @@ pub(crate) fn four_color_gradient(
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let d = points.map(|(sx, sy)| (x - sx) * (x - sx) + (y - sy) * (y - sy));
             let m = d.iter().copied().fold(f64::INFINITY, f64::min);
-            let wk = d.map(|d| {
+            let mut wk = d.map(|d| {
                 if m == 0.0 {
                     f64::from(u8::from(d == 0.0))
                 } else {
                     (m / d).powf(e)
                 }
             });
+            if j != 0.0 && m != 0.0 {
+                let (gx, gy) = ((i % w) as i64 - ox as i64, (i / w) as i64 - oy as i64);
+                for (k, v) in wk.iter_mut().enumerate() {
+                    *v *= 1.0 + j * unit(seed, gx, gy, 0, k as u64);
+                }
+            }
             let sum: f64 = wk.iter().sum();
             for c in 0..3 {
                 let g = to_linear((0..4).map(|k| wk[k] * colors[k][c]).sum::<f64>() / sum);

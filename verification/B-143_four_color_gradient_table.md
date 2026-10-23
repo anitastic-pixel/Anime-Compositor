@@ -76,7 +76,7 @@ D-208, accepted on 2026-09-28 with the After Effects picks (B6). Every expected 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it never grows the layer: it declares no growth | 0 | yes |
-| a half-size draft preview changes nothing: the points are in per cent, and blend and opacity are not distances | FourColorGradient { point_1: [10.0, 10.0], point_2: [90.0, 10.0], point_3: [10.0, 90.0], point_4: [90.0, 90.0], color_1: "#ffff00", color_2: "#00ff00", color_3: "#ff00ff", color_4: "#0000ff", blend: 60.0, opacity: 80.0, blending_mode: "multiply" } | yes |
+| a half-size draft preview changes nothing: the points are in per cent, and blend and opacity are not distances | FourColorGradient { point_1: [10.0, 10.0], point_2: [90.0, 10.0], point_3: [10.0, 90.0], point_4: [90.0, 90.0], color_1: "#ffff00", color_2: "#00ff00", color_3: "#ff00ff", color_4: "#0000ff", blend: 60.0, opacity: 80.0, blending_mode: "multiply", jitter: 0.0 } | yes |
 
 ## The file
 

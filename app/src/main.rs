@@ -5278,6 +5278,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             blend: 100.0,
             opacity: 100.0,
             blending_mode: "normal".to_string(),
+            jitter: 0.0,
         }),
         // D-209: After Effects' own start, bubbles sixty pixels a cell, black to white.
         CELL_PATTERN => Some(Effect::CellPattern {
@@ -8485,6 +8486,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             blend: number("blend")?,
             opacity: number("opacity")?,
             blending_mode: word("blending_mode")?,
+            jitter: if parameter(query, "jitter").is_some() { number("jitter")? } else { 0.0 },
         }),
         CELL_PATTERN => Ok(Effect::CellPattern {
             pattern: word("pattern")?,

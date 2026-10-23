@@ -1448,6 +1448,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if *vertical_radius != 0.0 || *taper_radius != 0.0)
         // D-307: the card turns the master only.
         && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, .. } if *ranges != [[0.0; 3]; 6])
+        // D-758: the card mixes 4-Color Gradient's weights without jitter only.
+        // ponytail: hash the jitter on the card if a jittered gradient is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::FourColorGradient { jitter, .. } if *jitter != 0.0)
         // D-306: the card pushes both ways, unpinned, only.
         && !matches!(&instance.effect, crate::effects::Effect::TurbulentDisplace { displacement, pinning, .. }
             if displacement != "turbulent" || pinning != "none")

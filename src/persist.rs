@@ -5089,6 +5089,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             blend,
             opacity,
             blending_mode,
+            jitter,
         } => {
             for (name, p) in [
                 ("point_1", point_1),
@@ -5109,6 +5110,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blend".into(), num(*blend));
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+            // D-758: written only when set, keyed or already there, so an older file saves as it was.
+            if *jitter != 0.0 || instance.tracks.contains_key("jitter") || params.contains_key("jitter") {
+                params.insert("jitter".into(), num(*jitter));
+            }
         }
         Effect::CellPattern {
             pattern,
@@ -11266,6 +11271,7 @@ fn parse_effect(
             blend: effect_number(params, "blend", at)?,
             opacity: effect_number(params, "opacity", at)?,
             blending_mode: effect_word(params, "blending_mode", at)?,
+            jitter: effect_number_or(params, "jitter", at, 0.0)?,
         }),
         crate::effects::CELL_PATTERN => Some(crate::effects::Effect::CellPattern {
             pattern: effect_word(params, "pattern", at)?,

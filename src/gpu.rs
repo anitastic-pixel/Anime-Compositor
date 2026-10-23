@@ -22275,6 +22275,8 @@ impl Gpu {
                 blend: b,
                 opacity,
                 blending_mode,
+                // D-758: a jitter above 0 is drawn on the processor (compose.rs).
+                jitter: _,
             } => {
                 let mut k: Vec<f64> = [point_1, point_2, point_3, point_4]
                     .iter()

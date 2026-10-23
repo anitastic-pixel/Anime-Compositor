@@ -2267,7 +2267,7 @@ pub enum Effect {
     /// D-208: `point_1` to `point_4`, per cent of the drawing's width and height, each -1000 to
     /// 1000; `color_1` to `color_4`, `#rrggbb`; `blend`, 1 to 1000; `opacity`, 0 to 100; and
     /// `blending_mode`, "normal", "multiply", "screen" or "add", kept as written so a wrong one is
-    /// reported.
+    /// reported. D-758: `jitter`, 0 to 100, absent 0.
     FourColorGradient {
         point_1: [f64; 2],
         point_2: [f64; 2],
@@ -2280,6 +2280,7 @@ pub enum Effect {
         blend: f64,
         opacity: f64,
         blending_mode: String,
+        jitter: f64,
     },
     /// D-209: `pattern`, "bubbles", "crystals", "plates" or "static_plates", and `invert`, "on"
     /// or "off", kept as written so a wrong one is reported; `contrast`, 0 to 1000; `disperse`, 0
@@ -10693,6 +10694,7 @@ impl Effect {
                 point_4,
                 blend,
                 opacity,
+                jitter,
                 ..
             } => vec![
                 ("point_1", point_1.iter_mut().collect(), -1000.0, 1000.0),
@@ -10701,6 +10703,7 @@ impl Effect {
                 ("point_4", point_4.iter_mut().collect(), -1000.0, 1000.0),
                 ("blend", vec![blend], 1.0, 1000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
+                ("jitter", vec![jitter], 0.0, 100.0),
             ],
             Effect::CellPattern {
                 contrast,
@@ -19244,6 +19247,7 @@ pub(crate) fn apply_stack_at(
                 blend,
                 opacity,
                 blending_mode,
+                jitter,
             } => crate::perf::time(crate::perf::Stage::EffectFourColorGradient, || {
                 let points = [point_1, point_2, point_3, point_4]
                     .map(|p| radial_center(*p, (source.width(), source.height()), (ox, oy)));
@@ -19255,6 +19259,8 @@ pub(crate) fn apply_stack_at(
                     *blend,
                     *opacity,
                     blending_mode,
+                    *jitter,
+                    (ox, oy),
                 )
             }),
             // D-209: the cells are the drawing's own, however an effect above grew it.

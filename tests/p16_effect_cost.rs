@@ -998,6 +998,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 blend: 100.0,
                 opacity: 100.0,
                 blending_mode: "normal".into(),
+                jitter: 0.0,
             },
         ),
         (

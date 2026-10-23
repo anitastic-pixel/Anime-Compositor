@@ -4196,6 +4196,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("blend", "60"),
             ("opacity", "80"),
             ("blending_mode", "multiply"),
+            ("jitter", "40"),
         ],
     ),
     // D-209: the two words, the six numbers, the two colours and the blend.

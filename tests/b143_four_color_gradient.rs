@@ -35,6 +35,7 @@ fn gradient(p: [[f64; 2]; 4], c: [&str; 4], blend: f64, opacity: f64, mode: &str
         blend,
         opacity,
         blending_mode: mode.to_string(),
+        jitter: 0.0,
     }
 }
 
@@ -136,6 +137,7 @@ fn stack(steps: &[&Effect]) -> J {
                     blend,
                     opacity,
                     blending_mode,
+                    ..
                 } = e
                 else {
                     unreachable!()
@@ -166,7 +168,8 @@ fn b143_four_color_gradient() {
     );
 
     t.heading("FX-4CG-001 to 026 (document 25)");
-    t.fixtures("expected_four_color_gradient.json");
+    // B-637's check takes FX-4CG-027 to 037.
+    t.fixtures_numbered("expected_four_color_gradient.json", 1..=26);
 
     t.heading("How far it reaches");
     let got = plain(100.0, 100.0, "normal").bounds_expansion();

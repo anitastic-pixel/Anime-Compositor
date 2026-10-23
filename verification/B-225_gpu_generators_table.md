@@ -4,11 +4,11 @@ Written by `tests/b225_gpu_generators.rs`. The card: NVIDIA GeForce RTX 4070 Ti 
 
 Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning and Bevel Edges (D-344) and Radio Waves (D-345), each the CPU's rule on the card. The bolt's segments and the waves are worked out by the CPU and handed to the card as a list, so their seeds stay the CPU's (P0-23).
 
-The cases: every fixture naming one of the six (210 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 22 settings, at frames 0, 100 and 239. Each at Full and Draft.
+The cases: every fixture naming one of the six (221 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 22 settings, at frames 0, 100 and 239. Each at Full and Draft.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. **The rule: no channel of any pixel more than 1 level of 255 apart** (ADR-006, D-100), except that a pixel 0 of 255 visible on both sides counts as equal whatever its hidden colour (D-345, the owner's choice), the same warnings on both, and on a reference shot row the effect in fact on the card, at Full the first layer's. 8 bpc and After Effects 32 bpc compositions give the card no effect (D-330, D-333); a few frames the card refuses whole (Float depth, an adjustment layer): those must be the CPU's picture exactly, with the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**2276 of 2276 checks pass.**
+**2386 of 2386 checks pass.**
 
 The CPU drawing each plan made for the card draws the plan made for the CPU byte for byte in 44 of 44.
 
@@ -19,7 +19,7 @@ The worst comparison is "the reference shot with CC Light Sweep (4) frame 0, Ful
 | Effect | Frames compared | Frames with an effect on the card | Frames the card refused | Largest difference (of 255) | Pass |
 |---|---:|---:|---:|---:|---|
 | Beam | 308 | 208 | 0 | 1 | 308 of 308 |
-| 4-Color Gradient | 284 | 184 | 0 | 1 | 284 of 284 |
+| 4-Color Gradient | 394 | 196 | 0 | 1 | 394 of 394 |
 | CC Light Sweep | 284 | 192 | 0 | 1 | 284 of 284 |
 | Advanced Lightning | 940 | 688 | 0 | 1 | 940 of 940 |
 | Bevel Edges | 128 | 88 | 0 | 1 | 128 of 128 |
@@ -691,6 +691,116 @@ Effects left to the card on the first three layers.
 | four_color_gradient/fx_4cg_026 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | four_color_gradient/fx_4cg_026 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | four_color_gradient/fx_4cg_026 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_027 frame 0, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 1, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 2, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 3, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 4, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_027 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 1, Draft | 1 | 1 | 1 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 2, Draft | 1 | 1 | 1 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 3, Draft | 1 | 1 | 1 | none | PASS |
+| four_color_gradient/fx_4cg_028 frame 4, Draft | 1 | 1 | 1 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 1, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 3, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_029 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 1, Full | 0 | 1 | 5 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 2, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 3, Full | 0 | 1 | 5 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_030 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 0, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 1, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 2, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 3, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 4, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_031 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 0, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 1, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 2, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 3, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 4, Full | 0 | 1 | 3 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_032 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 1, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 3, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_033 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_034 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| four_color_gradient/fx_4cg_035 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 0, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 1, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_035 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 0, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 1, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_036 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 0, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 1, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| four_color_gradient/fx_4cg_037 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | light_sweep/fx_sweep_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | light_sweep/fx_sweep_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | light_sweep/fx_sweep_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
