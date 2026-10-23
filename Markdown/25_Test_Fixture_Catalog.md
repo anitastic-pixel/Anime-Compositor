@@ -215794,3 +215794,25 @@ FX-PMASS-014 (`fx_pmass_014.json`): Persistent for the Cannon only, Mass 4 and X
 FX-PMASS-015 (`fx_pmass_015.json`): Persistent Map Red To "Mass", a capital M: the words are lowercase. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PMASS-016 (`fx_pmass_016.json`): Ephemeral Map Green To "weight", not a property. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### A layer's eight more blend modes (D-748)
+
+A layer's Darken, Lighten, Hard Light, Difference, Hue, Saturation, Color and Luminosity (B-627): `tools/layer_blend_modes_reference.py` writes `Fixtures/layer_blend_modes/expected_layer_blend_modes.json` and `fx_lblend_001.json` to `fx_lblend_009.json`. Each drawn case is a 10 by 8 composition: four opaque backdrop strips two pixels wide, encoded (0.25, 0.75, 0.5), (0.9, 0.2, 0.1), (0.1, 0.3, 0.95) and (0.5, 0.5, 0.5), columns 8 and 9 clear; above them four strips two pixels tall in the mode, encoded (0.8, 0.3, 0.5), (0.2, 0.9, 0.6), (1, 0.85, 0.1) and (0.35, 0.1, 0.7) at 50 percent. Every pixel of frame 0, linear premultiplied, tolerance 2e-5. The rule is in document 21. Checked by `tests/b627_layer_blend_modes.rs`.
+
+FX-LBLEND-001 (`fx_lblend_001.json`): Hard Light: Overlay with the two swapped, the layer's light half screens and its dark half multiplies; the yellow row lifts red and green and darkens blue. Frames 0.
+
+FX-LBLEND-002 (`fx_lblend_002.json`): Darken: the darker of the two in each channel. Frames 0.
+
+FX-LBLEND-003 (`fx_lblend_003.json`): Lighten: the lighter of the two in each channel. Frames 0.
+
+FX-LBLEND-004 (`fx_lblend_004.json`): Difference: the two apart in each channel; on the grey column the layer's colours turned about 50%. Frames 0.
+
+FX-LBLEND-005 (`fx_lblend_005.json`): Hue: the layer's hue at the backdrop's saturation and lightness; the grey column stays grey. Frames 0.
+
+FX-LBLEND-006 (`fx_lblend_006.json`): Saturation: the backdrop's hue and lightness at the layer's saturation. Frames 0.
+
+FX-LBLEND-007 (`fx_lblend_007.json`): Color: the layer's hue and saturation at the backdrop's lightness. Frames 0.
+
+FX-LBLEND-008 (`fx_lblend_008.json`): Luminosity: the backdrop's hue and saturation at the layer's lightness. Frames 0.
+
+FX-LBLEND-009 (`fx_lblend_009.json`): A mode After Effects has and this program does not, Color Dodge: the file is refused with the reason, which names the sixteen modes it knows; nothing is drawn as another mode (document 28). Error contains `layers/4/blend_mode: expected one of normal, darken, multiply, add, lighten, screen, overlay, soft_light, hard_light, difference, hue, saturation, color, luminosity, stencil_alpha, stencil_luma.`.
