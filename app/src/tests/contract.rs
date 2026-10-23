@@ -2257,6 +2257,15 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("light_color", "%23fff0b0"),
             ("opacity", "60"),
             ("blend", "screen"),
+            // D-743.
+            ("rotation", "30"),
+            ("sub_influence", "80"),
+            ("sub_scaling", "65"),
+            ("sub_rotation", "20"),
+            ("sub_offset", "3, -2"),
+            ("overflow", "soft_clamp"),
+            ("perspective_offset", "on"),
+            ("center_subscale", "on"),
         ],
     ),
     // D-129: the three colours and the two numbers.

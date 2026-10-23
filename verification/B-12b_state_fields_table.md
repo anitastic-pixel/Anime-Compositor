@@ -168,7 +168,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.turbulent_displace` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges, displacement, pinning, new_seed_every, drift_direction, drift_speed, units - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.fractal_noise` is an effect this build has | added | added | pass |
-| and the settings it sends for it - fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend, rotation, sub_influence, sub_scaling, sub_rotation, sub_offset, overflow, perspective_offset, center_subscale - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient_map` is an effect this build has | added | added | pass |
 | and the settings it sends for it - shadow_color, midtone_color, highlight_color, midpoint, amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.color_balance` is an effect this build has | added | added | pass |

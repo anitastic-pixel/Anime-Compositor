@@ -2385,6 +2385,61 @@ fn a_new_channel_blur_starts_in_blurriness() {
     );
 }
 
+/// D-743: a new Fractal Noise starts at After Effects' Sub Influence 70 and Sub Scaling 56, and
+/// each newly shown setting typed in the panel is kept.
+#[test]
+fn b622_fractal_noise_sub_settings_typed_in_the_panel() {
+    let source = repo("Fixtures/projects/unknown_effect_project.json");
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    assert_eq!(
+        run(
+            &viewer,
+            "effect.add?layer=layer-cel&type=core.fractal_noise"
+        ),
+        "Add Fractal Noise"
+    );
+    let said = settings(&viewer, "layer-cel", "fx-1");
+    assert!(
+        said.contains(r#""sub_influence":70"#) && said.contains(r#""sub_scaling":56"#),
+        "{said}"
+    );
+    assert!(
+        !said.contains("rotation") && !said.contains("overflow"),
+        "{said}"
+    );
+    // What the panel sends: every number field and every switch at once.
+    let all =
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&size=100&complexity=4&contrast=100\
+               &brightness=0&evolution=0&speed=0&seed=0&opacity=100&offset=0,0&scale_width=100\
+               &scale_height=100&cycle=0&dark_color=%23000000&light_color=%23ffffff&blend=normal\
+               &fractal_type=basic&noise_type=smooth&invert=off";
+    for (typed, kept) in [
+        ("&rotation=36&sub_influence=70&sub_scaling=56&sub_rotation=0&sub_offset=0,0&overflow=allow_hdr&perspective_offset=off&center_subscale=off", r#""rotation":36"#),
+        ("&rotation=0&sub_influence=77.5&sub_scaling=56&sub_rotation=0&sub_offset=0,0&overflow=allow_hdr&perspective_offset=off&center_subscale=off", r#""sub_influence":77.5"#),
+        ("&rotation=0&sub_influence=70&sub_scaling=59.7&sub_rotation=0&sub_offset=0,0&overflow=allow_hdr&perspective_offset=off&center_subscale=off", r#""sub_scaling":59.7"#),
+        ("&rotation=0&sub_influence=70&sub_scaling=56&sub_rotation=45&sub_offset=0,0&overflow=allow_hdr&perspective_offset=off&center_subscale=off", r#""sub_rotation":45"#),
+        ("&rotation=0&sub_influence=70&sub_scaling=56&sub_rotation=0&sub_offset=5,3&overflow=allow_hdr&perspective_offset=off&center_subscale=off", r#""sub_offset":[5,3]"#),
+        ("&rotation=0&sub_influence=70&sub_scaling=56&sub_rotation=0&sub_offset=0,0&overflow=clip&perspective_offset=off&center_subscale=off", r#""overflow":"clip""#),
+        ("&rotation=0&sub_influence=70&sub_scaling=56&sub_rotation=0&sub_offset=0,0&overflow=allow_hdr&perspective_offset=on&center_subscale=off", r#""perspective_offset":"on""#),
+        ("&rotation=0&sub_influence=70&sub_scaling=56&sub_rotation=0&sub_offset=0,0&overflow=allow_hdr&perspective_offset=off&center_subscale=on", r#""center_subscale":"on""#),
+    ] {
+        let said = run(&viewer, &format!("{all}{typed}"));
+        assert!(said.starts_with("Change "), "{typed}: {said}");
+        let now = settings(&viewer, "layer-cel", "fx-1");
+        assert!(now.contains(kept), "{typed}: {now}");
+    }
+    // Out of range is refused in Fractal Noise's own words.
+    let said = run(&viewer, &format!("{all}&sub_scaling=5"));
+    assert!(
+        said.contains("sub_scaling")
+            || said.contains("Sub Scaling")
+            || said.contains("sub scaling"),
+        "{said}"
+    );
+    let said = run(&viewer, &format!("{all}&overflow=hdr"));
+    assert!(said.contains("Fractal Noise's overflow"), "{said}");
+}
+
 #[test]
 fn the_effects_panel_builds_a_stack_and_keeps_the_one_it_cannot_draw() {
     let mut report = Report { rows: Vec::new() };

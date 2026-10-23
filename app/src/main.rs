@@ -4122,7 +4122,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             drift_direction: 0.0,
             drift_speed: 0.0,
         }),
-        // D-128: soft grey clouds, still.
+        // D-128: soft grey clouds, still. D-743: Sub Influence 70 and Sub Scaling 56 as After
+        // Effects starts them; a file without them still reads 50 and 50.
         FRACTAL_NOISE => Some(Effect::FractalNoise {
             size: 100.0,
             complexity: 4.0,
@@ -4144,7 +4145,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             cycle: 0.0,
             frame: 0,
             float: false,
-            more: Default::default(),
+            more: anime_compositor::effects::NoiseMore {
+                sub_influence: 70.0,
+                sub_scaling: 56.0,
+                ..Default::default()
+            },
         }),
         // D-129: black, grey and white, which turns the picture grey.
         GRADIENT_MAP => Some(Effect::GradientMap {
@@ -6881,6 +6886,40 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             )),
         }
     };
+    // D-647: Turbulent Noise's further settings; D-743: Fractal Noise's too. Those sent by a
+    // window before them read as added.
+    let noise_more = || -> Result<anime_compositor::effects::NoiseMore, String> {
+        let start = anime_compositor::effects::NoiseMore::default();
+        let num = |key: &str, start: f64| {
+            if parameter(query, key).is_some() {
+                number(key)
+            } else {
+                Ok(start)
+            }
+        };
+        let choice = |key: &str, start: &str| {
+            if parameter(query, key).is_some() {
+                word(key)
+            } else {
+                Ok(start.to_string())
+            }
+        };
+        Ok(anime_compositor::effects::NoiseMore {
+            overflow: choice("overflow", &start.overflow)?,
+            rotation: num("rotation", start.rotation)?,
+            uniform_scaling: choice("uniform_scaling", &start.uniform_scaling)?,
+            perspective_offset: choice("perspective_offset", &start.perspective_offset)?,
+            sub_influence: num("sub_influence", start.sub_influence)?,
+            sub_scaling: num("sub_scaling", start.sub_scaling)?,
+            sub_rotation: num("sub_rotation", start.sub_rotation)?,
+            sub_offset: if parameter(query, "sub_offset").is_some() {
+                pair("sub_offset")?
+            } else {
+                start.sub_offset
+            },
+            center_subscale: choice("center_subscale", &start.center_subscale)?,
+        })
+    };
     // D-130, D-366: a tone as the page sends it, red, green and blue with commas. How many
     // there are is the core's check, in its words.
     let tone = |name: &str| -> Result<Vec<f64>, String> {
@@ -7338,7 +7377,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             cycle: if parameter(query, "cycle").is_some() { number("cycle")? } else { 0.0 },
             frame: 0,
             float: false,
-            more: Default::default(),
+            // D-743: Uniform Scaling stays off; Fractal Noise has Scale Width and Height.
+            more: anime_compositor::effects::NoiseMore {
+                uniform_scaling: "off".into(),
+                ..noise_more()?
+            },
         }),
         GRADIENT_MAP => Ok(Effect::GradientMap {
             shadow_color: word("shadow_color")?,
@@ -9693,23 +9736,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             opacity: number("opacity")?,
             blend: word("blend")?,
             float: false,
-            // D-647: those sent by a window before them read as added.
-            more: {
-                let start = anime_compositor::effects::NoiseMore::default();
-                let num = |key: &str, start: f64| if parameter(query, key).is_some() { number(key) } else { Ok(start) };
-                let choice = |key: &str, start: &str| if parameter(query, key).is_some() { word(key) } else { Ok(start.to_string()) };
-                anime_compositor::effects::NoiseMore {
-                    overflow: choice("overflow", &start.overflow)?,
-                    rotation: num("rotation", start.rotation)?,
-                    uniform_scaling: choice("uniform_scaling", &start.uniform_scaling)?,
-                    perspective_offset: choice("perspective_offset", &start.perspective_offset)?,
-                    sub_influence: num("sub_influence", start.sub_influence)?,
-                    sub_scaling: num("sub_scaling", start.sub_scaling)?,
-                    sub_rotation: num("sub_rotation", start.sub_rotation)?,
-                    sub_offset: if parameter(query, "sub_offset").is_some() { pair("sub_offset")? } else { start.sub_offset },
-                    center_subscale: choice("center_subscale", &start.center_subscale)?,
-                }
-            },
+            more: noise_more()?,
         }),
         // D-446: the frame and the depth are set by compose each frame.
         CURL_NOISE => Ok(Effect::CurlNoise {
@@ -18696,10 +18723,10 @@ mod keyed_settings;
 #[cfg(test)]
 #[path = "tests/key_requests.rs"]
 mod key_requests;
-#[cfg(test)]
-#[path = "tests/stretched_values.rs"]
-mod stretched_values;
 /// B-619: the page's lists of shape, mask, group, repeater and path operation names are the core's.
 #[cfg(test)]
 #[path = "tests/name_lists.rs"]
 mod name_lists;
+#[cfg(test)]
+#[path = "tests/stretched_values.rs"]
+mod stretched_values;

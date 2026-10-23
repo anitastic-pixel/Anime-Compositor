@@ -1066,7 +1066,10 @@ pub enum Effect {
         cycle: f64,
         frame: i32,
         float: bool,
-        /// D-647: Turbulent Noise's further settings; always as added for Fractal Noise's own.
+        /// D-647: Turbulent Noise's further settings. D-743: Fractal Noise's own file holds
+        /// `overflow`, `rotation`, `perspective_offset`, `sub_influence`, `sub_scaling`,
+        /// `sub_rotation`, `sub_offset` and `center_subscale`, read as before (50 and 50) when
+        /// absent; its `uniform_scaling` stays off (Scale Width and Height do that).
         more: NoiseMore,
     },
     /// D-445: after After Effects' Turbulent Noise, a second name over Fractal Noise's engine
@@ -7586,6 +7589,7 @@ impl Effect {
                 scale_width,
                 scale_height,
                 cycle,
+                more,
                 ..
             } => vec![
                 ("size", vec![size], 1.0, 1000.0),
@@ -7601,6 +7605,22 @@ impl Effect {
                 ("scale_width", vec![scale_width], 1.0, 10000.0),
                 ("scale_height", vec![scale_height], 1.0, 10000.0),
                 ("cycle", vec![cycle], 0.0, 1000.0),
+                // D-743: the D-647 settings Fractal Noise always drew, now in the panel.
+                ("rotation", vec![&mut more.rotation], -100000.0, 100000.0),
+                ("sub_influence", vec![&mut more.sub_influence], 0.0, 100.0),
+                ("sub_scaling", vec![&mut more.sub_scaling], 10.0, 100.0),
+                (
+                    "sub_rotation",
+                    vec![&mut more.sub_rotation],
+                    -100000.0,
+                    100000.0,
+                ),
+                (
+                    "sub_offset",
+                    more.sub_offset.iter_mut().collect(),
+                    -100000.0,
+                    100000.0,
+                ),
             ],
             Effect::TurbulentNoise {
                 contrast,
@@ -13447,10 +13467,13 @@ impl Effect {
                 fractal_type,
                 noise_type,
                 invert,
+                more,
                 ..
             } => hex_fault("Fractal Noise", "dark colour", dark_color)
                 .or_else(|| hex_fault("Fractal Noise", "light colour", light_color))
-                .or_else(|| fractal_look_fault("Fractal Noise", fractal_type, noise_type, invert)),
+                .or_else(|| fractal_look_fault("Fractal Noise", fractal_type, noise_type, invert))
+                // D-743.
+                .or_else(|| more_fault("Fractal Noise", more)),
             // D-445: in Turbulent Noise's own name.
             // D-647: the further modes.
             Effect::TurbulentNoise { blend, .. } if !TURBULENT_BLENDS.contains(&blend.as_str()) => Some(format!(
@@ -13458,7 +13481,7 @@ impl Effect {
                 TURBULENT_BLENDS.map(|m| format!("\"{m}\"")).join(", ")
             )),
             Effect::TurbulentNoise { fractal_type, noise_type, invert, more, .. } => {
-                fractal_look_fault("Turbulent Noise", fractal_type, noise_type, invert).or_else(|| more_fault(more))
+                fractal_look_fault("Turbulent Noise", fractal_type, noise_type, invert).or_else(|| more_fault("Turbulent Noise", more))
             }
             Effect::GradientMap {
                 shadow_color,
@@ -20405,11 +20428,11 @@ pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
 }
 
 /// D-647: an Overflow or a switch not among its words.
-fn more_fault(more: &NoiseMore) -> Option<String> {
+fn more_fault(effect: &str, more: &NoiseMore) -> Option<String> {
     if !OVERFLOWS.contains(&more.overflow.as_str()) {
         let quoted = OVERFLOWS.map(|m| format!("\"{m}\"")).join(", ");
         return Some(format!(
-            "Turbulent Noise's overflow is one of {quoted}, and this is \"{}\".",
+            "{effect}'s overflow is one of {quoted}, and this is \"{}\".",
             more.overflow
         ));
     }
@@ -20420,7 +20443,7 @@ fn more_fault(more: &NoiseMore) -> Option<String> {
     ]
     .into_iter()
     .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
-    .map(|(name, v)| format!("Turbulent Noise's {name} is \"off\" or \"on\", and this is \"{v}\"."))
+    .map(|(name, v)| format!("{effect}'s {name} is \"off\" or \"on\", and this is \"{v}\"."))
 }
 
 /// D-647: the octaves' Transform and Sub Settings for [`crate::grade::fractal_warped`], or None

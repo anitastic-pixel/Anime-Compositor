@@ -1189,6 +1189,68 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     merged
 }
 
+/// D-647: Turbulent Noise's further settings, as D-304 written only if moved, keyed or already
+/// in the file. D-743: Fractal Noise's too, without Uniform Scaling (`uniform` false), which it
+/// does not draw.
+fn noise_more_json(
+    more: &crate::effects::NoiseMore,
+    uniform: bool,
+    instance: &crate::effects::EffectInstance,
+    params: &mut Map<String, J>,
+) {
+    let numbers = [
+        ("rotation", more.rotation, 0.0),
+        ("sub_influence", more.sub_influence, 50.0),
+        ("sub_scaling", more.sub_scaling, 50.0),
+        ("sub_rotation", more.sub_rotation, 0.0),
+    ];
+    for (key, value, start) in numbers {
+        if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+            params.insert(key.into(), num(value));
+        }
+    }
+    if more.sub_offset != [0.0; 2]
+        || instance.tracks.contains_key("sub_offset")
+        || params.contains_key("sub_offset")
+    {
+        params.insert(
+            "sub_offset".into(),
+            J::Array(more.sub_offset.iter().map(|v| num(*v)).collect()),
+        );
+    }
+    let words = [
+        ("overflow", &more.overflow, "allow_hdr"),
+        ("uniform_scaling", &more.uniform_scaling, "off"),
+        ("perspective_offset", &more.perspective_offset, "off"),
+        ("center_subscale", &more.center_subscale, "off"),
+    ];
+    for (key, value, start) in words {
+        if (uniform || key != "uniform_scaling") && (value != start || params.contains_key(key)) {
+            params.insert(key.into(), J::from(value.as_str()));
+        }
+    }
+}
+
+/// D-647: Turbulent Noise's further settings; a file without them reads them as added (D-304).
+/// D-743: Fractal Noise's too, which before D-743 were always as added, so an older file draws
+/// as it did.
+fn noise_more(params: Option<&J>, at: &str) -> Result<crate::effects::NoiseMore, Diagnostic> {
+    Ok(crate::effects::NoiseMore {
+        overflow: effect_word_or(params, "overflow", at, "allow_hdr")?,
+        rotation: effect_number_or(params, "rotation", at, 0.0)?,
+        uniform_scaling: effect_word_or(params, "uniform_scaling", at, "off")?,
+        perspective_offset: effect_word_or(params, "perspective_offset", at, "off")?,
+        sub_influence: effect_number_or(params, "sub_influence", at, 50.0)?,
+        sub_scaling: effect_number_or(params, "sub_scaling", at, 50.0)?,
+        sub_rotation: effect_number_or(params, "sub_rotation", at, 0.0)?,
+        sub_offset: match params.and_then(|p| p.get("sub_offset")) {
+            Some(_) => effect_array(params, "sub_offset", "two numbers, x then y", at)?,
+            None => [0.0, 0.0],
+        },
+        center_subscale: effect_word_or(params, "center_subscale", at, "off")?,
+    })
+}
+
 /// One effect instance as JSON.
 ///
 /// An unsupported effect writes back only its identity and enabled flag; its parameters come
@@ -1896,8 +1958,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             scale_width,
             scale_height,
             cycle,
+            more,
             ..
         } => {
+            // D-743.
+            noise_more_json(more, false, instance, &mut params);
             // D-299: as D-121, each at its start, without keys, written only if the file had
             // it, so a file that never changed them saves as before.
             for (key, value, start) in [
@@ -6107,38 +6172,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("seed".into(), num(*seed));
             params.insert("opacity".into(), num(*opacity));
             params.insert("blend".into(), J::from(blend.as_str()));
-            // D-647: as D-304, written only if moved, keyed or already in the file.
-            let numbers = [
-                ("rotation", more.rotation, 0.0),
-                ("sub_influence", more.sub_influence, 50.0),
-                ("sub_scaling", more.sub_scaling, 50.0),
-                ("sub_rotation", more.sub_rotation, 0.0),
-            ];
-            for (key, value, start) in numbers {
-                if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
-                    params.insert(key.into(), num(value));
-                }
-            }
-            if more.sub_offset != [0.0; 2]
-                || instance.tracks.contains_key("sub_offset")
-                || params.contains_key("sub_offset")
-            {
-                params.insert(
-                    "sub_offset".into(),
-                    J::Array(more.sub_offset.iter().map(|v| num(*v)).collect()),
-                );
-            }
-            let words = [
-                ("overflow", &more.overflow, "allow_hdr"),
-                ("uniform_scaling", &more.uniform_scaling, "off"),
-                ("perspective_offset", &more.perspective_offset, "off"),
-                ("center_subscale", &more.center_subscale, "off"),
-            ];
-            for (key, value, start) in words {
-                if value != start || params.contains_key(key) {
-                    params.insert(key.into(), J::from(value.as_str()));
-                }
-            }
+            noise_more_json(more, true, instance, &mut params);
         }
         // D-446: the frame and the composition's depth are never saved.
         Effect::CurlNoise {
@@ -9076,7 +9110,11 @@ fn parse_effect(
             cycle: effect_number_or(params, "cycle", at, 0.0)?,
             frame: 0,
             float: false,
-            more: Default::default(),
+            // D-743: Uniform Scaling stays off; Fractal Noise has Scale Width and Height.
+            more: crate::effects::NoiseMore {
+                uniform_scaling: "off".into(),
+                ..noise_more(params, at)?
+            },
         }),
         // D-129: the colours are read in small letters, as a new colour is.
         crate::effects::GRADIENT_MAP => Some(crate::effects::Effect::GradientMap {
@@ -11683,21 +11721,7 @@ fn parse_effect(
             opacity: effect_number(params, "opacity", at)?,
             blend: effect_word(params, "blend", at)?,
             float: false,
-            // D-647: a file without them reads them as added (D-304).
-            more: crate::effects::NoiseMore {
-                overflow: effect_word_or(params, "overflow", at, "allow_hdr")?,
-                rotation: effect_number_or(params, "rotation", at, 0.0)?,
-                uniform_scaling: effect_word_or(params, "uniform_scaling", at, "off")?,
-                perspective_offset: effect_word_or(params, "perspective_offset", at, "off")?,
-                sub_influence: effect_number_or(params, "sub_influence", at, 50.0)?,
-                sub_scaling: effect_number_or(params, "sub_scaling", at, 50.0)?,
-                sub_rotation: effect_number_or(params, "sub_rotation", at, 0.0)?,
-                sub_offset: match params.and_then(|p| p.get("sub_offset")) {
-                    Some(_) => effect_array(params, "sub_offset", "two numbers, x then y", at)?,
-                    None => [0.0, 0.0],
-                },
-                center_subscale: effect_word_or(params, "center_subscale", at, "off")?,
-            },
+            more: noise_more(params, at)?,
         }),
         crate::effects::CURL_NOISE => Some(crate::effects::Effect::CurlNoise {
             source: effect_word(params, "source", at)?,

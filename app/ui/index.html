@@ -11083,7 +11083,13 @@ const EFFECT_PARAMS = {
     ['offset', 'Offset Turbulence', 2, 1, 'pixels, x then y, -100000 to 100000'],
     ['scale_width', 'Scale Width', 1, 0.5, 'per cent of the size, 1 to 10000', '', 100],
     ['scale_height', 'Scale Height', 1, 0.5, 'per cent of the size, 1 to 10000', '', 100],
-    ['cycle', 'Cycle Evolution', 1, 1, 'turns before it repeats, 0 for never, 0 to 1000']],
+    ['cycle', 'Cycle Evolution', 1, 1, 'turns before it repeats, 0 for never, 0 to 1000'],
+    // D-743: the Transform and Sub Settings it always drew; a project without them reads 50 and 50.
+    ['rotation', 'Rotation', 1, 1, 'degrees, turns the clouds round the layer’s middle', 'dial'],
+    ['sub_influence', 'Sub Influence', 1, 0.5, 'per cent, 0 to 100, how strong each finer layer of detail is', '', 50],
+    ['sub_scaling', 'Sub Scaling', 1, 0.5, 'per cent, 10 to 100, how much smaller each finer layer of detail is', '', 50],
+    ['sub_rotation', 'Sub Rotation', 1, 1, 'degrees, turns each finer layer of detail further', 'dial'],
+    ['sub_offset', 'Sub Offset', 2, 1, 'pixels, x then y, slides each finer layer of detail further']],
   // D-445, After Effects' own words.
   'core.turbulent_noise': [['contrast', 'Contrast', 1, 1, '0 to 1000'],
     ['brightness', 'Brightness', 1, 0.5, '-1000 to 1000'],
@@ -12954,7 +12960,11 @@ const EFFECT_WORDS = {
       // D-299.
       ['fractal_type', 'Fractal Type', FRACTAL_TYPE_WORDS],
       ['noise_type', 'Noise Type', NOISE_TYPE_WORDS],
-      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
+      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
+      // D-743.
+      ['overflow', 'Overflow', [['allow_hdr', 'Allow HDR Results'], ['clip', 'Clip'], ['soft_clamp', 'Soft Clamp'], ['wrap_back', 'Wrap Back']]],
+      ['perspective_offset', 'Perspective Offset', [['off', 'Off'], ['on', 'On']]],
+      ['center_subscale', 'Center Subscale', [['off', 'Off'], ['on', 'On']]]],
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
   // D-445.
