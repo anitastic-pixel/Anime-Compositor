@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **108 of 108 checks pass.**
 
-The worst comparison is "the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full": largest difference 1 of 255, pixels differing: 21543. Its pictures are in `verification/B-52 pictures/`: `card_cpu.png`, `card_gpu.png`, and `card_difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full": largest difference 1 of 255, pixels differing: 23283. Its pictures are in `verification/B-52 pictures/`: `card_cpu.png`, `card_gpu.png`, and `card_difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -50,21 +50,21 @@ The worst comparison is "the reference shot with a Directional Blur at 45 degree
 | fx_edges_004 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_004 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_004 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_005 frame 0, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_005 frame 1, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_005 frame 2, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_005 frame 3, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_005 frame 4, Full | 1 | 1 | 2 | none | PASS |
+| fx_edges_005 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_005 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_005 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_005 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_005 frame 4, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_005 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_005 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_005 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_005 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_005 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_006 frame 0, Full | 1 | 0 | 0 | none | PASS |
-| fx_edges_006 frame 1, Full | 1 | 0 | 0 | none | PASS |
-| fx_edges_006 frame 2, Full | 1 | 0 | 0 | none | PASS |
-| fx_edges_006 frame 3, Full | 1 | 0 | 0 | none | PASS |
-| fx_edges_006 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_006 frame 0, Full | 1 | 1 | 1 | none | PASS |
+| fx_edges_006 frame 1, Full | 1 | 1 | 1 | none | PASS |
+| fx_edges_006 frame 2, Full | 1 | 1 | 1 | none | PASS |
+| fx_edges_006 frame 3, Full | 1 | 1 | 1 | none | PASS |
+| fx_edges_006 frame 4, Full | 1 | 1 | 1 | none | PASS |
 | fx_edges_006 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_006 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_006 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -90,24 +90,24 @@ The worst comparison is "the reference shot with a Directional Blur at 45 degree
 | fx_edges_008 frame 2, Draft | 1 | 1 | 1 | none | PASS |
 | fx_edges_008 frame 3, Draft | 1 | 1 | 1 | none | PASS |
 | fx_edges_008 frame 4, Draft | 1 | 1 | 1 | none | PASS |
-| fx_edges_009 frame 0, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_009 frame 1, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_009 frame 2, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_009 frame 3, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_009 frame 4, Full | 1 | 1 | 2 | none | PASS |
-| fx_edges_009 frame 0, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_009 frame 1, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_009 frame 2, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_009 frame 3, Draft | 1 | 0 | 0 | none | PASS |
-| fx_edges_009 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_edges_009 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_009 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_009 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_009 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_009 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_edges_009 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_009 frame 1, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_009 frame 2, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_009 frame 3, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_009 frame 4, Draft | 1 | 1 | 1 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 0, Full | 1 | 1 | 21321 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 239, Full | 1 | 1 | 21154 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 0, Draft | 1 | 1 | 968 | none | PASS |
 | the reference shot with a Gaussian Blur of sigma 10, edges repeat, on the background frame 239, Draft | 1 | 1 | 940 | none | PASS |
-| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full | 1 | 1 | 21543 | none | PASS |
-| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Full | 1 | 1 | 21332 | none | PASS |
-| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Draft | 1 | 1 | 1232 | none | PASS |
-| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Draft | 1 | 1 | 1204 | none | PASS |
+| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Full | 1 | 1 | 23283 | none | PASS |
+| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Full | 1 | 1 | 23053 | none | PASS |
+| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 0, Draft | 1 | 1 | 1486 | none | PASS |
+| the reference shot with a Directional Blur at 45 degrees, 60 long, edges repeat, on the background frame 239, Draft | 1 | 1 | 1449 | none | PASS |
 | the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 0, Full | 1 | 1 | 16606 | none | PASS |
 | the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 239, Full | 1 | 1 | 16462 | none | PASS |
 | the reference shot with a Radial Blur, spin 30 about the middle, edges repeat, on the background frame 0, Draft | 1 | 1 | 778 | none | PASS |

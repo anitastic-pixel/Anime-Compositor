@@ -34,7 +34,7 @@ B-240, after CycoreFX's CC Radial Blur: each pixel averaged along a circle round
 | FX-SPINZOOM-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SPINZOOM-013 frame 0: Straight zoom -30: the points run outward from the pixel, so the streaks run inward, toward the centre. | largest difference 2.5e-7 | yes |
 | FX-SPINZOOM-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-SPINZOOM-014 frame 0: A directional blur, direction 90 and length 4, then rotate fading 30 about 0, 0: the grown layer is read, the centre still the drawing's corner. | largest difference 1.6e-7 | yes |
+| FX-SPINZOOM-014 frame 0: A directional blur, direction 90 and length 4, then rotate fading 30 about 0, 0: the grown layer is read, the centre still the drawing's corner. | largest difference 1.7e-7 | yes |
 | FX-SPINZOOM-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SPINZOOM-015 frame 0: Rotate 360 about -1000, -1000: every path is longer than 255 pixels, so each takes the most points, 256. | largest difference 1.5e-9 | yes |
 | FX-SPINZOOM-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -138,7 +138,7 @@ B-240, after CycoreFX's CC Radial Blur: each pixel averaged along a circle round
 | fx_spinzoom_011.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_spinzoom_012.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_spinzoom_013.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
-| fx_spinzoom_014.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
+| fx_spinzoom_014.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_spinzoom_015.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_spinzoom_016.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_spinzoom_017.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |

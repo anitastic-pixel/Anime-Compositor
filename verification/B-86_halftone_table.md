@@ -44,7 +44,7 @@ D-143, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | FX-HALFTONE-015 frame 0: FX-HALFTONE-001 moved three pixels right: the same, moved; the screen moves with the drawing. | largest difference 3.0e-8 | yes |
 | FX-HALFTONE-015 frame 3: FX-HALFTONE-001 moved three pixels right: the same, moved; the screen moves with the drawing. | largest difference 3.0e-8 | yes |
 | FX-HALFTONE-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-HALFTONE-016 frame 0: A directional blur, direction 90 and length 4, then the halftone as it starts: the blur grew the layer two pixels on every side, and the screen is still the drawing's own, fixed to its own top left corner, not the grown layer's, and the blurred pixels, the empty corner now partly covered among them, are screened at their own covering. | largest difference 3.0e-8 | yes |
+| FX-HALFTONE-016 frame 0: A directional blur, direction 90 and length 4, then the halftone as it starts: the blur grew the layer two pixels on every side, and the screen is still the drawing's own, fixed to its own top left corner, not the grown layer's, and the blurred pixels, the empty corner now partly covered among them, are screened at their own covering. | largest difference 3.2e-8 | yes |
 | FX-HALFTONE-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-HALFTONE-017 frame 0: Angle 405, a whole turn past 45: the same as FX-HALFTONE-001. | largest difference 3.0e-8 | yes |
 | FX-HALFTONE-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

@@ -5,5 +5,5 @@ Written by `tests/b52_gpu_edges.rs` (`b52_pictures`). Frame 0 of the reference s
 | Blur | Transparent | Pixels see-through | Repeat Edge Pixels | Pixels see-through | Result |
 |---|---|---:|---|---:|---|
 | a Gaussian Blur of sigma 10 | `gaussian_transparent.png` | 147228 | `gaussian_repeat.png` | 0 | PASS |
-| a Directional Blur at 45 degrees, 60 long | `directional_transparent.png` | 120384 | `directional_repeat.png` | 0 | PASS |
+| a Directional Blur at 45 degrees, 60 long | `directional_transparent.png` | 109600 | `directional_repeat.png` | 0 | PASS |
 | a Radial Blur, spin 30 about the middle | `radial_transparent.png` | 413548 | `radial_repeat.png` | 0 | PASS |

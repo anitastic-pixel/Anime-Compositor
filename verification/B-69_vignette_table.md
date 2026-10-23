@@ -48,7 +48,7 @@ D-126, accepted by the owner on 2026-09-26, the fourth of the second batch of te
 | FX-VIGNETTE-017 frame 0: FX-VIGNETTE-001 moved three pixels right: the same, moved; the vignette moves with the drawing. | largest difference 2.0e-7 | yes |
 | FX-VIGNETTE-017 frame 3: FX-VIGNETTE-001 moved three pixels right: the same, moved; the vignette moves with the drawing. | largest difference 2.0e-7 | yes |
 | FX-VIGNETTE-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-VIGNETTE-018 frame 0: A directional blur, direction 90 and length 4, then the vignette as it starts: the blur grew the layer two pixels on every side, and the ellipse is still the drawing's own, about its own middle. | largest difference 2.2e-7 | yes |
+| FX-VIGNETTE-018 frame 0: A directional blur, direction 90 and length 4, then the vignette as it starts: the blur grew the layer two pixels on every side, and the ellipse is still the drawing's own, about its own middle. | largest difference 2.0e-7 | yes |
 | FX-VIGNETTE-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-VIGNETTE-019 frame 0: Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-VIGNETTE-019 frame 4: Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |

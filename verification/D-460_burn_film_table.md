@@ -40,7 +40,7 @@ B-340: `core.burn_film` takes After Effects' CC Burn Film controls (Burn, Center
 | FX-BURN-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BURN-013 frame 0: FX-BURN-004 moved three pixels right: the burn belongs to the layer, so it moves with it. | largest difference 2.1e-7 | yes |
 | FX-BURN-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BURN-014 frame 0: After a directional blur (direction 90, length 4) that grows the layer two pixels on every side, Burn 50: the burn is laid over the grown layer, 20 by 14, its middle and size. | largest difference 3.7e-8 | yes |
+| FX-BURN-014 frame 0: After a directional blur (direction 90, length 4) that grows the layer two pixels on every side, Burn 50: the burn is laid over the grown layer, 20 by 14, its middle and size. | largest difference 4.4e-8 | yes |
 | FX-BURN-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BURN-015 frame 0: Burn 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-BURN-015 frame 4: Burn 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -134,7 +134,7 @@ B-340: `core.burn_film` takes After Effects' CC Burn Film controls (Burn, Center
 | fx_burn_011.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_burn_012.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 4 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_burn_013.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| fx_burn_014.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_burn_014.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_burn_015.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_burn_016.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_burn_017.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |

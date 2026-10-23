@@ -12,17 +12,17 @@ D-109, proposed on 2026-09-26 and built at the owner's "proceed, add to other bl
 | FX-EDGES-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-EDGES-003 frame 0: FX-EDGES-001 moved three pixels right: the layer does not grow, so the three columns left of it stay empty. | largest difference 1.2e-7 | yes |
 | FX-EDGES-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-EDGES-004 frame 0: Directional Blur, direction 90, length 6, edges repeat, on the picture: streaked left and right, every pixel still fully covered. | largest difference 1.1e-7 | yes |
+| FX-EDGES-004 frame 0: Directional Blur, direction 90, length 6, edges repeat, on the picture: streaked left and right, every pixel still fully covered. | largest difference 1.4e-7 | yes |
 | FX-EDGES-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-EDGES-005 frame 0: Directional Blur, direction 30, length 8, edges repeat: a slanting streak whose samples leave the layer across both edges, every pixel still fully covered. | largest difference 1.5e-7 | yes |
+| FX-EDGES-005 frame 0: Directional Blur, direction 30, length 8, edges repeat: a slanting streak whose samples leave the layer across both edges, every pixel still fully covered. | largest difference 1.7e-7 | yes |
 | FX-EDGES-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-EDGES-006 frame 0: Directional Blur, direction 90, length 6, edges repeat, on the bars moved three pixels right: the line on the drawing's left edge carries on past it, so its column keeps more of the line than FX-DIRBLUR-009's, and nothing is drawn left of the drawing. | largest difference 1.5e-7 | yes |
+| FX-EDGES-006 frame 0: Directional Blur, direction 90, length 6, edges repeat, on the bars moved three pixels right: the line on the drawing's left edge carries on past it, so its column keeps more of the line than FX-DIRBLUR-009's, and nothing is drawn left of the drawing. | largest difference 1.9e-7 | yes |
 | FX-EDGES-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-EDGES-007 frame 0: Radial Blur, spin 30 about the middle, edges repeat, on the picture: every pixel still fully covered, the corners too. | largest difference 1.5e-7 | yes |
 | FX-EDGES-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-EDGES-008 frame 0: Radial Blur, zoom 40 about the top left corner, edges repeat: every pixel still fully covered. | largest difference 1.1e-7 | yes |
 | FX-EDGES-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-EDGES-009 frame 0: A Directional Blur, direction 90 and length 4, edges transparent, then FX-EDGES-007's spin: the spin repeats the edge of its own input, the layer the Directional Blur grew two pixels on every side, whose outer columns have faded. | largest difference 1.4e-7 | yes |
+| FX-EDGES-009 frame 0: A Directional Blur, direction 90 and length 4, edges transparent, then FX-EDGES-007's spin: the spin repeats the edge of its own input, the layer the Directional Blur grew two pixels on every side, whose outer columns have faded. | largest difference 1.3e-7 | yes |
 | FX-EDGES-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-EDGES-010 frame 0: Gaussian Blur with edges "wrap", which is not a way of treating edges. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-EDGES-010 frame 4: Gaussian Blur with edges "wrap", which is not a way of treating edges. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |

@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **158 of 158 checks pass.**
 
-The worst comparison is "the reference shot with three Directional Blurs frame 100, Full": largest difference 1 of 255, pixels differing: 14693. Its pictures are in `verification/B-49 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with three Directional Blurs frame 100, Full": largest difference 1 of 255, pixels differing: 20360. Its pictures are in `verification/B-49 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -20,21 +20,21 @@ The worst comparison is "the reference shot with three Directional Blurs frame 1
 | fx_dirblur_001 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_001 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_001 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_002 frame 0, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_002 frame 1, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_002 frame 2, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_002 frame 3, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_002 frame 4, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_002 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_002 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_002 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_002 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_002 frame 4, Full | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_002 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_002 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_002 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_002 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_002 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_003 frame 0, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_003 frame 1, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_003 frame 2, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_003 frame 3, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_003 frame 4, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_003 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_003 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_003 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_003 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_003 frame 4, Full | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_003 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_003 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_003 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -90,11 +90,11 @@ The worst comparison is "the reference shot with three Directional Blurs frame 1
 | fx_dirblur_008 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_008 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_008 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_009 frame 0, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_009 frame 1, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_009 frame 2, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_009 frame 3, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_009 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_009 frame 0, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_009 frame 1, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_009 frame 2, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_009 frame 3, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_009 frame 4, Full | 1 | 1 | 1 | none | PASS |
 | fx_dirblur_009 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_009 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_009 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -102,19 +102,19 @@ The worst comparison is "the reference shot with three Directional Blurs frame 1
 | fx_dirblur_009 frame 4, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_010 frame 0, Full | 0 | 0 | 0 | none | PASS |
 | fx_dirblur_010 frame 1, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_010 frame 2, Full | 1 | 1 | 1 | none | PASS |
-| fx_dirblur_010 frame 3, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_010 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_010 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_010 frame 3, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_010 frame 4, Full | 1 | 1 | 1 | none | PASS |
 | fx_dirblur_010 frame 0, Draft | 0 | 0 | 0 | none | PASS |
 | fx_dirblur_010 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_010 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_010 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_010 frame 4, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_011 frame 0, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_011 frame 1, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_011 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_011 frame 2, Full | 1 | 0 | 0 | none | PASS |
-| fx_dirblur_011 frame 3, Full | 1 | 1 | 2 | none | PASS |
-| fx_dirblur_011 frame 4, Full | 1 | 1 | 1 | none | PASS |
+| fx_dirblur_011 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_dirblur_011 frame 4, Full | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_011 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_011 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_dirblur_011 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -160,11 +160,11 @@ The worst comparison is "the reference shot with three Directional Blurs frame 1
 | fx_dirblur_015 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_dirblur_015 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_dirblur_015 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with three Directional Blurs frame 0, Full | 3 | 1 | 14205 | none | PASS |
-| the reference shot with three Directional Blurs frame 100, Full | 3 | 1 | 14693 | none | PASS |
-| the reference shot with three Directional Blurs frame 239, Full | 3 | 1 | 14032 | none | PASS |
-| the reference shot with three Directional Blurs frame 0, Draft | 3 | 1 | 2334 | none | PASS |
-| the reference shot with three Directional Blurs frame 100, Draft | 3 | 1 | 2286 | none | PASS |
-| the reference shot with three Directional Blurs frame 239, Draft | 3 | 1 | 2277 | none | PASS |
+| the reference shot with three Directional Blurs frame 0, Full | 3 | 1 | 20026 | none | PASS |
+| the reference shot with three Directional Blurs frame 100, Full | 3 | 1 | 20360 | none | PASS |
+| the reference shot with three Directional Blurs frame 239, Full | 3 | 1 | 19890 | none | PASS |
+| the reference shot with three Directional Blurs frame 0, Draft | 3 | 1 | 2256 | none | PASS |
+| the reference shot with three Directional Blurs frame 100, Draft | 3 | 1 | 2264 | none | PASS |
+| the reference shot with three Directional Blurs frame 239, Draft | 3 | 1 | 2214 | none | PASS |
 | the reference shot with three Directional Blurs frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
 | the reference shot with three Directional Blurs frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |

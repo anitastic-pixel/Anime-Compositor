@@ -12,7 +12,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 The runs with mixed members drawn in one pass match the same runs drawn a pass each, byte for byte, in 8 of 8. The CPU drawing each plan made for the card, as it does when the card refuses a frame, draws the plan made for the CPU byte for byte in 420 of 420 (frame 100, Full and Draft). A failing one is listed below.
 
-The worst comparison is "Gradient Map at Mix 100 frame 100, Full": largest difference 1 of 255, pixels differing: 2072. Its pictures are in `verification/B-221 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "Directional Blur at Mix 100 frame 100, Full": largest difference 1 of 255, pixels differing: 5262. Its pictures are in `verification/B-221 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 ## By Mix and shot
 
@@ -59,14 +59,14 @@ Effects left to the card on the first three layers, the number the first layer m
 | Directional Blur at Mix 0 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 991 | none | PASS |
 | Directional Blur at Mix 0 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 55 | none | PASS |
 | Directional Blur at Mix 0 frame 100, Draft | 3 / 3 / 2 | — | yes | 1 | 54 | none | PASS |
-| Directional Blur at Mix 37 frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 1040 | none | PASS |
-| Directional Blur at Mix 37 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 1004 | none | PASS |
-| Directional Blur at Mix 37 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 58 | none | PASS |
-| Directional Blur at Mix 37 frame 100, Draft | 3 / 3 / 2 | — | yes | 1 | 63 | none | PASS |
-| Directional Blur at Mix 100 frame 0, Full | 3 / 3 / 2 | 3 | no | 1 | 1103 | none | PASS |
-| Directional Blur at Mix 100 frame 100, Full | 3 / 3 / 2 | 3 | no | 1 | 1057 | none | PASS |
-| Directional Blur at Mix 100 frame 0, Draft | 3 / 3 / 2 | — | no | 1 | 78 | none | PASS |
-| Directional Blur at Mix 100 frame 100, Draft | 3 / 3 / 2 | — | no | 1 | 88 | none | PASS |
+| Directional Blur at Mix 37 frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 2461 | none | PASS |
+| Directional Blur at Mix 37 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 2570 | none | PASS |
+| Directional Blur at Mix 37 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 81 | none | PASS |
+| Directional Blur at Mix 37 frame 100, Draft | 3 / 3 / 2 | — | yes | 1 | 92 | none | PASS |
+| Directional Blur at Mix 100 frame 0, Full | 3 / 3 / 2 | 3 | no | 1 | 4942 | none | PASS |
+| Directional Blur at Mix 100 frame 100, Full | 3 / 3 / 2 | 3 | no | 1 | 5262 | none | PASS |
+| Directional Blur at Mix 100 frame 0, Draft | 3 / 3 / 2 | — | no | 1 | 174 | none | PASS |
+| Directional Blur at Mix 100 frame 100, Draft | 3 / 3 / 2 | — | no | 1 | 201 | none | PASS |
 | Gaussian Blur at Mix 0 frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 975 | none | PASS |
 | Gaussian Blur at Mix 0 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 991 | none | PASS |
 | Gaussian Blur at Mix 0 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 55 | none | PASS |
@@ -527,14 +527,14 @@ Effects left to the card on the first three layers, the number the first layer m
 | Twirl at Mix 0 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 991 | none | PASS |
 | Twirl at Mix 0 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 55 | none | PASS |
 | Twirl at Mix 0 frame 100, Draft | 3 / 3 / 2 | — | yes | 1 | 54 | none | PASS |
-| Twirl at Mix 37 frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 977 | none | PASS |
-| Twirl at Mix 37 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 990 | none | PASS |
+| Twirl at Mix 37 frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 972 | none | PASS |
+| Twirl at Mix 37 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 989 | none | PASS |
 | Twirl at Mix 37 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 54 | none | PASS |
 | Twirl at Mix 37 frame 100, Draft | 3 / 3 / 2 | — | yes | 1 | 54 | none | PASS |
-| Twirl at Mix 100 frame 0, Full | 3 / 3 / 2 | 3 | no | 1 | 957 | none | PASS |
-| Twirl at Mix 100 frame 100, Full | 3 / 3 / 2 | 3 | no | 1 | 986 | none | PASS |
-| Twirl at Mix 100 frame 0, Draft | 3 / 3 / 2 | — | no | 1 | 55 | none | PASS |
-| Twirl at Mix 100 frame 100, Draft | 3 / 3 / 2 | — | no | 1 | 55 | none | PASS |
+| Twirl at Mix 100 frame 0, Full | 3 / 3 / 2 | 3 | no | 1 | 959 | none | PASS |
+| Twirl at Mix 100 frame 100, Full | 3 / 3 / 2 | 3 | no | 1 | 989 | none | PASS |
+| Twirl at Mix 100 frame 0, Draft | 3 / 3 / 2 | — | no | 1 | 57 | none | PASS |
+| Twirl at Mix 100 frame 100, Draft | 3 / 3 / 2 | — | no | 1 | 54 | none | PASS |
 | Bulge at Mix 0 frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 975 | none | PASS |
 | Bulge at Mix 0 frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 991 | none | PASS |
 | Bulge at Mix 0 frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 55 | none | PASS |
@@ -863,8 +863,8 @@ Effects left to the card on the first three layers, the number the first layer m
 | colour effects in one pass, three of them mixed (Hue/Saturation 37, Vibrance 0, Invert 50) frame 100, Full | 5 / 3 / 2 | 5 | yes | 1 | 664 | none | PASS |
 | colour effects in one pass, three of them mixed (Hue/Saturation 37, Vibrance 0, Invert 50) frame 0, Draft | 5 / 3 / 2 | — | yes | 1 | 55 | none | PASS |
 | colour effects in one pass, three of them mixed (Hue/Saturation 37, Vibrance 0, Invert 50) frame 100, Draft | 5 / 3 / 2 | — | yes | 1 | 76 | none | PASS |
-| a Glow at 50, a Gaussian Blur at 37, then Levels at 37 (growing effects mixed) frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 780 | none | PASS |
-| a Glow at 50, a Gaussian Blur at 37, then Levels at 37 (growing effects mixed) frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 865 | none | PASS |
+| a Glow at 50, a Gaussian Blur at 37, then Levels at 37 (growing effects mixed) frame 0, Full | 3 / 3 / 2 | 3 | yes | 1 | 789 | none | PASS |
+| a Glow at 50, a Gaussian Blur at 37, then Levels at 37 (growing effects mixed) frame 100, Full | 3 / 3 / 2 | 3 | yes | 1 | 876 | none | PASS |
 | a Glow at 50, a Gaussian Blur at 37, then Levels at 37 (growing effects mixed) frame 0, Draft | 3 / 3 / 2 | — | yes | 1 | 42 | none | PASS |
 | a Glow at 50, a Gaussian Blur at 37, then Levels at 37 (growing effects mixed) frame 100, Draft | 3 / 3 / 2 | — | yes | 1 | 43 | none | PASS |
 | an adjustment layer: Gaussian Blur 37, Levels 50, Curves 37, Hue/Saturation frame 0, Full | 0 / 0 / 0 | — | yes | 1 | 14 | none | PASS |

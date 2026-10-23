@@ -111,12 +111,12 @@ Effects left to the card on the first three layers, and what they must be.
 | Bloom, intensity keyed 0.5 to 3 on three layers frame 100, Full | 1 / 1 / 1 | 1 / 1 / 1 | 1 | 1844 | none | PASS |
 | Bloom, intensity keyed 0.5 to 3 on three layers frame 0, Draft | 1 / 1 / 1 | 1 / 1 / 1 | 1 | 84 | none | PASS |
 | Bloom, intensity keyed 0.5 to 3 on three layers frame 100, Draft | 1 / 1 / 1 | 1 / 1 / 1 | 1 | 68 | none | PASS |
-| Directional Blur, length keyed 5 to 80 on three layers frame 0, Full | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 12582 | none | PASS |
-| Directional Blur, length keyed 5 to 80 on three layers frame 100, Full | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 22521 | none | PASS |
-| Directional Blur, length keyed 5 to 80 on three layers frame 0, Draft | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 3753 | none | PASS |
-| Directional Blur, length keyed 5 to 80 on three layers frame 100, Draft | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 1545 | none | PASS |
-| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0, Full | 5 / 4 / 3 | 5 / 4 / 3 | 1 | 1003 | none | PASS |
-| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 100, Full | 5 / 4 / 3 | 5 / 4 / 3 | 1 | 954 | none | PASS |
+| Directional Blur, length keyed 5 to 80 on three layers frame 0, Full | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 18865 | none | PASS |
+| Directional Blur, length keyed 5 to 80 on three layers frame 100, Full | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 23595 | none | PASS |
+| Directional Blur, length keyed 5 to 80 on three layers frame 0, Draft | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 3210 | none | PASS |
+| Directional Blur, length keyed 5 to 80 on three layers frame 100, Draft | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 1751 | none | PASS |
+| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0, Full | 5 / 4 / 3 | 5 / 4 / 3 | 1 | 1007 | none | PASS |
+| B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 100, Full | 5 / 4 / 3 | 5 / 4 / 3 | 1 | 956 | none | PASS |
 | B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 0, Draft | 5 / 4 / 3 | 5 / 4 / 3 | 1 | 48 | none | PASS |
 | B-155's moving Noise first, before Levels, a Gaussian Blur, Hue/Saturation and a Vignette frame 100, Draft | 5 / 4 / 3 | 5 / 4 / 3 | 1 | 48 | none | PASS |
 | Median, which does not move, on three layers frame 0, Full | 1 / 2 / 1 | 1 / 2 / 1 | 1 | 3814 | none | PASS |

@@ -44,7 +44,7 @@ B-329: `core.block_load` takes After Effects' CC Block Load controls (Completion
 | FX-BLOCKLOAD-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOCKLOAD-016 frame 0: FX-BLOCKLOAD-005 moved three pixels right: the blocks are laid from the drawing's own corner, so they move with it. | largest difference 1.9e-7 | yes |
 | FX-BLOCKLOAD-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BLOCKLOAD-017 frame 0: After a directional blur (direction 90, length 4) that grows the layer two pixels on every side, Scans 2, Completion 50: the blocks are laid from the drawing's corner, and the pass's rows of blocks are the grown layer's, the two grown rows above the drawing a short row of their own. | largest difference 1.8e-7 | yes |
+| FX-BLOCKLOAD-017 frame 0: After a directional blur (direction 90, length 4) that grows the layer two pixels on every side, Scans 2, Completion 50: the blocks are laid from the drawing's corner, and the pass's rows of blocks are the grown layer's, the two grown rows above the drawing a short row of their own. | largest difference 1.9e-7 | yes |
 | FX-BLOCKLOAD-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BLOCKLOAD-018 frame 0: Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-BLOCKLOAD-018 frame 4: Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |

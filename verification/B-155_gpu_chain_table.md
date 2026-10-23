@@ -42,14 +42,14 @@ Effects left to the card on the first three layers, and the number the first lay
 | Bloom first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 27635 | none | PASS |
 | Bloom first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 1504 | none | PASS |
 | Bloom first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 1666 | none | PASS |
-| Directional Blur last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 1103 | none | PASS |
-| Directional Blur last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 1057 | none | PASS |
-| Directional Blur last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 78 | none | PASS |
-| Directional Blur last, after Levels and a Gaussian Blur frame 100, Draft | 3 / 3 / 2 | — | 1 | 88 | none | PASS |
-| Directional Blur first, before Hue/Saturation and a Vignette frame 0, Full | 3 / 3 / 2 | 3 | 1 | 30457 | none | PASS |
-| Directional Blur first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 29975 | none | PASS |
-| Directional Blur first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 2104 | none | PASS |
-| Directional Blur first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 2015 | none | PASS |
+| Directional Blur last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 4942 | none | PASS |
+| Directional Blur last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 5262 | none | PASS |
+| Directional Blur last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 174 | none | PASS |
+| Directional Blur last, after Levels and a Gaussian Blur frame 100, Draft | 3 / 3 / 2 | — | 1 | 201 | none | PASS |
+| Directional Blur first, before Hue/Saturation and a Vignette frame 0, Full | 3 / 3 / 2 | 3 | 1 | 32894 | none | PASS |
+| Directional Blur first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 32739 | none | PASS |
+| Directional Blur first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 2366 | none | PASS |
+| Directional Blur first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 2392 | none | PASS |
 | Gaussian Blur last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 1041 | none | PASS |
 | Gaussian Blur last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 995 | none | PASS |
 | Gaussian Blur last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 65 | none | PASS |
@@ -362,14 +362,14 @@ Effects left to the card on the first three layers, and the number the first lay
 | Ripple first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 2200 | none | PASS |
 | Ripple first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 103 | none | PASS |
 | Ripple first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 107 | none | PASS |
-| Twirl last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 957 | none | PASS |
-| Twirl last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 986 | none | PASS |
-| Twirl last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 55 | none | PASS |
-| Twirl last, after Levels and a Gaussian Blur frame 100, Draft | 3 / 3 / 2 | — | 1 | 55 | none | PASS |
-| Twirl first, before Hue/Saturation and a Vignette frame 0, Full | 3 / 3 / 2 | 3 | 1 | 2991 | none | PASS |
-| Twirl first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 3101 | none | PASS |
-| Twirl first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 159 | none | PASS |
-| Twirl first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 153 | none | PASS |
+| Twirl last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 959 | none | PASS |
+| Twirl last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 989 | none | PASS |
+| Twirl last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 57 | none | PASS |
+| Twirl last, after Levels and a Gaussian Blur frame 100, Draft | 3 / 3 / 2 | — | 1 | 54 | none | PASS |
+| Twirl first, before Hue/Saturation and a Vignette frame 0, Full | 3 / 3 / 2 | 3 | 1 | 2977 | none | PASS |
+| Twirl first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 3099 | none | PASS |
+| Twirl first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 157 | none | PASS |
+| Twirl first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 152 | none | PASS |
 | Bulge last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 955 | none | PASS |
 | Bulge last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 987 | none | PASS |
 | Bulge last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 56 | none | PASS |

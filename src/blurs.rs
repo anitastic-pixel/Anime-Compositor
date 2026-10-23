@@ -249,24 +249,29 @@ pub(crate) fn by_lines(
     out
 }
 
-/// The integral of tent(v) = max(0, 1 - |v|) from a to b.
-fn tent_integral(a: f64, b: f64) -> f64 {
-    let up_to = |v: f64| {
-        let v = v.clamp(-1.0, 1.0);
-        if v < 0.0 {
-            (1.0 + v).powi(2) / 2.0
+/// D-753: column `j`'s weight in a streak `h` columns each way, the integral of tri(t) * tent(j - t)
+/// with tri(t) = max(0, h - |t|) / h^2 and tent(v) = max(0, 1 - |v|), the line drawn straight
+/// between its column samples.
+fn tapered(j: isize, h: f64) -> f64 {
+    let j = j.unsigned_abs() as f64;
+    if j == 0.0 {
+        return if h >= 1.0 {
+            (h - 1.0 / 3.0) / (h * h)
         } else {
-            1.0 - (1.0 - v).powi(2) / 2.0
-        }
-    };
-    up_to(b) - up_to(a)
+            1.0 - h / 3.0
+        };
+    }
+    let c = |v: f64| v.max(0.0).powi(3);
+    let x = h - j;
+    (c(x + 1.0) - 2.0 * c(x) + c(x - 1.0)) / (6.0 * h * h)
 }
 
 /// Average each pixel of `source` along a line `length` pixels long through it, in place, and
 /// return how far it grew on each side. Both settings are already inside their ranges; length 0
-/// changes nothing. D-98: each line, drawn straight between its column samples, is averaged
-/// over `2H = |u_x| * (length + length / ceil(length))` columns, mostly across. D-109: with
-/// `repeat`, the edge pixels carry on past the edge and nothing grows.
+/// changes nothing. D-98's lines; D-753: each line, drawn straight between its column samples, is
+/// weighed by a tent `h = |u_x| * length / 2` columns each way, mostly across, heaviest at the
+/// pixel and fading to nothing at the streak's ends. D-109: with `repeat`, the edge pixels carry
+/// on past the edge and nothing grows.
 pub(crate) fn directional_blur(
     source: &mut WorkingBuffer,
     direction: f64,
@@ -286,24 +291,32 @@ pub(crate) fn directional_blur(
     grow
 }
 
-/// D-98's weights for a Directional Blur `length` long along step `u`, length not 0. B-49's card
-/// reads the same lines with them.
+/// D-753's weights for a Directional Blur `length` long along step `u`, length not 0, read by
+/// D-98's lines. B-49's card reads the same lines with them.
 pub(crate) fn directional_weights(u: (f64, f64), length: f64) -> Weights {
-    let half = u.0.abs().max(u.1.abs()) * (length + length / length.ceil()) / 2.0;
-    let reach = (half + 1.0).ceil() as isize;
-    let full = 1.0 / (2.0 * half);
-    let weight = |j: isize| tent_integral(j as f64 - half, j as f64 + half) / (2.0 * half);
-    // The columns weighing exactly 1 / 2H are the running sum; a blur too short for even its
-    // own column to is all ends.
-    let inner = (0..=reach).take_while(|&j| weight(j) == full).last();
+    let h = u.0.abs().max(u.1.abs()) * length / 2.0;
+    let reach = h.ceil() as isize;
+    // From column 1 to h - 1 the tent is straight, (h - |j|) / h^2, which Bloom's running sums
+    // do whatever its width; the pixel's own column, at the tent's peak, weighs 1 / (3 h^2) less.
+    // A streak too short for a straight part is all ends.
+    let inner = if h >= 2.0 { (h - 1.0).floor() as isize } else { 0 };
+    let ends = (-reach..=reach)
+        .filter(|&j| inner == 0 || j.abs() > inner)
+        .map(|j| (j, tapered(j, h)))
+        .filter(|e| e.1 != 0.0);
+    if inner == 0 {
+        return Weights {
+            inner: 0,
+            a: 0.0,
+            b: 0.0,
+            ends: ends.collect(),
+        };
+    }
     Weights {
-        inner: inner.unwrap_or(0) as usize,
-        a: if inner.is_some() { full } else { 0.0 },
-        b: 0.0,
-        ends: (-reach..=reach)
-            .filter(|&j| inner.is_none_or(|n| j.abs() > n) && weight(j) != 0.0)
-            .map(|j| (j, weight(j)))
-            .collect(),
+        inner: inner as usize,
+        a: 1.0 / h,
+        b: 1.0 / (h * h),
+        ends: std::iter::once((0, -1.0 / (3.0 * h * h))).chain(ends).collect(),
     }
 }
 
