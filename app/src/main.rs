@@ -6830,14 +6830,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             })
         }
         // D-356: as added, After Effects' Stroke: mask 1, a white brush 2 pixels across, the
-        // whole path, drawn on the layer.
+        // whole path, drawn on the layer. D-759: Brush Hardness 79 and Stroke Sequentially on,
+        // as After Effects starts them; a file always holds both, so an older one keeps its own.
         STROKE => Some(Effect::Stroke {
             mask: 1.0,
             all_masks: "off".to_string(),
-            stroke_sequentially: "off".to_string(),
+            stroke_sequentially: "on".to_string(),
             color: "#ffffff".to_string(),
             brush_size: 2.0,
-            brush_hardness: 75.0,
+            brush_hardness: 79.0,
             opacity: 100.0,
             start: 0.0,
             end: 100.0,

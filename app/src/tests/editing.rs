@@ -2385,6 +2385,99 @@ fn a_new_channel_blur_starts_in_blurriness() {
     );
 }
 
+/// B-638 (D-759): a Stroke added from now on starts at After Effects' Brush Hardness 79 with
+/// Stroke Sequentially on; a project saved before keeps the 75 and off its file holds, and saves
+/// back byte for byte. Writes `verification/B-638_stroke_start_table.md`.
+#[test]
+fn b638_a_new_stroke_starts_at_after_effects_values() {
+    let mut report = Report { rows: Vec::new() };
+    let source = repo("Fixtures/projects/unknown_effect_project.json");
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let said = run(&viewer, "effect.add?layer=layer-cel&type=core.stroke");
+    report.check("Add a Stroke from the Effects panel", "Add Path Stroke", &said);
+    let added = settings(&viewer, "layer-cel", "fx-1");
+    let has = |text: &str, key: &str| text.contains(key);
+    report.check(
+        "The new Stroke's Brush Hardness",
+        "\"brush_hardness\":79",
+        if has(&added, r#""brush_hardness":79"#) { "\"brush_hardness\":79" } else { added.as_str() },
+    );
+    report.check(
+        "The new Stroke's Stroke Sequentially",
+        "\"stroke_sequentially\":\"on\"",
+        if has(&added, r#""stroke_sequentially":"on""#) { "\"stroke_sequentially\":\"on\"" } else { added.as_str() },
+    );
+    // Typed back in the panel (every setting at once, as the page sends them), 75 and off are kept.
+    let typed = run(
+        &viewer,
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&mask=1&all_masks=off\
+         &stroke_sequentially=off&color=%23ffffff&brush_size=2&brush_hardness=75&opacity=100\
+         &start=0&end=100&spacing=15&paint_style=on_original",
+    );
+    let now = settings(&viewer, "layer-cel", "fx-1");
+    report.check(
+        "Typed in the panel: Brush Hardness 75, Stroke Sequentially off",
+        "kept",
+        if typed.starts_with("Change ")
+            && has(&now, r#""brush_hardness":75"#)
+            && has(&now, r#""stroke_sequentially":"off""#)
+        {
+            "kept".to_string()
+        } else {
+            format!("{typed}: {now}")
+        },
+    );
+
+    // A project saved before D-759: FX-STROKE-001's file, written with 75 and off.
+    let old = repo("Fixtures/stroke/fx_stroke_001.json");
+    let viewer = Mutex::new(open(&old).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let read = settings(&viewer, "art", "fx-0-0");
+    report.check(
+        "An older project's Stroke opens at what it saved",
+        "75 and off",
+        if has(&read, r#""brush_hardness":75"#) && has(&read, r#""stroke_sequentially":"off""#) {
+            "75 and off".to_string()
+        } else {
+            read.clone()
+        },
+    );
+    let text = std::fs::read_to_string(&old).expect("read the older project");
+    let first = persist::load_str(&text).expect("the older project reads");
+    let saved = persist::to_json(first.document.project(), &first.preserved);
+    let again = persist::load_str(&saved).expect("the saved project reads");
+    let resaved = persist::to_json(again.document.project(), &again.preserved);
+    report.check(
+        "Saved, opened and saved again, the older project's file",
+        "the same bytes",
+        if saved == resaved { "the same bytes".to_string() } else { "different bytes".to_string() },
+    );
+    let written: serde_json::Value = serde_json::from_str(&saved).expect("the saved file is JSON");
+    let fx = &written["compositions"][0]["layers"][0]["effects"][0]["parameters"];
+    report.check(
+        "The older project's saved Brush Hardness and Stroke Sequentially",
+        "75, \"off\"",
+        format!("{}, {}", fx["brush_hardness"], fx["stroke_sequentially"]),
+    );
+
+    let failed = report.rows.iter().filter(|(_, e, a)| e != a).count();
+    let mut out = String::from(
+        "# B-638: a Stroke added from now on starts at After Effects' values (D-759)\n\n\
+         Written by `b638_a_new_stroke_starts_at_after_effects_values` in `app/src/tests/editing.rs`. \
+         A Stroke added in the window starts at Brush Hardness 79 with Stroke Sequentially on, as \
+         After Effects' panel shows a fresh Stroke (5 of 5 tutorial panels, wave 3 lane J). A \
+         project saved before keeps the 75 and off its file holds. No picture of an older project \
+         changes, and no fixture is added or changed.\n\n\
+         | Check | Expected | Actual | Result |\n|---|---|---|---|\n",
+    );
+    for (check, expected, actual) in &report.rows {
+        let result = if expected == actual { "pass" } else { "FAIL" };
+        out.push_str(&format!("| {check} | {} | {} | {result} |\n", cell(expected), cell(actual)));
+    }
+    out.push_str(&format!("\n{} of {} checks pass.\n", report.rows.len() - failed, report.rows.len()));
+    std::fs::write(repo("verification/B-638_stroke_start_table.md"), out).expect("write the table");
+    assert_eq!(failed, 0, "{:#?}", report.rows);
+}
+
 /// D-743: a new Fractal Noise starts at After Effects' Sub Influence 70 and Sub Scaling 56, and
 /// each newly shown setting typed in the panel is kept.
 #[test]
