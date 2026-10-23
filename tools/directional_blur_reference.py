@@ -1,8 +1,8 @@
 """Directional blur, worked a second way.
 
 D-92 adds `core.directional_blur`, and D-98 changes its rule so a running sum can work it. It smears a layer along one direction, as a camera moving
-during the exposure would: each pixel becomes the plain average of samples taken along a line
-through it. `direction` is in degrees, clockwise from up, so 0 streaks up and down and 90 left
+during the exposure would: each pixel becomes a weighted average of samples taken along a line
+through it, heaviest at the pixel. `direction` is in degrees, clockwise from up, so 0 streaks up and down and 90 left
 and right; `length` is the whole streak in pixels, half on each side. It is this program's own
 method, modelled on After Effects' Directional Blur; nothing is ported. Document 21 is the rule
 in words; this file is the reference for the numbers document 25 pins against it.
@@ -11,10 +11,12 @@ The rule (D-98). With u = (sin direction, -cos direction), exactly (0, -1), (1, 
 (-1, 0) when the direction is a whole multiple of 90 degrees: when the direction is mostly
 across (|u_x| >= |u_y|), the picture is read along lines of slope s = u_y / u_x, one pixel
 apart, each line sampled at every column centre by document 21's bilinear sample, transparent
-outside the layer. With d = length / ceil(length) and H = |u_x| * (length + d) / 2, the columns
-j from the line's own are weighted w_j = the integral over t from -H to H of tent(j - t),
-tent(v) = max(0, 1 - |v|), divided by 2H, their sum: the line, drawn straight between its
-column samples, averaged over 2H columns. A pixel is the straight mix of the two lines just
+outside the layer. D-753: with h = |u_x| * length / 2, the columns j from the line's own are
+weighted w_j = the integral of tri(t) * tent(j - t) dt, tri(t) = max(0, h - |t|) / h^2 and
+tent(v) = max(0, 1 - |v|): the line, drawn straight between its column samples, weighed by a
+tent `length` long in all, heaviest at the pixel and fading to nothing at the streak's two
+ends, as After Effects' streak fades. D-98's flat average over |u_x| * (length + d) columns,
+d = length / ceil(length), is retired by D-753. A pixel is the straight mix of the two lines just
 above and below its centre in its column. Mostly down, the same with across and down
 exchanged. Length 0 is the drawing untouched. Premultiplied red, green, blue and alpha are
 averaged alike. The layer grows by ceil(length / 2) on every side, so a streak that
@@ -35,7 +37,8 @@ and never to make a build pass.
 
 D-92's first rule, the plain average of ceil(length) + 1 samples along the line through each
 pixel, is retired; its numbers are in this file and the expected file as they were at commit
-ca2be49.
+ca2be49. D-98's flat average is retired by D-753; its numbers are as they were at commit
+438fe5d0.
 """
 
 import json
@@ -131,11 +134,21 @@ def blurred(layer, direction, length, x, y, edges="transparent"):
     if u is None:
         a = math.radians(direction)
         u = (math.sin(a), -math.cos(a))
-    d = length / math.ceil(length)
-    h = max(abs(u[0]), abs(u[1])) * (length + d) / 2
-    reach = math.ceil(h + 1)
-    weights = [(j, tent_integral(j - h, j + h) / (2 * h)) for j in range(-reach, reach + 1)]
+    h = max(abs(u[0]), abs(u[1])) * length / 2
+    weights = [(j, tapered(j, h)) for j in range(-math.ceil(h), math.ceil(h) + 1)]
     return line_mean(layer, u, [(j, w) for j, w in weights if w], x, y, edges)
+
+
+def tapered(j, h):
+    """D-753: column j's weight, the integral of tri(t) * tent(j - t) dt, with
+    tri(t) = max(0, h - |t|) / h^2 the streak's tent, h columns each way, and
+    tent(v) = max(0, 1 - |v|) the line drawn straight between its column samples."""
+    j = abs(j)
+    if j == 0:
+        return (h - 1 / 3) / h ** 2 if h >= 1 else 1 - h / 3
+    c = lambda v: max(0.0, v) ** 3  # noqa: E731
+    x = h - j
+    return (c(x + 1) - 2 * c(x) + c(x - 1)) / (6 * h * h)
 
 
 
@@ -187,7 +200,7 @@ def plain(c):
 
 CASES = {
     "FX-DIRBLUR-001": ("Direction 0, length 4: every edge streaks up and down, two pixels each "
-                       "way and faintly a third, and left and right stay sharp.",
+                       "way, the second faint, and left and right stay sharp.",
                        case(), [0]),
     "FX-DIRBLUR-002": ("Direction 90, length 4: the same streak left and right, and up and down "
                        "stay sharp.",
@@ -201,12 +214,12 @@ CASES = {
     "FX-DIRBLUR-005": ("Length 0: the drawing, untouched.",
                        case(length=0), [0]),
     "FX-DIRBLUR-006": ("Length 1, direction 90: each column mixes itself and the two beside it "
-                       "at a quarter, a half and a quarter, so the "
-                       "block's left edge column is three quarters covered and the column "
-                       "outside it one quarter.",
+                       "at a twelfth, five sixths and a twelfth, so the "
+                       "block's left edge column is eleven twelfths covered and the column "
+                       "outside it one twelfth.",
                        case(direction=90, length=1), [0]),
     "FX-DIRBLUR-007": ("Length 2.5, direction 90: a length that is not a whole number, the "
-                       "ends of the average softened.",
+                       "streak fading to its ends.",
                        case(direction=90, length=2.5), [0]),
     "FX-DIRBLUR-008": ("Direction 3600, ten turns: this is FX-DIRBLUR-001.",
                        case(direction=3600), [0]),
@@ -289,24 +302,28 @@ def check(expected):
                             for p, q in zip(u, v))
     one, two = c["FX-DIRBLUR-001"]["0"], c["FX-DIRBLUR-002"]["0"]
 
-    # Vertical: row 4 of the block, rows 3 to 6 skin, weighs rows 2 to 6 at 1, 1, 1, 1 and 7/8
-    # over 5, and row 7 at 1/8, so 3.875 / 5 covered; its top edge spreads to row 1, but a row-4
-    # pixel beside the block stays empty.
-    assert abs(one[at(7, 4)][3] - 3.875 / 5) < 1e-12 and one[at(7, 1)][3] > 0
+    # Vertical, D-753: h = 2, rows 0, 1 and 2 away weigh 5/12, 1/4 and 1/24. Row 4 of the block,
+    # rows 3 to 6 skin, takes 1/4 + 5/12 + 1/4 + 1/24 = 23/24; its top edge spreads to row 1,
+    # but a row-4 pixel beside the block stays empty.
+    assert abs(one[at(7, 4)][3] - 23 / 24) < 1e-12 and one[at(7, 1)][3] > 0
     assert one[at(4, 4)] == [0.0] * 4 and one[at(10, 4)] == [0.0] * 4
     # Horizontal: the reverse.
     assert two[at(7, 1)] == [0.0] * 4 and two[at(4, 4)][3] > 0 and two[at(3, 4)][3] > 0
     assert near(c["FX-DIRBLUR-003"]["0"], two)
     assert near(c["FX-DIRBLUR-008"]["0"], one)
     assert c["FX-DIRBLUR-005"]["0"] == drawn
-    # Length 1 at 90: the column and the two beside it weigh 1/4, 1/2 and 1/4, so the block's
-    # left edge column is three quarters covered and the one outside it a quarter.
+    # Length 1 at 90: h = 1/2, the column and the two beside it weigh 1/12, 5/6 and 1/12, so the
+    # block's left edge column is 11/12 covered and the one outside it 1/12.
     six = c["FX-DIRBLUR-006"]["0"]
-    assert abs(six[at(5, 4)][3] - 0.75) < 1e-12 and abs(six[at(4, 4)][3] - 0.25) < 1e-12
-    # Length 2.5: H = (2.5 + 2.5 / 3) / 2 = 5 / 3. Two columns left of the block, only the block's
-    # first column reaches, weighing the tent from 1/3 to 1, 2/9, over 2H = 10 / 3, so 1/15.
+    assert abs(six[at(5, 4)][3] - 11 / 12) < 1e-12 and abs(six[at(4, 4)][3] - 1 / 12) < 1e-12
+    # Length 2.5: h = 5/4. Two columns left of the block only the block's first column reaches,
+    # (1/4)^3 / (6 h^2) = 1/600.
     seven = c["FX-DIRBLUR-007"]["0"]
-    assert abs(seven[at(3, 4)][3] - 1 / 15) < 1e-12
+    assert abs(seven[at(3, 4)][3] - 1 / 600) < 1e-12
+    # The weights of any length sum to 1 and fade from the pixel's own, the heaviest.
+    for h in (0.25, 0.5, 1, 1.25, 2, 3.7, 50):
+        ws = [tapered(j, h) for j in range(-math.ceil(h) - 1, math.ceil(h) + 2)]
+        assert abs(sum(ws) - 1) < 1e-12 and max(ws) == tapered(0, h)
     # The streak leaves the drawing: comp columns 0 to 2 are layer columns -3 to -1.
     nine = c["FX-DIRBLUR-009"]
     assert nine["0"] == nine["3"] and all(nine["0"][at(x, 4)][3] > 0 for x in range(3))
@@ -314,9 +331,9 @@ def check(expected):
     assert ten["0"] == drawn and near(ten["2"], two) and ten["4"] != two
     assert near(eleven["0"], one) and near(eleven["4"], two)
     assert near(eleven["2"], render(case(direction=45), 0))
-    # Averaging keeps the covering: the block's five pixels of row 3, spread over columns 2 to 12,
-    # where the line in column 0 also reaches, with 7/8 and 1/8 over 5 of its own covering.
-    assert abs(sum(two[at(x, 3)][3] for x in range(2, 13)) - 5 - 1 / 5) < 1e-12
+    # Averaging keeps the covering: the block's five pixels of row 3, spread over columns 3 to 11,
+    # and column 2, where the line in column 0 reaches with 1/24 of its own covering.
+    assert abs(sum(two[at(x, 3)][3] for x in range(2, 13)) - 5 - 1 / 24) < 1e-12
     for name, frames in c.items():
         for px in frames.values():
             for p in px:
