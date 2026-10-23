@@ -2478,6 +2478,118 @@ fn b638_a_new_stroke_starts_at_after_effects_values() {
     assert_eq!(failed, 0, "{:#?}", report.rows);
 }
 
+/// B-640 (D-761): a Radio Waves added from now on lives After Effects' 10 seconds and fades over
+/// its last 5, in the composition's frames; a project saved before keeps the 96 and 48 its file
+/// holds, and saves back byte for byte. Writes `verification/B-640_radio_waves_start_table.md`.
+#[test]
+fn b640_a_new_radio_waves_starts_at_after_effects_times() {
+    let mut report = Report { rows: Vec::new() };
+    let source = repo("Fixtures/projects/unknown_effect_project.json");
+    let text = std::fs::read_to_string(&source).expect("read the project");
+    let pick = |s: &str, key: &str| {
+        let v: serde_json::Value = serde_json::from_str(s).unwrap_or_default();
+        format!("{}", v[key])
+    };
+    // The same project at other frame rates, written beside the temporary files.
+    for (numerator, denominator, label, life, fade) in [
+        (24, 1, "24", "240", "120"),
+        (30000, 1001, "29.97", "300", "150"),
+        (25, 1, "25", "250", "125"),
+        (120, 1, "120", "1000", "600"),
+    ] {
+        let path = if numerator == 24 {
+            source.clone()
+        } else {
+            let at = std::env::temp_dir().join(format!("b640_radio_waves_{numerator}_{denominator}.json"));
+            let moved = text.replace("\r\n", "\n").replacen(
+                "\"numerator\": 24,\n        \"denominator\": 1",
+                &format!("\"numerator\": {numerator},\n        \"denominator\": {denominator}"),
+                1,
+            );
+            assert_ne!(moved, text.replace("\r\n", "\n"), "the project's frame rate was found");
+            std::fs::write(&at, moved).expect("write the project at another rate");
+            at
+        };
+        let viewer = Mutex::new(open(&path).unwrap_or_else(|d| panic!("open: {}", d.message)));
+        let said = run(&viewer, "effect.add?layer=layer-cel&type=core.radio_waves");
+        report.check(&format!("{label} fps: add a Radio Waves"), "Add Radio Waves", &said);
+        let added = settings(&viewer, "layer-cel", "fx-1");
+        report.check(
+            &format!("{label} fps: the new Radio Waves' Lifespan and Fade-out Time, frames"),
+            format!("{life}, {fade}"),
+            format!("{}, {}", pick(&added, "lifespan"), pick(&added, "fade_out_time")),
+        );
+    }
+
+    // Typed back in the panel (every setting at once, as the page sends them), 96 and 48 are kept.
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    run(&viewer, "effect.add?layer=layer-cel&type=core.radio_waves");
+    let typed = run(
+        &viewer,
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&producer_point=50,50&sides=64\
+         &interval=24&expansion=5&orientation=0&direction=90&velocity=0&spin=0&lifespan=96\
+         &opacity=100&fade_in_time=0&fade_out_time=48&start_width=5&end_width=5&profile=square\
+         &color=%23ffffff",
+    );
+    let now = settings(&viewer, "layer-cel", "fx-1");
+    report.check(
+        "Typed in the panel: Lifespan 96, Fade-out Time 48",
+        "kept",
+        if typed.starts_with("Change ") && pick(&now, "lifespan") == "96" && pick(&now, "fade_out_time") == "48" {
+            "kept".to_string()
+        } else {
+            format!("{typed}: {now}")
+        },
+    );
+
+    // A project saved before D-761: FX-RWAVE-001's file, written with 96 and 48.
+    let old = repo("Fixtures/radio_waves/fx_rwave_001.json");
+    let viewer = Mutex::new(open(&old).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let read = settings(&viewer, "art", "fx-0-0");
+    report.check(
+        "An older project's Radio Waves opens at what it saved",
+        "96, 48",
+        format!("{}, {}", pick(&read, "lifespan"), pick(&read, "fade_out_time")),
+    );
+    let text = std::fs::read_to_string(&old).expect("read the older project");
+    let first = persist::load_str(&text).expect("the older project reads");
+    let saved = persist::to_json(first.document.project(), &first.preserved);
+    let again = persist::load_str(&saved).expect("the saved project reads");
+    let resaved = persist::to_json(again.document.project(), &again.preserved);
+    report.check(
+        "Saved, opened and saved again, the older project's file",
+        "the same bytes",
+        if saved == resaved { "the same bytes".to_string() } else { "different bytes".to_string() },
+    );
+    let written: serde_json::Value = serde_json::from_str(&saved).expect("the saved file is JSON");
+    let fx = &written["compositions"][0]["layers"][0]["effects"][0]["parameters"];
+    report.check(
+        "The older project's saved Lifespan and Fade-out Time",
+        "96, 48",
+        format!("{}, {}", fx["lifespan"], fx["fade_out_time"]),
+    );
+
+    let failed = report.rows.iter().filter(|(_, e, a)| e != a).count();
+    let mut out = String::from(
+        "# B-640: a Radio Waves added from now on starts at After Effects' times (D-761)\n\n\
+         Written by `b640_a_new_radio_waves_starts_at_after_effects_times` in \
+         `app/src/tests/editing.rs`. A Radio Waves added in the window lives 10 seconds and fades \
+         over its last 5, as After Effects' panel shows a fresh Radio Waves (Lifespan 10 s in 5 \
+         tutorials, Fade-out Time 5 s in 6, wave 3 lane n), worked in the composition's frames \
+         to the nearest frame and held inside 1 to 1000. A project saved before keeps the 96 and \
+         48 its file holds. No picture of an older project changes, and no fixture is added or \
+         changed.\n\n\
+         | Check | Expected | Actual | Result |\n|---|---|---|---|\n",
+    );
+    for (check, expected, actual) in &report.rows {
+        let result = if expected == actual { "pass" } else { "FAIL" };
+        out.push_str(&format!("| {check} | {} | {} | {result} |\n", cell(expected), cell(actual)));
+    }
+    out.push_str(&format!("\n{} of {} checks pass.\n", report.rows.len() - failed, report.rows.len()));
+    std::fs::write(repo("verification/B-640_radio_waves_start_table.md"), out).expect("write the table");
+    assert_eq!(failed, 0, "{:#?}", report.rows);
+}
+
 /// D-743: a new Fractal Noise starts at After Effects' Sub Influence 70 and Sub Scaling 56, and
 /// each newly shown setting typed in the panel is kept.
 #[test]

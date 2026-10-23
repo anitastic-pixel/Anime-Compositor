@@ -4838,7 +4838,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             light_reception: "add".to_string(),
         }),
         // D-200: After Effects' own: a white circle from the middle every 24 frames, growing 5
-        // pixels a frame for 96 frames and fading over the last 48.
+        // pixels a frame for 96 frames and fading over the last 48. D-761: `effect.add` sets the
+        // life and fade to After Effects' 10 and 5 seconds in the composition's frames.
         RADIO_WAVES => Some(Effect::RadioWaves {
             producer_point: [50.0, 50.0],
             sides: 64.0,
@@ -14230,6 +14231,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.fast_blur_legacy, core.gaussian_blur_legacy, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.cryptomatte, core.depth_of_field, core.fog_3d, core.identifier, core.numbers, core.timecode, core.basic_text, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.threads, core.lens_flare, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.bezier_warp, core.mesh_warp, core.warp, core.liquify, core.reshape, core.mask_smear, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.eyedropper_fill, core.paint_bucket, core.write_on, core.scribble, core.energy_stroke, core.add_grain, core.vegas, core.curl_noise, core.turbulent_noise, core.noise_alpha, core.noise_hls, core.noise_hls_auto, core.dust_scratches, core.match_grain, core.remove_grain, core.brush_strokes, core.cartoon, core.deband, core.advanced_spill_suppressor, core.color_difference_key, core.color_range, core.difference_matte, core.inner_outer_key, core.key_cleaner, core.linear_color_key, core.screen_key, core.spill_suppressor, core.reduce_interlace_flicker, core.unmult, core.three_d_glasses, core.cc_spotlight, core.cc_cylinder, core.cc_ball_action, core.particle_space, core.bubbles, core.drizzle, core.particle_plane, core.particle_playground, core.hair, core.particle_emitter, core.particle_grid, core.mercury, core.polygon_shards, core.foam, core.scatterize, core.star_burst, core.cc_environment, core.cc_sphere, core.card_wipe, core.simple_wire_removal, core.block_load, core.burn_film, core.hex_tile, core.mr_smoothie, core.plastic, core.repeat_tile, core.scatter, core.strobe_light, core.texturize, core.channel_threshold, core.threshold_rgb, core.contour_paint, core.cc_vignette, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze, core.transform, core.noise_gate, core.compressor and core.distortion."
                         ));
                     };
+                    // D-761: a new Radio Waves lives After Effects' 10 seconds and fades over its
+                    // last 5, in this composition's frames (nearest frame, held inside 1 to 1000).
+                    let mut effect = effect;
+                    if let Effect::RadioWaves { lifespan, fade_out_time, .. } = &mut effect {
+                        let frames = |seconds: i64| {
+                            comp.frame_rate.frame_at_seconds(seconds, 1).unwrap_or(1).clamp(1, 1000) as f64
+                        };
+                        *lifespan = frames(10);
+                        *fade_out_time = frames(5);
+                    }
                     // D-87: selective colour blur matches exact colours, which anything before
                     // it would change, so it goes to the top of the stack. D-86 as amended:
                     // smoothing finds steps a blur or tint before it would hide, so it goes to
