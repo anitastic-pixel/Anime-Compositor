@@ -28,6 +28,12 @@ the end stops only its own process tree (never closing the window, so window.txt
 puts %APPDATA%/dev.anitastic.anime-compositor/window.txt and recent.txt back byte for byte, and
 deletes its folder. Several runs can go at once. The window does appear on screen while it runs.
 
+B-621: a run that drew the wrong thing says FAILED and exits 1, though every file is still
+written: a project that "cannot be opened", a note with one of FAIL_CODES (MEDIA_MISSING and the
+other codes that mean the picture is not what the project asks for), or a shot with an error.
+Each failed shot's sidecar has "failed" with the reasons; summary.json lists them all.
+`python tools/app_snapshot.py --self-check` proves the rule without starting the app.
+
 Python standard library only, so an isolated agent that may not start PowerShell can run it.
 """
 
@@ -252,6 +258,27 @@ def card_js(n, limit_ms):
 })()""" % (B64, limit_ms, n, n, n, n, n)
 
 
+# B-621: document 28 codes that mean the picture is not the one the project asks for.
+FAIL_CODES = ("PROJECT_SCHEMA_NEWER", "PROJECT_SCHEMA_INVALID", "MEDIA_MISSING", "MEDIA_SEQUENCE_GAP",
+              "MEDIA_UNSUPPORTED_FORMAT", "MEDIA_DECODE_FAILED", "EFFECT_UNSUPPORTED",
+              "EFFECT_PARAMETER_INVALID", "EFFECT_LAYER_MISSING", "EFFECT_LAYER_CYCLE",
+              "EFFECT_CHANNEL_MISSING", "EFFECT_PATH_MISSING", "MATTE_REFERENCE_MISSING", "MATTE_CYCLE",
+              "PARENT_REFERENCE_MISSING", "PARENT_CYCLE", "COMPOSITION_REFERENCE_MISSING",
+              "COMPOSITION_CYCLE", "MASK_INVALID_OUTLINE", "SHAPE_INVALID_OUTLINE", "TEXT_FONT_MISSING")
+
+
+def problems(meta):
+    """Why a shot's sidecar says the render failed; empty when it did not."""
+    found = [f"error: {meta['error']}"] if meta.get("error") else []
+    words = [meta.get(k) or "" for k in ("report", "status_line", "frame_notes")] + list(meta.get("notes") or [])
+    found += [f"cannot be opened: {w}" for w in words if "cannot be opened" in w]
+    # A note line is its sentence, a tab, then its code and detail (W-25), as the page splits it.
+    frame_lines = (meta.get("frame_notes") or "").splitlines()
+    codes = list(meta.get("note_codes") or []) + [line.split("\t")[-1] for line in frame_lines]
+    found +=[f"note {c.split()[0]}" for c in codes if c.split() and c.split()[0] in FAIL_CODES]
+    return list(dict.fromkeys(found))
+
+
 # ---- run ----
 
 def main():
@@ -336,10 +363,15 @@ def main():
                 meta.update(asked_frame=n, side=side, picture=f"{name}.png" if body else None,
                             picture_is="preview, every k-th pixel; the cpu-vs-card difference uses the full frame",
                             pixel_format="8-bit straight sRGB RGBA", tool_ms=ms)
+                failed = problems(meta)
+                if failed:
+                    meta["failed"] = failed
+                    summary.setdefault("failed", []).append({"name": name, "why": failed})
                 (out / f"{name}.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
                 summary["shots"].append({"name": name, "ms": ms, "drawn_on": meta.get("drawn_on"), "error": meta.get("error")})
                 print(f"{name}: {ms} ms, {meta.get('width')}x{meta.get('height')}, drawn on {meta.get('drawn_on')}"
-                      + (f", ERROR {meta['error']}" if meta.get("error") else ""), flush=True)
+                      + (f", ERROR {meta['error']}" if meta.get("error") else "")
+                      + (f", FAILED: {'; '.join(failed)}" if failed else ""), flush=True)
         if args.on == "both":
             for n in frames:
                 d = difference(pixels.get(("cpu", n)), pixels.get(("card", n)))
@@ -373,8 +405,9 @@ def main():
         summary["temp_folder_removed"] = not work.exists()
         summary["total_ms"] = round((time.perf_counter() - t_all) * 1000)
         (out / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
-        print(f"total {summary['total_ms']} ms; written to {out}", flush=True)
-    return 1 if summary.get("error") else 0
+        bad = bool(summary.get("error") or summary.get("failed"))
+        print(f"total {summary['total_ms']} ms; written to {out}" + ("; FAILED" if bad else "; OK"), flush=True)
+    return 1 if bad else 0
 
 
 def self_check():
@@ -382,6 +415,13 @@ def self_check():
     assert difference(bytes([16, 171, 3, 1]), bytes([0, 255, 0, 1]))["g"]["max"] == 0
     d = difference(bytes([10, 20, 30, 255]), bytes([13, 20, 30, 255]))
     assert d["r"]["max"] == 3 and d["solid"]["max"] == 3
+    # B-621: a project that did not open, and a drawing not on disk, both fail; a clean shot does not.
+    assert problems({"report": "", "notes": ["This project cannot be opened, because two layers use each other as a matte."],
+                     "note_codes": ["MATTE_CYCLE layer a, layer b"]})
+    assert problems({"notes": ["A drawing is missing."], "note_codes": ["MEDIA_MISSING media/a/0001.png"]}) == ["note MEDIA_MISSING"]
+    assert problems({"frame_notes": "A font is missing.\tTEXT_FONT_MISSING Arial"}) == ["note TEXT_FONT_MISSING"]
+    assert problems({"notes": ["Unsaved work can be recovered."], "note_codes": ["PROJECT_RECOVERY_AVAILABLE x"]}) == []
+    assert problems({"error": "timed out"}) == ["error: timed out"]
 
 
 if __name__ == "__main__":
