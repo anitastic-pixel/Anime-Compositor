@@ -3189,9 +3189,10 @@ pub(crate) fn diffusion(
 /// long running along `direction`, at `phase` degrees, fixed to the drawing's own space (its
 /// corner at `origin` in `source`). With transparent edges the layer first grows by the height
 /// rounded up, returned; with `repeat` a place past the edge reads the edge. The settings are
-/// already valid; height 0 changes nothing. D-745: `shape` is 0 sine, 1 triangle or 2 circle;
-/// `pins` holds the drawing's left, top, right and bottom edges still, the push growing in a
-/// straight line to its whole size a quarter of the drawing's width or height in.
+/// already valid; height 0 changes nothing. D-745: `shape` is 0 sine, 1 triangle or 2 circle,
+/// and D-755 any place in `effects::WAVE_SHAPES` (`wave_value`); `pins` holds the drawing's
+/// left, top, right and bottom edges still, the push growing in a straight line to its whole
+/// size a quarter of the drawing's width or height in.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn wave_warp(
     source: &mut WorkingBuffer,
@@ -3226,11 +3227,7 @@ pub(crate) fn wave_warp(
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let s = tx * (x - ox) + ty * (y - oy);
             let a = tau * s / width + phi;
-            let v = match shape {
-                1 => a.sin().asin() * 2.0 / std::f64::consts::PI,
-                2 => wave_circle(a),
-                _ => a.sin(),
-            } * wave_pin(pins, (dw, dh), x - ox, y - oy);
+            let v = wave_value(shape, a) * wave_pin(pins, (dw, dh), x - ox, y - oy);
             let mut sx = x - height * v * nx;
             let mut sy = y - height * v * ny;
             if repeat {
@@ -3241,6 +3238,42 @@ pub(crate) fn wave_warp(
         });
     *source = out;
     g
+}
+
+/// D-755: the wave of shape number `shape` (`effects::WAVE_SHAPES`) at `a` radians, -1 to 1.
+/// With u the place in the whole wave (0 to 1): square 1 then -1, each half a wave; sawtooth
+/// 2u - 1; semicircle 1 - 2 sqrt(1 - (2u - 1)^2), one arch a wave, its point where the sine
+/// rises through nothing, all as After Effects' stills show them (Motion Academy); uncircle the
+/// semicircle turned over. Noise and smooth noise are ours, After Effects' being random: a fixed
+/// random level at every sixteenth of a wave with straight lines between (noise), or at every
+/// half wave joined smoothly (smooth noise), so they travel with the phase as the others do.
+pub(crate) fn wave_value(shape: u32, a: f64) -> f64 {
+    let q = a / std::f64::consts::TAU;
+    let u = q - q.floor();
+    let arch = || (1.0 - (2.0 * u - 1.0).powi(2)).max(0.0).sqrt();
+    let knots = |per: f64, kind: u32| {
+        let n = q * per;
+        let j = n.floor();
+        let at = |j: f64| crate::along::mix(crate::along::mix(kind) ^ j as i64 as u32) as f64 / 4294967296.0 * 2.0 - 1.0;
+        (at(j), at(j + 1.0), n - j)
+    };
+    match shape {
+        1 => a.sin().asin() * 2.0 / std::f64::consts::PI,
+        2 => wave_circle(a),
+        3 => if u < 0.5 { 1.0 } else { -1.0 },
+        4 => 2.0 * u - 1.0,
+        5 => 1.0 - 2.0 * arch(),
+        6 => 2.0 * arch() - 1.0,
+        7 => {
+            let (p, n, f) = knots(16.0, 1);
+            p + (n - p) * f
+        }
+        8 => {
+            let (p, n, f) = knots(2.0, 2);
+            p + (n - p) * f * f * (3.0 - 2.0 * f)
+        }
+        _ => a.sin(),
+    }
 }
 
 /// D-745: the circle wave at `a` radians, each half wave half a circle, on the sine's side.

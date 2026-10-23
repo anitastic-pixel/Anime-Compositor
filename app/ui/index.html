@@ -13039,7 +13039,10 @@ const EFFECT_WORDS = {
   'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]],
     ['second_blend', 'Second Blend', [['soft_light', 'Soft Light'], ['overlay', 'Overlay']]]] },
   // D-149.
-  'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle'], ['circle', 'Circle']]], EDGES,
+  // D-755: After Effects' nine wave types, in its order.
+  'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['square', 'Square'], ['triangle', 'Triangle'],
+    ['sawtooth', 'Sawtooth'], ['circle', 'Circle'], ['semicircle', 'Semicircle'], ['uncircle', 'Uncircle'],
+    ['noise', 'Noise'], ['smooth_noise', 'Smooth Noise']]], EDGES,
     // D-745.
     ['pinning', 'Pinning', [['none', 'None'], ['all_edges', 'All Edges'], ['left_edge', 'Left Edge'], ['top_edge', 'Top Edge'],
       ['right_edge', 'Right Edge'], ['bottom_edge', 'Bottom Edge'], ['horizontal_edges', 'Horizontal Edges'], ['vertical_edges', 'Vertical Edges']]]] },

@@ -66,8 +66,8 @@ D-745, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-WAVE-022 frame 0: Height keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-022 frame 4: Height keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-022: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-WAVE-023 frame 0: Shape "square", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-WAVE-023 frame 4: Shape "square", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-WAVE-023 frame 0: Shape "hexagon", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-WAVE-023 frame 4: Shape "hexagon", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-023: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-WAVE-024 frame 0: Edges "Repeat": the word is exact, so a capital is not the choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-024 frame 4: Edges "Repeat": the word is exact, so a capital is not the choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -103,6 +103,26 @@ D-745, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-WAVE-038 frame 0: Pinning "All Edges", the name on the panel, not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-038 frame 4: Pinning "All Edges", the name on the panel, not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-038: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-WAVE-039 frame 0: FX-WAVE-003 with shape square: columns 0 to 3 are pushed down the whole 2 pixels and columns 4 to 7 up, and again from column 8, so the band steps down and up in blocks four pixels wide. | largest difference 1.9e-7 | yes |
+| FX-WAVE-039: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-040 frame 0: FX-WAVE-003 with shape sawtooth: the push climbs evenly across each wave of eight columns, from 1.75 pixels one way at column 0 to 1.75 the other at column 7, then drops back at column 8. | largest difference 1.9e-7 | yes |
+| FX-WAVE-040: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-041 frame 0: FX-WAVE-003 with shape semicircle: one round arch a wave, pushing up most at columns 3 and 4 and 11 and 12, and the arches meeting in points at columns 0, 7, 8 and 15, all but unmoved. | largest difference 2.1e-7 | yes |
+| FX-WAVE-041: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-042 frame 0: FX-WAVE-041 with shape uncircle: every push the other way. | largest difference 2.1e-7 | yes |
+| FX-WAVE-042: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-043 frame 0: Shape noise, height 2, width 40: a fixed uneven push, a new level every two and a half pixels with straight lines between. | largest difference 2.5e-7 | yes |
+| FX-WAVE-043: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-044 frame 0: Shape smooth_noise, height 2, width 8: a fixed uneven push, a new level every four pixels joined smoothly. | largest difference 2.5e-7 | yes |
+| FX-WAVE-044: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-045 frame 0: FX-WAVE-043 with speed 45: the noise travels, the same at every frame for the same settings; frame 2 is phase 90, the pattern a quarter of 40 pixels on. | largest difference 2.5e-7 | yes |
+| FX-WAVE-045 frame 2: FX-WAVE-043 with speed 45: the noise travels, the same at every frame for the same settings; frame 2 is phase 90, the pattern a quarter of 40 pixels on. | largest difference 2.5e-7 | yes |
+| FX-WAVE-045: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-046 frame 0: FX-WAVE-041 with pinning all_edges and direction 0: the arches run up the drawing, pushing each row left or right, held still at its edges. | largest difference 2.5e-7 | yes |
+| FX-WAVE-046: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-WAVE-047 frame 0: Shape "Smooth Noise", the name on the panel, not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-WAVE-047 frame 4: Shape "Smooth Noise", the name on the panel, not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-WAVE-047: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## A project saved before Pinning
 
@@ -133,7 +153,7 @@ D-745, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | pinning "center" is refused with a sentence, and nothing changes | Wave Warp's pinning is one of none, all_edges, left_edge, top_edge, right_edge, bottom_edge, horizontal_edges, vertical_edges, and this is "center". | yes |
 | pinning "All Edges" is refused with a sentence, and nothing changes | Wave Warp's pinning is one of none, all_edges, left_edge, top_edge, right_edge, bottom_edge, horizontal_edges, vertical_edges, and this is "All Edges". | yes |
 | pinning "" is refused with a sentence, and nothing changes | Wave Warp's pinning is one of none, all_edges, left_edge, top_edge, right_edge, bottom_edge, horizontal_edges, vertical_edges, and this is "". | yes |
-| shape "square" is refused with a sentence, and nothing changes | Wave Warp's shape is "sine", "triangle" or "circle", and this is "square". | yes |
+| shape "hexagon" is refused with a sentence, and nothing changes | Wave Warp's shape is one of sine, triangle, circle, square, sawtooth, semicircle, uncircle, noise, smooth_noise, and this is "hexagon". | yes |
 | shape circle, is taken | taken | yes |
 | pinning all_edges, is taken | taken | yes |
 | pinning left_edge, is taken | taken | yes |
@@ -156,4 +176,4 @@ D-745, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 
 ## Result
 
-127 of 127 checks pass.
+147 of 147 checks pass.

@@ -2299,6 +2299,56 @@ fn cos64(x: f64) -> f64 {
 }
 
 // asin(sin(x)), the triangle wave, folded from the angle.
+// D-755: along::mix, Scribble's 32-bit mix.
+fn wave_mix(x0: u32) -> u32 {
+    var x = x0;
+    x ^= x >> 16u;
+    x *= 0x7feb352du;
+    x ^= x >> 15u;
+    x *= 0x846ca68bu;
+    return x ^ (x >> 16u);
+}
+
+// D-755: the level at knot j of noise kind `kind`, -1 to 1, as layer_fx::wave_value reads it.
+fn wave_knot(kind: u32, j: f64) -> f64 {
+    return f64(wave_mix(wave_mix(kind) ^ bitcast<u32>(i32(j)))) / 4294967296.0lf * 2.0lf - 1.0lf;
+}
+
+// D-755: layer_fx::wave_value for shapes 3 (square) to 8 (smooth noise).
+fn wave_more(shape: u32, a: f64) -> f64 {
+    let q = a / 6.283185307179586lf;
+    let u = q - floor(q);
+    let arch = sqrt(max(1.0lf - (2.0lf * u - 1.0lf) * (2.0lf * u - 1.0lf), 0.0lf));
+    switch shape {
+        case 3u: {
+            return select(-1.0lf, 1.0lf, u < 0.5lf);
+        }
+        case 4u: {
+            return 2.0lf * u - 1.0lf;
+        }
+        case 5u: {
+            return 1.0lf - 2.0lf * arch;
+        }
+        case 6u: {
+            return 2.0lf * arch - 1.0lf;
+        }
+        case 7u: {
+            let n = q * 16.0lf;
+            let j = floor(n);
+            let f = n - j;
+            let p = wave_knot(1u, j);
+            return p + (wave_knot(1u, j + 1.0lf) - p) * f;
+        }
+        default: {
+            let n = q * 2.0lf;
+            let j = floor(n);
+            let f = n - j;
+            let p = wave_knot(2u, j);
+            return p + (wave_knot(2u, j + 1.0lf) - p) * f * f * (3.0lf - 2.0lf * f);
+        }
+    }
+}
+
 fn folded(x: f64) -> f64 {
     let n = quarters(x);
     let r = reduced(x, n);
@@ -4380,7 +4430,8 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     switch F.mode {
         case 0u: {
             // k: the drawing's corner in the output, the wave's direction and its normal, the
-            // width, the phase in radians, the height, the shape (0 sine, 1 triangle, 2 circle),
+            // width, the phase in radians, the height, the shape (0 sine, 1 triangle, 2 circle,
+            // D-755's 3 to 8 in wave_more),
             // and D-745's drawing size and pinned edges, left, top, right, bottom.
             let s = k[2] * (x - k[0]) + k[3] * (y - k[1]);
             let a = 6.283185307179586lf * s / k[6] + k[7];
@@ -4394,6 +4445,8 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                 if m - 2.0lf * floor(m / 2.0lf) == 1.0lf {
                     v = -v;
                 }
+            } else if k[9] >= 3.0lf {
+                v = wave_more(u32(k[9]), a);
             }
             let px = x - k[0];
             let py = y - k[1];
@@ -16567,11 +16620,7 @@ impl Gpu {
                     *width,
                     phi,
                     *height,
-                    match shape.as_str() {
-                        "triangle" => 1.0,
-                        "circle" => 2.0,
-                        _ => 0.0,
-                    },
+                    crate::effects::wave_shape(shape) as f64,
                     w.saturating_sub(2 * ox) as f64,
                     h.saturating_sub(2 * oy) as f64,
                     pins[0] as u8 as f64,

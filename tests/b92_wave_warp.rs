@@ -125,8 +125,8 @@ fn b92_wave_warp() {
             ("speed -361", set(with(3, -361.0))),
             ("phase 100001", set(with(4, 100001.0))),
             (
-                "shape \"square\"",
-                set(wave(START, "square", "transparent")),
+                "shape \"hexagon\"",
+                set(wave(START, "hexagon", "transparent")),
             ),
             ("edges \"Repeat\"", set(wave(START, "sine", "Repeat"))),
             (

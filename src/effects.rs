@@ -1225,8 +1225,8 @@ pub enum Effect {
     /// `phase`, -100000 to 100000 degrees; and `edges`, "transparent" or "repeat". The words are
     /// kept as written, so a wrong one is reported. `frame` is not a setting and is never saved:
     /// it is the composition frame, as Noise's is. D-745: `shape` may also be "circle", and
-    /// `pinning`, one of `WAVE_PINNINGS`' words ("none" where a file has none), holds edges of
-    /// the drawing still.
+    /// D-755 any of `WAVE_SHAPES`' words; `pinning`, one of `WAVE_PINNINGS`' words ("none"
+    /// where a file has none), holds edges of the drawing still.
     WaveWarp {
         shape: String,
         height: f64,
@@ -5306,7 +5306,6 @@ pub const BRUSH_STROKES: &str = "core.brush_strokes";
 pub const NOISE_GATE: &str = "core.noise_gate";
 pub const COMPRESSOR: &str = "core.compressor";
 pub const DISTORTION: &str = "core.distortion";
-/// D-644: Distortion's types, in After Effects 26.0's order.
 /// D-745: Wave Warp's pinning words and the drawing's edges each holds still, left, top, right,
 /// bottom.
 pub const WAVE_PINNINGS: [(&str, [bool; 4]); 8] = [
@@ -5328,6 +5327,26 @@ pub fn wave_pins(pinning: &str) -> [bool; 4] {
         .map_or([false; 4], |(_, pins)| *pins)
 }
 
+/// D-149, D-745, D-755: Wave Warp's shape words; a shape's number is its place here.
+pub const WAVE_SHAPES: [&str; 9] = [
+    "sine",
+    "triangle",
+    "circle",
+    "square",
+    "sawtooth",
+    "semicircle",
+    "uncircle",
+    "noise",
+    "smooth_noise",
+];
+
+/// D-755: the number of a shape word, its place in `WAVE_SHAPES`; 0, the sine, for a word that
+/// is not a choice.
+pub fn wave_shape(shape: &str) -> u32 {
+    WAVE_SHAPES.iter().position(|word| *word == shape).unwrap_or(0) as u32
+}
+
+/// D-644: Distortion's types, in After Effects 26.0's order.
 pub const DISTORTION_TYPES: [&str; 6] = [
     "soft_clip",
     "hard_clip",
@@ -14165,8 +14184,8 @@ impl Effect {
             Effect::Diffusion { second_blend: b, .. } if !["soft_light", "overlay"].contains(&b.as_str()) => Some(format!(
                 "Diffusion's second blend is \"soft_light\" or \"overlay\", and this is \"{b}\"."
             )),
-            Effect::WaveWarp { shape, edges: e, pinning, .. } => (!["sine", "triangle", "circle"].contains(&shape.as_str()))
-                .then(|| format!("{name}'s shape is \"sine\", \"triangle\" or \"circle\", and this is \"{shape}\"."))
+            Effect::WaveWarp { shape, edges: e, pinning, .. } => (!WAVE_SHAPES.contains(&shape.as_str()))
+                .then(|| format!("{name}'s shape is one of {}, and this is \"{shape}\".", WAVE_SHAPES.join(", ")))
                 .or_else(|| edges(e))
                 .or_else(|| {
                     (!WAVE_PINNINGS.iter().any(|(word, _)| word == pinning)).then(|| {
@@ -18325,11 +18344,7 @@ pub(crate) fn apply_stack_at(
                 let r = crate::perf::time(crate::perf::Stage::EffectWaveWarp, || {
                     crate::layer_fx::wave_warp(
                         source,
-                        match shape.as_str() {
-                            "triangle" => 1,
-                            "circle" => 2,
-                            _ => 0,
-                        },
+                        wave_shape(shape),
                         wave_pins(pinning),
                         (*height, *width),
                         *direction,

@@ -66,8 +66,8 @@ D-149, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | FX-WAVE-022 frame 0: Height keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-022 frame 4: Height keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-022: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-WAVE-023 frame 0: Shape "square", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-WAVE-023 frame 4: Shape "square", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-WAVE-023 frame 0: Shape "hexagon", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-WAVE-023 frame 4: Shape "hexagon", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-023: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-WAVE-024 frame 0: Edges "Repeat": the word is exact, so a capital is not the choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-WAVE-024 frame 4: Edges "Repeat": the word is exact, so a capital is not the choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -113,7 +113,7 @@ D-149, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | direction 3601 is refused with a sentence, and nothing changes | Wave Warp's direction runs from -3600 to 3600, and this is 3601. | yes |
 | speed -361 is refused with a sentence, and nothing changes | Wave Warp's speed runs from -360 to 360, and this is -361. | yes |
 | phase 100001 is refused with a sentence, and nothing changes | Wave Warp's phase runs from -100000 to 100000, and this is 100001. | yes |
-| shape "square" is refused with a sentence, and nothing changes | Wave Warp's shape is "sine", "triangle" or "circle", and this is "square". | yes |
+| shape "hexagon" is refused with a sentence, and nothing changes | Wave Warp's shape is one of sine, triangle, circle, square, sawtooth, semicircle, uncircle, noise, smooth_noise, and this is "hexagon". | yes |
 | edges "Repeat" is refused with a sentence, and nothing changes | Wave Warp's edges are "transparent" or "repeat", and this is "Repeat". | yes |
 | height keyed to 1500 is refused with a sentence, and nothing changes | Wave Warp's height runs from 0 to 1000, and this is 1500. | yes |
 | every number at its bottom, is taken | taken | yes |

@@ -92,7 +92,7 @@ fn b624_wave_warp() {
             ("pinning \"center\"", set(wave("sine", "center"))),
             ("pinning \"All Edges\"", set(wave("sine", "All Edges"))),
             ("pinning \"\"", set(wave("sine", ""))),
-            ("shape \"square\"", set(wave("square", "none"))),
+            ("shape \"hexagon\"", set(wave("hexagon", "none"))),
         ],
     );
     t.taken(

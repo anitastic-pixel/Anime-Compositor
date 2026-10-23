@@ -325,8 +325,8 @@ pub(crate) fn scribble_runs(
 /// whether it is inverted.
 type Mask = (Vec<(f64, f64)>, crate::mask::MaskMode, bool);
 
-/// Scribble's 32-bit mix.
-fn mix(mut x: u32) -> u32 {
+/// Scribble's 32-bit mix; D-755's Wave Warp noise uses it too.
+pub(crate) fn mix(mut x: u32) -> u32 {
     x ^= x >> 16;
     x = x.wrapping_mul(0x7feb_352d);
     x ^= x >> 15;
