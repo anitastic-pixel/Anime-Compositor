@@ -88,17 +88,37 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
     };
 
     // (2) The light a glowing pixel gives: the pixel itself, or the tint at its covering.
+    // D-746: in display values and After Effects units each channel's light is it times
+    // GI * (t + 16 (1 - t)) / 3, held at 1, and based on bright each channel glows on its own.
+    let ae = g.display && g.after_effects;
+    let t = g.threshold / 100.0;
+    let s = (g.intensity * (t + 16.0 * (1.0 - t)) / 3.0) as f32;
+    let held = |v: f32| (s * v).min(1.0);
     let mut light = WorkingBuffer::transparent(w, h);
     light
         .data_mut()
         .par_chunks_exact_mut(4)
         .zip(source.data().par_chunks_exact(4))
         .for_each(|(l, px)| {
-            if lights(px) {
-                let a = px[3];
-                match tint {
-                    Some(t) => l.copy_from_slice(&[t[0] * a, t[1] * a, t[2] * a, a]),
-                    None => l.copy_from_slice(px),
+            let a = px[3];
+            if ae && g.bright && tint.is_none() {
+                if a > 0.0 {
+                    let on = [0, 1, 2].map(|c| {
+                        100.0 * crate::color::quantise_u8(px[c] / a) as f64 >= 255.0 * g.threshold
+                    });
+                    if on.contains(&true) {
+                        for c in 0..3 {
+                            l[c] = if on[c] { held(px[c] / a) * a } else { 0.0 };
+                        }
+                        l[3] = a;
+                    }
+                }
+            } else if lights(px) {
+                match (tint, ae) {
+                    (Some(t), true) => l.copy_from_slice(&[held(t[0]) * a, held(t[1]) * a, held(t[2]) * a, a]),
+                    (Some(t), false) => l.copy_from_slice(&[t[0] * a, t[1] * a, t[2] * a, a]),
+                    (None, true) => l.copy_from_slice(&[held(px[0] / a) * a, held(px[1] / a) * a, held(px[2] / a) * a, a]),
+                    (None, false) => l.copy_from_slice(px),
                 }
             }
         });
@@ -108,14 +128,19 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
 
     // (3) Spread: document 21's blur at sigma radius / 3, growing the light's bounds; D-322's
     // After Effects units blur as Gaussian Blur at Blurriness radius.
-    let (sigma, long) = crate::effects::glow_reach(
-        g.radius,
-        if g.after_effects {
-            "after_effects"
-        } else {
-            "classic"
-        },
-    );
+    // D-746: in display values at sigma 0.4 times the radius, Valeri Visuals' white disc.
+    let (sigma, long) = if ae {
+        (0.4 * g.radius, true)
+    } else {
+        crate::effects::glow_reach(
+            g.radius,
+            if g.after_effects {
+                "after_effects"
+            } else {
+                "classic"
+            },
+        )
+    };
     let r = crate::effects::blur_axes(
         &mut light,
         &crate::effects::reach_weights(sigma, long),
@@ -124,16 +149,13 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
 
     // (4) Strength and (5) on top of the picture, which is empty outside its own bounds.
     // D-331: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) is the colour read straight: the
-    // colour at the intensity, the covering divided by t + 16 (1 - t). D-337: in display values,
-    // where Creative COW measured it, the colour is multiplied by all of it, the covering untouched.
-    let (k, ka) = if g.after_effects {
+    // colour at the intensity, the covering divided by t + 16 (1 - t), in linear light.
+    // D-746 (replacing D-337's GI * c): in display values the intensity is spent in (2), and the light is laid on at 1.
+    let (k, ka) = if ae {
+        (1.0, 1.0)
+    } else if g.after_effects {
         let t = g.threshold / 100.0;
-        let c = t + 16.0 * (1.0 - t);
-        if g.display {
-            ((g.intensity * c) as f32, 1.0)
-        } else {
-            (g.intensity as f32, (1.0 / c) as f32)
-        }
+        (g.intensity as f32, (1.0 / (t + 16.0 * (1.0 - t))) as f32)
     } else {
         (g.intensity as f32, g.intensity as f32)
     };

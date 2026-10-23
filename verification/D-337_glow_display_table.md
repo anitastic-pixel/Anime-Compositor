@@ -6,17 +6,17 @@ D-337, from P-26's tutorial 2. Every expected pixel is `Fixtures/glow_display/ex
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-GLDISP-001 frame 0: 32 bpc (After Effects), Glow in After Effects units at tutorial 2's kind of setting, threshold 0, radius 4, intensity 0.1: worked in display values, the colour at 1.6 times the blurred light and the covering as blurred, so the halo is brighter and wider than Float's. | largest difference 2.2e-6 | yes |
+| FX-GLDISP-001 frame 0: 32 bpc (After Effects), Glow in After Effects units at tutorial 2's kind of setting, threshold 0, radius 4, intensity 0.1: worked in display values, D-746: each channel's light 0.1 x 16 / 3 times its display value, spread at sigma 1.6, laid on at strength 1 with the covering as blurred, so the halo covers more than Float's. | largest difference 3.2e-7 | yes |
 | FX-GLDISP-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-GLDISP-002 frame 0: 32 bpc (After Effects), tutorial 2's glow layer in small: Solid Composite on black, then the same Glow. Opaque, the glow lifts the black round the patches with their own colours. | largest difference 2.2e-6 | yes |
+| FX-GLDISP-002 frame 0: 32 bpc (After Effects), tutorial 2's glow layer in small: Solid Composite on black, then the same Glow. Opaque, the glow lifts the black round the patches with their own colours. | largest difference 3.2e-7 | yes |
 | FX-GLDISP-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-GLDISP-003 frame 0: 32 bpc (After Effects), Glow with tint #ff4000, threshold 0, intensity 0.2: the tint is used as written, a display value, so read straight in display values the halo is 3.2 times #ff4000. | largest difference 1.5e-6 | yes |
+| FX-GLDISP-003 frame 0: 32 bpc (After Effects), Glow with tint #ff4000, threshold 0, intensity 0.2: the tint is used as written, a display value, so read straight in display values the halo is #ff4000 times 0.2 x 16 / 3, held at 1 (D-746). | largest difference 2.0e-7 | yes |
 | FX-GLDISP-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-004 frame 0: 32 bpc (After Effects), Glow in classic units, FX-GLOW-001's settings: D-89's strength, worked in display values. | largest difference 3.9e-7 | yes |
 | FX-GLDISP-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-GLDISP-005 frame 0: 32 bpc (After Effects), Glow in After Effects units with Screen: held inside 0 to 1 and screened, in display values. | largest difference 7.5e-6 | yes |
+| FX-GLDISP-005 frame 0: 32 bpc (After Effects), Glow in After Effects units with Screen: held inside 0 to 1 and screened, in display values. | largest difference 2.3e-7 | yes |
 | FX-GLDISP-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-GLDISP-006 frame 0: 8 bpc, Glow in After Effects units at After Effects' defaults, threshold 60, radius 10, intensity 1: in display values, then held to 8 bits, so nothing passes white. | largest difference 9.8e-8 | yes |
+| FX-GLDISP-006 frame 0: 8 bpc, Glow in After Effects units at After Effects' defaults, threshold 60, radius 10, intensity 1: in display values by D-746's rule, then held to 8 bits, so nothing passes white. | largest difference 1.9e-7 | yes |
 | FX-GLDISP-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-007 frame 0: Float, FX-GLDISP-001's Glow: linear light and D-331's rule as before, FX-GLOW-AE-004 exactly. | largest difference 1.9e-7 | yes |
 | FX-GLDISP-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -39,7 +39,7 @@ D-337, from P-26's tutorial 2. Every expected pixel is `Fixtures/glow_display/ex
 | --- | --- | --- |
 | 1_float.png, Float, linear light: a thin line with a faint halo; draws cleanly | [] | yes |
 | 2_ae_32bpc.png, 32 bpc (After Effects), D-337: the halo laid on in display values; draws cleanly | [] | yes |
-| 30 pixels from the line the 32 bpc (After Effects) halo is brighter than Float's and still gold, green under red, blue under green | Float [5, 4, 1], 32 bpc (After Effects) [55, 46, 18] | yes |
+| 30 pixels from the line the 32 bpc (After Effects) halo is brighter than Float's and still gold, green under red, blue under green | Float [5, 4, 1], 32 bpc (After Effects) [8, 7, 3] | yes |
 
 ## Result
 

@@ -1,0 +1,55 @@
+# B-625: Glow's strength and fall-off in After Effects units
+
+D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bpc and 32 bpc (After Effects) a Glow in After Effects units gives each glowing channel min(1, intensity x (t + 16 (1 - t)) / 3 x its value), spreads it at sigma 0.4 x radius and lays it on at strength 1. Every FX-GLDISP pixel is `Fixtures/glow_display/expected_glow_display.json`, rewritten by `tools/glow_display_reference.py`; the tolerance is 2e-5. The pictures are Wave 1's tutorial frames at a quarter size, After Effects' levels measured from its stills.
+
+## FX-GLDISP-001 to 008 (document 25), D-746's values
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| FX-GLDISP-001 frame 0: 32 bpc (After Effects), Glow in After Effects units at tutorial 2's kind of setting, threshold 0, radius 4, intensity 0.1: worked in display values, D-746: each channel's light 0.1 x 16 / 3 times its display value, spread at sigma 1.6, laid on at strength 1 with the covering as blurred, so the halo covers more than Float's. | largest difference 3.2e-7 | yes |
+| FX-GLDISP-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-002 frame 0: 32 bpc (After Effects), tutorial 2's glow layer in small: Solid Composite on black, then the same Glow. Opaque, the glow lifts the black round the patches with their own colours. | largest difference 3.2e-7 | yes |
+| FX-GLDISP-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-003 frame 0: 32 bpc (After Effects), Glow with tint #ff4000, threshold 0, intensity 0.2: the tint is used as written, a display value, so read straight in display values the halo is #ff4000 times 0.2 x 16 / 3, held at 1 (D-746). | largest difference 2.0e-7 | yes |
+| FX-GLDISP-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-004 frame 0: 32 bpc (After Effects), Glow in classic units, FX-GLOW-001's settings: D-89's strength, worked in display values. | largest difference 3.9e-7 | yes |
+| FX-GLDISP-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-005 frame 0: 32 bpc (After Effects), Glow in After Effects units with Screen: held inside 0 to 1 and screened, in display values. | largest difference 2.3e-7 | yes |
+| FX-GLDISP-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-006 frame 0: 8 bpc, Glow in After Effects units at After Effects' defaults, threshold 60, radius 10, intensity 1: in display values by D-746's rule, then held to 8 bits, so nothing passes white. | largest difference 1.9e-7 | yes |
+| FX-GLDISP-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-007 frame 0: Float, FX-GLDISP-001's Glow: linear light and D-331's rule as before, FX-GLOW-AE-004 exactly. | largest difference 1.9e-7 | yes |
+| FX-GLDISP-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-008 frame 0: 32 bpc (After Effects), the half-covering patches with Solid Composite #3c286e at opacity 50 and nothing else: laid on in display values, the purple used as written. | largest difference 6.1e-8 | yes |
+| FX-GLDISP-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+
+## Valeri Visuals, case 2: a white disc on black, threshold 0, radius 400, intensity 2 (a quarter size)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| 1_valeri_disc.png draws cleanly | [] | yes |
+| 180 pixels from the middle: After Effects 63.4, within 6 levels | 62 | yes |
+| 200 pixels from the middle: After Effects 55.7, within 6 levels | 55 | yes |
+| 250 pixels from the middle: After Effects 39.3, within 6 levels | 40 | yes |
+| 300 pixels from the middle: After Effects 25.7, within 6 levels | 25 | yes |
+| 350 pixels from the middle: After Effects 16.1, within 6 levels | 16 | yes |
+| 400 pixels from the middle: After Effects 9, within 6 levels | 8 | yes |
+| 500 pixels from the middle: After Effects 1.7, within 6 levels | 2 | yes |
+
+## School of Motion's square: blue (57, 67, 179) on grey, threshold 60, radius 10, intensity 1
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| 2_square.png draws cleanly | [] | yes |
+| the middle: only blue is past the threshold, so only blue glows; After Effects shows (56, 70, 255), red and green within 4 | [57, 67, 255] | yes |
+| 2 pixels outside the square the grey gains blue only | [128, 128, 196] | yes |
+
+## Intensity 0 changes nothing (no dark ring is added)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| 2 pixels outside the square, intensity 0 | [128, 128, 128] | yes |
+
+## Result
+
+28 of 28 checks pass.
