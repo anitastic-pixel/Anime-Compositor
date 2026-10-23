@@ -8648,8 +8648,9 @@ fn snow(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // B-151, grade::cell_pattern: the drawing's corner at `ox`, `oy`. k: the size, the contrast, the
 // opacity as a share, the pattern (bubbles, crystals, plates, else the cell's grey), invert, the
-// first cell across and down, the cells across, the dark and light colours encoded, 0, then
-// each cell's point and grey from 15, as grade::cell_points has them.
+// first cell across and down, the cells across, the dark and light colours encoded, 0, the
+// offset x and y (D-762), the overflow (1 clip, 2 soft clamp, 3 wrap back), then each cell's
+// point and grey from 18, as grade::cell_points has them.
 @compute @workgroup_size(16, 16)
 fn cells(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -8662,8 +8663,8 @@ fn cells(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, p);
         return;
     }
-    let x = quotient(f64(i32(id.x) - F.ox) + 0.5lf, k[0]);
-    let y = quotient(f64(i32(id.y) - F.oy) + 0.5lf, k[0]);
+    let x = quotient(f64(i32(id.x) - F.ox) + 0.5lf - k[15], k[0]);
+    let y = quotient(f64(i32(id.y) - F.oy) + 0.5lf - k[16], k[0]);
     let ci = i32(floor(x)) - 2 - i32(k[5]);
     let cj = i32(floor(y)) - 2 - i32(k[6]);
     let cols = i32(k[7]);
@@ -8673,7 +8674,7 @@ fn cells(@builtin(global_invocation_id) id: vec3<u32>) {
     var g = 0.0lf;
     for (var n = cj; n < cj + 5; n++) {
         for (var m = ci; m < ci + 5; m++) {
-            let o = 15u + 3u * u32(n * cols + m);
+            let o = 18u + 3u * u32(n * cols + m);
             let d = product(x - k[o], x - k[o], k[14]) + product(y - k[o + 1u], y - k[o + 1u], k[14]);
             if d < f1 {
                 f2 = f1;
@@ -8700,7 +8701,16 @@ fn cells(@builtin(global_invocation_id) id: vec3<u32>) {
     if k[4] == 1.0lf {
         v = 1.0lf - v;
     }
-    v = clamp(0.5lf + (v - 0.5lf) * k[1] / 100.0lf, 0.0lf, 1.0lf);
+    v = 0.5lf + (v - 0.5lf) * k[1] / 100.0lf;
+    if k[17] == 2.0lf {
+        // single precision's tanh: within a level of the processor's, as Fractal Noise's.
+        v = 0.5lf + 0.5lf * f64(tanh(f32(2.0lf * (v - 0.5lf))));
+    } else if k[17] == 3.0lf {
+        v = v - 2.0lf * floor(v / 2.0lf);
+        v = select(v, 2.0lf - v, v > 1.0lf);
+    } else {
+        v = clamp(v, 0.0lf, 1.0lf);
+    }
     var out = p;
     for (var c = 0u; c < 3u; c++) {
         let color = to_linear(k[8u + c] + v * (k[11u + c] - k[8u + c]));
@@ -20533,9 +20543,25 @@ impl Gpu {
                 light_color,
                 opacity,
                 blend: b,
+                offset,
+                overflow,
+                cycle_evolution,
+                cycle,
+                tiling,
+                tiles_horizontal,
+                tiles_vertical,
             } => {
+                let (more, overflow) = crate::effects::cell_more(
+                    *offset,
+                    overflow,
+                    cycle_evolution,
+                    *cycle,
+                    tiling,
+                    [*tiles_horizontal, *tiles_vertical],
+                );
                 let (m0, n0, cols, points) = crate::grade::cell_points(
                     [*disperse, *size, *evolution, *seed],
+                    more,
                     (w, h),
                     f.origin,
                 );
@@ -20556,6 +20582,7 @@ impl Gpu {
                 k.extend(crate::effects::encoded(dark_color));
                 k.extend(crate::effects::encoded(light_color));
                 k.push(0.0);
+                k.extend([offset[0], offset[1], overflow as f64]);
                 k.extend(points.iter().flat_map(|&(x, y, grey)| [x, y, grey]));
                 same(
                     steps,
@@ -24577,7 +24604,7 @@ impl Gpu {
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => {
-                                ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0))
+                                ((18.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0))
                                     * 8.0) as u64
                             }
                             // B-223: a Compound Blur's sigma for each pixel.

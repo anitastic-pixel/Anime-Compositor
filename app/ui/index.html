@@ -12751,12 +12751,17 @@ const EFFECT_PARAMS = {
     ['blend', 'Blend', 1, 1, '1 to 1000, how far each colour reaches into the others'],
     ['jitter', 'Jitter', 1, 0.5, '0 to 100, a fine grain in the mix against banding', '', 0],
     ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
-  'core.cell_pattern': [['contrast', 'Contrast', 1, 1, '0 to 1000, 100 as drawn'],
+  'core.cell_pattern': [['contrast', 'Contrast', 1, 1, '0 to 10000, 100 as drawn'],
     ['disperse', 'Disperse', 1, 0.01, '0 to 1.5, 0 a square grid'],
     ['size', 'Size', 1, 0.5, 'pixels a cell, 1 to 1000'],
     ['evolution', 'Evolution', 1, 1, 'degrees, one turn moves each cell round and back'],
     ['seed', 'Random Seed', 1, 1, '0 to 100000, whole numbers'],
-    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100'],
+    // D-762, After Effects' own words.
+    ['offset', 'Offset', 2, 1, 'pixels, x then y, -100000 to 100000; slides the cells', '', [0, 0]],
+    ['cycle', 'Cycle (in Revolutions)', 1, 1, '1 to 1000, whole numbers; with Cycle Evolution on, the cells come back after this many turns of Evolution', '', 1],
+    ['tiles_horizontal', 'Cells Horizontal', 1, 1, '1 to 1000, whole numbers; with Enable Tiling on, the pattern repeats after this many cells across', '', 10],
+    ['tiles_vertical', 'Cells Vertical', 1, 1, '1 to 1000, whole numbers; with Enable Tiling on, the pattern repeats after this many cells down', '', 10]],
   'core.optics_compensation': [['field_of_view', 'Field of View', 1, 1, 'degrees, 0 to 180, how wide the lens is; 0 leaves the layer as it is'],
     ['center', 'View Center', 2, 1, '% of the width and height, -1000 to 1000, the middle of the lens']],
   // D-211, After Effects' own words.
@@ -13779,7 +13784,11 @@ const EFFECT_WORDS = {
   'core.cell_pattern': {
     choices: [['pattern', 'Cell Pattern', [['bubbles', 'Bubbles'], ['crystals', 'Crystals'], ['plates', 'Plates'], ['static_plates', 'Static Plates']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
-      ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+      ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]],
+      // D-762: the first choice of each is what a file without it draws.
+      ['overflow', 'Overflow', [['clip', 'Clip'], ['soft_clamp', 'Soft Clamp'], ['wrap_back', 'Wrap Back']]],
+      ['cycle_evolution', 'Cycle Evolution', [['off', 'Off'], ['on', 'On']]],
+      ['tiling', 'Enable Tiling', [['off', 'Off'], ['on', 'On']]]],
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
   // D-154.

@@ -36,6 +36,13 @@ fn cells(pattern: &str, invert: &str, n: [f64; 6], dark: &str, light: &str, blen
         light_color: light.to_string(),
         opacity: n[5],
         blend: blend.to_string(),
+        offset: [0.0, 0.0],
+        overflow: "clip".into(),
+        cycle_evolution: "off".into(),
+        cycle: 1.0,
+        tiling: "off".into(),
+        tiles_horizontal: 10.0,
+        tiles_vertical: 10.0,
     }
 }
 
@@ -141,6 +148,7 @@ fn stack(steps: &[&Effect]) -> J {
                     light_color,
                     opacity,
                     blend,
+                    ..
                 } = e
                 else {
                     unreachable!()
@@ -170,7 +178,8 @@ fn b144_cell_pattern() {
     );
 
     t.heading("FX-CELL-001 to 033 (document 25)");
-    t.fixtures("expected_cell_pattern.json");
+    // B-641's check takes FX-CELL-034 to 059.
+    t.fixtures_numbered("expected_cell_pattern.json", 1..=33);
 
     t.heading("How far it reaches");
     let got = plain(START).bounds_expansion();
@@ -231,7 +240,8 @@ fn b144_cell_pattern() {
         &mut document,
         vec![
             ("contrast -1", set(with(0, -1.0))),
-            ("contrast 1001", set(with(0, 1001.0))),
+            // D-762 widened Contrast to 10000.
+            ("contrast 10001", set(with(0, 10001.0))),
             ("disperse -0.1", set(with(1, -0.1))),
             ("disperse 1.6", set(with(1, 1.6))),
             ("size 0", set(with(2, 0.0))),

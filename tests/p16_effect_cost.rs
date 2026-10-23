@@ -1016,6 +1016,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 light_color: "#ffffff".into(),
                 opacity: 100.0,
                 blend: "normal".into(),
+                offset: [0.0, 0.0],
+                overflow: "clip".into(),
+                cycle_evolution: "off".into(),
+                cycle: 1.0,
+                tiling: "off".into(),
+                tiles_horizontal: 10.0,
+                tiles_vertical: 10.0,
             },
         ),
         (

@@ -4216,6 +4216,14 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("light_color", "%23ffd060"),
             ("opacity", "80"),
             ("blend", "screen"),
+            // D-762.
+            ("offset", "3,-2"),
+            ("overflow", "soft_clamp"),
+            ("cycle_evolution", "on"),
+            ("cycle", "2"),
+            ("tiling", "on"),
+            ("tiles_horizontal", "4"),
+            ("tiles_vertical", "3"),
         ],
     ),
     // D-210: the number, the two words and the point.

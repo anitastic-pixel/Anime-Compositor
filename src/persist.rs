@@ -5133,6 +5133,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             light_color,
             opacity,
             blend,
+            offset,
+            overflow,
+            cycle_evolution,
+            cycle,
+            tiling,
+            tiles_horizontal,
+            tiles_vertical,
         } => {
             for (name, w) in [
                 ("pattern", pattern),
@@ -5152,6 +5159,31 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ("opacity", opacity),
             ] {
                 params.insert(name.into(), num(*v));
+            }
+            // D-762: each written only when set, keyed or already there, so an older file saves as it was.
+            let kept = |key: &str, set: bool, params: &serde_json::Map<String, J>| {
+                set || instance.tracks.contains_key(key) || params.contains_key(key)
+            };
+            if kept("offset", *offset != [0.0, 0.0], &params) {
+                params.insert("offset".into(), J::Array(offset.iter().map(|c| num(*c)).collect()));
+            }
+            for (name, w, absent) in [
+                ("overflow", overflow, "clip"),
+                ("cycle_evolution", cycle_evolution, "off"),
+                ("tiling", tiling, "off"),
+            ] {
+                if kept(name, w != absent, &params) {
+                    params.insert(name.into(), J::from(w.as_str()));
+                }
+            }
+            for (name, v, absent) in [
+                ("cycle", cycle, 1.0),
+                ("tiles_horizontal", tiles_horizontal, 10.0),
+                ("tiles_vertical", tiles_vertical, 10.0),
+            ] {
+                if kept(name, *v != absent, &params) {
+                    params.insert(name.into(), num(*v));
+                }
             }
         }
         Effect::OpticsCompensation {
@@ -11305,6 +11337,13 @@ fn parse_effect(
             light_color: effect_word(params, "light_color", at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", at)?,
             blend: effect_word(params, "blend", at)?,
+            offset: effect_pair_or(params, "offset", at, [0.0, 0.0])?,
+            overflow: effect_word_or(params, "overflow", at, "clip")?,
+            cycle_evolution: effect_word_or(params, "cycle_evolution", at, "off")?,
+            cycle: effect_number_or(params, "cycle", at, 1.0)?,
+            tiling: effect_word_or(params, "tiling", at, "off")?,
+            tiles_horizontal: effect_number_or(params, "tiles_horizontal", at, 10.0)?,
+            tiles_vertical: effect_number_or(params, "tiles_vertical", at, 10.0)?,
         }),
         crate::effects::OPTICS_COMPENSATION => Some(crate::effects::Effect::OpticsCompensation {
             field_of_view: effect_number(params, "field_of_view", at)?,

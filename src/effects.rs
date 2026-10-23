@@ -2289,7 +2289,11 @@ pub enum Effect {
     /// or "off", kept as written so a wrong one is reported; `contrast`, 0 to 1000; `disperse`, 0
     /// to 1.5; `size`, pixels a cell, 1 to 1000; `evolution`, degrees, -100000 to 100000; `seed`,
     /// 0 to 100000, its whole part counted; `dark_color` and `light_color`, `#rrggbb`; `opacity`,
-    /// 0 to 100; and `blend`, Fractal Noise's four words.
+    /// 0 to 100; and `blend`, Fractal Noise's four words. D-762: `contrast` up to 10000;
+    /// `offset`, x then y in pixels, -100000 to 100000 (absent 0, 0); `overflow`, "clip",
+    /// "soft_clamp" or "wrap_back" (absent "clip"); `cycle_evolution` and `tiling`, "off" or
+    /// "on" (absent "off"); `cycle`, 1 to 1000 revolutions (absent 1); `tiles_horizontal` and
+    /// `tiles_vertical`, 1 to 1000 (absent 10); the numbers' whole parts counted.
     CellPattern {
         pattern: String,
         invert: String,
@@ -2302,6 +2306,13 @@ pub enum Effect {
         light_color: String,
         opacity: f64,
         blend: String,
+        offset: [f64; 2],
+        overflow: String,
+        cycle_evolution: String,
+        cycle: f64,
+        tiling: String,
+        tiles_horizontal: f64,
+        tiles_vertical: f64,
     },
     /// D-210: `field_of_view`, 0 to 180 degrees; `reverse`, "off" or "on", and `orientation`,
     /// "horizontal", "vertical" or "diagonal", kept as written so a wrong one is reported; and
@@ -5118,6 +5129,25 @@ pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
 pub const BEAM: &str = "core.beam";
 pub const FOUR_COLOR_GRADIENT: &str = "core.four_color_gradient";
 pub const CELL_PATTERN: &str = "core.cell_pattern";
+
+/// D-762: Cell Pattern's offset, cycle and tiles as `grade::cell_points` takes them (whole
+/// parts, 0 when off), and its overflow's number in [`OVERFLOWS`] (1 clip, 2 soft clamp, 3 wrap
+/// back). The processor and the card both read them here.
+pub(crate) fn cell_more(
+    offset: [f64; 2],
+    overflow: &str,
+    cycle_evolution: &str,
+    cycle: f64,
+    tiling: &str,
+    tiles: [f64; 2],
+) -> (crate::grade::CellMore, u8) {
+    let more = crate::grade::CellMore {
+        offset,
+        cycle: if cycle_evolution == "on" { cycle.floor() } else { 0.0 },
+        tiles: if tiling == "on" { tiles.map(f64::floor) } else { [0.0; 2] },
+    };
+    (more, OVERFLOWS.iter().position(|w| *w == overflow).unwrap_or(1) as u8)
+}
 pub const OPTICS_COMPENSATION: &str = "core.optics_compensation";
 pub const RADIAL_SHADOW: &str = "core.radial_shadow";
 pub const EXTRACT: &str = "core.extract";
@@ -10727,14 +10757,23 @@ impl Effect {
                 evolution,
                 seed,
                 opacity,
+                offset,
+                cycle,
+                tiles_horizontal,
+                tiles_vertical,
                 ..
             } => vec![
-                ("contrast", vec![contrast], 0.0, 1000.0),
+                // D-762: up to 10000, as After Effects lets it be typed.
+                ("contrast", vec![contrast], 0.0, 10000.0),
                 ("disperse", vec![disperse], 0.0, 1.5),
                 ("size", vec![size], 1.0, 1000.0),
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
+                ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
+                ("cycle", vec![cycle], 1.0, 1000.0),
+                ("tiles_horizontal", vec![tiles_horizontal], 1.0, 1000.0),
+                ("tiles_vertical", vec![tiles_vertical], 1.0, 1000.0),
             ],
             Effect::OpticsCompensation {
                 field_of_view,
@@ -11100,7 +11139,11 @@ impl Effect {
                 *offset = offset.map(&scale);
                 more.sub_offset = more.sub_offset.map(&scale);
             }
-            Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
+            Effect::CellPattern { size, offset, .. } => {
+                *size = scale(*size).max(1.0);
+                // D-762: the offset is a distance.
+                *offset = offset.map(&scale);
+            }
             // D-443: the grain keeps its size on the picture, below a pixel if need be.
             Effect::AddGrain { size, .. } => *size = scale(*size),
             // D-454: as Add Grain's.
@@ -14244,6 +14287,15 @@ impl Effect {
             }
             Effect::CellPattern { invert, .. } if !["on", "off"].contains(&invert.as_str()) => Some(format!(
                 "Cell Pattern's invert is \"on\" or \"off\", and this is \"{invert}\"."
+            )),
+            Effect::CellPattern { overflow, .. } if !OVERFLOWS[1..].contains(&overflow.as_str()) => Some(format!(
+                "Cell Pattern's overflow is \"clip\", \"soft_clamp\" or \"wrap_back\", and this is \"{overflow}\"."
+            )),
+            Effect::CellPattern { cycle_evolution, .. } if !["on", "off"].contains(&cycle_evolution.as_str()) => Some(format!(
+                "Cell Pattern's cycle evolution is \"on\" or \"off\", and this is \"{cycle_evolution}\"."
+            )),
+            Effect::CellPattern { tiling, .. } if !["on", "off"].contains(&tiling.as_str()) => Some(format!(
+                "Cell Pattern's tiling is \"on\" or \"off\", and this is \"{tiling}\"."
             )),
             Effect::CellPattern { blend, .. }
                 if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) =>
@@ -19307,12 +19359,29 @@ pub(crate) fn apply_stack_at(
                 light_color,
                 opacity,
                 blend,
+                offset,
+                overflow,
+                cycle_evolution,
+                cycle,
+                tiling,
+                tiles_horizontal,
+                tiles_vertical,
             } => crate::perf::time(crate::perf::Stage::EffectCellPattern, || {
+                let (more, overflow) = cell_more(
+                    *offset,
+                    overflow,
+                    cycle_evolution,
+                    *cycle,
+                    tiling,
+                    [*tiles_horizontal, *tiles_vertical],
+                );
                 crate::grade::cell_pattern(
                     source,
                     pattern,
                     invert == "on",
                     [*contrast, *disperse, *size, *evolution, *seed, *opacity],
+                    more,
+                    overflow,
                     [encoded(dark_color), encoded(light_color)],
                     blend,
                     (ox, oy),

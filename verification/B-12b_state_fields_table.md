@@ -464,7 +464,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.four_color_gradient` is an effect this build has | added | added | pass |
 | and the settings it sends for it - point_1, point_2, point_3, point_4, color_1, color_2, color_3, color_4, blend, opacity, blending_mode, jitter - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.cell_pattern` is an effect this build has | added | added | pass |
-| and the settings it sends for it - pattern, invert, contrast, disperse, size, evolution, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - pattern, invert, contrast, disperse, size, evolution, seed, dark_color, light_color, opacity, blend, offset, overflow, cycle_evolution, cycle, tiling, tiles_horizontal, tiles_vertical - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.optics_compensation` is an effect this build has | added | added | pass |
 | and the settings it sends for it - field_of_view, reverse, orientation, center - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radial_shadow` is an effect this build has | added | added | pass |

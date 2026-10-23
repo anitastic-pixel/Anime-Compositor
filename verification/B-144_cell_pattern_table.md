@@ -92,8 +92,8 @@ D-209, accepted on 2026-09-28 with the After Effects picks (B7). Every expected 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it never grows the layer: it declares no growth | 0 | yes |
-| a half-size draft preview halves the size, 16 to 8, and nothing else | CellPattern { pattern: "bubbles", invert: "off", contrast: 100.0, disperse: 1.0, size: 8.0, evolution: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal" } | yes |
-| a draft never takes the size under 1: 1.5 is held at 1, as Fractal Noise's is | CellPattern { pattern: "bubbles", invert: "off", contrast: 100.0, disperse: 1.0, size: 1.0, evolution: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal" } | yes |
+| a half-size draft preview halves the size, 16 to 8, and nothing else | CellPattern { pattern: "bubbles", invert: "off", contrast: 100.0, disperse: 1.0, size: 8.0, evolution: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal", offset: [0.0, 0.0], overflow: "clip", cycle_evolution: "off", cycle: 1.0, tiling: "off", tiles_horizontal: 10.0, tiles_vertical: 10.0 } | yes |
+| a draft never takes the size under 1: 1.5 is held at 1, as Fractal Noise's is | CellPattern { pattern: "bubbles", invert: "off", contrast: 100.0, disperse: 1.0, size: 1.0, evolution: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal", offset: [0.0, 0.0], overflow: "clip", cycle_evolution: "off", cycle: 1.0, tiling: "off", tiles_horizontal: 10.0, tiles_vertical: 10.0 } | yes |
 
 ## The file
 
@@ -140,8 +140,8 @@ D-209, accepted on 2026-09-28 with the After Effects picks (B7). Every expected 
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| contrast -1 is refused with a sentence, and nothing changes | Cell Pattern's contrast runs from 0 to 1000, and this is -1. | yes |
-| contrast 1001 is refused with a sentence, and nothing changes | Cell Pattern's contrast runs from 0 to 1000, and this is 1001. | yes |
+| contrast -1 is refused with a sentence, and nothing changes | Cell Pattern's contrast runs from 0 to 10000, and this is -1. | yes |
+| contrast 10001 is refused with a sentence, and nothing changes | Cell Pattern's contrast runs from 0 to 10000, and this is 10001. | yes |
 | disperse -0.1 is refused with a sentence, and nothing changes | Cell Pattern's disperse runs from 0 to 1.5, and this is -0.1. | yes |
 | disperse 1.6 is refused with a sentence, and nothing changes | Cell Pattern's disperse runs from 0 to 1.5, and this is 1.6. | yes |
 | size 0 is refused with a sentence, and nothing changes | Cell Pattern's size runs from 1 to 1000, and this is 0. | yes |

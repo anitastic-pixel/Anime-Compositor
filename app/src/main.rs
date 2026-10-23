@@ -5296,6 +5296,14 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             light_color: "#ffffff".to_string(),
             opacity: 100.0,
             blend: "normal".to_string(),
+            // D-762: After Effects' own starts, which draw as before.
+            offset: [0.0, 0.0],
+            overflow: "clip".to_string(),
+            cycle_evolution: "off".to_string(),
+            cycle: 1.0,
+            tiling: "off".to_string(),
+            tiles_horizontal: 10.0,
+            tiles_vertical: 10.0,
         }),
         // D-210: After Effects' own start, a field of view of 0, which leaves the layer as it is.
         OPTICS_COMPENSATION => Some(Effect::OpticsCompensation {
@@ -8509,6 +8517,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             light_color: word("light_color")?,
             opacity: number("opacity")?,
             blend: word("blend")?,
+            // D-762: a change that leaves one out keeps it as drawn before.
+            offset: if parameter(query, "offset").is_some() { pair("offset")? } else { [0.0, 0.0] },
+            overflow: if parameter(query, "overflow").is_some() { word("overflow")? } else { "clip".to_string() },
+            cycle_evolution: if parameter(query, "cycle_evolution").is_some() { word("cycle_evolution")? } else { "off".to_string() },
+            cycle: if parameter(query, "cycle").is_some() { number("cycle")? } else { 1.0 },
+            tiling: if parameter(query, "tiling").is_some() { word("tiling")? } else { "off".to_string() },
+            tiles_horizontal: if parameter(query, "tiles_horizontal").is_some() { number("tiles_horizontal")? } else { 10.0 },
+            tiles_vertical: if parameter(query, "tiles_vertical").is_some() { number("tiles_vertical")? } else { 10.0 },
         }),
         OPTICS_COMPENSATION => Ok(Effect::OpticsCompensation {
             field_of_view: number("field_of_view")?,

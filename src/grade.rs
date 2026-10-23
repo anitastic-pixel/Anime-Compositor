@@ -2372,26 +2372,52 @@ pub(crate) fn brush_strokes(
         });
 }
 
+/// D-762: Cell Pattern's Offset, Cycle and Tiling as its points need them: the offset in
+/// pixels, the cycle's whole revolutions or 0 when Cycle Evolution is off, and the whole tile
+/// counts or 0 when Tiling is off. `Default` is a file without them.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct CellMore {
+    pub offset: [f64; 2],
+    pub cycle: f64,
+    pub tiles: [f64; 2],
+}
+
 /// D-209: each cell's point and grey for Cell Pattern over a `w` by `h` buffer, worked once for
 /// the cells the buffer sees and two round them: the first cell across and down, the cells
 /// across, and the points row by row. The numbers are the disperse, size, evolution in degrees
-/// and seed. B-151: the card reads the same points.
+/// and seed. B-151: the card reads the same points. D-762: with `more`'s offset, cycle and tiles.
 pub(crate) fn cell_points(
     [disperse, size, evolution, seed]: [f64; 4],
+    more: CellMore,
     (w, h): (usize, usize),
     (ox, oy): (usize, usize),
 ) -> (i64, i64, usize, Vec<(f64, f64, f64)>) {
     let (base, t) = (mix(seed.floor() as u64), evolution.to_radians());
-    let at = |x: usize, o: usize| (x as f64 - o as f64 + 0.5) / size;
-    let (m0, n0) = (at(0, ox).floor() as i64 - 2, at(0, oy).floor() as i64 - 2);
-    let cols = (at(w - 1, ox).floor() as i64 + 3 - m0) as usize;
-    let rows = (at(h - 1, oy).floor() as i64 + 3 - n0) as usize;
+    let CellMore { offset: [sx, sy], cycle, tiles } = more;
+    let at = |x: usize, o: usize, s: f64| (x as f64 - o as f64 + 0.5 - s) / size;
+    let (m0, n0) = (at(0, ox, sx).floor() as i64 - 2, at(0, oy, sy).floor() as i64 - 2);
+    let cols = (at(w - 1, ox, sx).floor() as i64 + 3 - m0) as usize;
+    let rows = (at(h - 1, oy, sy).floor() as i64 + 3 - n0) as usize;
     let points = (0..cols * rows)
         .into_par_iter()
         .map(|k| {
             let (m, n) = (m0 + (k % cols) as i64, n0 + (k / cols) as i64);
-            let u = [0, 1, 2, 3].map(|c| unit(base, m, n, 0, c));
+            // D-762: a tiled cell takes the numbers of its place in the first tile.
+            let (hm, hn) = if tiles[0] > 0.0 {
+                (m.rem_euclid(tiles[0] as i64), n.rem_euclid(tiles[1] as i64))
+            } else {
+                (m, n)
+            };
+            let u = [0, 1, 2, 3].map(|c| unit(base, hm, hn, 0, c));
             let r = disperse / 2.0 * (u[0] + 1.0) / 2.0;
+            // D-762: in a cycle of N turns each point turns K / N as fast, K from 1 to N, so
+            // the evolution at 360 N degrees is the start again.
+            let t = if cycle > 0.0 {
+                let k = (1.0 + ((unit(base, hm, hn, 0, 4) + 1.0) / 2.0 * cycle).floor()).min(cycle);
+                evolution.rem_euclid(360.0 * cycle).to_radians() * k / cycle
+            } else {
+                t
+            };
             let a = std::f64::consts::PI * u[1] + if u[2] >= 0.0 { t } else { -t };
             (
                 m as f64 + 0.5 + r * a.cos(),
@@ -2407,11 +2433,15 @@ pub(crate) fn cell_points(
 /// corner at `(ox, oy)` in `source`). `numbers` are the contrast, disperse, size, evolution in
 /// degrees, seed and opacity; the two colours are encoded 0 to 1 and mixed in by `blend` as
 /// Fractal Noise's are. The settings are already valid.
+/// D-762: `more` as `cell_points` takes it, and `overflow` 1 clip, 2 soft clamp, 3 wrap back.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cell_pattern(
     source: &mut WorkingBuffer,
     pattern: &str,
     invert: bool,
     [contrast, disperse, size, evolution, seed, opacity]: [f64; 6],
+    more: CellMore,
+    overflow: u8,
     colors: [[f64; 3]; 2],
     blend: &str,
     (ox, oy): (usize, usize),
@@ -2420,8 +2450,10 @@ pub(crate) fn cell_pattern(
     if opacity == 0.0 || w == 0 || h == 0 {
         return;
     }
-    let at = |x: usize, o: usize| (x as f64 - o as f64 + 0.5) / size;
-    let (m0, n0, cols, points) = cell_points([disperse, size, evolution, seed], (w, h), (ox, oy));
+    let [sx, sy] = more.offset;
+    let at = |x: usize, o: usize, s: f64| (x as f64 - o as f64 + 0.5 - s) / size;
+    let (m0, n0, cols, points) =
+        cell_points([disperse, size, evolution, seed], more, (w, h), (ox, oy));
     let (mixer, o) = (mixer(blend), opacity / 100.0);
     source
         .data_mut()
@@ -2432,7 +2464,7 @@ pub(crate) fn cell_pattern(
             if a <= 0.0 {
                 return;
             }
-            let (x, y) = (at(i % w, ox), at(i / w, oy));
+            let (x, y) = (at(i % w, ox, sx), at(i / w, oy, sy));
             let (ci, cj) = (
                 (x.floor() as i64 - 2 - m0) as usize,
                 (y.floor() as i64 - 2 - n0) as usize,
@@ -2462,7 +2494,8 @@ pub(crate) fn cell_pattern(
                 _ => g,
             };
             let v = if invert { 1.0 - v } else { v };
-            let v = (0.5 + (v - 0.5) * contrast / 100.0).clamp(0.0, 1.0);
+            // D-762: clip (1, D-209's), soft clamp (2) or wrap back (3), Fractal Noise's.
+            let v = overflowed(0.5 + (v - 0.5) * contrast / 100.0, overflow, false);
             for c in 0..3 {
                 let [d, l] = [colors[0][c], colors[1][c]];
                 let color = to_linear(d + v * (l - d));

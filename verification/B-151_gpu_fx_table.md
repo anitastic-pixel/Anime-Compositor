@@ -4,7 +4,7 @@ Written by `tests/b151_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (D
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect, one of the ten, done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-217). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On a reference shot row the effect must in fact be left to the card. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**2170 of 2170 checks pass.**
+**2430 of 2430 checks pass.**
 
 The worst comparison is "the reference shot with Median frame 0, Full": largest difference 1 of 255, pixels differing: 3814. Its pictures are in `verification/B-151 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -20,7 +20,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Radial Shadow | 256 | 156 | 1 | 256 of 256 |
 | Bevel Alpha | 156 | 82 | 1 | 156 of 156 |
 | Snowfall | 296 | 94 | 1 | 296 of 296 |
-| Cell Pattern | 336 | 216 | 1 | 336 of 336 |
+| Cell Pattern | 596 | 376 | 1 | 596 of 596 |
 | Polar Coordinates | 226 | 162 | 1 | 226 of 226 |
 | Optics Compensation | 206 | 134 | 1 | 206 of 206 |
 | Corner Pin | 186 | 142 | 1 | 186 of 186 |
@@ -1519,6 +1519,266 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_cell_033 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_cell_033 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_cell_033 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_034 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_034 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_035 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_036 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_037 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_038 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_039 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_040 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_041 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_042 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_043 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_044 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_045 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_046 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_047 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_048 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_049 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_cell_050 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_050 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_051 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_052 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_053 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_054 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_055 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_056 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_057 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_058 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_cell_059 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_polar_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_polar_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_polar_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
