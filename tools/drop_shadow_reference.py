@@ -21,6 +21,11 @@ a_s = bilinear(A, P - distance * u) * opacity / 100 and its colour (C * a_s, a_s
 colour's linear value. The output is I + shadow * (1 - I.a), I the drawing's pixel, transparent
 outside it. The layer grows by ceil(distance) + r on every side, at opacity 0 too.
 
+D-760 adds After Effects' fifth control, Shadow Only, `shadow_only` "off" or "on", the word kept
+exactly. With "on" I is taken as transparent, so the output is the shadow alone and the drawing is
+left out; the layer grows the same. A file without the word is "off", and the cases from before
+D-760 do not write it, so their files and frames are unchanged.
+
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
 
@@ -77,8 +82,9 @@ def pixel(layer, x, y):
     return EMPTY
 
 
-def drop_shadow(layer, color, opacity, direction, distance, softness):
-    """The layer with its shadow behind it, grown by ceil(distance) + the blur's reach."""
+def drop_shadow(layer, color, opacity, direction, distance, softness, shadow_only=False):
+    """The layer with its shadow behind it, grown by ceil(distance) + the blur's reach; with
+    `shadow_only` (D-760) the shadow alone."""
     s = softness / 3
     r = math.ceil(3 * s)
     covering = dict(layer, px=[[0.0, 0.0, 0.0, p[3]] for p in layer["px"]])
@@ -93,7 +99,7 @@ def drop_shadow(layer, color, opacity, direction, distance, softness):
     for y in range(top, top + h):
         for x in range(left, left + w):
             a = bilinear(A, x + 0.5 - distance * ux, y + 0.5 - distance * uy)[3] * k
-            i = pixel(layer, x, y)
+            i = EMPTY if shadow_only else pixel(layer, x, y)
             shadow = [c[0] * a, c[1] * a, c[2] * a, a]
             out.append([i[j] + shadow[j] * (1 - i[3]) for j in range(4)])
     return {"px": out, "left": left, "top": top, "w": w, "h": h}
@@ -132,11 +138,15 @@ def frame(layer, shift):
 # --- the cases ------------------------------------------------------------------------------
 
 BLUE_HEX = "#2040a0"
+SHADOW_ONLY = ("FX-SHADOW-024", "FX-SHADOW-025", "FX-SHADOW-027", "FX-SHADOW-028")
 
 
-def case(color="#000000", opacity=50, direction=135, distance=5, softness=0, shift=0):
+def case(color="#000000", opacity=50, direction=135, distance=5, softness=0, shift=0,
+         shadow_only=None):
+    """`shadow_only` None leaves the word out of the file, as every case before D-760."""
     return {"drawing": "card", "color": color, "opacity": opacity, "direction": direction,
-            "distance": distance, "softness": softness, "shift": shift}
+            "distance": distance, "softness": softness, "shift": shift,
+            "shadow_only": shadow_only}
 
 
 def held(v, r):
@@ -147,7 +157,7 @@ def render(c, frame_no):
     at = lambda k, r: held(value_at(c[k], frame_no), r)  # noqa: E731
     return frame(drop_shadow(drawn_layer(c["drawing"]), c["color"], at("opacity", OPACITY),
                              at("direction", DIRECTION), at("distance", DISTANCE),
-                             at("softness", SOFTNESS)), c["shift"])
+                             at("softness", SOFTNESS), c["shadow_only"] == "on"), c["shift"])
 
 
 def plain(c):
@@ -222,6 +232,28 @@ CASES = {
                       "in rows 0 and 1; the rest falls above the frame and is cut off, and row "
                       "2 stays empty.",
                       case(direction=0), [0]),
+    # D-760: Shadow Only.
+    "FX-SHADOW-024": ("Shadow Only \"on\" at the defaults: the card is left out and the shadow "
+                      "alone is drawn, FX-SHADOW-001's shadow exactly, black at half covering "
+                      "wherever it lies wholly under the card's moved shape; in row 6, where the "
+                      "card was, the shadow's top edge shows part covered, and above it, where "
+                      "the card was, the frame is empty.",
+                      case(shadow_only="on"), [0]),
+    "FX-SHADOW-025": ("Shadow Only \"on\", distance 0, softness 0: the shadow exactly where the "
+                      "card was, black at half the card's covering at every pixel; the soft "
+                      "pixel at (10, 4) is black at half of 128/255.",
+                      case(distance=0, shadow_only="on"), [0]),
+    "FX-SHADOW-026": ("Shadow Only \"off\" written in the file: FX-SHADOW-001 exactly, as a file "
+                      "without the word.",
+                      case(shadow_only="off"), [0]),
+    "FX-SHADOW-027": ("Shadow Only \"on\", colour #2040a0, opacity 100, direction 90, distance "
+                      "2, softness 3: the blue shadow alone, softened, two pixels right of the "
+                      "card's place.",
+                      case(color=BLUE_HEX, opacity=100, direction=90, distance=2, softness=3,
+                           shadow_only="on"), [0]),
+    "FX-SHADOW-028": ("Shadow Only \"on\" with opacity 0: nothing at all, the frame is empty, "
+                      "though the layer still grows.",
+                      case(opacity=0, shadow_only="on"), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -234,6 +266,10 @@ INVALID = {
     "FX-SHADOW-022": ("A colour written \"black\".", case(color="black")),
     "FX-SHADOW-023": ("Opacity keyed to 150 at frame 4.",
                       case(opacity=keyed((0, 0), (4, 150)))),
+    # D-760: the word is exact.
+    "FX-SHADOW-029": ("Shadow Only written \"On\", the panel's name, not the word \"on\".",
+                      case(shadow_only="On")),
+    "FX-SHADOW-030": ("Shadow Only written \"yes\".", case(shadow_only="yes")),
 }
 
 
@@ -252,6 +288,8 @@ def project_json(fx, c):
         "instance_id": "fx-0-0", "type_id": "core.drop_shadow", "enabled": True,
         "parameters": {k: setting_json(c[k])
                        for k in ("color", "opacity", "direction", "distance", "softness")}}]
+    if c["shadow_only"] is not None:
+        comp["layers"][0]["effects"][0]["parameters"]["shadow_only"] = c["shadow_only"]
     return p
 
 
@@ -312,7 +350,7 @@ def check(expected):
             for i, p in enumerate(f):
                 assert -1e-12 <= p[3] <= 1 + 1e-12 and all(-1e-12 <= v <= p[3] + 1e-12
                                                           for v in p[:3]), (name, p)
-                if name != "FX-SHADOW-016" and drawn[i][3] == 1:
+                if name not in SHADOW_ONLY + ("FX-SHADOW-016",) and drawn[i][3] == 1:
                     assert p == drawn[i], name  # the card, fully covered, never changes
 
     def moved(f, dx, dy, k=0.5):
@@ -363,6 +401,21 @@ def check(expected):
     seventeen = c["FX-SHADOW-017"]["0"]
     assert seventeen[at(7, 0)] == [0, 0, 0, 0.5] == seventeen[at(7, 1)]
     assert seventeen[at(7, 2)] == EMPTY and moved(seventeen, 0, -5)
+
+    # D-760: Shadow Only. With the card left out, the frame is FX-SHADOW-001's shadow alone:
+    # everywhere the card was empty it is FX-SHADOW-001's pixel exactly.
+    so = c["FX-SHADOW-024"]["0"]
+    assert all(so[i] == first[i] for i in range(W * H) if drawn[i][3] == 0)
+    assert all(p[:3] == [0.0, 0.0, 0.0] for p in so)  # black: nothing of the card is left
+    assert so[at(6, 4)] == EMPTY  # inside the card, the shadow 3.5 down-right is not there
+    assert 0 < so[at(9, 6)][3] < 0.5 and first[at(9, 6)] == drawn[at(9, 6)]  # part shadow, card gone
+    alone = c["FX-SHADOW-025"]["0"]
+    assert all(alone[i] == [0.0, 0.0, 0.0, drawn[i][3] * 0.5] for i in range(W * H))
+    assert c["FX-SHADOW-026"]["0"] == first
+    t27 = c["FX-SHADOW-027"]["0"]
+    assert all(near(p[:3], [b * p[3] for b in blue]) for p in t27)
+    assert t27[at(11, 5)][3] > t27[at(13, 5)][3] > 0 == t27[at(2, 5)][3]
+    assert c["FX-SHADOW-028"]["0"] == [EMPTY] * (W * H)
     print("checked")
 
 

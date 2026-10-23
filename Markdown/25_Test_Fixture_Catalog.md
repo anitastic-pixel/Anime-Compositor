@@ -28150,7 +28150,7 @@ D-115, accepted on 2026-09-26. Every case is a project of one composition 16 by 
 
 **Every number below is produced by `tools/drop_shadow_reference.py`**, which works D-115's rule in double precision at every pixel of the grown layer: the drawing's covering blurred by document 21's Gaussian at softness / 3 (`tools/edges_reference.py`'s), read back by document 21's bilinear sample (`tools/radial_blur_reference.py`'s) `distance` pixels against the direction, and laid behind the drawing. The same numbers are in `Fixtures/drop_shadow/expected_drop_shadow.json`. Tolerance 2e-5.
 
-**Checked by what they claim.** The tool checks each case's claim on its numbers: a pixel the card covers fully never changes (every case); straight across or down by a whole number of pixels the shadow is the covering moved exactly, at half covering in black (002 to 005, 013, 017), and direction -270 is 90 (006); slantwise it is spread by the bilinear sample (001); at distance 0 it shows only through the soft pixel and the layer does not grow (007), and with softness it fades outward on every side (008, 009); opacity 0 changes nothing (010); a colour shows its exact straight colour where the shadow is whole, in capitals the same (011, 012); keyed settings match the cases they pass through, and an opacity eased past 100 is held at 100 (013 to 015); and moved, or thrown upward, the shadow is cut off by the frame's edge (016, 017).
+**Checked by what they claim.** The tool checks each case's claim on its numbers: a pixel the card covers fully never changes (every case); straight across or down by a whole number of pixels the shadow is the covering moved exactly, at half covering in black (002 to 005, 013, 017), and direction -270 is 90 (006); slantwise it is spread by the bilinear sample (001); at distance 0 it shows only through the soft pixel and the layer does not grow (007), and with softness it fades outward on every side (008, 009); opacity 0 changes nothing (010); a colour shows its exact straight colour where the shadow is whole, in capitals the same (011, 012); keyed settings match the cases they pass through, and an opacity eased past 100 is held at 100 (013 to 015); and moved, or thrown upward, the shadow is cut off by the frame's edge (016, 017). D-760, accepted on 2026-10-23, adds Shadow Only (`shadow_only`, "off" or "on", the word exact; FX-SHADOW-024 to 030; the cases before it write no word, so their files and frames are unchanged): with "on" the card is left out and the frame is FX-SHADOW-001's shadow alone, equal to it wherever the card was empty, and black throughout (024); at distance 0 it is half the card's covering at every pixel (025); "off" written is FX-SHADOW-001 exactly (026); a blue softened shadow alone keeps its exact straight colour (027); at opacity 0 the frame is empty (028); and "On" and "yes" are refused with a warning (029, 030).
 
 FX-SHADOW-001: The defaults: black at 50 per cent, direction 135, distance 5, softness 0. The card's shadow falls down and to the right, 3.54 pixels each way, spread by the bilinear sample over the pixels it falls between; where it lies wholly under the card's shape it is black at half covering. The card itself, fully covered, is unchanged, and the shadow's lower part falls below the frame.
 
@@ -29116,6 +29116,399 @@ Row 1, the 5 pixels that change:
 | 8 | 0 0 0 0 | 0 0 0 0.5 |
 | 9 | 0 0 0 0 | 0 0 0 0.5 |
 
+FX-SHADOW-024: Shadow Only "on" at the defaults: the card is left out and the shadow alone is drawn, FX-SHADOW-001's shadow exactly, black at half covering wherever it lies wholly under the card's moved shape; in row 6, where the card was, the shadow's top edge shows part covered, and above it, where the card was, the frame is empty.
+
+Frame 0:
+
+Row 3, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 4, the 6 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 10 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+Row 5, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 6, the 9 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.1078644 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.232233 |
+| 10 | 0 0 0 0 | 0 0 0 0.232233 |
+| 11 | 0 0 0 0 | 0 0 0 0.232233 |
+| 12 | 0 0 0 0 | 0 0 0 0.232233 |
+| 13 | 0 0 0 0 | 0 0 0 0.1243687 |
+
+Row 7, the 7 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 8 | 0 0 0 0 | 0 0 0 0.232233 |
+| 9 | 0 0 0 0 | 0 0 0 0.5 |
+| 10 | 0 0 0 0 | 0 0 0 0.5 |
+| 11 | 0 0 0 0 | 0 0 0 0.5 |
+| 12 | 0 0 0 0 | 0 0 0 0.5 |
+| 13 | 0 0 0 0 | 0 0 0 0.3219106 |
+| 14 | 0 0 0 0 | 0 0 0 0.0624282 |
+
+Row 8, the 7 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 8 | 0 0 0 0 | 0 0 0 0.232233 |
+| 9 | 0 0 0 0 | 0 0 0 0.5 |
+| 10 | 0 0 0 0 | 0 0 0 0.5 |
+| 11 | 0 0 0 0 | 0 0 0 0.5 |
+| 12 | 0 0 0 0 | 0 0 0 0.5 |
+| 13 | 0 0 0 0 | 0 0 0 0.3301951 |
+| 14 | 0 0 0 0 | 0 0 0 0.07198031 |
+
+Row 9, the 6 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 8 | 0 0 0 0 | 0 0 0 0.232233 |
+| 9 | 0 0 0 0 | 0 0 0 0.5 |
+| 10 | 0 0 0 0 | 0 0 0 0.5 |
+| 11 | 0 0 0 0 | 0 0 0 0.5 |
+| 12 | 0 0 0 0 | 0 0 0 0.5 |
+| 13 | 0 0 0 0 | 0 0 0 0.267767 |
+
+FX-SHADOW-025: Shadow Only "on", distance 0, softness 0: the shadow exactly where the card was, black at half the card's covering at every pixel; the soft pixel at (10, 4) is black at half of 128/255.
+
+Frame 0:
+
+Row 3, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+
+Row 4, the 6 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0.5 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0.5 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0.5 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 10 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0.2509804 |
+
+Row 5, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0.5 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0.5 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0.5 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+
+Row 6, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0.5 |
+
+FX-SHADOW-026: Shadow Only "off" written in the file: FX-SHADOW-001 exactly, as a file without the word.
+
+Frame 0:
+
+Row 6, the 4 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 10 | 0 0 0 0 | 0 0 0 0.232233 |
+| 11 | 0 0 0 0 | 0 0 0 0.232233 |
+| 12 | 0 0 0 0 | 0 0 0 0.232233 |
+| 13 | 0 0 0 0 | 0 0 0 0.1243687 |
+
+Row 7, the 7 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 8 | 0 0 0 0 | 0 0 0 0.232233 |
+| 9 | 0 0 0 0 | 0 0 0 0.5 |
+| 10 | 0 0 0 0 | 0 0 0 0.5 |
+| 11 | 0 0 0 0 | 0 0 0 0.5 |
+| 12 | 0 0 0 0 | 0 0 0 0.5 |
+| 13 | 0 0 0 0 | 0 0 0 0.3219106 |
+| 14 | 0 0 0 0 | 0 0 0 0.0624282 |
+
+Row 8, the 7 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 8 | 0 0 0 0 | 0 0 0 0.232233 |
+| 9 | 0 0 0 0 | 0 0 0 0.5 |
+| 10 | 0 0 0 0 | 0 0 0 0.5 |
+| 11 | 0 0 0 0 | 0 0 0 0.5 |
+| 12 | 0 0 0 0 | 0 0 0 0.5 |
+| 13 | 0 0 0 0 | 0 0 0 0.3301951 |
+| 14 | 0 0 0 0 | 0 0 0 0.07198031 |
+
+Row 9, the 6 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 8 | 0 0 0 0 | 0 0 0 0.232233 |
+| 9 | 0 0 0 0 | 0 0 0 0.5 |
+| 10 | 0 0 0 0 | 0 0 0 0.5 |
+| 11 | 0 0 0 0 | 0 0 0 0.5 |
+| 12 | 0 0 0 0 | 0 0 0 0.5 |
+| 13 | 0 0 0 0 | 0 0 0 0.267767 |
+
+FX-SHADOW-027: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 3: the blue shadow alone, softened, two pixels right of the card's place.
+
+Frame 0:
+
+Row 0, the 11 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 2.838492e-07 1.007543e-06 6.908289e-06 1.965192e-05 |
+| 5 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+| 6 | 0 0 0 0 | 1.923948e-05 6.829192e-05 0.0004682483 0.00133202 |
+| 7 | 0 0 0 0 | 4.479077e-05 0.0001589881 0.001090113 0.003101029 |
+| 8 | 0 0 0 0 | 6.028841e-05 0.000213998 0.001467292 0.004173987 |
+| 9 | 0 0 0 0 | 6.346256e-05 0.0002252649 0.001544544 0.004393744 |
+| 10 | 0 0 0 0 | 6.028841e-05 0.000213998 0.001467292 0.004173987 |
+| 11 | 0 0 0 0 | 4.479077e-05 0.0001589881 0.001090113 0.003101029 |
+| 12 | 0 0 0 0 | 1.923948e-05 6.829192e-05 0.0004682483 0.00133202 |
+| 13 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+| 14 | 0 0 0 0 | 2.838492e-07 1.007543e-06 6.908289e-06 1.965192e-05 |
+
+Row 1, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+| 5 | 0 0 0 0 | 4.932679e-05 0.000175089 0.00120051 0.003415074 |
+| 6 | 0 0 0 0 | 0.0002536244 0.0009002578 0.00617268 0.01755934 |
+| 7 | 0 0 0 0 | 0.0005904541 0.002095859 0.0143704 0.04087929 |
+| 8 | 0 0 0 0 | 0.0007947517 0.002821028 0.01934257 0.05502356 |
+| 9 | 0 0 0 0 | 0.0008367372 0.002970059 0.02036441 0.05793037 |
+| 10 | 0 0 0 0 | 0.0007964874 0.002827189 0.01938482 0.05514373 |
+| 11 | 0 0 0 0 | 0.0005982333 0.002123472 0.01455973 0.04141787 |
+| 12 | 0 0 0 0 | 0.0002664501 0.0009457837 0.006484832 0.01844731 |
+| 13 | 0 0 0 0 | 5.7106e-05 0.0002027018 0.001389839 0.003953657 |
+| 14 | 0 0 0 0 | 5.477616e-06 1.944319e-05 0.0001333136 0.0003792354 |
+| 15 | 0 0 0 0 | 1.424812e-07 5.057471e-07 3.46769e-06 9.864491e-06 |
+
+Row 2, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 1.923948e-05 6.829192e-05 0.0004682483 0.00133202 |
+| 5 | 0 0 0 0 | 0.0002536244 0.0009002578 0.00617268 0.01755934 |
+| 6 | 0 0 0 0 | 0.001304064 0.00462887 0.03173817 0.09028514 |
+| 7 | 0 0 0 0 | 0.003035947 0.01077631 0.07388854 0.2101897 |
+| 8 | 0 0 0 0 | 0.004086388 0.01450493 0.09945403 0.2829155 |
+| 9 | 0 0 0 0 | 0.004303269 0.01527476 0.1047325 0.297931 |
+| 10 | 0 0 0 0 | 0.004107534 0.01457999 0.09996868 0.2843795 |
+| 11 | 0 0 0 0 | 0.003130718 0.01111271 0.07619504 0.216751 |
+| 12 | 0 0 0 0 | 0.001460314 0.005183489 0.03554095 0.1011029 |
+| 13 | 0 0 0 0 | 0.0003483945 0.001236651 0.008479185 0.02412062 |
+| 14 | 0 0 0 0 | 4.038556e-05 0.0001433514 0.0009828992 0.00279604 |
+| 15 | 0 0 0 0 | 1.735776e-06 6.161261e-06 4.224512e-05 0.0001201741 |
+
+Row 3, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 4.479077e-05 0.0001589881 0.001090113 0.003101029 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0.0005904541 0.002095859 0.0143704 0.04087929 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0.003035947 0.01077631 0.07388854 0.2101897 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0.007067884 0.02508796 0.1720174 0.4893354 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0.009513378 0.03376842 0.2315355 0.6586458 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0.01002203 0.03557391 0.243915 0.6938617 |
+| 10 | 0 0 0 0 | 0.009608148 0.03410481 0.233842 0.6652071 |
+| 11 | 0 0 0 0 | 0.007492615 0.02659557 0.1823544 0.5187411 |
+| 12 | 0 0 0 0 | 0.003736209 0.01326194 0.09093143 0.2586714 |
+| 13 | 0 0 0 0 | 0.001015184 0.00360347 0.02470744 0.07028493 |
+| 14 | 0 0 0 0 | 0.0001395609 0.0004953815 0.003396618 0.009662312 |
+| 15 | 0 0 0 0 | 7.779208e-06 2.761286e-05 0.0001893295 0.000538583 |
+
+Row 4, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 6.000456e-05 0.0002129905 0.001460384 0.004154335 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0.0007910098 0.002807746 0.01925151 0.0547645 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0.004067148 0.01443663 0.09898578 0.2815835 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0.009468587 0.03360943 0.2304454 0.6555448 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0.01274473 0.04523832 0.3101796 0.8823638 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0.01342855 0.04766561 0.3268225 0.9297076 |
+| 10 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0.01290097 0.04579293 0.3139824 0.8931816 |
+| 11 | 0 0 0 0 | 0.01016885 0.03609506 0.2474883 0.7040265 |
+| 12 | 0 0 0 0 | 0.005221685 0.01853474 0.1270848 0.3615163 |
+| 13 | 0 0 0 0 | 0.001491272 0.005293376 0.0362944 0.1032462 |
+| 14 | 0 0 0 0 | 0.0002162541 0.0007676096 0.005263168 0.01497206 |
+| 15 | 0 0 0 0 | 1.282575e-05 4.552591e-05 0.0003121515 0.0008879732 |
+
+Row 5, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 6.000456e-05 0.0002129905 0.001460384 0.004154335 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0.0007910098 0.002807746 0.01925151 0.0547645 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0.004067148 0.01443663 0.09898578 0.2815835 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0.009468587 0.03360943 0.2304454 0.6555448 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0.01274473 0.04523832 0.3101796 0.8823638 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0.0134235 0.04764769 0.3266997 0.9293582 |
+| 10 | 0 0 0 0 | 0.0128395 0.04557471 0.3124862 0.8889251 |
+| 11 | 0 0 0 0 | 0.009893317 0.03511704 0.2407824 0.6849505 |
+| 12 | 0 0 0 0 | 0.00476741 0.01692226 0.1160287 0.3300652 |
+| 13 | 0 0 0 0 | 0.00121574 0.004315357 0.02958854 0.08417013 |
+| 14 | 0 0 0 0 | 0.0001547747 0.000549384 0.003766889 0.01071562 |
+| 15 | 0 0 0 0 | 7.779208e-06 2.761286e-05 0.0001893295 0.000538583 |
+
+Row 6, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 4.479077e-05 0.0001589881 0.001090113 0.003101029 |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0.0005904541 0.002095859 0.0143704 0.04087929 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0.003035947 0.01077631 0.07388854 0.2101897 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0.007067884 0.02508796 0.1720174 0.4893354 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0.009513378 0.03376842 0.2315355 0.6586458 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0.01001599 0.03555246 0.2437679 0.6934433 |
+| 10 | 0 0 0 0 | 0.009534524 0.03384348 0.2320501 0.6601099 |
+| 11 | 0 0 0 0 | 0.007162654 0.02542436 0.1743239 0.4958967 |
+| 12 | 0 0 0 0 | 0.003192197 0.01133093 0.07769132 0.2210074 |
+| 13 | 0 0 0 0 | 0.0006852242 0.002432253 0.01667691 0.04744058 |
+| 14 | 0 0 0 0 | 6.593685e-05 0.0002340476 0.001604764 0.004565049 |
+| 15 | 0 0 0 0 | 1.735776e-06 6.161261e-06 4.224512e-05 0.0001201741 |
+
+Row 7, the 12 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 1.923948e-05 6.829192e-05 0.0004682483 0.00133202 |
+| 5 | 0 0 0 0 | 0.0002536244 0.0009002578 0.00617268 0.01755934 |
+| 6 | 0 0 0 0 | 0.001304064 0.00462887 0.03173817 0.09028514 |
+| 7 | 0 0 0 0 | 0.003035947 0.01077631 0.07388854 0.2101897 |
+| 8 | 0 0 0 0 | 0.004086388 0.01450493 0.09945403 0.2829155 |
+| 9 | 0 0 0 0 | 0.004301675 0.01526911 0.1046937 0.2978207 |
+| 10 | 0 0 0 0 | 0.004088123 0.01451109 0.09949627 0.2830357 |
+| 11 | 0 0 0 0 | 0.003043727 0.01080393 0.07407787 0.2107283 |
+| 12 | 0 0 0 0 | 0.00131689 0.004674396 0.03205032 0.09117311 |
+| 13 | 0 0 0 0 | 0.0002614036 0.0009278707 0.00636201 0.01809792 |
+| 14 | 0 0 0 0 | 2.097526e-05 7.445318e-05 0.0005104934 0.001452194 |
+| 15 | 0 0 0 0 | 1.424812e-07 5.057471e-07 3.46769e-06 9.864491e-06 |
+
+Row 8, the 11 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+| 5 | 0 0 0 0 | 4.932679e-05 0.000175089 0.00120051 0.003415074 |
+| 6 | 0 0 0 0 | 0.0002536244 0.0009002578 0.00617268 0.01755934 |
+| 7 | 0 0 0 0 | 0.0005904541 0.002095859 0.0143704 0.04087929 |
+| 8 | 0 0 0 0 | 0.0007947517 0.002821028 0.01934257 0.05502356 |
+| 9 | 0 0 0 0 | 0.0008365948 0.002969553 0.02036095 0.05792051 |
+| 10 | 0 0 0 0 | 0.0007947517 0.002821028 0.01934257 0.05502356 |
+| 11 | 0 0 0 0 | 0.0005904541 0.002095859 0.0143704 0.04087929 |
+| 12 | 0 0 0 0 | 0.0002536244 0.0009002578 0.00617268 0.01755934 |
+| 13 | 0 0 0 0 | 4.932679e-05 0.000175089 0.00120051 0.003415074 |
+| 14 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+
+Row 9, the 11 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 4 | 0 0 0 0 | 2.838492e-07 1.007543e-06 6.908289e-06 1.965192e-05 |
+| 5 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+| 6 | 0 0 0 0 | 1.923948e-05 6.829192e-05 0.0004682483 0.00133202 |
+| 7 | 0 0 0 0 | 4.479077e-05 0.0001589881 0.001090113 0.003101029 |
+| 8 | 0 0 0 0 | 6.028841e-05 0.000213998 0.001467292 0.004173987 |
+| 9 | 0 0 0 0 | 6.346256e-05 0.0002252649 0.001544544 0.004393744 |
+| 10 | 0 0 0 0 | 6.028841e-05 0.000213998 0.001467292 0.004173987 |
+| 11 | 0 0 0 0 | 4.479077e-05 0.0001589881 0.001090113 0.003101029 |
+| 12 | 0 0 0 0 | 1.923948e-05 6.829192e-05 0.0004682483 0.00133202 |
+| 13 | 0 0 0 0 | 3.74184e-06 1.328193e-05 9.106848e-05 0.0002590613 |
+| 14 | 0 0 0 0 | 2.838492e-07 1.007543e-06 6.908289e-06 1.965192e-05 |
+
+FX-SHADOW-028: Shadow Only "on" with opacity 0: nothing at all, the frame is empty, though the layer still grows.
+
+Frame 0:
+
+Row 3, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 4, the 6 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 10 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0 0 0 0 |
+
+Row 5, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 7 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 8 | 0.9215819 0.6724432 0.5149177 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
+Row 6, the 5 pixels that change:
+
+| x | drawing | with the shadow |
+| --- | --- | --- |
+| 5 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 7 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 8 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+| 9 | 0.01298303 0.01032982 0.01764195 1 | 0 0 0 0 |
+
 FX-SHADOW-018: Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
 Frame 0: every pixel is the drawing's, unchanged.
@@ -29147,6 +29540,18 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 FX-SHADOW-023: Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SHADOW-029: Shadow Only written "On", the panel's name, not the word "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-SHADOW-030: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
 Frame 0: every pixel is the drawing's, unchanged.
 
