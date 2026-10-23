@@ -7188,7 +7188,7 @@ Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
 
-FX-GLOW-032: Operation "multiply", which is not Add or Screen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+FX-GLOW-032: Operation "color_dodge", a mode After Effects has and this program does not (D-747: until then "multiply", refused as not Add or Screen; `tools/glow_reference.py` rewrote the project's word and the description, and the expected frames, the drawing untouched, are the same). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
 Frame 0: every pixel is the drawing's, unchanged.
 
@@ -192586,6 +192586,24 @@ FX-GLDISP-006 (`fx_gldisp_006.json`): The same Glow with Add at 8 bpc (`eight_bp
 FX-GLDISP-007 (`fx_gldisp_007.json`): FX-GLDISP-001's Glow at Float (`float_depth` true alone): linear light and D-331's rule, FX-GLOW-AE-004 exactly.
 
 FX-GLDISP-008 (`fx_gldisp_008.json`): The drawing `faint` with Solid Composite #3c286e, Normal, source opacity 100, opacity 50: laid on in display values, the purple used as written. On the empty half pixel (0, 0) is 0.0225931 0.0106095 0.0779632 0.5, the purple at half covering; on the yellow, (3, 4) is 0.373175 0.265136 0.132819 0.75098.
+
+D-747 (B-626, audit row 17) adds cases 009 to 016 for After Effects' further Glow controls, written by the same script; a file without the controls has After Effects' starting values, which draw as before.
+
+FX-GLDISP-009 (`fx_gldisp_009.json`): FX-GLDISP-001's Glow with Composite Original None (`composite` "none"): the light alone, the drawing gone; read in display values it is FX-GLDISP-001 less the drawing. Pixel (3, 4) is 0.120718 0.0910752 0.0260984 0.520222; (6, 1) is 0.0104154 0.00599268 0.00176362 0.0832082.
+
+FX-GLDISP-010 (`fx_gldisp_010.json`): FX-GLDISP-001's Glow with Glow Dimensions Horizontal (`dimensions` "horizontal"): the light spreads along the rows only, so a row with nothing that glows stays empty. Pixel (3, 4) is 1.91952 1.42835 0.364072 1; (6, 1) is 0 0 0 0.
+
+FX-GLDISP-011 (`fx_gldisp_011.json`): Solid Composite black, then a Glow in After Effects units, threshold 0, radius 4, intensity 1, Composite Original None, Glow Colors A & B (`glow_colors` "a_and_b"), Color Looping Sawtooth A>B, Color A #ff0000, Color B #0000ff: the brightest light red, the faintest leaning to blue. Pixel (3, 4) is 0.0604594 0 0.0514822 0.984582; (6, 1) is 0.000535883 0 0.00731566 0.829755.
+
+FX-GLDISP-012 (`fx_gldisp_012.json`): Solid Composite black, then FX-GLDISP-001's Glow with Glow Operation Normal, Composite Original On Top: the light covers the picture. Pixel (3, 4) is 0.066082 0.0509639 0.0166258 1; (6, 1) is 0.00250415 0.00191615 0.0010096 1.
+
+FX-GLDISP-013 (`fx_gldisp_013.json`): As FX-GLDISP-012 but Behind, After Effects' start: the opaque picture covers its light, so the frame is the black-backed drawing unchanged. Pixel (3, 4) is 0.955973 0.715694 0.187821 1.
+
+FX-GLDISP-014 (`fx_gldisp_014.json`): As FX-GLDISP-012 with Glow Operation Lighten: each channel the lighter of the picture and the light, never darker. Pixel (3, 4) is 0.955973 0.715694 0.187821 1; (6, 1) is 0.00250415 0.00191615 0.0010096 1.
+
+FX-GLDISP-015 (`fx_gldisp_015.json`): FX-GLDISP-001's Glow with Glow Operation Overlay, Behind: where only the light is, the light; where both are, the overlay of the light under the picture. Pixel (3, 4) is 0.956832 0.643064 0.0988892 1; (6, 1) is 0.0104154 0.00599268 0.00176362 0.0832082.
+
+FX-GLDISP-016 (`fx_gldisp_016.json`): At 8 bpc, Solid Composite black, then a Glow at After Effects' defaults (threshold 60, radius 10, intensity 1) with Glow Dimensions Vertical and Glow Operation Multiply On Top, then held to 8 bits. Pixel (3, 4) is 0.955973 0.715694 0.0684782 1; (6, 1) is 0 0 0 1.
 
 ### Exposure's Offset, Gamma Correction and Bypass (D-335)
 

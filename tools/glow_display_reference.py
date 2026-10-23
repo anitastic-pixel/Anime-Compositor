@@ -31,6 +31,17 @@ In a composition at 8 bpc or 32 bpc (After Effects), and only there:
   (Valeri Visuals' white disc at radius 400 measures sigma 161); and the blurred light is laid
   on at strength 1, the covering as blurred.
 - At 8 bpc the result is then held to 8 bits, as D-330.
+- D-747 (audit row 17) adds After Effects' further Glow controls, a file without them meaning
+  After Effects' starting values, which draw as before. Glow Dimensions spreads the light along
+  one axis only. Glow Colors A & B recolours the blurred light: v, its brightest channel held to
+  0..1, gives u = frac(loops (1 - v) + phase / 360), f is u (sawtooth A>B), 1 - u (B>A),
+  1 - |2u - 1| (triangle A>B>A) or |2u - 1| (B>A>B), bent to f^(ln 0.5 / ln m), m the midpoint
+  held to 0.001..0.999, and the light becomes A + (B - A) f, the colours as written, times v, at
+  its covering. Composite Original None leaves the light alone; Add and Screen lay it on as
+  before whether On Top or Behind; any other Glow Operation is the W3C's
+  (1 - as) ad cd + (1 - ad) as cs + as ad B(cd, cs) on straight colours, the light the source
+  and the picture the backdrop On Top, the other way round Behind. Our basis; After Effects
+  publishes no formula.
 
 Every case is glow_reference's 16 by 10 composition and drawings. The projects go into
 `Fixtures/glow_display`, the expected frames into `Fixtures/glow_display/expected_glow_display.json`.
@@ -86,11 +97,43 @@ def eight_bit(p):
     return tuple(round(S.linear_to_srgb(min(max(p[i] / a, 0.0), 1.0)) * 255) for i in range(3)) + (a,)
 
 
+LOOK = {"composite": "behind", "dimensions": "both", "glow_colors": "original",
+        "color_looping": "triangle_aba", "color_loops": 1, "color_phase": 0, "midpoint": 50,
+        "color_a": "#ffffff", "color_b": "#000000"}
+
+
+def mix(op, b, s):
+    """D-747: the operations the cases use, backdrop `b` and source `s`, straight 0..1."""
+    if op == "normal":
+        return s
+    if op == "multiply":
+        return [x * y for x, y in zip(b, s)]
+    if op == "lighten":
+        return [max(x, y) for x, y in zip(b, s)]
+    if op == "overlay":
+        return [2 * x * y if x <= 0.5 else 1 - 2 * (1 - x) * (1 - y) for x, y in zip(b, s)]
+    raise ValueError(op)
+
+
+def colored(g, look):
+    """D-747: Glow Colors A & B on the premultiplied light `g`."""
+    v = min(1.0, max(0.0, max(g[:3])))
+    u = (look["color_loops"] * (1 - v) + look["color_phase"] / 360) % 1.0
+    f = {"sawtooth_ab": u, "sawtooth_ba": 1 - u, "triangle_bab": abs(2 * u - 1)}.get(
+        look["color_looping"], 1 - abs(2 * u - 1))
+    m = min(max(look["midpoint"] / 100, 1e-3), 1 - 1e-3)
+    f = f ** (math.log(0.5) / math.log(m))
+    a, b = G.hex_color(look["color_a"]), G.hex_color(look["color_b"])
+    return [(a[i] + (b[i] - a[i]) * f) / 255 * v for i in range(3)] + [g[3]]
+
+
 def glow(px, c, top):
     """The Glow of the layer `px` (linear premultiplied, W by H) in display values. What glows is
     tested on the pixel itself, as before."""
+    look = {**LOOK, **c.get("look", {})}
+    none = look["composite"] == "none"
     if c["intensity"] == 0:
-        return px
+        return [[0.0] * 4 for _ in px] if none else px
     threshold, radius, intensity = c["threshold"], c["radius"], c["intensity"]
     ae = c["units"] == "after_effects"
     # D-746: in After Effects units each channel's light is held at 1 after the intensity.
@@ -120,25 +163,45 @@ def glow(px, c, top):
     total = sum(one)
     one = [v / total for v in one]
     k, ka = (1.0, 1.0) if ae else (intensity, intensity)
+    # D-747: Glow Dimensions.
+    rx = reach if look["dimensions"] != "vertical" else 0
+    ry = reach if look["dimensions"] != "horizontal" else 0
+    if all(p[3] == 0 for p in source):
+        return [[0.0] * 4 for _ in px] if none else px
 
     out = []
     for y in range(H):
         for x in range(W):
             g = [0.0] * 4
-            for j in range(-reach, reach + 1):
-                for i in range(-reach, reach + 1):
+            for j in range(-ry, ry + 1):
+                for i in range(-rx, rx + 1):
                     sx, sy = x + i, y + j
                     if 0 <= sx < W and 0 <= sy < H:
-                        w = one[i + reach] * one[j + reach]
+                        w = (one[i + reach] if rx else 1.0) * (one[j + reach] if ry else 1.0)
                         for ch in range(4):
                             g[ch] += source[sy * W + sx][ch] * w
             g = [v * k for v in g[:3]] + [g[3] * ka]
+            if look["glow_colors"] == "a_and_b":
+                g = colored(g, look)
             o = display(px[y * W + x], top)
-            if c["operation"] == "add":
+            if none:
+                r = g[:3] + [min(1.0, g[3])]
+            elif c["operation"] == "add":
                 r = [o[ch] + g[ch] for ch in range(3)] + [min(1.0, o[3] + g[3])]
-            else:
+            elif c["operation"] == "screen":
                 g = [min(1.0, max(0.0, v)) for v in g]
                 r = [o[ch] + g[ch] - o[ch] * g[ch] for ch in range(4)]
+            else:
+                la = min(1.0, max(0.0, g[3]))
+                lc = [min(1.0, max(0.0, g[ch] / g[3])) if g[3] > 0 else 0.0 for ch in range(3)]
+                oc = [o[ch] / o[3] if o[3] > 0 else 0.0 for ch in range(3)]
+                if look["composite"] == "on_top":
+                    (da, dc), (sa, sc) = (o[3], oc), (la, lc)
+                else:
+                    (da, dc), (sa, sc) = (la, lc), (o[3], oc)
+                b = mix(c["operation"], dc, sc)
+                r = [(1 - sa) * da * dc[ch] + (1 - da) * sa * sc[ch] + sa * da * b[ch]
+                     for ch in range(3)] + [sa + da - sa * da]
             out.append(linear(r, top))
     return out
 
@@ -163,8 +226,11 @@ def case(depth="ae32", effects=(), drawing="patches"):
     return {"depth": depth, "effects": list(effects), "drawing": drawing}
 
 
-def glow_settings(units="after_effects", **settings):
-    return GA.case(units=units, **settings)
+def glow_settings(units="after_effects", look=None, **settings):
+    c = GA.case(units=units, **settings)
+    if look:
+        c["look"] = look  # D-747
+    return c
 
 
 def render(c):
@@ -221,6 +287,40 @@ CASES = {
                       "#3c286e at opacity 50 and nothing else: laid on in display values, the "
                       "purple used as written.",
                       case(effects=[("solid", ("#3c286e", 50))], drawing="faint")),
+    # D-747: After Effects' further controls, at 32 bpc (After Effects) unless said.
+    "FX-GLDISP-009": ("D-747, Composite Original None: the light alone; the patches themselves "
+                      "are gone, and what is left is FX-GLDISP-001's halo less the drawing.",
+                      case(effects=[("glow", glow_settings(threshold=0, radius=4, intensity=0.1, look={"composite": "none"}))])),
+    "FX-GLDISP-010": ("D-747, Glow Dimensions Horizontal: the light spreads along the rows "
+                      "only, so a row with nothing that glows stays as it was.",
+                      case(effects=[("glow", glow_settings(threshold=0, radius=4, intensity=0.1, look={"dimensions": "horizontal"}))])),
+    "FX-GLDISP-011": ("D-747, Glow Colors A & B, Sawtooth A>B, A #ff0000, B #0000ff, intensity 1, on black, "
+                      "Composite Original None: the brightest light is red, the faintest "
+                      "towards blue, each at the light's own strength.",
+                      case(effects=[BLACK, ("glow", glow_settings(threshold=0, radius=4, intensity=1, look={
+                          "composite": "none", "glow_colors": "a_and_b", "color_looping": "sawtooth_ab",
+                          "color_a": "#ff0000", "color_b": "#0000ff"}))])),
+    "FX-GLDISP-012": ("D-747, Glow Operation Normal, Composite Original On Top, on black: the "
+                      "light covers the picture, so the patches take its colour where it is "
+                      "strong.",
+                      case(effects=[BLACK, ("glow", glow_settings(threshold=0, radius=4, intensity=0.1, operation="normal",
+                                                     look={"composite": "on_top"}))])),
+    "FX-GLDISP-013": ("D-747, Glow Operation Normal, Composite Original Behind (After Effects' "
+                      "start), on black: the opaque picture covers its light, so nothing "
+                      "changes.",
+                      case(effects=[BLACK, ("glow", glow_settings(threshold=0, radius=4, intensity=0.1, operation="normal"))])),
+    "FX-GLDISP-014": ("D-747, Glow Operation Lighten, On Top, on black: each channel the lighter "
+                      "of the picture and the light.",
+                      case(effects=[BLACK, ("glow", glow_settings(threshold=0, radius=4, intensity=0.1, operation="lighten",
+                                                     look={"composite": "on_top"}))])),
+    "FX-GLDISP-015": ("D-747, Glow Operation Overlay, Behind, on the empty-cornered patches: "
+                      "where only the light is, the light; where both are, the overlay.",
+                      case(effects=[("glow", glow_settings(threshold=0, radius=4, intensity=0.1, operation="overlay"))])),
+    "FX-GLDISP-016": ("D-747 at 8 bpc, After Effects' defaults with Glow Dimensions Vertical and "
+                      "Operation Multiply On Top, on black: the light multiplies the picture, "
+                      "then held to 8 bits.",
+                      case("eight", [BLACK, ("glow", glow_settings(operation="multiply", look={
+                          "composite": "on_top", "dimensions": "vertical"}))])),
 }
 
 
@@ -232,6 +332,7 @@ def project_json(fx, c):
     for i, (kind, s) in enumerate(c["effects"]):
         if kind == "glow":
             e = GA.project_json(fx, s)["compositions"][0]["layers"][0]["effects"][0]
+            e["parameters"].update(s.get("look", {}))  # D-747
         else:
             e = {"type_id": "core.solid_composite", "enabled": True,
                  "parameters": {"source_opacity": 100, "color": s[0], "opacity": s[1],
@@ -310,6 +411,27 @@ def check(expected):
     p = display(c["FX-GLDISP-008"][at(0, 0)], math.inf)
     assert abs(p[3] - 0.5) < 1e-12 and all(
         abs(p[ch] - v / 255 * 0.5) < 1e-12 for ch, v in enumerate((0x3c, 0x28, 0x6e)))
+    # D-747: None is the light alone, so the full Glow is the drawing plus it, in display values.
+    for p, q, r in zip(c["FX-GLDISP-001"], c["FX-GLDISP-009"], plain):
+        p, q, r = (display(v, math.inf) for v in (p, q, r))
+        assert all(abs(p[ch] - q[ch] - r[ch]) < 1e-9 for ch in range(3)), (p, q, r)
+    assert any(q[3] < r[3] - 1e-3 for q, r in zip(c["FX-GLDISP-009"], plain)), "the drawing is gone"
+    # Horizontal: every row of light holds what glows on that row only; a column the patches
+    # leave empty from top to bottom is lit only where its row has something glowing.
+    lit_rows = {y for y in range(H) if any(plain[at(x, y)][3] > 0 for x in range(W))}
+    for y in set(range(H)) - lit_rows:
+        assert all(c["FX-GLDISP-010"][at(x, y)] == [0.0] * 4 for x in range(W)), y
+    # A & B: the faintest light leans to blue, the strongest to red.
+    eleven = [display(p, math.inf) for p in c["FX-GLDISP-011"]]
+    lit = [p for p in eleven if max(p[:3]) > 1e-3]
+    hi, lo = max(lit, key=lambda p: max(p[:3])), min(lit, key=lambda p: max(p[:3]))
+    assert hi[0] > hi[2] and lo[2] > lo[0], (hi, lo)
+    # Normal Behind on an opaque picture changes nothing.
+    black = render(case(effects=[BLACK]))
+    assert all(max(abs(a - b) for a, b in zip(p, q)) < 1e-9
+               for p, q in zip(c["FX-GLDISP-013"], black))
+    # Lighten never darkens.
+    assert all(p[ch] >= q[ch] - 1e-9 for p, q in zip(c["FX-GLDISP-014"], black) for ch in range(3))
     for name, px in c.items():
         for p in px:
             assert 0 <= p[3] <= 1 and all(v >= 0 for v in p[:3]), (name, p)

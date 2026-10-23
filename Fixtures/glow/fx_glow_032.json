@@ -95,7 +95,7 @@
                 "tolerance": 0,
                 "radius": 4,
                 "intensity": 1,
-                "operation": "multiply",
+                "operation": "color_dodge",
                 "tint": ""
               }
             }

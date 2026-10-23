@@ -46376,7 +46376,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-GLOW-032": {
-   "says": "Operation \"multiply\", which is not Add or Screen. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Operation \"color_dodge\", a mode After Effects has and this program does not (D-747: until then \"multiply\" was refused here). The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_glow_032.json",
    "frames": {
     "0": [

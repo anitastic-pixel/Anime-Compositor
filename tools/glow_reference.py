@@ -234,8 +234,9 @@ INVALID = {
     "FX-GLOW-030": ("A colour written \"#12345\", one digit short.",
                     case(based_on="colors", colors=[DARK_HEX, "#12345"])),
     "FX-GLOW-031": ("A tint written \"orange\".", case(tint="orange")),
-    "FX-GLOW-032": ("Operation \"multiply\", which is not Add or Screen.",
-                    case(operation="multiply")),
+    "FX-GLOW-032": ("Operation \"color_dodge\", a mode After Effects has and this program "
+                    "does not (D-747: until then \"multiply\" was refused here).",
+                    case(operation="color_dodge")),
     "FX-GLOW-033": ("Based on \"dark\", which is not bright or colors.", case(based_on="dark")),
 }
 
