@@ -4,8 +4,8 @@ D-128 adds `core.fractal_noise`, a generator: fog, mist, clouds, drawn inside a 
 on a solid or on any drawing. At each pixel that shows it works out a smooth, cloudy noise value
 between 0 and 1, fixed by the seed and the pixel's place in the drawing's own space, turns it
 into a colour between `dark_color` and `light_color`, and mixes that colour into the pixel by
-`blend` at `opacity` per cent, as Gradient does (D-114). `size` is how many pixels one cloud cell
-spans; `complexity` is how many finer layers of detail are added on top of it, each half the size
+`blend` at `opacity` per cent, as Gradient does (D-114). `size` sets how many pixels one cloud cell
+spans, two thirds of it since D-756; `complexity` is how many finer layers of detail are added on top of it, each half the size
 and half the strength of the one before; `contrast` stretches the value about its middle and
 `brightness` lifts or lowers it. `evolution` moves the clouds through a third direction, one full
 turn of 360 degrees moving them one cell, and `speed` adds that many degrees every frame, so with
@@ -21,8 +21,10 @@ fade(t) = t^3 (t (6t - 15) + 10), V is the sum over the eight corners (di, dj, d
 wx(di) wy(dj) wz(dk) U(seed, i + di, j + dj, k + dk, ch), with w(0) = 1 - s and w(1) = s, U
 Noise's hash (D-119, `tools/noise_reference.py`). F(seed, ch, x, y, z, n) is n octaves of it:
 the sum over o = 0..n-1 of 0.5^o V(seed, 8 o + ch, x 2^o, y 2^o, z 2^o), over the sum of 0.5^o.
-Pixel (X, Y) of the drawing's own space samples the point ((X + 0.5) / size, (Y + 0.5) / size, z)
-with z = (evolution + speed * frame) / 360, frame the composition frame, a hidden value.
+Pixel (X, Y) of the drawing's own space samples the point ((X + 0.5) / c, (Y + 0.5) / c, z)
+with z = (evolution + speed * frame) / 360, frame the composition frame, a hidden value, and
+c = size / 1.5 since D-756 (2026-10-23): After Effects' Scale 100 is a 66.7-pixel cell. Before
+D-756 c was the size; the first values of the cases are retired (document 25).
 
 The rule. At a pixel with a > 0: v = clamp(0.5 + 0.5 F(seed, 0, point, complexity) contrast /
 100 + brightness / 100, 0, 1); G = srgb_to_linear(dark + v (light - dark)) per channel, the
@@ -102,6 +104,17 @@ def point(x, y, size, evolution, speed, frame_no):
     return (x + 0.5) / size, (y + 0.5) / size, (evolution + speed * frame_no) / 360
 
 
+# D-756: After Effects' Fractal Noise at Scale 100 draws a 66.7-pixel cell, two thirds of the
+# size (lane E of the 2026-10-22 audit, 10 of 11 tutorials). Fractal Noise's own cell is its size
+# over CELL; Turbulent Displace, Roughen Edges and Turbulent Noise keep `point` with their size.
+CELL = 1.5
+
+
+def fractal_point(x, y, size, evolution, speed, frame_no):
+    """`point` for Fractal Noise: its cell is size / CELL pixels (D-756)."""
+    return point(x, y, size / CELL, evolution, speed, frame_no)
+
+
 # --- the rule -------------------------------------------------------------------------------
 
 def value(seed, complexity, contrast, brightness, p):
@@ -122,7 +135,7 @@ def fractal_noise(pixels, size, complexity, contrast, brightness, evolution, spe
             out.append(R.working(p))
             continue
         v = value(seed, complexity, contrast, brightness,
-                  point(i % width, i // width, size, evolution, speed, frame_no))
+                  fractal_point(i % width, i // width, size, evolution, speed, frame_no))
         g = [srgb_to_linear(d + v * (e - d)) for d, e in zip(dark, light)]
         a = p[3] / 255
         b = [srgb_to_linear(p[c] / 255) for c in range(3)]
@@ -165,7 +178,7 @@ def plain(c):
     return render(case(opacity=0, shift=c["shift"]), 0)
 
 
-FINE = {"size": 4}  # four pixels a cell, so the clouds vary across the small drawing
+FINE = {"size": 4}  # a cell of 4 / 1.5 pixels (D-756), so the clouds vary across the small drawing
 DUSK, CREAM = "#1e1a24", "#fff0b0"
 
 CASES = {
@@ -176,7 +189,7 @@ CASES = {
                        "keeps its covering, the empty ones stay empty, and with speed 0 frame 4 "
                        "is frame 0.",
                        case(), [0, 4]),
-    "FX-FRACTAL-002": ("Size 4: four pixels a cell, so the greys vary across the card, "
+    "FX-FRACTAL-002": ("Size 4: a cell of 2.7 pixels (D-756), so the greys vary across the card, "
                        "lighter and darker patches.",
                        case(**FINE), [0]),
     "FX-FRACTAL-003": ("Size 4, complexity 1.9, which counts as 1: one octave, the smooth value "
@@ -342,7 +355,7 @@ def check(expected):
     def expect(f, **kw):
         n = {**case(**FINE), **kw}
         for i in shown:
-            p = point(i % W, i // W, n["size"], n["evolution"], n["speed"], 0)
+            p = fractal_point(i % W, i // W, n["size"], n["evolution"], n["speed"], 0)
             v = value(n["seed"], n["complexity"], n["contrast"], n["brightness"], p)
             assert abs(grey(f, i) - v) < 1e-9, i
         return True
@@ -357,7 +370,7 @@ def check(expected):
     assert max(v2) - min(v2) > max(v1) - min(v1) and expect(two)
     three = c["FX-FRACTAL-003"]["0"]
     for i in shown:
-        p = point(i % W, i // W, 4, 0, 0, 0)
+        p = fractal_point(i % W, i // W, 4, 0, 0, 0)
         assert abs(grey(three, i) - (0.5 + 0.5 * V(0, 0, *p))) < 1e-9
     four = c["FX-FRACTAL-004"]["0"]
     assert expect(four, complexity=8) and four != two

@@ -311,10 +311,11 @@ def check(expected):
     samples = [F(1, x / 7, y / 7, 0.3, 4, True, False) for x in range(40) for y in range(40)]
     assert all(-1 <= s <= 1 for s in samples)
 
-    # Basic and smooth is Fractal Noise with no speed, black to white: the same numbers.
+    # Basic and smooth is Fractal Noise with no speed, black to white: the same numbers, at
+    # one and a half times Fractal Noise's size since D-756 (its cell is two thirds of its size).
     two = c["FX-TURBNOISE-002"]["0"]
-    assert two == FN.render(FN.case(size=4, complexity=6), 0)
-    assert c["FX-TURBNOISE-001"]["0"] == FN.render(FN.case(complexity=6), 0)
+    assert two == FN.render(FN.case(size=6, complexity=6), 0)
+    assert c["FX-TURBNOISE-001"]["0"] == FN.render(FN.case(size=150, complexity=6), 0)
 
     # Every case keeps every covering and leaves the empty pixels empty.
     for fx, frames in c.items():

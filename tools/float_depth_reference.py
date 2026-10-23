@@ -84,7 +84,7 @@ def noise(frame, n, float_depth):
         if a <= 0:
             out.append(p)
             continue
-        raw = 0.5 + 0.5 * F.F(0, 0, *F.point(i % W, i // W, 4, 0, 0, 0), 4) * n["contrast"] / 100 \
+        raw = 0.5 + 0.5 * F.F(0, 0, *F.fractal_point(i % W, i // W, 4, 0, 0, 0), 4) * n["contrast"] / 100 \
             + n["brightness"] / 100
         v = max(0.0, raw) if float_depth else min(1.0, max(0.0, raw))
         g = [srgb_to_linear(d + v * (e - d)) for d, e in zip(dark, light)]
