@@ -373,6 +373,7 @@ pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
 }
 
 /// D-647: [`mixer`] with Turbulent Noise's further modes, on the layer's `b` and the noise's `c`.
+/// D-748: a layer's Hard Light, Darken, Lighten and Difference blend modes too, on encoded colours.
 pub(crate) fn noise_mixer(blend: &str) -> fn(f64, f64) -> f64 {
     match blend {
         "hard_light" => |b, c| {
@@ -392,6 +393,7 @@ pub(crate) fn noise_mixer(blend: &str) -> fn(f64, f64) -> f64 {
 /// D-730: Turbulent Noise's Saturation, Color and Luminosity, the W3C Compositing and Blending
 /// Level 1 non-separable modes, on the layer's straight colour `b` (the backdrop) and the noise's
 /// `s` (the source). Our basis; After Effects publishes no formula.
+/// D-748: a layer's Hue, Saturation, Color and Luminosity blend modes too, on encoded colours.
 pub(crate) fn noise_whole(blend: &str) -> Option<fn([f64; 3], [f64; 3]) -> [f64; 3]> {
     let f: fn([f64; 3], [f64; 3]) -> [f64; 3] = match blend {
         "saturation" => |b, s| w3c_set_lum(w3c_set_sat(b, w3c_sat(s)), w3c_lum(b)),

@@ -203,11 +203,9 @@ fn blend_function(mode: BlendMode, cs: f64, cd: f64) -> f64 {
         BlendMode::Screen => cs + cd - cs * cd,
         BlendMode::Add => (cs + cd).min(1.0),
         BlendMode::Normal => cs,
-        // D-301's four are not in this picture; tests/b186_blend_modes.rs works them by hand.
-        BlendMode::Overlay
-        | BlendMode::SoftLight
-        | BlendMode::StencilAlpha
-        | BlendMode::StencilLuma => unreachable!("not in H-03"),
+        // D-301's four and D-748's eight are not in this picture; tests/b186_blend_modes.rs and
+        // tests/b627_layer_blend_modes.rs check them.
+        _ => unreachable!("not in H-03"),
     }
 }
 

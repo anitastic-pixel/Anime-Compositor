@@ -134,6 +134,13 @@ pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool
     let cs = unpremultiply(src);
     let cd = unpremultiply(dst);
     let (a_s, a_d) = (src[3], dst[3]);
+    // D-301, D-748: the modes After Effects works on the encoded colours, held to 0..1 as it
+    // blends them at 8 bits, and decoded again.
+    let e = |v: f32| crate::grade::to_srgb((v as f64).clamp(0.0, 1.0));
+    // D-748: Hue, Saturation, Color and Luminosity take the whole colour at once, by the W3C's
+    // rules (D-730's, Turbulent Noise's), the colour beneath first.
+    let whole = crate::grade::noise_whole(mode.as_str())
+        .map(|f| f([0, 1, 2].map(|c| e(cd[c])), [0, 1, 2].map(|c| e(cs[c]))));
     let mut out = [0.0f32; 4];
     for c in 0..3 {
         let b = match mode {
@@ -142,16 +149,20 @@ pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool
             BlendMode::Screen => cs[c] + cd[c] - cs[c] * cd[c],
             BlendMode::Add if float => cs[c] + cd[c],
             BlendMode::Add => (cs[c] + cd[c]).min(1.0),
-            // D-301: on the encoded colours, held to 0..1, as After Effects blends them, so a
-            // 50% grey is the neutral one; `mixer` takes the colour beneath first.
-            BlendMode::Overlay | BlendMode::SoftLight => {
-                let mix = crate::grade::mixer(if mode == BlendMode::Overlay {
-                    "overlay"
-                } else {
-                    "soft_light"
-                });
-                let e = |v: f32| crate::grade::to_srgb((v as f64).clamp(0.0, 1.0));
+            // D-301: on the encoded colours, so a 50% grey is Overlay's neutral one; D-748 adds
+            // Turbulent Noise's (D-647) Hard Light, Darken, Lighten and Difference the same way.
+            // The mixer takes the colour beneath first.
+            BlendMode::Overlay
+            | BlendMode::SoftLight
+            | BlendMode::HardLight
+            | BlendMode::Darken
+            | BlendMode::Lighten
+            | BlendMode::Difference => {
+                let mix = crate::grade::noise_mixer(mode.as_str());
                 crate::grade::to_linear(mix(e(cd[c]), e(cs[c]))) as f32
+            }
+            BlendMode::Hue | BlendMode::Saturation | BlendMode::Color | BlendMode::Luminosity => {
+                crate::grade::to_linear(whole.expect("a whole-colour mode")[c]) as f32
             }
             BlendMode::Normal | BlendMode::StencilAlpha | BlendMode::StencilLuma => {
                 unreachable!("handled above")

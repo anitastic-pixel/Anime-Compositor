@@ -13318,10 +13318,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     mode: match parameter(query, "mode").as_deref().and_then(BlendMode::from_str) {
                         Some(mode) => mode,
                         _ => {
-                            return Some(
-                                "Which blend mode? Send mode=normal, multiply, screen, add, overlay, soft_light, stencil_alpha or stencil_luma."
-                                    .to_string(),
-                            )
+                            return Some(format!(
+                                "Which blend mode? Send mode={}.",
+                                BlendMode::ALL.map(BlendMode::as_str).join(", ")
+                            ))
                         }
                     },
                 },

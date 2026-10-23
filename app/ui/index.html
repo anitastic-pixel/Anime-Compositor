@@ -5182,7 +5182,9 @@ function labelLayers(n) {
 
 // W-25: the blend modes the renderer draws, set on every selected layer as one entry to undo.
 // D-301: and four more from After Effects.
-const BLENDS = ['normal', 'multiply', 'screen', 'add', 'overlay', 'soft_light', 'stencil_alpha', 'stencil_luma'];
+// D-748: the core's BlendMode::ALL, in After Effects' order (tests/b627_layer_blend_modes.rs checks).
+const BLENDS = ['normal', 'darken', 'multiply', 'add', 'lighten', 'screen', 'overlay', 'soft_light', 'hard_light',
+  'difference', 'hue', 'saturation', 'color', 'luminosity', 'stencil_alpha', 'stencil_luma'];
 const blendName = (mode) => (mode[0].toUpperCase() + mode.slice(1)).replace('_', ' ');
 
 // B-24c: D-77's five mask modes, in the order that document 19 writes them.

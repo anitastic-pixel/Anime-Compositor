@@ -708,17 +708,34 @@ pub enum BlendMode {
     SoftLight,
     StencilAlpha,
     StencilLuma,
+    /// D-748: eight more of After Effects' modes, worked on the encoded colours as Overlay is.
+    Darken,
+    Lighten,
+    HardLight,
+    Difference,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
 }
 
 impl BlendMode {
-    /// Every mode, in the order the window lists them.
-    pub const ALL: [BlendMode; 8] = [
+    /// Every mode, in the order the window lists them: After Effects' order (D-748).
+    pub const ALL: [BlendMode; 16] = [
         BlendMode::Normal,
+        BlendMode::Darken,
         BlendMode::Multiply,
-        BlendMode::Screen,
         BlendMode::Add,
+        BlendMode::Lighten,
+        BlendMode::Screen,
         BlendMode::Overlay,
         BlendMode::SoftLight,
+        BlendMode::HardLight,
+        BlendMode::Difference,
+        BlendMode::Hue,
+        BlendMode::Saturation,
+        BlendMode::Color,
+        BlendMode::Luminosity,
         BlendMode::StencilAlpha,
         BlendMode::StencilLuma,
     ];
@@ -733,6 +750,14 @@ impl BlendMode {
             BlendMode::SoftLight => "soft_light",
             BlendMode::StencilAlpha => "stencil_alpha",
             BlendMode::StencilLuma => "stencil_luma",
+            BlendMode::Darken => "darken",
+            BlendMode::Lighten => "lighten",
+            BlendMode::HardLight => "hard_light",
+            BlendMode::Difference => "difference",
+            BlendMode::Hue => "hue",
+            BlendMode::Saturation => "saturation",
+            BlendMode::Color => "color",
+            BlendMode::Luminosity => "luminosity",
         }
     }
 

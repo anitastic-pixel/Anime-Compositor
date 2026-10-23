@@ -24164,7 +24164,7 @@ impl Gpu {
                 "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira, HSV Key, Colour Key, Select Colour and Line Recolour stay the CPU's.".into(),
             ));
         }
-        // D-301: the four modes after add are the CPU's.
+        // D-301, D-748: every mode after add is the CPU's.
         // ponytail: a frame with one draws on the CPU; give the layer shader them if it is slow.
         if plan.layers.iter().any(|l| {
             !matches!(
@@ -24175,7 +24175,7 @@ impl Gpu {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: a layer has a blend mode the GPU does not draw.".into(),
-                "D-301's Overlay, Soft Light, Stencil Alpha and Stencil Luma are drawn on the CPU only.".into(),
+                "D-301's and D-748's modes (all but Normal, Multiply, Screen and Add) are drawn on the CPU only.".into(),
             ));
         }
         // D-297: an adjustment layer in a blend mode other than normal is the CPU's.
@@ -24926,11 +24926,8 @@ impl Gpu {
                     BlendMode::Multiply => 1,
                     BlendMode::Screen => 2,
                     BlendMode::Add => 3,
-                    // D-301: refused above.
-                    BlendMode::Overlay
-                    | BlendMode::SoftLight
-                    | BlendMode::StencilAlpha
-                    | BlendMode::StencilLuma => 0,
+                    // D-301, D-748: refused above.
+                    _ => 0,
                 };
                 let mut numbers = [
                     f(s0.0),
