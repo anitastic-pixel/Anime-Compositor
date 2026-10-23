@@ -1782,7 +1782,8 @@ fn card_effect(
                     vibrance,
                     saturation,
                 } => [*vibrance, *saturation] == [0.0; 2],
-                E::Mosaic { size } => *size <= 1.0,
+                // D-754: one-pixel blocks, the middle pixel or the mean alike, in size mode.
+                E::Mosaic { size, mode, .. } => mode != "count" && *size <= 1.0,
                 E::BlockLoad {
                     completion,
                     scans,

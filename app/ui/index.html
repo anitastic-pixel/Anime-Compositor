@@ -10624,7 +10624,7 @@ const EFFECT_ABOUT = {
   'core.leave_color': 'Takes the colour out of everything except one chosen colour.',
   'core.solarize': 'Turns the brightest parts negative, as an overexposed print does.',
   'core.halftone': 'Prints the picture as dots, like screentone or a comic.',
-  'core.mosaic': 'Breaks the layer into big square blocks.',
+  'core.mosaic': 'Breaks the layer into blocks, a set number across and down or square blocks of a set size, each its average colour or, with Sharp Colors, its middle pixel.',
   'core.emboss': 'Makes the picture look pressed into metal or paper.',
   'core.find_edges': 'Keeps only the edges, like a pencil sketch.',
   'core.sharpen': 'Crisps up edges and fine detail, as After Effects\' Unsharp Mask does.',
@@ -11167,7 +11167,10 @@ const EFFECT_PARAMS = {
     ['angle', 'Angle', 1, 1, 'degrees the rows of dots are turned', 'dial'],
     ['amount', 'Amount', 1, 1, '0 to 100, how strongly the dots are laid over']],
   // D-144.
-  'core.mosaic': [['size', 'Size', 1, 1, 'pixels across each block, 1 to 1000']],
+  // D-754: After Effects' block counts, used when Mode is Count.
+  'core.mosaic': [['horizontal', 'Horizontal Blocks', 1, 1, 'blocks across the layer, 1 to 1000, split evenly (Mode Count)', '', 10],
+    ['vertical', 'Vertical Blocks', 1, 1, 'blocks down the layer, 1 to 1000, split evenly (Mode Count)', '', 10],
+    ['size', 'Size', 1, 1, 'pixels across each square block, 1 to 1000 (Mode Size)']],
   // D-145.
   'core.emboss': [['direction', 'Direction', 1, 1, 'degrees clockwise from up, toward the lit side', 'dial'],
     ['relief', 'Relief', 1, 0.5, 'pixels, 0 to 100, how wide the ridges are'],
@@ -13111,6 +13114,10 @@ const EFFECT_WORDS = {
   },
   'core.hex_tile': { choices: [['render', 'Render', [['tile', 'Tile'], ['fold_aligned', 'Fold Aligned'], ['fold_seamless', 'Fold Seamlessly']]],
     ['lock_center', 'Lock Center Tile', [['off', 'Off'], ['on', 'On']]]] },
+  // D-754: Count splits the layer into Horizontal by Vertical Blocks, as After Effects does; Size
+  // keeps square blocks. Sharp Colors paints each block its middle pixel.
+  'core.mosaic': { choices: [['mode', 'Mode', [['count', 'Count'], ['size', 'Size']]],
+    ['sharp_colors', 'Sharp Colors', [['off', 'Off'], ['on', 'On']]]] },
   // D-449: After Effects' words; Start Cleared on as it is added, Bilinear off.
   'core.block_load': { choices: [['start_cleared', 'Start Cleared', [['on', 'On'], ['off', 'Off']]],
     ['bilinear', 'Bilinear', [['off', 'Off'], ['on', 'On']]]] },

@@ -2352,7 +2352,11 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     // D-144: the size.
-    ("core.mosaic", &[("size", "24")]),
+    // D-754: the counts and Sharp Colors too.
+    (
+        "core.mosaic",
+        &[("size", "24"), ("mode", "count"), ("horizontal", "7"), ("vertical", "3"), ("sharp_colors", "on")],
+    ),
     // D-145: the three numbers and the mode.
     (
         "core.emboss",

@@ -1126,7 +1126,18 @@ pub(crate) fn offset(source: &mut WorkingBuffer, shift: [f64; 2]) {
 /// Each run of `n` columns, or of rows, that falls in one block `size` wide laid from `o`, as
 /// D-144's Mosaic and D-449's Block Load cut them.
 pub(crate) fn block_runs(n: usize, o: usize, size: f64) -> Vec<std::ops::Range<usize>> {
-    let block = |p: usize| ((p as f64 - o as f64) / size).floor();
+    runs_of(n, |p| ((p as f64 - o as f64) / size).floor())
+}
+
+/// D-754: each run of `n` columns, or of rows, in one of `count` blocks splitting the drawing's
+/// `d` pixels from `o` evenly: pixel p in block floor((p - o) x count / d), in whole numbers, the
+/// grown margins carrying on outward.
+pub(crate) fn count_runs(n: usize, o: usize, count: f64, d: usize) -> Vec<std::ops::Range<usize>> {
+    let (count, d) = (count as i64, d.max(1) as i64);
+    runs_of(n, |p| ((p as i64 - o as i64) * count).div_euclid(d) as f64)
+}
+
+fn runs_of(n: usize, block: impl Fn(usize) -> f64) -> Vec<std::ops::Range<usize>> {
     let mut runs = Vec::new();
     let mut start = 0;
     for p in 1..=n {
@@ -1146,18 +1157,40 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
         return;
     }
     let (w, h) = (source.width(), source.height());
-    let (columns, rows) = (block_runs(w, ox, size), block_runs(h, oy, size));
+    mosaic_runs(source, &block_runs(w, ox, size), &block_runs(h, oy, size), false);
+}
+
+/// D-144 and D-754: each block, `columns` by `rows` runs, painted the mean of its premultiplied
+/// pixels, or with `sharp` its middle pixel, at (first + end) / 2 of its runs.
+pub(crate) fn mosaic_runs(
+    source: &mut WorkingBuffer,
+    columns: &[std::ops::Range<usize>],
+    rows: &[std::ops::Range<usize>],
+    sharp: bool,
+) {
+    let w = source.width();
     // P-22: each row of blocks on a thread of its own, its rows cut from the buffer in order.
     let mut rest = source.data_mut();
     let mut bands = Vec::new();
-    for ys in &rows {
+    for ys in rows {
         let (band, tail) = rest.split_at_mut(ys.len() * w * 4);
         bands.push(band);
         rest = tail;
     }
     bands.into_par_iter().for_each(|data| {
         let n_rows = data.len() / (w * 4);
-        for xs in &columns {
+        for xs in columns {
+            if sharp {
+                let i = 4 * (n_rows / 2 * w + (xs.start + xs.end) / 2);
+                let middle: [f32; 4] = data[i..i + 4].try_into().unwrap();
+                for y in 0..n_rows {
+                    for x in xs.clone() {
+                        let i = 4 * (y * w + x);
+                        data[i..i + 4].copy_from_slice(&middle);
+                    }
+                }
+                continue;
+            }
             let mut sum = [0.0f64; 4];
             for y in 0..n_rows {
                 for x in xs.clone() {

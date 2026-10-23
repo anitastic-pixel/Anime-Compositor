@@ -1187,8 +1187,17 @@ pub enum Effect {
         paper: String,
         amount: f64,
     },
-    /// D-144: `size`, 1 to 1000 pixels, each square block painted its mean colour.
-    Mosaic { size: f64 },
+    /// D-144: `size`, 1 to 1000 pixels, each square block painted its mean colour. D-754: `mode`
+    /// "size" (D-144's blocks) or "count", where `horizontal` and `vertical` (1 to 1000, their
+    /// nearest whole number) split the drawing's box evenly; `sharp_colors` "on" paints each block
+    /// its middle pixel. A file naming none of them is size mode, Sharp Colors off, 10 and 10.
+    Mosaic {
+        size: f64,
+        mode: String,
+        horizontal: f64,
+        vertical: f64,
+        sharp_colors: String,
+    },
     /// D-145: `direction`, -3600 to 3600 degrees clockwise from up, where the light comes from;
     /// `relief`, 0 to 100 pixels, how far ahead and behind each pixel looks; `contrast`, 0 to
     /// 1000, how strongly a difference shows; `mode`, "grey" or "color".
@@ -5319,6 +5328,29 @@ pub const WAVE_PINNINGS: [(&str, [bool; 4]); 8] = [
     ("vertical_edges", [true, false, true, false]),
 ];
 
+/// D-144 and D-754: Mosaic's runs of columns and of rows in a buffer `w` by `h` with the drawing's
+/// corner at `(ox, oy)`: blocks `size` wide, or in count mode the drawing's own box split evenly
+/// into the counts' nearest whole numbers.
+pub fn mosaic_runs(
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+    size: f64,
+    mode: &str,
+    (horizontal, vertical): (f64, f64),
+) -> (Vec<std::ops::Range<usize>>, Vec<std::ops::Range<usize>>) {
+    use crate::layer_fx::{block_runs, count_runs};
+    if mode == "count" {
+        let whole = |v: f64| (v + 0.5).floor().clamp(1.0, 1000.0);
+        (
+            count_runs(w, ox, whole(horizontal), w.saturating_sub(2 * ox)),
+            count_runs(h, oy, whole(vertical), h.saturating_sub(2 * oy)),
+        )
+    } else {
+        let size = size.max(1.0);
+        (block_runs(w, ox, size), block_runs(h, oy, size))
+    }
+}
+
 /// D-745: the edges `pinning` holds still; none for a word that is not a choice.
 pub fn wave_pins(pinning: &str) -> [bool; 4] {
     WAVE_PINNINGS
@@ -6723,6 +6755,17 @@ fn key_numbers(track: &[Property], i: usize) -> Vec<f64> {
 }
 
 impl Effect {
+    /// D-754: a Mosaic of square blocks `size` wide, as a file from before D-754 reads.
+    pub fn mosaic(size: f64) -> Effect {
+        Effect::Mosaic {
+            size,
+            mode: "size".to_string(),
+            horizontal: 10.0,
+            vertical: 10.0,
+            sharp_colors: "off".to_string(),
+        }
+    }
+
     /// An Exposure of `stops` and nothing else.
     pub fn exposure(stops: f64) -> Effect {
         Effect::Exposure {
@@ -7846,7 +7889,16 @@ impl Effect {
                 ("angle", vec![angle], -3600.0, 3600.0),
                 ("amount", vec![amount], 0.0, 100.0),
             ],
-            Effect::Mosaic { size } => vec![("size", vec![size], 1.0, 1000.0)],
+            Effect::Mosaic {
+                size,
+                horizontal,
+                vertical,
+                ..
+            } => vec![
+                ("size", vec![size], 1.0, 1000.0),
+                ("horizontal", vec![horizontal], 1.0, 1000.0),
+                ("vertical", vec![vertical], 1.0, 1000.0),
+            ],
             Effect::Emboss {
                 direction,
                 relief,
@@ -11052,7 +11104,8 @@ impl Effect {
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             // D-144: a block under a pixel is one pixel, which changes nothing.
-            Effect::Mosaic { size } => *size = scale(*size).max(1.0),
+            // D-754: the counts follow the drawing's box, which the draft has scaled already.
+            Effect::Mosaic { size, .. } => *size = scale(*size).max(1.0),
             Effect::Emboss { relief, .. } => *relief = scale(*relief),
             // D-213: Bevel Edges' thickness is a share of the layer and is left.
             Effect::BevelAlpha { edge_thickness, .. } => *edge_thickness = scale(*edge_thickness),
@@ -14227,6 +14280,12 @@ impl Effect {
                 "Deband's view is one of {}, and this is \"{view}\".",
                 DEBAND_VIEWS.join(", ")
             )),
+            Effect::Mosaic { mode: v, .. } if !["size", "count"].contains(&v.as_str()) => Some(format!(
+                "Mosaic's mode is \"size\" or \"count\", and this is \"{v}\"."
+            )),
+            Effect::Mosaic { sharp_colors: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Mosaic's sharp colors is \"on\" or \"off\", and this is \"{v}\"."
+            )),
             Effect::BlockLoad { start_cleared: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
                 "Block Load's start cleared is \"on\" or \"off\", and this is \"{v}\"."
             )),
@@ -16660,8 +16719,21 @@ pub(crate) fn apply_stack_at(
                 };
                 crate::grade::halftone(source, &h, (ox, oy))
             }),
-            Effect::Mosaic { size } => crate::perf::time(crate::perf::Stage::EffectMosaic, || {
-                crate::layer_fx::mosaic(source, *size, (ox, oy))
+            Effect::Mosaic {
+                size,
+                mode,
+                horizontal,
+                vertical,
+                sharp_colors,
+            } => crate::perf::time(crate::perf::Stage::EffectMosaic, || {
+                let (columns, rows) = mosaic_runs(
+                    (source.width(), source.height()),
+                    (ox, oy),
+                    *size,
+                    mode,
+                    (*horizontal, *vertical),
+                );
+                crate::layer_fx::mosaic_runs(source, &columns, &rows, sharp_colors == "on")
             }),
             Effect::Emboss {
                 direction,

@@ -5774,7 +5774,7 @@ fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // B-107, layer_fx::mosaic's blocks, one a thread, each block's mean into `row`, summed in the
-// CPU's order. k: the columns of blocks, the rows, then where each column starts, the end last,
+// CPU's order; D-754's mode 1 (Sharp Colors) its middle pixel. k: the columns of blocks, the rows, then where each column starts, the end last,
 // then where each row starts, the end last.
 // ponytail: one thread sums a whole block, slow for blocks of many thousands of pixels; a
 // reduction in steps if Mosaic's big sizes are ever slow on the card.
@@ -5789,6 +5789,16 @@ fn blocks(@builtin(global_invocation_id) id: vec3<u32>) {
     let x1 = u32(k[3u + id.x]);
     let y0 = u32(k[3u + nc + id.y]);
     let y1 = u32(k[4u + nc + id.y]);
+    let i = 4u * (id.y * nc + id.x);
+    // D-754: Sharp Colors, the block's middle pixel.
+    if F.mode == 1u {
+        let p = textureLoad(input, vec2((x0 + x1) / 2u, (y0 + y1) / 2u), 0);
+        row[i] = p.x;
+        row[i + 1u] = p.y;
+        row[i + 2u] = p.z;
+        row[i + 3u] = p.w;
+        return;
+    }
     // Four scalars, not a vec4<f64>, which this driver reads back as zero here.
     var r = 0.0lf;
     var g = 0.0lf;
@@ -5804,7 +5814,6 @@ fn blocks(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     let n = f64((y1 - y0) * (x1 - x0));
-    let i = 4u * (id.y * nc + id.x);
     row[i] = f32(r / n);
     row[i + 1u] = f32(g / n);
     row[i + 2u] = f32(b / n);
@@ -14828,16 +14837,19 @@ impl Gpu {
             )
         };
         let (ox, oy) = f.origin;
-        // D-144's Mosaic on `still`, blocks `size` wide from the drawing's corner, or (D-449)
-        // blended between their centres. Size 1 or less is `still` as it is.
-        let mosaic = |steps: &mut Vec<Step>, size: f64, bilinear: bool| {
-            if size <= 1.0 {
+        // D-144's Mosaic on `still`, its blocks the runs of columns and of rows given, each its
+        // mean, or (D-754, `sharp`) its middle pixel, or (D-449) blended between their centres.
+        // One-pixel blocks of means are `still` as it is.
+        let mosaic = |steps: &mut Vec<Step>,
+                      (columns, rows): (Vec<std::ops::Range<usize>>, Vec<std::ops::Range<usize>>),
+                      bilinear: bool,
+                      sharp: bool| {
+            if columns.len() == w && rows.len() == h && !sharp {
                 return still.clone();
             }
             // Where each run of columns, or of rows, in one block starts, the end last, and
-            // each column's or row's run, as layer_fx::block_runs cuts them.
-            let runs = |n: usize, o: usize| {
-                let runs = crate::layer_fx::block_runs(n, o, size);
+            // each column's or row's run.
+            let runs = |runs: Vec<std::ops::Range<usize>>, n: usize| {
                 let mut of = Vec::with_capacity(n);
                 for (i, r) in runs.iter().enumerate() {
                     of.extend(r.clone().map(|_| i as f64));
@@ -14846,7 +14858,7 @@ impl Gpu {
                 starts.push(n as f64);
                 (starts, of)
             };
-            let ((cs, col_of), (rs, row_of)) = (runs(w, ox), runs(h, oy));
+            let ((cs, col_of), (rs, row_of)) = (runs(columns, w), runs(rows, h));
             let (nc, nr) = (cs.len() - 1, rs.len() - 1);
             let mut k = vec![nc as f64, nr as f64];
             k.extend(cs.into_iter().chain(rs).chain(col_of).chain(row_of));
@@ -14854,7 +14866,10 @@ impl Gpu {
             self.fx_step(
                 steps,
                 &passes.blocks,
-                FxParams::default(),
+                FxParams {
+                    mode: sharp as u32,
+                    ..Default::default()
+                },
                 Some(still),
                 None,
                 Some(&k),
@@ -16371,7 +16386,17 @@ impl Gpu {
                 };
                 same(steps, &passes.tone, p, &k, None)
             }
-            E::Mosaic { size } => (mosaic(steps, *size, false), (w, h)),
+            E::Mosaic {
+                size,
+                mode,
+                horizontal,
+                vertical,
+                sharp_colors,
+            } => {
+                let runs =
+                    crate::effects::mosaic_runs((w, h), (ox, oy), *size, mode, (*horizontal, *vertical));
+                (mosaic(steps, runs, false, sharp_colors == "on"), (w, h))
+            }
             // D-449: compose left out one with every pass done.
             E::BlockLoad {
                 completion,
@@ -16385,7 +16410,11 @@ impl Gpu {
                         .expect("compose leaves out a Block Load with every pass done");
                 let size = 2f64.powi(e) * pixel;
                 let bilinear = bilinear == "on";
-                let now = mosaic(steps, size, bilinear);
+                let blocks = |size: f64| {
+                    let size = size.max(1.0);
+                    (crate::layer_fx::block_runs(w, ox, size), crate::layer_fx::block_runs(h, oy, size))
+                };
+                let now = mosaic(steps, blocks(size), bilinear, false);
                 let edge = crate::layer_fx::block_load_edge(h, oy, size, f);
                 if edge >= h {
                     return (now, (w, h));
@@ -16393,7 +16422,7 @@ impl Gpu {
                 let before = if empty {
                     now.clone()
                 } else {
-                    mosaic(steps, size * 2.0, bilinear)
+                    mosaic(steps, blocks(size * 2.0), bilinear, false)
                 };
                 let out = self.scratch("D-449 block load", w, h);
                 let p = FxParams {
@@ -24391,8 +24420,19 @@ impl Gpu {
                             // D-352: a Matte Choker's running totals.
                             crate::effects::Effect::MatteChoker { .. } => ((w + 1) * h * 32) as u64,
                             // Each block's mean.
-                            crate::effects::Effect::Mosaic { size } => {
-                                (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64
+                            crate::effects::Effect::Mosaic {
+                                size,
+                                mode,
+                                horizontal,
+                                vertical,
+                                ..
+                            } => {
+                                let (across, down) = if mode == "count" {
+                                    (*horizontal, *vertical)
+                                } else {
+                                    (w as f64 / size, h as f64 / size)
+                                };
+                                (16.0 * (across + 2.0) * (down + 2.0)) as u64
                             }
                             // B-123: a Color Lookup's table rides with its settings; Kira-kira keeps
                             // its light in a buffer the size of the grown drawing, and its stars, at

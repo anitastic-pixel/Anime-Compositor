@@ -63,8 +63,8 @@ D-144, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the size, 10 to 5 | Mosaic { size: 5.0 } | yes |
-| a quarter-size draft of size 1.5 holds the size at 1, which changes nothing, rather than dropping the effect | Mosaic { size: 1.0 } | yes |
+| a half-size draft preview halves the size, 10 to 5 | Mosaic { size: 5.0, mode: "size", horizontal: 10.0, vertical: 10.0, sharp_colors: "off" } | yes |
+| a quarter-size draft of size 1.5 holds the size at 1, which changes nothing, rather than dropping the effect | Mosaic { size: 1.0, mode: "size", horizontal: 10.0, vertical: 10.0, sharp_colors: "off" } | yes |
 
 ## The file
 

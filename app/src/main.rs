@@ -4229,8 +4229,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             paper: "#ffffff".to_string(),
             amount: 100.0,
         }),
-        // D-144: blocks ten pixels wide.
-        MOSAIC => Some(Effect::Mosaic { size: 10.0 }),
+        // D-144: blocks ten pixels wide. D-754: as After Effects' starts, 10 by 10 blocks, Sharp
+        // Colors off; the size kept for size mode.
+        MOSAIC => Some(Effect::Mosaic {
+            size: 10.0,
+            mode: "count".to_string(),
+            horizontal: 10.0,
+            vertical: 10.0,
+            sharp_colors: "off".to_string(),
+        }),
         // D-145: grey relief, lit from the top left.
         EMBOSS => Some(Effect::Emboss {
             direction: 135.0,
@@ -7487,6 +7494,15 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }),
         MOSAIC => Ok(Effect::Mosaic {
             size: number("size")?,
+            // D-754: a command without them means what a file without them means.
+            mode: if parameter(query, "mode").is_some() { word("mode")? } else { "size".to_string() },
+            horizontal: if parameter(query, "horizontal").is_some() { number("horizontal")? } else { 10.0 },
+            vertical: if parameter(query, "vertical").is_some() { number("vertical")? } else { 10.0 },
+            sharp_colors: if parameter(query, "sharp_colors").is_some() {
+                word("sharp_colors")?
+            } else {
+                "off".to_string()
+            },
         }),
         EMBOSS => Ok(Effect::Emboss {
             direction: number("direction")?,

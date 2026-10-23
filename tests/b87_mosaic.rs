@@ -13,7 +13,7 @@ use effect_table::{keys, set, Table};
 use anime_compositor::effects::Effect;
 
 fn mosaic(size: f64) -> Effect {
-    Effect::Mosaic { size }
+    Effect::mosaic(size)
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn b87_mosaic() {
     );
 
     t.heading("FX-MOSAIC-001 to 020 (document 25)");
-    t.fixtures("expected_mosaic.json");
+    t.fixtures_numbered("expected_mosaic.json", 1..=20);
 
     t.heading("How far it reaches");
     let got = mosaic(1000.0).bounds_expansion();

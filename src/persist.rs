@@ -2157,8 +2157,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("paper".into(), J::from(paper.as_str()));
             params.insert("amount".into(), num(*amount));
         }
-        Effect::Mosaic { size } => {
+        Effect::Mosaic {
+            size,
+            mode,
+            horizontal,
+            vertical,
+            sharp_colors,
+        } => {
             params.insert("size".into(), num(*size));
+            // D-754: each written only when it differs from what a file without it means, or the
+            // file named it, so a file from before D-754 is saved as it was.
+            if mode != "size" || params.contains_key("mode") {
+                params.insert("mode".into(), J::from(mode.as_str()));
+            }
+            for (key, v) in [("horizontal", horizontal), ("vertical", vertical)] {
+                if *v != 10.0 || mode != "size" || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(*v));
+                }
+            }
+            if sharp_colors != "off" || params.contains_key("sharp_colors") {
+                params.insert("sharp_colors".into(), J::from(sharp_colors.as_str()));
+            }
         }
         Effect::Emboss {
             direction,
@@ -9243,8 +9262,13 @@ fn parse_effect(
             paper: effect_word(params, "paper", at)?.to_ascii_lowercase(),
             amount: effect_number(params, "amount", at)?,
         }),
+        // D-754: a file from before it is size mode, Sharp Colors off.
         crate::effects::MOSAIC => Some(crate::effects::Effect::Mosaic {
             size: effect_number(params, "size", at)?,
+            mode: effect_word_or(params, "mode", at, "size")?,
+            horizontal: effect_number_or(params, "horizontal", at, 10.0)?,
+            vertical: effect_number_or(params, "vertical", at, 10.0)?,
+            sharp_colors: effect_word_or(params, "sharp_colors", at, "off")?,
         }),
         crate::effects::EMBOSS => Some(crate::effects::Effect::Emboss {
             direction: effect_number(params, "direction", at)?,

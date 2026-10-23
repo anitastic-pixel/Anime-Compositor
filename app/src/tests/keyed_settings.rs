@@ -489,3 +489,23 @@ fn glow_controls_typed_in_the_panel_reach_the_glow() {
         ("behind", "both", "original")
     );
 }
+
+/// D-754: a new Mosaic starts as After Effects' does, 10 by 10 blocks, Sharp Colors off; a command
+/// naming only its size is the Mosaic a file from before D-754 means.
+#[test]
+fn d754_new_mosaic_counts() {
+    assert_eq!(
+        new_effect(MOSAIC),
+        Some(Effect::Mosaic {
+            size: 10.0,
+            mode: "count".to_string(),
+            horizontal: 10.0,
+            vertical: 10.0,
+            sharp_colors: "off".to_string(),
+        })
+    );
+    assert_eq!(
+        effect_parameters(MOSAIC, Some("size=24")),
+        Ok(Effect::mosaic(24.0))
+    );
+}
