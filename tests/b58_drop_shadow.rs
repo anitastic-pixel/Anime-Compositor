@@ -4,7 +4,7 @@
 //!
 //! Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by
 //! `tools/drop_shadow_reference.py` before this code existed and printed in document 25 as
-//! FX-SHADOW-001 to 023. Tolerance 2e-5. Nothing here is a snapshot of a run.
+//! FX-SHADOW-001 to 030 (024 to 030 by D-760). Tolerance 2e-5. Nothing here is a snapshot of a run.
 
 mod effect_table;
 
@@ -19,6 +19,7 @@ fn shadow(color: &str, opacity: f64, direction: f64, distance: f64, softness: f6
         direction,
         distance,
         softness,
+        shadow_only: "off".into(),
     }
 }
 
@@ -29,11 +30,12 @@ fn b58_drop_shadow() {
         "# B-58: drop shadow\n\nD-115, accepted by the owner on 2026-09-26 in the batch of ten. \
          Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by \
          `tools/drop_shadow_reference.py` before this code existed and printed in document 25 \
-         as FX-SHADOW-001 to 023. The build's frame is compared sample by sample; the answer is \
+         as FX-SHADOW-001 to 030 (024 to 030 added by D-760). The build's frame is compared \
+         sample by sample; the answer is \
          the largest difference over all of them, against the catalogue's tolerance of 2e-5.\n",
     );
 
-    t.heading("FX-SHADOW-001 to 023 (document 25)");
+    t.heading("FX-SHADOW-001 to 030 (document 25)");
     t.fixtures("expected_drop_shadow.json");
 
     t.heading("How far it reaches");

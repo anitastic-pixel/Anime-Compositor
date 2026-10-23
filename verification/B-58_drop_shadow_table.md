@@ -1,8 +1,8 @@
 # B-58: drop shadow
 
-D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by `tools/drop_shadow_reference.py` before this code existed and printed in document 25 as FX-SHADOW-001 to 023. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by `tools/drop_shadow_reference.py` before this code existed and printed in document 25 as FX-SHADOW-001 to 030 (024 to 030 added by D-760). The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-SHADOW-001 to 023 (document 25)
+## FX-SHADOW-001 to 030 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -64,6 +64,22 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-SHADOW-023 frame 0: Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-023 frame 4: Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-023: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SHADOW-024 frame 0: Shadow Only "on" at the defaults: the card is left out and the shadow alone is drawn, FX-SHADOW-001's shadow exactly, black at half covering wherever it lies wholly under the card's moved shape; in row 6, where the card was, the shadow's top edge shows part covered, and above it, where the card was, the frame is empty. | largest difference 1.0e-8 | yes |
+| FX-SHADOW-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-025 frame 0: Shadow Only "on", distance 0, softness 0: the shadow exactly where the card was, black at half the card's covering at every pixel; the soft pixel at (10, 4) is black at half of 128/255. | largest difference 1.5e-8 | yes |
+| FX-SHADOW-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-026 frame 0: Shadow Only "off" written in the file: FX-SHADOW-001 exactly, as a file without the word. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-027 frame 0: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 3: the blue shadow alone, softened, two pixels right of the card's place. | largest difference 1.5e-7 | yes |
+| FX-SHADOW-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-028 frame 0: Shadow Only "on" with opacity 0: nothing at all, the frame is empty, though the layer still grows. | largest difference 0.0e0 | yes |
+| FX-SHADOW-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-029 frame 0: Shadow Only written "On", the panel's name, not the word "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-029 frame 4: Shadow Only written "On", the panel's name, not the word "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-029: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SHADOW-030 frame 0: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-030 frame 4: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-030: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## How far it reaches
 
@@ -72,7 +88,7 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | the defaults, distance 5, grow the drawing by 5 on every side | 5 | yes |
 | distance 2.5 and softness 6 grow it by 3, the distance rounded up, and 6, the blur's reach | 9 | yes |
 | distance 0, softness 0 does not grow it | 0 | yes |
-| a half-size draft preview halves the distance and the softness, and nothing else | DropShadow { color: "#000000", opacity: 50.0, direction: 135.0, distance: 2.5, softness: 3.0 } | yes |
+| a half-size draft preview halves the distance and the softness, and nothing else | DropShadow { color: "#000000", opacity: 50.0, direction: 135.0, distance: 2.5, softness: 3.0, shadow_only: "off" } | yes |
 
 ## The file
 
@@ -121,4 +137,4 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 
 ## Result
 
-92 of 92 checks pass.
+108 of 108 checks pass.

@@ -4004,6 +4004,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             direction: 135.0,
             distance: 5.0,
             softness: 0.0,
+            // D-760: After Effects' Shadow Only, off.
+            shadow_only: "off".to_string(),
         }),
         // D-116: a radius of 10, fading at the edges; D-121: a round iris, no highlights.
         LENS_BLUR => Some(Effect::LensBlur {
@@ -7265,6 +7267,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             direction: number("direction")?,
             distance: number("distance")?,
             softness: number("softness")?,
+            // D-760: off when the command leaves it out, as a file without it.
+            shadow_only: word("shadow_only").unwrap_or_else(|_| "off".to_string()),
         }),
         LENS_BLUR => Ok(Effect::LensBlur {
             radius: number("radius")?,

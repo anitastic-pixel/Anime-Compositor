@@ -2097,6 +2097,8 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("direction", "45"),
             ("distance", "8"),
             ("softness", "4"),
+            // D-760.
+            ("shadow_only", "on"),
         ],
     ),
     // D-116: the radius and the edges; D-121: the iris, its four numbers and the highlights.

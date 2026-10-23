@@ -1759,7 +1759,8 @@ fn aberr(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // layer_fx::drop_shadow's last step: `other` is the blurred covering, grown by `r`, and the
-// output is the drawing grown by `g`. k: the move across and down, the opacity, the colour.
+// output is the drawing grown by `g`. k: the move across and down, the opacity, the colour, and
+// D-760's shadow only, 1 to leave the drawing out.
 @compute @workgroup_size(16, 16)
 fn shadow(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -1769,7 +1770,10 @@ fn shadow(@builtin(global_invocation_id) id: vec3<u32>) {
     let x = i32(id.x) - F.g;
     let y = i32(id.y) - F.g;
     let a = f64(bilinear(other, f64(x + F.r) + 0.5lf - k[0], f64(y + F.r) + 0.5lf - k[1]).w) * k[2];
-    let d = at(input, vec2(x, y));
+    var d = at(input, vec2(x, y));
+    if k[6] > 0.5lf {
+        d = vec4<f32>(0.0);
+    }
     let rest = a * (1.0lf - f64(d.w));
     let c = vec3<f64>(vec3<f64>(d.xyz) + vec3(k[3], k[4], k[5]) * rest);
     textureStore(output, id.xy, vec4(vec3<f32>(c), f32(f64(d.w) + rest)));
@@ -15463,12 +15467,14 @@ impl Gpu {
                 direction,
                 distance,
                 softness,
+                shadow_only,
             } => {
                 let (blurred, r) = covering(steps, still, (w, h), softness / 3.0);
                 let g = distance.ceil() as usize + r;
                 let (ux, uy) = crate::blurs::along(*direction);
                 let mut k = vec![distance * ux, distance * uy, opacity / 100.0];
                 k.extend(linear(color));
+                k.push((shadow_only == "on") as u8 as f64);
                 let out = self.scratch("B-65 shadow", w + 2 * g, h + 2 * g);
                 let p = FxParams {
                     g: g as i32,

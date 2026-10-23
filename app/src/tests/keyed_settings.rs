@@ -509,3 +509,63 @@ fn d754_new_mosaic_counts() {
         Ok(Effect::mosaic(24.0))
     );
 }
+
+/// D-760: Shadow Only typed in the panel reaches the Drop Shadow, a wrong word is refused, and it
+/// saves and reopens; a send without it, as an older page's, is off.
+#[test]
+fn drop_shadow_only_typed_in_the_panel_reaches_the_shadow() {
+    let viewer = Mutex::new(demo());
+    let said = run(&viewer, "effect.add?layer=layer-3&type=core.drop_shadow");
+    assert!(said.starts_with("Add "), "{said}");
+    let id = effects(&viewer)
+        .into_iter()
+        .find(|e| matches!(e.effect, Effect::DropShadow { .. }))
+        .expect("a Drop Shadow")
+        .instance_id
+        .as_str()
+        .to_string();
+    let only = |viewer: &Mutex<Viewer>| match effects(viewer)
+        .into_iter()
+        .find(|e| e.instance_id.as_str() == id)
+        .expect("the shadow")
+        .effect
+    {
+        Effect::DropShadow { shadow_only, .. } => shadow_only,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(only(&viewer), "off");
+    let base = "&color=%23000000&opacity=50&direction=135&distance=5&softness=0";
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}&shadow_only=on"));
+    assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+    assert_eq!(only(&viewer), "on");
+    // A word that is not "on" or "off" is refused, and nothing changes.
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}&shadow_only=yes"));
+    assert!(!said.starts_with("Set ") && !said.starts_with("Change "), "{said}");
+    assert_eq!(only(&viewer), "on");
+    let written = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        persist::to_json(held.document.project(), &held.preserved)
+    };
+    let reopened = persist::load_str(&written).unwrap_or_else(|d| panic!("{}: {}", d.message, d.detail));
+    let back = reopened
+        .document
+        .project()
+        .compositions
+        .iter()
+        .find_map(|c| c.layer(&Id::new("layer-3")))
+        .expect("layer-3")
+        .effects
+        .iter()
+        .find(|e| e.instance_id.as_str() == id)
+        .expect("the shadow came back")
+        .clone();
+    assert!(
+        matches!(&back.effect, Effect::DropShadow { shadow_only, .. } if shadow_only == "on"),
+        "{:?}",
+        back.effect
+    );
+    // A send without it, as an older page's, is off.
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}"));
+    assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+    assert_eq!(only(&viewer), "off");
+}

@@ -1682,12 +1682,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             direction,
             distance,
             softness,
+            shadow_only,
         } => {
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("opacity".into(), num(*opacity));
             params.insert("direction".into(), num(*direction));
             params.insert("distance".into(), num(*distance));
             params.insert("softness".into(), num(*softness));
+            // D-760: written only when on or already in the file, so an older file saves back
+            // byte for byte.
+            if shadow_only != "off" || params.contains_key("shadow_only") {
+                params.insert("shadow_only".into(), J::from(shadow_only.as_str()));
+            }
         }
         Effect::LensBlur {
             radius,
@@ -9031,6 +9037,8 @@ fn parse_effect(
             direction: effect_number(params, "direction", at)?,
             distance: effect_number(params, "distance", at)?,
             softness: effect_number(params, "softness", at)?,
+            // D-760: a file from before it is off, which draws as it did.
+            shadow_only: effect_word_or(params, "shadow_only", at, "off")?,
         }),
         crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
             radius: effect_number(params, "radius", at)?,

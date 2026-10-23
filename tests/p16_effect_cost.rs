@@ -281,6 +281,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 direction: 135.0,
                 distance: 5.0,
                 softness: 6.0,
+                shadow_only: "off".into(),
             },
         ),
         (

@@ -12898,7 +12898,11 @@ const EFFECT_WORDS = {
     colours: [['start_color', 'Start Colour'], ['end_color', 'End Colour']],
   },
   // D-115.
-  'core.drop_shadow': { colours: [['color', 'Shadow Colour']] },
+  // D-760: After Effects' Shadow Only.
+  'core.drop_shadow': {
+    choices: [['shadow_only', 'Shadow Only', [['off', 'Off'], ['on', 'On']]]],
+    colours: [['color', 'Shadow Colour']],
+  },
   'core.lens_blur': {
     choices: [['iris', 'Iris Shape', [['circle', 'Circle'], ['triangle', 'Triangle'], ['square', 'Square'],
       ['pentagon', 'Pentagon'], ['hexagon', 'Hexagon'], ['heptagon', 'Heptagon'], ['octagon', 'Octagon'],

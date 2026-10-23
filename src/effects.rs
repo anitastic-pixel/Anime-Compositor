@@ -843,12 +843,15 @@ pub enum Effect {
     /// D-115: `color`, `#rrggbb`, kept as written so a wrong one is reported; `opacity`, 0 to
     /// 100; `direction`, -3600 to 3600 degrees clockwise from up; `distance`, 0 to 1000 pixels;
     /// and `softness`, 0 to 500 pixels.
+    /// D-760: `shadow_only`, "off" or "on", kept as written so a wrong word is reported; "off"
+    /// when a file leaves it out.
     DropShadow {
         color: String,
         opacity: f64,
         direction: f64,
         distance: f64,
         softness: f64,
+        shadow_only: String,
     },
     /// D-116: `radius`, 0 to 200 pixels, and `edges`, "transparent" or "repeat", kept as
     /// written so a wrong one is reported. D-121: `iris`, "circle" or "triangle" to "decagon",
@@ -13538,7 +13541,15 @@ impl Effect {
                 blend,
                 ..
             } => gradient_fault(shape, start_color, end_color, blend),
-            Effect::DropShadow { color, .. } => hex_fault("Drop Shadow", "colour", color),
+            Effect::DropShadow {
+                color, shadow_only, ..
+            } => hex_fault("Drop Shadow", "colour", color).or_else(|| {
+                (!["on", "off"].contains(&shadow_only.as_str())).then(|| {
+                    format!(
+                        "Drop Shadow's shadow only is \"on\" or \"off\", and this is \"{shadow_only}\"."
+                    )
+                })
+            }),
             Effect::RadialShadow {
                 color,
                 render,
@@ -16176,6 +16187,7 @@ pub(crate) fn apply_stack_at(
                 direction,
                 distance,
                 softness,
+                shadow_only,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectDropShadow, || {
                     crate::layer_fx::drop_shadow(
@@ -16185,6 +16197,7 @@ pub(crate) fn apply_stack_at(
                         *direction,
                         *distance,
                         *softness,
+                        shadow_only == "on",
                     )
                 });
                 ox += r;
