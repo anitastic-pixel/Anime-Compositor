@@ -211965,6 +211965,46 @@ FX-SHIMMER-015 (`fx_shimmer_015.json`): Drift direction 3601, above 3600. The fi
 
 FX-SHIMMER-016 (`fx_shimmer_016.json`): Drift speed keyed from 1 at frame 0 to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Turbulent Displace's offset and types (D-757)
+
+Turbulent Displace's `offset` and its further `displacement` words (B-636). Every case is turbulent_displace_reference's composition 16 by 10, five frames, holding the stripes `art` (`media/stripes.png`), unmoved unless the case says, with `core.turbulent_displace` `fx-0-0` in After Effects' units, amount 30, size 8, speed 0, unless the case says. `tools/turbulent_types_reference.py` works the expected frames in double precision; they are in `Fixtures/turbulent_types/expected_turbulent_types.json`. Tolerance 2e-5.
+
+FX-TURB-TY-001 (`fx_turb_ty_001.json`): Offset (3, 0), amount 30, size 8, speed 0: the field slides three pixels right, so each pixel gets the push the pixel three to its left had in FX-TURB-AE-007. Frames 0.
+
+FX-TURB-TY-002 (`fx_turb_ty_002.json`): Offset (0, 0) written: FX-TURB-AE-007 exactly. Frames 0.
+
+FX-TURB-TY-003 (`fx_turb_ty_003.json`): Offset keyed from (0, 0) at frame 0 to (8, -4) at frame 4, linear: frame 0 is FX-TURB-AE-007, frame 2 offset (4, -2), frame 4 (8, -4), one whole wave across. Frames 0, 2, 4.
+
+FX-TURB-TY-004 (`fx_turb_ty_004.json`): Displacement cross: the sideways push from a field stretched eight times across, the up-and-down push from one stretched eight times down. Frames 0.
+
+FX-TURB-TY-005 (`fx_turb_ty_005.json`): Displacement bulge: each pixel reads from uphill on the field, so its hills swell. Frames 0.
+
+FX-TURB-TY-006 (`fx_turb_ty_006.json`): Displacement twist: the bulge's push turned a quarter, carrying the pixels round the hills. Frames 0.
+
+FX-TURB-TY-007 (`fx_turb_ty_007.json`): Displacement turbulent_smoother, complexity 4: FX-TURB-AE-007's push with each finer octave a quarter of the last's strength, not a half. Frames 0.
+
+FX-TURB-TY-008 (`fx_turb_ty_008.json`): Displacement bulge_smoother, complexity 4. Frames 0.
+
+FX-TURB-TY-009 (`fx_turb_ty_009.json`): Displacement twist_smoother, complexity 4. Frames 0.
+
+FX-TURB-TY-010 (`fx_turb_ty_010.json`): Displacement turbulent_smoother, complexity 1: one octave has nothing finer to weaken, so this is FX-TURB-AE-007 with complexity 1. Frames 0.
+
+FX-TURB-TY-011 (`fx_turb_ty_011.json`): Bulge with edges repeat: nothing grows, and a push past the drawing's edge reads the nearest edge pixel. Frames 0.
+
+FX-TURB-TY-012 (`fx_turb_ty_012.json`): Cross moved three pixels right: worked in the drawing's own space, so it moves with it. Frames 0.
+
+FX-TURB-TY-013 (`fx_turb_ty_013.json`): Twist with offset (2.5, -1.5), seed 8 and speed 90: the offset slides the twist's field as it slides the turbulent one, and the field moves from frame 0 to 2. Frames 0, 2.
+
+FX-TURB-TY-014 (`fx_turb_ty_014.json`): Bulge in a file without units, D-127's classic push: amount 3, size 8. Frames 0.
+
+FX-TURB-TY-015 (`fx_turb_ty_015.json`): Displacement "Bulge": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURB-TY-016 (`fx_turb_ty_016.json`): Displacement "cross_displacement", After Effects' name, which is not one of the words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURB-TY-017 (`fx_turb_ty_017.json`): Offset (100001, 0), above 100000 across. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURB-TY-018 (`fx_turb_ty_018.json`): Offset keyed to (0, -200000) at frame 4, below -100000 down. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Map Chromatic Displacement (D-412)
 
 Displacement Map's colour amounts (`red_amount`, `green_amount`, `blue_amount`, `spectrum`), PLUGINS.md's pick #19 (B-291). Every case is displacement_map_reference's composition with the map layer as D-193's fixtures, unmoved unless the case says. `tools/map_chromatic_reference.py` works the expected frames, `Fixtures/map_chromatic/expected_map_chromatic.json`, tolerance 2e-5; the rule is in document 21.
