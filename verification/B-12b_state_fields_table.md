@@ -572,7 +572,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.turbulent_noise` is an effect this build has | added | added | pass |
 | and the settings it sends for it - fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.curl_noise` is an effect this build has | added | added | pass |
-| and the settings it sends for it - source, speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, view, contrast, brightness, clip_hdr_results, channel - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - source, speed, direction, size, offset, uniform_scaling, scale_width, scale_height, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, view, contrast, brightness, clip_hdr_results, channel - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.vegas` is an effect this build has | added | added | pass |
 | and the settings it sends for it - stroke, mask, all_masks, segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.threads` is an effect this build has | added | added | pass |
