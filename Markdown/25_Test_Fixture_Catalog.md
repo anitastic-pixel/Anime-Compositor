@@ -205737,6 +205737,62 @@ Frame 0: every pixel is the drawing's.
 
 Frame 4: every pixel is the drawing's.
 
+### Cell Pattern's Offset, Overflow, Evolution Options and Tiling Options (D-762)
+
+Cell Pattern's `offset`, `overflow`, `cycle_evolution`, `cycle`, `tiling`, `tiles_horizontal` and `tiles_vertical`, and Contrast's top widened to 10000 (B-641). Every case is FX-CELL-001's project with the new settings it names written (unmoved, the card, the settings as they start, unless the case says); FX-CELL-001 to 033 above are unchanged and their files carry none of the new settings. `tools/cell_pattern_reference.py` works the expected frames in double precision; they are in `Fixtures/cell_pattern/expected_cell_pattern.json` after 001 to 033's, which are unchanged. Tolerance 2e-5. **Checked by what they claim.** The tool checks that every case keeps each pixel's covering and leaves the empty pixels empty; Offset 2, 0 makes each shown pixel's colour FX-CELL-001's two pixels to its left (034); Offset 0, 0 written is 001 exactly (035); 036 is neither 001 nor 034; the keyed offset is 001 at frame 0, Offset 2, 0 at frame 2 and Offset 4, 0 at frame 4 (037); Overflow clip written is FX-CELL-006 exactly (038); soft clamp keeps every grey strictly between black and white and in FX-CELL-001's order (039); wrap back equals 006 wherever 006 is not pure black or white and differs by more than 0.1 somewhere (040); contrast 10000 leaves more than nine in ten shown pixels pure black or white (041) and wrap back at 10000 differs (042); Cycle on with cycle 1 at evolution 90 is FX-CELL-010 exactly (043); with cycle 2 the evolution keyed 0 to 720 is 001 at frames 0 and 4 exactly and not at frame 2 (044); Cycle off ignores the cycle (045, FX-CELL-010); cycle 2.7 counts 2, so 720 degrees is 001 (046); Tiling 2 by 2 repeats every eight pixels to 1e-9 and is not 001 (047); Tiling off ignores the tiles (048, 001); every new setting written at its absent value is 001 exactly (049); and every invalid case is the drawing at frames 0 and 4.
+
+FX-CELL-034 (`fx_cell_034.json`): Offset 2, 0: the cells slid two pixels right over the unmoved drawing; each shown pixel's colour is FX-CELL-001's two pixels to its left. Frames 0.
+
+FX-CELL-035 (`fx_cell_035.json`): Offset 0, 0 written: FX-CELL-001 exactly. Frames 0.
+
+FX-CELL-036 (`fx_cell_036.json`): Offset -1.5, 2.5: the cells slid a pixel and a half left and two and a half down, between pixels. Frames 0.
+
+FX-CELL-037 (`fx_cell_037.json`): Offset keyed from 0, 0 at frame 0 to 4, 0 at frame 4, linear: frame 0 is FX-CELL-001 and frame 4 the cells four pixels right, one whole cell. Frames 0, 2, 4.
+
+FX-CELL-038 (`fx_cell_038.json`): Overflow clip written, contrast 300: FX-CELL-006 exactly. Frames 0.
+
+FX-CELL-039 (`fx_cell_039.json`): Overflow soft clamp, contrast 300: the greys past black and white eased back inside, so no pixel is pure black or white and the order of the greys is kept. Frames 0.
+
+FX-CELL-040 (`fx_cell_040.json`): Overflow wrap back, contrast 300: the greys past white fold back down and those past black fold back up, so the brightest balls get dark middles. Frames 0.
+
+FX-CELL-041 (`fx_cell_041.json`): Contrast 10000, the new top, clipped: almost every pixel pure black or white. Frames 0.
+
+FX-CELL-042 (`fx_cell_042.json`): Contrast 10000 with wrap back: the greys folded many times, rings in the balls. Frames 0.
+
+FX-CELL-043 (`fx_cell_043.json`): Cycle Evolution on, cycle 1, evolution 90: one revolution a cycle turns every point as before, so this is FX-CELL-010 exactly. Frames 0.
+
+FX-CELL-044 (`fx_cell_044.json`): Cycle Evolution on, cycle 2, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: frame 0 is FX-CELL-001, frame 2 (360 degrees) is not, and frame 4, the end of the two-revolution cycle, is FX-CELL-001 again exactly: the loop closes. Frames 0, 2, 4.
+
+FX-CELL-045 (`fx_cell_045.json`): Cycle Evolution off, cycle 3 written, evolution 90: the cycle is not used, so this is FX-CELL-010. Frames 0.
+
+FX-CELL-046 (`fx_cell_046.json`): Cycle Evolution on, cycle 2.7, evolution 720: the whole part, 2, is counted, so 720 degrees is a whole cycle and this is FX-CELL-001. Frames 0.
+
+FX-CELL-047 (`fx_cell_047.json`): Tiling on, 2 by 2 tiles: the cells repeat every two across and two down, so the pattern repeats every eight pixels. Frames 0.
+
+FX-CELL-048 (`fx_cell_048.json`): Tiling off, 2 by 2 tiles written: FX-CELL-001. Frames 0.
+
+FX-CELL-049 (`fx_cell_049.json`): Every new setting written at the value a file without it means: offset 0, 0, clip, cycle off, cycle 1, tiling off, 10 by 10 tiles: FX-CELL-001 exactly. Frames 0.
+
+FX-CELL-050 (`fx_cell_050.json`): Contrast 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-051 (`fx_cell_051.json`): Overflow "allow_hdr", which is not "clip", "soft_clamp" or "wrap_back". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-052 (`fx_cell_052.json`): Cycle Evolution "yes", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-053 (`fx_cell_053.json`): Cycle 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-054 (`fx_cell_054.json`): Cycle 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-055 (`fx_cell_055.json`): Tiling "yes", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-056 (`fx_cell_056.json`): Tiles Horizontal 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-057 (`fx_cell_057.json`): Tiles Vertical 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-058 (`fx_cell_058.json`): Offset 100001, 0, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CELL-059 (`fx_cell_059.json`): Offset keyed to -100001, 0 at frame 4, below -100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Optics Compensation fixtures
 
 D-210, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/optics_compensation/`, holding one drawing the same size with one Optics Compensation (`core.optics_compensation`) on it, unmoved unless the case says. The drawing is `Fixtures/optics_compensation/media/stripes.png`, Bulge's stripes: rows 1 to 8, columns 0 to 13, upright stripes two pixels wide, skin #f6d6be and line #1e1a24 by turns, crossed by a blue band #3a6fd8 in rows 4 and 5; column 14 the skin at half covering, and column 15 and rows 0 and 9 empty. Values are linear premultiplied working values, and only the pixels that differ from the drawing, as the case moves it, are listed, a run of rows in one column holding the same pair once: every other pixel is the drawing's own, to 1e-12.
