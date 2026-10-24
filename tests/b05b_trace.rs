@@ -94,6 +94,7 @@ const FG: [f32; 4] = [0.6, 0.0, 0.0, 1.0];
 fn fixture_plan() -> FramePlan {
     FramePlan {
         float: false,
+        display: false,
         width: 4,
         height: 4,
         layers: vec![
@@ -285,6 +286,7 @@ fn b05b_trace_fixtures() {
     let fg_alone = render(
         &FramePlan {
             float: false,
+            display: false,
             width: 4,
             height: 4,
             layers: vec![LayerDraw {
@@ -327,6 +329,7 @@ fn b05b_trace_fixtures() {
     let fg_faded = render(
         &FramePlan {
             float: false,
+            display: false,
             width: 4,
             height: 4,
             layers: vec![plan.layers[1].clone()],
@@ -347,6 +350,7 @@ fn b05b_trace_fixtures() {
     let bg_only = render(
         &FramePlan {
             float: false,
+            display: false,
             width: 4,
             height: 4,
             layers: vec![plan.layers[0].clone()],
@@ -516,6 +520,7 @@ fn b05b_trace_fixtures() {
     let long_id = "z".repeat(200);
     let awkward = FramePlan {
         float: false,
+        display: false,
         width: 2,
         height: 2,
         layers: vec![
@@ -623,6 +628,7 @@ fn b05b_a_unicode_layer_id_survives_the_round_trip() {
     let id = Id::new("桜 / レイヤー 2");
     let plan = FramePlan {
         float: false,
+        display: false,
         width: 2,
         height: 2,
         layers: vec![LayerDraw {
@@ -742,6 +748,7 @@ fn reference_plan() -> Option<FramePlan> {
     }
     Some(FramePlan {
         float: false,
+        display: false,
         width: 1920,
         height: 1080,
         layers,

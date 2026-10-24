@@ -24229,6 +24229,14 @@ impl Gpu {
                 "D-319's Float working depth (Add, Screen and Fractal Noise past white) is drawn on the CPU only.".into(),
             ));
         }
+        // D-763: 8 bpc (After Effects) lays its layers together in display values, on the CPU.
+        if plan.display {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: its composition works in 8 bpc (After Effects).".into(),
+                "D-763: in 8 bpc (After Effects) the layers are laid together in display values, on the CPU only.".into(),
+            ));
+        }
         // B-156 (D-225): an adjustment layer whose every effect the card draws on the frame.
         let frame = (plan.width, plan.height);
         if plan

@@ -41,7 +41,7 @@ pub(crate) fn disc_runs(radius: f64) -> Vec<(isize, isize)> {
 }
 
 /// D-115: the drawing's own shape, blurred at sigma `softness` / 3, moved `distance` pixels in
-/// `direction`, in `color` (encoded 0 to 1) at `opacity` per cent, laid behind the drawing. The
+/// `direction`, in `color` (linear, or in display values in 8 bpc, D-763) at `opacity` per cent, laid behind the drawing. The
 /// layer grows by `ceil(distance)` and the blur's reach on every side, returned. The settings
 /// are already valid. D-760: with `shadow_only` the drawing is left out, the shadow alone.
 pub(crate) fn drop_shadow(
@@ -62,7 +62,7 @@ pub(crate) fn drop_shadow(
     });
     blur(&mut covering, s);
     let (ux, uy) = crate::blurs::along(direction);
-    let (k, c) = (opacity / 100.0, color.map(crate::grade::to_linear));
+    let (k, c) = (opacity / 100.0, color);
     let ow = source.width() + 2 * g;
     let mut out = WorkingBuffer::transparent(ow, source.height() + 2 * g);
     let drawing = &*source;

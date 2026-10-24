@@ -566,6 +566,7 @@ fn plan_inside(
         width: comp.width as usize,
         height: comp.height as usize,
         float,
+        display: bits(project, above, comp) == crate::effects::Bits::Eight,
         layers: layers.into_iter().map(|(_, draw)| draw).collect(),
     })
 }
@@ -2993,6 +2994,7 @@ fn resolve_held(
                 width: source.width(),
                 height: source.height(),
                 float: false,
+                display: false,
                 layers: vec![LayerDraw {
                     id: layer.id.clone(),
                     source,
@@ -4198,6 +4200,7 @@ fn resolve_rest(
             step1,
             cache,
             log,
+            bits == crate::effects::Bits::Eight,
         );
         fill_wide_time(
             &mut effects,
@@ -6129,6 +6132,7 @@ fn fill_echoes(
     size: (usize, usize),
     cache: &mut CelCache,
     log: &mut FrameLog,
+    display: bool,
 ) {
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         let crate::effects::Effect::Echo {
@@ -6160,7 +6164,14 @@ fn fill_echoes(
                 false,
                 true,
             )
-            .map(|r| crate::layer_map::cut(&r.source, (0, 0), size));
+            .map(|r| {
+                let mut copy = crate::layer_map::cut(&r.source, (0, 0), size);
+                // D-763: in 8 bpc the copies are mixed in display values.
+                if display {
+                    crate::effects::encode(&mut copy, true, 1.0);
+                }
+                copy
+            });
             crate::perf::time(crate::perf::Stage::EffectEcho, || {
                 fold.add(p.as_ref(), *intensity * decay.powi(k))
             });
@@ -6172,7 +6183,10 @@ fn fill_echoes(
                 log.record(frame, holder.name.clone(), d);
             }
         }
-        let done = crate::perf::time(crate::perf::Stage::EffectEcho, || fold.finish());
+        let mut done = crate::perf::time(crate::perf::Stage::EffectEcho, || fold.finish());
+        if display {
+            crate::effects::encode(&mut done, false, 1.0);
+        }
         *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
     }
 }

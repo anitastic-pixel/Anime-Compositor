@@ -15958,9 +15958,16 @@ pub(crate) fn apply_stack_at(
         } else {
             f32::INFINITY
         };
+        // D-763: in 8 bpc, Drop Shadow, Fill and Mosaic mix the display values too, as After
+        // Effects does in an 8-bit project; their colours are taken as they are encoded.
+        let mixes = bits == Bits::Eight
+            && matches!(
+                instance.effect,
+                Effect::DropShadow { .. } | Effect::Fill { .. } | Effect::Mosaic { .. }
+            );
         let display = bits != Bits::Linear
             && instance.is_valid()
-            && matches!(
+            && (mixes || matches!(
                 instance.effect,
                 Effect::GaussianBlur { .. }
                     | Effect::ReduceInterlaceFlicker { .. }
@@ -15974,7 +15981,7 @@ pub(crate) fn apply_stack_at(
                     | Effect::FastZoomBlur { .. }
                     | Effect::SolidComposite { .. }
                     | Effect::Glow { .. }
-            );
+            ));
         if display {
             encode(source, true, top);
         }
@@ -16262,7 +16269,11 @@ pub(crate) fn apply_stack_at(
                 let r = crate::perf::time(crate::perf::Stage::EffectDropShadow, || {
                     crate::layer_fx::drop_shadow(
                         source,
-                        encoded(color),
+                        if display {
+                            encoded(color)
+                        } else {
+                            encoded(color).map(crate::grade::to_linear)
+                        },
                         *opacity,
                         *direction,
                         *distance,
@@ -17503,7 +17514,11 @@ pub(crate) fn apply_stack_at(
             } => {
                 if let Some(paths) = paths {
                     crate::perf::time(crate::perf::Stage::EffectFill, || {
-                        let c = encoded(color).map(crate::grade::to_linear);
+                        let c = if display {
+                            encoded(color)
+                        } else {
+                            encoded(color).map(crate::grade::to_linear)
+                        };
                         crate::layer_fx::fill(
                             source,
                             paths,
@@ -20572,7 +20587,7 @@ pub(crate) fn apply_stack_at(
 
 /// D-330: linear premultiplied to display premultiplied, the straight colour held to 0..`top`
 /// through the sRGB curve (`forward`), or back.
-fn encode(buffer: &mut WorkingBuffer, forward: bool, top: f32) {
+pub(crate) fn encode(buffer: &mut WorkingBuffer, forward: bool, top: f32) {
     use crate::color::{linear_to_srgb, srgb_to_linear};
     buffer.data_mut().par_chunks_mut(4).for_each(|p| {
         let a = p[3];

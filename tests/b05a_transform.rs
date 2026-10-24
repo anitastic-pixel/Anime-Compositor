@@ -86,6 +86,7 @@ fn impulse_source(size: usize, at: (usize, usize)) -> WorkingBuffer {
 fn plan(width: usize, height: usize, layers: Vec<LayerDraw>) -> FramePlan {
     FramePlan {
         float: false,
+        display: false,
         width,
         height,
         layers,

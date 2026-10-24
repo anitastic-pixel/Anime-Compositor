@@ -115,6 +115,19 @@ pub fn blend_pixel(mode: BlendMode, src: [f32; 4], dst: [f32; 4]) -> [f32; 4] {
 /// to 1, and Screen is Nuke's rule, `cs + cd - cs*cd` while either is at most 1, else the larger.
 /// Every other mode is the same in both depths.
 pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool) -> [f32; 4] {
+    blend_pixel_in(mode, src, dst, float, false)
+}
+
+/// D-763: [`blend_pixel_at`], with `display` when both pixels hold display values (a composition
+/// in 8 bpc (After Effects), D-330): every mode then blends them as they are, and the modes that
+/// encode and decode the colours (D-301, D-748) do neither.
+pub fn blend_pixel_in(
+    mode: BlendMode,
+    src: [f32; 4],
+    dst: [f32; 4],
+    float: bool,
+    display: bool,
+) -> [f32; 4] {
     if mode == BlendMode::Normal {
         return over_pixel(src, dst);
     }
@@ -125,7 +138,11 @@ pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool
             src[3]
         } else {
             let luma = 0.2126 * src[0] as f64 + 0.7152 * src[1] as f64 + 0.0722 * src[2] as f64;
-            crate::grade::to_srgb(luma.clamp(0.0, 1.0)) as f32
+            if display {
+                luma.clamp(0.0, 1.0) as f32
+            } else {
+                crate::grade::to_srgb(luma.clamp(0.0, 1.0)) as f32
+            }
         };
         return dst.map(|v| v * k);
     }
@@ -136,7 +153,15 @@ pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool
     let (a_s, a_d) = (src[3], dst[3]);
     // D-301, D-748: the modes After Effects works on the encoded colours, held to 0..1 as it
     // blends them at 8 bits, and decoded again.
-    let e = |v: f32| crate::grade::to_srgb((v as f64).clamp(0.0, 1.0));
+    let e = |v: f32| {
+        let v = (v as f64).clamp(0.0, 1.0);
+        if display {
+            v
+        } else {
+            crate::grade::to_srgb(v)
+        }
+    };
+    let d = |v: f64| if display { v } else { crate::grade::to_linear(v) };
     // D-748: Hue, Saturation, Color and Luminosity take the whole colour at once, by the W3C's
     // rules (D-730's, Turbulent Noise's), the colour beneath first.
     let whole = crate::grade::noise_whole(mode.as_str())
@@ -159,10 +184,10 @@ pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool
             | BlendMode::Lighten
             | BlendMode::Difference => {
                 let mix = crate::grade::noise_mixer(mode.as_str());
-                crate::grade::to_linear(mix(e(cd[c]), e(cs[c]))) as f32
+                d(mix(e(cd[c]), e(cs[c]))) as f32
             }
             BlendMode::Hue | BlendMode::Saturation | BlendMode::Color | BlendMode::Luminosity => {
-                crate::grade::to_linear(whole.expect("a whole-colour mode")[c]) as f32
+                d(whole.expect("a whole-colour mode")[c]) as f32
             }
             BlendMode::Normal | BlendMode::StencilAlpha | BlendMode::StencilLuma => {
                 unreachable!("handled above")

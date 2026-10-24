@@ -162,6 +162,7 @@ pub fn render_traced(
         // coverage is, which is what its `composite` stage mixed by.
         let transform_only = FramePlan {
             float: plan.float,
+            display: plan.display,
             width: plan.width,
             height: plan.height,
             layers: vec![LayerDraw {
@@ -183,6 +184,7 @@ pub fn render_traced(
         // Step 6. The same layer alone, with its animated opacity applied.
         let with_opacity = FramePlan {
             float: plan.float,
+            display: plan.display,
             width: plan.width,
             height: plan.height,
             layers: vec![LayerDraw {
@@ -198,6 +200,7 @@ pub fn render_traced(
         // same render rather than two renders that agree.
         let stack = FramePlan {
             float: plan.float,
+            display: plan.display,
             width: plan.width,
             height: plan.height,
             layers: plan.layers[..=index].to_vec(),

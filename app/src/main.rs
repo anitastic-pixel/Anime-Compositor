@@ -770,6 +770,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
         // place to say it a second time, so this answers with no boxes rather than an error.
         Err(_) => anime_compositor::render::FramePlan {
             float: false,
+            display: false,
             width: 0,
             height: 0,
             layers: Vec::new(),

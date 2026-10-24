@@ -129,6 +129,7 @@ fn a_layer_smaller_than_the_frame() -> (usize, usize, usize) {
     }
     let plan = FramePlan {
         float: false,
+        display: false,
         width: 1920,
         height: 1080,
         layers: vec![LayerDraw {

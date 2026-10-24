@@ -495,6 +495,11 @@ pub struct FramePlan {
     pub height: usize,
     /// D-319: the composition works in Float depth, so Add and Screen are not held to white.
     pub float: bool,
+    /// D-763: the composition works in 8 bpc (After Effects), so the layers are laid together in
+    /// display values, as After Effects lays them in an 8-bit project: each layer's picture is
+    /// taken to display values, blended, and the frame taken back to linear light when drawn.
+    /// The card never draws such a plan.
+    pub display: bool,
     pub layers: Vec<LayerDraw>,
 }
 
@@ -644,6 +649,9 @@ fn render_maybe_culled(
 ) -> WorkingBuffer {
     let (mut frame, at, cut) = canvas(plan, part);
     draw(plan, 0, &mut frame, at, None, tile_size, cull);
+    if plan.display {
+        crate::effects::encode(&mut frame, false, 1.0);
+    }
     cut_out(frame, cut)
 }
 
@@ -719,6 +727,12 @@ fn draw(
             }
         }
     }
+    // D-763: in 8 bpc each picture is laid in display values; its matte gives only its alpha.
+    if plan.display {
+        for layer in layers.to_mut().iter_mut() {
+            crate::effects::encode(std::sync::Arc::make_mut(&mut layer.source), true, 1.0);
+        }
+    }
     let mut kept = None;
     let mut start = 0;
     for (index, layer) in layers.iter().enumerate() {
@@ -729,7 +743,7 @@ fn draw(
                 tile_size,
                 cull,
                 at,
-                plan.float,
+                (plan.float, plan.display),
             );
             kept = Some(frame.clone());
             start = index;
@@ -741,9 +755,9 @@ fn draw(
                 tile_size,
                 cull,
                 at,
-                plan.float,
+                (plan.float, plan.display),
             );
-            adjust_frame(layer, stack, frame, plan.float);
+            adjust_frame(layer, stack, frame, (plan.float, plan.display));
             start = index + 1;
         } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
             render_layers(
@@ -752,13 +766,13 @@ fn draw(
                 tile_size,
                 cull,
                 at,
-                plan.float,
+                (plan.float, plan.display),
             );
-            wrap_layer(layer, frame, tile_size, cull, plan.float);
+            wrap_layer(layer, frame, tile_size, cull, (plan.float, plan.display));
             start = index + 1;
         }
     }
-    render_layers(&layers[start..], frame, tile_size, cull, at, plan.float);
+    render_layers(&layers[start..], frame, tile_size, cull, at, (plan.float, plan.display));
     kept
 }
 
@@ -845,7 +859,7 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
 pub struct Below {
     /// The layers last drawn, with the frame's width and height, the tile size, the part and
     /// the working depth.
-    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>, bool))>,
+    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>, (bool, bool)))>,
     /// The picture with the last plan's layers `..n` drawn, and `n`.
     kept: Option<(usize, WorkingBuffer)>,
     reused: u64,
@@ -884,7 +898,7 @@ pub fn render_below(
     part: Option<Tile>,
     below: &mut Below,
 ) -> WorkingBuffer {
-    let shape = (plan.width, plan.height, tile_size, part, plan.float);
+    let shape = (plan.width, plan.height, tile_size, part, (plan.float, plan.display));
     let (same, above) = match &below.last {
         Some((last, was)) if *was == shape => {
             let same = last
@@ -924,6 +938,9 @@ pub fn render_below(
         _ => kept,
     };
     below.last = Some((plan.layers.clone(), shape));
+    if plan.display {
+        crate::effects::encode(&mut frame, false, 1.0);
+    }
     cut_out(frame, cut)
 }
 
@@ -965,7 +982,7 @@ fn adjust_frame(
     layer: &LayerDraw,
     stack: &[crate::effects::EffectInstance],
     frame: &mut WorkingBuffer,
-    float: bool,
+    depth: (bool, bool),
 ) {
     let Some(inverse) = layer.transform.invert() else {
         return;
@@ -978,9 +995,16 @@ fn adjust_frame(
         },
     };
     let mut effected = frame.clone();
+    // D-763: the frame below is in display values; the stack is given it in linear light.
+    if depth.1 {
+        crate::effects::encode(&mut effected, false, 1.0);
+    }
     // A blur grows the buffer; `(ox, oy)` is where the frame's origin ended up inside it, and
     // the growth past the frame is what D-66 cuts off.
     let (ox, oy) = crate::effects::apply_stack(&mut effected, stack, |_, _, _| {});
+    if depth.1 {
+        crate::effects::encode(&mut effected, true, 1.0);
+    }
     let width = frame.width();
     frame
         .data_mut()
@@ -1001,11 +1025,12 @@ fn adjust_frame(
                 let i = x * 4;
                 let e = match layer.blend {
                     crate::model::BlendMode::Normal => effected.pixel(x + ox, y + oy),
-                    mode => crate::composite::blend_pixel_at(
+                    mode => crate::composite::blend_pixel_in(
                         mode,
                         effected.pixel(x + ox, y + oy),
                         [row[i], row[i + 1], row[i + 2], row[i + 3]],
-                        float,
+                        depth.0,
+                        depth.1,
                     ),
                 };
                 // D-90: at full cover the answer is `E(B)` exactly. `b + (e - b)` rounds at
@@ -1034,7 +1059,7 @@ fn wrap_layer(
     frame: &mut WorkingBuffer,
     tile_size: usize,
     cull: bool,
-    float: bool,
+    depth: (bool, bool),
 ) {
     let mut placed = WorkingBuffer::transparent(frame.width(), frame.height());
     let alone = LayerDraw {
@@ -1049,7 +1074,7 @@ fn wrap_layer(
         tile_size,
         cull,
         (0, 0),
-        float,
+        depth,
     );
     for instance in layer.wrap.iter().filter(|i| i.enabled && i.is_valid()) {
         if let crate::effects::Effect::LightWrap {
@@ -1080,11 +1105,12 @@ fn wrap_layer(
                 }
             }
             let under = [dst[0], dst[1], dst[2], dst[3]];
-            dst.copy_from_slice(&crate::composite::blend_pixel_at(
+            dst.copy_from_slice(&crate::composite::blend_pixel_in(
                 layer.blend,
                 src,
                 under,
-                float,
+                depth.0,
+                depth.1,
             ));
         });
 }
@@ -1142,7 +1168,7 @@ fn render_layers(
     tile_size: usize,
     cull: bool,
     at: (usize, usize),
-    float: bool,
+    depth: (bool, bool),
 ) {
     let (width, height) = (frame.width(), frame.height());
     let tiles = tiles(width, height, tile_size);
@@ -1200,7 +1226,7 @@ fn render_layers(
                     y: tile.y + at.1,
                     ..tile
                 };
-                render_tile(layers, tile, rows, boxes.as_deref(), float)
+                render_tile(layers, tile, rows, boxes.as_deref(), depth)
             });
     });
 }
@@ -1216,7 +1242,7 @@ fn render_tile(
     tile: Tile,
     mut rows: Vec<&mut [f32]>,
     boxes: Option<&[(f64, f64, f64, f64)]>,
-    float: bool,
+    depth: (bool, bool),
 ) {
     for (index, layer) in layers.iter().enumerate() {
         // D-301: a stencil that has collapsed to nothing keeps nothing under it.
@@ -1279,11 +1305,12 @@ fn render_tile(
                 }
                 let i = col * 4;
                 let dst = [out[i], out[i + 1], out[i + 2], out[i + 3]];
-                out[i..i + 4].copy_from_slice(&crate::composite::blend_pixel_at(
+                out[i..i + 4].copy_from_slice(&crate::composite::blend_pixel_in(
                     layer.blend,
                     src,
                     dst,
-                    float,
+                    depth.0,
+                    depth.1,
                 ));
             }
         }

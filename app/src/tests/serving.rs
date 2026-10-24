@@ -653,10 +653,10 @@ fn the_gpu_switch_draws_the_same_picture_and_says_where() {
     );
     let eight = frame(Ask::Frame(100), PreviewQuality::Full);
     rows.push((
-        "the blur alone in an 8 bpc composition, where the card runs no effects: the note names it"
+        "the blur in an 8 bpc composition, whose layers D-763 lays together on the CPU only: the CPU draws it and says so"
             .into(),
-        "partly on the processor (Gaussian Blur)".into(),
-        note(&eight),
+        "CPU, not GPU".into(),
+        header(&eight, "x-drawn-on"),
     ));
     undo(&viewer);
     undo(&viewer);

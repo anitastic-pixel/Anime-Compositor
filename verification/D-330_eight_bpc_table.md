@@ -6,13 +6,13 @@ From P-26: tutorial 2 is drawn in After Effects' 8 bpc until its step F, and its
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-8BPC-001 frame 0: 8 bpc: Fast Box Blur radius 2 (3 passes), then Exposure +6. The blur averages display values and its faint edge rounds to 0, so the light ends sooner than in Float (FX-FASTBOX-007), and nothing past white is kept. | largest difference 1.3e-8 | yes |
+| FX-8BPC-001 frame 0: 8 bpc: Fast Box Blur radius 2 (3 passes), then Exposure +6. The blur averages display values and its faint edge rounds to 0, so the light ends sooner than in Float (FX-FASTBOX-007), and nothing past white is kept. | largest difference 7.8e-8 | yes |
 | FX-8BPC-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-8BPC-002 frame 0: 8 bpc: Gaussian Blur, Blurriness 4, then Exposure +6. The long faint tail that Float lights (FX-BLURRY-007) rounds to 0. | largest difference 2.5e-8 | yes |
+| FX-8BPC-002 frame 0: 8 bpc: Gaussian Blur, Blurriness 4, then Exposure +6. The long faint tail that Float lights (FX-BLURRY-007) rounds to 0. | largest difference 1.5e-7 | yes |
 | FX-8BPC-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-8BPC-003 frame 0: 8 bpc: Exposure -1 alone, worked in linear light, then rounded to 8 bits. | largest difference 1.4e-7 | yes |
 | FX-8BPC-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-8BPC-004 frame 0: 8 bpc: Fast Box Blur radius 2 alone. Every value is a whole 255th in display values. | largest difference 1.3e-8 | yes |
+| FX-8BPC-004 frame 0: 8 bpc: Fast Box Blur radius 2 alone. Every value is a whole 255th in display values. | largest difference 7.8e-8 | yes |
 | FX-8BPC-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-8BPC-005 frame 0: 8 bpc with no effect: the drawing untouched. | largest difference 3.1e-8 | yes |
 | FX-8BPC-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -29,7 +29,7 @@ From P-26: tutorial 2 is drawn in After Effects' 8 bpc until its step F, and its
 | Set to Display, no eight_bpc line is written | no line | yes |
 | And FX-8BPC-004's blur is no longer rounded | largest difference 1.9e-3 | yes |
 | Set to 8 bpc through the command, it is written as eight_bpc: true | Some(Bool(true)) | yes |
-| And draws FX-8BPC-004's frame again | largest difference 1.3e-8 | yes |
+| And draws FX-8BPC-004's frame again | largest difference 7.8e-8 | yes |
 | And is read back as 8 bpc | 8 bpc | yes |
 | Undo puts it back to Display, and nothing is written | Display, no line | yes |
 | Float and 8 bpc both at once is refused by the command | Err("A composition is in one working depth: 8 bpc or Float, not both.") | yes |
@@ -38,19 +38,19 @@ From P-26: tutorial 2 is drawn in After Effects' 8 bpc until its step F, and its
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-8BPC-001's layer inside a composition: outer 8 bpc, inner Display, draws FX-8BPC-001's frame | largest difference 1.3e-8 | yes |
+| FX-8BPC-001's layer inside a composition: outer 8 bpc, inner Display, draws FX-8BPC-001's frame | largest difference 1.7e-7 | yes |
 | FX-8BPC-001's layer inside a composition: outer Display, inner 8 bpc, is not rounded | largest difference 2.0e1 | yes |
-| FX-8BPC-001's layer inside a composition: outer 8 bpc, inner 8 bpc, draws FX-8BPC-001's frame | largest difference 1.3e-8 | yes |
+| FX-8BPC-001's layer inside a composition: outer 8 bpc, inner 8 bpc, draws FX-8BPC-001's frame | largest difference 1.7e-7 | yes |
 
 ## The viewer
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-8BPC-001 in the viewer, first time (its effects are not kept between frames) | largest difference 1.3e-8 | yes |
-| FX-8BPC-001 in the viewer, second time (its effects are not kept between frames) | largest difference 1.3e-8 | yes |
-| fx_8bpc_001.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | card, largest difference 0 of 255 | yes |
-| fx_8bpc_002.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | card, largest difference 0 of 255 | yes |
-| fx_8bpc_004.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | card, largest difference 0 of 255 | yes |
+| FX-8BPC-001 in the viewer, first time (its effects are not kept between frames) | largest difference 7.8e-8 | yes |
+| FX-8BPC-001 in the viewer, second time (its effects are not kept between frames) | largest difference 7.8e-8 | yes |
+| fx_8bpc_001.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | CPU, largest difference 0 of 255 | yes |
+| fx_8bpc_002.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | CPU, largest difference 0 of 255 | yes |
+| fx_8bpc_004.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | CPU, largest difference 0 of 255 | yes |
 
 ## Pictures: tutorial 2's reflection, in `verification/D-330 pictures/`, over black
 

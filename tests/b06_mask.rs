@@ -422,6 +422,7 @@ fn matte(report: &mut Report) {
     let matte_source = solid(4, 4, [0.0, 0.0, 0.0, 0.25]);
     let plan = FramePlan {
         float: false,
+        display: false,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {
@@ -456,6 +457,7 @@ fn matte(report: &mut Report) {
     let bright_matte = solid(4, 4, [0.25, 0.25, 0.25, 0.25]);
     let plan = FramePlan {
         float: false,
+        display: false,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {
@@ -499,6 +501,7 @@ fn matte(report: &mut Report) {
     ] {
         let plan = FramePlan {
             float: false,
+            display: false,
             width: 4,
             height: 4,
             layers: vec![LayerDraw {
@@ -538,6 +541,7 @@ fn matte(report: &mut Report) {
     }
     let plan = FramePlan {
         float: false,
+        display: false,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {

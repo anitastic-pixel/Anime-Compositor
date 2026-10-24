@@ -316,6 +316,7 @@ fn b05c_blend_fixtures() {
     // every pixel of the frame must equal that row's answer.
     let plan_for = |mode: BlendMode| FramePlan {
         float: false,
+        display: false,
         width: 2,
         height: 2,
         layers: vec![
