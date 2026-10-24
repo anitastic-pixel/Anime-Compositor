@@ -15420,7 +15420,8 @@ impl Gpu {
                 softness,
                 shadow_only,
             } => {
-                let (blurred, r) = covering(steps, still, (w, h), softness / 3.0);
+                // D-774: After Effects' shadow edge, sigma softness / 5.
+                let (blurred, r) = covering(steps, still, (w, h), softness / 5.0);
                 let g = distance.ceil() as usize + r;
                 let (ux, uy) = crate::blurs::along(*direction);
                 let mut k = vec![distance * ux, distance * uy, opacity / 100.0];

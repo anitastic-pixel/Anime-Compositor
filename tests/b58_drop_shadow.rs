@@ -41,7 +41,7 @@ fn b58_drop_shadow() {
     t.heading("How far it reaches");
     for (what, e, want) in [
         ("the defaults, distance 5, grow the drawing by 5 on every side", shadow("#000000", 50.0, 135.0, 5.0, 0.0), 5),
-        ("distance 2.5 and softness 6 grow it by 3, the distance rounded up, and 6, the blur's reach", shadow("#000000", 0.0, 90.0, 2.5, 6.0), 9),
+        ("distance 2.5 and softness 10 grow it by 3, the distance rounded up, and 6, the blur's reach (softness 6 before D-774)", shadow("#000000", 0.0, 90.0, 2.5, 10.0), 9),
         ("distance 0, softness 0 does not grow it", shadow("#000000", 50.0, 135.0, 0.0, 0.0), 0),
     ] {
         let got = e.bounds_expansion();

@@ -20,9 +20,9 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-SHADOW-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SHADOW-007 frame 0: Distance 0, softness 0: the shadow sits exactly behind the card, so it shows only through the soft pixel, whose covering goes from 0.502 to 0.627; nothing else changes and the layer does not grow. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-SHADOW-008 frame 0: Distance 0, softness 3: the shadow, blurred at sigma 1, spreads three pixels out from the card on every side, darkest next to it and fading outward; column 1 and beyond stay empty. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-008 frame 0: Distance 0, softness 5 (3 before D-774): the shadow, blurred at sigma 1, spreads three pixels out from the card on every side, darkest next to it and fading outward; column 1 and beyond stay empty. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-SHADOW-009 frame 0: Softness 6 at the default direction and distance: the shadow is FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter than half covering and it reaches further. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-009 frame 0: Softness 10 (6 before D-774) at the default direction and distance: the shadow is FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter than half covering and it reaches further. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SHADOW-010 frame 0: Opacity 0: no shadow; the frame is the drawing, untouched, though the layer still grows. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -70,7 +70,7 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-SHADOW-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SHADOW-026 frame 0: Shadow Only "off" written in the file: FX-SHADOW-001 exactly, as a file without the word. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-SHADOW-027 frame 0: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 3: the blue shadow alone, softened, two pixels right of the card's place. | largest difference 1.5e-7 | yes |
+| FX-SHADOW-027 frame 0: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 5 (3 before D-774): the blue shadow alone, softened, two pixels right of the card's place. | largest difference 1.5e-7 | yes |
 | FX-SHADOW-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SHADOW-028 frame 0: Shadow Only "on" with opacity 0: nothing at all, the frame is empty, though the layer still grows. | largest difference 0.0e0 | yes |
 | FX-SHADOW-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -86,7 +86,7 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | the defaults, distance 5, grow the drawing by 5 on every side | 5 | yes |
-| distance 2.5 and softness 6 grow it by 3, the distance rounded up, and 6, the blur's reach | 9 | yes |
+| distance 2.5 and softness 10 grow it by 3, the distance rounded up, and 6, the blur's reach (softness 6 before D-774) | 9 | yes |
 | distance 0, softness 0 does not grow it | 0 | yes |
 | a half-size draft preview halves the distance and the softness, and nothing else | DropShadow { color: "#000000", opacity: 50.0, direction: 135.0, distance: 2.5, softness: 3.0, shadow_only: "off" } | yes |
 

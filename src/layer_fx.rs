@@ -40,7 +40,7 @@ pub(crate) fn disc_runs(radius: f64) -> Vec<(isize, isize)> {
         .collect()
 }
 
-/// D-115: the drawing's own shape, blurred at sigma `softness` / 3, moved `distance` pixels in
+/// D-115: the drawing's own shape, blurred at sigma `softness` / 5 (D-774; / 3 before), moved `distance` pixels in
 /// `direction`, in `color` (linear, or in display values in 8 bpc, D-763) at `opacity` per cent, laid behind the drawing. The
 /// layer grows by `ceil(distance)` and the blur's reach on every side, returned. The settings
 /// are already valid. D-760: with `shadow_only` the drawing is left out, the shadow alone.
@@ -53,7 +53,7 @@ pub(crate) fn drop_shadow(
     softness: f64,
     shadow_only: bool,
 ) -> usize {
-    let s = softness / 3.0;
+    let s = softness / 5.0;
     let r = kernel_radius(s) as isize;
     let g = distance.ceil() as usize + r as usize;
     let mut covering = source.clone();

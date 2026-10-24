@@ -12,7 +12,7 @@ D-760, accepted by the owner on 2026-10-23 in the audit's waves ("if it is to be
 | FX-SHADOW-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SHADOW-026 frame 0: Shadow Only "off" written in the file: FX-SHADOW-001 exactly, as a file without the word. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-SHADOW-027 frame 0: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 3: the blue shadow alone, softened, two pixels right of the card's place. | largest difference 1.5e-7 | yes |
+| FX-SHADOW-027 frame 0: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 5 (3 before D-774): the blue shadow alone, softened, two pixels right of the card's place. | largest difference 1.5e-7 | yes |
 | FX-SHADOW-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SHADOW-028 frame 0: Shadow Only "on" with opacity 0: nothing at all, the frame is empty, though the layer still grows. | largest difference 0.0e0 | yes |
 | FX-SHADOW-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

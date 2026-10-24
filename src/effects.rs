@@ -12657,10 +12657,10 @@ impl Effect {
                 let top = a.map_or(1.0, |a| a.iter().fold(0.0f64, |t, v| t.max(v.abs())));
                 (most[0].abs().max(most[1].abs()) * top).ceil() as usize
             }
-            // D-115: the shadow's move, rounded up, and its blur's reach.
+            // D-115: the shadow's move, rounded up, and its blur's reach (sigma softness / 5, D-774).
             Effect::DropShadow {
                 distance, softness, ..
-            } => distance.ceil() as usize + kernel_radius(*softness / 3.0),
+            } => distance.ceil() as usize + kernel_radius(*softness / 5.0),
             _ => 0,
         }
     }
