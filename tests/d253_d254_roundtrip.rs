@@ -25,8 +25,11 @@ use anime_compositor::{persist, sha256};
 /// D-747 rewrote one word in `fx_glow_032.json` ("multiply" to "color_dodge") and D-755 one in
 /// `fx_wave_023.json` ("square" to "hexagon"), both refused-value fixtures whose old word became
 /// valid. The build before each of those commits gives the old hash (aeadb2e5...) on the old files.
+/// Re-taken after D-773 and D-774 (W7), which changed no saving code: they halved Path Stroke's
+/// `brush_size` and raised three Drop Shadows' `softness` in the fixture projects so their pixels
+/// stay put. The hash before them was c66b9656...
 const FIXTURES_OPENED: usize = 2297;
-const FIXTURES_SAVED: &str = "c66b9656cbfaf5eb03156712d66f3fca7f09c3cf7a860981ef0b7e73d1ec188d";
+const FIXTURES_SAVED: &str = "95f69ad9226bbe68904e9fdad99176dd3928aac66051283897fa781985ea1a18";
 
 fn repo(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)
