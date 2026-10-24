@@ -6,7 +6,7 @@ B-601: `core.turbulent_noise` takes Overlay and Hue, by the owner's specificatio
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.8e-7 | yes |
+| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.5e-7 | yes |
 | FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-060 frame 0: Size 4, blending mode hue, opacity 60: the noise is grey, so the card is drained towards its own grey at its own lightness, 60 per cent of the way (the W3C's Hue, our basis). | largest difference 1.4e-7 | yes |
 | FX-TURBNOISE-060: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -41,28 +41,28 @@ B-601: `core.turbulent_noise` takes Overlay and Hue, by the owner's specificatio
 | --- | --- | --- |
 | fx_turbnoise_032.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_060.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| the reference shot, Turbulent Noise Overlay: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 2066252 pixels changed, 2073562 differ from as added | yes |
-| the reference shot, Turbulent Noise Overlay on three layers, frame 0, Full | largest difference 1 of 255, 995 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay on three layers, frame 100, Full | largest difference 1 of 255, 1306 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay on three layers, frame 239, Full | largest difference 1 of 255, 936 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay on three layers, frame 0, Draft | largest difference 1 of 255, 50 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay on three layers, frame 100, Draft | largest difference 1 of 255, 78 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay on three layers, frame 239, Draft | largest difference 1 of 255, 46 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 2046408 pixels changed, 2073271 differ from as added | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 0, Full | largest difference 1 of 255, 920 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 100, Full | largest difference 1 of 255, 1021 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 239, Full | largest difference 1 of 255, 770 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 0, Draft | largest difference 1 of 255, 61 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 100, Draft | largest difference 1 of 255, 69 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 239, Draft | largest difference 1 of 255, 52 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Hue: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 1932027 pixels changed, 2061296 differ from as added | yes |
+| the reference shot, Turbulent Noise Overlay: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 2073090 pixels changed, 2073554 differ from as added | yes |
+| the reference shot, Turbulent Noise Overlay on three layers, frame 0, Full | largest difference 1 of 255, 975 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay on three layers, frame 100, Full | largest difference 1 of 255, 1235 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay on three layers, frame 239, Full | largest difference 1 of 255, 871 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay on three layers, frame 0, Draft | largest difference 1 of 255, 73 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay on three layers, frame 100, Draft | largest difference 1 of 255, 73 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay on three layers, frame 239, Draft | largest difference 1 of 255, 63 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 2048760 pixels changed, 2073269 differ from as added | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 0, Full | largest difference 1 of 255, 932 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 100, Full | largest difference 1 of 255, 1062 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 239, Full | largest difference 1 of 255, 811 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 0, Draft | largest difference 1 of 255, 67 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 100, Draft | largest difference 1 of 255, 60 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Overlay at opacity 50, contrast 200 on three layers, frame 239, Draft | largest difference 1 of 255, 55 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Hue: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 1932027 pixels changed, 2062059 differ from as added | yes |
 | the reference shot, Turbulent Noise Hue on three layers, frame 0, Full | largest difference 1 of 255, 3275 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue on three layers, frame 100, Full | largest difference 1 of 255, 1045 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue on three layers, frame 239, Full | largest difference 1 of 255, 1585 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue on three layers, frame 0, Draft | largest difference 1 of 255, 161 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue on three layers, frame 100, Draft | largest difference 1 of 255, 88 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue on three layers, frame 239, Draft | largest difference 1 of 255, 97 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Hue at opacity 60: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 1917994 pixels changed, 2072855 differ from as added | yes |
+| the reference shot, Turbulent Noise Hue at opacity 60: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-731 | 1917994 pixels changed, 2073061 differ from as added | yes |
 | the reference shot, Turbulent Noise Hue at opacity 60 on three layers, frame 0, Full | largest difference 1 of 255, 2947 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue at opacity 60 on three layers, frame 100, Full | largest difference 1 of 255, 1116 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Hue at opacity 60 on three layers, frame 239, Full | largest difference 1 of 255, 1220 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |

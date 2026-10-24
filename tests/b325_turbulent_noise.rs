@@ -51,8 +51,8 @@ fn fx(id: &str, p: &J) -> J {
 /// never cycling.
 fn fractal(id: &str, p: &J) -> J {
     let mut all = settings(p);
-    // D-756: Fractal Noise works its cell at two thirds of its size, Turbulent Noise at its size.
-    all["size"] = json!(all["size"].as_f64().unwrap() * 1.5);
+    // D-772: the same cell as Fractal Noise's, the greys 0.64 as far at the same contrast.
+    all["contrast"] = json!(all["contrast"].as_f64().unwrap() * 0.64);
     for (k, v) in [
         ("speed", json!(0)),
         ("dark_color", json!("#000000")),
@@ -384,10 +384,11 @@ fn b325_turbulent_noise() {
     write("3_size_30.png", TOWN, &fine);
     let (veins, said1) = street(json!({"size": 30, "fractal_type": "turbulent"}));
     write("4_turbulent.png", TOWN, &veins);
-    let dark = |p: &[u8]| p.chunks_exact(4).filter(|q| q[0] < 40).count();
+    // D-772: contrast 100 now reaches 0.18 at the darkest, so very dark is below 64.
+    let dark = |p: &[u8]| p.chunks_exact(4).filter(|q| q[0] < 64).count();
     t.row(
         "4_turbulent.png, fractal type turbulent at size 30: the clouds creased into dark veins, more very dark pixels than 3_size_30.png's basic clouds; both draw cleanly",
-        &format!("{said:?} {said1:?}, pixels darker than 40: basic {}, turbulent {}", dark(&fine), dark(&veins)),
+        &format!("{said:?} {said1:?}, pixels darker than 64: basic {}, turbulent {}", dark(&fine), dark(&veins)),
         said.is_empty() && said1.is_empty() && dark(&veins) > dark(&fine),
     );
 

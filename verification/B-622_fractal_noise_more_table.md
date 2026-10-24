@@ -38,7 +38,7 @@
 | FX-TURBNOISE-047 as Fractal Noise: what opening it and frame 4 warn of, in Fractal Noise's name | [] and [] "" | yes |
 | FX-TURBNOISE-048 as Fractal Noise, frame 0: Size 4, cloudy, Sub Influence 80: cloudy's 0.35 a step scaled to 0.56. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-048 as Fractal Noise: what opening it and frame 4 warn of, in Fractal Noise's name | [] and [] "" | yes |
-| FX-TURBNOISE-054 as Fractal Noise, frame 0: FX-TURBNOISE-036 moved three pixels right: turned round the drawing's own middle, so the turned clouds move with it. | largest difference 2.2e-8 | yes |
+| FX-TURBNOISE-054 as Fractal Noise, frame 0: FX-TURBNOISE-036 moved three pixels right: turned round the drawing's own middle, so the turned clouds move with it. | largest difference 1.5e-8 | yes |
 | FX-TURBNOISE-054 as Fractal Noise: what opening it and frame 4 warn of, in Fractal Noise's name | [] and [] "" | yes |
 | FX-TURBNOISE-055 as Fractal Noise, frame 0: FX-TURBNOISE-002 with every D-647 setting written as added: FX-TURBNOISE-002 to the bit. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-055 as Fractal Noise: what opening it and frame 4 warn of, in Fractal Noise's name | [] and [] "" | yes |

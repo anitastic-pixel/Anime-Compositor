@@ -16791,7 +16791,7 @@ pub(crate) fn apply_stack_at(
                 more,
             } => {
                 let look = fractal_look(fractal_type, noise_type, *cycle);
-                let size = fractal_cell(&instance.effect, *size);
+                let size = fractal_cell(*size);
                 let f = crate::grade::Fractal {
                     size: size * (scale_width / 100.0),
                     size_y: size * (scale_height / 100.0),
@@ -20894,17 +20894,17 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
     }
 }
 
-/// D-756: the noise's cell in pixels for a Fractal Noise of `size` drawn for `drawn`, the effect
-/// as the layer holds it. After Effects' Fractal Noise at Scale 100 draws a 66.7-pixel cell, so
-/// Fractal Noise's own size is worked at two thirds; Turbulent Noise, drawn as Fractal Noise
-/// (D-445), keeps its size as the cell, unchanged.
-pub(crate) fn fractal_cell(drawn: &Effect, size: f64) -> f64 {
-    if matches!(drawn, Effect::TurbulentNoise { .. }) {
-        size
-    } else {
-        size / 1.5
-    }
+/// D-756: the noise's cell in pixels for a Fractal Noise of `size`. After Effects' Fractal Noise
+/// at Scale 100 draws a 66.7-pixel cell, so the size is worked at two thirds; since D-772
+/// Turbulent Noise, drawn as Fractal Noise (D-445), takes the same cell (it kept its size as the
+/// cell until then).
+pub(crate) fn fractal_cell(size: f64) -> f64 {
+    size / 1.5
 }
+
+/// D-772: After Effects' Turbulent Noise spreads its greys 0.64 times as far as our Fractal Noise
+/// at the same Contrast (7 tutorials from 7 creators).
+pub(crate) const TURBULENT_CONTRAST: f64 = 0.64;
 
 /// D-445: Turbulent Noise as the Fractal Noise it is a second name for: no speed, black to
 /// white, never cycling; anything else is not one.
@@ -20935,7 +20935,7 @@ pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
     Some(Effect::FractalNoise {
         size: *size,
         complexity: *complexity,
-        contrast: *contrast,
+        contrast: *contrast * TURBULENT_CONTRAST,
         brightness: *brightness,
         evolution: *evolution,
         speed: 0.0,

@@ -10,11 +10,11 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-061: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-062 frame 0: Size 4, blending mode color: the card's lightness in the noise's colour, grey, so the same as FX-TURBNOISE-061. | largest difference 1.2e-7 | yes |
 | FX-TURBNOISE-062: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-063 frame 0: Size 4, blending mode luminosity: the card's colours at the clouds' lightness. | largest difference 1.0e-7 | yes |
+| FX-TURBNOISE-063 frame 0: Size 4, blending mode luminosity: the card's colours at the clouds' lightness. | largest difference 1.1e-7 | yes |
 | FX-TURBNOISE-063: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-064 frame 0: Size 4, blending mode luminosity, opacity 50: halfway from the card to FX-TURBNOISE-063. | largest difference 1.7e-7 | yes |
 | FX-TURBNOISE-064: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-065 frame 0: Size 4, blending mode none: the clouds alone, the card gone, filling the clear corner too. | largest difference 2.2e-8 | yes |
+| FX-TURBNOISE-065 frame 0: Size 4, blending mode none: the clouds alone, the card gone, filling the clear corner too. | largest difference 1.4e-8 | yes |
 | FX-TURBNOISE-065: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-066 frame 0: Size 4, blending mode none, opacity 60: the clouds alone at 60% everywhere. | largest difference 2.4e-8 | yes |
 | FX-TURBNOISE-066: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -22,14 +22,14 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-067: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-068 frame 0: Size 4, blending mode stencil_alpha, opacity 40: the card kept at 40%. | largest difference 8.1e-8 | yes |
 | FX-TURBNOISE-068: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-069 frame 0: Size 4, blending mode stencil_luma: the card kept where the clouds are light and cut away where they are dark. | largest difference 1.3e-7 | yes |
+| FX-TURBNOISE-069 frame 0: Size 4, blending mode stencil_luma: the card kept where the clouds are light and cut away where they are dark. | largest difference 1.2e-7 | yes |
 | FX-TURBNOISE-069: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-070 frame 0: Size 4, blending mode stencil_luma, opacity 50: the clouds at half, so the card is kept less. | largest difference 1.0e-7 | yes |
+| FX-TURBNOISE-070 frame 0: Size 4, blending mode stencil_luma, opacity 50: the clouds at half, so the card is kept less. | largest difference 8.3e-8 | yes |
 | FX-TURBNOISE-070: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-071 frame 0: Size 4, blending mode none, opacity 0: nothing drawn and the card gone, a clear frame, not the card left as it was. | largest difference 0.0e0 | yes |
 | FX-TURBNOISE-071: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-072 frame 0: Size 4, blending mode stencil_luma, opacity keyed from 100 at frame 0 to 0 at frame 4, linear: FX-TURBNOISE-069 fading to a clear frame. | largest difference 1.3e-7 | yes |
-| FX-TURBNOISE-072 frame 2: Size 4, blending mode stencil_luma, opacity keyed from 100 at frame 0 to 0 at frame 4, linear: FX-TURBNOISE-069 fading to a clear frame. | largest difference 1.0e-7 | yes |
+| FX-TURBNOISE-072 frame 0: Size 4, blending mode stencil_luma, opacity keyed from 100 at frame 0 to 0 at frame 4, linear: FX-TURBNOISE-069 fading to a clear frame. | largest difference 1.2e-7 | yes |
+| FX-TURBNOISE-072 frame 2: Size 4, blending mode stencil_luma, opacity keyed from 100 at frame 0 to 0 at frame 4, linear: FX-TURBNOISE-069 fading to a clear frame. | largest difference 8.3e-8 | yes |
 | FX-TURBNOISE-072 frame 4: Size 4, blending mode stencil_luma, opacity keyed from 100 at frame 0 to 0 at frame 4, linear: FX-TURBNOISE-069 fading to a clear frame. | largest difference 0.0e0 | yes |
 | FX-TURBNOISE-072: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-073 frame 0: Blending mode "silhouette_alpha", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -46,7 +46,7 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-001 frame 0: The settings as they start: basic, smooth, not inverted, contrast 100, brightness 0, size 100 at scale 100 by 100, offset 0, complexity 6, evolution 0, seed 0, opacity 100, normal. Grey clouds so large that the card sees a small part of one: close greys near the middle. Every pixel keeps its covering, the empty ones stay empty, and with nothing keyed frame 4 is frame 0: Turbulent Noise has no speed of its own. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-001 frame 4: The settings as they start: basic, smooth, not inverted, contrast 100, brightness 0, size 100 at scale 100 by 100, offset 0, complexity 6, evolution 0, seed 0, opacity 100, normal. Grey clouds so large that the card sees a small part of one: close greys near the middle. Every pixel keeps its covering, the empty ones stay empty, and with nothing keyed frame 4 is frame 0: Turbulent Noise has no speed of its own. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-002 frame 0: Size 4: four pixels a cloud, so the greys vary across the card. | largest difference 3.0e-8 | yes |
+| FX-TURBNOISE-002 frame 0: Size 4: a cell of 2.7 pixels (D-772), so the greys vary across the card. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-003 frame 0: Size 4, fractal type turbulent: each octave's distance from the middle, so the clouds crease into dark veins. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -62,7 +62,7 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-009 frame 0: Size 4, contrast 300: FX-TURBNOISE-002's greys three times as far from the middle, held at black and white. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-010 frame 0: Size 4, brightness 30: FX-TURBNOISE-002 lifted by 0.3, held at white. | largest difference 3.2e-8 | yes |
+| FX-TURBNOISE-010 frame 0: Size 4, brightness 30: FX-TURBNOISE-002 lifted by 0.3, held at white. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-011 frame 0: Brightness -100: held at 0 everywhere, every shown pixel black. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -70,7 +70,7 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-013 frame 0: Size 4, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: frame 0 is FX-TURBNOISE-002 and frame 2, at 360, is FX-TURBNOISE-012. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-013 frame 2: Size 4, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: frame 0 is FX-TURBNOISE-002 and frame 2, at 360, is FX-TURBNOISE-012. | largest difference 3.0e-8 | yes |
-| FX-TURBNOISE-013 frame 4: Size 4, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: frame 0 is FX-TURBNOISE-002 and frame 2, at 360, is FX-TURBNOISE-012. | largest difference 3.1e-8 | yes |
+| FX-TURBNOISE-013 frame 4: Size 4, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: frame 0 is FX-TURBNOISE-002 and frame 2, at 360, is FX-TURBNOISE-012. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-014 frame 0: Size 4, seed 7: clouds of their own. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -80,18 +80,18 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-017 frame 0: Size 4, offset 2.5 right and 3 up: the clouds slide with it. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-018 frame 0: Size 4, blend multiply: the card darkened by the clouds; the black patch stays black. | largest difference 6.4e-8 | yes |
+| FX-TURBNOISE-018 frame 0: Size 4, blend multiply: the card darkened by the clouds; the black patch stays black. | largest difference 7.5e-8 | yes |
 | FX-TURBNOISE-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-019 frame 0: Size 4, blend screen, opacity 50: the card lightened, none darkened. | largest difference 2.1e-7 | yes |
 | FX-TURBNOISE-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-020 frame 0: Size 4, blend add, opacity 50: added at half strength, not held, so the white patch goes past its covering. | largest difference 2.2e-7 | yes |
+| FX-TURBNOISE-020 frame 0: Size 4, blend add, opacity 50: added at half strength, not held, so the white patch goes past its covering. | largest difference 2.3e-7 | yes |
 | FX-TURBNOISE-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-021 frame 0: Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end: frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-TURBNOISE-002. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-021 frame 2: Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end: frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-TURBNOISE-002. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-021 frame 4: Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end: frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-TURBNOISE-002. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-022 frame 0: FX-TURBNOISE-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 2.2e-8 | yes |
-| FX-TURBNOISE-022 frame 3: FX-TURBNOISE-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 2.2e-8 | yes |
+| FX-TURBNOISE-022 frame 0: FX-TURBNOISE-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 1.4e-8 | yes |
+| FX-TURBNOISE-022 frame 3: FX-TURBNOISE-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. | largest difference 1.4e-8 | yes |
 | FX-TURBNOISE-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-023 frame 0: Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-023 frame 4: Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -120,7 +120,7 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-031 frame 0: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031 frame 4: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.8e-7 | yes |
+| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.5e-7 | yes |
 | FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-033 frame 0: Size 4, contrast 300, Overflow clip: in an 8-bit composition the same as FX-TURBNOISE-009, allow_hdr holding to 0..1 there too. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -156,17 +156,17 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-047: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-048 frame 0: Size 4, cloudy, Sub Influence 80: cloudy's 0.35 a step scaled to 0.56. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-048: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-049 frame 0: Size 4, blending mode soft_light: the card's shading lifted and lowered gently by the clouds. | largest difference 3.7e-7 | yes |
+| FX-TURBNOISE-049 frame 0: Size 4, blending mode soft_light: the card's shading lifted and lowered gently by the clouds. | largest difference 3.5e-7 | yes |
 | FX-TURBNOISE-049: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-050 frame 0: Size 4, blending mode hard_light, opacity 70: as soft_light but harder. | largest difference 1.3e-7 | yes |
+| FX-TURBNOISE-050 frame 0: Size 4, blending mode hard_light, opacity 70: as soft_light but harder. | largest difference 1.6e-7 | yes |
 | FX-TURBNOISE-050: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-051 frame 0: Size 4, blending mode darken: each channel the darker of the card and the clouds. | largest difference 3.1e-8 | yes |
 | FX-TURBNOISE-051: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-052 frame 0: Size 4, blending mode lighten: each channel the lighter. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-052: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-053 frame 0: Size 4, blending mode difference: each channel how far apart; the black patch shows the clouds themselves. | largest difference 2.1e-7 | yes |
+| FX-TURBNOISE-053 frame 0: Size 4, blending mode difference: each channel how far apart; the black patch shows the clouds themselves. | largest difference 2.2e-7 | yes |
 | FX-TURBNOISE-053: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBNOISE-054 frame 0: FX-TURBNOISE-036 moved three pixels right: turned round the drawing's own middle, so the turned clouds move with it. | largest difference 2.2e-8 | yes |
+| FX-TURBNOISE-054 frame 0: FX-TURBNOISE-036 moved three pixels right: turned round the drawing's own middle, so the turned clouds move with it. | largest difference 1.5e-8 | yes |
 | FX-TURBNOISE-054: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-055 frame 0: FX-TURBNOISE-002 with every D-647 setting written as added: FX-TURBNOISE-002 to the bit. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-055: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -198,7 +198,7 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBTYPE-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-007 frame 0: Size 4, fractal type smeary: the finer octaves streaked across. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBTYPE-008 frame 0: Size 4, fractal type swirly: bands that follow the clouds, like agate. | largest difference 3.0e-8 | yes |
+| FX-TURBTYPE-008 frame 0: Size 4, fractal type swirly: bands that follow the clouds, like agate. | largest difference 3.1e-8 | yes |
 | FX-TURBTYPE-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-009 frame 0: Size 4, fractal type rocky: flat patches in five greys, like camouflage. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -210,7 +210,7 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBTYPE-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-013 frame 0: Size 4, fractal type small_bumps: small bumps, starting two octaves finer. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBTYPE-014 frame 0: Size 4, fractal type strings: thin light lines where the clouds cross the middle grey. | largest difference 4.1e-8 | yes |
+| FX-TURBTYPE-014 frame 0: Size 4, fractal type strings: thin light lines where the clouds cross the middle grey. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-015 frame 0: Size 4, fractal type threads: thin threads at every scale. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -224,14 +224,14 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBTYPE-019 frame 2: Size 4, dynamic_twist on spline, inverted, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: the smoke moves as it evolves. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-019 frame 4: Size 4, dynamic_twist on spline, inverted, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: the smoke moves as it evolves. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBTYPE-020 frame 0: Size 4, rocky on block, contrast 200: square flat patches. | largest difference 3.0e-8 | yes |
+| FX-TURBTYPE-020 frame 0: Size 4, rocky on block, contrast 200: square flat patches. | largest difference 3.1e-8 | yes |
 | FX-TURBTYPE-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-021 frame 0: Size 4, terrain on linear at complexity 20, the most. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-022 frame 0: Size 4, swirly at complexity 1.9, which counts as 1: sin(3 pi v) of the one octave. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TURBTYPE-023 frame 0: FX-TURBTYPE-006 (max) moved three pixels right: worked in the drawing's own space, so it moves with it. | largest difference 3.0e-8 | yes |
-| FX-TURBTYPE-023 frame 3: FX-TURBTYPE-006 (max) moved three pixels right: worked in the drawing's own space, so it moves with it. | largest difference 3.0e-8 | yes |
+| FX-TURBTYPE-023 frame 0: FX-TURBTYPE-006 (max) moved three pixels right: worked in the drawing's own space, so it moves with it. | largest difference 2.5e-8 | yes |
+| FX-TURBTYPE-023 frame 3: FX-TURBTYPE-006 (max) moved three pixels right: worked in the drawing's own space, so it moves with it. | largest difference 2.5e-8 | yes |
 | FX-TURBTYPE-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-024 frame 0: Fractal type "Turbulent Basic", the name shown and not the word written. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBTYPE-024 frame 4: Fractal type "Turbulent Basic", the name shown and not the word written. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -305,34 +305,34 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | fx_turbnoise_072.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_073.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_074.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| the reference shot, Turbulent Noise Saturation: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 1932027 pixels changed, 2061296 differ from as added | yes |
+| the reference shot, Turbulent Noise Saturation: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 1932027 pixels changed, 2062059 differ from as added | yes |
 | the reference shot, Turbulent Noise Saturation on three layers, frame 0, Full | largest difference 1 of 255, 3275 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Saturation on three layers, frame 100, Full | largest difference 1 of 255, 1045 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Saturation on three layers, frame 239, Full | largest difference 1 of 255, 1585 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Saturation on three layers, frame 0, Draft | largest difference 1 of 255, 161 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Saturation on three layers, frame 100, Draft | largest difference 1 of 255, 88 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Saturation on three layers, frame 239, Draft | largest difference 1 of 255, 97 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 2066822 pixels changed, 2071431 differ from as added | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 0, Full | largest difference 1 of 255, 1043 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 100, Full | largest difference 1 of 255, 1018 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 239, Full | largest difference 1 of 255, 992 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 0, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 100, Draft | largest difference 1 of 255, 54 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 239, Draft | largest difference 1 of 255, 54 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 2068382 pixels changed, 2071934 differ from as added | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 0, Full | largest difference 1 of 255, 1038 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 100, Full | largest difference 1 of 255, 1038 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 239, Full | largest difference 1 of 255, 986 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 0, Draft | largest difference 1 of 255, 76 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 100, Draft | largest difference 1 of 255, 67 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Luminosity at opacity 70 on three layers, frame 239, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise None at opacity 60: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 2073600 pixels changed, 2073600 differ from as added | yes |
-| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 0, Full | largest difference 1 of 255, 1248 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 100, Full | largest difference 1 of 255, 1313 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 239, Full | largest difference 1 of 255, 1197 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 0, Draft | largest difference 1 of 255, 83 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 100, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 239, Draft | largest difference 1 of 255, 82 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 2031279 pixels changed, 2073589 differ from as added | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 0, Full | largest difference 1 of 255, 1427 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 100, Full | largest difference 1 of 255, 1500 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 239, Full | largest difference 1 of 255, 1336 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 0, Draft | largest difference 1 of 255, 332 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 100, Draft | largest difference 1 of 255, 282 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 239, Draft | largest difference 1 of 255, 324 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 0, Full | largest difference 1 of 255, 1315 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 100, Full | largest difference 1 of 255, 1331 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 239, Full | largest difference 1 of 255, 1353 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 0, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 100, Draft | largest difference 1 of 255, 65 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise None at opacity 60 on three layers, frame 239, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-730 | 2073444 pixels changed, 2073600 differ from as added | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 0, Full | largest difference 1 of 255, 1536 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 100, Full | largest difference 1 of 255, 1501 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 239, Full | largest difference 1 of 255, 1482 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 0, Draft | largest difference 1 of 255, 346 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 100, Draft | largest difference 1 of 255, 292 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Turbulent Noise Stencil Luma, contrast 200 on three layers, frame 239, Draft | largest difference 1 of 255, 339 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: the street, in `verification/D-730 pictures/`
 

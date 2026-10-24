@@ -72,8 +72,8 @@ fn fx(id: &str, p: &J) -> J {
 /// black to white, never cycling unless `extra` says).
 fn fractal(id: &str, p: &J, extra: &J) -> J {
     let mut all = settings(p);
-    // D-756: Fractal Noise works its cell at two thirds of its size, Turbulent Noise at its size.
-    all["size"] = json!(all["size"].as_f64().unwrap() * 1.5);
+    // D-772: the same cell as Fractal Noise's, the greys 0.64 as far at the same contrast.
+    all["contrast"] = json!(all["contrast"].as_f64().unwrap() * 0.64);
     for (k, v) in [
         ("speed", json!(0)),
         ("dark_color", json!("#000000")),
