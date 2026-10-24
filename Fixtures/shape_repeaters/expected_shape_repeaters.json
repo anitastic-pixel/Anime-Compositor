@@ -1,7 +1,7 @@
 {
   "cases": {
     "FX-SHPR-001": {
-      "says": "Frame 0: Row's four squares 70 apart, fading from 1 to 0.25, each under the one before; each square's Stack draws its Pip twice, 20 apart, the first at half opacity; Plain; then Fan's six bars an offset of -1 back, each turned 30 degrees, scaled 90 by 80 and moved 5 from the one before, each over the one before.",
+      "says": "Frame 0: Row's four squares 70 apart, fading from 1 toward 0.25 in steps of a quarter of the way (D-778), 1, 0.8125, 0.625 and 0.4375, each under the one before; each square's Stack draws its Pip twice, 20 apart, the first at half opacity, the second at 0.75; Plain; then Fan's six bars an offset of -1 back, each turned 30 degrees, scaled 90 by 80 and moved 5 from the one before, each over the one before.",
       "frame": 0,
       "drawn": [
         {
@@ -67,8 +67,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.25,
-          "stroke_opacity": 0.25,
+          "fill_opacity": 0.4375,
+          "stroke_opacity": 0.4375,
           "stroke_width": 2.0
         },
         {
@@ -121,7 +121,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.125
+          "fill_opacity": 0.21875
         },
         {
           "shape": "Pip",
@@ -173,7 +173,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.25
+          "fill_opacity": 0.328125
         },
         {
           "shape": "Dot",
@@ -238,8 +238,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.5,
-          "stroke_opacity": 0.5,
+          "fill_opacity": 0.625,
+          "stroke_opacity": 0.625,
           "stroke_width": 2.0
         },
         {
@@ -292,7 +292,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.25
+          "fill_opacity": 0.3125
         },
         {
           "shape": "Pip",
@@ -344,7 +344,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.5
+          "fill_opacity": 0.46875
         },
         {
           "shape": "Dot",
@@ -409,8 +409,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.75,
-          "stroke_opacity": 0.75,
+          "fill_opacity": 0.8125,
+          "stroke_opacity": 0.8125,
           "stroke_width": 2.0
         },
         {
@@ -463,7 +463,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.375
+          "fill_opacity": 0.40625
         },
         {
           "shape": "Pip",
@@ -515,7 +515,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.75
+          "fill_opacity": 0.609375
         },
         {
           "shape": "Dot",
@@ -686,7 +686,7 @@
               ]
             }
           ],
-          "fill_opacity": 1.0
+          "fill_opacity": 0.75
         },
         {
           "shape": "Plain",
@@ -1142,7 +1142,7 @@
       ]
     },
     "FX-SHPR-002": {
-      "says": "Frame 6: Row's copies at 3.5, so four squares with the opacity ramp over four and the last at half of its; Fan's offset -0.5, half a step back.",
+      "says": "Frame 6: Row's copies at 3.5, so four squares with the opacity ramp in steps of 1 / 3.5 of the way (D-778) and the last at half of its; Fan's offset -0.5, half a step back.",
       "frame": 6,
       "drawn": [
         {
@@ -1208,8 +1208,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.125,
-          "stroke_opacity": 0.125,
+          "fill_opacity": 0.17857142857142855,
+          "stroke_opacity": 0.17857142857142855,
           "stroke_width": 2.0
         },
         {
@@ -1262,7 +1262,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.0625
+          "fill_opacity": 0.08928571428571427
         },
         {
           "shape": "Pip",
@@ -1314,7 +1314,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.125
+          "fill_opacity": 0.1339285714285714
         },
         {
           "shape": "Dot",
@@ -1379,8 +1379,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.5,
-          "stroke_opacity": 0.5,
+          "fill_opacity": 0.5714285714285714,
+          "stroke_opacity": 0.5714285714285714,
           "stroke_width": 2.0
         },
         {
@@ -1433,7 +1433,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.25
+          "fill_opacity": 0.2857142857142857
         },
         {
           "shape": "Pip",
@@ -1485,7 +1485,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.5
+          "fill_opacity": 0.42857142857142855
         },
         {
           "shape": "Dot",
@@ -1550,8 +1550,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.75,
-          "stroke_opacity": 0.75,
+          "fill_opacity": 0.7857142857142857,
+          "stroke_opacity": 0.7857142857142857,
           "stroke_width": 2.0
         },
         {
@@ -1604,7 +1604,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.375
+          "fill_opacity": 0.39285714285714285
         },
         {
           "shape": "Pip",
@@ -1656,7 +1656,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.75
+          "fill_opacity": 0.5892857142857143
         },
         {
           "shape": "Dot",
@@ -1827,7 +1827,7 @@
               ]
             }
           ],
-          "fill_opacity": 1.0
+          "fill_opacity": 0.75
         },
         {
           "shape": "Plain",
@@ -2349,8 +2349,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.25,
-          "stroke_opacity": 0.25,
+          "fill_opacity": 0.5,
+          "stroke_opacity": 0.5,
           "stroke_width": 2.0
         },
         {
@@ -2403,7 +2403,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.125
+          "fill_opacity": 0.25
         },
         {
           "shape": "Pip",
@@ -2455,7 +2455,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.25
+          "fill_opacity": 0.375
         },
         {
           "shape": "Dot",
@@ -2520,8 +2520,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.625,
-          "stroke_opacity": 0.625,
+          "fill_opacity": 0.75,
+          "stroke_opacity": 0.75,
           "stroke_width": 2.0
         },
         {
@@ -2574,7 +2574,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.3125
+          "fill_opacity": 0.375
         },
         {
           "shape": "Pip",
@@ -2626,7 +2626,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.625
+          "fill_opacity": 0.5625
         },
         {
           "shape": "Dot",
@@ -2797,7 +2797,7 @@
               ]
             }
           ],
-          "fill_opacity": 1.0
+          "fill_opacity": 0.75
         },
         {
           "shape": "Plain",
@@ -3319,8 +3319,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.125,
-          "stroke_opacity": 0.125,
+          "fill_opacity": 0.2,
+          "stroke_opacity": 0.2,
           "stroke_width": 2.0
         },
         {
@@ -3373,7 +3373,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.0625
+          "fill_opacity": 0.1
         },
         {
           "shape": "Pip",
@@ -3425,7 +3425,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.125
+          "fill_opacity": 0.15000000000000002
         },
         {
           "shape": "Dot",
@@ -3490,8 +3490,8 @@
               ]
             }
           ],
-          "fill_opacity": 0.625,
-          "stroke_opacity": 0.625,
+          "fill_opacity": 0.7,
+          "stroke_opacity": 0.7,
           "stroke_width": 2.0
         },
         {
@@ -3544,7 +3544,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.3125
+          "fill_opacity": 0.35
         },
         {
           "shape": "Pip",
@@ -3596,7 +3596,7 @@
               ]
             }
           ],
-          "fill_opacity": 0.625
+          "fill_opacity": 0.5249999999999999
         },
         {
           "shape": "Dot",
@@ -3767,7 +3767,7 @@
               ]
             }
           ],
-          "fill_opacity": 1.0
+          "fill_opacity": 0.75
         },
         {
           "shape": "Plain",

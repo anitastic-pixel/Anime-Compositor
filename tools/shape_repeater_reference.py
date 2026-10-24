@@ -20,8 +20,10 @@ A = T(anchor), R turning clockwise on screen, step^k for k below 0 being the ste
 So each copy is turned about the anchor, then scaled about it, then moved, from where the copy
 before it was: rotation and position together lay copies along an arc, as After Effects' do, and
 a fraction of an offset slides them part of a step. Copy i's opacity is start_opacity +
-(end_opacity - start_opacity) i / (count - 1), start_opacity alone for one copy; a fraction of a
-copy draws the last copy at that fraction of its opacity. With composite "below" each copy is
+(end_opacity - start_opacity) i / copies (D-778, After Effects' own: the last copy stops one step
+short of end_opacity; D-738 (c) had i / (count - 1)), copies being the setting itself, so a
+fraction of a copy moves the ramp smoothly; a fraction of a copy also draws the last copy at that
+fraction of its opacity. With composite "below" each copy is
 drawn under the one before it, so the first is on top; with "above", over it. A repeating group's
 shapes are drawn together, copy by copy, where the first of them is in the layer's list; each
 copy holds them in the list's order, an inner repeating group's as one block within it.
@@ -130,7 +132,8 @@ def copy_turn(v, i):
         m = mul(m, whole if k > 0 else invert(whole))
     m = mul(m, step(v, n - k))
     total = count(v)
-    o = v["start_opacity"] + (v["end_opacity"] - v["start_opacity"]) * (i / (total - 1) if total > 1 else 0)
+    # D-778: i / copies, After Effects' own (seven tutorials, six creators, wave 7).
+    o = v["start_opacity"] + (v["end_opacity"] - v["start_opacity"]) * i / v["copies"]
     if i == total - 1 and v["copies"] != total:
         o *= v["copies"] - math.floor(v["copies"])
     return m, o
@@ -208,12 +211,13 @@ def case(n, says, **c):
     CASES[f"FX-SHPR-{n:03d}"] = {"says": says, **c}
 
 
-case(1, "Frame 0: Row's four squares 70 apart, fading from 1 to 0.25, each under the one before; each "
-     "square's Stack draws its Pip twice, 20 apart, the first at half opacity; Plain; then Fan's six bars "
+case(1, "Frame 0: Row's four squares 70 apart, fading from 1 toward 0.25 in steps of a quarter of the "
+     "way (D-778), 1, 0.8125, 0.625 and 0.4375, each under the one before; each "
+     "square's Stack draws its Pip twice, 20 apart, the first at half opacity, the second at 0.75; Plain; then Fan's six bars "
      "an offset of -1 back, each turned 30 degrees, scaled 90 by 80 and moved 5 from the one before, each "
      "over the one before.", frame=0, drawn=drawn(0))
-case(2, "Frame 6: Row's copies at 3.5, so four squares with the opacity ramp over four and the last at half "
-     "of its; Fan's offset -0.5, half a step back.", frame=6, drawn=drawn(6))
+case(2, "Frame 6: Row's copies at 3.5, so four squares with the opacity ramp in steps of 1 / 3.5 of the way "
+     "(D-778) and the last at half of its; Fan's offset -0.5, half a step back.", frame=6, drawn=drawn(6))
 case(3, "Frame 12: Row's copies 3; Fan's offset 0, its first bar where the bar is drawn.", frame=12, drawn=drawn(12))
 case(4, "Frame 18: Row's copies 2.5; Fan's offset 0.5, every bar half a step on.", frame=18, drawn=drawn(18))
 case(5, "Saved again: each group's repeater as read, `blend_mode` included.", saved={"groups": GROUPS})
@@ -243,10 +247,12 @@ refused(26, "An expression on a repeater's number: keys only.", "refused_express
 def check():
     a = CASES["FX-SHPR-001"]["drawn"]
     assert len(a) == 4 * 3 + 1 + 6, len(a)
-    # Below: Row's last copy first, at x = 60 + 3 x 70, opacity 0.25; its own Pips over it.
-    assert a[0]["shape"] == "Dot" and a[0]["copies"] == {"Row": 3} and a[0]["fill_opacity"] == 0.25, a[0]
+    # Below: Row's last copy first, at x = 60 + 3 x 70, opacity 1 - 0.75 x 3 / 4 (D-778); its own
+    # Pips over it.
+    assert a[0]["shape"] == "Dot" and a[0]["copies"] == {"Row": 3} and a[0]["fill_opacity"] == 0.4375, a[0]
     assert a[0]["points"][0]["point"] == [60 + 210 + 15, 150 - 15], a[0]["points"][0]
-    assert [d["copies"].get("Stack") for d in a[1:3]] == [0, 1] and a[1]["fill_opacity"] == 0.25 * 0.5
+    assert [d["copies"].get("Stack") for d in a[1:3]] == [0, 1] and a[1]["fill_opacity"] == 0.4375 * 0.5
+    assert a[2]["fill_opacity"] == 0.4375 * 0.75, a[2]
     assert a[2]["points"][2]["point"] == [270, 150 + 22 + 20], a[2]["points"][2]
     # The first square is drawn last of Row's, on top, opacity 1; then Plain; then Fan's.
     assert a[9]["copies"] == {"Row": 0} and a[9]["fill_opacity"] == 1 and a[12]["shape"] == "Plain"
@@ -267,12 +273,18 @@ def check():
     back = [u - v for u, v in zip(a[13]["points"][0]["point"], [300, 150])]
     there = apply(step(values(GROUPS[1]["repeater"], 0), 1), *back)
     assert abs(there[0]) < 1e-9 and abs(there[1] + 5) < 1e-9, there
-    # Frame 6: Row's copies 3.5, four squares, drawn last first: 0.25 x 0.5, 0.5, 0.75, 1.
+    # D-778. Frame 6: Row's copies 3.5, four squares, drawn last first, 1 - 0.75 i / 3.5, the
+    # last at half: (1 - 2.25 / 3.5) x 0.5, 1 - 1.5 / 3.5, 1 - 0.75 / 3.5, 1.
     b = [d["fill_opacity"] for d in CASES["FX-SHPR-002"]["drawn"] if d["shape"] == "Dot"]
-    assert b == [0.125, 0.5, 0.75, 1], b
-    # Frame 18: copies 2.5, three squares: 0.25 x 0.5, 0.625, 1.
+    want = [(1 - 2.25 / 3.5) * 0.5, 1 - 1.5 / 3.5, 1 - 0.75 / 3.5, 1]
+    assert all(abs(x - y) < 1e-15 for x, y in zip(b, want)) and len(b) == 4, b
+    # Frame 18: copies 2.5, three squares: (1 - 1.5 / 2.5) x 0.5, 1 - 0.75 / 2.5, 1.
     d = [x["fill_opacity"] for x in CASES["FX-SHPR-004"]["drawn"] if x["shape"] == "Dot"]
-    assert d == [0.125, 0.625, 1], d
+    want = [0.2, 0.7, 1]
+    assert all(abs(x - y) < 1e-15 for x, y in zip(d, want)) and len(d) == 3, d
+    # Frame 12: copies 3 exactly, the ramp in thirds: 0.5, 0.75, 1, never reaching 0.25.
+    e = [x["fill_opacity"] for x in CASES["FX-SHPR-003"]["drawn"] if x["shape"] == "Dot"]
+    assert all(abs(x - y) < 1e-15 for x, y in zip(e, [0.5, 0.75, 1])) and len(e) == 3, e
 
 
 def table():
