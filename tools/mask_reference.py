@@ -224,7 +224,7 @@ def crosses(a, b, c, d):
 def mask_field(mask, points):
     """One mask's own coverage over the frame: expansion, then feather, then invert, then opacity."""
     outline = flatten(points)
-    sigma = mask.get("feather", 0.0) / 2
+    sigma = 0.375 * mask.get("feather", 0.0)   # D-775: After Effects' mask edge (feather / 2 before)
     margin = ceil(3 * sigma) if sigma else 0
     w, h = W + 2 * margin, H + 2 * margin
     field = [pixel_coverage(outline, x - margin, y - margin, mask.get("expansion", 0.0))

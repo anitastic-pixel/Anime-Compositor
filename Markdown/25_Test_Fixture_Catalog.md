@@ -1667,7 +1667,7 @@ FX-MSK-013: Shrunk a quarter of a pixel: the same rectangle the other way.
 | 0, 0 | 0 0 0 0 | 0.125 0 0 0.125 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.125 0 0 0.125 | 0 0 0 0 |
 | 0, 1 | 0 0 0 0 | 0.0269825625 0.0269825625 0.0269825625 0.125 | 0.10793025 0.10793025 0.10793025 0.5 | 0.10793025 0.10793025 0.10793025 0.5 | 0.0269825625 0.0269825625 0.0269825625 0.125 | 0 0 0 0 |
 
-FX-MSK-014: Feathered two pixels: the hard edge at column 3 becomes a soft band.
+FX-MSK-014: Feathered two pixels: the hard edge at column 3 becomes a soft band (sigma 0.75 since D-775, 1 before).
 
 | frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -196441,9 +196441,9 @@ FX-MIX8-007 (`fx_mix8_007.json`): 8 bpc. A black Drop Shadow at 50%, softness 0,
 
 FX-MIX8-008 (`fx_mix8_008.json`): FX-MIX8-007 in Display, unchanged: column 3 is 188 188 188.
 
-FX-MIX8-009 (`fx_mix8_009.json`): 8 bpc. A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's mask). Columns 0 to 5, both rows: 108 92 176, 123 86 168, 108 92 176, 220 136 58, 228 150 42, 229 153 39. Where the mask covers fully or not at all it equals FX-MIX8-010.
+FX-MIX8-009 (`fx_mix8_009.json`): 8 bpc. A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's mask). Columns 0 to 5, both rows: 124 85 167, 144 78 158, 124 85 167, 221 137 56, 229 152 39, 229 153 38 (D-775's sigma 0.75; 108 92 176, 123 86 168, 108 92 176, 220 136 58, 228 150 42, 229 153 39 before). Where the mask covers fully or not at all it equals FX-MIX8-010.
 
-FX-MIX8-010 (`fx_mix8_010.json`): FX-MIX8-009 in Display, unchanged: 129 96 179, 141 90 172, 129 96 179, 221 141 73, 228 151 47, 229 153 39.
+FX-MIX8-010 (`fx_mix8_010.json`): FX-MIX8-009 in Display, unchanged by D-763: 142 90 171, 157 82 161, 142 90 171, 222 142 71, 229 152 41, 229 153 38 (D-775's sigma 0.75; 129 96 179, 141 90 172, 129 96 179, 221 141 73, 228 151 47, 229 153 39 before).
 
 FX-MIX8-011 (`fx_mix8_011.json`): 8 bpc. Mosaic in blocks of 2 by 2 over stripes of 250 60 10 and 0 120 200 (`media/stripes.png`): every block is 125 90 105, the mean of the two display values, a whole 255th.
 
@@ -218931,7 +218931,7 @@ FX-ENERGYX-020 (`fx_energyx_020.json`): Alpha Mode masks, Invert Masks on: every
 
 FX-ENERGYX-021 (`fx_energyx_021.json`): Alpha Mode off with the small box: nothing cut, the frame without it. Frames 0.
 
-FX-ENERGYX-022 (`fx_energyx_022.json`): Alpha Mode masks, the small box feathered 2: a soft cut. Frames 0.
+FX-ENERGYX-022 (`fx_energyx_022.json`): Alpha Mode masks, the small box feathered 2: a soft cut (sigma 0.75 since D-775, 1 before). Frames 0.
 
 FX-ENERGYX-023 (`fx_energyx_023.json`): Two masks, the left six columns in mode Add and the right five in mode None: both cut alike, the mode not read; the Add mask also cuts the drawing, as a mask always does, and the light is added over it. Frames 0.
 
