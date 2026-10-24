@@ -6,7 +6,7 @@ D-356, P0-22: effects that draw along paths, proved with Path Stroke, after Afte
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-STROKE-001 frame 0: Mask 1, a box from (2, 2) to (13, 7) of mode None, stroked with the defaults but Brush Size 3: a white line 3 pixels wide all round the box, over the night sky and the empty half, Hardness 75, Spacing 15, Start 0, End 100, On Original Image. | largest difference 2.7e-8 | yes |
+| FX-STROKE-001 frame 0: Mask 1, a box from (2, 2) to (13, 7) of mode None, stroked with the defaults but Brush Size 1.5: a white line 3 pixels wide all round the box (D-773: Brush Size is the radius; 3 before), over the night sky and the empty half, Hardness 75, Spacing 15, Start 0, End 100, On Original Image. | largest difference 2.7e-8 | yes |
 | FX-STROKE-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-STROKE-002 frame 0: End 50: from the top-left corner along the top and down the right side, half the box's 32 pixels. | largest difference 2.7e-8 | yes |
 | FX-STROKE-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -24,7 +24,7 @@ D-356, P0-22: effects that draw along paths, proved with Path Stroke, after Afte
 | FX-STROKE-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-STROKE-009 frame 0: Hardness 100: hard, smoothed over one pixel. | largest difference 2.7e-8 | yes |
 | FX-STROKE-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-STROKE-010 frame 0: Brush Size 6. | largest difference 2.9e-8 | yes |
+| FX-STROKE-010 frame 0: Brush Size 3: a brush 6 pixels wide (D-773; 6 before). | largest difference 2.9e-8 | yes |
 | FX-STROKE-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-STROKE-011 frame 0: Opacity 50: half covered at most. | largest difference 2.6e-8 | yes |
 | FX-STROKE-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -174,7 +174,7 @@ D-356, P0-22: effects that draw along paths, proved with Path Stroke, after Afte
 | fx_stroke_044.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_stroke_045.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_stroke_046.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
-| the paths compose finds are not saved | {"all_masks":"off","brush_hardness":75,"brush_size":3,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
+| the paths compose finds are not saved | {"all_masks":"off","brush_hardness":75,"brush_size":1.5,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
 | fx_stroke_042.json is refused in a sentence | Path Stroke's colour is written #rrggbb, and this is "#12345". | yes |
 | fx_stroke_043.json is refused in a sentence | Path Stroke's paint style is "on_original", "on_transparent" or "reveal", and this is "paint". | yes |
 | fx_stroke_044.json is refused in a sentence | Path Stroke's all masks is "off" or "on", and this is "yes". | yes |
@@ -241,34 +241,34 @@ D-356, P0-22: effects that draw along paths, proved with Path Stroke, after Afte
 | fx_stroke_032.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
 | fx_stroke_033.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
 | fx_stroke_034.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
-| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 21022 pixels changed | yes |
-| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 0, Full | largest difference 1 of 255, 3781 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 100, Full | largest difference 1 of 255, 1399 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 34980 pixels changed | yes |
+| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 0, Full | largest difference 1 of 255, 3782 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 100, Full | largest difference 1 of 255, 1373 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 239, Full | largest difference 1 of 255, 1772 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 0, Draft | largest difference 1 of 255, 129 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 100, Draft | largest difference 1 of 255, 31 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 239, Draft | largest difference 1 of 255, 47 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 230543 pixels changed | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 0, Full | largest difference 1 of 255, 3612 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 100, Full | largest difference 1 of 255, 1182 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 239, Full | largest difference 1 of 255, 1604 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 0, Draft | largest difference 1 of 255, 127 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 100, Draft | largest difference 1 of 255, 34 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 239, Draft | largest difference 1 of 255, 52 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 100, Draft | largest difference 1 of 255, 35 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke as added (mask 1, white, Brush Size 2) on three layers, frame 239, Draft | largest difference 1 of 255, 48 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 357674 pixels changed | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 0, Full | largest difference 1 of 255, 3459 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 100, Full | largest difference 1 of 255, 1027 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 239, Full | largest difference 1 of 255, 1429 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 0, Draft | largest difference 1 of 255, 124 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 100, Draft | largest difference 1 of 255, 27 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Stroke Sequentially, End 70, orange, Brush Size 24, Hardness 30, Spacing 0 on three layers, frame 239, Draft | largest difference 1 of 255, 44 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
-| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 0, Full | largest difference 1 of 255, 90 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 100, Full | largest difference 1 of 255, 97 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 239, Full | largest difference 1 of 255, 124 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 0, Draft | largest difference 1 of 255, 3 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 100, Draft | largest difference 1 of 255, 2 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 239, Draft | largest difference 1 of 255, 4 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2070255 pixels changed | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 0, Full | largest difference 1 of 255, 242 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 100, Full | largest difference 1 of 255, 429 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 239, Full | largest difference 1 of 255, 290 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 0, Draft | largest difference 1 of 255, 46 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 100, Draft | largest difference 1 of 255, 47 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 239, Draft | largest difference 1 of 255, 43 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 0, Full | largest difference 1 of 255, 64 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 100, Full | largest difference 1 of 255, 82 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 239, Full | largest difference 1 of 255, 96 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 0, Draft | largest difference 1 of 255, 8 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 100, Draft | largest difference 1 of 255, 8 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke mask 2, Start 20, End 90, Brush Size 40, Spacing 100, On Transparent on three layers, frame 239, Draft | largest difference 1 of 255, 8 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2068964 pixels changed | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 0, Full | largest difference 1 of 255, 432 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 100, Full | largest difference 1 of 255, 669 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 239, Full | largest difference 1 of 255, 466 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 0, Draft | largest difference 1 of 255, 87 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 100, Draft | largest difference 1 of 255, 71 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Path Stroke All Masks, Brush Size 60, Hardness 0, Reveal Original Image on three layers, frame 239, Draft | largest difference 1 of 255, 99 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: a street with a circle mask, in `verification/D-356 pictures/`
 
@@ -276,8 +276,8 @@ D-356, P0-22: effects that draw along paths, proved with Path Stroke, after Afte
 | --- | --- | --- |
 | write_on_strip.png (frames 0, 6, 12, 18 and 24, each also alone as write_on_fNN.png), End keyed from 0 at frame 0 to 100 at frame 24: the line draws itself round the circle clockwise from the top; nothing changes off the circle | pixels changed per frame [0, 1435, 2819, 4210, 5541] | yes |
 | travel_strip.png (frames 0, 6, 12, 18 and 24, each also alone as travel_fNN.png), Start keyed from 0 to 75 and End from 25 to 100: a quarter of the circle chases round it; nothing changes off the circle | pixels changed per frame [1435, 1438, 1447, 1441, 1435] | yes |
-| beads.png, Spacing 100, Hardness 0, Brush Size 16: soft round dabs a brush apart, a string of beads | [], 8369 pixels changed, 0 off the circle | yes |
-| reveal.png, Reveal Original Image, Brush Size 30: the street shows only along the circle | [], 119437 pixels changed, 109500 off the circle | yes |
+| beads.png, Spacing 100, Hardness 0, Brush Size 8 (a 16-pixel brush since D-773): soft round dabs a brush apart, a string of beads | [], 8369 pixels changed, 0 off the circle | yes |
+| reveal.png, Reveal Original Image, Brush Size 15 (a 30-pixel brush since D-773): the street shows only along the circle | [], 119437 pixels changed, 109500 off the circle | yes |
 
 ## Result
 

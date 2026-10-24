@@ -6,7 +6,7 @@ D-373, P0-22's third part: Path Stroke's Path From Text Outlines draws along a t
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-STROKE-062 frame 0: "Yes", All Masks on: every letter's outline drawn in white, Brush Size 2, the e's and its eye's both. | largest difference 3.0e-8 | yes |
+| FX-STROKE-062 frame 0: "Yes", All Masks on: every letter's outline drawn in white, Brush Size 1 (2 before D-773), the e's and its eye's both. | largest difference 3.0e-8 | yes |
 | FX-STROKE-062: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-STROKE-063 frame 0: "Yes", Path 2: the e's eye alone. The Y has one outline and the e two, and the font stores the e's eye before its outer edge. | largest difference 2.9e-8 | yes |
 | FX-STROKE-063: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -50,7 +50,7 @@ D-373, P0-22's third part: Path Stroke's Path From Text Outlines draws along a t
 | fx_stroke_067.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_stroke_068.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_stroke_069.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
-| Path From Text Outlines is written "text" | {"all_masks":"on","brush_hardness":75,"brush_size":2,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_transparent","source":"text","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
+| Path From Text Outlines is written "text" | {"all_masks":"on","brush_hardness":75,"brush_size":1,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_transparent","source":"text","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
 | End keyed from 0 to 100 is saved with its keys | {"base":0,"keyframes":[{"frame":0,"interp":"linear","value":0},{"frame":4,"interp":"linear","value":100}]} | yes |
 
 ## Commands
@@ -87,12 +87,12 @@ D-373, P0-22's third part: Path Stroke's Path From Text Outlines draws along a t
 | the town under "Write", Path Stroke along its outlines written on (End keyed 0 to 100), frame 0, Draft | largest difference 1 of 255, 806 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
 | the town under "Write", Path Stroke along its outlines written on (End keyed 0 to 100), frame 12, Draft | largest difference 1 of 255, 781 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
 | the town under "Write", Path Stroke along its outlines written on (End keyed 0 to 100), frame 24, Draft | largest difference 1 of 255, 773 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under "Write", Path Stroke along its outlines Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image, frame 0, Full | largest difference 1 of 255, 322 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under "Write", Path Stroke along its outlines Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image, frame 12, Full | largest difference 1 of 255, 322 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under "Write", Path Stroke along its outlines Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image, frame 24, Full | largest difference 1 of 255, 322 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under "Write", Path Stroke along its outlines Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image, frame 0, Draft | largest difference 1 of 255, 824 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under "Write", Path Stroke along its outlines Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image, frame 12, Draft | largest difference 1 of 255, 824 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under "Write", Path Stroke along its outlines Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image, frame 24, Draft | largest difference 1 of 255, 824 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under "Write", Path Stroke along its outlines Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image, frame 0, Full | largest difference 1 of 255, 322 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under "Write", Path Stroke along its outlines Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image, frame 12, Full | largest difference 1 of 255, 322 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under "Write", Path Stroke along its outlines Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image, frame 24, Full | largest difference 1 of 255, 322 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under "Write", Path Stroke along its outlines Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image, frame 0, Draft | largest difference 1 of 255, 824 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under "Write", Path Stroke along its outlines Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image, frame 12, Draft | largest difference 1 of 255, 824 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under "Write", Path Stroke along its outlines Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image, frame 24, Draft | largest difference 1 of 255, 824 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
 
 ## Pictures: the town under a text layer, in `verification/D-373 pictures/`
 

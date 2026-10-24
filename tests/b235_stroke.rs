@@ -465,8 +465,8 @@ fn b235_stroke() {
             "brush_hardness": hardness, "opacity": 100, "start": start, "end": end, "spacing": spacing, "paint_style": style})
     };
     for (name, what, p) in [
-        ("write_on", "End keyed from 0 at frame 0 to 100 at frame 24: the line draws itself round the circle clockwise from the top", stroke(json!(0), keyed(0.0, 100.0), 8.0, 60.0, 15.0, "on_original")),
-        ("travel", "Start keyed from 0 to 75 and End from 25 to 100: a quarter of the circle chases round it", stroke(keyed(0.0, 75.0), keyed(25.0, 100.0), 8.0, 60.0, 15.0, "on_original")),
+        ("write_on", "End keyed from 0 at frame 0 to 100 at frame 24: the line draws itself round the circle clockwise from the top", stroke(json!(0), keyed(0.0, 100.0), 4.0, 60.0, 15.0, "on_original")),
+        ("travel", "Start keyed from 0 to 75 and End from 25 to 100: a quarter of the circle chases round it", stroke(keyed(0.0, 75.0), keyed(25.0, 100.0), 4.0, 60.0, 15.0, "on_original")),
     ] {
         let mut frames = Vec::new();
         let mut counts = Vec::new();
@@ -489,8 +489,8 @@ fn b235_stroke() {
         );
     }
     for (name, what, p, reach) in [
-        ("beads", "Spacing 100, Hardness 0, Brush Size 16: soft round dabs a brush apart, a string of beads", stroke(json!(0), json!(100), 16.0, 0.0, 100.0, "on_original"), 9.0),
-        ("reveal", "Reveal Original Image, Brush Size 30: the street shows only along the circle", stroke(json!(0), json!(100), 30.0, 50.0, 15.0, "reveal"), 16.0),
+        ("beads", "Spacing 100, Hardness 0, Brush Size 8 (a 16-pixel brush since D-773): soft round dabs a brush apart, a string of beads", stroke(json!(0), json!(100), 8.0, 0.0, 100.0, "on_original"), 9.0),
+        ("reveal", "Reveal Original Image, Brush Size 15 (a 30-pixel brush since D-773): the street shows only along the circle", stroke(json!(0), json!(100), 15.0, 50.0, 15.0, "reveal"), 16.0),
     ] {
         let (bytes, said) = picture(&dir, &p, 0);
         png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();

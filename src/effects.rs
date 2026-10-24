@@ -20646,10 +20646,11 @@ pub(crate) fn apply_stack_at(
                             [*start, *end, *spacing, *brush_size],
                             sequential,
                         );
+                        // D-773: Brush Size is the brush's radius; the brush drawn is twice as wide.
                         crate::along::path_stroke(
                             source,
                             &runs,
-                            [*brush_size, *brush_hardness, *opacity],
+                            [2.0 * *brush_size, *brush_hardness, *opacity],
                             encoded(color).map(crate::grade::to_linear),
                             paint_style,
                         )

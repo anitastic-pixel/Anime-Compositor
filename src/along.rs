@@ -76,7 +76,7 @@ pub(crate) fn runs(
 }
 
 /// Path Stroke's runs: `paths` trimmed to `start` and `end` with a dab every `spacing` per cent
-/// of the brush `size` (0 for all along), measured where the paths are and moved by `origin`,
+/// of the brush's width, twice its `size` since D-773 (0 for all along), measured where the paths are and moved by `origin`,
 /// the drawing's corner in a buffer grown by an effect above. The processor and the card share it.
 pub(crate) fn stroke_runs(
     paths: &[(Vec<(f64, f64)>, bool)],
@@ -84,7 +84,7 @@ pub(crate) fn stroke_runs(
     [start, end, spacing, size]: [f64; 4],
     sequential: bool,
 ) -> Vec<Run> {
-    let mut out = runs(paths, start, end, spacing / 100.0 * size, sequential);
+    let mut out = runs(paths, start, end, spacing / 100.0 * 2.0 * size, sequential);
     for run in &mut out {
         run[0] += ox as f64;
         run[1] += oy as f64;

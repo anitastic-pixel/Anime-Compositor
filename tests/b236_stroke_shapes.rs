@@ -373,10 +373,10 @@ fn b236_stroke_shapes() {
     let points = star(240.0, 135.0, 115.0, 48.0);
     let star_shape = json!([shape_of(&points, true)]);
     let write_on = stroke_of(
-        json!({"end": keyed(0.0, 100.0), "color": "#ff8800", "brush_size": 8, "brush_hardness": 60}),
+        json!({"end": keyed(0.0, 100.0), "color": "#ff8800", "brush_size": 4, "brush_hardness": 60}),
     );
     let open = |closed: bool| json!([shape_of(&ZIGZAG, closed)]);
-    let zig = stroke_of(json!({"color": "#ff8800", "brush_size": 8, "brush_hardness": 60}));
+    let zig = stroke_of(json!({"color": "#ff8800", "brush_size": 4, "brush_hardness": 60}));
     for (what, project) in [
         (
             "the star written on (End keyed 0 to 100)",
@@ -385,11 +385,11 @@ fn b236_stroke_shapes() {
         ("the open zigzag", picture_project(open(false), &zig)),
         ("the zigzag closed", picture_project(open(true), &zig)),
         (
-            "the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image",
+            "the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image",
             picture_project(
                 star_shape.clone(),
                 &stroke_of(
-                    json!({"brush_size": 30, "brush_hardness": 0, "spacing": 100, "paint_style": "reveal"}),
+                    json!({"brush_size": 15, "brush_hardness": 0, "spacing": 100, "paint_style": "reveal"}),
                 ),
             ),
         ),

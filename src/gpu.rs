@@ -22506,9 +22506,11 @@ impl Gpu {
                             }
                             _ => Vec::new(),
                         };
+                        // D-773: Brush Size is the brush's radius, so the pass draws a brush
+                        // twice as wide as it is set, as `along::path_stroke` is asked to.
                         (
                             runs,
-                            brush_size,
+                            2.0 * *brush_size,
                             brush_hardness,
                             opacity,
                             color,
@@ -22527,7 +22529,7 @@ impl Gpu {
                         } else {
                             Vec::new()
                         };
-                        (runs, stroke_width, &100.0, opacity, color, composite)
+                        (runs, *stroke_width, &100.0, opacity, color, composite)
                     }
                     _ => unreachable!("matched as a Path Stroke or a Scribble"),
                 };
@@ -22535,7 +22537,7 @@ impl Gpu {
                     .iter()
                     .position(|s| s == paint_style)
                     .unwrap_or(0) as f64;
-                let mut k = vec![*brush_size, *brush_hardness, *opacity];
+                let mut k = vec![brush_size, *brush_hardness, *opacity];
                 k.extend(linear(color));
                 k.extend([style, runs.len() as f64]);
                 let mut bands = vec![Vec::new(); h.div_ceil(16)];

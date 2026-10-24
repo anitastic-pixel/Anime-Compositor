@@ -8,7 +8,7 @@ D-357, P0-22's second part: Path Stroke's Path From Shape Paths draws along a sh
 | --- | --- | --- |
 | FX-STROKE-047 frame 0: A shape layer holding one shape, the box, with no fill and no stroke (it draws nothing), Path From Shapes: the white line all round the box over nothing, FX-STROKE-013's frame. | largest difference 1.3e-8 | yes |
 | FX-STROKE-047: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-STROKE-048 frame 0: A star of five points (ten corners) as a shape, Brush Size 1, End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet. | largest difference 2.9e-8 | yes |
+| FX-STROKE-048 frame 0: A star of five points (ten corners) as a shape, Brush Size 0.5 (1 before D-773), End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet. | largest difference 2.9e-8 | yes |
 | FX-STROKE-048: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-STROKE-049 frame 0: An open shape, a roof of two legs from (2, 7) up to (8, 2) and down to (14, 7): drawn open, nothing along the bottom. | largest difference 2.9e-8 | yes |
 | FX-STROKE-049: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -62,8 +62,8 @@ D-357, P0-22's second part: Path Stroke's Path From Shape Paths draws along a sh
 | fx_stroke_059.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_stroke_060.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_stroke_061.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
-| Path From Masks, the default, is not written: D-356's files save as they were | {"all_masks":"off","brush_hardness":75,"brush_size":3,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
-| Path From Shape Paths is written "shapes" | {"all_masks":"off","brush_hardness":75,"brush_size":3,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","source":"shapes","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
+| Path From Masks, the default, is not written: D-356's files save as they were | {"all_masks":"off","brush_hardness":75,"brush_size":1.5,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
+| Path From Shape Paths is written "shapes" | {"all_masks":"off","brush_hardness":75,"brush_size":1.5,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","source":"shapes","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
 | fx_stroke_061.json is refused in a sentence | Path Stroke's source is "masks", "shapes" or "text", and this is "layer". | yes |
 
 ## Commands
@@ -119,12 +119,12 @@ D-357, P0-22's second part: Path Stroke's Path From Shape Paths draws along a sh
 | the town under a shape layer, Path Stroke along the zigzag closed, frame 0, Draft | largest difference 1 of 255, 853 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
 | the town under a shape layer, Path Stroke along the zigzag closed, frame 12, Draft | largest difference 1 of 255, 853 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
 | the town under a shape layer, Path Stroke along the zigzag closed, frame 24, Draft | largest difference 1 of 255, 853 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under a shape layer, Path Stroke along the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image, frame 0, Full | largest difference 0 of 255, 0 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under a shape layer, Path Stroke along the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image, frame 12, Full | largest difference 0 of 255, 0 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under a shape layer, Path Stroke along the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image, frame 24, Full | largest difference 0 of 255, 0 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under a shape layer, Path Stroke along the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image, frame 0, Draft | largest difference 1 of 255, 904 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under a shape layer, Path Stroke along the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image, frame 12, Draft | largest difference 1 of 255, 904 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
-| the town under a shape layer, Path Stroke along the star, Brush Size 30, Hardness 0, Spacing 100, Reveal Original Image, frame 24, Draft | largest difference 1 of 255, 904 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under a shape layer, Path Stroke along the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image, frame 0, Full | largest difference 0 of 255, 0 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under a shape layer, Path Stroke along the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image, frame 12, Full | largest difference 0 of 255, 0 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under a shape layer, Path Stroke along the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image, frame 24, Full | largest difference 0 of 255, 0 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under a shape layer, Path Stroke along the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image, frame 0, Draft | largest difference 1 of 255, 904 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under a shape layer, Path Stroke along the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image, frame 12, Draft | largest difference 1 of 255, 904 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
+| the town under a shape layer, Path Stroke along the star, Brush Size 15 (a 30-pixel brush since D-773), Hardness 0, Spacing 100, Reveal Original Image, frame 24, Draft | largest difference 1 of 255, 904 pixels differ; the stroke on the card 0 (expected 0); warnings CPU [] GPU [] | yes |
 
 ## Pictures: the town under a shape layer, in `verification/D-357 pictures/`
 

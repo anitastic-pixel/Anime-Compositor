@@ -484,10 +484,10 @@ fn b252_stroke_text() {
     .unwrap();
     let write_on = stroke_of(
         json!({"end": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 24, "value": 100, "interp": "linear"}]},
-        "color": "#ff8800", "brush_size": 6, "brush_hardness": 60}),
+        "color": "#ff8800", "brush_size": 3, "brush_hardness": 60}),
     );
     let reveal = stroke_of(
-        json!({"brush_size": 24, "brush_hardness": 0, "spacing": 0, "paint_style": "reveal", "stroke_sequentially": "off"}),
+        json!({"brush_size": 12, "brush_hardness": 0, "spacing": 0, "paint_style": "reveal", "stroke_sequentially": "off"}),
     );
     for (what, project) in [
         (
@@ -495,7 +495,7 @@ fn b252_stroke_text() {
             picture_project(Some(&write_on)),
         ),
         (
-            "Brush Size 24, Hardness 0, Spacing 0, Reveal Original Image",
+            "Brush Size 12 (a 24-pixel brush since D-773), Hardness 0, Spacing 0, Reveal Original Image",
             picture_project(Some(&reveal)),
         ),
     ] {
