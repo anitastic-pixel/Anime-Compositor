@@ -3270,6 +3270,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::PosterizeTime { frame_rate } => {
             params.insert("frame_rate".into(), num(*frame_rate));
         }
+        // D-766: an Expression Control's one setting.
+        Effect::SliderControl { slider } => {
+            params.insert("slider".into(), num(*slider));
+        }
+        Effect::CheckboxControl { checkbox } => {
+            params.insert("checkbox".into(), num(*checkbox));
+        }
+        Effect::AngleControl { angle } => {
+            params.insert("angle".into(), num(*angle));
+        }
+        Effect::PointControl { point } => {
+            params.insert("point".into(), J::Array(point.iter().map(|v| num(*v)).collect()));
+        }
+        Effect::ColorControl { color } => {
+            params.insert("color".into(), J::Array(color.iter().map(|v| num(*v)).collect()));
+        }
+        Effect::LayerControl { layer } => {
+            params.insert("layer".into(), J::from(layer.as_str()));
+        }
         Effect::ChangeToColor {
             from,
             to,
@@ -8690,6 +8709,12 @@ fn parse_effect(
         crate::effects::CARD_DANCE,
         crate::effects::SHATTER,
         crate::effects::POSTERIZE_TIME,
+        crate::effects::SLIDER_CONTROL,
+        crate::effects::CHECKBOX_CONTROL,
+        crate::effects::ANGLE_CONTROL,
+        crate::effects::POINT_CONTROL,
+        crate::effects::COLOR_CONTROL,
+        crate::effects::LAYER_CONTROL,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
         crate::effects::LIGHT_SWEEP,
@@ -10084,6 +10109,29 @@ fn parse_effect(
         }),
         crate::effects::POSTERIZE_TIME => Some(crate::effects::Effect::PosterizeTime {
             frame_rate: effect_number(params, "frame_rate", at)?,
+        }),
+        // D-766: After Effects' Expression Controls, each at After Effects' default when the
+        // file leaves its setting out.
+        crate::effects::SLIDER_CONTROL => Some(crate::effects::Effect::SliderControl {
+            slider: effect_number_or(params, "slider", at, 0.0)?,
+        }),
+        crate::effects::CHECKBOX_CONTROL => Some(crate::effects::Effect::CheckboxControl {
+            checkbox: effect_number_or(params, "checkbox", at, 0.0)?,
+        }),
+        crate::effects::ANGLE_CONTROL => Some(crate::effects::Effect::AngleControl {
+            angle: effect_number_or(params, "angle", at, 0.0)?,
+        }),
+        crate::effects::POINT_CONTROL => Some(crate::effects::Effect::PointControl {
+            point: effect_pair_or(params, "point", at, [0.0, 0.0])?,
+        }),
+        crate::effects::COLOR_CONTROL => Some(crate::effects::Effect::ColorControl {
+            color: match params.and_then(|p| p.get("color")) {
+                Some(_) => effect_array(params, "color", "three numbers, red, green and blue", at)?,
+                None => [1.0, 0.0, 0.0],
+            },
+        }),
+        crate::effects::LAYER_CONTROL => Some(crate::effects::Effect::LayerControl {
+            layer: effect_word_or(params, "layer", at, "")?,
         }),
         crate::effects::CHANGE_TO_COLOR => Some(crate::effects::Effect::ChangeToColor {
             from: effect_word(params, "from", at)?.to_ascii_lowercase(),

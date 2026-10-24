@@ -12949,6 +12949,12 @@ macro_rules! not_fx {
             | crate::effects::Effect::NoiseGate { .. }
             | crate::effects::Effect::PixelMotionBlur { .. }
             | crate::effects::Effect::PosterizeTime { .. }
+            | crate::effects::Effect::SliderControl { .. }
+            | crate::effects::Effect::CheckboxControl { .. }
+            | crate::effects::Effect::AngleControl { .. }
+            | crate::effects::Effect::PointControl { .. }
+            | crate::effects::Effect::ColorControl { .. }
+            | crate::effects::Effect::LayerControl { .. }
             | crate::effects::Effect::RadialBlur { .. }
             | crate::effects::Effect::ReduceInterlaceFlicker { .. }
             | crate::effects::Effect::RefineMatte { .. }

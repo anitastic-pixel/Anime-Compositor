@@ -10251,6 +10251,13 @@ const EFFECT_NAMES = {
   'core.shatter': 'Shatter',
   'core.time_difference': 'Time Difference',
   'core.posterize_time': 'Posterize Time',
+  // D-766: After Effects' Expression Controls, by After Effects' names.
+  'core.slider_control': 'Slider Control',
+  'core.checkbox_control': 'Checkbox Control',
+  'core.angle_control': 'Angle Control',
+  'core.point_control': 'Point Control',
+  'core.color_control': 'Color Control',
+  'core.layer_control': 'Layer Control',
   'core.change_to_color': 'Change to Color',
   'core.corner_pin': 'Corner Pin',
   'core.light_sweep': 'Light Sweep',
@@ -10455,6 +10462,8 @@ const EFFECT_GROUPS = [
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.force_motion_blur', 'core.pixel_motion_blur', 'core.timewarp', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
   ['Text', ['core.text_animator', 'core.numbers', 'core.timecode', 'core.basic_text']],
+  // D-766: settings for expressions to read, which draw nothing.
+  ['Expression Controls', ['core.slider_control', 'core.checkbox_control', 'core.angle_control', 'core.point_control', 'core.color_control', 'core.layer_control']],
   // D-642: sound effects, which go on sound layers only.
   ['Audio', ['core.compressor', 'core.distortion', 'core.noise_gate']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.warp_blend', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve', 'core.card_wipe']],
@@ -10552,6 +10561,12 @@ const EFFECT_SEARCH = {
   'core.rolling_shutter_repair': 'rolling shutter repair fix jello wobble skew lean slant cmos phone dslr scan rate pan whip warp pixel motion',
   'core.force_motion_blur': 'cc force motion blur precomp nested composition shutter angle samples native subframe moments smooth movement cycore',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
+  'core.slider_control': 'slider control expression controls number value rig drive wiggle amount',
+  'core.checkbox_control': 'checkbox control expression controls switch toggle on off if else rig',
+  'core.angle_control': 'angle control expression controls rotation degrees dial rig',
+  'core.point_control': 'point control expression controls position xy coordinates rig',
+  'core.color_control': 'color colour control expression controls rgb swatch rig',
+  'core.layer_control': 'layer control expression controls pick target reference rig',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
   'core.corner_pin': 'corner pin perspective four corners screen sign billboard poster distort pin skew keystone',
   'core.light_sweep': 'cc light sweep shine glint gleam sheen reflection flash sword metal logo glass highlight',
@@ -10844,6 +10859,12 @@ const EFFECT_ABOUT = {
   'core.rolling_shutter_repair': 'Takes out the lean and wobble a phone or DSLR camera puts in moving footage, where each row is taken a little later than the one above. The motion toward the frames just before and after is found from the pictures themselves, as the whole frame’s move (Warp, as added) or each part’s own (Pixel Motion), and each row is moved back to the frame’s middle moment by Rolling Shutter Rate. A held drawing or the layer’s first or last frame takes the motion on its other side.',
   'core.force_motion_blur': 'Motion blur for what moves inside a composition layer: the composition is drawn at several moments inside the shutter, every key inside read at each moment, and averaged. It uses the composition’s own shutter angle when its motion blur and the layer’s switch are on, or its own Shutter Angle with Override Native Shutter On; the shutter opens on the frame. Drawings, text, shapes and expressions inside hold at the frame. Native Motion Blur Off draws the compositions inside without their own motion blur. Only a composition layer is blurred.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
+  'core.slider_control': 'An Expression Control: draws nothing, and holds one number for an expression to read as effect("Slider Control")("Slider"). A second one on the same layer is "Slider Control 2".',
+  'core.checkbox_control': 'An Expression Control: draws nothing, and holds one switch, 1 on and 0 off, for an expression to read as effect("Checkbox Control")("Checkbox"). A second one on the same layer is "Checkbox Control 2".',
+  'core.angle_control': 'An Expression Control: draws nothing, and holds one angle in degrees for an expression to read as effect("Angle Control")("Angle"). A second one on the same layer is "Angle Control 2".',
+  'core.point_control': 'An Expression Control: draws nothing, and holds one point, x and y, for an expression to read as effect("Point Control")("Point"). A second one on the same layer is "Point Control 2".',
+  'core.color_control': 'An Expression Control: draws nothing, and holds one colour, red, green and blue, for an expression to read as effect("Color Control")("Color"). A second one on the same layer is "Color Control 2".',
+  'core.layer_control': 'An Expression Control: draws nothing, and holds one layer of this composition for an expression to read as effect("Layer Control")("Layer"). A second one on the same layer is "Layer Control 2".',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
   'core.corner_pin': 'Pins the layer\'s four corners anywhere and stretches it between them in perspective.',
   'core.light_sweep': 'Lays a band of light across the drawing; key its centre and a shine runs across it.',
@@ -11854,6 +11875,13 @@ const EFFECT_PARAMS = {
   'core.rolling_shutter_repair': [['rolling_shutter_rate', 'Rolling Shutter Rate', 1, 1, 'per cent, 0 to 100, of a frame the camera takes to scan it top to bottom; 0 leaves the layer as it is'],
     ['pixel_motion_detail', 'Pixel Motion Detail', 1, 1, '0 to 100, used with Method Pixel Motion: how fine the motion found is']],
   'core.posterize_time': [['frame_rate', 'Frame Rate', 1, 1, 'frames a second, 0.1 to 99; 12 in a composition of 24 is on twos, 8 on threes']],
+  // D-766: After Effects' Expression Controls; the Layer Control's layer is in EFFECT_WORDS.
+  'core.slider_control': [['slider', 'Slider', 1, 0.1, 'any number, -1000000 to 1000000']],
+  'core.checkbox_control': [['checkbox', 'Checkbox', 1, 1, '1 on, 0 off']],
+  'core.angle_control': [['angle', 'Angle', 1, 1, 'degrees']],
+  'core.point_control': [['point', 'Point', 2, 1, 'pixels, x then y']],
+  'core.color_control': [['color', 'Color', 3, 0.01, 'red, green and blue, 0 to 1']],
+  'core.layer_control': [],
   // D-197.
   'core.change_to_color': [['hue_tolerance', 'Hue Tolerance', 1, 1, '0 to 100, how far round the colour wheel changes whole'],
     ['lightness_tolerance', 'Lightness Tolerance', 1, 1, '0 to 100, how much lighter or darker changes whole'],
@@ -12970,6 +12998,8 @@ const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['al
 const FRACTAL_TYPE_WORDS = [['basic', 'Basic'], ['turbulent', 'Turbulent Basic'], ['turbulent_smooth', 'Turbulent Smooth'], ['turbulent_sharp', 'Turbulent Sharp'], ['dynamic', 'Dynamic'], ['dynamic_progressive', 'Dynamic Progressive'], ['dynamic_twist', 'Dynamic Twist'], ['max', 'Max'], ['smeary', 'Smeary'], ['swirly', 'Swirly'], ['rocky', 'Rocky'], ['cloudy', 'Cloudy'], ['terrain', 'Terrain'], ['subscale', 'Subscale'], ['small_bumps', 'Small Bumps'], ['strings', 'Strings'], ['threads', 'Threads']];
 const NOISE_TYPE_WORDS = [['smooth', 'Smooth'], ['block', 'Block'], ['linear', 'Linear'], ['soft_linear', 'Soft Linear'], ['spline', 'Spline']];
 const EFFECT_WORDS = {
+  // D-766: the Layer Control's layer travels as control_layer.
+  'core.layer_control': { layers: [['layer', 'Layer', 'control_layer']] },
   // D-607: how far each edge's pull reaches.
   'core.mask_smear': { choices: [['elasticity', 'Elasticity', [['stiff', 'Stiff'], ['less_stiff', 'Less Stiff'], ['below_normal', 'Below Normal'], ['normal', 'Normal'], ['above_normal', 'Above Normal'], ['super_fluid', 'Super Fluid'], ['liquid', 'Liquid']]]] },
   // D-606: how far each edge's pull reaches.
@@ -14970,9 +15000,13 @@ function effectRow(layer, fx, at, of) {
   // and down the stack, the others making room as it passes, and the drop sends the one position
   // it landed at, so a drag is one entry to undo. The two arrows beside it do the same job a step
   // at a time.
+  // D-766: a second Expression Control of a kind is "Slider Control 2", as After Effects
+  // names it and as an expression reads it.
+  const twin = fx.type_id.endsWith('_control')
+    ? (layer.effects || []).slice(0, at).filter((e) => e.type_id === fx.type_id).length : 0;
   const name = Object.assign(document.createElement('span'), {
     className: fx.enabled ? 'name' : 'name off',
-    textContent: label,
+    textContent: twin ? label + ' ' + (twin + 1) : label,
   });
   head.title = 'Drag up or down to reorder. Click it, then Ctrl+C copies this effect. Right-click for more';
   // W-30: the card clicked is the one Ctrl+C copies, and its menu copies, pastes and saves.
@@ -15529,7 +15563,9 @@ function effectRow(layer, fx, at, of) {
   // how much of the effect is laid over what it was given, 0 to 100. Posterize Time holds the
   // layer in time and has no picture to mix, so it has none; nor has a text animator, which
   // moves the letters before there is a picture (D-350).
-  if (!['core.posterize_time', 'core.text_animator', 'core.noise_gate', 'core.compressor', 'core.distortion'].includes(fx.type_id)) {
+  // D-766: nor has an Expression Control, which draws nothing.
+  if (!['core.posterize_time', 'core.text_animator', 'core.noise_gate', 'core.compressor', 'core.distortion'].includes(fx.type_id)
+    && !fx.type_id.endsWith('_control')) {
     const prop = fxName(fx, 'mix');
     const dt = document.createElement('dt');
     dt.title = 'Mix, 0 to 100 per cent of the effect laid over what it was given; 0 is the layer as it came in';

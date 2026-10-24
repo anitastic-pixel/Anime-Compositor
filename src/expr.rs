@@ -44,8 +44,13 @@ const ROOTS: &[&str] = &[
     "random",
     "seedRandom",
     "posterizeTime",
+    "effect",
 ];
 const DECLARATIONS: &[&str] = &["var", "let", "const"];
+/// D-766: words of the language that are not values to start from.
+const KEYWORDS: &[&str] = &["if", "else", "true", "false"];
+/// D-766: the two-character operators, `===` and `!==` read as `==` and `!=`.
+const OPS2: &[&str] = &["==", "!=", "<=", ">=", "&&", "||"];
 const MATH: &[&str] = &[
     "sin", "cos", "tan", "abs", "floor", "ceil", "round", "sqrt", "pow", "min", "max",
 ];
@@ -97,6 +102,27 @@ fn type_error(message: impl Into<String>) -> ExprError {
     }
 }
 
+fn missing(message: impl Into<String>) -> ExprError {
+    ExprError {
+        id: DiagnosticId::ExpressionReferenceMissing,
+        message: message.into(),
+    }
+}
+
+/// D-766: a condition holds when its number is neither 0 nor NaN, as JavaScript has it.
+fn truthy(v: f64) -> bool {
+    v != 0.0 && !v.is_nan()
+}
+
+/// D-766: `effect(...)`'s argument as a sentence shows it.
+fn show_arg(v: &V) -> String {
+    match v {
+        V::Text(t) => format!("\"{t}\""),
+        V::Num(n) => n.to_string(),
+        _ => String::new(),
+    }
+}
+
 type R<T> = Result<T, ExprError>;
 
 /// A property's value at `frame` after its expression, in model units, or why the expression
@@ -106,6 +132,7 @@ pub fn evaluate(comp: &Composition, target: &Target, prop: Prop, frame: i32) -> 
         comp,
         steps: 0,
         stack: Vec::new(),
+        fx_stack: Vec::new(),
     };
     let v = run.finished(target, prop, frame)?;
     Ok(to_model(prop, &v))
@@ -351,6 +378,8 @@ enum Tok {
     Name(String),
     Str(String),
     Op(char),
+    /// D-766: one of [`OPS2`].
+    Op2(&'static str),
     End,
 }
 
@@ -360,6 +389,7 @@ fn show(t: &Tok) -> String {
         Tok::Num(n) => n.to_string(),
         Tok::Name(s) | Tok::Str(s) => s.clone(),
         Tok::Op(c) => c.to_string(),
+        Tok::Op2(s) => s.to_string(),
         Tok::End => "the end".into(),
     }
 }
@@ -418,7 +448,13 @@ fn tokens(text: &str) -> R<Vec<Tok>> {
                 }
                 _ => return Err(syntax("A quoted text is not closed")),
             }
-        } else if b"+-*/%()[],.;=".contains(&c) {
+        } else if b[i..].starts_with(b"===") || b[i..].starts_with(b"!==") {
+            out.push(Tok::Op2(if c == b'=' { "==" } else { "!=" }));
+            i += 3;
+        } else if let Some(op) = OPS2.iter().find(|op| b[i..].starts_with(op.as_bytes())) {
+            out.push(Tok::Op2(op));
+            i += 2;
+        } else if b"+-*/%()[],.;=<>!{}".contains(&c) {
             out.push(Tok::Op(c as char));
             i += 1;
         } else {
@@ -441,11 +477,18 @@ enum Node {
     Index(Box<Node>, Box<Node>),
     Get(Box<Node>, String),
     Call(Box<Node>, Vec<Node>),
+    /// D-766: `!`, a comparison, `&&` and `||`.
+    Not(Box<Node>),
+    Cmp(&'static str, Box<Node>, Box<Node>),
+    And(Box<Node>, Box<Node>),
+    Or(Box<Node>, Box<Node>),
 }
 
 enum Stmt {
     Let(String, Node),
     Do(Node),
+    /// D-766: `if (condition) then else otherwise`, `otherwise` empty when there is no else.
+    If(Node, Vec<Stmt>, Vec<Stmt>),
 }
 
 struct Reader {
@@ -464,8 +507,26 @@ impl Reader {
         *self.tok(self.at) == Tok::Op(c)
     }
 
-    fn at_break(&self) -> bool {
-        matches!(self.tok(self.at), Tok::Nl | Tok::End) || self.is_op(';')
+    fn is_op2(&self, s: &str) -> bool {
+        *self.tok(self.at) == Tok::Op2(match OPS2.iter().find(|o| **o == s) {
+            Some(o) => o,
+            None => return false,
+        })
+    }
+
+    /// Whether the statement just read is ended: by a line, a `;`, `closer`, or (D-766) by the
+    /// `}` that closed its block.
+    fn ended(&self, closer: &Tok) -> bool {
+        matches!(self.tok(self.at), Tok::Nl)
+            || self.is_op(';')
+            || self.tok(self.at) == closer
+            || (self.at > 0 && *self.tok(self.at - 1) == Tok::Op('}'))
+    }
+
+    fn skip_breaks(&mut self) {
+        while matches!(self.tok(self.at), Tok::Nl) || self.is_op(';') {
+            self.at += 1;
+        }
     }
 
     fn expect_op(&mut self, c: char) -> R<()> {
@@ -492,14 +553,12 @@ impl Reader {
     fn program(&mut self) -> R<Vec<Stmt>> {
         let mut stmts = Vec::new();
         loop {
-            while matches!(self.tok(self.at), Tok::Nl) || self.is_op(';') {
-                self.at += 1;
-            }
+            self.skip_breaks();
             if *self.tok(self.at) == Tok::End {
                 break;
             }
             stmts.push(self.statement()?);
-            if !self.at_break() {
+            if !self.ended(&Tok::End) {
                 return Err(syntax(format!(
                     "Expected the end of a line, found {}",
                     show(self.tok(self.at))
@@ -512,11 +571,76 @@ impl Reader {
         Ok(stmts)
     }
 
+    /// D-766: `{ statements }`, or one statement.
+    fn block(&mut self) -> R<Vec<Stmt>> {
+        while matches!(self.tok(self.at), Tok::Nl) {
+            self.at += 1;
+        }
+        if !self.is_op('{') {
+            return Ok(vec![self.statement()?]);
+        }
+        if self.depth == MAX_NESTING {
+            return Err(syntax(format!(
+                "An expression nests at most {MAX_NESTING} brackets and signs deep"
+            )));
+        }
+        self.depth += 1;
+        self.at += 1;
+        let mut stmts = Vec::new();
+        loop {
+            self.skip_breaks();
+            if self.is_op('}') {
+                self.at += 1;
+                self.depth -= 1;
+                return Ok(stmts);
+            }
+            if *self.tok(self.at) == Tok::End {
+                return Err(syntax("A \"{\" is not closed"));
+            }
+            stmts.push(self.statement()?);
+            if !self.ended(&Tok::Op('}')) {
+                return Err(syntax(format!(
+                    "Expected the end of a line, found {}",
+                    show(self.tok(self.at))
+                )));
+            }
+        }
+    }
+
+    /// D-766: `if (condition) block`, then `else block` if wanted, on the same line or a later
+    /// one.
+    fn if_statement(&mut self) -> R<Stmt> {
+        self.at += 1;
+        self.expect_op('(')?;
+        let cond = self.expr()?;
+        self.expect_op(')')?;
+        let then = self.block()?;
+        let back = self.at;
+        self.skip_breaks();
+        if *self.tok(self.at) == Tok::Name("else".into()) {
+            self.at += 1;
+            return Ok(Stmt::If(cond, then, self.block()?));
+        }
+        self.at = back;
+        Ok(Stmt::If(cond, then, Vec::new()))
+    }
+
     fn assigns(&self) -> bool {
         matches!(self.tok(self.at), Tok::Name(_)) && *self.tok(self.at + 1) == Tok::Op('=')
     }
 
     fn statement(&mut self) -> R<Stmt> {
+        if *self.tok(self.at) == Tok::Name("if".into()) {
+            if self.depth == MAX_NESTING {
+                return Err(syntax(format!(
+                    "An expression nests at most {MAX_NESTING} brackets and signs deep"
+                )));
+            }
+            self.depth += 1;
+            let s = self.if_statement();
+            self.depth -= 1;
+            return s;
+        }
         if matches!(self.tok(self.at), Tok::Name(n) if DECLARATIONS.contains(&n.as_str())) {
             self.at += 1;
             if !self.assigns() {
@@ -526,7 +650,10 @@ impl Reader {
         if self.assigns() {
             let name = self.name()?;
             self.expect_op('=')?;
-            if ROOTS.contains(&name.as_str()) || DECLARATIONS.contains(&name.as_str()) {
+            if ROOTS.contains(&name.as_str())
+                || DECLARATIONS.contains(&name.as_str())
+                || KEYWORDS.contains(&name.as_str())
+            {
                 return Err(syntax(format!(
                     "\"{name}\" is a word of the language and cannot be given a value"
                 )));
@@ -538,7 +665,51 @@ impl Reader {
         Ok(Stmt::Do(self.expr()?))
     }
 
+    // D-766: `||`, then `&&`, then `==` `!=`, then `<` `<=` `>` `>=`, each looser than the
+    // arithmetic.
     fn expr(&mut self) -> R<Node> {
+        let mut node = self.both()?;
+        while self.is_op2("||") {
+            self.at += 1;
+            node = Node::Or(Box::new(node), Box::new(self.both()?));
+        }
+        Ok(node)
+    }
+
+    fn both(&mut self) -> R<Node> {
+        let mut node = self.equality()?;
+        while self.is_op2("&&") {
+            self.at += 1;
+            node = Node::And(Box::new(node), Box::new(self.equality()?));
+        }
+        Ok(node)
+    }
+
+    fn equality(&mut self) -> R<Node> {
+        let mut node = self.relation()?;
+        while let Some(op) = ["==", "!="].into_iter().find(|o| self.is_op2(o)) {
+            self.at += 1;
+            node = Node::Cmp(op, Box::new(node), Box::new(self.relation()?));
+        }
+        Ok(node)
+    }
+
+    fn relation(&mut self) -> R<Node> {
+        let mut node = self.additive()?;
+        loop {
+            let op = match self.tok(self.at) {
+                Tok::Op('<') => "<",
+                Tok::Op('>') => ">",
+                Tok::Op2("<=") => "<=",
+                Tok::Op2(">=") => ">=",
+                _ => return Ok(node),
+            };
+            self.at += 1;
+            node = Node::Cmp(op, Box::new(node), Box::new(self.additive()?));
+        }
+    }
+
+    fn additive(&mut self) -> R<Node> {
         let mut node = self.term()?;
         while self.is_op('+') || self.is_op('-') {
             let op = if self.is_op('+') { '+' } else { '-' };
@@ -571,6 +742,10 @@ impl Reader {
     }
 
     fn signed(&mut self) -> R<Node> {
+        if self.is_op('!') {
+            self.at += 1;
+            return Ok(Node::Not(Box::new(self.unary()?)));
+        }
         if self.is_op('-') {
             self.at += 1;
             return Ok(Node::Neg(Box::new(self.unary()?)));
@@ -617,6 +792,9 @@ impl Reader {
         match tok {
             Tok::Num(n) => Ok(Node::Num(n)),
             Tok::Str(s) => Ok(Node::Str(s)),
+            Tok::Name(n) if n == "true" || n == "false" => {
+                Ok(Node::Num(if n == "true" { 1.0 } else { 0.0 }))
+            }
             Tok::Name(n) => {
                 if !ROOTS.contains(&n.as_str()) && !self.locals.contains(&n) {
                     return Err(syntax(format!("\"{n}\" is not a word this language knows")));
@@ -675,6 +853,12 @@ enum V {
     /// `prop.valueAtTime`, waiting for its argument.
     Method(Target, Prop, bool),
     Func(&'static str),
+    /// D-766: a layer's effects, which `effect(...)` picks from; one of them, by its place in
+    /// the stack; an Expression Control's setting; and its `valueAtTime`, waiting.
+    Effects(Id),
+    Fx(Id, usize),
+    Setting(Id, usize),
+    SettingMethod(Id, usize),
 }
 
 /// One top-level evaluation: its step budget and the properties being evaluated.
@@ -682,6 +866,8 @@ struct Run<'a> {
     comp: &'a Composition,
     steps: u32,
     stack: Vec<(Target, Prop, i32)>,
+    /// D-766: the effect settings being evaluated, by layer, instance and setting.
+    fx_stack: Vec<(Id, String, i32)>,
 }
 
 impl<'a> Run<'a> {
@@ -744,6 +930,66 @@ impl<'a> Run<'a> {
         self.stack.pop();
         out
     }
+
+    /// D-766: an Expression Control's setting at `frame`, after its own expression, held in
+    /// its range: a checkbox 1 or 0, a colour four numbers with alpha 1, a point two.
+    fn setting(&mut self, layer: &Id, index: usize, frame: i32) -> R<V> {
+        let comp = self.comp;
+        let inst = &comp.layer(layer).expect("picked from this layer").effects[index];
+        let (_, _, key) = inst.effect.control().expect("only a control's setting is read");
+        let live = inst
+            .tracks
+            .get(key)
+            .and_then(|t| t[0].live_expression().map(|e| (&t[0], e)));
+        let mut now = inst.at(frame);
+        if let Some((property, text)) = live {
+            let name = format!("{}/{key}", inst.instance_id.as_str());
+            let here = (layer.clone(), name.clone(), frame);
+            if self.fx_stack.contains(&here) {
+                return Err(ExprError {
+                    id: DiagnosticId::ExpressionCycle,
+                    message: format!("{key} depends on itself at frame {frame}"),
+                });
+            }
+            if self.stack.len() + self.fx_stack.len() >= MAX_DEPTH {
+                return Err(ExprError {
+                    id: DiagnosticId::ExpressionTimeout,
+                    message: format!("More than {MAX_DEPTH} expressions deep"),
+                });
+            }
+            self.fx_stack.push(here);
+            let mut scope = Scope {
+                run: self,
+                target: Target::Layer(layer.clone()),
+                prop: Prop::Rotation,
+                frame,
+                posterize: None,
+                user_seed: 0,
+                timeless: false,
+                wiggles: 0,
+                randoms: 0,
+                locals: HashMap::new(),
+                setting: Some(Setting {
+                    property,
+                    constant: inst.effect.get(key).map_or(0.0, |v| v[0]),
+                    name,
+                }),
+            };
+            let out = scope.outcome(text);
+            self.fx_stack.pop();
+            match out? {
+                V::Num(n) => now.set_held(key, n),
+                _ => unreachable!("a setting is one number, which the result check holds to"),
+            }
+        }
+        let v = now.get(key).unwrap_or_default();
+        Ok(match key {
+            "checkbox" => V::Num(if v[0] != 0.0 { 1.0 } else { 0.0 }),
+            "color" => V::List(v.into_iter().chain([1.0]).collect()),
+            "point" => V::List(v),
+            _ => V::Num(v[0]),
+        })
+    }
 }
 
 struct Scope<'r, 'a> {
@@ -788,10 +1034,13 @@ pub fn effect_at(
         let Some(text) = track[0].live_expression() else {
             continue;
         };
+        let setting_name = format!("{}/{name}", instance.instance_id.as_str());
         let mut run = Run {
             comp,
             steps: 0,
             stack: Vec::new(),
+            // D-766: a control's expression that reads its own setting is a cycle.
+            fx_stack: vec![(layer.clone(), setting_name.clone(), frame)],
         };
         let mut scope = Scope {
             run: &mut run,
@@ -808,7 +1057,7 @@ pub fn effect_at(
             setting: Some(Setting {
                 property: &track[0],
                 constant: instance.effect.get(name).map_or(0.0, |v| v[0]),
-                name: format!("{}/{name}", instance.instance_id.as_str()),
+                name: setting_name,
             }),
         };
         match scope.outcome(text) {
@@ -821,18 +1070,30 @@ pub fn effect_at(
 }
 
 impl Scope<'_, '_> {
-    fn outcome(&mut self, text: &str) -> R<V> {
+    /// The value of the last statement that gives one; D-766: an `if` gives its branch's.
+    fn statements(&mut self, stmts: &[Stmt]) -> R<V> {
         let mut result = V::Nothing;
-        for stmt in read(text)? {
+        for stmt in stmts {
             match stmt {
                 Stmt::Let(name, node) => {
-                    let v = self.eval(&node)?;
+                    let v = self.eval(node)?;
                     let v = self.number_or_list(v)?;
-                    self.locals.insert(name, v);
+                    self.locals.insert(name.clone(), v);
                 }
-                Stmt::Do(node) => result = self.eval(&node)?,
+                Stmt::Do(node) => result = self.eval(node)?,
+                Stmt::If(cond, then, otherwise) => {
+                    self.step()?;
+                    let v = self.eval(cond)?;
+                    let c = self.number(v, "An if's condition")?;
+                    result = self.statements(if truthy(c) { then } else { otherwise })?;
+                }
             }
         }
+        Ok(result)
+    }
+
+    fn outcome(&mut self, text: &str) -> R<V> {
+        let result = self.statements(&read(text)?)?;
         let result = self.plain(result)?;
         let dims = self.dims();
         let numbers = match &result {
@@ -965,6 +1226,7 @@ impl Scope<'_, '_> {
     fn plain(&mut self, v: V) -> R<V> {
         match v {
             V::Prop(t, p, own) => self.value_of(&t, p, own, self.frame),
+            V::Setting(l, i) => self.run.setting(&l, i, self.frame),
             v => Ok(v),
         }
     }
@@ -1011,14 +1273,19 @@ impl Scope<'_, '_> {
                         }
                         t => V::Layer(t.clone()),
                     },
+                    "effect" => match &self.target {
+                        Target::Camera => {
+                            return Err(syntax("The camera is not a layer, so it has no effects"))
+                        }
+                        Target::Layer(id) => V::Effects(id.clone()),
+                    },
                     "thisComp" => V::ThisComp,
                     "Math" => V::Math,
-                    other => V::Func(
-                        ROOTS
-                            .iter()
-                            .find(|r| **r == other)
-                            .expect("the reader lets only roots and locals through"),
-                    ),
+                    other => match ROOTS.iter().find(|r| **r == other) {
+                        Some(r) => V::Func(r),
+                        // D-766: a name given its value in a branch that was not taken.
+                        None => return Err(type_error(format!("\"{other}\" has no value here"))),
+                    },
                 })
             }
             Node::Array(items) => {
@@ -1065,6 +1332,46 @@ impl Scope<'_, '_> {
             Node::Call(func, args) => {
                 let func = self.eval(func)?;
                 self.call(func, args)
+            }
+            Node::Not(inner) => {
+                let v = self.eval(inner)?;
+                let n = self.number(v, "What \"!\" turns")?;
+                Ok(V::Num(if truthy(n) { 0.0 } else { 1.0 }))
+            }
+            Node::Cmp(op, a, b) => {
+                let a = self.eval(a)?;
+                let a = self.plain(a)?;
+                let b = self.eval(b)?;
+                let b = self.plain(b)?;
+                let (V::Num(a), V::Num(b)) = (a, b) else {
+                    return Err(type_error(format!("\"{op}\" compares two numbers")));
+                };
+                let holds = match *op {
+                    "==" => a == b,
+                    "!=" => a != b,
+                    "<" => a < b,
+                    "<=" => a <= b,
+                    ">" => a > b,
+                    _ => a >= b,
+                };
+                Ok(V::Num(if holds { 1.0 } else { 0.0 }))
+            }
+            Node::And(a, b) | Node::Or(a, b) => {
+                let or = matches!(node, Node::Or(..));
+                let v = self.eval(a)?;
+                let x = self.number(
+                    v,
+                    if or {
+                        "The left of \"||\""
+                    } else {
+                        "The left of \"&&\""
+                    },
+                )?;
+                if truthy(x) == or {
+                    return Ok(V::Num(x));
+                }
+                let v = self.eval(b)?;
+                self.number_or_list(v)
             }
         }
     }
@@ -1127,6 +1434,12 @@ impl Scope<'_, '_> {
                 }
             }
             (V::Layer(Target::Layer(_)), "transform") => return Ok(obj),
+            (V::Layer(Target::Layer(id)), "effect") => return Ok(V::Effects(id.clone())),
+            (V::Setting(l, i), "value") => {
+                let (l, i) = (l.clone(), *i);
+                return self.run.setting(&l, i, self.frame);
+            }
+            (V::Setting(l, i), "valueAtTime") => return Ok(V::SettingMethod(l.clone(), *i)),
             (V::Layer(t), n) => {
                 let camera = *t == Target::Camera;
                 let n = if !camera && n == "anchorPoint" {
@@ -1158,7 +1471,7 @@ impl Scope<'_, '_> {
     }
 
     fn call(&mut self, func: V, arg_nodes: &[Node]) -> R<V> {
-        if let V::Method(t, p, own) = func {
+        if matches!(func, V::Method(..) | V::SettingMethod(..)) {
             if arg_nodes.len() != 1 {
                 return Err(type_error("valueAtTime takes one time, in seconds"));
             }
@@ -1168,7 +1481,17 @@ impl Scope<'_, '_> {
                 return Err(type_error("A time must be finite"));
             }
             let frame = self.frame_of(secs);
-            return self.value_of(&t, p, own, frame);
+            return match func {
+                V::Method(t, p, own) => self.value_of(&t, p, own, frame),
+                V::SettingMethod(l, i) => self.run.setting(&l, i, frame),
+                _ => unreachable!(),
+            };
+        }
+        if let V::Effects(l) = &func {
+            return self.pick_effect(l, arg_nodes);
+        }
+        if let V::Fx(l, i) = &func {
+            return self.pick_setting(l, *i, arg_nodes);
         }
         let V::Func(name) = func else {
             return Err(syntax("Only a function can be called"));
@@ -1251,6 +1574,88 @@ impl Scope<'_, '_> {
             "loopOut" => self.loop_out(args),
             _ => Err(syntax(format!("\"{name}\" cannot be called"))),
         }
+    }
+
+    /// D-766: `effect(...)`'s or a setting's one argument, a text or a number.
+    fn one_arg(&mut self, nodes: &[Node], what: &str) -> R<V> {
+        let bad = || type_error(format!("{what} takes a name, in quotes, or a number"));
+        if nodes.len() != 1 {
+            return Err(bad());
+        }
+        let v = self.eval(&nodes[0])?;
+        match self.plain(v)? {
+            v @ (V::Text(_) | V::Num(_)) => Ok(v),
+            _ => Err(bad()),
+        }
+    }
+
+    /// D-766: `effect(name)` by After Effects' name ("Slider Control 2" for the second one) or
+    /// match name, or `effect(n)` counting every effect on the layer from 1.
+    fn pick_effect(&mut self, layer: &Id, nodes: &[Node]) -> R<V> {
+        let v = self.one_arg(nodes, "effect")?;
+        let comp = self.run.comp;
+        let l = comp.layer(layer).ok_or_else(|| {
+            missing(format!(
+                "There is no layer with the id \"{}\"",
+                layer.as_str()
+            ))
+        })?;
+        let mut seen: HashMap<&str, usize> = HashMap::new();
+        for (i, fx) in l.effects.iter().enumerate() {
+            let shown = fx.effect.name();
+            let n = seen.entry(shown).or_insert(0);
+            *n += 1;
+            let hit = match &v {
+                V::Text(t) => {
+                    (if *n == 1 {
+                        t == shown
+                    } else {
+                        *t == format!("{shown} {n}")
+                    }) || fx.effect.control().is_some_and(|c| c.0 == t)
+                }
+                V::Num(x) => *x == (i + 1) as f64,
+                _ => false,
+            };
+            if hit {
+                return Ok(V::Fx(layer.clone(), i));
+            }
+        }
+        Err(missing(format!("{} has no effect {}", l.name, show_arg(&v))))
+    }
+
+    /// D-766: an Expression Control's one setting, by name, match name or the number 1; a
+    /// Layer Control's is the layer it names.
+    fn pick_setting(&mut self, layer: &Id, index: usize, nodes: &[Node]) -> R<V> {
+        let comp = self.run.comp;
+        let fx = &comp.layer(layer).expect("picked from this layer").effects[index];
+        let Some((matched, setting, _)) = fx.effect.control() else {
+            return Err(syntax(format!(
+                "{}'s settings cannot be read by an expression; only Expression Controls' can",
+                fx.effect.name()
+            )));
+        };
+        let v = self.one_arg(nodes, "An effect's setting")?;
+        let hit = match &v {
+            V::Text(t) => t == setting || *t == format!("{matched}-0001"),
+            V::Num(n) => *n == 1.0,
+            _ => false,
+        };
+        if !hit {
+            return Err(missing(format!(
+                "{} has no setting {}",
+                fx.effect.name(),
+                show_arg(&v)
+            )));
+        }
+        if let crate::effects::Effect::LayerControl { layer: id } = &fx.effect {
+            if id.is_empty() {
+                return Err(missing("The Layer Control names no layer"));
+            }
+            let target = Target::Layer(Id::new(id.clone()));
+            property(comp, &target, Prop::Position)?;
+            return Ok(V::Layer(target));
+        }
+        Ok(V::Setting(layer.clone(), index))
     }
 
     fn math(&mut self, name: &str, args: Vec<V>) -> R<V> {

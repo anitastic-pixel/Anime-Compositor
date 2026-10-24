@@ -2601,6 +2601,13 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
         ],
     ),
     ("core.posterize_time", &[("frame_rate", "8")]),
+    // D-766: After Effects' Expression Controls, one setting each.
+    ("core.slider_control", &[("slider", "42")]),
+    ("core.checkbox_control", &[("checkbox", "1")]),
+    ("core.angle_control", &[("angle", "90")]),
+    ("core.point_control", &[("point", "100, 200")]),
+    ("core.color_control", &[("color", "0.25, 0.5, 0.75")]),
+    ("core.layer_control", &[("control_layer", "layer-4")]),
     // D-520: the two step counts and the word.
     (
         "core.cc_wide_time",

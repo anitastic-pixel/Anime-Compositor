@@ -259,6 +259,18 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - echo_time, echoes, intensity, decay, operator - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.posterize_time` is an effect this build has | added | added | pass |
 | and the settings it sends for it - frame_rate - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.slider_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - slider - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.checkbox_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - checkbox - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.angle_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - angle - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.point_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - point - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.layer_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - control_layer - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.cc_wide_time` is an effect this build has | added | added | pass |
 | and the settings it sends for it - forward_steps, backward_steps, native_motion_blur - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.force_motion_blur` is an effect this build has | added | added | pass |
@@ -648,4 +660,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**627 of 627 checks pass.**
+**639 of 639 checks pass.**

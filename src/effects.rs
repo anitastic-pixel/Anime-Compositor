@@ -76,6 +76,7 @@ impl EffectInstance {
             self.effect,
             Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::Unsupported { .. }
         ) && !self.effect.is_sound()
+            && self.effect.control().is_none()
     }
 
     /// [`Effect::arity`], with the Mix as a setting of one number.
@@ -116,6 +117,7 @@ impl EffectInstance {
             self.effect,
             Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }
         ) || self.effect.is_sound()
+            || self.effect.control().is_some()
         {
             return (self.mix != 100.0 || !keys.is_empty()).then(|| {
                 keys.into_iter()
@@ -152,6 +154,7 @@ impl EffectInstance {
                 self.effect,
                 Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }
             ) || self.effect.is_sound()
+                || self.effect.control().is_some()
             {
                 // A NaN here is `bad_mix`'s mark for a Mix of 100 with keys.
                 let m = if m.is_nan() {
@@ -159,7 +162,9 @@ impl EffectInstance {
                 } else {
                     format!("{m}")
                 };
-                let what = if self.effect.is_sound() {
+                let what = if self.effect.control().is_some() {
+                    "An Expression Control draws nothing and has no picture to mix"
+                } else if self.effect.is_sound() {
                     "A sound effect works on sound and has no picture to mix"
                 } else if matches!(self.effect, Effect::TextAnimator { .. }) {
                     "Text Animator moves the letters before there is a picture"
@@ -1559,6 +1564,15 @@ pub enum Effect {
     /// D-196: `frame_rate`, 0.1 to 99 frames a second. Compose takes the layer's content at the
     /// frame it holds (`crate::compose::posterized`); its own step in the stack changes nothing.
     PosterizeTime { frame_rate: f64 },
+    /// D-766: After Effects' six Expression Controls, each one setting for an expression to read
+    /// (`crate::expr`), drawing nothing. `checkbox` is 0 or 1; `color` is red, green and blue,
+    /// 0 to 1; `layer` is a layer's id, or "" for None, and has no keys.
+    SliderControl { slider: f64 },
+    CheckboxControl { checkbox: f64 },
+    AngleControl { angle: f64 },
+    PointControl { point: [f64; 2] },
+    ColorControl { color: [f64; 3] },
+    LayerControl { layer: String },
     /// D-520: `forward_steps` and `backward_steps`, 0 to 100 frames, each taken whole below; and
     /// `native_motion_blur`, `off` or `on`. `picture` is not a setting and is never saved: compose
     /// draws the averaged frames into it for each frame.
@@ -4944,6 +4958,12 @@ pub const TDIFF_ALPHAS: [&str; 9] = [
     "alpha_difference_only",
 ];
 pub const POSTERIZE_TIME: &str = "core.posterize_time";
+pub const SLIDER_CONTROL: &str = "core.slider_control";
+pub const CHECKBOX_CONTROL: &str = "core.checkbox_control";
+pub const ANGLE_CONTROL: &str = "core.angle_control";
+pub const POINT_CONTROL: &str = "core.point_control";
+pub const COLOR_CONTROL: &str = "core.color_control";
+pub const LAYER_CONTROL: &str = "core.layer_control";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 pub const CORNER_PIN: &str = "core.corner_pin";
 pub const LIGHT_SWEEP: &str = "core.light_sweep";
@@ -10486,6 +10506,15 @@ impl Effect {
             Effect::PosterizeTime { frame_rate } => {
                 vec![("frame_rate", vec![frame_rate], 0.1, 99.0)]
             }
+            // D-766: the ranges an expression's number is held in, as the reference's.
+            Effect::SliderControl { slider } => vec![("slider", vec![slider], -1e6, 1e6)],
+            Effect::CheckboxControl { checkbox } => vec![("checkbox", vec![checkbox], 0.0, 1.0)],
+            Effect::AngleControl { angle } => vec![("angle", vec![angle], -1e9, 1e9)],
+            Effect::PointControl { point } => vec![("point", point.iter_mut().collect(), -1e9, 1e9)],
+            Effect::ColorControl { color } => {
+                vec![("color", color.iter_mut().collect(), -f64::MAX, f64::MAX)]
+            }
+            Effect::LayerControl { .. } => vec![],
             Effect::ChangeToColor {
                 hue_tolerance,
                 lightness_tolerance,
@@ -11931,6 +11960,12 @@ impl Effect {
             Effect::Shatter { .. } => "Shatter",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
+            Effect::SliderControl { .. } => "Slider Control",
+            Effect::CheckboxControl { .. } => "Checkbox Control",
+            Effect::AngleControl { .. } => "Angle Control",
+            Effect::PointControl { .. } => "Point Control",
+            Effect::ColorControl { .. } => "Color Control",
+            Effect::LayerControl { .. } => "Layer Control",
             Effect::ChangeToColor { .. } => "Change to Color",
             Effect::CornerPin { .. } => "Corner Pin",
             Effect::LightSweep { .. } => "Light Sweep",
@@ -12214,6 +12249,12 @@ impl Effect {
             Effect::Shatter { .. } => SHATTER,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
+            Effect::SliderControl { .. } => SLIDER_CONTROL,
+            Effect::CheckboxControl { .. } => CHECKBOX_CONTROL,
+            Effect::AngleControl { .. } => ANGLE_CONTROL,
+            Effect::PointControl { .. } => POINT_CONTROL,
+            Effect::ColorControl { .. } => COLOR_CONTROL,
+            Effect::LayerControl { .. } => LAYER_CONTROL,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
             Effect::CornerPin { .. } => CORNER_PIN,
             Effect::LightSweep { .. } => LIGHT_SWEEP,
@@ -12569,6 +12610,20 @@ impl Effect {
             } => distance.ceil() as usize + kernel_radius(*softness / 3.0),
             _ => 0,
         }
+    }
+
+    /// D-766: an Expression Control's match name, its one setting's name and that setting's
+    /// key in the file, all After Effects' but the key. Its display name is [`Effect::name`].
+    pub fn control(&self) -> Option<(&'static str, &'static str, &'static str)> {
+        Some(match self {
+            Effect::SliderControl { .. } => ("ADBE Slider Control", "Slider", "slider"),
+            Effect::CheckboxControl { .. } => ("ADBE Checkbox Control", "Checkbox", "checkbox"),
+            Effect::AngleControl { .. } => ("ADBE Angle Control", "Angle", "angle"),
+            Effect::PointControl { .. } => ("ADBE Point Control", "Point", "point"),
+            Effect::ColorControl { .. } => ("ADBE Color Control", "Color", "color"),
+            Effect::LayerControl { .. } => ("ADBE Layer Control", "Layer", "layer"),
+            _ => return None,
+        })
     }
 
     /// D-642: a sound effect, which only an audio layer takes (D-638 decision 3).
@@ -20411,6 +20466,13 @@ pub(crate) fn apply_stack_at(
             }
             // D-196: the holding was done where the layer's content was resolved.
             Effect::PosterizeTime { .. } => {}
+            // D-766: an Expression Control is read by expressions and draws nothing.
+            Effect::SliderControl { .. }
+            | Effect::CheckboxControl { .. }
+            | Effect::AngleControl { .. }
+            | Effect::PointControl { .. }
+            | Effect::ColorControl { .. }
+            | Effect::LayerControl { .. } => {}
             // D-350: the letters were moved where the text was drawn.
             Effect::TextAnimator { .. } => {}
             // D-642: a sound effect is run by `audio::mix`; a picture is left as it is.
