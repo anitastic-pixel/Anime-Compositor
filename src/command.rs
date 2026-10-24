@@ -492,6 +492,12 @@ pub enum Command {
         composition: Id,
         columns: Vec<crate::model::SheetText>,
     },
+    /// D-765: a layer's markers, the whole list, as `SetMarkers` takes a composition's.
+    SetLayerMarkers {
+        composition: Id,
+        layer_id: Id,
+        markers: Vec<crate::model::Marker>,
+    },
     /// D-84g: the drawings of a layer marked as keys, the whole list.
     SetKeyDrawings {
         composition: Id,
@@ -664,6 +670,7 @@ impl Command {
             Command::SetCameraParent { .. } => "SET_CAMERA_PARENT",
             Command::SetExposureSpans { .. } => "SET_EXPOSURE_SPANS",
             Command::SetSheetText { .. } => "SET_SHEET_TEXT",
+            Command::SetLayerMarkers { .. } => "SET_LAYER_MARKERS",
             Command::SetKeyDrawings { .. } => "SET_KEY_DRAWINGS",
             Command::SetMasks { .. } => "SET_MASKS",
             Command::SetShapes { .. } => "SET_SHAPES",
@@ -935,6 +942,11 @@ impl Command {
                 n => format!("Set {n} exposures"),
             },
             Command::SetSheetText { .. } => "Write on the Sheet".to_string(),
+            Command::SetLayerMarkers { markers, .. } => match markers.len() {
+                0 => "Clear the layer's markers".to_string(),
+                1 => "Set one layer marker".to_string(),
+                n => format!("Set {n} layer markers"),
+            },
             Command::SetKeyDrawings { drawings, .. } => match drawings.len() {
                 0 => "Clear the key drawings".to_string(),
                 _ => format!(
@@ -1063,6 +1075,7 @@ impl Command {
             | Command::SetExposureSpans { composition, .. }
             | Command::SetSheetText { composition, .. }
             | Command::SetKeyDrawings { composition, .. }
+            | Command::SetLayerMarkers { composition, .. }
             | Command::SetMasks { composition, .. }
             | Command::SetShapes { composition, .. }
             | Command::AddEffect { composition, .. }
@@ -1121,6 +1134,7 @@ impl Command {
             | Command::TrimLayer { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetKeyDrawings { layer_id, .. }
+            | Command::SetLayerMarkers { layer_id, .. }
             | Command::SetMasks { layer_id, .. }
             | Command::SetShapes { layer_id, .. }
             | Command::RemoveEffect { layer_id, .. }
@@ -1309,6 +1323,7 @@ impl Command {
             | Command::SetAudioGain { layer_id, .. }
             | Command::SetExposureSpans { layer_id, .. }
             | Command::SetKeyDrawings { layer_id, .. }
+            | Command::SetLayerMarkers { layer_id, .. }
             | Command::SetMasks { layer_id, .. }
             | Command::SetShapes { layer_id, .. }
             | Command::AddEffect { layer_id, .. }
@@ -3529,6 +3544,14 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer_id, drawings, ..
         } => {
             layer_mut(project, &comp_id, layer_id)?.key_drawings = drawings.clone();
+        }
+        Command::SetLayerMarkers {
+            layer_id, markers, ..
+        } => {
+            // D-765: a layer marker may sit outside the layer's frames, as After Effects lets it.
+            let mut markers = markers.clone();
+            markers.sort_by_key(|m| m.frame);
+            layer_mut(project, &comp_id, layer_id)?.markers = markers;
         }
         Command::SetMasks {
             layer_id, masks, ..

@@ -588,6 +588,19 @@
     color: #e0a84a; white-space: nowrap; pointer-events: none; z-index: 2;
   }
   #ruler input.naming { position: absolute; top: -2px; width: 140px; font-size: 11px; z-index: 3; }
+  /* D-765: a marker with a length is a strip from its frame to its end, on the ruler and on a
+     layer's bar. A layer's markers are the ruler's pennant, on the top edge of the layer's bar. */
+  #ruler .mspan { position: absolute; bottom: 0; height: 3px; background: #e0a84a99; pointer-events: none; z-index: 2; }
+  .track .lmark {
+    position: absolute; top: 0; width: 9px; height: 9px; margin-left: -4px; z-index: 2;
+    background: #e0a84a; clip-path: polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 50%); cursor: grab;
+  }
+  .track .lspan { position: absolute; top: 0; height: 3px; background: #e0a84a99; pointer-events: none; z-index: 2; }
+  .track .lname {
+    position: absolute; top: 0; margin-left: 6px; font-size: 9px; line-height: 10px;
+    color: #f0c070; text-shadow: 0 0 2px #000, 0 0 2px #000; white-space: nowrap; pointer-events: none; z-index: 2;
+  }
+  .track input.naming { position: absolute; top: -2px; width: 140px; font-size: 11px; z-index: 3; }
   /* W-24: a layer's label colour, a square before its name and a tint on its bar. */
   .rowhead .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
   .menu .swatches { display: flex; gap: 4px; padding: 4px 8px; }
@@ -3743,13 +3756,40 @@ function setWork(which) {
 
 // W-24: the composition's markers. The window takes the whole list each time, so adding, moving,
 // naming and removing one are all the same request and a drag is one entry to undo.
+// D-765: a layer's markers are the same list, so `markersOf` reads either; a marker with a length
+// is sent as frame+duration|name.
 function markersOf(comp) {
-  return (comp.markers || []).map((m) => ({ frame: m.frame, name: m.name || '' }));
+  return (comp.markers || []).map((m) => ({ frame: m.frame, name: m.name || '', duration_frames: m.duration_frames || 0 }));
+}
+function markerQuery(list) {
+  return list.map((m) => 'marker=' + encodeURIComponent(m.frame + (m.duration_frames ? '+' + m.duration_frames : '') + '|' + m.name));
 }
 function sendMarkers(list, drag) {
-  const q = list.map((m) => 'marker=' + encodeURIComponent(m.frame + '|' + m.name));
+  const q = markerQuery(list);
   if (drag) q.push('drag=1');
   return command('/timeline.set_markers?' + q.join('&'));
+}
+function sendLayerMarkers(id, list, drag) {
+  const q = ['layer=' + encodeURIComponent(id), ...markerQuery(list)];
+  if (drag) q.push('drag=1');
+  return command('/layer.set_markers?' + q.join('&'));
+}
+// D-765: After Effects' Numpad *: with layers selected, a marker on each of them at the playhead,
+// one entry to undo; with none, a marker on the composition.
+function addMarkerHere() {
+  const chosen = layers().filter((l) => selection.includes(l.id));
+  if (!chosen.length) { addMarker(); return; }
+  const at = frame;
+  const taking = chosen.filter((l) => !markersOf(l).some((m) => m.frame === at));
+  if (!taking.length) {
+    $('status').textContent = 'There is a marker on frame ' + at + ' on the selected layer already.';
+    return;
+  }
+  const sends = taking.map((l) => [l.id, [...markersOf(l), { frame: at, name: '', duration_frames: 0 }]]);
+  nudge = nudge.then(async () => {
+    for (const [id, list] of sends) await sendLayerMarkers(id, list, true);
+    await command('/property.drag_end');
+  });
 }
 function addMarker(at = frame) {
   const comp = composition();
@@ -3792,7 +3832,7 @@ function nameMarker(at) {
     renaming = false;
     const name = box.value;
     box.remove();
-    if (commit) sendMarkers(list.map((m) => (m.frame === at ? { frame: at, name } : m)));
+    if (commit) sendMarkers(list.map((m) => (m.frame === at ? { ...m, name } : m)));
   };
   box.onkeydown = (k) => {
     k.stopPropagation();
@@ -3801,6 +3841,39 @@ function nameMarker(at) {
   };
   box.onblur = () => finish(true);
   $('ruler').append(box);
+  box.focus();
+  box.select();
+}
+
+// D-765: a layer marker named in place on the layer's bar, as a composition marker is on the ruler.
+function nameLayerMarker(id, at) {
+  const layer = layers().find((l) => l.id === id);
+  const bar = $('layers').querySelector('li[data-id="' + CSS.escape(id) + '"] > .track');
+  const mark = bar && bar.querySelector('.lmark[data-frame="' + at + '"]');
+  if (!layer || !mark || renaming) return;
+  const list = markersOf(layer);
+  const box = document.createElement('input');
+  box.type = 'text';
+  box.className = 'naming';
+  box.value = list.find((m) => m.frame === at).name;
+  box.setAttribute('aria-label', 'Name the marker at frame ' + at + ' on ' + layer.name);
+  box.style.left = mark.style.left;
+  renaming = true;
+  const finish = (commit) => {
+    if (!renaming) return;
+    renaming = false;
+    const name = box.value;
+    box.remove();
+    if (commit) sendLayerMarkers(id, list.map((m) => (m.frame === at ? { ...m, name } : m)));
+  };
+  box.onkeydown = (k) => {
+    k.stopPropagation();
+    if (k.key === 'Enter') finish(true);
+    else if (k.key === 'Escape') finish(false);
+  };
+  box.onpointerdown = (k) => k.stopPropagation();
+  box.onblur = () => finish(true);
+  bar.append(box);
   box.focus();
   box.select();
 }
@@ -3841,8 +3914,15 @@ function drawRuler() {
     mark.dataset.frame = m.frame;
     mark.style.left = percent(atFrame(comp, m.frame + 0.5));
     mark.title = (m.name ? m.name + ': marker' : 'Marker') + ' at frame ' + m.frame
+      + (m.duration_frames ? ', ' + m.duration_frames + ' frames long' : '')
       + '. Drag to move it, double-click to name it, Ctrl+click to remove it.';
     ruler.append(mark);
+    if (m.duration_frames) {
+      const strip = Object.assign(document.createElement('span'), { className: 'mspan' });
+      strip.style.left = mark.style.left;
+      strip.style.width = percent(atFrame(comp, m.frame + m.duration_frames + 0.5) - atFrame(comp, m.frame + 0.5));
+      ruler.append(strip);
+    }
     if (m.name) {
       ruler.append(Object.assign(document.createElement('span'),
         { className: 'markname', textContent: m.name, style: 'left:' + mark.style.left }));
@@ -4094,10 +4174,13 @@ function removeKeys() {
 }
 
 // W-19: After Effects' J and K, the playhead to the key before or after it, on the selected
-// layers or on every layer when none is selected.
+// layers or on every layer when none is selected. D-765: and, as After Effects' do, to those
+// layers' markers and the composition's.
 function toKey(later) {
   const from = movable().length ? movable() : layers();
-  const frames = from.flatMap((layer) => propsOf(layer).flatMap((prop) => keysOf(layer, prop).map((k) => Math.round(k.frame))));
+  const comp = composition();
+  const frames = from.flatMap((layer) => propsOf(layer).flatMap((prop) => keysOf(layer, prop).map((k) => Math.round(k.frame))))
+    .concat(from.flatMap((layer) => markersOf(layer).map((m) => m.frame)), comp ? markersOf(comp).map((m) => m.frame) : []);
   const next = later
     ? Math.min(...frames.filter((f) => f > frame))
     : Math.max(...frames.filter((f) => f < frame));
@@ -4281,6 +4364,32 @@ function track(comp, layer, drawings) {
     const keys = keysOf(layer, keyed[0]);
     mark.style.clipPath = keyShape(keys, keys.findIndex((k) => k.frame === at));
     box.append(mark);
+  }
+  // D-765: the layer's markers, a pennant on its frame with its name, and a strip along the top
+  // for one with a length. Drag one to move it, Alt+drag to give it a length, double-click to
+  // name it, Ctrl+click to remove it.
+  for (const m of markersOf(layer)) {
+    const a = Math.max(0, atFrame(comp, m.frame + 0.5));
+    const b = Math.min(1, atFrame(comp, m.frame + m.duration_frames + 0.5));
+    if (b > a) {
+      const strip = Object.assign(document.createElement('div'), { className: 'lspan' });
+      strip.style.left = percent(a);
+      strip.style.width = percent(b - a);
+      box.append(strip);
+    }
+    if (!inView(comp, m.frame + 0.5)) continue;
+    const mark = document.createElement('div');
+    mark.className = 'lmark';
+    mark.dataset.frame = m.frame;
+    mark.style.left = percent(atFrame(comp, m.frame + 0.5));
+    mark.title = (m.name ? m.name + ': layer marker' : 'Layer marker') + ' at frame ' + m.frame
+      + (m.duration_frames ? ', ' + m.duration_frames + ' frames long' : '')
+      + '. Drag to move it, Alt+drag to give it a length, double-click to name it, Ctrl+click to remove it.';
+    box.append(mark);
+    if (m.name) {
+      box.append(Object.assign(document.createElement('div'),
+        { className: 'lname', textContent: m.name, style: 'left:' + mark.style.left }));
+    }
   }
   const lifeBar = bar('life', layer.in_frame, layer.out_frame);
   if (layer.label) lifeBar.style.background = 'color-mix(in srgb, ' + LABELS[layer.label] + ' 55%, #2f3d55)';
@@ -4494,12 +4603,60 @@ function dragRuler(e, handle) {
     if (from !== null && list.some((x) => x.frame === now)) return;
     last = now;
     if (from !== null) {
-      send(() => sendMarkers(list.map((x) => (x.frame === from ? { frame: now, name: x.name } : x)), true));
+      send(() => sendMarkers(list.map((x) => (x.frame === from ? { ...x, frame: now } : x)), true));
     } else if (startEnd) {
       send(() => command('/timeline.set_work_start?frame=' + now + '&drag=1'));
     } else {
       send(() => command('/timeline.set_work_end?frame=' + now + '&drag=1'));
     }
+  };
+  sheet.onpointerup = () => stop(false);
+  window.addEventListener('keydown', escape, true);
+}
+
+// D-765: a layer marker taken hold of on its layer's bar: a drag moves it, an Alt+drag pulls its
+// length out from its frame (After Effects' Alt-drag), Ctrl+click removes it, a double press
+// names it, and a press that does not move puts the playhead on it. A drag is one entry to undo.
+function dragLayerMarker(e, handle) {
+  const id = handle.closest('li').dataset.id;
+  const layer = layers().find((l) => l.id === id);
+  if (!layer) return;
+  e.preventDefault();
+  const from = Number(handle.dataset.frame);
+  const list = markersOf(layer);
+  if (e.ctrlKey) { sendLayerMarkers(id, list.filter((m) => m.frame !== from)); return; }
+  const now0 = performance.now();
+  if (markerPress.frame === 'L' + id + ':' + from && now0 - markerPress.at < 500) {
+    markerPress = { frame: null, at: 0 };
+    nameLayerMarker(id, from);
+    return;
+  }
+  markerPress = { frame: 'L' + id + ':' + from, at: now0 };
+  const stretch = e.altKey;
+  let last = null;
+  let queue = Promise.resolve();
+  const send = (what) => { queue = queue.then(what); };
+  dragging = true;
+  sheet.setPointerCapture(e.pointerId);
+  const escape = (k) => { if (k.key === 'Escape') stop(true); };
+  const stop = (cancelled) => {
+    dragging = false;
+    sheet.onpointermove = null;
+    sheet.onpointerup = null;
+    window.removeEventListener('keydown', escape, true);
+    if (last !== null) send(() => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'));
+    else if (!cancelled) seek(from);
+  };
+  sheet.onpointermove = (m) => {
+    let now = frameUnder(m.clientX);
+    if (now === null) return;
+    if (stretch) now = Math.max(now, from);
+    if (now === (last === null ? from : last)) return;
+    if (!stretch && list.some((x) => x.frame === now)) return;
+    last = now;
+    const moved = list.map((x) => (x.frame !== from ? x
+      : stretch ? { ...x, duration_frames: now - from } : { ...x, frame: now }));
+    send(() => sendLayerMarkers(id, moved, true));
   };
   sheet.onpointerup = () => stop(false);
   window.addEventListener('keydown', escape, true);
@@ -4523,6 +4680,12 @@ sheet.onpointerdown = (e) => {
     return;
   }
   if (e.target.closest('li.prop .track:not(.camera)') && !e.target.closest('.key')) { boxKeys(e); return; }
+  if (e.target.closest('.track input.naming')) return;
+  const lmark = e.target.closest('.track .lmark');
+  if (lmark) {
+    const owner = layers().find((l) => l.id === lmark.closest('li').dataset.id);
+    if (owner && !owner.locked) { dragLayerMarker(e, lmark); return; }
+  }
   const piece = e.target.closest('.life, .span, .free');
   const li = piece && piece.closest('li');
   const layer = li && layers().find((l) => l.id === li.dataset.id);
@@ -5038,10 +5201,14 @@ function snapped(x, at, targets) {
 function snapFrames() {
   // B-13f: a camera key snaps the playhead like any other key. The camera has no first and last
   // frame to snap to, because it belongs to the composition rather than sitting inside it.
+  // D-765: and to every marker, the composition's and the layers'.
   const camera = cameraRow();
+  const comp = composition();
   return layers().flatMap((l) => [l.in_frame, l.out_frame - 1,
-    ...propsOf(l).flatMap((p) => keysOf(l, p).map((k) => k.frame))])
-    .concat(camera ? CAMERA_PROPS.flatMap((p) => keysOf(camera, p).map((k) => k.frame)) : []);
+    ...propsOf(l).flatMap((p) => keysOf(l, p).map((k) => k.frame)),
+    ...markersOf(l).map((m) => m.frame)])
+    .concat(camera ? CAMERA_PROPS.flatMap((p) => keysOf(camera, p).map((k) => k.frame)) : [],
+      comp ? markersOf(comp).map((m) => m.frame) : []);
 }
 
 // W-22: Ctrl+D copies the selected layers, each in front of itself; Ctrl+Shift+D splits them at
@@ -20425,7 +20592,7 @@ addEventListener('keydown', (e) => {
   // W-24: After Effects' B and N set the work area's ends at the playhead, and * adds a marker.
   else if (e.key === 'b' || e.key === 'B') setWork('start');
   else if (e.key === 'n' || e.key === 'N') setWork('end');
-  else if (e.key === '*') { e.preventDefault(); addMarker(); }
+  else if (e.key === '*') { e.preventDefault(); addMarkerHere(); }
   else if (e.key === 'j' || e.key === 'J') toKey(false);
   else if (e.key === 'k' || e.key === 'K') toKey(true);
   // W-20: I and O, the selected layer's first and last frame.

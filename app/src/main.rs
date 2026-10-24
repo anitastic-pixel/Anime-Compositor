@@ -10205,6 +10205,7 @@ const ANSWERS: &[&str] = &[
     "layer.set_drawing_dissolve",
     "layer.set_gain",
     "layer.set_label",
+    "layer.set_markers",
     "layer.set_matte",
     "layer.set_matte_mode",
     "layer.set_parent",
@@ -12025,23 +12026,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         end_frame_exclusive: frame + 1,
                     }
                 }
-                _ => {
-                    let mut markers = Vec::new();
-                    for text in parameters(query, "marker") {
-                        let (at, name) = text.split_once('|').unwrap_or((text.as_str(), ""));
-                        let Ok(frame) = at.trim().parse::<i32>() else {
-                            return Some(format!("A marker is frame|name. Not \"{text}\"."));
-                        };
-                        markers.push(Marker {
-                            frame,
-                            name: name.to_string(),
-                        });
-                    }
-                    Command::SetMarkers {
+                _ => match markers_parameter(query) {
+                    Ok(markers) => Command::SetMarkers {
                         composition,
                         markers,
-                    }
-                }
+                    },
+                    Err(said) => return Some(said),
+                },
             }
         } else if id == "sheet.write_action" {
             // D-84g: a note in the Action column sits on its one frame. Written on a note, it
@@ -13443,6 +13434,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 .to_string(),
                         )
                     }
+                },
+                // D-765: the layer's markers, the whole list, sent as the composition's are.
+                "layer.set_markers" => match markers_parameter(query) {
+                    Ok(markers) => Command::SetLayerMarkers {
+                        composition,
+                        layer_id,
+                        markers,
+                    },
+                    Err(said) => return Some(said),
                 },
                 // W-24: After Effects' label colours, 0 for none and 1 to 8.
                 "layer.set_label" => {
@@ -15736,6 +15736,28 @@ fn follow_window(window: &tauri::Window, event: &WindowEvent) {
 /// [`parameter`] takes the first, which is what a setting with one value wants. An import names
 /// one file per value: a selection is a list, and joining it into a single string would need a
 /// separator, which is a character a Japanese file name is entitled to contain.
+/// W-24 / D-765: `marker=frame|name`, or `marker=frame+duration|name` for a marker with a length,
+/// once per marker.
+fn markers_parameter(query: Option<&str>) -> Result<Vec<Marker>, String> {
+    parameters(query, "marker")
+        .iter()
+        .map(|text| {
+            let (at, name) = text.split_once('|').unwrap_or((text.as_str(), ""));
+            let (frame, duration) = at.split_once('+').unwrap_or((at, "0"));
+            match (frame.trim().parse::<i32>(), duration.trim().parse::<u32>()) {
+                (Ok(frame), Ok(duration_frames)) => Ok(Marker {
+                    frame,
+                    name: name.to_string(),
+                    duration_frames,
+                }),
+                _ => Err(format!(
+                    "A marker is frame|name, or frame+duration|name. Not \"{text}\"."
+                )),
+            }
+        })
+        .collect()
+}
+
 fn parameters(query: Option<&str>, name: &str) -> Vec<String> {
     let prefix = format!("{name}=");
     query

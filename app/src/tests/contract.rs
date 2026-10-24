@@ -144,6 +144,7 @@ const SENT: &[&str] = &[
     "layer.set_drawing_dissolve",
     "layer.set_gain",
     "layer.set_label",
+    "layer.set_markers",
     "layer.set_matte",
     "layer.set_matte_mode",
     "layer.set_parent",
@@ -700,6 +701,8 @@ const REACHED: &[(&str, &str)] = &[
     ("timeline.set_work_start", "a command the window answers"),
     ("timeline.set_work_end", "a command the window answers"),
     ("timeline.set_markers", "a command the window answers"),
+    // D-765, accepted on 2026-10-23; B-645 built it.
+    ("layer.set_markers", "a command the window answers"),
     ("exposure.set_span", "a command the window answers"),
     // D-84b, accepted on 2026-09-24; B-28e built it, from the Sheet.
     ("exposure.write", "a command the window answers"),
@@ -817,6 +820,7 @@ const SHORTCUTS: &[(&str, &str, &str)] = &[
     ("timeline.set_work_start", "B", "setWork('start')"),
     ("timeline.set_work_end", "N", "setWork('end')"),
     ("timeline.set_markers", "*", "e.key === '*'"),
+    ("layer.set_markers", "* with a layer selected", "addMarkerHere()"),
     ("viewer.fit", "Shift+/", "e.key === '?'"),
     ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
     ("export.sequence", "Ctrl+M", "e.key === 'm'"),
@@ -1592,6 +1596,8 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     for edit in [
         "timeline.set_work_start?frame=1",
         "timeline.set_markers?marker=2|hit",
+        // D-765: and a layer marker with a length, written only when the layer has one.
+        "layer.set_markers?layer=layer-3&marker=2%2B3|beat",
         "layer.set_label?layer=layer-3&label=2",
         "layer.toggle_shy?layer=layer-3",
         // B-124b: and D-188's two switches, each written only when on.

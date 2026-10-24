@@ -984,6 +984,9 @@ pub struct Layer {
     /// D-323: a raster or composition layer's Time Remap, the source frame it shows, keyed and
     /// read at the key time; `None` is off. Saved as `time_remap` only when on.
     pub time_remap: Option<Property>,
+    /// D-765: After Effects' layer markers, on composition frames, in frame order. They ride
+    /// the bar with the keys (`shift_keys`). Saved as `markers` only when there are some.
+    pub markers: Vec<Marker>,
     /// ADR-008: the record this layer was read from, which saving writes over.
     pub record: FileRecord,
 }
@@ -1061,6 +1064,10 @@ impl Layer {
         for group in &mut self.shape_groups {
             group.shift_keys(by);
         }
+        // D-765: a layer's markers travel with its bar, as its keys do.
+        for marker in &mut self.markers {
+            marker.frame += by;
+        }
     }
 
     /// A layer covering one composition span with an identity transform.
@@ -1106,6 +1113,7 @@ impl Layer {
             frame_blend: false,
             drawing_dissolve: 0,
             time_remap: None,
+            markers: Vec::new(),
             record: FileRecord::default(),
         }
     }
@@ -1514,6 +1522,9 @@ pub struct SheetTextEntry {
 pub struct Marker {
     pub frame: i32,
     pub name: String,
+    /// D-765: After Effects' marker duration, in frames; 0 is a marker on one frame. Saved as
+    /// `duration_frames` only when not 0.
+    pub duration_frames: u32,
 }
 
 impl Composition {

@@ -14154,3 +14154,67 @@ fn a_group_merges_from_the_window() {
         0
     );
 }
+
+/// B-645 (D-765): a layer marker added the way the page adds one, undone in one step, sent to the
+/// page in the project it reads, and drawn there on the layer's bar.
+#[test]
+fn b645_layer_markers_are_added_undone_and_shown() {
+    let viewer = Mutex::new(demo());
+    let markers = |viewer: &Mutex<Viewer>| {
+        let held = held(viewer);
+        let comp = held.document.project().composition(&held.composition).unwrap();
+        comp.layer(&anime_compositor::model::Id::new("layer-3"))
+            .unwrap()
+            .markers
+            .iter()
+            .map(|m| format!("{}+{}:{}", m.frame, m.duration_frames, m.name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    assert_eq!(markers(&viewer), "");
+    // What `*` sends with layer-3 selected and the playhead on frame 4, and an Alt-drag after.
+    run(&viewer, "layer.set_markers?layer=layer-3&marker=4%7C&drag=1");
+    run(&viewer, "property.drag_end");
+    assert_eq!(markers(&viewer), "4+0:");
+    run(&viewer, "layer.set_markers?layer=layer-3&marker=4%2B2%7Cbeat");
+    assert_eq!(markers(&viewer), "4+2:beat");
+    // The page reads the project as the file writes it.
+    let sent: serde_json::Value = {
+        let held = held(&viewer);
+        serde_json::from_str(&anime_compositor::persist::to_json(
+            held.document.project(),
+            &held.preserved,
+        ))
+        .unwrap()
+    };
+    let layer = sent["compositions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|c| c["layers"].as_array().unwrap().iter())
+        .find(|l| l["id"] == "layer-3")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        layer["markers"],
+        serde_json::json!([{"frame": 4, "name": "beat", "duration_frames": 2}])
+    );
+    run(&viewer, "edit.undo");
+    assert_eq!(markers(&viewer), "4+0:");
+    run(&viewer, "edit.undo");
+    assert_eq!(markers(&viewer), "", "the add was one entry to undo");
+    assert_eq!(
+        run(&viewer, "layer.set_markers?layer=layer-3&marker=four%7Chit"),
+        "A marker is frame|name, or frame+duration|name. Not \"four|hit\"."
+    );
+    let page = include_str!("../../ui/index.html");
+    for drawn in [
+        "mark.className = 'lmark';",
+        "className: 'lspan'",
+        "else if (e.key === '*') { e.preventDefault(); addMarkerHere(); }",
+        "sendLayerMarkers(id, list, true)",
+        "...markersOf(l).map((m) => m.frame)",
+    ] {
+        assert!(page.contains(drawn), "the page has {drawn}");
+    }
+}

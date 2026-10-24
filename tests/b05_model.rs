@@ -349,10 +349,12 @@ fn b05_model_and_undo() {
             Marker {
                 frame: first + 2,
                 name: "hit".to_string(),
+                duration_frames: 0,
             },
             Marker {
                 frame: first,
                 name: String::new(),
+                duration_frames: 0,
             },
         ],
     })
@@ -381,6 +383,7 @@ fn b05_model_and_undo() {
             markers: vec![Marker {
                 frame: past,
                 name: String::new(),
+                duration_frames: 0,
             }],
         })
         .is_err(),
@@ -522,10 +525,12 @@ fn b05_model_and_undo() {
             Marker {
                 frame: first,
                 name: String::new(),
+                duration_frames: 0,
             },
             Marker {
                 frame: past - 1,
                 name: "end".to_string(),
+                duration_frames: 0,
             },
         ],
     })

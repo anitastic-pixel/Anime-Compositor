@@ -592,7 +592,103 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
     json
 }
 
+/// W-24 / D-765: markers as the file spells them, a composition's or a layer's: `frame` and
+/// `name`, and `duration_frames` only on a marker with a length.
+fn markers_json(markers: &[crate::model::Marker]) -> J {
+    J::Array(
+        markers
+            .iter()
+            .map(|m| {
+                let mut marker = Map::new();
+                marker.insert("frame".into(), J::from(m.frame));
+                marker.insert("name".into(), J::from(m.name.as_str()));
+                if m.duration_frames != 0 {
+                    marker.insert("duration_frames".into(), J::from(m.duration_frames));
+                }
+                J::Object(marker)
+            })
+            .collect(),
+    )
+}
+
+fn parse_markers(markers: &J, at: &str) -> Result<Vec<crate::model::Marker>, Diagnostic> {
+    as_array(markers, at)?
+        .iter()
+        .enumerate()
+        .map(|(i, marker)| {
+            let here = format!("{at}/{i}");
+            as_object(marker, &here)?;
+            Ok(crate::model::Marker {
+                frame: as_i32(field(marker, &here, "frame")?, &format!("{here}/frame"))?,
+                name: as_str(field(marker, &here, "name")?, &format!("{here}/name"))?
+                    .to_string(),
+                duration_frames: match marker.get("duration_frames") {
+                    None => 0,
+                    Some(d) => as_u32(d, &format!("{here}/duration_frames"))?,
+                },
+            })
+        })
+        .collect::<Result<Vec<_>, Diagnostic>>()
+        .map(|mut list| {
+            // In frame order, as the commands keep them; a file written out of order is read in it.
+            list.sort_by_key(|m| m.frame);
+            list
+        })
+}
+
+/// D-765: a layer's markers. Until D-765 a layer's `markers` was kept in its record and never
+/// read; markers this build cannot read are still kept there exactly, and said so, rather than
+/// dropped or refusing the file (document 28).
+fn layer_markers(
+    v: &J,
+    pointer: &str,
+    name: &str,
+    warnings: &mut Vec<Diagnostic>,
+) -> Vec<crate::model::Marker> {
+    let Some(list) = v.get("markers").filter(|m| !m.is_null()) else {
+        return Vec::new();
+    };
+    match parse_markers(list, &format!("{pointer}/markers")) {
+        Ok(markers) => markers,
+        Err(e) => {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::ProjectFeatureUnsupported,
+                    Severity::Warning,
+                    format!(
+                        "The markers on layer \"{name}\" cannot be read, so the timeline does                          not show them."
+                    ),
+                    format!(
+                        "D-765: a layer's markers are a list of frame, name and an optional                          duration_frames. {} They are kept in the project exactly as written.",
+                        e.detail
+                    ),
+                )
+                .with_remediation(
+                    "Nothing was lost. Saving writes them back unchanged; adding a marker to                      this layer replaces them.",
+                ),
+            );
+            Vec::new()
+        }
+    }
+}
+
 fn layer_json(base: Option<&J>, layer: &Layer) -> J {
+    let mut json = layer_fields_json(base, layer);
+    // D-765: written only when there are some. Markers taken off the layer are taken out of the
+    // file; ones this build could not read, or an empty list, are left as they were.
+    if let Some(map) = json.as_object_mut() {
+        if !layer.markers.is_empty() {
+            map.insert("markers".into(), markers_json(&layer.markers));
+        } else if base.and_then(|b| b.get("markers")).is_some_and(|m| {
+            m.as_array().is_some_and(|a| !a.is_empty()) && parse_markers(m, "").is_ok()
+        }) {
+            map.remove("markers");
+        }
+    }
+    json
+}
+
+fn layer_fields_json(base: Option<&J>, layer: &Layer) -> J {
     // D-71: an audio layer is written as the few things it has.
     if layer.kind == LayerKind::Audio {
         let mut owned = vec![
@@ -7499,17 +7595,7 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         owned.push(("camera", merge(held, props)));
     }
     if !composition.markers.is_empty() || base.is_some_and(|b| b.get("markers").is_some()) {
-        let markers = composition
-            .markers
-            .iter()
-            .map(|m| {
-                let mut marker = Map::new();
-                marker.insert("frame".into(), J::from(m.frame));
-                marker.insert("name".into(), J::from(m.name.as_str()));
-                J::Object(marker)
-            })
-            .collect();
-        owned.push(("markers", J::Array(markers)));
+        owned.push(("markers", markers_json(&composition.markers)));
     }
     if !composition.sheet_text.is_empty() || base.is_some_and(|b| b.get("sheet_text").is_some()) {
         let columns = composition
@@ -13093,6 +13179,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     }
 
     Ok(Layer {
+        markers: layer_markers(v, pointer, &name, warnings),
         id,
         name,
         kind,
@@ -13987,6 +14074,7 @@ fn parse_audio_layer(
         layer.shy = as_bool(shy, &format!("{pointer}/shy"))?;
     }
     layer.label = parse_label(v, pointer)?;
+    layer.markers = layer_markers(v, pointer, &layer.name, warnings);
     // D-642: sound effects, and effects this build does not know (kept, as any are); a picture
     // effect has nothing to draw on (D-638 decision 3). The list is written only when it holds
     // one, so an empty one stays refused as D-71 had it (FX-AUD-031).
@@ -14220,15 +14308,7 @@ fn parse_composition(
         }
     }
     if let Some(markers) = v.get("markers") {
-        let at = format!("{pointer}/markers");
-        for (i, marker) in as_array(markers, &at)?.iter().enumerate() {
-            let here = format!("{at}/{i}");
-            as_object(marker, &here)?;
-            composition.markers.push(crate::model::Marker {
-                frame: as_i32(field(marker, &here, "frame")?, &format!("{here}/frame"))?,
-                name: as_str(field(marker, &here, "name")?, &format!("{here}/name"))?.to_string(),
-            });
-        }
+        composition.markers = parse_markers(markers, &format!("{pointer}/markers"))?;
     }
     // D-84c. A kind this build does not know is kept as written.
     if let Some(columns) = v.get("sheet_text") {

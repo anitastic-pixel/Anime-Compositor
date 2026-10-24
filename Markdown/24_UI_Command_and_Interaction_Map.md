@@ -96,6 +96,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | timeline.set_work_start | Set work-area start | B | yes/project setting |
 | timeline.set_work_end | Set work-area end | N | yes/project setting |
 | timeline.set_markers | Add, move, name or remove the composition's markers | * | yes |
+| layer.set_markers | Add, move, lengthen, name or remove a layer's markers, After Effects' layer markers; * adds one on each selected layer at the playhead, one entry to undo (D-765, 2026-10-23) | * with a layer selected | yes |
 | exposure.set_span | Assign drawing/hold span | none | yes |
 | exposure.write | Write a cell of the Sheet as on paper: a drawing number or a cross lasting to the next thing written below it, or an erase letting what is above run on (D-84b; built by B-28e, 2026-09-24) | digits and Enter, x, Delete in the Sheet | yes |
 | exposure.toggle_key | Mark the drawing whose number is written in a Sheet cell as a key of its layer, or unmark it; every cell where that number is written is circled (D-84g; built by B-28j, 2026-09-24) | K on a chosen number in the Sheet | yes |
