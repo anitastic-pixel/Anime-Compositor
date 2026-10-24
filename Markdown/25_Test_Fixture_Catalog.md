@@ -190717,7 +190717,9 @@ D-195, accepted on 2026-09-28. Every case is a project of one composition 16 by 
 
 **Every number below is produced by `tools/echo_reference.py`**, which works D-195's rule in double precision at every pixel from the drawings' 8-bit values. The same numbers are in `Fixtures/echo/expected_echo.json`. Tolerance 2e-5.
 
-**Checked by what they claim.** The tool checks that no echoes at full intensity and the adjustment layer leave the drawing exactly (002, 021), and frame 0 of the first case, whose echo is before the layer (001); that Add is the sum of the named drawings held at 1 (001, 004, 005, 006, 013, 014, 022); that half intensity halves (003); that Minimum keeps only the two columns where two drawings meet (008); that Composite In Back has the present ball whole on top and In Front the oldest copy over the next (010, 011); that Blend is the average (012); that a part frame and a part echo count as the whole below (015, 016); that an Exposure before the Echo is not seen and one after it darkens all (017, 018); that the mask keeps nothing right of column 6 (019); that the moved holder is 001 moved (020); that keyed intensity 0 leaves nothing (023); and that every number of every case is between 0 and 1 with colour no more than covering.
+**D-768 changed** FX-ECHO-010 and 011 when the owner accepted it on 2026-10-24: Composite In Back now puts the present copy at the back and each echo farther forward, and Composite In Front puts the present copy in front, as Adobe's manual and After Effects do; before, the two were the other way round. D-195's values for the two cases are retired, kept in the repository's history at commit 440cecf0. It moved 18 pixels of each case's frame 4 by at most 0.206 (the two cases exchanged their pictures); every other case is unchanged.
+
+**Checked by what they claim.** The tool checks that no echoes at full intensity and the adjustment layer leave the drawing exactly (002, 021), and frame 0 of the first case, whose echo is before the layer (001); that Add is the sum of the named drawings held at 1 (001, 004, 005, 006, 013, 014, 022); that half intensity halves (003); that Minimum keeps only the two columns where two drawings meet (008); that Composite In Front has the present ball whole on top and In Back the oldest copy over the next (011, 010); that Blend is the average (012); that a part frame and a part echo count as the whole below (015, 016); that an Exposure before the Echo is not seen and one after it darkens all (017, 018); that the mask keeps nothing right of column 6 (019); that the moved holder is 001 moved (020); that keyed intensity 0 leaves nothing (023); and that every number of every case is between 0 and 1 with colour no more than covering.
 
 FX-ECHO-001: As added: one echo, one frame back, starting intensity and decay 1, Add. At frame 0 the frame before is outside the layer, so only the ball; at frame 2 drawings 3 and 2 added, brighter where they overlap; at frame 5 drawing 5, held, added to itself.
 
@@ -191063,47 +191065,7 @@ Row 3, the 10 pixels that change:
 | 10 | 0.7912979 0.8713671 0.00303527 1 | 0.7912979 0.8713671 0.00303527 1 |
 | 11 | 0.7912979 0.8713671 0.00303527 1 | 0.7912979 0.8713671 0.00303527 1 |
 
-FX-ECHO-010: Three echoes, decay 0.7, Composite In Back: the present ball on top.
-
-Frame 4:
-
-Row 1, the 7 pixels that change:
-
-| x | drawing | echoed |
-| --- | --- | --- |
-| 2 | 0 0 0 0 | 0.1362398 0.03233758 0.03843373 0.1721725 |
-| 3 | 0 0 0 0 | 0.2714152 0.06442252 0.07656719 0.343 |
-| 4 | 0 0 0 0 | 0.399286 0.1350403 0.08288212 0.5045962 |
-| 5 | 0 0 0 0 | 0.5261577 0.2051065 0.08914772 0.66493 |
-| 6 | 0 0 0 0 | 0.5295366 0.3146726 0.04370262 0.6692 |
-| 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
-| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
-
-Row 2, the 7 pixels that change:
-
-| x | drawing | echoed |
-| --- | --- | --- |
-| 2 | 0 0 0 0 | 0.1362398 0.03233758 0.03843373 0.1721725 |
-| 3 | 0 0 0 0 | 0.2714152 0.06442252 0.07656719 0.343 |
-| 4 | 0 0 0 0 | 0.399286 0.1350403 0.08288212 0.5045962 |
-| 5 | 0 0 0 0 | 0.5261577 0.2051065 0.08914772 0.66493 |
-| 6 | 0 0 0 0 | 0.5295366 0.3146726 0.04370262 0.6692 |
-| 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
-| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
-
-Row 3, the 7 pixels that change:
-
-| x | drawing | echoed |
-| --- | --- | --- |
-| 2 | 0 0 0 0 | 0.1362398 0.03233758 0.03843373 0.1721725 |
-| 3 | 0 0 0 0 | 0.2714152 0.06442252 0.07656719 0.343 |
-| 4 | 0 0 0 0 | 0.399286 0.1350403 0.08288212 0.5045962 |
-| 5 | 0 0 0 0 | 0.5261577 0.2051065 0.08914772 0.66493 |
-| 6 | 0 0 0 0 | 0.5295366 0.3146726 0.04370262 0.6692 |
-| 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
-| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
-
-FX-ECHO-011: Three echoes, decay 0.7, Composite In Front: the furthest echo on top.
+FX-ECHO-010: Three echoes, decay 0.7, Composite In Back: the present ball at the back, the furthest echo on top.
 
 Frame 4:
 
@@ -191145,6 +191107,46 @@ Row 3, the 8 pixels that change:
 | 7 | 0 0 0 0 | 0.6702294 0.3784472 0.06148533 0.847 |
 | 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.5355239 0.0227843 0.8505882 |
 | 9 | 0.7912979 0.8713671 0.00303527 1 | 0.7912979 0.6657164 0.0232378 1 |
+
+FX-ECHO-011: Three echoes, decay 0.7, Composite In Front: the present ball in front.
+
+Frame 4:
+
+Row 1, the 7 pixels that change:
+
+| x | drawing | echoed |
+| --- | --- | --- |
+| 2 | 0 0 0 0 | 0.1362398 0.03233758 0.03843373 0.1721725 |
+| 3 | 0 0 0 0 | 0.2714152 0.06442252 0.07656719 0.343 |
+| 4 | 0 0 0 0 | 0.399286 0.1350403 0.08288212 0.5045962 |
+| 5 | 0 0 0 0 | 0.5261577 0.2051065 0.08914772 0.66493 |
+| 6 | 0 0 0 0 | 0.5295366 0.3146726 0.04370262 0.6692 |
+| 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
+| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
+
+Row 2, the 7 pixels that change:
+
+| x | drawing | echoed |
+| --- | --- | --- |
+| 2 | 0 0 0 0 | 0.1362398 0.03233758 0.03843373 0.1721725 |
+| 3 | 0 0 0 0 | 0.2714152 0.06442252 0.07656719 0.343 |
+| 4 | 0 0 0 0 | 0.399286 0.1350403 0.08288212 0.5045962 |
+| 5 | 0 0 0 0 | 0.5261577 0.2051065 0.08914772 0.66493 |
+| 6 | 0 0 0 0 | 0.5295366 0.3146726 0.04370262 0.6692 |
+| 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
+| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
+
+Row 3, the 7 pixels that change:
+
+| x | drawing | echoed |
+| --- | --- | --- |
+| 2 | 0 0 0 0 | 0.1362398 0.03233758 0.03843373 0.1721725 |
+| 3 | 0 0 0 0 | 0.2714152 0.06442252 0.07656719 0.343 |
+| 4 | 0 0 0 0 | 0.399286 0.1350403 0.08288212 0.5045962 |
+| 5 | 0 0 0 0 | 0.5261577 0.2051065 0.08914772 0.66493 |
+| 6 | 0 0 0 0 | 0.5295366 0.3146726 0.04370262 0.6692 |
+| 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
+| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
 
 FX-ECHO-012: Three echoes, Blend: the four drawings averaged.
 

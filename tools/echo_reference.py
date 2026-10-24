@@ -17,8 +17,9 @@ H at n:
 3. Q_k = I D^k P_k, all four numbers, with I = intensity and D = decay (D^0 = 1).
 4. The operator makes R from Q_0 to Q_N, all four numbers each: `add` min(1, sum); `maximum` and
    `minimum` the largest and smallest; `screen` 1 - product of (1 - clamp(Q, 0, 1));
-   `composite_in_back` Q_0 over Q_1 over ... over Q_N, the present on top; `composite_in_front`
-   Q_N over ... over Q_0, the furthest echo on top; `blend` sum / (N + 1). Here a over b is
+   `composite_in_back` Q_N over ... over Q_0, the present at the back and each echo farther
+   forward, the furthest on top; `composite_in_front` Q_0 over Q_1 over ... over Q_N, the present
+   in front (D-768, as Adobe's manual and After Effects); `blend` sum / (N + 1). Here a over b is
    a + (1 - a's covering) b.
 5. The output is R with its top-left pixel at (ox, oy), transparent elsewhere: what effects
    before Echo made is replaced. The bounds do not grow.
@@ -125,11 +126,11 @@ def combine(qs, operator):
                 for q in v:
                     keep *= 1 - min(1.0, max(0.0, q))
                 r.append(1 - keep)
-        elif operator == "composite_in_back":
+        elif operator == "composite_in_front":
             r = list(px[-1])
             for q in reversed(px[:-1]):
                 r = over(q, r)
-        elif operator == "composite_in_front":
+        elif operator == "composite_in_back":
             r = list(px[0])
             for q in px[1:]:
                 r = over(q, r)
@@ -204,9 +205,9 @@ CASES = {
                     case(operator="minimum"), (3,)),
     "FX-ECHO-009": ("Three echoes, decay 0.7, Screen.",
                     case(echoes=3, decay=0.7, operator="screen"), (4,)),
-    "FX-ECHO-010": ("Three echoes, decay 0.7, Composite In Back: the present ball on top.",
+    "FX-ECHO-010": ("Three echoes, decay 0.7, Composite In Back: the present ball at the back, the furthest echo on top.",
                     case(echoes=3, decay=0.7, operator="composite_in_back"), (4,)),
-    "FX-ECHO-011": ("Three echoes, decay 0.7, Composite In Front: the furthest echo on top.",
+    "FX-ECHO-011": ("Three echoes, decay 0.7, Composite In Front: the present ball in front.",
                     case(echoes=3, decay=0.7, operator="composite_in_front"), (4,)),
     "FX-ECHO-012": ("Three echoes, Blend: the four drawings averaged.",
                     case(echoes=3, operator="blend"), (4,)),
@@ -333,21 +334,21 @@ def check(expected):
     # Minimum: only the two columns where drawings 4 and 3 meet keep anything.
     kept = {x for y in range(H) for x in range(W) if c["FX-ECHO-008"]["3"][y * W + x] != CLEAR}
     assert kept == {6, 7}, kept
-    # Composite In Back: the present ball whole on top. In Front: the oldest echo, frame 1's
-    # drawing 2, alone in columns 2 and 3, and over frame 2's in column 5, where In Back has frame
-    # 2's over it.
+    # D-768. Composite In Front: the present ball whole on top. In Back: the oldest echo, frame
+    # 1's drawing 2, alone in columns 2 and 3, and over frame 2's in column 5, where In Front has
+    # frame 2's over it.
     for i, p in enumerate(drawn(4)):
         if p[3] == 1.0:
-            assert c["FX-ECHO-010"]["4"][i] == p
+            assert c["FX-ECHO-011"]["4"][i] == p
     oldest, next_ = scaled(drawn(1), 0.7 ** 3), scaled(drawn(2), 0.7 ** 2)
     for y in range(1, 4):
         for x in (2, 3):
             assert oldest[y * W + x] != CLEAR
-            assert near([c["FX-ECHO-011"]["4"][y * W + x]], [oldest[y * W + x]])
+            assert near([c["FX-ECHO-010"]["4"][y * W + x]], [oldest[y * W + x]])
         i = y * W + 5
         assert oldest[i][3] > 0.3 and next_[i][3] > 0.4
-        assert near([c["FX-ECHO-011"]["4"][i]], [over(oldest[i], next_[i])])
-        assert near([c["FX-ECHO-010"]["4"][i]], [over(next_[i], oldest[i])])
+        assert near([c["FX-ECHO-010"]["4"][i]], [over(oldest[i], next_[i])])
+        assert near([c["FX-ECHO-011"]["4"][i]], [over(next_[i], oldest[i])])
     assert near(c["FX-ECHO-012"]["4"], [[sum(v) / 4 for v in zip(*px)]
                                         for px in zip(drawn(4), drawn(3), drawn(2), drawn(1))])
     late = lambda f: plain(case(start=2), f)  # noqa: E731
