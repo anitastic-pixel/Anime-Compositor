@@ -522,6 +522,35 @@ fn plan_inside(
                         cache,
                         log,
                     );
+                    // D-786: a Fill with Fill Mask 0 and All Masks off fills the whole frame
+                    // beneath, as After Effects' does. One that names a mask is not drawn here,
+                    // because the adjustment's masks are not carried to the frame beneath, and
+                    // that is said every frame.
+                    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+                        if let crate::effects::Effect::Fill {
+                            mask,
+                            all_masks,
+                            paths,
+                            ..
+                        } = &mut instance.effect
+                        {
+                            if all_masks == "off" && *mask < 1.0 {
+                                *paths = Some(Vec::new());
+                            } else {
+                                log.record(
+                                    frame,
+                                    layer.name.clone(),
+                                    Diagnostic::new(
+                                        DiagnosticId::EffectPathMissing,
+                                        Severity::Warning,
+                                        format!("Adjustment layer {}'s Fill names a mask, which a Fill on an adjustment layer cannot use yet, so it fills nothing.", layer.name),
+                                        format!("Frame {frame} is drawn without the fill. The effect is kept as it is."),
+                                    )
+                                    .with_remediation("Set Fill Mask to 0 and All Masks off to fill the whole frame beneath, or put the Fill on the layer itself."),
+                                );
+                            }
+                        }
+                    }
                     effects
                 }),
                 nested: resolved.nested,
@@ -4736,8 +4765,12 @@ fn resolve_rest(
     // D-418: each Fill's masks, chosen as Path Stroke's are (on, with two points, whatever the
     // mode), as they are at this frame and at the size the effects run at; Fill Mask 0 with All
     // Masks off is none, the whole layer. Asked for a mask and finding none, the layer is left as
-    // it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    // it is and that is said every frame. An adjustment layer's Fill is prepared where its stack
+    // runs (D-786).
+    for instance in effects
+        .iter_mut()
+        .filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment())
+    {
         if let crate::effects::Effect::Fill {
             mask,
             all_masks,
