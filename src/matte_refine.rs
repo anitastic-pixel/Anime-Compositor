@@ -19,23 +19,50 @@ pub(crate) const EPS: f64 = 1e-4;
 /// cut to the w by h picture: running totals down the columns, then along the rows.
 pub(crate) fn box_sum(f: &[f64], ch: usize, w: usize, h: usize, r: usize) -> Vec<f64> {
     let line = w * ch;
-    // Down the columns: run[y] is the sum of rows 0 to y - 1.
-    let mut run = vec![0.0f64; (h + 1) * line];
-    for y in 0..h {
-        let (done, next) = run.split_at_mut((y + 1) * line);
-        let (prev, src) = (&done[y * line..], &f[y * line..(y + 1) * line]);
-        for ((n, p), s) in next[..line].iter_mut().zip(prev).zip(src) {
-            *n = p + s;
-        }
-    }
+    // Down the columns: run[y] is the sum of rows 0 to y - 1, and a row's column totals are
+    // run[hi] - run[lo]. B-660: each band of BAND numbers across is run on a thread of its own,
+    // which keeps its totals by themselves, row y at y times its width; every total is the same
+    // additions in the same order as one pass down the whole width.
+    const BAND: usize = 256;
+    let cols: Vec<Vec<f64>> = (0..line.div_ceil(BAND))
+        .into_par_iter()
+        .map(|b| {
+            let (from, bw) = (b * BAND, BAND.min(line - b * BAND));
+            // Only rows lo to hi of run are read for a row, so it is kept in a ring of rows.
+            let rows = (2 * r + 3).min(h + 1);
+            let mut run = vec![0.0f64; rows * bw];
+            let mut made = 0;
+            let mut col = vec![0.0f64; h * bw];
+            for (y, c) in col.chunks_mut(bw).enumerate() {
+                let (hi, lo) = ((y + r).min(h - 1) + 1, y.saturating_sub(r));
+                while made < hi {
+                    let src = &f[made * line + from..made * line + from + bw];
+                    let (p, n) = ((made % rows) * bw, ((made + 1) % rows) * bw);
+                    for i in 0..bw {
+                        run[n + i] = run[p + i] + src[i];
+                    }
+                    made += 1;
+                }
+                let (hi, lo) = ((hi % rows) * bw, (lo % rows) * bw);
+                for (i, c) in c.iter_mut().enumerate() {
+                    *c = run[hi + i] - run[lo + i];
+                }
+            }
+            col
+        })
+        .collect();
     let mut out = vec![0.0f64; h * line];
-    out.par_chunks_mut(line).enumerate().for_each(|(y, row)| {
-        let (hi, lo) = ((y + r).min(h - 1) + 1, y.saturating_sub(r));
-        let col: Vec<f64> = (0..line)
-            .map(|i| run[hi * line + i] - run[lo * line + i])
-            .collect();
+    // B-660: a row's column totals and running sums are kept from one row to the next a thread
+    // draws, rather than made afresh, which Windows hands out a page at a time; acc[0] is never
+    // written and every other number is written before it is read.
+    let fresh = || (Vec::with_capacity(line), vec![0.0f64; (w + 1) * ch]);
+    out.par_chunks_mut(line).enumerate().for_each_init(fresh, |(col, acc), (y, row)| {
+        col.clear();
+        for band in &cols {
+            let bw = band.len() / h;
+            col.extend_from_slice(&band[y * bw..(y + 1) * bw]);
+        }
         // Along the row: acc[x] is the sum of columns 0 to x - 1.
-        let mut acc = vec![0.0f64; (w + 1) * ch];
         for x in 0..w {
             for j in 0..ch {
                 acc[(x + 1) * ch + j] = acc[x * ch + j] + col[x * ch + j];
@@ -147,13 +174,15 @@ fn straight(p: &[f64]) -> [f64; 3] {
 }
 
 fn read(source: &WorkingBuffer) -> Vec<f64> {
-    source.data().iter().map(|&v| v as f64).collect()
+    source.data().par_iter().map(|&v| v as f64).collect()
 }
 
 fn write(source: &mut WorkingBuffer, px: &[f64]) {
-    for (d, s) in source.data_mut().iter_mut().zip(px) {
-        *d = *s as f32;
-    }
+    source
+        .data_mut()
+        .par_iter_mut()
+        .zip(px)
+        .for_each(|(d, s)| *d = *s as f32);
 }
 
 /// One Matte Choker stage: geometric softness `g`, choke `k`, gray level softness `s`.
@@ -237,11 +266,11 @@ pub(crate) struct Refine<'a> {
 /// The edge region at `re`: a covered pixel and a pixel not fully covered both in the square.
 fn edge_region(a0: &[f64], w: usize, h: usize, re: usize) -> Vec<bool> {
     let f: Vec<f64> = a0
-        .iter()
-        .flat_map(|&a| [(a > 0.0) as u8 as f64, (a < 1.0) as u8 as f64])
+        .par_iter()
+        .flat_map_iter(|&a| [(a > 0.0) as u8 as f64, (a < 1.0) as u8 as f64])
         .collect();
     box_sum(&f, 2, w, h, re)
-        .chunks(2)
+        .par_chunks(2)
         .map(|c| c[0] > 0.0 && c[1] > 0.0)
         .collect()
 }
@@ -254,8 +283,8 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     }
     let n = w * h;
     let px = read(source);
-    let a0: Vec<f64> = px.chunks(4).map(|p| p[3]).collect();
-    let known: Vec<bool> = a0.iter().map(|&a| a > 0.0).collect();
+    let a0: Vec<f64> = px.par_chunks(4).map(|p| p[3]).collect();
+    let known: Vec<bool> = a0.par_iter().map(|&a| a > 0.0).collect();
     let re = if s.soft {
         s.edge_radius.floor() as usize
     } else {
@@ -263,16 +292,18 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     };
     let rf = s.feather.floor() as usize;
     let big = 2 * (re + rf);
-    let mut c: Vec<[f64; 3]> = px.chunks(4).map(straight).collect();
+    let mut c: Vec<[f64; 3]> = px.par_chunks(4).map(straight).collect();
     let mut filled = vec![false; n];
     if big > 0 {
         let total = box_sum(&px, 4, w, h, big);
-        for i in 0..n {
-            if !known[i] {
-                filled[i] = total[i * 4 + 3] > 0.0;
-                c[i] = straight(&total[i * 4..i * 4 + 4]);
-            }
-        }
+        c.par_iter_mut()
+            .zip(filled.par_iter_mut())
+            .enumerate()
+            .filter(|(i, _)| !known[*i])
+            .for_each(|(i, (c, filled))| {
+                *filled = total[i * 4 + 3] > 0.0;
+                *c = straight(&total[i * 4..i * 4 + 4]);
+            });
     }
     let mut a = a0.clone();
     let region = if s.soft {
@@ -281,39 +312,42 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
         None
     };
     if let (Some(region), true) = (&region, re > 0) {
-        let guide: Vec<f64> = px.chunks(4).flat_map(|p| straight(p).map(srgb)).collect();
+        let guide: Vec<f64> = px
+            .par_chunks(4)
+            .flat_map_iter(|p| straight(p).map(srgb))
+            .collect();
         let q = guided_filter(&guide, &a0, w, h, re);
-        for i in 0..n {
-            if region[i] {
-                a[i] = q[i].clamp(0.0, 1.0);
-            }
-        }
+        a.par_iter_mut()
+            .zip(&q)
+            .zip(region)
+            .filter(|(_, r)| **r)
+            .for_each(|((a, q), _)| *a = q.clamp(0.0, 1.0));
     }
     if rf > 0 {
-        let guide: Vec<f64> = c.iter().flat_map(|v| v.map(srgb)).collect();
+        let guide: Vec<f64> = c.par_iter().flat_map_iter(|v| v.map(srgb)).collect();
         a = guided_filter(&guide, &a, w, h, rf)
-            .into_iter()
+            .into_par_iter()
             .map(|v| v.clamp(0.0, 1.0))
             .collect();
     }
     let (mid, width) = (0.5 - s.shift_edge / 200.0, 1.0 - s.contrast / 100.0);
-    for i in 0..n {
-        a[i] = if known[i] || filled[i] {
-            ramp(a[i], mid, width)
+    a.par_iter_mut().enumerate().for_each(|(i, a)| {
+        *a = if known[i] || filled[i] {
+            ramp(*a, mid, width)
         } else {
             0.0
         };
-    }
+    });
     let amount = s.decontamination_amount / 100.0;
     let on = s.decontaminate == "on";
     if on {
         let rd = big + 1 + s.decontamination_radius.floor() as usize;
         // Weighted by covering and by its want, over the pixels that had covering.
         let mut f = vec![0.0f64; n * 8];
-        for i in 0..n {
+        f.par_chunks_mut(8).enumerate().for_each(|(i, f)| {
             if known[i] {
                 let (wf, wb) = (a[i], 1.0 - a[i]);
-                f[i * 8..i * 8 + 8].copy_from_slice(&[
+                f.copy_from_slice(&[
                     wf * c[i][0],
                     wf * c[i][1],
                     wf * c[i][2],
@@ -324,7 +358,7 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
                     wb,
                 ]);
             }
-        }
+        });
         let t = box_sum(&f, 8, w, h, rd);
         c.par_iter_mut().enumerate().for_each(|(i, ci)| {
             let t = &t[i * 8..i * 8 + 8];
@@ -347,21 +381,21 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     }
     let out: Vec<f64> = if let (Some(region), "on") = (&region, s.view_edge_region) {
         region
-            .iter()
-            .flat_map(|&r| [r as u8 as f64, r as u8 as f64, r as u8 as f64, 1.0])
+            .par_iter()
+            .flat_map_iter(|&r| [r as u8 as f64, r as u8 as f64, r as u8 as f64, 1.0])
             .collect()
     } else if s.view_decontamination_map == "on" {
         let k = if on { amount } else { 0.0 };
-        a.iter()
-            .flat_map(|&a| {
+        a.par_iter()
+            .flat_map_iter(|&a| {
                 let v = k * 4.0 * a * (1.0 - a);
                 [v, v, v, 1.0]
             })
             .collect()
     } else {
-        c.iter()
+        c.par_iter()
             .zip(&a)
-            .flat_map(|(c, &a)| [c[0] * a, c[1] * a, c[2] * a, a])
+            .flat_map_iter(|(c, &a)| [c[0] * a, c[1] * a, c[2] * a, a])
             .collect()
     };
     write(source, &out);
@@ -389,9 +423,11 @@ pub(crate) fn key_cleaner(source: &mut WorkingBuffer, radius: f64, contrast: f64
     };
     refine_matte(source, &s);
     if let Some(before) = before {
-        for (d, b) in source.data_mut().iter_mut().zip(before) {
-            *d = (b as f64 + strength * (*d as f64 - b as f64)) as f32;
-        }
+        source
+            .data_mut()
+            .par_iter_mut()
+            .zip(before)
+            .for_each(|(d, b)| *d = (b as f64 + strength * (*d as f64 - b as f64)) as f32);
     }
 }
 

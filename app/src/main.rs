@@ -18886,6 +18886,11 @@ mod blur_outline;
 #[path = "tests/keyed_settings.rs"]
 mod keyed_settings;
 
+/// W7: every effect's frame time, a measurement run with `--ignored`.
+#[cfg(test)]
+#[path = "tests/perf_audit.rs"]
+mod perf_audit;
+
 /// D-741: chosen keys of a mask's, a shape's and a group's numbers moved, deleted and reversed
 /// together, as the timeline sends them.
 #[cfg(test)]
