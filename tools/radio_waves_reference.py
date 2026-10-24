@@ -28,6 +28,15 @@ of (1 - c) over the waves alive, K the colour's linear value and O the pixel, pr
 output is T O + (1 - T) (K, 1): the waves painted over the layer. A pixel no wave reaches, T = 1,
 is left exactly as it is. A draft scales expansion, velocity and both widths as distances.
 
+D-777 adds two of After Effects' own. Sides go up to 128, After Effects' top. And "Parameters
+Are Set At": "each_frame", every wave alive drawn with the settings at f, the rule above and a
+file without the word; or "birth", After Effects' own, each wave drawn with the producer point,
+expansion, orientation, direction, velocity, spin, lifespan, opacity, fade times and widths held
+at the frame it was born, k * interval, so a moving producer leaves its rings where it sent them.
+Birth frames still follow the interval at f, and sides, profile and colour are the ones at f.
+Waves born up to 1000 frames before f, the longest lifespan, are looked at, each alive while its
+age is below its own lifespan.
+
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
 
@@ -62,13 +71,16 @@ from lightning_bolt_reference import DRAWINGS  # noqa: E402
 W, H = RC.W, RC.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "radio_waves"
 TOLERANCE = 2e-5  # document 25's default for a filter
-RANGES = {"producer_point": (-1000, 1000), "sides": (3, 64), "interval": (1, 1000),
+RANGES = {"producer_point": (-1000, 1000), "sides": (3, 128), "interval": (1, 1000),
           "expansion": (0, 1000), "orientation": (-3600, 3600), "direction": (-3600, 3600),
           "velocity": (0, 1000), "spin": (-360, 360), "lifespan": (1, 1000), "opacity": (0, 100),
           "fade_in_time": (0, 1000), "fade_out_time": (0, 1000), "start_width": (0, 1000),
           "end_width": (0, 1000)}
 NUMBERS = tuple(RANGES)
 WORDS = ("profile", "color")
+# D-777: what each wave keeps from its birth, in "birth".
+BORN = ("producer_point", "expansion", "orientation", "direction", "velocity", "spin",
+        "lifespan", "opacity", "fade_in_time", "fade_out_time", "start_width", "end_width")
 FLOORED = ("sides",)
 ORANGE = "#ffb040"
 
@@ -110,13 +122,25 @@ def fade(t, time):
     return min(1.0, t / time) if time > 0 else 1.0
 
 
-def alive(s, frame_no, dw, dh):
+def alive(s, frame_no, dw, dh, born=None):
     """The waves alive at the frame: (centre, R, theta, width, strength), the empty ones left
-    out."""
-    P = (s["producer_point"][0] / 100 * dw, s["producer_point"][1] / 100 * dh)
-    u = toward(s["direction"])
+    out. D-777: `born`, in "birth", gives the settings a wave born at a frame keeps."""
+    if born is None:
+        sent = [(t, s) for t in ages(frame_no, s["interval"], s["lifespan"])]
+    else:
+        sent, k = [], 0
+        while k * s["interval"] <= frame_no:
+            b = k * s["interval"]
+            k += 1
+            if frame_no - b >= 1000:
+                continue
+            kept = dict(s, **born(b))
+            if frame_no - b < kept["lifespan"]:
+                sent.append((frame_no - b, kept))
     out = []
-    for t in ages(frame_no, s["interval"], s["lifespan"]):
+    for t, s in sent:
+        P = (s["producer_point"][0] / 100 * dw, s["producer_point"][1] / 100 * dh)
+        u = toward(s["direction"])
         w = s["start_width"] + (s["end_width"] - s["start_width"]) * t / s["lifespan"]
         g = (s["opacity"] / 100 * fade(t, s["fade_in_time"])
              * fade(s["lifespan"] - t, s["fade_out_time"]))
@@ -128,12 +152,12 @@ def alive(s, frame_no, dw, dh):
     return out
 
 
-def radio_waves(layer, s, profile, color, frame_no, dw, dh):
+def radio_waves(layer, s, profile, color, frame_no, dw, dh, born=None):
     """The layer with the waves painted over it; its rectangle kept. The drawing's own space is
     the layer's, its corner at the layer's (0, 0) and the layer's `left` and `top` the growth of
     earlier effects, negated. `s` holds the numbers, held and floored."""
     K = [srgb_to_linear(v / 255) for v in RC.hex_color(color.lower())]
-    waves = alive(s, frame_no, dw, dh)
+    waves = alive(s, frame_no, dw, dh, born)
     n = s["sides"]
     out = []
     for i, o in enumerate(layer["px"]):
@@ -153,8 +177,9 @@ def radio_waves(layer, s, profile, color, frame_no, dw, dh):
 def case(shift=0, tile=False, producer_point=(50, 50), sides=64, interval=24, expansion=5,
          orientation=0, direction=90, velocity=0, spin=0, lifespan=96, opacity=100,
          fade_in_time=0, fade_out_time=48, start_width=5, end_width=5, profile="square",
-         color="#ffffff"):
-    return {"drawing": "night", "shift": shift, "tile": tile, "producer_point": producer_point,
+         color="#ffffff", parameters_at=None):
+    return {"parameters_at": parameters_at,
+            "drawing": "night", "shift": shift, "tile": tile, "producer_point": producer_point,
             "sides": sides, "interval": interval, "expansion": expansion,
             "orientation": orientation, "direction": direction, "velocity": velocity,
             "spin": spin, "lifespan": lifespan, "opacity": opacity, "fade_in_time": fade_in_time,
@@ -193,7 +218,11 @@ def render(c, frame_no):
     if c["tile"]:
         layer = motion_tile(layer, 300, 300, "off")
     s = {k: held(c, k, frame_no) for k in NUMBERS}
-    return frame(radio_waves(layer, s, c["profile"], c["color"], frame_no, W, H), c["shift"])
+    born = None
+    if c["parameters_at"] == "birth":
+        born = lambda b: {k: held(c, k, math.floor(b)) for k in BORN}  # noqa: E731
+    return frame(radio_waves(layer, s, c["profile"], c["color"], frame_no, W, H, born),
+                 c["shift"])
 
 
 def plain(c):
@@ -271,6 +300,32 @@ CASES = {
                      [2]),
     "FX-RWAVE-020": ("As the ring, 4.7 sides, counted as 4: FX-RWAVE-004 exactly.",
                      ring(sides=4.7), [2]),
+    # D-777.
+    "FX-RWAVE-028": ("As FX-RWAVE-008, 128 sides, After Effects' top: three waves round the "
+                     "middle at frame 4, each sample within 0.01 of FX-RWAVE-008's 64 sides.",
+                     circles(sides=128), [4]),
+    "FX-RWAVE-029": ("As FX-RWAVE-015, Parameters Are Set At Birth: each wave keeps the "
+                     "producer point it was born at, so at frame 4 the wave born at frame 0 is "
+                     "round (4, 5), the one born at frame 2 round (8, 5) and the dot born at "
+                     "frame 4 at (12, 5); at frame 0 it is FX-RWAVE-015's dot.",
+                     circles(producer_point=keyed((0, (25, 50)), (4, (75, 50))),
+                             parameters_at="birth"), [0, 4]),
+    "FX-RWAVE-030": ("As FX-RWAVE-015, Parameters Are Set At Each Frame, written: "
+                     "FX-RWAVE-015 exactly, every wave round where the point is now.",
+                     circles(producer_point=keyed((0, (25, 50)), (4, (75, 50))),
+                             parameters_at="each_frame"), [0, 4]),
+    "FX-RWAVE-031": ("As FX-RWAVE-008, the opacity keyed from 100 at frame 0 to 0 at frame 4, "
+                     "linear, set at birth: at frame 4 the wave born at frame 0 is whole, the "
+                     "one born at frame 2 at half strength and the dot born at frame 4 gone; "
+                     "set at each frame all three would be gone.",
+                     circles(opacity=keyed((0, 100), (4, 0)), parameters_at="birth"), [2, 4]),
+    "FX-RWAVE-032": ("As FX-RWAVE-008, set at birth with nothing keyed: FX-RWAVE-008 exactly.",
+                     circles(parameters_at="birth"), [4]),
+    "FX-RWAVE-033": ("As the ring, spin 22.5 a frame, lifespan keyed from 10 at frame 0 to 1 at "
+                     "frame 1, hold, set at birth: the wave born at frame 0 keeps its 10 and is "
+                     "FX-RWAVE-006 at frame 2.",
+                     ring(orientation=0, spin=22.5, lifespan=keyed((0, 10, "hold"), (1, 1)),
+                          parameters_at="birth"), [2]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -284,6 +339,10 @@ INVALID = {
     "FX-RWAVE-025": ("Start width -1, below 0.", ring(start_width=-1)),
     "FX-RWAVE-026": ("Profile \"bell\", which is not one.", ring(profile="bell")),
     "FX-RWAVE-027": ("Colour \"#fff\", written in three digits, not six.", ring(color="#fff")),
+    # D-777.
+    "FX-RWAVE-034": ("Sides 129, above 128.", ring(sides=129)),
+    "FX-RWAVE-035": ("Parameters set at \"death\", which is not \"birth\" or \"each_frame\".",
+                     ring(parameters_at="death")),
 }
 
 
@@ -306,6 +365,9 @@ def project_json(fx, c):
     effects.append({"instance_id": f"fx-0-{len(effects)}", "type_id": "core.radio_waves",
                     "enabled": True,
                     "parameters": {k: setting_json(c[k]) for k in NUMBERS + WORDS}})
+    # D-777: a case without the word is a file from before, each frame.
+    if c["parameters_at"] is not None:
+        effects[-1]["parameters"]["parameters_at"] = c["parameters_at"]
     comp["layers"][0]["effects"] = effects
     return p
 
@@ -474,6 +536,24 @@ def check(expected):
     assert lit(nineteen, 8, 4, base=tiled) == 0
 
     assert c["FX-RWAVE-020"]["2"] == four
+
+    # D-777.
+    assert all(abs(p - q) < 1e-2 for a, b in zip(c["FX-RWAVE-028"]["4"], eight)
+               for p, q in zip(a, b)) and c["FX-RWAVE-028"]["4"] != eight
+    born = c["FX-RWAVE-029"]
+    assert born["0"] == fifteen["0"] and born["4"] != fifteen["4"]
+    dot = [(11, 4), (12, 4), (11, 5), (12, 5)]
+    assert all(lit(born["4"], x, y) > 0.29 for x, y in dot)                # born at frame 4
+    assert all(lit(born["4"], x, y) == 0 for x, y in mid)
+    assert c["FX-RWAVE-030"] == fifteen
+    fading = c["FX-RWAVE-031"]["4"]
+    whole = render(circles(), 4)
+    assert all(lit(fading, x, y) == 0 for x, y in mid)                      # born at 4, at 0
+    assert abs(lit(fading, 0, 4) - lit(whole, 0, 4)) < 1e-12                # born at 0, whole
+    assert abs(lit(fading, 4, 4) - 0.5 * lit(whole, 4, 4)) < 1e-12          # born at 2, half
+    assert lit(whole, 4, 4) > 0.3
+    assert c["FX-RWAVE-032"]["4"] == eight
+    assert same(c["FX-RWAVE-033"]["2"], four)
     print("checked")
 
 
