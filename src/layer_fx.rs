@@ -13683,19 +13683,14 @@ pub(crate) fn caustics(
             .collect();
         let total: f64 = t.iter().sum();
         let t: Vec<f64> = t.iter().map(|v| v / total).collect();
-        let pass = |v: &[[f64; N]], across: bool| -> Vec<[f64; N]> {
+        let across = |v: &[[f64; N]]| -> Vec<[f64; N]> {
             (0..lw * lh)
                 .into_par_iter()
                 .map(|i| {
                     let (x, y) = ((i % lw) as i64, (i / lw) as i64);
                     let mut s = [0.0; N];
                     for (k, tk) in t.iter().enumerate() {
-                        let o = k as i64 - r;
-                        let j = if across {
-                            y * lw as i64 + (x + o).clamp(0, lw as i64 - 1)
-                        } else {
-                            (y + o).clamp(0, lh as i64 - 1) * lw as i64 + x
-                        };
+                        let j = y * lw as i64 + (x + k as i64 - r).clamp(0, lw as i64 - 1);
                         for c in 0..N {
                             s[c] += tk * v[j as usize][c];
                         }
@@ -13704,7 +13699,23 @@ pub(crate) fn caustics(
                 })
                 .collect()
         };
-        pass(&pass(v, true), false)
+        // B-661: down a whole row at a time, each tap's row read in order rather than one pixel
+        // reading a column; every pixel still adds the same taps in the same order.
+        let down = |v: &[[f64; N]]| -> Vec<[f64; N]> {
+            let mut out = vec![[0.0; N]; lw * lh];
+            out.par_chunks_mut(lw).enumerate().for_each(|(y, row)| {
+                for (k, tk) in t.iter().enumerate() {
+                    let j = (y as i64 + k as i64 - r).clamp(0, lh as i64 - 1) as usize;
+                    for (s, p) in row.iter_mut().zip(&v[j * lw..(j + 1) * lw]) {
+                        for c in 0..N {
+                            s[c] += tk * p[c];
+                        }
+                    }
+                }
+            });
+            out
+        };
+        down(&across(v))
     }
     let bottom = gaussian(
         &placed(&bottom_q, *bottom_scaling, bottom_repeat_mode, bottom_fit),
