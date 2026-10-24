@@ -47,7 +47,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | TEXT_FONT_MISSING | WARNING | A text layer names a font this machine does not have, or a file that is not a font (D-263) | preserve the record; draw nothing for the words, never another font in their place; report once per frame the layer is drawn on, and report fidelity incomplete |
 | EXPRESSION_SYNTAX | ERROR | Expression text cannot be read, or asks for a word the language does not have (D-59) | preserve the text; draw the property at its keyed value; show the error on the property; refuse an export that meets it |
 | EXPRESSION_TYPE | ERROR | Expression gives or uses a value of the wrong kind, shape or range (D-59) | as EXPRESSION_SYNTAX |
-| EXPRESSION_REFERENCE_MISSING | ERROR | Expression names a layer ID that does not exist (D-59) | preserve the text; as EXPRESSION_SYNTAX |
+| EXPRESSION_REFERENCE_MISSING | ERROR | Expression names a layer ID that does not exist (D-59), or an effect or an effect's setting the layer does not have, or a Layer Control that names no layer (D-766) | preserve the text; as EXPRESSION_SYNTAX |
 | EXPRESSION_CYCLE | ERROR | Expression dependency cycle | stop affected property evaluation; as EXPRESSION_SYNTAX (D-59) |
 | EXPRESSION_TIMEOUT | ERROR | Bounded evaluator limit exceeded | terminate expression deterministically, by counted depth and steps and never by a clock; as EXPRESSION_SYNTAX (D-59) |
 | GPU_BACKEND_FAILED | ERROR | Production GPU path failed | use approved fallback only if explicitly supported; never silently change pixels |

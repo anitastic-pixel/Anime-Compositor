@@ -14,7 +14,8 @@ in document 09 so that it can be: SplitMix64, FNV-1a and a quintic fade, all int
 ordinary f64 arithmetic in a stated order.
 
 It also writes `Fixtures/projects/expression_project.json`, the file B-14b must open and save
-unchanged.
+unchanged, and D-766's `Fixtures/projects/expression_controls_project.json`, whose layers carry
+After Effects' Expression Controls for `effect(...)` to read.
 
 Fixtures are read-only to implementation work: this file is run when the specification
 changes, and never to make a build pass.
@@ -41,8 +42,26 @@ MAX_OCTAVES = 16
 # `require`, `eval`, `system.callSystem` and every other door out of the sandbox are closed:
 # the language has no word for them.
 ROOTS = {"time", "value", "thisComp", "thisLayer", "thisProperty", "Math", "wiggle", "loopOut",
-         "linear", "ease", "clamp", "random", "seedRandom", "posterizeTime"}
+         "linear", "ease", "clamp", "random", "seedRandom", "posterizeTime", "effect"}
 IGNORED_DECLARATIONS = {"var", "let", "const"}
+# D-766: words of the language that are not values to start from.
+KEYWORDS = {"if", "else", "true", "false"}
+
+# D-766: After Effects' six Expression Controls: the effect's name and match name, then its one
+# setting's name and saved key, and the range an expression's number is held in.
+CONTROLS = {
+    "core.slider_control": ("Slider Control", "ADBE Slider Control", "Slider", "slider",
+                            -1e6, 1e6),
+    "core.checkbox_control": ("Checkbox Control", "ADBE Checkbox Control", "Checkbox",
+                              "checkbox", 0.0, 1.0),
+    "core.angle_control": ("Angle Control", "ADBE Angle Control", "Angle", "angle",
+                           -1e9, 1e9),
+    "core.point_control": ("Point Control", "ADBE Point Control", "Point", "point", None, None),
+    "core.color_control": ("Color Control", "ADBE Color Control", "Color", "color", None, None),
+    "core.layer_control": ("Layer Control", "ADBE Layer Control", "Layer", "layer", None, None),
+}
+# The display names of the other effects the fixture project holds.
+OTHER_EFFECTS = {"core.gaussian_blur": "Gaussian Blur"}
 
 # Which properties an expression may sit on or read, and how many numbers each holds.
 LAYER_PROPS = {"anchor": 2, "position": 2, "scale": 2, "rotation": 1, "opacity": 1, "depth": 1}
@@ -112,6 +131,15 @@ def noise(seed, stream, x):
     return a + (b - a) * w
 
 
+def truthy(v):
+    """D-766: a condition holds when its number is neither 0 nor NaN, as JavaScript has it."""
+    return v != 0 and not math.isnan(v)
+
+
+def show_arg(v):
+    return f"\"{v}\"" if isinstance(v, str) else f"{v:g}"
+
+
 # --- reading -----------------------------------------------------------------------------------
 
 def tokens(text):
@@ -155,7 +183,13 @@ def tokens(text):
                 raise syntax("a quoted text is not closed")
             out.append(("str", text[i + 1:j]))
             i = j + 1
-        elif c in "+-*/%()[],.;=":
+        elif text.startswith(("===", "!=="), i):
+            out.append(("op", text[i:i + 2]))
+            i += 3
+        elif text.startswith(("==", "!=", "<=", ">=", "&&", "||"), i):
+            out.append(("op", text[i:i + 2]))
+            i += 2
+        elif c in "+-*/%()[],.;=<>!{}":
             out.append(("op", c))
             i += 1
         else:
@@ -186,6 +220,11 @@ class Reader:
         self.at += 1
         return tok
 
+    def ended(self, closer):
+        """Whether the statement just read is ended: by a line, a ";", the closer, or its "}"."""
+        return (self.peek("nl") or self.peek("op", ";") or self.peek(*closer)
+                or self.toks[self.at - 1] == ("op", "}"))
+
     def program(self):
         stmts = []
         while True:
@@ -194,13 +233,51 @@ class Reader:
             if self.peek("end"):
                 break
             stmts.append(self.statement())
-            if not (self.peek("nl") or self.peek("op", ";") or self.peek("end")):
+            if not self.ended(("end",)):
                 raise syntax(f"expected the end of a line, found {self.toks[self.at][1]}")
         if not stmts:
             raise syntax("the expression is empty")
         return stmts
 
+    # D-766: `{ statements }`, or one statement.
+    def block(self):
+        while self.peek("nl"):
+            self.at += 1
+        if not self.peek("op", "{"):
+            return [self.statement()]
+        self.take()
+        stmts = []
+        while True:
+            while self.peek("nl") or self.peek("op", ";"):
+                self.at += 1
+            if self.peek("op", "}"):
+                self.take()
+                return stmts
+            if self.peek("end"):
+                raise syntax("a \"{\" is not closed")
+            stmts.append(self.statement())
+            if not self.ended(("op", "}")):
+                raise syntax(f"expected the end of a line, found {self.toks[self.at][1]}")
+
+    # D-766: `if (condition) block`, then `else block` if wanted, on the same line or a later one.
+    def if_statement(self):
+        self.take("name", "if")
+        self.take("op", "(")
+        cond = self.expr()
+        self.take("op", ")")
+        then = self.block()
+        back = self.at
+        while self.peek("nl") or self.peek("op", ";"):
+            self.at += 1
+        if self.peek("name", "else"):
+            self.take()
+            return ("if", cond, then, self.block())
+        self.at = back
+        return ("if", cond, then, [])
+
     def statement(self):
+        if self.peek("name", "if"):
+            return self.if_statement()
         if self.peek("name") and self.toks[self.at][1] in IGNORED_DECLARATIONS:
             self.at += 1
             if not (self.peek("name") and self.toks[self.at + 1] == ("op", "=")):
@@ -208,14 +285,43 @@ class Reader:
         if self.peek("name") and self.toks[self.at + 1] == ("op", "="):
             name = self.take("name")[1]
             self.take("op", "=")
-            if name in ROOTS or name in IGNORED_DECLARATIONS:
+            if name in ROOTS or name in IGNORED_DECLARATIONS or name in KEYWORDS:
                 raise syntax(f"\"{name}\" is a word of the language and cannot be given a value")
             node = ("let", name, self.expr())
             self.locals.add(name)
             return node
         return ("do", self.expr())
 
+    # D-766: || then && then == != then < <= > >=, each looser than the arithmetic.
     def expr(self):
+        node = self.both()
+        while self.peek("op", "||"):
+            self.take()
+            node = ("or", node, self.both())
+        return node
+
+    def both(self):
+        node = self.equality()
+        while self.peek("op", "&&"):
+            self.take()
+            node = ("and", node, self.equality())
+        return node
+
+    def equality(self):
+        node = self.relation()
+        while self.peek("op", "==") or self.peek("op", "!="):
+            op = self.take()[1]
+            node = ("cmp", op, node, self.relation())
+        return node
+
+    def relation(self):
+        node = self.additive()
+        while any(self.peek("op", o) for o in ("<", "<=", ">", ">=")):
+            op = self.take()[1]
+            node = ("cmp", op, node, self.additive())
+        return node
+
+    def additive(self):
         node = self.term()
         while self.peek("op", "+") or self.peek("op", "-"):
             op = self.take()[1]
@@ -230,6 +336,9 @@ class Reader:
         return node
 
     def unary(self):
+        if self.peek("op", "!"):
+            self.take()
+            return ("not", self.unary())
         if self.peek("op", "-") or self.peek("op", "+"):
             op = self.take()[1]
             return ("neg", self.unary()) if op == "-" else self.unary()
@@ -267,6 +376,9 @@ class Reader:
         if kind == "str":
             self.at += 1
             return ("str", v)
+        if kind == "name" and v in ("true", "false"):
+            self.at += 1
+            return ("num", 1.0 if v == "true" else 0.0)
         if kind == "name":
             self.at += 1
             if v not in ROOTS and v not in self.locals:
@@ -332,15 +444,27 @@ class Project:
         if layer is None:
             raise ExprError("EXPRESSION_REFERENCE_MISSING",
                             f"there is no layer with the id \"{target}\"")
+        if isinstance(prop, tuple):
+            # D-766: ("fx", effect index, saved key), one Expression Control's setting.
+            record = layer["effects"][prop[1]]["parameters"][prop[2]]
+            if isinstance(record, dict):
+                return record
+            return {"base": record, "keyframes": []}
         if prop == "depth":
             return layer.get("depth") or {"base": 0, "keyframes": []}
         return layer["transform"][prop]
 
     def seed_name(self, target, prop):
         owner = f"{self.comp['id']}/camera" if target == "camera" else target
+        if isinstance(prop, tuple):
+            # D-291's name for an effect setting: the effect's instance id, then the setting.
+            fx = self.layers[target]["effects"][prop[1]]
+            return f"{owner}/{fx['instance_id']}/{prop[2]}"
         return f"{owner}/{prop}"
 
     def dims(self, target, prop):
+        if isinstance(prop, tuple):
+            return 1
         return (CAMERA_PROPS if target == "camera" else LAYER_PROPS)[prop]
 
     # Opacity is 0 to 1 in the file and 0 to 100 in the window and in an expression. Every
@@ -386,6 +510,52 @@ class Run:
         finally:
             self.stack.pop()
 
+    def setting(self, ref, frame):
+        """D-766: an Expression Control's setting at a frame, after its own expression."""
+        fx = self.project.layers[ref.target]["effects"][ref.index]
+        _, _, _, key_name, lo, hi = CONTROLS[fx["type_id"]]
+        prop = ("fx", ref.index, key_name)
+        record = self.project.property(ref.target, prop)
+        expr = record.get("expression")
+        if expr and expr["enabled"]:
+            here = (ref.target, prop, frame)
+            if here in self.stack:
+                raise ExprError("EXPRESSION_CYCLE",
+                                f"{key_name} depends on itself at frame {frame}")
+            if len(self.stack) >= MAX_DEPTH:
+                raise ExprError("EXPRESSION_TIMEOUT",
+                                f"more than {MAX_DEPTH} expressions deep")
+            self.stack.append(here)
+            try:
+                v = Scope(self, ref.target, prop, frame).outcome(expr["text"])
+            finally:
+                self.stack.pop()
+            v = min(hi, max(lo, v))
+        else:
+            v = key_value(record, frame)
+        if key_name == "checkbox":
+            return 1.0 if v != 0 else 0.0
+        if key_name == "color":
+            return list(v) + [1.0]
+        return v
+
+
+class Effects:
+    """D-766: a layer's effects, which `effect(name or number)` picks from."""
+
+    def __init__(self, target):
+        self.target = target
+
+
+class FxRef:
+    def __init__(self, target, index):
+        self.target, self.index = target, index
+
+
+class SettingRef:
+    def __init__(self, target, index):
+        self.target, self.index = target, index
+
 
 class PropRef:
     def __init__(self, target, prop, own=False):
@@ -420,18 +590,28 @@ class Scope:
         self.locals = {}
 
     # The value the expression ends on, checked against the property, in expression units.
-    def outcome(self, text):
+    def statements(self, stmts):
+        """The value of the last statement that gives one; D-766: an if gives its branch's."""
         result = None
-        for stmt in Reader(text).program():
+        for stmt in stmts:
             if stmt[0] == "let":
                 self.locals[stmt[1]] = self.number_or_array(self.eval(stmt[2]))
+            elif stmt[0] == "if":
+                self.step()
+                cond = self.number(self.eval(stmt[1]), "an if's condition")
+                result = self.statements(stmt[2] if truthy(cond) else stmt[3])
             else:
                 result = self.eval(stmt[1])
-        result = self.plain(result)
+        return result
+
+    def outcome(self, text):
+        result = self.plain(self.statements(Reader(text).program()))
         if result is None:
             raise type_error("the expression ends without a value")
         if isinstance(result, str):
             raise type_error("the expression ends on a text, not a number")
+        if not isinstance(result, (float, int, list)):
+            raise type_error("the expression ends on something that is not a number")
         if self.dims == 1 and isinstance(result, list):
             raise type_error(f"{self.prop} is one number and the expression gives {len(result)}")
         if self.dims > 1 and not (isinstance(result, list) and len(result) == self.dims):
@@ -461,12 +641,14 @@ class Scope:
         return mix(fnv1a64(self.p.seed_name(self.target, self.prop)), as_u64(self.user_seed))
 
     def value_of(self, ref, frame):
+        if isinstance(ref, SettingRef):
+            return self.run.setting(ref, frame)
         if ref.own:
             return self.p.pre(ref.target, ref.prop, frame)
         return self.run.final(ref.target, ref.prop, frame)
 
     def plain(self, v):
-        return self.value_of(v, self.frame) if isinstance(v, PropRef) else v
+        return self.value_of(v, self.frame) if isinstance(v, (PropRef, SettingRef)) else v
 
     def number_or_array(self, v):
         v = self.plain(v)
@@ -496,14 +678,38 @@ class Scope:
             if name == "value":
                 return self.p.pre(self.target, self.prop, self.frame)
             if name == "thisProperty":
+                if isinstance(self.prop, tuple):
+                    raise syntax("on an effect's setting, use value for the setting's own number")
                 return PropRef(self.target, self.prop, own=True)
             if name == "thisLayer":
                 if self.target == "camera":
                     raise syntax("the camera is not a layer, so it has no thisLayer")
                 return LayerRef(self.target)
+            if name == "effect":
+                if self.target == "camera":
+                    raise syntax("the camera is not a layer, so it has no effects")
+                return Effects(self.target)
             if name in ("thisComp", "Math"):
                 return Namespace(name)
-            return Func(name)
+            if name in ROOTS:
+                return Func(name)
+            # D-766: a name given its value in a branch that was not taken.
+            raise type_error(f"\"{name}\" has no value here")
+        if kind == "not":
+            return 0.0 if truthy(self.number(self.eval(node[1]), "what \"!\" turns")) else 1.0
+        if kind == "cmp":
+            a, b = self.plain(self.eval(node[2])), self.plain(self.eval(node[3]))
+            if not all(isinstance(v, (float, int)) for v in (a, b)):
+                raise type_error(f"\"{node[1]}\" compares two numbers")
+            op = node[1]
+            return 1.0 if (a == b if op == "==" else a != b if op == "!=" else
+                           a < b if op == "<" else a <= b if op == "<=" else
+                           a > b if op == ">" else a >= b) else 0.0
+        if kind in ("and", "or"):
+            a = self.number(self.eval(node[1]), f"the left of \"{'&&' if kind == 'and' else '||'}\"")
+            if truthy(a) == (kind == "or"):
+                return a
+            return self.number_or_array(self.eval(node[2]))
         if kind == "array":
             items = [self.number(self.eval(n), "each item of a list") for n in node[1]]
             if len(items) > 4:
@@ -573,11 +779,13 @@ class Scope:
         if isinstance(obj, LayerRef):
             if name == "transform" and obj.target != "camera":
                 return obj
+            if name == "effect" and obj.target != "camera":
+                return Effects(obj.target)
             name = LAYER_ALIASES.get(name, name) if obj.target != "camera" else name
             props = CAMERA_PROPS if obj.target == "camera" else LAYER_PROPS
             if name in props:
                 return PropRef(obj.target, name)
-        if isinstance(obj, PropRef):
+        if isinstance(obj, (PropRef, SettingRef)):
             if name == "value":
                 return self.value_of(obj, self.frame)
             if name == "valueAtTime":
@@ -592,6 +800,10 @@ class Scope:
             if not math.isfinite(t):
                 raise type_error("a time must be finite")
             return self.value_of(fn[1], self.p.frame_of(t))
+        if isinstance(fn, Effects):
+            return self.pick_effect(fn.target, arg_nodes)
+        if isinstance(fn, FxRef):
+            return self.pick_setting(fn, arg_nodes)
         if not isinstance(fn, Func):
             raise syntax("only a function can be called")
         name = fn.name
@@ -658,6 +870,54 @@ class Scope:
         if name == "loopOut":
             return self.loop_out(args)
         raise syntax(f"\"{name}\" cannot be called")
+
+    def one_arg(self, arg_nodes, what):
+        if len(arg_nodes) != 1:
+            raise type_error(f"{what} takes a name, in quotes, or a number")
+        v = self.plain(self.eval(arg_nodes[0]))
+        if not isinstance(v, (str, float, int)):
+            raise type_error(f"{what} takes a name, in quotes, or a number")
+        return v
+
+    def pick_effect(self, target, arg_nodes):
+        """D-766: `effect(name)` by After Effects' name ("Slider Control 2" for the second
+        one) or match name, or `effect(n)` counting every effect on the layer from 1."""
+        v = self.one_arg(arg_nodes, "effect")
+        layer = self.p.layers[target]
+        effects = layer["effects"]
+        seen = {}
+        for i, fx in enumerate(effects):
+            control = CONTROLS.get(fx["type_id"])
+            shown = control[0] if control else OTHER_EFFECTS[fx["type_id"]]
+            seen[shown] = seen.get(shown, 0) + 1
+            name = shown if seen[shown] == 1 else f"{shown} {seen[shown]}"
+            if isinstance(v, str) and (v == name or (control and v == control[1])):
+                return FxRef(target, i)
+            if not isinstance(v, str) and v == i + 1:
+                return FxRef(target, i)
+        raise ExprError("EXPRESSION_REFERENCE_MISSING",
+                        f"{layer['name']} has no effect {show_arg(v)}")
+
+    def pick_setting(self, fx_ref, arg_nodes):
+        """D-766: an Expression Control's one setting, by name, match name or the number 1."""
+        fx = self.p.layers[fx_ref.target]["effects"][fx_ref.index]
+        control = CONTROLS.get(fx["type_id"])
+        if control is None:
+            raise syntax(f"{OTHER_EFFECTS[fx['type_id']]}'s settings cannot be read by an "
+                         f"expression; only Expression Controls' can")
+        v = self.one_arg(arg_nodes, "an effect's setting")
+        if v not in (control[2], f"{control[1]}-0001", 1):
+            raise ExprError("EXPRESSION_REFERENCE_MISSING",
+                            f"{control[0]} has no setting {show_arg(v)}")
+        if control[3] == "layer":
+            # The layer it names, as `thisComp.layer(...)` gives it.
+            lid = fx["parameters"].get("layer", "")
+            if lid not in self.p.layers:
+                raise ExprError("EXPRESSION_REFERENCE_MISSING",
+                                "the Layer Control names no layer" if lid == "" else
+                                f"there is no layer with the id \"{lid}\"")
+            return LayerRef(lid)
+        return SettingRef(fx_ref.target, fx_ref.index)
 
     def wiggle(self, args):
         if not 2 <= len(args) <= 5:
@@ -862,6 +1122,48 @@ def project():
     }
 
 
+def fx(iid, type_id, parameters):
+    return {"enabled": True, "instance_id": iid, "parameters": parameters, "type_id": type_id}
+
+
+def controls_project():
+    """D-766: the same composition with After Effects' Expression Controls to read."""
+    data = project()
+    comp = data["compositions"][0]
+    del comp["camera"]
+    layers = [
+        layer("layer-ctl", "Controls", effects=[
+            fx("fx-slider", "core.slider_control",
+               {"slider": prop(0, [key(0, 0), key(48, 100)])}),
+            fx("fx-check", "core.checkbox_control",
+               {"checkbox": prop(0, [key(0, 0, "hold"), key(24, 1, "hold")])}),
+            fx("fx-angle", "core.angle_control", {"angle": 45}),
+            fx("fx-point", "core.point_control", {"point": [100, 200]}),
+            fx("fx-color", "core.color_control", {"color": [0.25, 0.5, 0.75]}),
+            fx("fx-layer", "core.layer_control", {"layer": "layer-target"}),
+            fx("fx-slider-2", "core.slider_control", {"slider": prop(0, expression="time * 10")}),
+            fx("fx-blur", "core.gaussian_blur", {"sigma_px": 2}),
+        ]),
+        layer("layer-target", "Target", position=(300, 400)),
+        layer("layer-reader", "Reader", rotation=prop(0, expression=(
+            'thisComp.layer("layer-ctl").effect("Slider Control")("Slider")'))),
+        # Lane q's two After Effects tutorial cases, each with its own control, written as the
+        # tutorials write them.
+        layer("layer-wiggle", "Wiggle", position_prop=prop(
+            [960, 540], expression='wiggle(2, effect("Slider Control")("Slider"))'), effects=[
+            fx("fx-amount", "core.slider_control",
+               {"slider": prop(0, [key(0, 0), key(48, 100)])})]),
+        layer("layer-box", "Box", opacity=prop(
+            1, expression='if (effect("Checkbox Control")("Checkbox") == 1) 100 else 0'),
+            effects=[fx("fx-on", "core.checkbox_control",
+                        {"checkbox": prop(0, [key(0, 0, "hold"), key(24, 1, "hold")])})]),
+    ]
+    data["project_id"] = "proj-expression-controls"
+    comp["layer_order"] = [lay["id"] for lay in layers]
+    comp["layers"] = layers
+    return data
+
+
 # --- printing ----------------------------------------------------------------------------------
 
 def show(v):
@@ -898,14 +1200,17 @@ def outcome(data, target, name, frame):
 
 def main():
     data = project()
+    controls = controls_project()
     here = Path(__file__).resolve().parent.parent
-    out = here / "Fixtures" / "projects" / "expression_project.json"
-    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-    if "--check" in sys.argv:
-        if out.read_text(encoding="utf-8") != text:
-            raise SystemExit(f"{out} is not what this file writes")
-    else:
-        out.write_text(text, encoding="utf-8", newline="\n")
+    for name, d in [("expression_project.json", data),
+                    ("expression_controls_project.json", controls)]:
+        out = here / "Fixtures" / "projects" / name
+        text = json.dumps(d, indent=2, ensure_ascii=False) + "\n"
+        if "--check" in sys.argv:
+            if out.read_text(encoding="utf-8").replace("\r\n", "\n") != text:
+                raise SystemExit(f"{out} is not what this file writes")
+        else:
+            out.write_text(text, encoding="utf-8", newline="\n")
     p = Project(data)
 
     def row(target, name, frames):
@@ -1063,6 +1368,95 @@ def main():
         ["Spin rotation reading Fade's opacity",
          *outcome(reads_fade, "layer-spin", "rotation", 12)],
     ])
+
+    controls_tables(controls)
+
+
+def controls_tables(data):
+    """D-766: FX-EXPR-017 to 020, Expression Controls and the if, logic and comparisons."""
+
+    def on(text, target="layer-ctl", name="rotation"):
+        return with_expression(data, target, name, text)
+
+    def cell(d, target, name, frame):
+        v, code, _ = evaluate(Project(d), target, name, frame)
+        return show(v) if code is None else f"{show(v)}, {code}"
+
+    frames = [0, 12, 24, 48]
+    reads = [
+        'effect("Slider Control")("Slider")',
+        'effect("Slider Control")(1)',
+        "effect(1)(1)",
+        'effect("ADBE Slider Control")("ADBE Slider Control-0001")',
+        'effect("Slider Control")("Slider").value',
+        'effect("Slider Control")("Slider").valueAtTime(time + 0.5)',
+        'effect("Checkbox Control")("Checkbox")',
+        'effect("Angle Control")("Angle")',
+        'effect(3)(1) + effect("Point Control")("Point")[1]',
+        'effect("Color Control")("Color")[2] + effect("Color Control")("Color")[3]',
+        'effect("Layer Control")("Layer").position[0]',
+        'effect("Slider Control 2")("Slider")',
+        'effect(7)("Slider") + effect("Slider Control")("Slider")',
+    ]
+    table("FX-EXPR-017", ["Controls rotation expression"] + [f"frame {f}" for f in frames],
+          [[f"`{t}`"] + [cell(on(t), "layer-ctl", "rotation", f) for f in frames]
+           for t in reads] +
+          [["Reader's own expression, from another layer"] +
+           [cell(data, "layer-reader", "rotation", f) for f in frames]])
+
+    frames = [0, 12, 24, 48]
+    logic = [
+        "if (time < 1) 10 else 20",
+        "if (time < 0.5) 1\nelse if (time < 1) 2\nelse 3",
+        "if (time >= 1) {\n  x = 5\n} else {\n  x = 7\n}\nx * 2",
+        "y = 4; if (time > 1) { y = y + 1 }; y",
+        "(time > 0 && time < 1) + (time == 0 || time == 2) * 10",
+        "!(time < 1) + !0 * 10 + !5 * 100",
+        "true + false * 10 + (1 != 2) * 100 + (3 === 3) * 1000 + (3 !== 3) * 10000",
+        "(2 <= 2) + (2 < 2) * 10 + (2 >= 3) * 100 + (3 > 2) * 1000",
+        "(0 || 7) + (5 && 0) * 10 + (5 && 6) * 100",
+        'if (effect("Checkbox Control")("Checkbox") == 1) 100 else 0',
+    ]
+    table("FX-EXPR-018", ["Controls rotation expression"] + [f"frame {f}" for f in frames],
+          [["`" + t.replace("\n", "\\n") + "`"] +
+           [cell(on(t), "layer-ctl", "rotation", f) for f in frames] for t in logic])
+
+    looped = copy.deepcopy(data)
+    Project(looped).layers["layer-ctl"]["effects"][6]["parameters"]["slider"]["expression"] = {
+        "text": 'effect("Slider Control 2")("Slider") + 1', "enabled": True}
+    nameless = copy.deepcopy(data)
+    Project(nameless).layers["layer-ctl"]["effects"][5]["parameters"]["layer"] = ""
+    wrong = [
+        'effect("Nothing Here")("Slider")',
+        'effect("Slider Control")("Nothing Here")',
+        "effect(99)(1)",
+        "effect(1)(2)",
+        'effect("Gaussian Blur")(1)',
+        'effect("Slider Control")',
+        'thisComp.layer("layer-gone").effect(1)(1)',
+        "if (time < 1) 5",
+        "if (time > 2) y = 3\ny",
+        "[1, 2] == [1, 2]",
+        "1 & 2",
+        "if (time < 1) { 5",
+        "while (1) {}",
+    ]
+    table("FX-EXPR-019", ["case", "Controls rotation at frame 36"],
+          [[f"`{t}`".replace("\n", "\\n"), cell(on(t), "layer-ctl", "rotation", 36)]
+           for t in wrong] +
+          [["Slider Control 2's own expression reads itself; Controls rotation reads it",
+            cell(with_expression(looped, "layer-ctl", "rotation",
+                                 'effect("Slider Control 2")("Slider")'),
+                 "layer-ctl", "rotation", 36)],
+           ["the Layer Control set to None",
+            cell(with_expression(nameless, "layer-ctl", "rotation",
+                                 'effect("Layer Control")("Layer").position[0]'),
+                 "layer-ctl", "rotation", 36)]])
+
+    frames = [0, 6, 12, 23, 24, 36, 47]
+    table("FX-EXPR-020", ["frame", "Wiggle position", "Box opacity, in the file"],
+          [[f, cell(data, "layer-wiggle", "position", f), cell(data, "layer-box", "opacity", f)]
+           for f in frames])
 
 
 if __name__ == "__main__":
