@@ -215069,11 +215069,11 @@ FX-CURL-044 (`fx_curl_044.json`): Density keyed to 150 at frame 4, above 100. Th
 
 ### Turbulent Noise (D-445)
 
-Turbulent Noise, after After Effects' Turbulent Noise (Noise & Grain), `core.turbulent_noise` (B-325), a second name over Fractal Noise. Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says (`Fixtures/turbulent_noise/media/`); `tools/turbulent_noise_reference.py` works the expected frames, `Fixtures/turbulent_noise/expected_turbulent_noise.json`, tolerance 2e-5, and checks that basic, smooth Turbulent Noise is Fractal Noise with no speed, black to white, number for number; the rule is in document 21.
+Turbulent Noise, after After Effects' Turbulent Noise (Noise & Grain), `core.turbulent_noise` (B-325), a second name over Fractal Noise. Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says (`Fixtures/turbulent_noise/media/`); `tools/turbulent_noise_reference.py` works the expected frames, `Fixtures/turbulent_noise/expected_turbulent_noise.json`, tolerance 2e-5, and checks that basic, smooth Turbulent Noise is Fractal Noise with no speed, black to white, number for number; the rule is in document 21. Since D-772 (2026-10-24) Turbulent Noise's cell is size / 1.5, Fractal Noise's (D-756), and its greys spread 0.64 times as far at the same Contrast, After Effects' own; the first values of these expected frames are retired, kept at commit 440cecf0. Pixels moved (of 160 a frame, summed over a case's frames): 001 270, 002 to 008 135 each, 009 132, 010 135, 012 135, 013 405, 014 to 017 135 each, 018 and 019 131, 020 135, 021 270, 022 216, 032 127; largest move 1.0 (a pixel now held at the other end); unchanged: 011 (brightness -100) and the invalid 023 to 031. Size 4 is now a cloud of 2.7 pixels.
 
 FX-TURBNOISE-001 (`fx_turbnoise_001.json`): The settings as they start: basic, smooth, not inverted, contrast 100, brightness 0, size 100 at scale 100 by 100, offset 0, complexity 6, evolution 0, seed 0, opacity 100, normal. Grey clouds so large that the card sees a small part of one: close greys near the middle. Every pixel keeps its covering, the empty ones stay empty, and with nothing keyed frame 4 is frame 0: Turbulent Noise has no speed of its own. Frames 0, 4.
 
-FX-TURBNOISE-002 (`fx_turbnoise_002.json`): Size 4: four pixels a cloud, so the greys vary across the card. Frames 0.
+FX-TURBNOISE-002 (`fx_turbnoise_002.json`): Size 4: a cloud of 2.7 pixels (D-772), so the greys vary across the card. Frames 0.
 
 FX-TURBNOISE-003 (`fx_turbnoise_003.json`): Size 4, fractal type turbulent: each octave's distance from the middle, so the clouds crease into dark veins. Frames 0.
 
@@ -219460,7 +219460,7 @@ FX-CONTOUR-047 (`fx_contour_047.json`): Arrowheads written "yes". The file is re
 
 ### Turbulent Noise's full type lists (D-567)
 
-Turbulent Noise (`core.turbulent_noise`) with the fractal and noise types After Effects lists past basic, turbulent, smooth and block (B-446, EFFECTS.md rows 224 and 216; Fractal Noise takes the same words, one engine), each rule ours. Every case is a composition 16 by 10, five frames, holding Noise's card, as D-445's cases; the media are in `Fixtures/turbulent_noise_types/media/`. `tools/turbulent_noise_types_reference.py` works the expected frames, `Fixtures/turbulent_noise_types/expected_turbulent_noise_types.json`, tolerance 2e-5; the rule is in document 21.
+Turbulent Noise (`core.turbulent_noise`) with the fractal and noise types After Effects lists past basic, turbulent, smooth and block (B-446, EFFECTS.md rows 224 and 216; Fractal Noise takes the same words, one engine), each rule ours. Every case is a composition 16 by 10, five frames, holding Noise's card, as D-445's cases; the media are in `Fixtures/turbulent_noise_types/media/`. `tools/turbulent_noise_types_reference.py` works the expected frames, `Fixtures/turbulent_noise_types/expected_turbulent_noise_types.json`, tolerance 2e-5; the rule is in document 21. Since D-772 (2026-10-24) Turbulent Noise's cell is size / 1.5, Fractal Noise's (D-756), and its greys spread 0.64 times as far at the same Contrast, After Effects' own; the first values of these expected frames are retired, kept at commit 440cecf0. Pixels moved (of 160 a frame, summed over a case's frames): 001 to 008 135 each, 009 92, 010 134, 011 to 018 135 each, 019 405, 020 112, 021 and 022 135, 023 216; largest move 0.973; unchanged: the invalid 024 and 025. Rocky's five greys are now 0.5 + 0.32 s for s in -1, -0.5, 0, 0.5, 1.
 
 FX-TURBTYPE-001 (`fx_turbtype_001.json`): Size 4, fractal type turbulent_smooth: rounded creases, softer than turbulent's. Frames 0.
 
@@ -219514,7 +219514,7 @@ FX-TURBTYPE-025 (`fx_turbtype_025.json`): Noise type "soft linear", with a space
 
 ### Turbulent Noise, Overflow, Transform and Sub Settings (D-647)
 
-Turbulent Noise's further settings (B-526), more cases in the same folder: `tools/turbulent_more_reference.py` writes `Fixtures/turbulent_noise/expected_turbulent_more.json` and `fx_turbnoise_033.json` to `fx_turbnoise_060.json`, the 16 by 10 composition of D-445's cases, tolerance 2e-5. Its check also recomputes every FX-TURBNOISE and FX-TURBTYPE case with the new settings as added, bit for bit.
+Turbulent Noise's further settings (B-526), more cases in the same folder: `tools/turbulent_more_reference.py` writes `Fixtures/turbulent_noise/expected_turbulent_more.json` and `fx_turbnoise_033.json` to `fx_turbnoise_060.json`, the 16 by 10 composition of D-445's cases, tolerance 2e-5. Its check also recomputes every FX-TURBNOISE and FX-TURBTYPE case with the new settings as added, bit for bit. Since D-772 (2026-10-24) Turbulent Noise's cell is size / 1.5, Fractal Noise's (D-756), and its greys spread 0.64 times as far at the same Contrast, After Effects' own; the first values of these expected frames are retired, kept at commit 440cecf0. Pixels moved (of 160 a frame, summed over a case's frames): 033 132, 034 to 036 135 each, 037 405, 038 to 048 135 each, 049 127, 050 131, 051 92, 052 73, 053 135, 054 108, 055 135; largest move 1.0; unchanged: 056 to 060.
 
 FX-TURBNOISE-033 (`fx_turbnoise_033.json`): Size 4, contrast 300, Overflow clip: in an 8-bit composition the same as FX-TURBNOISE-009, allow_hdr holding to 0..1 there too. Frames 0.
 
@@ -219574,7 +219574,7 @@ FX-TURBNOISE-060 (`fx_turbnoise_060.json`): Size 4, blending mode hue, opacity 6
 
 ### Turbulent Noise, more blending modes (D-730)
 
-Turbulent Noise's six more blending modes (B-600), more cases in the same folder: `tools/turbulent_blends_reference.py` writes `Fixtures/turbulent_noise/expected_turbulent_blends.json` and `fx_turbnoise_061.json` to `fx_turbnoise_074.json`, the 16 by 10 composition of D-445's cases, tolerance 2e-5. Saturation, Color and Luminosity follow the W3C non-separable rules (our basis, not a match to After Effects); None and the stencils follow the Timeline's rules, as Adobe's help says.
+Turbulent Noise's six more blending modes (B-600), more cases in the same folder: `tools/turbulent_blends_reference.py` writes `Fixtures/turbulent_noise/expected_turbulent_blends.json` and `fx_turbnoise_061.json` to `fx_turbnoise_074.json`, the 16 by 10 composition of D-445's cases, tolerance 2e-5. Saturation, Color and Luminosity follow the W3C non-separable rules (our basis, not a match to After Effects); None and the stencils follow the Timeline's rules, as Adobe's help says. Since D-772 (2026-10-24) Turbulent Noise's cell is size / 1.5, Fractal Noise's (D-756), and its greys spread 0.64 times as far at the same Contrast, After Effects' own; the first values of these expected frames are retired, kept at commit 440cecf0. Pixels moved (of 160 a frame, summed over a case's frames): 063 and 064 135, 065 and 066 160, 069 and 070 135, 072 270; largest move 0.509; unchanged: 061, 062, 067, 068, 071, 073 and 074.
 
 FX-TURBNOISE-061 (`fx_turbnoise_061.json`): Size 4, blending mode saturation: the noise is grey, so the card takes its saturation, none, and goes to its own grey. Frames 0.
 

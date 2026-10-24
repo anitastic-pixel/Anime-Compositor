@@ -18,11 +18,13 @@ i + di, j + dj, k + dk, ch), U Noise's hash (D-119); with `block` sx = sy = 0, e
 number across and down while the depth still mixes (D-299). F is n octaves: octave o is
 V(seed, 8 o, x 2^o, y 2^o, z 2^o, block) at strength 0.5^o; basic gives the sum over the sum of
 the strengths, turbulent gives 2 (the sum of the strengths times |V|) over the sum, less 1.
-Pixel (X, Y) of the drawing's own space samples ((X + 0.5 - offset x) / (size scale_width /
-100), (Y + 0.5 - offset y) / (size scale_height / 100), evolution / 360).
+Pixel (X, Y) of the drawing's own space samples ((X + 0.5 - offset x) / (c scale_width /
+100), (Y + 0.5 - offset y) / (c scale_height / 100), evolution / 360), with c = size / 1.5
+since D-772 (2026-10-24), the cell Fractal Noise has had since D-756; before D-772 c was the size.
 
 The rule. At a pixel with a > 0: n = F, turned over (-n) when inverted; v = clamp(0.5 + 0.5 n
-contrast / 100 + brightness / 100, 0, 1); G = srgb_to_linear(v) in each channel; with b the
+0.64 contrast / 100 + brightness / 100, 0, 1), the 0.64 since D-772 (After Effects' Turbulent
+Noise is flatter than its Fractal Noise at the same Contrast; before D-772 it was 1); G = srgb_to_linear(v) in each channel; with b the
 straight linear colour, f = G (normal), b G (multiply), 1 - (1 - b)(1 - G) (screen) or b + G
 (add), not clamped, and the output is ((b + op (f - b)) a, a) with op = opacity / 100.
 
@@ -60,6 +62,12 @@ from gradient_reference import BLENDS  # noqa: E402
 import fractal_noise_reference as FN  # noqa: E402
 
 W, H = R.W, R.H
+# D-772 (2026-10-24): After Effects' Turbulent Noise at Scale 100 draws the same 66.7-pixel cell
+# as its Fractal Noise (D-756), and its greys spread 0.64 times as far at the same Contrast
+# (7 tutorials from 7 creators). Its cell is size / CELL pixels and its contrast CONTRAST times
+# the one written; before D-772 both were 1.
+CELL = FN.CELL
+CONTRAST = 0.64
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "turbulent_noise"
 TOLERANCE = 2e-5  # document 25's default for a filter
 RANGES = {"contrast": (0, 1000), "brightness": (-1000, 1000), "size": (1, 1000),
@@ -93,8 +101,8 @@ def F(seed, x, y, z, n, turbulent, block):
 
 
 def point(x, y, n, offset):
-    return ((x + 0.5 - offset[0]) / (n["size"] * n["scale_width"] / 100),
-            (y + 0.5 - offset[1]) / (n["size"] * n["scale_height"] / 100),
+    return ((x + 0.5 - offset[0]) / (n["size"] / CELL * n["scale_width"] / 100),
+            (y + 0.5 - offset[1]) / (n["size"] / CELL * n["scale_height"] / 100),
             n["evolution"] / 360)
 
 
@@ -105,7 +113,8 @@ def value(c, n, x, y):
           c["fractal_type"] == "turbulent", c["noise_type"] == "block")
     if c["invert"] == "on":
         f = -f
-    return min(1.0, max(0.0, 0.5 + 0.5 * f * n["contrast"] / 100 + n["brightness"] / 100))
+    return min(1.0, max(0.0, 0.5 + 0.5 * f * CONTRAST * n["contrast"] / 100
+                        + n["brightness"] / 100))
 
 
 # D-731: Overlay, the Timeline's formula (D-301), on the linear colour as the other modes.
@@ -159,7 +168,7 @@ def plain(c):
     return render(case(opacity=0, shift=c["shift"]), 0)
 
 
-FINE = {"size": 4}  # four pixels a cloud, so the clouds vary across the small drawing
+FINE = {"size": 4}  # a cell of 4 / 1.5 pixels (D-772), so the clouds vary across the small drawing
 
 CASES = {
     "FX-TURBNOISE-001": ("The settings as they start: basic, smooth, not inverted, contrast 100, "
@@ -169,7 +178,7 @@ CASES = {
                          "pixel keeps its covering, the empty ones stay empty, and with nothing "
                          "keyed frame 4 is frame 0: Turbulent Noise has no speed of its own.",
                          case(), [0, 4]),
-    "FX-TURBNOISE-002": ("Size 4: four pixels a cloud, so the greys vary across the card.",
+    "FX-TURBNOISE-002": ("Size 4: a cell of 2.7 pixels (D-772), so the greys vary across the card.",
                          case(**FINE), [0]),
     "FX-TURBNOISE-003": ("Size 4, fractal type turbulent: each octave's distance from the "
                          "middle, so the clouds crease into dark veins.",
@@ -311,11 +320,13 @@ def check(expected):
     samples = [F(1, x / 7, y / 7, 0.3, 4, True, False) for x in range(40) for y in range(40)]
     assert all(-1 <= s <= 1 for s in samples)
 
-    # Basic and smooth is Fractal Noise with no speed, black to white: the same numbers, at
-    # one and a half times Fractal Noise's size since D-756 (its cell is two thirds of its size).
+    # Basic and smooth is Fractal Noise with no speed, black to white: the same numbers at the
+    # same size (one cell since D-772) and 0.64 times the contrast (D-772).
+    def same(a, b):
+        return all(abs(p - q) < 1e-12 for u, w in zip(a, b) for p, q in zip(u, w))
     two = c["FX-TURBNOISE-002"]["0"]
-    assert two == FN.render(FN.case(size=6, complexity=6), 0)
-    assert c["FX-TURBNOISE-001"]["0"] == FN.render(FN.case(size=150, complexity=6), 0)
+    assert same(two, FN.render(FN.case(size=4, complexity=6, contrast=64), 0))
+    assert same(c["FX-TURBNOISE-001"]["0"], FN.render(FN.case(complexity=6, contrast=64), 0))
 
     # Every case keeps every covering and leaves the empty pixels empty.
     for fx, frames in c.items():
@@ -339,7 +350,7 @@ def check(expected):
     seven = c["FX-TURBNOISE-007"]["0"]
     for i in shown:
         p = point(i % W, i // W, {**case(**FINE)}, (0, 0))
-        assert abs(grey(seven, i) - (0.5 + 0.5 * FN.V(0, 0, *p))) < 1e-9
+        assert abs(grey(seven, i) - (0.5 + 0.5 * CONTRAST * FN.V(0, 0, *p))) < 1e-9
     assert c["FX-TURBNOISE-008"]["0"] != two
     nine, ten = c["FX-TURBNOISE-009"]["0"], c["FX-TURBNOISE-010"]["0"]
     clipped = 0

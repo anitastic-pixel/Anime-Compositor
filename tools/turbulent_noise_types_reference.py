@@ -173,7 +173,8 @@ def value(c, n, x, y):
           c["noise_type"])
     if c["invert"] == "on":
         f = -f
-    return min(1.0, max(0.0, 0.5 + 0.5 * f * n["contrast"] / 100 + n["brightness"] / 100))
+    return min(1.0, max(0.0, 0.5 + 0.5 * f * T.CONTRAST * n["contrast"] / 100
+                        + n["brightness"] / 100))
 
 
 def turbulent_noise(pixels, c, n, width=W):
@@ -334,13 +335,15 @@ def check(expected):
                 if base[i][3] == 0:
                     assert px[i] == [0.0] * 4, (fx, i)
                 assert all(0 <= v <= px[i][3] + 1e-12 for v in px[i][:3]), (fx, i)
-    # Rocky takes five greys at most (contrast 100): 0, 0.25, 0.5, 0.75, 1.
+    # Rocky takes five greys at most (contrast 100, 0.64 of it since D-772): 0.5 + 0.32 s for
+    # s in -1, -0.5, 0, 0.5, 1.
     rocky = {round(grey(c["FX-TURBTYPE-009"]["0"], i), 9) for i in shown}
-    assert rocky <= {0.0, 0.25, 0.5, 0.75, 1.0} and len(rocky) > 1
+    assert rocky <= {round(0.5 + 0.5 * T.CONTRAST * s, 9) for s in (-1, -0.5, 0, 0.5, 1)}
+    assert len(rocky) > 1
     # Swirly with one octave is sin(3 pi v) of the plain value noise.
     for i in shown:
         p = T.point(i % W, i // W, case(**FINE), (0, 0))
-        want = 0.5 + 0.5 * math.sin(3 * math.pi * FN.V(0, 0, *p))
+        want = 0.5 + 0.5 * T.CONTRAST * math.sin(3 * math.pi * FN.V(0, 0, *p))
         assert abs(grey(c["FX-TURBTYPE-022"]["0"], i) - want) < 1e-9
     nineteen = c["FX-TURBTYPE-019"]
     assert nineteen["0"] != nineteen["2"] != nineteen["4"]

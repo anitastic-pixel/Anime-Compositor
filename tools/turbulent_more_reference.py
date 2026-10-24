@@ -167,7 +167,8 @@ def value(c, n, x, y):
         n = {**n, "scale_width": 100, "scale_height": 100}
     if moved(c, n):
         g = {"middle": (W / 2, H / 2), "offset": c["offset"], "sub_offset": c["sub_offset"],
-             "size": (n["size"] * n["scale_width"] / 100, n["size"] * n["scale_height"] / 100),
+             "size": (n["size"] / T.CELL * n["scale_width"] / 100,
+                      n["size"] / T.CELL * n["scale_height"] / 100),
              "perspective": c["perspective_offset"] == "on", "rotation": n["rotation"],
              "sub_rotation": n["sub_rotation"], "influence": n["sub_influence"],
              "sub_scaling": n["sub_scaling"], "center": c["center_subscale"] == "on"}
@@ -178,7 +179,8 @@ def value(c, n, x, y):
                  c["noise_type"])
     if c["invert"] == "on":
         f = -f
-    return over(0.5 + 0.5 * f * n["contrast"] / 100 + n["brightness"] / 100, c["overflow"])
+    return over(0.5 + 0.5 * f * T.CONTRAST * n["contrast"] / 100 + n["brightness"] / 100,
+                c["overflow"])
 
 
 def turbulent_noise(pixels, c, n, width=W):
@@ -399,7 +401,9 @@ def check(expected):
     for i in shown:
         x, y = i % W + 0.5, i // W + 0.5
         qx, qy = 8 + (y - 5), 5 - (x - 8)
-        want = over(0.5 + 0.5 * TT.F(0, qx / 4, qy / 4, 0, 6, "basic", "smooth"), "allow_hdr")
+        cell = 4 / T.CELL  # D-772
+        want = over(0.5 + 0.5 * T.CONTRAST * TT.F(0, qx / cell, qy / cell, 0, 6, "basic",
+                                                  "smooth"), "allow_hdr")
         assert abs(grey(turned, i) - want) < 1e-9
     thirty_seven = c["FX-TURBNOISE-037"]
     assert thirty_seven["0"] == two and near(thirty_seven["4"], turned)
