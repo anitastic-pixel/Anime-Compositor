@@ -6553,7 +6553,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             float: false,
             more: Default::default(),
         }),
-        // D-446: After Effects' Curl Noise controls (26.3 beta); the starting values are ours.
+        // D-446: After Effects' Curl Noise controls (26.3 beta). D-764: Speed 0, Turbulence Speed
+        // 10, Swirl 180, Sample Count 3, Sample Radius 80 and Flow Softness 25, as After Effects
+        // starts them; a file always holds all six, so an older one keeps its own.
         CURL_NOISE => Some(Effect::CurlNoise {
             source: "internal".to_string(),
             source_layer: serde_json::Value::from(""),
@@ -6561,7 +6563,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             source_mapping: "fill".to_string(),
             mirror_at_edge: "off".to_string(),
             map: None,
-            speed: 10.0,
+            speed: 0.0,
             direction: 0.0,
             size: 100.0,
             offset: [0.0, 0.0],
@@ -6572,14 +6574,14 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             scale_width: 100.0,
             scale_height: 100.0,
             evolution: 0.0,
-            turbulence_speed: 20.0,
-            swirl: 45.0,
+            turbulence_speed: 10.0,
+            swirl: 180.0,
             density: 0.0,
             smoothness: 50.0,
             vertical_bias: 50.0,
-            sample_count: 12.0,
-            sample_radius: 30.0,
-            flow_softness: 20.0,
+            sample_count: 3.0,
+            sample_radius: 80.0,
+            flow_softness: 25.0,
             edge_definition: 50.0,
             flow_falloff: 0.0,
             view: "final_render".to_string(),

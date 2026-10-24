@@ -2590,6 +2590,92 @@ fn b640_a_new_radio_waves_starts_at_after_effects_times() {
     assert_eq!(failed, 0, "{:#?}", report.rows);
 }
 
+/// B-643 (D-764): a Curl Noise added from now on starts at After Effects' Speed 0, Turbulence
+/// Speed 10, Swirl 180, Sample Count 3, Sample Radius 80 and Flow Softness 25; a project saved
+/// before keeps the values its file holds, and saves back byte for byte. Writes
+/// `verification/B-643_curl_noise_start_table.md`.
+#[test]
+fn b643_a_new_curl_noise_starts_at_after_effects_values() {
+    let mut report = Report { rows: Vec::new() };
+    let six = |s: &str| {
+        let v: serde_json::Value = serde_json::from_str(s).unwrap_or_default();
+        ["speed", "turbulence_speed", "swirl", "sample_count", "sample_radius", "flow_softness"]
+            .iter()
+            .map(|k| format!("{}", v[*k]))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let source = repo("Fixtures/projects/unknown_effect_project.json");
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let said = run(&viewer, "effect.add?layer=layer-cel&type=core.curl_noise");
+    report.check("Add a Curl Noise from the Effects panel", "Add Curl Noise", &said);
+    let added = settings(&viewer, "layer-cel", "fx-1");
+    report.check(
+        "The new Curl Noise's Speed, Turbulence Speed, Swirl, Sample Count, Sample Radius, Flow Softness",
+        "0, 10, 180, 3, 80, 25",
+        six(&added),
+    );
+    // Typed back in the panel (every setting at once, as the page sends them), the old starting
+    // values are kept.
+    let typed = run(
+        &viewer,
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&source=internal&speed=10&direction=0\
+         &size=100&offset=0,0&evolution=0&turbulence_speed=20&swirl=45&density=0&smoothness=50\
+         &vertical_bias=50&sample_count=12&sample_radius=30&flow_softness=20&edge_definition=50\
+         &flow_falloff=0&view=final_render&contrast=100&brightness=0&clip_hdr_results=on&channel=rgb",
+    );
+    let now = settings(&viewer, "layer-cel", "fx-1");
+    report.check(
+        "Typed in the panel: 10, 20, 45, 12, 30, 20",
+        "kept",
+        if typed.starts_with("Change ") && six(&now) == "10, 20, 45, 12, 30, 20" {
+            "kept".to_string()
+        } else {
+            format!("{typed}: {now}")
+        },
+    );
+
+    // A project saved before D-764: FX-CURL-001's file, written with the old starting values.
+    let old = repo("Fixtures/curl_noise/fx_curl_001.json");
+    let viewer = Mutex::new(open(&old).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let read = settings(&viewer, "art", "fx-0-0");
+    report.check("An older project's Curl Noise opens at what it saved", "10, 20, 45, 12, 30, 20", six(&read));
+    let text = std::fs::read_to_string(&old).expect("read the older project");
+    let first = persist::load_str(&text).expect("the older project reads");
+    let saved = persist::to_json(first.document.project(), &first.preserved);
+    let again = persist::load_str(&saved).expect("the saved project reads");
+    let resaved = persist::to_json(again.document.project(), &again.preserved);
+    report.check(
+        "Saved, opened and saved again, the older project's file",
+        "the same bytes",
+        if saved == resaved { "the same bytes".to_string() } else { "different bytes".to_string() },
+    );
+    let written: serde_json::Value = serde_json::from_str(&saved).expect("the saved file is JSON");
+    let fx = &written["compositions"][0]["layers"][0]["effects"][0]["parameters"];
+    report.check("The older project's saved six settings", "10, 20, 45, 12, 30, 20", six(&fx.to_string()));
+
+    let failed = report.rows.iter().filter(|(_, e, a)| e != a).count();
+    let mut out = String::from(
+        "# B-643: a Curl Noise added from now on starts at After Effects' values (D-764)\n\n\
+         Written by `b643_a_new_curl_noise_starts_at_after_effects_values` in \
+         `app/src/tests/editing.rs`. A Curl Noise added in the window starts at Speed 0, \
+         Turbulence Speed 10, Swirl 180, Sample Count 3, Sample Radius 80 and Flow Softness 25, as \
+         After Effects' panel shows a fresh Curl Noise (Softoni 0:48, wave 1 lane A; the settings \
+         D-749 was fitted at). Since D-749 ours reads each of the six in After Effects' own units \
+         and under the same name, so each number is carried over as it is. A project saved before \
+         keeps the 10, 20, 45, 12, 30 and 20 its file holds. No picture of an older project \
+         changes, and no fixture is added or changed.\n\n\
+         | Check | Expected | Actual | Result |\n|---|---|---|---|\n",
+    );
+    for (check, expected, actual) in &report.rows {
+        let result = if expected == actual { "pass" } else { "FAIL" };
+        out.push_str(&format!("| {check} | {} | {} | {result} |\n", cell(expected), cell(actual)));
+    }
+    out.push_str(&format!("\n{} of {} checks pass.\n", report.rows.len() - failed, report.rows.len()));
+    std::fs::write(repo("verification/B-643_curl_noise_start_table.md"), out).expect("write the table");
+    assert_eq!(failed, 0, "{:#?}", report.rows);
+}
+
 /// D-743: a new Fractal Noise starts at After Effects' Sub Influence 70 and Sub Scaling 56, and
 /// each newly shown setting typed in the panel is kept.
 #[test]
