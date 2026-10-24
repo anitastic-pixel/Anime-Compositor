@@ -25233,6 +25233,217 @@ Rows 1 to 8, each the same, the 3 pixels that change:
 | 11 | 1 0 1 1 | 0.3800563 0.3800563 0.3800563 1 |
 | 12 | 1 0 0.2158605 1 | 0.5805843 0.1101933 0.1096752 1 |
 
+### Hue/Saturation's Colorize (D-776)
+
+D-776, accepted on 2026-10-24: After Effects' Colorize, `colorize` "off" or "on" with `colorize_hue` (0 to 360), `colorize_saturation` (0 to 100) and `colorize_lightness` (-100 to 100), added to `tools/hue_saturation_reference.py`; on the bands drawing above. FX-HUESAT-001 to 026 are unchanged, and have no Colorize words, so they also pin that a file without them reads as off. **Checked by what they claim.** The tool works each Colorize case a second way, through Python's own HLS (`colorsys`), at every shown pixel; red, green, blue and magenta, all at lightness 0.5, come out alike (027); the master and the ranges are not used (029); a hue keyed a whole turn ends where it starts (031); written "off", Colorize changes nothing (032 is 002).
+
+FX-HUESAT-027: Colorize on at After Effects' defaults, hue 0, saturation 25, lightness 0 (Jake In Motion, 2:24): every shown colour turns a dull red at its own HSL lightness, red, green, blue and magenta alike at 0.5; the skin a pale pink, the line a dark one; the soft edge keeps its half covering and the empty pixels stay empty.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 15 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 1 | 1 0 0 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 2 | 1 0 0 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 3 | 0 1 0 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 4 | 0 1 0 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 5 | 0 0 1 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 6 | 0 0 1 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 0.3503218 0.1176096 0.1176096 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 0.3503218 0.1176096 0.1176096 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0.7700647 0.6358829 0.6358829 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0.7700647 0.6358829 0.6358829 1 |
+| 11 | 1 0 1 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 12 | 1 0 1 1 | 0.3485102 0.1160161 0.1160161 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.02005975 0.008707631 0.008707631 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.02005975 0.008707631 0.008707631 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.3865423 0.3191883 0.3191883 0.5019608 |
+
+FX-HUESAT-028: Colorize on, hue 180, saturation 70, lightness -4 (Jake In Motion, 2:42): every colour a strong cyan, each a little darker than its own lightness.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 15 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 1 | 1 0 0 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 2 | 1 0 0 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 3 | 0 1 0 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 4 | 0 1 0 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 5 | 0 0 1 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 6 | 0 0 1 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 0.0183821 0.6368835 0.6368835 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 0.0183821 0.6368835 0.6368835 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0.4411833 0.8819752 0.8819752 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0.4411833 0.8819752 0.8819752 1 |
+| 11 | 1 0 1 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 12 | 1 0 1 1 | 0.01825751 0.6313027 0.6313027 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.002709889 0.03260844 0.03260844 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.002709889 0.03260844 0.03260844 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.2214567 0.442717 0.442717 0.5019608 |
+
+FX-HUESAT-029: Colorize on, hue 80, saturation 25 (Jake In Motion, 2:30), with the master hue 120, saturation -50 and lightness 30 and the greens moved too: the master and the ranges are not used, so this is Colorize alone.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 15 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 1 | 1 0 0 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 2 | 1 0 0 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 3 | 0 1 0 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 4 | 0 1 0 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 5 | 0 0 1 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 6 | 0 0 1 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 0.2564989 0.3503218 0.1176096 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 0.2564989 0.3503218 0.1176096 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0.7236706 0.7700647 0.6358829 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0.7236706 0.7700647 0.6358829 1 |
+| 11 | 1 0 1 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 12 | 1 0 1 1 | 0.2546539 0.3485102 0.1160161 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.01566523 0.02005975 0.008707631 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.01566523 0.02005975 0.008707631 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.3632543 0.3865423 0.3191883 0.5019608 |
+
+FX-HUESAT-030: Colorize on, hue 240, saturation 100, lightness +50: a full blue, every lightness half way to white; red's 0.5 goes to 0.75, #8080ff.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 15 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 1 | 1 0 0 1 | 0.2140411 0.2140411 1 1 |
+| 2 | 1 0 0 1 | 0.2140411 0.2140411 1 1 |
+| 3 | 0 1 0 1 | 0.2140411 0.2140411 1 1 |
+| 4 | 0 1 0 1 | 0.2140411 0.2140411 1 1 |
+| 5 | 0 0 1 1 | 0.2140411 0.2140411 1 1 |
+| 6 | 0 0 1 1 | 0.2140411 0.2140411 1 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 1 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 0.2158605 0.2158605 1 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0.7011019 0.7011019 1 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0.7011019 0.7011019 1 1 |
+| 11 | 1 0 1 1 | 0.2140411 0.2140411 1 1 |
+| 12 | 1 0 1 1 | 0.2140411 0.2140411 1 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.01370208 0.01370208 1 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.01370208 0.01370208 1 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.3519257 0.3519257 0.5019608 0.5019608 |
+
+FX-HUESAT-031: Colorize on, its hue keyed from 0 at frame 0 to 360 at frame 4, linear, saturation 100: frames 0 and 4 the same full red tint, frame 2 cyan.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 13 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 3 | 0 1 0 1 | 1 0 0 1 |
+| 4 | 0 1 0 1 | 1 0 0 1 |
+| 5 | 0 0 1 1 | 1 0 0 1 |
+| 6 | 0 0 1 1 | 1 0 0 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 1 0.000303527 0.000303527 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 1 0.000303527 0.000303527 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 1 0.462077 0.462077 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 1 0.462077 0.462077 1 |
+| 11 | 1 0 1 1 | 1 0 0 1 |
+| 12 | 1 0 1 1 | 1 0 0 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.04817182 0 0 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.04817182 0 0 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.5019608 0.2319445 0.2319445 0.5019608 |
+
+Frame 2:
+
+Rows 1 to 8, each the same, the 15 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 1 | 1 0 0 1 | 0 1 1 1 |
+| 2 | 1 0 0 1 | 0 1 1 1 |
+| 3 | 0 1 0 1 | 0 1 1 1 |
+| 4 | 0 1 0 1 | 0 1 1 1 |
+| 5 | 0 0 1 1 | 0 1 1 1 |
+| 6 | 0 0 1 1 | 0 1 1 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 0.000303527 1 1 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 0.000303527 1 1 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0.462077 1 1 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0.462077 1 1 1 |
+| 11 | 1 0 1 1 | 0 1 1 1 |
+| 12 | 1 0 1 1 | 0 1 1 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0 0.04817182 0.04817182 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0 0.04817182 0.04817182 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.2319445 0.5019608 0.5019608 0.5019608 |
+
+Frame 4:
+
+Rows 1 to 8, each the same, the 13 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 3 | 0 1 0 1 | 1 0 0 1 |
+| 4 | 0 1 0 1 | 1 0 0 1 |
+| 5 | 0 0 1 1 | 1 0 0 1 |
+| 6 | 0 0 1 1 | 1 0 0 1 |
+| 7 | 0.2158605 0.2158605 0.2158605 1 | 1 0.000303527 0.000303527 1 |
+| 8 | 0.2158605 0.2158605 0.2158605 1 | 1 0.000303527 0.000303527 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 1 0.462077 0.462077 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 1 0.462077 0.462077 1 |
+| 11 | 1 0 1 1 | 1 0 0 1 |
+| 12 | 1 0 1 1 | 1 0 0 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.04817182 0 0 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.04817182 0 0 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.5019608 0.2319445 0.2319445 0.5019608 |
+
+FX-HUESAT-032: Colorize written "off" with its hue 200 and saturation 90, and the master hue +120: Colorize is not used, so this is FX-HUESAT-002.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 13 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 1 | 1 0 0 1 | 0 1 0 1 |
+| 2 | 1 0 0 1 | 0 1 0 1 |
+| 3 | 0 1 0 1 | 0 0 1 1 |
+| 4 | 0 1 0 1 | 0 0 1 1 |
+| 5 | 0 0 1 1 | 1 0 0 1 |
+| 6 | 0 0 1 1 | 1 0 0 1 |
+| 9 | 0.9215819 0.6724432 0.5149177 1 | 0.5149177 0.9215819 0.6724432 1 |
+| 10 | 0.9215819 0.6724432 0.5149177 1 | 0.5149177 0.9215819 0.6724432 1 |
+| 11 | 1 0 1 1 | 1 1 0 1 |
+| 12 | 1 0 1 1 | 1 1 0 1 |
+| 13 | 0.01298303 0.01032982 0.01764195 1 | 0.01764195 0.01298303 0.01032982 1 |
+| 14 | 0.01298303 0.01032982 0.01764195 1 | 0.01764195 0.01298303 0.01032982 1 |
+| 15 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.2584685 0.462598 0.3375401 0.5019608 |
+
+FX-HUESAT-033: Colorize "yes", neither "on" nor "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-HUESAT-034: Colorize saturation 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-HUESAT-035: Colorize lightness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+FX-HUESAT-036: Colorize hue 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+Frame 0: every pixel is the drawing's, unchanged.
+
+Frame 4: every pixel is the drawing's, unchanged.
+
+
 ## Gradient fixtures
 
 D-114, accepted on 2026-09-26. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/gradient/`, holding one drawing the same size with one Gradient (`core.gradient`) on it, unmoved unless the case says. The drawing is `Fixtures/gradient/media/cel.png`, a cel: a box of line #1e1a24 in columns 2 to 14 and rows 1 to 8, filled with skin #f6d6be, its columns 10 to 13 in shadow #dca08c, with the line at half covering down column 1 as its antialiased edge; column 0, column 15 and rows 0 and 9 are empty. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.

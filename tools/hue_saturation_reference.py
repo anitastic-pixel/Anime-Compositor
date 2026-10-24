@@ -21,6 +21,16 @@ all of it within 15 degrees, none of it 45 or more away. The weighted ranges are
 three above, the lightness held inside -100 and 100; a grey takes the three alone. With every
 range at 0 the rule above is unchanged, so FX-HUESAT-001 to 023 are as they were.
 
+D-776 adds After Effects' Colorize: `colorize` "off" or "on", the word kept as written, and with
+it `colorize_hue` (0 to 360 degrees), `colorize_saturation` (0 to 100) and `colorize_lightness`
+(-100 to 100), After Effects' defaults 0, 25 and 0. With it on, every shown colour takes
+the one hue and saturation, `colorize_hue` and `colorize_saturation` / 100, and keeps its own HSL
+lightness, moved by `colorize_lightness` as the master lightness moves it; the master three and
+the ranges are not used (After Effects greys them out). Read from Jake In Motion's tutorial
+(76LQhG-nl_0, 2:24 to 2:48): this rule meets After Effects' pixels within about 2 levels of 255
+at the median. Off, or a file without the words, is the rule above, so FX-HUESAT-001 to 026 are as
+they were.
+
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
 
@@ -50,6 +60,8 @@ W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "hue_saturation"
 TOLERANCE = 2e-5  # document 25's default for a filter
 RANGES = {"hue": (-180, 180), "saturation": (-100, 100), "lightness": (-100, 100)}
+COLORIZE = {"colorize_hue": (0, 360), "colorize_saturation": (0, 100),
+            "colorize_lightness": (-100, 100)}
 COLOURS = {"reds_hsl": 0, "yellows_hsl": 60, "greens_hsl": 120, "cyans_hsl": 180,
            "blues_hsl": 240, "magentas_hsl": 300}
 
@@ -84,13 +96,22 @@ def from_hsl(h, s, l):
     return r1 + m, g1 + m, b1 + m
 
 
+def lighten(l, lightness):
+    """Toward white by that share above 0, toward black below."""
+    return l + (1 - l) * lightness / 100 if lightness >= 0 else l * (1 + lightness / 100)
+
+
 def grade(e, hue, saturation, lightness):
     """One encoded straight colour, graded."""
     h, s, l = to_hsl(*e)
     h = (h + hue) % 360
     s = min(1.0, max(0.0, s * (1 + saturation / 100)))
-    l = l + (1 - l) * lightness / 100 if lightness >= 0 else l * (1 + lightness / 100)
-    return from_hsl(h, s, l)
+    return from_hsl(h, s, lighten(l, lightness))
+
+
+def colorize(e, hue, saturation, lightness):
+    """D-776: one encoded straight colour, the one hue and saturation at its own lightness."""
+    return from_hsl(hue % 360, saturation / 100, lighten(to_hsl(*e)[2], lightness))
 
 
 def weight(h, centre):
@@ -113,8 +134,16 @@ def with_ranges(e, hue, saturation, lightness, ranges):
     return hue, saturation, min(100.0, max(-100.0, lightness))
 
 
-def hue_saturation(pixels, hue, saturation, lightness, ranges=None):
+def hue_saturation(pixels, hue, saturation, lightness, ranges=None, tint=None):
+    """`tint`, Colorize's hue, saturation and lightness when it is on (D-776), else None."""
     out = [R.working(p) for p in pixels]
+    if tint is not None:
+        for w in out:
+            a = w[3]
+            if a > 0:
+                e = [S.linear_to_srgb(min(1.0, max(0.0, v / a))) for v in w[:3]]
+                w[:3] = [srgb_to_linear(min(1.0, max(0.0, v))) * a for v in colorize(e, *tint)]
+        return out
     moved = ranges and any(v != 0 for r in ranges.values() for v in r)
     if hue == 0 and saturation == 0 and lightness == 0 and not moved:
         return out  # the build exits early
@@ -167,9 +196,17 @@ DRAWINGS = {"bands": [[bands(x, y) for x in range(W)] for y in range(H)],
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(hue=0, saturation=0, lightness=0, shift=0, drawing="bands", **ranges):
+def case(hue=0, saturation=0, lightness=0, shift=0, drawing="bands", colorize=None, tint=None,
+         **ranges):
+    """`colorize` the word (D-776), None for a file without it; `tint` its three, by name."""
     return {"drawing": drawing, "hue": hue, "saturation": saturation, "lightness": lightness,
-            "shift": shift, "ranges": ranges}
+            "shift": shift, "ranges": ranges, "colorize": colorize, "tint": tint or {}}
+
+
+def tint_at(c, k, frame_no):
+    lo, hi = COLORIZE[k]
+    default = {"colorize_hue": 0, "colorize_saturation": 25, "colorize_lightness": 0}[k]
+    return min(hi, max(lo, value_at(c["tint"].get(k, default), frame_no)))
 
 
 def held(c, k, frame_no):
@@ -180,7 +217,9 @@ def held(c, k, frame_no):
 def render(c, frame_no):
     pixels = [p for row in DRAWINGS[c["drawing"]] for p in row]
     ranges = {k: c["ranges"].get(k, (0, 0, 0)) for k in COLOURS}
-    return R.frame(hue_saturation(pixels, *(held(c, k, frame_no) for k in RANGES), ranges),
+    tint = (tuple(tint_at(c, k, frame_no) for k in COLORIZE) if c["colorize"] == "on"
+            else None)
+    return R.frame(hue_saturation(pixels, *(held(c, k, frame_no) for k in RANGES), ranges, tint),
                    c["shift"])
 
 
@@ -267,6 +306,48 @@ CASES |= {
                       case(drawing="wheel", magentas_hsl=(60, -100, 30)), [0]),
 }
 
+# D-776's Colorize. Each case's drawing, settings and claim; the old files above have no Colorize
+# words and read as off.
+ON = "on"
+CASES |= {
+    "FX-HUESAT-027": ("Colorize on at After Effects' defaults, hue 0, saturation 25, lightness 0 "
+                      "(Jake In Motion, 2:24): every shown colour turns a dull red at its own "
+                      "HSL lightness, red, green, blue and magenta alike at 0.5; the "
+                      "skin a pale pink, the line a dark one; the soft edge keeps its half "
+                      "covering and the empty pixels stay empty.",
+                      case(colorize=ON), [0]),
+    "FX-HUESAT-028": ("Colorize on, hue 180, saturation 70, lightness -4 (Jake In Motion, 2:42): "
+                      "every colour a strong cyan, each a little darker than its own lightness.",
+                      case(colorize=ON, tint={"colorize_hue": 180, "colorize_saturation": 70,
+                                              "colorize_lightness": -4}), [0]),
+    "FX-HUESAT-029": ("Colorize on, hue 80, saturation 25 (Jake In Motion, 2:30), with the master "
+                      "hue 120, saturation -50 and lightness 30 and the greens moved too: the "
+                      "master and the ranges are not used, so this is Colorize alone.",
+                      case(hue=120, saturation=-50, lightness=30, colorize=ON,
+                           tint={"colorize_hue": 80}, greens_hsl=(90, -40, 10)), [0]),
+    "FX-HUESAT-030": ("Colorize on, hue 240, saturation 100, lightness +50: a full blue, every "
+                      "lightness half way to white; red's 0.5 goes to 0.75, #8080ff.",
+                      case(colorize=ON, tint={"colorize_hue": 240, "colorize_saturation": 100,
+                                              "colorize_lightness": 50}), [0]),
+    "FX-HUESAT-031": ("Colorize on, its hue keyed from 0 at frame 0 to 360 at frame 4, linear, "
+                      "saturation 100: frames 0 and 4 the same full red tint, frame 2 cyan.",
+                      case(colorize=ON, tint={"colorize_hue": keyed((0, 0), (4, 360)),
+                                              "colorize_saturation": 100}), [0, 2, 4]),
+    "FX-HUESAT-032": ("Colorize written \"off\" with its hue 200 and saturation 90, and the "
+                      "master hue +120: Colorize is not used, so this is FX-HUESAT-002.",
+                      case(hue=120, colorize="off", tint={"colorize_hue": 200,
+                                                          "colorize_saturation": 90}), [0]),
+}
+INVALID |= {
+    "FX-HUESAT-033": ("Colorize \"yes\", neither \"on\" nor \"off\".", case(colorize="yes")),
+    "FX-HUESAT-034": ("Colorize saturation 101, above 100.",
+                      case(colorize=ON, tint={"colorize_saturation": 101})),
+    "FX-HUESAT-035": ("Colorize lightness -101, below -100.",
+                      case(colorize=ON, tint={"colorize_lightness": -101})),
+    "FX-HUESAT-036": ("Colorize hue 361, above 360.",
+                      case(colorize=ON, tint={"colorize_hue": 361})),
+}
+
 
 # --- the project files ----------------------------------------------------------------------
 
@@ -282,7 +363,9 @@ def project_json(fx, c):
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.hue_saturation", "enabled": True,
         "parameters": {k: setting_json(c[k]) for k in RANGES}
-        | {k: setting_json(v) for k, v in c["ranges"].items()}}]
+        | {k: setting_json(v) for k, v in c["ranges"].items()}
+        | ({"colorize": c["colorize"]} if c["colorize"] is not None else {})
+        | {k: setting_json(v) for k, v in c["tint"].items()}}]
     return p
 
 
@@ -390,6 +473,7 @@ def check(expected):
             for p in px:
                 assert 0 <= p[3] <= 1 and all(-1e-12 <= v <= p[3] + 1e-12 for v in p[:3]), (name, p)
     check_ranges(c)
+    check_colorize(c)
     print("checked")
 
 
@@ -422,6 +506,42 @@ def check_ranges(c):
         assert f[at(15, 4)][3] == 128 / 255 and f[at(0, 4)] == [0.0] * 4
     # The pale cyan is not fully vivid, so the range's saturation still has room to raise it.
     assert 0.4 < to_hsl(*[v / 255 for v in (160, 224, 224)])[1] < 0.7
+
+
+def check_colorize(c):
+    """D-776's claims, worked another way: colorsys's HLS, from the drawing's 8-bit values."""
+    import colorsys
+    at = lambda x, y: y * W + x  # noqa: E731
+    near = lambda p, q, e=1e-9: all(abs(u - v) < e for u, v in zip(p, q))  # noqa: E731
+    lin = lambda *e: [srgb_to_linear(v) for v in e] + [1.0]  # noqa: E731
+    drawn = plain(case())
+    px = [p for row in DRAWINGS["bands"] for p in row]
+
+    def want(x, h, s, L):
+        q = [v / 255 for v in px[at(x, 4)][:3]]
+        l = (max(q) + min(q)) / 2
+        l = l + (1 - l) * L / 100 if L >= 0 else l * (1 + L / 100)
+        return lin(*colorsys.hls_to_rgb(h / 360, l, s / 100))
+    for fx, three in (("FX-HUESAT-027", (0, 25, 0)), ("FX-HUESAT-028", (180, 70, -4)),
+                      ("FX-HUESAT-030", (240, 100, 50))):
+        f = c[fx]["0"]
+        for x in range(1, 15):
+            assert near(f[at(x, 4)], want(x, *three)), (fx, x)
+        assert f[at(15, 4)][3] == 128 / 255 and f[at(0, 4)] == [0.0] * 4
+    f = c["FX-HUESAT-027"]["0"]
+    for x in (1, 3, 5, 11):  # red, green, blue and magenta: all at lightness 0.5
+        assert near(f[at(x, 4)], f[at(1, 4)])
+    assert near(c["FX-HUESAT-030"]["0"][at(1, 4)], lin(0.5, 0.5, 1))
+    alone = render(case(colorize=ON, tint={"colorize_hue": 80}), 0)
+    assert c["FX-HUESAT-029"]["0"] == alone
+    k = c["FX-HUESAT-031"]
+    assert like_all(k["0"], k["4"]) and near(k["2"][at(1, 4)], lin(0, 1, 1))
+    assert near(k["0"][at(1, 4)], drawn[at(1, 4)])  # full red tint on red at 0.5 is red
+    assert c["FX-HUESAT-032"]["0"] == c["FX-HUESAT-002"]["0"]
+
+
+def like_all(f, g):
+    return all(abs(u - v) < 1e-9 for p, q in zip(f, g) for u, v in zip(p, q))
 
 
 if __name__ == "__main__":
