@@ -6780,7 +6780,7 @@
    }
   },
   "FX-SHADOW-008": {
-   "says": "Distance 0, softness 3: the shadow, blurred at sigma 1, spreads three pixels out from the card on every side, darkest next to it and fading outward; column 1 and beyond stay empty.",
+   "says": "Distance 0, softness 5 (3 before D-774): the shadow, blurred at sigma 1, spreads three pixels out from the card on every side, darkest next to it and fading outward; column 1 and beyond stay empty.",
    "project": "fx_shadow_008.json",
    "frames": {
     "0": [
@@ -7748,7 +7748,7 @@
    }
   },
   "FX-SHADOW-009": {
-   "says": "Softness 6 at the default direction and distance: the shadow is FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter than half covering and it reaches further.",
+   "says": "Softness 10 (6 before D-774) at the default direction and distance: the shadow is FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter than half covering and it reaches further.",
    "project": "fx_shadow_009.json",
    "frames": {
     "0": [
@@ -25136,7 +25136,7 @@
    }
   },
   "FX-SHADOW-027": {
-   "says": "Shadow Only \"on\", colour #2040a0, opacity 100, direction 90, distance 2, softness 3: the blue shadow alone, softened, two pixels right of the card's place.",
+   "says": "Shadow Only \"on\", colour #2040a0, opacity 100, direction 90, distance 2, softness 5 (3 before D-774): the blue shadow alone, softened, two pixels right of the card's place.",
    "project": "fx_shadow_027.json",
    "frames": {
     "0": [

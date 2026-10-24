@@ -28425,7 +28425,7 @@ Frame 4: every pixel is the drawing's, unchanged.
 
 D-115, accepted on 2026-09-26. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/drop_shadow/`, holding one drawing the same size with `core.drop_shadow` on it, unmoved unless the case says. The drawing is `Fixtures/drop_shadow/media/card.png`, a box of line `#1e1a24` in columns 5 to 9 and rows 3 to 6 filled with skin `#f6d6be`, with the line at half covering (128 of 255) at (10, 4), its antialiased edge, and the rest empty, so there is room round it for what the effect adds to show in the frame. The layer grows by the distance rounded up and the softness's blur reach, and the frame shows the grown pixels in place, cut off at its edges. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
 
-**Every number below is produced by `tools/drop_shadow_reference.py`**, which works D-115's rule in double precision at every pixel of the grown layer: the drawing's covering blurred by document 21's Gaussian at softness / 3 (`tools/edges_reference.py`'s), read back by document 21's bilinear sample (`tools/radial_blur_reference.py`'s) `distance` pixels against the direction, and laid behind the drawing. The same numbers are in `Fixtures/drop_shadow/expected_drop_shadow.json`. Tolerance 2e-5.
+**Every number below is produced by `tools/drop_shadow_reference.py`**, which works D-115's rule in double precision at every pixel of the grown layer: the drawing's covering blurred by document 21's Gaussian at softness / 5 (D-774; softness / 3 before, and the softened cases' softness went from 3 and 6 to 5 and 10, so their pixels stay) (`tools/edges_reference.py`'s), read back by document 21's bilinear sample (`tools/radial_blur_reference.py`'s) `distance` pixels against the direction, and laid behind the drawing. The same numbers are in `Fixtures/drop_shadow/expected_drop_shadow.json`. Tolerance 2e-5.
 
 **Checked by what they claim.** The tool checks each case's claim on its numbers: a pixel the card covers fully never changes (every case); straight across or down by a whole number of pixels the shadow is the covering moved exactly, at half covering in black (002 to 005, 013, 017), and direction -270 is 90 (006); slantwise it is spread by the bilinear sample (001); at distance 0 it shows only through the soft pixel and the layer does not grow (007), and with softness it fades outward on every side (008, 009); opacity 0 changes nothing (010); a colour shows its exact straight colour where the shadow is whole, in capitals the same (011, 012); keyed settings match the cases they pass through, and an opacity eased past 100 is held at 100 (013 to 015); and moved, or thrown upward, the shadow is cut off by the frame's edge (016, 017). D-760, accepted on 2026-10-23, adds Shadow Only (`shadow_only`, "off" or "on", the word exact; FX-SHADOW-024 to 030; the cases before it write no word, so their files and frames are unchanged): with "on" the card is left out and the frame is FX-SHADOW-001's shadow alone, equal to it wherever the card was empty, and black throughout (024); at distance 0 it is half the card's covering at every pixel (025); "off" written is FX-SHADOW-001 exactly (026); a blue softened shadow alone keeps its exact straight colour (027); at opacity 0 the frame is empty (028); and "On" and "yes" are refused with a warning (029, 030).
 
@@ -28640,7 +28640,7 @@ Row 4, the 1 pixel that changes:
 | --- | --- | --- |
 | 10 | 0.006516973 0.005185166 0.008855569 0.5019608 | 0.006516973 0.005185166 0.008855569 0.6269589 |
 
-FX-SHADOW-008: Distance 0, softness 3: the shadow, blurred at sigma 1, spreads three pixels out from the card on every side, darkest next to it and fading outward; column 1 and beyond stay empty.
+FX-SHADOW-008: Distance 0, softness 5 (3 before D-774): the shadow, blurred at sigma 1, spreads three pixels out from the card on every side, darkest next to it and fading outward; column 1 and beyond stay empty.
 
 Frame 0:
 
@@ -28791,7 +28791,7 @@ Row 9, the 11 pixels that change:
 | 11 | 0 0 0 0 | 0 0 0 0.0001295306 |
 | 12 | 0 0 0 0 | 0 0 0 9.825958e-06 |
 
-FX-SHADOW-009: Softness 6 at the default direction and distance: the shadow is FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter than half covering and it reaches further.
+FX-SHADOW-009: Softness 10 (6 before D-774) at the default direction and distance: the shadow is FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter than half covering and it reaches further.
 
 Frame 0:
 
@@ -29570,7 +29570,7 @@ Row 9, the 6 pixels that change:
 | 12 | 0 0 0 0 | 0 0 0 0.5 |
 | 13 | 0 0 0 0 | 0 0 0 0.267767 |
 
-FX-SHADOW-027: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 3: the blue shadow alone, softened, two pixels right of the card's place.
+FX-SHADOW-027: Shadow Only "on", colour #2040a0, opacity 100, direction 90, distance 2, softness 5 (3 before D-774): the blue shadow alone, softened, two pixels right of the card's place.
 
 Frame 0:
 

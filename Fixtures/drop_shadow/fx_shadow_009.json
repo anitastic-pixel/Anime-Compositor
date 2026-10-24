@@ -93,7 +93,7 @@
                 "opacity": 50,
                 "direction": 135,
                 "distance": 5,
-                "softness": 6
+                "softness": 10
               }
             }
           ]

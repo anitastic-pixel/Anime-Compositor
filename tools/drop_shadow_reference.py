@@ -3,7 +3,7 @@
 D-115 adds `core.drop_shadow`. It lays a shadow of the drawing's own shape behind it, moved
 `distance` pixels in `direction` (degrees clockwise from up, 135 down and to the right), softened
 by `softness`, in `color` at `opacity` per cent. The shadow is the drawing's covering, blurred
-by document 21's Gaussian at sigma softness / 3, then read back by document 21's bilinear sample
+by document 21's Gaussian at sigma softness / 5 (D-774; softness / 3 before), then read back by document 21's bilinear sample
 `distance` pixels against the direction, so a shadow moved a whole number of pixels straight
 across or down is the covering moved exactly, and one moved slantwise or by a part of a pixel is
 spread over the pixels it falls between. It goes behind the drawing: where the drawing covers
@@ -13,7 +13,7 @@ rounded up and the blur's reach, so a shadow falling past the drawing's edge is 
 program's own method, modelled on After Effects' Drop Shadow; nothing is ported. Document 21 is
 the rule in words; this file is the reference for the numbers document 25 pins against it.
 
-The rule. With s = softness / 3 and r = ceil(3 s), A is the Gaussian blur of the drawing's
+The rule. With s = softness / 5 and r = ceil(3 s), A is the Gaussian blur of the drawing's
 covering at s, on the drawing grown by r (A is the covering itself at softness 0). With u the
 direction's unit step, (sin, -cos) of it, exactly (0, -1), (1, 0), (0, 1) or (-1, 0) at a whole
 quarter turn after reducing mod 360, the shadow's covering at the pixel centre P is
@@ -85,7 +85,7 @@ def pixel(layer, x, y):
 def drop_shadow(layer, color, opacity, direction, distance, softness, shadow_only=False):
     """The layer with its shadow behind it, grown by ceil(distance) + the blur's reach; with
     `shadow_only` (D-760) the shadow alone."""
-    s = softness / 3
+    s = softness / 5
     r = math.ceil(3 * s)
     covering = dict(layer, px=[[0.0, 0.0, 0.0, p[3]] for p in layer["px"]])
     A = gaussian(covering, s, "transparent")
@@ -195,14 +195,14 @@ CASES = {
                       "shows only through the soft pixel, whose covering goes from 0.502 to "
                       "0.627; nothing else changes and the layer does not grow.",
                       case(distance=0), [0]),
-    "FX-SHADOW-008": ("Distance 0, softness 3: the shadow, blurred at sigma 1, spreads three "
+    "FX-SHADOW-008": ("Distance 0, softness 5 (3 before D-774): the shadow, blurred at sigma 1, spreads three "
                       "pixels out from the card on every side, darkest next to it and fading "
                       "outward; column 1 and beyond stay empty.",
-                      case(distance=0, softness=3), [0]),
-    "FX-SHADOW-009": ("Softness 6 at the default direction and distance: the shadow is "
+                      case(distance=0, softness=5), [0]),
+    "FX-SHADOW-009": ("Softness 10 (6 before D-774) at the default direction and distance: the shadow is "
                       "FX-SHADOW-001's, blurred at sigma 2, so its darkest pixel is lighter "
                       "than half covering and it reaches further.",
-                      case(softness=6), [0]),
+                      case(softness=10), [0]),
     "FX-SHADOW-010": ("Opacity 0: no shadow; the frame is the drawing, untouched, though the "
                       "layer still grows.",
                       case(opacity=0), [0]),
@@ -247,9 +247,9 @@ CASES = {
                       "without the word.",
                       case(shadow_only="off"), [0]),
     "FX-SHADOW-027": ("Shadow Only \"on\", colour #2040a0, opacity 100, direction 90, distance "
-                      "2, softness 3: the blue shadow alone, softened, two pixels right of the "
+                      "2, softness 5 (3 before D-774): the blue shadow alone, softened, two pixels right of the "
                       "card's place.",
-                      case(color=BLUE_HEX, opacity=100, direction=90, distance=2, softness=3,
+                      case(color=BLUE_HEX, opacity=100, direction=90, distance=2, softness=5,
                            shadow_only="on"), [0]),
     "FX-SHADOW-028": ("Shadow Only \"on\" with opacity 0: nothing at all, the frame is empty, "
                       "though the layer still grows.",
@@ -341,7 +341,7 @@ def check(expected):
     assert near(unit(135), (math.sqrt(0.5), math.sqrt(0.5)))
     one = drop_shadow(drawn_layer("card"), "#000000", 50, 135, 5, 0)
     assert (one["left"], one["w"]) == (-5, W + 10)
-    grown = drop_shadow(drawn_layer("card"), "#000000", 0, 90, 2.5, 6)
+    grown = drop_shadow(drawn_layer("card"), "#000000", 0, 90, 2.5, 10)
     assert (grown["left"], grown["top"], grown["h"]) == (-9, -9, H + 18)
     assert all(p == EMPTY for p in grown["px"][:grown["w"]])  # opacity 0: only empty growth
 
