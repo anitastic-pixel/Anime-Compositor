@@ -3988,6 +3988,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             saturation: 0.0,
             lightness: 0.0,
             ranges: [[0.0; 3]; 6],
+            // D-776: Colorize off at After Effects' defaults.
+            colorize: "off".to_string(),
+            colorize_hue: 0.0,
+            colorize_saturation: 25.0,
+            colorize_lightness: 0.0,
         }),
         // D-114: its starting settings, white to violet, top to bottom, multiplied at up to 50.
         GRADIENT => Some(Effect::Gradient {
@@ -7277,6 +7282,20 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                     }
                 }
                 ranges
+            },
+            // D-776: a command that does not name Colorize leaves it off at its defaults.
+            colorize: word("colorize").unwrap_or_else(|_| "off".to_string()),
+            colorize_hue: match parameter(query, "colorize_hue") {
+                Some(_) => number("colorize_hue")?,
+                None => 0.0,
+            },
+            colorize_saturation: match parameter(query, "colorize_saturation") {
+                Some(_) => number("colorize_saturation")?,
+                None => 25.0,
+            },
+            colorize_lightness: match parameter(query, "colorize_lightness") {
+                Some(_) => number("colorize_lightness")?,
+                None => 0.0,
             },
         }),
         GRADIENT => Ok(Effect::Gradient {

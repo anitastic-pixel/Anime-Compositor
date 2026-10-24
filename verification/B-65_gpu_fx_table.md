@@ -4,7 +4,7 @@ Written by `tests/b65_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (Di
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the ten done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-122). An effect that changes nothing or whose settings are invalid, and a Levels that is a threshold, is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings.
 
-**2810 of 2810 checks pass.**
+**2910 of 2910 checks pass.**
 
 The worst comparison is "the reference shot with Hue/Saturation frame 100, Full": largest difference 1 of 255, pixels differing: 79669. Its pictures are in `verification/B-65 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -16,7 +16,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 |---|---:|---:|---:|---|
 | Curves | 206 | 136 | 1 | 206 of 206 |
 | Levels | 246 | 150 | 1 | 246 of 246 |
-| Hue/Saturation | 266 | 162 | 1 | 266 of 266 |
+| Hue/Saturation | 366 | 172 | 1 | 366 of 366 |
 | Gradient | 226 | 146 | 1 | 226 of 226 |
 | Drop Shadow | 306 | 226 | 1 | 306 of 306 |
 | Lens Blur | 696 | 486 | 1 | 696 of 696 |
@@ -729,6 +729,106 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_huesat_026 frame 2, Draft | 0 | 0 | 0 | none | PASS |
 | fx_huesat_026 frame 3, Draft | 0 | 0 | 0 | none | PASS |
 | fx_huesat_026 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_027 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_028 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_029 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_030 frame 0, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_030 frame 1, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_030 frame 2, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_030 frame 3, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_030 frame 4, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_030 frame 0, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_030 frame 1, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_030 frame 2, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_030 frame 3, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_030 frame 4, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_031 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_031 frame 1, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_031 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_031 frame 3, Full | 0 | 1 | 64 | none | PASS |
+| fx_huesat_031 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_huesat_031 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_031 frame 1, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_031 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_031 frame 3, Draft | 0 | 1 | 4 | none | PASS |
+| fx_huesat_031 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_huesat_032 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_huesat_033 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_033 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_034 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_035 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_huesat_036 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_grad_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_grad_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_grad_001 frame 2, Full | 1 | 0 | 0 | none | PASS |

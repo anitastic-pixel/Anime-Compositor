@@ -139,6 +139,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - input_black, input_white, gamma, output_black, output_white, green_gamma, blue_output_black - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.hue_saturation` is an effect this build has | added | added | pass |
 | and the settings it sends for it - hue, saturation, lightness, reds_hsl, blues_hsl - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.hue_saturation` is an effect this build has | added | added | pass |
+| and the settings it sends for it - hue, saturation, lightness, colorize, colorize_hue, colorize_saturation, colorize_lightness - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient` is an effect this build has | added | added | pass |
 | and the settings it sends for it - start, end, start_opacity, end_opacity, start_color, end_color, shape, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.drop_shadow` is an effect this build has | added | added | pass |
@@ -660,4 +662,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**639 of 639 checks pass.**
+**641 of 641 checks pass.**

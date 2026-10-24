@@ -1736,6 +1736,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             saturation,
             lightness,
             ranges,
+            colorize,
+            colorize_hue,
+            colorize_saturation,
+            colorize_lightness,
         } => {
             params.insert("hue".into(), num(*hue));
             params.insert("saturation".into(), num(*saturation));
@@ -1745,6 +1749,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 if *r != [0.0; 3] || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), J::Array(r.iter().map(|v| num(*v)).collect()));
                 }
+            }
+            // D-776: each of Colorize's words only once it is moved from After Effects' default
+            // or keyed, or is in the file already, so a file from before it saves as it was.
+            for (key, v, start) in [
+                ("colorize_hue", colorize_hue, 0.0),
+                ("colorize_saturation", colorize_saturation, 25.0),
+                ("colorize_lightness", colorize_lightness, 0.0),
+            ] {
+                if *v != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(*v));
+                }
+            }
+            if colorize != "off" || params.contains_key("colorize") {
+                params.insert("colorize".into(), J::from(colorize.as_str()));
             }
         }
         Effect::Gradient {
@@ -9179,6 +9197,11 @@ fn parse_effect(
                 }
                 ranges
             },
+            // D-776: a file from before Colorize reads it off at After Effects' defaults.
+            colorize: effect_word_or(params, "colorize", at, "off")?,
+            colorize_hue: effect_number_or(params, "colorize_hue", at, 0.0)?,
+            colorize_saturation: effect_number_or(params, "colorize_saturation", at, 25.0)?,
+            colorize_lightness: effect_number_or(params, "colorize_lightness", at, 0.0)?,
         }),
         // D-114: the colours are read in small letters, as a new colour is.
         crate::effects::GRADIENT => Some(crate::effects::Effect::Gradient {

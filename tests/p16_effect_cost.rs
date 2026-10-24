@@ -258,6 +258,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 saturation: -50.0,
                 lightness: 20.0,
                 ranges: [[0.0; 3]; 6],
+                colorize: "off".into(),
+                colorize_hue: 0.0,
+                colorize_saturation: 25.0,
+                colorize_lightness: 0.0,
             },
         ),
         (

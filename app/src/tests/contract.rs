@@ -2080,6 +2080,8 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
         "core.hue_saturation",
         &[("hue", "60"), ("saturation", "-50"), ("lightness", "20"), ("reds_hsl", "14, 0, 0"), ("blues_hsl", "0, -30, 10")],
     ),
+    // D-776: Colorize and its three numbers.
+    ("core.hue_saturation", &[("hue", "0"), ("saturation", "0"), ("lightness", "0"), ("colorize", "on"), ("colorize_hue", "180"), ("colorize_saturation", "70"), ("colorize_lightness", "-4")]),
     // D-114: the two points as two numbers each, the colours, the opacities and the words.
     (
         "core.gradient",

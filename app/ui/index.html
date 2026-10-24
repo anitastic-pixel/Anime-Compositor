@@ -11129,7 +11129,11 @@ const EFFECT_PARAMS = {
     ['lightness', 'Lightness', 1, 0.5, '-100 to 100'],
     // D-307: After Effects' Channel Control ranges, each added where a colour's hue lies in it.
     ...[['reds', 'Reds'], ['yellows', 'Yellows'], ['greens', 'Greens'], ['cyans', 'Cyans'], ['blues', 'Blues'], ['magentas', 'Magentas']]
-      .map(([n, w]) => [n + '_hsl', w, 3, 1, 'hue -180 to 180, saturation and lightness -100 to 100', '', [0, 0, 0]])],
+      .map(([n, w]) => [n + '_hsl', w, 3, 1, 'hue -180 to 180, saturation and lightness -100 to 100', '', [0, 0, 0]]),
+    // D-776: After Effects' Colorize; on, the master and the ranges are not used.
+    ['colorize_hue', 'Colorize Hue', 1, 1, '0 to 360 degrees', '', 0],
+    ['colorize_saturation', 'Colorize Saturation', 1, 0.5, '0 to 100', '', 25],
+    ['colorize_lightness', 'Colorize Lightness', 1, 0.5, '-100 to 100', '', 0]],
   // D-114: the two points as shares of the drawing, as Radial Blur's centre is.
   'core.gradient': [['start', 'Start Point', 2, 1, '% of the width and height, -1000 to 1000'],
     ['end', 'End Point', 2, 1, '% of the width and height, -1000 to 1000'],
@@ -13100,6 +13104,10 @@ const EFFECT_WORDS = {
     choices: [['shape', 'Shape', [['linear', 'Linear'], ['radial', 'Radial']]],
       ['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
     colours: [['start_color', 'Start Colour'], ['end_color', 'End Colour']],
+  },
+  // D-776: After Effects' Colorize.
+  'core.hue_saturation': {
+    choices: [['colorize', 'Colorize', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-115.
   // D-760: After Effects' Shadow Only.

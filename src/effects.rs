@@ -824,12 +824,19 @@ pub enum Effect {
     /// it is scaled by; and `lightness`, -100 to 100 per cent of the way to white, or to black
     /// below 0. D-307: `ranges`, After Effects' Reds, Yellows, Greens, Cyans, Blues and Magentas
     /// in that order ([`HUE_RANGES`]), each a hue, saturation and lightness added to the three
-    /// above where a pixel's hue lies in that range.
+    /// above where a pixel's hue lies in that range. D-776: `colorize`, "off" or "on", After
+    /// Effects' Colorize; on, every colour takes `colorize_hue` (0 to 360 degrees) and
+    /// `colorize_saturation` (0 to 100) at its own lightness moved by `colorize_lightness`
+    /// (-100 to 100), and the master three and the ranges are not used.
     HueSaturation {
         hue: f64,
         saturation: f64,
         lightness: f64,
         ranges: [[f64; 3]; 6],
+        colorize: String,
+        colorize_hue: f64,
+        colorize_saturation: f64,
+        colorize_lightness: f64,
     },
     /// D-114: `shape`, "linear" or "radial"; `start` and `end`, per cent of the drawing's width
     /// and height, each -1000 to 1000; `start_color` and `end_color`, `#rrggbb`;
@@ -7600,11 +7607,18 @@ impl Effect {
                 saturation,
                 lightness,
                 ranges,
+                colorize_hue,
+                colorize_saturation,
+                colorize_lightness,
+                ..
             } => {
                 let mut n = vec![
                     ("hue", vec![hue], -180.0, 180.0),
                     ("saturation", vec![saturation], -100.0, 100.0),
                     ("lightness", vec![lightness], -100.0, 100.0),
+                    ("colorize_hue", vec![colorize_hue], 0.0, 360.0),
+                    ("colorize_saturation", vec![colorize_saturation], 0.0, 100.0),
+                    ("colorize_lightness", vec![colorize_lightness], -100.0, 100.0),
                 ];
                 // D-307: one range for all three; saturation and lightness are held to 100 where used.
                 n.extend(
@@ -13693,6 +13707,11 @@ impl Effect {
                         format!("Radial Shadow's shadow only is \"on\" or \"off\", and this is \"{shadow_only}\".")
                     })
                 }),
+            Effect::HueSaturation { colorize, .. } if !["on", "off"].contains(&colorize.as_str()) => {
+                Some(format!(
+                    "Hue/Saturation's colorize is \"on\" or \"off\", and this is \"{colorize}\"."
+                ))
+            }
             Effect::LensBlur { edges, .. } if !["transparent", "repeat"].contains(&edges.as_str()) => {
                 Some(format!(
                     "Lens Blur's edges are \"transparent\" or \"repeat\", and this is \"{edges}\"."
@@ -16318,10 +16337,20 @@ pub(crate) fn apply_stack_at(
                 })
             }
             Effect::HueSaturation {
+                colorize,
+                colorize_hue,
+                colorize_saturation,
+                colorize_lightness,
+                ..
+            } if colorize == "on" => crate::perf::time(crate::perf::Stage::EffectHueSaturation, || {
+                crate::grade::colorize(source, *colorize_hue, *colorize_saturation, *colorize_lightness)
+            }),
+            Effect::HueSaturation {
                 hue,
                 saturation,
                 lightness,
                 ranges,
+                ..
             } => crate::perf::time(crate::perf::Stage::EffectHueSaturation, || {
                 crate::grade::hue_saturation(source, *hue, *saturation, *lightness, ranges)
             }),

@@ -331,6 +331,21 @@ pub(crate) fn hue_saturation(
     });
 }
 
+/// D-776: After Effects' Colorize. Every colour takes `hue` and `saturation` per cent at its own
+/// HSL lightness, taken `lightness` per cent of the way to white, or to black below 0, as the
+/// master lightness is. The settings are already valid and held; it always changes the layer.
+pub(crate) fn colorize(source: &mut WorkingBuffer, hue: f64, saturation: f64, lightness: f64) {
+    grade_pixels(source, false, |_, e| {
+        let l = to_hsl(e)[2];
+        let l = if lightness >= 0.0 {
+            l + (1.0 - l) * lightness / 100.0
+        } else {
+            l * (1.0 + lightness / 100.0)
+        };
+        from_hsl([hue.rem_euclid(360.0), saturation / 100.0, l])
+    });
+}
+
 /// D-114 and D-117: how a straight colour `b` takes a chosen colour `c` under `blend`, "normal",
 /// "multiply", "screen" or "add"; add is not held back. D-185 adds "overlay" and
 /// "soft_light", the W3C's, which only Paraffin takes.

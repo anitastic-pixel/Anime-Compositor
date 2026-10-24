@@ -1476,8 +1476,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-310: the card swells a circle without a taper only.
         && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, .. }
             if *vertical_radius != 0.0 || *taper_radius != 0.0)
-        // D-307: the card turns the master only.
-        && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, .. } if *ranges != [[0.0; 3]; 6])
+        // D-307: the card turns the master only; D-776's Colorize is drawn here.
+        // ponytail: Colorize on the processor; a card mode if it shows up slow (lane w7d).
+        && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, colorize, .. }
+            if *ranges != [[0.0; 3]; 6] || colorize == "on")
         // D-758: the card mixes 4-Color Gradient's weights without jitter only.
         // ponytail: hash the jitter on the card if a jittered gradient is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::FourColorGradient { jitter, .. } if *jitter != 0.0)
@@ -1632,7 +1634,13 @@ fn card_effect(
                     saturation,
                     lightness,
                     ranges,
-                } => [*hue, *saturation, *lightness] == [0.0; 3] && *ranges == [[0.0; 3]; 6],
+                    colorize,
+                    ..
+                } => {
+                    [*hue, *saturation, *lightness] == [0.0; 3]
+                        && *ranges == [[0.0; 3]; 6]
+                        && colorize != "on"
+                }
                 E::Gradient {
                     start_opacity,
                     end_opacity,
