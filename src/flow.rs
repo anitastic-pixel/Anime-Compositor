@@ -59,7 +59,7 @@ struct Planes {
 
 fn grey(p: &WorkingBuffer, weights: [f64; 3]) -> Planes {
     let [wr, wg, wb] = weights;
-    let px = p.data().chunks_exact(4);
+    let px = p.data().par_chunks_exact(4);
     Planes {
         w: p.width(),
         h: p.height(),
@@ -181,7 +181,7 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
             cb.c[0].iter().sum::<f64>() / (w * h) as f64,
         );
         if mb > 0.0 {
-            cb.c[0].iter_mut().for_each(|v| *v *= ma / mb);
+            cb.c[0].par_iter_mut().for_each(|v| *v *= ma / mb);
         }
     }
     let top = top_level(w, h);
@@ -230,6 +230,7 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         let gy = [grad(&pa.c[0], 0, 1), grad(&pa.c[1], 0, 1)];
         let gxx = boxed(
             &(0..n)
+                .into_par_iter()
                 .map(|i| gx[0][i] * gx[0][i] + gx[1][i] * gx[1][i])
                 .collect::<Vec<_>>(),
             lw,
@@ -238,6 +239,7 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         );
         let gxy = boxed(
             &(0..n)
+                .into_par_iter()
                 .map(|i| gx[0][i] * gy[0][i] + gx[1][i] * gy[1][i])
                 .collect::<Vec<_>>(),
             lw,
@@ -246,6 +248,7 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         );
         let gyy = boxed(
             &(0..n)
+                .into_par_iter()
                 .map(|i| gy[0][i] * gy[0][i] + gy[1][i] * gy[1][i])
                 .collect::<Vec<_>>(),
             lw,
@@ -275,10 +278,10 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         }
         let smooth = s.local_smoothness;
         let (mx, my) = (boxed(&x, lw, lh, r), boxed(&y, lw, lh, r));
-        x.iter_mut()
+        x.par_iter_mut()
             .zip(&mx)
             .for_each(|(u, m)| *u += smooth * (m / area - *u));
-        y.iter_mut()
+        y.par_iter_mut()
             .zip(&my)
             .for_each(|(u, m)| *u += smooth * (m / area - *u));
         field = Some(Field { w: lw, h: lh, x, y });
