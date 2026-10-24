@@ -551,6 +551,47 @@ fn plan_inside(
                             }
                         }
                     }
+                    // D-791: the other effects that work from the layer's own masks, shapes or
+                    // text, which are not carried to the frame beneath either, say so every frame
+                    // instead of being left out unsaid. An Audio Spectrum or Waveform on no mask
+                    // hears its sound and draws on the frame beneath, as After Effects' does.
+                    for instance in effects.iter().filter(|i| i.enabled && i.is_valid()) {
+                        use crate::effects::Effect as E;
+                        let without = match &instance.effect {
+                            E::Stroke { .. } | E::Vegas { .. } | E::Scribble { .. } => "without it",
+                            E::EnergyStroke { source, .. } if source != "points" => "without it",
+                            E::EnergyStroke { alpha_mode, .. } if alpha_mode != "off" => {
+                                "with the beam uncut"
+                            }
+                            E::InnerOuterKey { foreground, .. } if *foreground >= 1.0 => "without it",
+                            E::Reshape { source_mask, destination_mask, boundary_mask, .. }
+                                if source_mask.max(*destination_mask).max(*boundary_mask) >= 1.0 =>
+                            {
+                                "without it"
+                            }
+                            E::MaskSmear { source_mask, boundary_mask, .. }
+                                if source_mask.max(*boundary_mask) >= 1.0 =>
+                            {
+                                "without it"
+                            }
+                            E::Liquify { freeze_area_mask, .. } if *freeze_area_mask >= 1.0 => {
+                                "with nothing frozen"
+                            }
+                            E::ParticlePlayground { values, .. }
+                                if values[crate::playground::WALL_MASK].floor() >= 1.0 =>
+                            {
+                                "with the particles free of any wall"
+                            }
+                            _ => continue,
+                        };
+                        log.record(
+                            frame,
+                            layer.name.clone(),
+                            adjustment_mask(&layer.name, instance.effect.name(), &format!("Frame {frame} is drawn {without}")),
+                        );
+                    }
+                    let at = posterized(comp, layer, frame);
+                    fill_sound(project, root, comp, layer, at, &[], &mut effects, frame, log, true);
                     effects
                 }),
                 nested: resolved.nested,
@@ -4518,7 +4559,7 @@ fn resolve_rest(
     // every one closed, in reading order. With none, the layer is left as it is and that is said
     // every frame. D-444: Vegas's the same way, from its Stroke setting. D-508: an Energy Stroke's
     // paths are found the same way, every one of its kind, unless it runs between its points.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         let (mask, all_masks, source, paths, vegas, energy) = match &mut instance.effect {
             crate::effects::Effect::Stroke {
                 mask,
@@ -4650,7 +4691,7 @@ fn resolve_rest(
     }
     // D-565: an Energy Stroke's matte, every mask that is drawn whatever its mode, at the size
     // the effects run at; with none, the beam is drawn uncut and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         let crate::effects::Effect::EnergyStroke {
             alpha_mode, matte, ..
         } = &mut instance.effect
@@ -4684,157 +4725,9 @@ fn resolve_rest(
         }
         *matte = (!drawn.is_empty()).then_some(drawn);
     }
-    // D-420, D-421: each Audio Spectrum's levels and each Audio Waveform's least and greatest,
-    // from the sound layer it names as it is heard at this frame, and the mask it stands along,
-    // at the size the effects run at. No Audio Layer is silence. A mask or a layer that is not
-    // there, or a layer that holds no sound, leaves the layer as it is and that is said every
-    // frame.
-    type Hear = Box<dyn Fn(Option<(&crate::audio::Sound, i64, usize, f64)>) -> Vec<f64>>;
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let what = instance.effect.name().to_string();
-        let (audio_layer, path, window, levels, outline, hear): (
-            &serde_json::Value,
-            f64,
-            [f64; 2],
-            &mut Option<Vec<f64>>,
-            &mut Option<(Vec<(f64, f64)>, bool)>,
-            Hear,
-        ) = match &mut instance.effect {
-            crate::effects::Effect::AudioSpectrum {
-                audio_layer,
-                path,
-                start_frequency,
-                end_frequency,
-                frequency_bands,
-                audio_duration,
-                audio_offset,
-                duration_averaging,
-                levels,
-                outline,
-                ..
-            } => {
-                let bands = frequency_bands.floor() as usize;
-                let freqs: Vec<f64> = (0..bands)
-                    .map(|b| {
-                        *start_frequency
-                            + (*end_frequency - *start_frequency) * (b as f64 + 0.5) / bands as f64
-                    })
-                    .collect();
-                let averaging = duration_averaging == "on";
-                let hear: Hear = Box::new(move |w| {
-                    w.map_or_else(
-                        || vec![0.0; bands],
-                        |(s, s0, count, gain)| s.levels(s0, count, &freqs, gain, averaging),
-                    )
-                });
-                (
-                    audio_layer,
-                    *path,
-                    [*audio_duration, *audio_offset],
-                    levels,
-                    outline,
-                    hear,
-                )
-            }
-            crate::effects::Effect::AudioWaveform {
-                audio_layer,
-                path,
-                displayed_samples,
-                audio_duration,
-                audio_offset,
-                waveform_options,
-                levels,
-                outline,
-                ..
-            } => {
-                let shown = displayed_samples.floor() as usize;
-                let channel = match waveform_options.as_str() {
-                    "left" => Some(0),
-                    "right" => Some(1),
-                    _ => None,
-                };
-                let hear: Hear = Box::new(move |w| {
-                    w.map_or_else(
-                        || vec![0.0; 2 * shown],
-                        |(s, s0, count, gain)| s.spans(s0, count, shown, gain, channel),
-                    )
-                });
-                (
-                    audio_layer,
-                    *path,
-                    [*audio_duration, *audio_offset],
-                    levels,
-                    outline,
-                    hear,
-                )
-            }
-            _ => continue,
-        };
-        *levels = None;
-        *outline = None;
-        if path.floor() >= 1.0 {
-            match masks
-                .get(path.floor() as usize - 1)
-                .filter(|m| m.enabled && m.points.len() >= 2)
-            {
-                Some(m) => *outline = Some((m.path(), m.closed)),
-                None => {
-                    log.record(
-                        frame,
-                        layer.name.clone(),
-                        spectrum_path_missing(
-                            &layer.name,
-                            &what,
-                            path,
-                            &format!("Frame {frame} is drawn"),
-                        ),
-                    );
-                    continue;
-                }
-            }
-        }
-        let named = audio_layer.as_str().unwrap_or_default();
-        if named.is_empty() {
-            *levels = Some(hear(None));
-            continue;
-        }
-        let Some(heard) = comp.layer(&Id::new(named)) else {
-            log.record(
-                frame,
-                layer.name.clone(),
-                crate::layer_map::missing(&layer.name, named, &format!("frame {frame} is drawn")),
-            );
-            continue;
-        };
-        if heard.kind != crate::model::LayerKind::Audio {
-            log.record(
-                frame,
-                layer.name.clone(),
-                spectrum_sound_missing(
-                    &layer.name,
-                    &what,
-                    &heard.name,
-                    &format!("Frame {frame} is drawn"),
-                ),
-            );
-            continue;
-        }
-        let window = sound_window(
-            project,
-            root,
-            comp,
-            heard,
-            at,
-            window,
-            log,
-            frame,
-            &layer.name,
-        );
-        *levels = Some(hear(
-            window
-                .as_ref()
-                .map(|(s, s0, count, gain)| (&**s, *s0, *count, *gain)),
-        ));
+    // An adjustment layer's are found where its stack runs (D-791).
+    if !layer.is_adjustment() {
+        fill_sound(project, root, comp, layer, at, masks, &mut effects, frame, log, false);
     }
     // D-418: each Fill's masks, chosen as Path Stroke's are (on, with two points, whatever the
     // mode), as they are at this frame and at the size the effects run at; Fill Mask 0 with All
@@ -4893,7 +4786,7 @@ fn resolve_rest(
     // chosen as Fill's are, as they are at this frame and at the size the effects run at.
     // Foreground 0 keys nothing and says nothing; a mask named and not found leaves the layer as
     // it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         if let crate::effects::Effect::InnerOuterKey {
             foreground,
             background,
@@ -4945,7 +4838,7 @@ fn resolve_rest(
     // as Fill's are, as they are at this frame and at the size the effects run at. A source or
     // destination of 0 reshapes nothing and says nothing; a mask named and not found leaves the
     // layer as it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         if let crate::effects::Effect::Reshape {
             source_mask,
             destination_mask,
@@ -4985,7 +4878,7 @@ fn resolve_rest(
     }
     // D-700: each Liquify's freeze area mask, chosen as Reshape's are; a mask named and not
     // found is an empty outline, which leaves the layer as it is, and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         if let crate::effects::Effect::Liquify {
             freeze_area_mask,
             freeze_path,
@@ -5018,7 +4911,7 @@ fn resolve_rest(
     // D-607: each Mask Smear's source and, when one is named, boundary masks, chosen as
     // Reshape's are. A source of 0 smears nothing and says nothing; a mask named and not found
     // leaves the layer as it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         if let crate::effects::Effect::MaskSmear {
             source_mask,
             boundary_mask,
@@ -5058,7 +4951,7 @@ fn resolve_rest(
     // D-442: each Scribble's masks, chosen as Path Stroke's are (on, with two points), with
     // their modes and whether each is inverted, as they are at this frame and at the size the
     // effects run at. Finding none, the layer is left as it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         if let crate::effects::Effect::Scribble {
             scribble,
             mask,
@@ -5105,7 +4998,7 @@ fn resolve_rest(
     // D-613: each Particle Playground's wall, the mask Wall Mask names (1 the first), on and of
     // three points or more, as it is at this frame and at the size the effects run at. 0 is no
     // wall and says nothing; a number naming no such mask is no wall, said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
         if let crate::effects::Effect::ParticlePlayground { values, wall, .. } =
             &mut instance.effect
         {
@@ -7877,6 +7770,195 @@ fn fill_passes(
 /// D-613: EFFECT_PATH_MISSING for a Particle Playground on layer `holder` whose Wall Mask `n`
 /// names no mask that is on with three points or more; `when` is "Frame 3 is drawn" or "Every
 /// frame is drawn".
+// D-420, D-421: each Audio Spectrum's levels and each Audio Waveform's least and greatest,
+// from the sound layer it names as it is heard at this frame, and the mask it stands along,
+// at the size the effects run at. No Audio Layer is silence. A mask or a layer that is not
+// there, or a layer that holds no sound, leaves the layer as it is and that is said every
+// frame.
+// D-791: on an adjustment layer (`adjustment`), one that stands along a mask is not drawn, because
+// the adjustment's masks are not carried to the frame beneath, and that is said every frame.
+#[allow(clippy::too_many_arguments)]
+fn fill_sound(
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    at: i32,
+    masks: &[crate::mask::Mask],
+    effects: &mut [crate::effects::EffectInstance],
+    frame: i32,
+    log: &mut FrameLog,
+    adjustment: bool,
+) {
+    type Hear = Box<dyn Fn(Option<(&crate::audio::Sound, i64, usize, f64)>) -> Vec<f64>>;
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let what = instance.effect.name().to_string();
+        let (audio_layer, path, window, levels, outline, hear): (
+            &serde_json::Value,
+            f64,
+            [f64; 2],
+            &mut Option<Vec<f64>>,
+            &mut Option<(Vec<(f64, f64)>, bool)>,
+            Hear,
+        ) = match &mut instance.effect {
+            crate::effects::Effect::AudioSpectrum {
+                audio_layer,
+                path,
+                start_frequency,
+                end_frequency,
+                frequency_bands,
+                audio_duration,
+                audio_offset,
+                duration_averaging,
+                levels,
+                outline,
+                ..
+            } => {
+                let bands = frequency_bands.floor() as usize;
+                let freqs: Vec<f64> = (0..bands)
+                    .map(|b| {
+                        *start_frequency
+                            + (*end_frequency - *start_frequency) * (b as f64 + 0.5) / bands as f64
+                    })
+                    .collect();
+                let averaging = duration_averaging == "on";
+                let hear: Hear = Box::new(move |w| {
+                    w.map_or_else(
+                        || vec![0.0; bands],
+                        |(s, s0, count, gain)| s.levels(s0, count, &freqs, gain, averaging),
+                    )
+                });
+                (
+                    audio_layer,
+                    *path,
+                    [*audio_duration, *audio_offset],
+                    levels,
+                    outline,
+                    hear,
+                )
+            }
+            crate::effects::Effect::AudioWaveform {
+                audio_layer,
+                path,
+                displayed_samples,
+                audio_duration,
+                audio_offset,
+                waveform_options,
+                levels,
+                outline,
+                ..
+            } => {
+                let shown = displayed_samples.floor() as usize;
+                let channel = match waveform_options.as_str() {
+                    "left" => Some(0),
+                    "right" => Some(1),
+                    _ => None,
+                };
+                let hear: Hear = Box::new(move |w| {
+                    w.map_or_else(
+                        || vec![0.0; 2 * shown],
+                        |(s, s0, count, gain)| s.spans(s0, count, shown, gain, channel),
+                    )
+                });
+                (
+                    audio_layer,
+                    *path,
+                    [*audio_duration, *audio_offset],
+                    levels,
+                    outline,
+                    hear,
+                )
+            }
+            _ => continue,
+        };
+        *levels = None;
+        *outline = None;
+        if path.floor() >= 1.0 && adjustment {
+            log.record(
+                frame,
+                layer.name.clone(),
+                adjustment_mask(&layer.name, &what, &format!("Frame {frame} is drawn without it")),
+            );
+            continue;
+        }
+        if path.floor() >= 1.0 {
+            match masks
+                .get(path.floor() as usize - 1)
+                .filter(|m| m.enabled && m.points.len() >= 2)
+            {
+                Some(m) => *outline = Some((m.path(), m.closed)),
+                None => {
+                    log.record(
+                        frame,
+                        layer.name.clone(),
+                        spectrum_path_missing(
+                            &layer.name,
+                            &what,
+                            path,
+                            &format!("Frame {frame} is drawn"),
+                        ),
+                    );
+                    continue;
+                }
+            }
+        }
+        let named = audio_layer.as_str().unwrap_or_default();
+        if named.is_empty() {
+            *levels = Some(hear(None));
+            continue;
+        }
+        let Some(heard) = comp.layer(&Id::new(named)) else {
+            log.record(
+                frame,
+                layer.name.clone(),
+                crate::layer_map::missing(&layer.name, named, &format!("frame {frame} is drawn")),
+            );
+            continue;
+        };
+        if heard.kind != crate::model::LayerKind::Audio {
+            log.record(
+                frame,
+                layer.name.clone(),
+                spectrum_sound_missing(
+                    &layer.name,
+                    &what,
+                    &heard.name,
+                    &format!("Frame {frame} is drawn"),
+                ),
+            );
+            continue;
+        }
+        let window = sound_window(
+            project,
+            root,
+            comp,
+            heard,
+            at,
+            window,
+            log,
+            frame,
+            &layer.name,
+        );
+        *levels = Some(hear(
+            window
+                .as_ref()
+                .map(|(s, s0, count, gain)| (&**s, *s0, *count, *gain)),
+        ));
+    }
+}
+
+/// D-791: an effect on an adjustment layer that works from the layer's own masks, shapes or text,
+/// which are not carried to the frame beneath, so the frame is drawn `without`.
+fn adjustment_mask(holder: &str, what: &str, without: &str) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::EffectPathMissing,
+        Severity::Warning,
+        format!("Adjustment layer {holder}'s {what} works from a mask, a shape or the text of its own layer, which an effect on an adjustment layer cannot use yet."),
+        format!("{without}. The effect is kept as it is."),
+    )
+    .with_remediation("Put the effect on the layer itself, or precompose the layers beneath and put it on the composition layer.")
+}
+
 pub(crate) fn playground_wall_missing(holder: &str, n: f64, when: &str) -> Diagnostic {
     Diagnostic::new(
         DiagnosticId::EffectPathMissing,
