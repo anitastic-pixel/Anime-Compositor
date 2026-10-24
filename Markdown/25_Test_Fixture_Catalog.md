@@ -213460,6 +213460,28 @@ FX-FILL-043 (`fx_fill_043.json`): All Masks "maybe", not off or on. The file is 
 
 FX-FILL-044 (`fx_fill_044.json`): Opacity keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Fill on an adjustment layer (D-786)
+
+After Effects' Fill on an adjustment layer (B-666). Every case is a composition 6 by 2 holding `tools/adjust_reference.py`'s drawings (`Fixtures/fill_adjustment/media/`: bg, red over mid grey; half, green half covered) beneath an adjustment layer holding the Fill, the size of the composition, unmoved unless the case says. `tools/fill_adjustment_reference.py` works the expected frames, `Fixtures/fill_adjustment/expected_fill_adjustment.json`, from D-418's Fill with no mask and D-65's adjustment mix. Tolerance 2e-5.
+
+FX-FILLADJ-001 (`fx_filladj_001.json`): Fill as it starts (Fill Mask 0, red, opacity 100) on an adjustment layer: everything beneath turns red, both rows. Frames 0.
+
+FX-FILLADJ-002 (`fx_filladj_002.json`): The same at Fill opacity 50: half way to red. Frames 0.
+
+FX-FILLADJ-003 (`fx_filladj_003.json`): White on half-covered green: white where the green was, its half covering kept, nothing laid on the empty. Frames 0.
+
+FX-FILLADJ-004 (`fx_filladj_004.json`): A mask on the adjustment layer: only the left three columns turn red. Frames 0.
+
+FX-FILLADJ-005 (`fx_filladj_005.json`): The adjustment layer at opacity 50: half way to red. Frames 0.
+
+FX-FILLADJ-006 (`fx_filladj_006.json`): Invert on with no mask: nothing is left to fill, the frame as it was. Frames 0.
+
+FX-FILLADJ-007 (`fx_filladj_007.json`): Fill Mask 1 on an adjustment layer with a mask: not drawn, the frame as it was, and EFFECT_PATH_MISSING said every frame. Warns `EFFECT_PATH_MISSING` each frame, not on opening. Frames 0.
+
+FX-FILLADJ-008 (`fx_filladj_008.json`): All Masks on, the same: not drawn, and said every frame. Warns `EFFECT_PATH_MISSING` each frame, not on opening. Frames 0.
+
+FX-FILLADJ-009 (`fx_filladj_009.json`): Blue at opacity 50, then red, the tutorial's chain in small: the last Fill wins, red. Frames 0.
+
 ### Glue Gun (D-424)
 
 Glue Gun, our name for CycoreFX's CC Glue Gun (Generate), `core.glue_gun` (B-303). Every case is a composition 16 by 10, eight frames at 24 a second, holding Blobbylize's drawings (`Fixtures/glue_gun/media/`: photo, shapes, ramp), the holder at the top with the effect, unmoved unless the case says. "The sweep" is the brush keyed from 20, 50 per cent at frame 0 to 80, 50 at frame 4, Stroke Width 4, Density 2, Time Span 0, Reflection 0; "unlit" is Ambient 50, Diffuse 0, Specular 0. `tools/glue_gun_reference.py` works the expected frames, `Fixtures/glue_gun/expected_glue_gun.json`, tolerance 2e-5; the rule is in document 21.
