@@ -21,9 +21,12 @@ use anime_compositor::persist::Preserved;
 use anime_compositor::{persist, sha256};
 
 /// Taken on e395d8b, before either change: how many fixture projects open, and the SHA-256 of
-/// their saved text, one after another in path order.
+/// their saved text, one after another in path order. Re-taken on 4da4602a, which changed no code:
+/// D-747 rewrote one word in `fx_glow_032.json` ("multiply" to "color_dodge") and D-755 one in
+/// `fx_wave_023.json` ("square" to "hexagon"), both refused-value fixtures whose old word became
+/// valid. The build before each of those commits gives the old hash (aeadb2e5...) on the old files.
 const FIXTURES_OPENED: usize = 2297;
-const FIXTURES_SAVED: &str = "aeadb2e51777a56efb28e3113b652eaa65c03d10cf2ba66b8d4798f0c86dae2d";
+const FIXTURES_SAVED: &str = "c66b9656cbfaf5eb03156712d66f3fca7f09c3cf7a860981ef0b7e73d1ec188d";
 
 fn repo(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)
