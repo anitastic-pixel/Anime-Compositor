@@ -1,0 +1,87 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-lmark",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 800,
+      "height": 800,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 48,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 48
+      },
+      "layer_order": [
+        "lm"
+      ],
+      "layers": [
+        {
+          "id": "lm",
+          "kind": "solid",
+          "name": "lm",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 48,
+          "transform": {
+            "anchor": {
+              "base": [
+                30.0,
+                30.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                400,
+                400
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              1,
+              1,
+              1
+            ],
+            "width": 60,
+            "height": 60
+          },
+          "markers": []
+        }
+      ]
+    }
+  ]
+}

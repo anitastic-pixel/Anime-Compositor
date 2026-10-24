@@ -1,0 +1,180 @@
+{
+  "rule": "D-765",
+  "cases": [
+    {
+      "file": "fx_lmark_001.json",
+      "slide_frames": 0,
+      "layer_markers": [
+        {
+          "frame": 12,
+          "name": "hit",
+          "duration_frames": 0
+        }
+      ],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": [
+        {
+          "frame": 12,
+          "name": "hit"
+        }
+      ],
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_002.json",
+      "slide_frames": 0,
+      "layer_markers": [
+        {
+          "frame": 4,
+          "name": "start",
+          "duration_frames": 0
+        },
+        {
+          "frame": 30,
+          "name": "end",
+          "duration_frames": 6
+        }
+      ],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": [
+        {
+          "frame": 4,
+          "name": "start"
+        },
+        {
+          "frame": 30,
+          "name": "end",
+          "duration_frames": 6
+        }
+      ],
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_003.json",
+      "slide_frames": 0,
+      "layer_markers": [],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": "absent",
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_004.json",
+      "slide_frames": 0,
+      "layer_markers": [],
+      "warnings": [
+        "PROJECT_FEATURE_UNSUPPORTED"
+      ],
+      "warning_names": "layers/0/markers",
+      "saved_layer_markers": "hit",
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_005.json",
+      "slide_frames": 0,
+      "layer_markers": [],
+      "warnings": [
+        "PROJECT_FEATURE_UNSUPPORTED"
+      ],
+      "warning_names": "layers/0/markers",
+      "saved_layer_markers": [
+        {
+          "frame": "twelve",
+          "name": "hit"
+        }
+      ],
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_006.json",
+      "slide_frames": 0,
+      "layer_markers": [
+        {
+          "frame": 2,
+          "name": "in",
+          "duration_frames": 0
+        }
+      ],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": [
+        {
+          "frame": 2,
+          "name": "in"
+        }
+      ],
+      "comp_markers": [
+        {
+          "frame": 10,
+          "name": "chorus",
+          "duration_frames": 4
+        },
+        {
+          "frame": 30,
+          "name": "out",
+          "duration_frames": 0
+        }
+      ],
+      "saved_comp_markers": [
+        {
+          "frame": 10,
+          "name": "chorus",
+          "duration_frames": 4
+        },
+        {
+          "frame": 30,
+          "name": "out"
+        }
+      ]
+    },
+    {
+      "file": "fx_lmark_007.json",
+      "slide_frames": 5,
+      "layer_markers": [
+        {
+          "frame": 17,
+          "name": "hit",
+          "duration_frames": 3
+        }
+      ],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": [
+        {
+          "frame": 17,
+          "name": "hit",
+          "duration_frames": 3
+        }
+      ],
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_008.json",
+      "slide_frames": 0,
+      "layer_markers": [],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": null,
+      "comp_markers": [],
+      "saved_comp_markers": []
+    },
+    {
+      "file": "fx_lmark_009.json",
+      "slide_frames": 0,
+      "layer_markers": [],
+      "warnings": [],
+      "warning_names": null,
+      "saved_layer_markers": [],
+      "comp_markers": [],
+      "saved_comp_markers": []
+    }
+  ]
+}

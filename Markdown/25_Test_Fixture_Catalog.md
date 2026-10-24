@@ -221792,3 +221792,25 @@ FX-LBLEND-007 (`fx_lblend_007.json`): Color: the layer's hue and saturation at t
 FX-LBLEND-008 (`fx_lblend_008.json`): Luminosity: the backdrop's hue and saturation at the layer's lightness. Frames 0.
 
 FX-LBLEND-009 (`fx_lblend_009.json`): A mode After Effects has and this program does not, Color Dodge: the file is refused with the reason, which names the sixteen modes it knows; nothing is drawn as another mode (document 28). Error contains `layers/4/blend_mode: expected one of normal, darken, multiply, add, lighten, screen, overlay, soft_light, hard_light, difference, hue, saturation, color, luminosity, stencil_alpha, stencil_luma.`.
+
+### Layer markers (D-765)
+
+A layer's markers, and a marker's length on either kind (B-645): `tools/layer_markers_reference.py` writes `Fixtures/layer_markers/expected_layer_markers.json` and `fx_lmark_001.json` to `fx_lmark_009.json`. Each file is an 800 by 800, 48-frame composition with one white solid layer, `lm`, frames 0 to 48. Each case is opened, slid where it says, and saved; the markers the layer holds (frame, name, duration_frames), the warnings, and the layer's and composition's `markers` as written must all be the reference's. Nothing is drawn. Checked by `tests/b645_layer_markers.rs`.
+
+FX-LMARK-001 (`fx_lmark_001.json`): An After Effects-style layer marker, `{"frame": 12, "name": "hit"}`: held as frame 12, "hit", no length; no warning; written back as it was.
+
+FX-LMARK-002 (`fx_lmark_002.json`): Two layer markers out of order, frame 30 "end" 6 frames long and frame 4 "start": held in frame order, 4 then 30; written in that order, `duration_frames` 6 only on the second.
+
+FX-LMARK-003 (`fx_lmark_003.json`): An old file whose layer has no `markers`: no markers, no warning, and the layer written with no `markers` key.
+
+FX-LMARK-004 (`fx_lmark_004.json`): A layer's `markers` that is text, "hit": the file opens with one PROJECT_FEATURE_UNSUPPORTED warning naming `layers/0/markers`; no markers shown; "hit" written back exactly (document 28: kept and said, never dropped).
+
+FX-LMARK-005 (`fx_lmark_005.json`): A layer marker whose frame is "twelve": the same warning, no markers shown, the list written back exactly.
+
+FX-LMARK-006 (`fx_lmark_006.json`): Composition markers with a length, frame 10 "chorus" 4 frames long and frame 30 "out", beside a layer marker at 2 "in": all held; the composition's written with `duration_frames` 4 on the first only.
+
+FX-LMARK-007 (`fx_lmark_007.json`): The layer, with a marker at 12 "hit" 3 frames long, slid 5 frames later: the marker moves to 17 and keeps its length.
+
+FX-LMARK-008 (`fx_lmark_008.json`): A layer's `markers` that is `null`: read as none, no warning, written back as `null`.
+
+FX-LMARK-009 (`fx_lmark_009.json`): An empty list: none, no warning, written back as `[]`.
