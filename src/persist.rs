@@ -3366,6 +3366,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             end_width,
             profile,
             color,
+            parameters_at,
             ..
         } => {
             params.insert(
@@ -3387,6 +3388,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("end_width".into(), num(*end_width));
             params.insert("profile".into(), J::from(profile.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
+            // D-777: as D-320's shape, written only when "birth" or in the file already.
+            if parameters_at != "each_frame" || params.contains_key("parameters_at") {
+                params.insert("parameters_at".into(), J::from(parameters_at.as_str()));
+            }
         }
         Effect::PolarCoordinates {
             interpolation,
@@ -10179,6 +10184,9 @@ fn parse_effect(
             profile: effect_word(params, "profile", at)?,
             color: effect_word(params, "color", at)?.to_ascii_lowercase(),
             frame: 0,
+            // D-777: a file from before keeps every wave on the settings now.
+            parameters_at: effect_word_or(params, "parameters_at", at, "each_frame")?,
+            births: None,
         }),
         crate::effects::POLAR_COORDINATES => Some(crate::effects::Effect::PolarCoordinates {
             interpolation: effect_number(params, "interpolation", at)?,

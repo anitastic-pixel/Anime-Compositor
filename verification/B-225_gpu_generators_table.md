@@ -4,11 +4,11 @@ Written by `tests/b225_gpu_generators.rs`. The card: NVIDIA GeForce RTX 4070 Ti 
 
 Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning and Bevel Edges (D-344) and Radio Waves (D-345), each the CPU's rule on the card. The bolt's segments and the waves are worked out by the CPU and handed to the card as a list, so their seeds stay the CPU's (P0-23).
 
-The cases: every fixture naming one of the six (221 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 22 settings, at frames 0, 100 and 239. Each at Full and Draft.
+The cases: every fixture naming one of the six (229 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 22 settings, at frames 0, 100 and 239. Each at Full and Draft.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. **The rule: no channel of any pixel more than 1 level of 255 apart** (ADR-006, D-100), except that a pixel 0 of 255 visible on both sides counts as equal whatever its hidden colour (D-345, the owner's choice), the same warnings on both, and on a reference shot row the effect in fact on the card, at Full the first layer's. 8 bpc and After Effects 32 bpc compositions give the card no effect (D-330, D-333); a few frames the card refuses whole (Float depth, an adjustment layer): those must be the CPU's picture exactly, with the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**2386 of 2386 checks pass.**
+**2466 of 2466 checks pass.**
 
 The CPU drawing each plan made for the card draws the plan made for the CPU byte for byte in 44 of 44.
 
@@ -23,7 +23,7 @@ The worst comparison is "the reference shot with CC Light Sweep (4) frame 0, Ful
 | CC Light Sweep | 284 | 192 | 0 | 1 | 284 of 284 |
 | Advanced Lightning | 940 | 688 | 0 | 1 | 940 of 940 |
 | Bevel Edges | 128 | 88 | 0 | 1 | 128 of 128 |
-| Radio Waves | 288 | 218 | 0 | 1 | 288 of 288 |
+| Radio Waves | 368 | 278 | 0 | 1 | 368 of 368 |
 
 ## Every frame
 
@@ -2241,6 +2241,86 @@ Effects left to the card on the first three layers.
 | radio_waves/fx_rwave_027 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | radio_waves/fx_rwave_027 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | radio_waves/fx_rwave_027 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_028 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_028 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_029 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_030 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_031 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_032 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_033 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| radio_waves/fx_rwave_034 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_034 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| radio_waves/fx_rwave_035 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | the reference shot with Beam (1) frame 0, Full | 1 / 2 / 1 | 1 | 3642 | none | PASS |
 | the reference shot with Beam (1) frame 100, Full | 1 / 2 / 1 | 1 | 1368 | none | PASS |
 | the reference shot with Beam (1) frame 239, Full | 1 / 2 / 1 | 1 | 1694 | none | PASS |

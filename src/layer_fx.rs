@@ -12887,9 +12887,11 @@ fn least_covering(source: &WorkingBuffer, k: usize) -> Vec<f32> {
 }
 
 /// D-200's settings, held for a frame: the producer already in the buffer's pixels and the
-/// colour linear.
+/// colour linear. D-777: `births`, the waves sent with their own settings, their producers in
+/// the buffer's pixels too ([`crate::effects::Effect::RadioWaves`]'s numbers).
 pub(crate) struct RadioWaves<'a> {
     pub producer: (f64, f64),
+    pub births: Option<Vec<[f64; 14]>>,
     pub sides: f64,
     pub interval: f64,
     pub expansion: f64,
@@ -12959,30 +12961,49 @@ pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
 /// corner, half width, strength). The card (D-345) is handed them as they are.
 pub(crate) fn radio_wave_list(s: &RadioWaves) -> Vec<(f64, f64, f64, f64, f64, f64)> {
     let fade = |t: f64, time: f64| if time > 0.0 { (t / time).min(1.0) } else { 1.0 };
-    let (ux, uy) = crate::blurs::along(s.direction);
     let f = s.frame as f64;
+    // Each wave: its birth frame and the settings it is drawn with, numbered as `births`.
+    let sent: Vec<[f64; 14]> = match &s.births {
+        Some(births) => births.clone(),
+        None => {
+            let mut sent = Vec::new();
+            let mut k = ((f - s.lifespan) / s.interval).floor().max(0.0);
+            while k * s.interval <= f {
+                sent.push([
+                    k * s.interval,
+                    s.producer.0,
+                    s.producer.1,
+                    s.expansion,
+                    s.orientation,
+                    s.direction,
+                    s.velocity,
+                    s.spin,
+                    s.lifespan,
+                    s.opacity,
+                    s.fade_in,
+                    s.fade_out,
+                    s.widths[0],
+                    s.widths[1],
+                ]);
+                k += 1.0;
+            }
+            sent
+        }
+    };
     let mut waves = Vec::new();
-    let mut k = ((f - s.lifespan) / s.interval).floor().max(0.0);
-    while k * s.interval <= f {
-        let t = f - k * s.interval;
-        k += 1.0;
-        if t >= s.lifespan {
+    for [born, px, py, expansion, orientation, direction, velocity, spin, lifespan, opacity, fade_in, fade_out, w0, w1] in sent {
+        let t = f - born;
+        if t < 0.0 || t >= lifespan {
             continue;
         }
-        let w = s.widths[0] + (s.widths[1] - s.widths[0]) * t / s.lifespan;
-        let g = s.opacity / 100.0 * fade(t, s.fade_in) * fade(s.lifespan - t, s.fade_out);
+        let w = w0 + (w1 - w0) * t / lifespan;
+        let g = opacity / 100.0 * fade(t, fade_in) * fade(lifespan - t, fade_out);
         if w == 0.0 || g == 0.0 {
             continue;
         }
-        let d = s.velocity * t;
-        waves.push((
-            s.producer.0 + d * ux,
-            s.producer.1 + d * uy,
-            s.expansion * t,
-            s.orientation + s.spin * t,
-            w / 2.0,
-            g,
-        ));
+        let (ux, uy) = crate::blurs::along(direction);
+        let d = velocity * t;
+        waves.push((px + d * ux, py + d * uy, expansion * t, orientation + spin * t, w / 2.0, g));
     }
     waves
 }

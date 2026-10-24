@@ -3336,6 +3336,72 @@ fn effect_now(
                 })
                 .collect();
         }
+        // D-777: Radio Waves set at birth, each wave alive drawn with the settings read at the
+        // frame it was sent, as the layer's keys are; birth frames follow the interval now. Not
+        // keyed, every wave's settings are the ones now.
+        // ponytail: reads every wave that could be alive (lifespan up to 1000 frames) each
+        // frame, O(1000 / interval); keep them between frames if fine intervals crawl.
+        if let crate::effects::Effect::RadioWaves {
+            parameters_at,
+            interval,
+            births,
+            ..
+        } = &mut now.effect
+        {
+            if parameters_at == "birth" && !instance.tracks.is_empty() {
+                let f = at as f64;
+                let mut k = ((f - 1000.0) / *interval).floor().max(0.0);
+                let mut sent = Vec::new();
+                while k * *interval <= f {
+                    let born = k * *interval;
+                    k += 1.0;
+                    let then = crate::expr::effect_at(
+                        comp,
+                        &layer.id,
+                        instance,
+                        born.floor() as i32,
+                        layer.key_time(born),
+                    )
+                    .0;
+                    if let crate::effects::Effect::RadioWaves {
+                        producer_point: p,
+                        expansion,
+                        orientation,
+                        direction,
+                        velocity,
+                        spin,
+                        lifespan,
+                        opacity,
+                        fade_in_time,
+                        fade_out_time,
+                        start_width,
+                        end_width,
+                        ..
+                    } = then.effect
+                    {
+                        if f - born < lifespan {
+                            sent.push([
+                                born,
+                                p[0],
+                                p[1],
+                                expansion,
+                                orientation,
+                                direction,
+                                velocity,
+                                spin,
+                                lifespan,
+                                opacity,
+                                fade_in_time,
+                                fade_out_time,
+                                start_width,
+                                end_width,
+                            ]);
+                        }
+                    }
+                }
+                *births = Some(sent);
+            }
+        }
         // D-630: Wave World's history, every number at each frame from the in point to this
         // one, read as the layer's keys are; the water runs again from the in point each frame.
         // D-633: Shatter's the same, its pieces freed and thrown again from the in point.

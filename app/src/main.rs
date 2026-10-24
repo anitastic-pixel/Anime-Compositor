@@ -4868,6 +4868,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             profile: "square".to_string(),
             color: "#ffffff".to_string(),
             frame: 0,
+            // D-777: After Effects' own, each wave keeps the settings it was sent with.
+            parameters_at: "birth".to_string(),
+            births: None,
         }),
         // D-201: all the way round, so the effect shows as soon as it is added; After Effects
         // starts at 0, which shows nothing. D-320: a circle, After Effects' look.
@@ -8148,6 +8151,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             profile: word("profile")?,
             color: word("color")?,
             frame: 0,
+            // D-777: a command without it keeps a file's own rule, each frame.
+            parameters_at: word("parameters_at").unwrap_or_else(|_| "each_frame".to_string()),
+            births: None,
         }),
         // D-320: a command without a shape keeps a file's own rule, the ellipse.
         POLAR_COORDINATES => Ok(Effect::PolarCoordinates {

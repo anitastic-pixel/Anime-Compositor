@@ -891,6 +891,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 profile: "square".into(),
                 color: "#ffffff".into(),
                 frame: 48,
+                parameters_at: "each_frame".into(),
+                births: None,
             },
         ),
         (

@@ -2002,14 +2002,19 @@ pub enum Effect {
         light_reception: String,
     },
     /// D-200: `producer_point`, x then y, -1000 to 1000 per cent of the drawing's width and
-    /// height, where the waves start; `sides`, 3 to 64, its whole part counted; `interval` and
+    /// height, where the waves start; `sides`, 3 to 128 (D-777), its whole part counted; `interval` and
     /// `lifespan`, 1 to 1000 frames; `expansion` and `velocity`, 0 to 1000 pixels a frame;
     /// `orientation` and `direction`, -3600 to 3600 degrees; `spin`, -360 to 360 degrees a
     /// frame; `opacity`, 0 to 100; `fade_in_time` and `fade_out_time`, 0 to 1000 frames;
     /// `start_width` and `end_width`, 0 to 1000 pixels; `profile`, "square", "triangle" or
     /// "sine"; and `color`, `#rrggbb`. The words and colour are kept as written, so a wrong one
     /// is reported. `frame` is not a setting and is never saved: it is the composition frame, as
-    /// Lightning Bolt's is.
+    /// Lightning Bolt's is. D-777: `parameters_at`, "each_frame", every wave drawn with the
+    /// settings now (a file without it), or "birth", After Effects' own, each wave keeping the
+    /// settings it was sent with. `births` is not a setting and is never saved: in "birth", the
+    /// waves alive, oldest first, each its birth frame then the producer x and y, expansion,
+    /// orientation, direction, velocity, spin, lifespan, opacity, fade in and out and start and
+    /// end widths it was sent with; `None`, every wave takes the settings now.
     RadioWaves {
         producer_point: [f64; 2],
         sides: f64,
@@ -2028,6 +2033,8 @@ pub enum Effect {
         profile: String,
         color: String,
         frame: i32,
+        parameters_at: String,
+        births: Option<Vec<[f64; 14]>>,
     },
     /// D-201: `interpolation`, 0 to 100, how far the drawing is bent; and `conversion`,
     /// "rect_to_polar" or "polar_to_rect". The word is kept as written, so a wrong one is
@@ -10929,7 +10936,7 @@ impl Effect {
                     -1000.0,
                     1000.0,
                 ),
-                ("sides", vec![sides], 3.0, 64.0),
+                ("sides", vec![sides], 3.0, 128.0),
                 ("interval", vec![interval], 1.0, 1000.0),
                 ("expansion", vec![expansion], 0.0, 1000.0),
                 ("orientation", vec![orientation], -3600.0, 3600.0),
@@ -11849,12 +11856,19 @@ impl Effect {
                 velocity,
                 start_width,
                 end_width,
+                births,
                 ..
             } => {
                 *expansion = scale(*expansion);
                 *velocity = scale(*velocity);
                 *start_width = scale(*start_width);
                 *end_width = scale(*end_width);
+                // D-777: the waves sent earlier are as far from their pixels.
+                for b in births.iter_mut().flatten() {
+                    for i in [3, 6, 12, 13] {
+                        b[i] = scale(b[i]);
+                    }
+                }
             }
             _ => {}
         }
@@ -14272,9 +14286,13 @@ impl Effect {
                         })
                     })
             }
-            Effect::RadioWaves { profile, color, .. } => hex_fault("Radio Waves", "colour", color).or_else(|| {
+            Effect::RadioWaves { profile, color, parameters_at, .. } => hex_fault("Radio Waves", "colour", color).or_else(|| {
                 (!["square", "triangle", "sine"].contains(&profile.as_str())).then(|| {
                     format!("Radio Waves' profile is \"square\", \"triangle\" or \"sine\", and this is \"{profile}\".")
+                })
+            }).or_else(|| {
+                (!["birth", "each_frame"].contains(&parameters_at.as_str())).then(|| {
+                    format!("Radio Waves' parameters are set at \"birth\" or \"each_frame\", and this is \"{parameters_at}\".")
                 })
             }),
             Effect::LightSweep { shape, light_color, light_reception, .. } => {
@@ -15907,6 +15925,24 @@ pub(crate) fn twirl_reach(
         return radius;
     }
     twirl_radius / 100.0 * (w - 2 * ox).max(h - 2 * oy) as f64
+}
+
+/// D-777: Radio Waves' waves sent earlier with their producers in the pixels of a buffer of
+/// `size` whose drawing has its corner at `origin`, as [`radial_center`] places the one now.
+pub(crate) fn radio_births(
+    births: &Option<Vec<[f64; 14]>>,
+    size: (usize, usize),
+    origin: (usize, usize),
+) -> Option<Vec<[f64; 14]>> {
+    births.as_ref().map(|list| {
+        list.iter()
+            .map(|b| {
+                let mut b = *b;
+                (b[1], b[2]) = radial_center([b[1], b[2]], size, origin);
+                b
+            })
+            .collect()
+    })
 }
 
 pub(crate) fn radial_center(
@@ -19529,13 +19565,13 @@ pub(crate) fn apply_stack_at(
                 profile,
                 color,
                 frame,
+                births,
+                ..
             } => crate::perf::time(crate::perf::Stage::EffectRadioWaves, || {
+                let size = (source.width(), source.height());
                 let s = crate::layer_fx::RadioWaves {
-                    producer: radial_center(
-                        *producer_point,
-                        (source.width(), source.height()),
-                        (ox, oy),
-                    ),
+                    producer: radial_center(*producer_point, size, (ox, oy)),
+                    births: radio_births(births, size, (ox, oy)),
                     sides: *sides,
                     interval: *interval,
                     expansion: *expansion,

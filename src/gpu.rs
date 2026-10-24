@@ -22354,9 +22354,12 @@ impl Gpu {
                 profile,
                 color,
                 frame,
+                births,
+                ..
             } => {
                 let s = crate::layer_fx::RadioWaves {
                     producer: crate::effects::radial_center(*producer_point, (w, h), f.origin),
+                    births: crate::effects::radio_births(births, (w, h), f.origin),
                     sides: *sides,
                     interval: *interval,
                     expansion: *expansion,

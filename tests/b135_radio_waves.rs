@@ -44,6 +44,8 @@ fn waves(producer_point: [f64; 2], n: [f64; 13], words: [&str; 2]) -> Effect {
         profile: words[0].to_string(),
         color: words[1].to_string(),
         frame: 0,
+        parameters_at: "each_frame".to_string(),
+        births: None,
     }
 }
 
@@ -154,7 +156,7 @@ fn b135_radio_waves() {
          largest difference over all of them, against the catalogue's tolerance of 2e-5.\n",
     );
 
-    t.heading("FX-RWAVE-001 to 027 (document 25)");
+    t.heading("FX-RWAVE-001 to 035 (document 25; 028 to 035 D-777)");
     t.fixtures("expected_radio_waves.json");
 
     t.heading("How far it reaches");
@@ -246,7 +248,7 @@ fn b135_radio_waves() {
                 set(waves([1000.5, 50.0], ADDED, WORDS)),
             ),
             ("sides 2.9", set(with(0, 2.9))),
-            ("sides 64.5", set(with(0, 64.5))),
+            ("sides 128.5 (D-777: 128 the most)", set(with(0, 128.5))),
             ("interval 0.9", set(with(1, 0.9))),
             ("expansion -1", set(with(2, -1.0))),
             ("orientation 3600.5", set(with(3, 3600.5))),
@@ -268,8 +270,8 @@ fn b135_radio_waves() {
                 set(waves(MIDDLE, ADDED, ["square", "#fff"])),
             ),
             (
-                "sides keyed to 70",
-                keys("sides", &[(0, &[64.0]), (4, &[70.0])]),
+                "sides keyed to 129 (D-777: 128 the most)",
+                keys("sides", &[(0, &[64.0]), (4, &[129.0])]),
             ),
         ],
     );

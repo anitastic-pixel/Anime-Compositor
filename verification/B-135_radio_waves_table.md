@@ -2,7 +2,7 @@
 
 D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected pixel is `Fixtures/radio_waves/expected_radio_waves.json`, written by `tools/radio_waves_reference.py` before this code existed and printed in document 25 as FX-RWAVE-001 to 027. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-RWAVE-001 to 027 (document 25)
+## FX-RWAVE-001 to 035 (document 25; 028 to 035 D-777)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -76,6 +76,27 @@ D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected
 | FX-RWAVE-027 frame 0: Colour "#fff", written in three digits, not six. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 7.3e-9 | yes |
 | FX-RWAVE-027 frame 4: Colour "#fff", written in three digits, not six. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 7.3e-9 | yes |
 | FX-RWAVE-027: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-RWAVE-028 frame 4: As FX-RWAVE-008, 128 sides, After Effects' top: three waves round the middle at frame 4, each sample within 0.01 of FX-RWAVE-008's 64 sides. | largest difference 3.2e-8 | yes |
+| FX-RWAVE-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-RWAVE-029 frame 0: As FX-RWAVE-015, Parameters Are Set At Birth: each wave keeps the producer point it was born at, so at frame 4 the wave born at frame 0 is round (4, 5), the one born at frame 2 round (8, 5) and the dot born at frame 4 at (12, 5); at frame 0 it is FX-RWAVE-015's dot. | largest difference 1.4e-8 | yes |
+| FX-RWAVE-029 frame 4: As FX-RWAVE-015, Parameters Are Set At Birth: each wave keeps the producer point it was born at, so at frame 4 the wave born at frame 0 is round (4, 5), the one born at frame 2 round (8, 5) and the dot born at frame 4 at (12, 5); at frame 0 it is FX-RWAVE-015's dot. | largest difference 2.9e-8 | yes |
+| FX-RWAVE-029: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-RWAVE-030 frame 0: As FX-RWAVE-015, Parameters Are Set At Each Frame, written: FX-RWAVE-015 exactly, every wave round where the point is now. | largest difference 1.4e-8 | yes |
+| FX-RWAVE-030 frame 4: As FX-RWAVE-015, Parameters Are Set At Each Frame, written: FX-RWAVE-015 exactly, every wave round where the point is now. | largest difference 2.9e-8 | yes |
+| FX-RWAVE-030: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-RWAVE-031 frame 2: As FX-RWAVE-008, the opacity keyed from 100 at frame 0 to 0 at frame 4, linear, set at birth: at frame 4 the wave born at frame 0 is whole, the one born at frame 2 at half strength and the dot born at frame 4 gone; set at each frame all three would be gone. | largest difference 2.9e-8 | yes |
+| FX-RWAVE-031 frame 4: As FX-RWAVE-008, the opacity keyed from 100 at frame 0 to 0 at frame 4, linear, set at birth: at frame 4 the wave born at frame 0 is whole, the one born at frame 2 at half strength and the dot born at frame 4 gone; set at each frame all three would be gone. | largest difference 2.9e-8 | yes |
+| FX-RWAVE-031: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-RWAVE-032 frame 4: As FX-RWAVE-008, set at birth with nothing keyed: FX-RWAVE-008 exactly. | largest difference 2.9e-8 | yes |
+| FX-RWAVE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-RWAVE-033 frame 2: As the ring, spin 22.5 a frame, lifespan keyed from 10 at frame 0 to 1 at frame 1, hold, set at birth: the wave born at frame 0 keeps its 10 and is FX-RWAVE-006 at frame 2. | largest difference 1.4e-8 | yes |
+| FX-RWAVE-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-RWAVE-034 frame 0: Sides 129, above 128. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 7.3e-9 | yes |
+| FX-RWAVE-034 frame 4: Sides 129, above 128. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 7.3e-9 | yes |
+| FX-RWAVE-034: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-RWAVE-035 frame 0: Parameters set at "death", which is not "birth" or "each_frame". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 7.3e-9 | yes |
+| FX-RWAVE-035 frame 4: Parameters set at "death", which is not "birth" or "each_frame". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 7.3e-9 | yes |
+| FX-RWAVE-035: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## How far it reaches
 
@@ -84,7 +105,7 @@ D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected
 | as added, it never grows the drawing's bounds | 0 | yes |
 | expansion 1000, the most, does not grow them either | 0 | yes |
 | end width 1000, the most, does not grow them either | 0 | yes |
-| a half-size draft preview halves the expansion, 5 to 2.5, the velocity, 3 to 1.5, and the widths, 5 to 2.5 and 8 to 4, and keeps the rest | RadioWaves { producer_point: [50.0, 50.0], sides: 64.0, interval: 24.0, expansion: 2.5, orientation: 0.0, direction: 90.0, velocity: 1.5, spin: 2.0, lifespan: 96.0, opacity: 100.0, fade_in_time: 0.0, fade_out_time: 48.0, start_width: 2.5, end_width: 4.0, profile: "square", color: "#ffffff", frame: 0 } | yes |
+| a half-size draft preview halves the expansion, 5 to 2.5, the velocity, 3 to 1.5, and the widths, 5 to 2.5 and 8 to 4, and keeps the rest | RadioWaves { producer_point: [50.0, 50.0], sides: 64.0, interval: 24.0, expansion: 2.5, orientation: 0.0, direction: 90.0, velocity: 1.5, spin: 2.0, lifespan: 96.0, opacity: 100.0, fade_in_time: 0.0, fade_out_time: 48.0, start_width: 2.5, end_width: 4.0, profile: "square", color: "#ffffff", frame: 0, parameters_at: "each_frame", births: None } | yes |
 
 ## The file
 
@@ -115,8 +136,8 @@ D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | producer x 1000.5 is refused with a sentence, and nothing changes | Radio Waves's producer point runs from -1000 to 1000, and this is 1000.5. | yes |
-| sides 2.9 is refused with a sentence, and nothing changes | Radio Waves's sides runs from 3 to 64, and this is 2.9. | yes |
-| sides 64.5 is refused with a sentence, and nothing changes | Radio Waves's sides runs from 3 to 64, and this is 64.5. | yes |
+| sides 2.9 is refused with a sentence, and nothing changes | Radio Waves's sides runs from 3 to 128, and this is 2.9. | yes |
+| sides 128.5 (D-777: 128 the most) is refused with a sentence, and nothing changes | Radio Waves's sides runs from 3 to 128, and this is 128.5. | yes |
 | interval 0.9 is refused with a sentence, and nothing changes | Radio Waves's interval runs from 1 to 1000, and this is 0.9. | yes |
 | expansion -1 is refused with a sentence, and nothing changes | Radio Waves's expansion runs from 0 to 1000, and this is -1. | yes |
 | orientation 3600.5 is refused with a sentence, and nothing changes | Radio Waves's orientation runs from -3600 to 3600, and this is 3600.5. | yes |
@@ -131,7 +152,7 @@ D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected
 | end width 1000.5 is refused with a sentence, and nothing changes | Radio Waves's end width runs from 0 to 1000, and this is 1000.5. | yes |
 | profile "bell" is refused with a sentence, and nothing changes | Radio Waves' profile is "square", "triangle" or "sine", and this is "bell". | yes |
 | colour "#fff" is refused with a sentence, and nothing changes | Radio Waves's colour is written #rrggbb, and this is "#fff". | yes |
-| sides keyed to 70 is refused with a sentence, and nothing changes | Radio Waves's sides runs from 3 to 64, and this is 70. | yes |
+| sides keyed to 129 (D-777: 128 the most) is refused with a sentence, and nothing changes | Radio Waves's sides runs from 3 to 128, and this is 129. | yes |
 | every number at its top, the last profile, is taken | taken | yes |
 | every number at its bottom, the other profile, is taken | taken | yes |
 | the producer point keyed across the layer is taken | taken | yes |
@@ -160,4 +181,4 @@ D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected
 
 ## Result
 
-126 of 126 checks pass.
+147 of 147 checks pass.

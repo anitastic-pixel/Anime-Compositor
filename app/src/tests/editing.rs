@@ -2590,6 +2590,89 @@ fn b640_a_new_radio_waves_starts_at_after_effects_times() {
     assert_eq!(failed, 0, "{:#?}", report.rows);
 }
 
+/// B-657 (D-777): a Radio Waves added from now on is set at birth, After Effects' own; typed
+/// in the panel it takes each frame and 128 sides; an older project opens at each frame and
+/// saves no new word. Writes `verification/B-657_radio_waves_panel_table.md`.
+#[test]
+fn b657_a_new_radio_waves_is_set_at_birth() {
+    let mut report = Report { rows: Vec::new() };
+    let pick = |s: &str, key: &str| {
+        let v: serde_json::Value = serde_json::from_str(s).unwrap_or_default();
+        // The word is written only when it is not Each Frame (the D-320 rule), and the panel
+        // shows its first choice, Each Frame, when the record has none.
+        match (key, &v[key]) {
+            ("parameters_at", serde_json::Value::Null) => "each_frame, not written".to_string(),
+            _ => format!("{}", v[key]),
+        }
+    };
+    let source = repo("Fixtures/projects/unknown_effect_project.json");
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    run(&viewer, "effect.add?layer=layer-cel&type=core.radio_waves");
+    let added = settings(&viewer, "layer-cel", "fx-1");
+    report.check("A new Radio Waves' Parameters Are Set At", "\"birth\"", pick(&added, "parameters_at"));
+    for (word, sides) in [("each_frame", "128"), ("birth", "100")] {
+        let typed = run(
+            &viewer,
+            &format!(
+                "effect.set_parameters?layer=layer-cel&effect=fx-1&producer_point=50,50&sides={sides}\
+                 &interval=24&expansion=5&orientation=0&direction=90&velocity=0&spin=0&lifespan=96\
+                 &opacity=100&fade_in_time=0&fade_out_time=48&start_width=5&end_width=5&profile=square\
+                 &color=%23ffffff&parameters_at={word}"
+            ),
+        );
+        let now = settings(&viewer, "layer-cel", "fx-1");
+        report.check(
+            &format!("Typed in the panel: {word}, {sides} sides"),
+            if word == "birth" { format!("\"birth\", {sides}") } else { format!("each_frame, not written, {sides}") },
+            if typed.starts_with("Change ") {
+                format!("{}, {}", pick(&now, "parameters_at"), pick(&now, "sides"))
+            } else {
+                typed
+            },
+        );
+    }
+    let refused = run(
+        &viewer,
+        "effect.set_parameters?layer=layer-cel&effect=fx-1&producer_point=50,50&sides=64\
+         &interval=24&expansion=5&orientation=0&direction=90&velocity=0&spin=0&lifespan=96\
+         &opacity=100&fade_in_time=0&fade_out_time=48&start_width=5&end_width=5&profile=square\
+         &color=%23ffffff&parameters_at=death",
+    );
+    report.check(
+        "Typed in the panel: \"death\" is refused",
+        "refused",
+        if refused.starts_with("Change ") { refused } else { "refused".to_string() },
+    );
+
+    // A project saved before D-777: FX-RWAVE-015's file, its producer keyed, no word.
+    let old = repo("Fixtures/radio_waves/fx_rwave_015.json");
+    let viewer = Mutex::new(open(&old).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let read = settings(&viewer, "art", "fx-0-0");
+    report.check("An older project's Radio Waves opens at", "each_frame, not written", pick(&read, "parameters_at"));
+    let text = std::fs::read_to_string(&old).expect("read the older project");
+    let first = persist::load_str(&text).expect("the older project reads");
+    let saved = persist::to_json(first.document.project(), &first.preserved);
+    report.check(
+        "Saved, the older project's file holds no parameters_at",
+        "false",
+        format!("{}", saved.contains("parameters_at")),
+    );
+
+    let failed = report.rows.iter().filter(|(_, e, a)| e != a).count();
+    let mut out = String::from(
+        "# B-657: Radio Waves' Parameters Are Set At in the window (D-777)\n\n\
+         Written by `b657_a_new_radio_waves_is_set_at_birth` in `app/src/tests/editing.rs`.\n\n\
+         | Check | Expected | Actual | Result |\n|---|---|---|---|\n",
+    );
+    for (check, expected, actual) in &report.rows {
+        let result = if expected == actual { "pass" } else { "FAIL" };
+        out.push_str(&format!("| {check} | {} | {} | {result} |\n", cell(expected), cell(actual)));
+    }
+    out.push_str(&format!("\n{} of {} checks pass.\n", report.rows.len() - failed, report.rows.len()));
+    std::fs::write(repo("verification/B-657_radio_waves_panel_table.md"), out).expect("write the table");
+    assert_eq!(failed, 0, "{:#?}", report.rows);
+}
+
 /// B-643 (D-764): a Curl Noise added from now on starts at After Effects' Speed 0, Turbulence
 /// Speed 10, Swirl 180, Sample Count 3, Sample Radius 80 and Flow Softness 25; a project saved
 /// before keeps the values its file holds, and saves back byte for byte. Writes
