@@ -163,7 +163,7 @@ pub struct Mask {
     pub mode: MaskMode,
     /// 0 to 1.
     pub opacity: f64,
-    /// 0 or more, in pixels. The Gaussian's sigma is half of it.
+    /// 0 or more, in pixels. The Gaussian's sigma is 0.375 times it (D-775).
     pub feather_px: f64,
     /// -8192 to 8192, in pixels. Positive grows.
     pub expansion_px: f64,
@@ -891,7 +891,8 @@ fn expanded_field(
 /// scales what the person sees rather than what the blur is given.
 fn mask_field(mask: &Mask, width: usize, height: usize) -> Vec<f32> {
     let outline = mask.outline();
-    let sigma = mask.feather_px / 2.0;
+    // D-775: After Effects' mask edge measures sigma 0.375 x feather (D-77 had feather / 2).
+    let sigma = 0.375 * mask.feather_px;
     let radius = if sigma > 0.0 {
         (3.0 * sigma).ceil() as usize
     } else {

@@ -22,9 +22,9 @@ Written by `tests/b642_display_mix.rs`. Every expected pixel is from `tools/disp
 | FX-MIX8-007: what opening it warns of, and what frame 0 warns of | [] and [] | yes |
 | FX-MIX8-008 frame 0: Display, unchanged by D-763: A black Drop Shadow at 50%, softness 0, cast one pixel right of a blue block onto white: column 3 is the shadow alone over white. | largest difference 1.2e-8 | yes |
 | FX-MIX8-008: what opening it warns of, and what frame 0 warns of | [] and [] | yes |
-| FX-MIX8-009 frame 0: 8 bpc: A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's): the soft band at columns 1 to 4. | largest difference 2.3e-7 | yes |
+| FX-MIX8-009 frame 0: 8 bpc: A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's): the soft band at columns 1 to 4. | largest difference 7.2e-8 | yes |
 | FX-MIX8-009: what opening it warns of, and what frame 0 warns of | [] and [] | yes |
-| FX-MIX8-010 frame 0: Display, unchanged by D-763: A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's): the soft band at columns 1 to 4. | largest difference 4.2e-8 | yes |
+| FX-MIX8-010 frame 0: Display, unchanged by D-763: A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's): the soft band at columns 1 to 4. | largest difference 5.2e-8 | yes |
 | FX-MIX8-010: what opening it warns of, and what frame 0 warns of | [] and [] | yes |
 | FX-MIX8-011 frame 0: 8 bpc: Mosaic in blocks of 2 by 2 over stripes of two colours: each block one colour, the mean of its four pixels. | largest difference 3.0e-8 | yes |
 | FX-MIX8-011: what opening it warns of, and what frame 0 warns of | [] and [] | yes |
@@ -47,8 +47,8 @@ Written by `tests/b642_display_mix.rs`. Every expected pixel is from `tools/disp
 | And set back to 8 bpc, FX-MIX8-005's frame again | largest difference 8.1e-8 | yes |
 | FX-MIX8-007 set to Display draws FX-MIX8-008's frame, the linear mix | largest difference 1.2e-8 | yes |
 | And set back to 8 bpc, FX-MIX8-007's frame again | largest difference 9.0e-8 | yes |
-| FX-MIX8-009 set to Display draws FX-MIX8-010's frame, the linear mix | largest difference 4.2e-8 | yes |
-| And set back to 8 bpc, FX-MIX8-009's frame again | largest difference 2.3e-7 | yes |
+| FX-MIX8-009 set to Display draws FX-MIX8-010's frame, the linear mix | largest difference 5.2e-8 | yes |
+| And set back to 8 bpc, FX-MIX8-009's frame again | largest difference 7.2e-8 | yes |
 | FX-MIX8-011 set to Display draws FX-MIX8-012's frame, the linear mix | largest difference 7.6e-8 | yes |
 | And set back to 8 bpc, FX-MIX8-011's frame again | largest difference 3.0e-8 | yes |
 

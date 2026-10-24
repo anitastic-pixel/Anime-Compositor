@@ -21,7 +21,7 @@ FX-MSK-001 is the one that says nothing moved: it is the rectangle B-06 drew, wr
 | FX-MSK-011 frame 0: A first mask in Subtract takes from the whole layer: a hole in columns 2 and 3. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
 | FX-MSK-012 frame 0: Expanded a quarter of a pixel: the rectangle grows on every side, its corners rounded. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
 | FX-MSK-013 frame 0: Shrunk a quarter of a pixel: the same rectangle the other way. | largest difference 1.5e-8; tiles of 1 byte-identical; said nothing | yes |
-| FX-MSK-014 frame 0: Feathered two pixels: the hard edge at column 3 becomes a soft band. | largest difference 6.3e-8; tiles of 1 byte-identical; said nothing | yes |
+| FX-MSK-014 frame 0: Feathered two pixels: the hard edge at column 3 becomes a soft band. | largest difference 5.7e-8; tiles of 1 byte-identical; said nothing | yes |
 | FX-MSK-015 frame 0: A circle of four points with handles, filling the frame's height. | largest difference 2.6e-8; tiles of 1 byte-identical; said nothing | yes |
 | FX-MSK-016 frame 0: The same circle, expanded half a pixel. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |
 | FX-MSK-017 frame 0: A mask switched off takes no part: the whole drawing. | largest difference 3.1e-8; tiles of 1 byte-identical; said nothing | yes |

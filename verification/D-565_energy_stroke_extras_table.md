@@ -54,7 +54,7 @@ B-445, docs/effects/EFFECTS.md row 53 (P0-22): Start and End Roundness shape eac
 | FX-ENERGYX-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ENERGYX-021 frame 0: Alpha Mode off with the small box: nothing cut, the frame without it. | largest difference 1.9e-8 | yes |
 | FX-ENERGYX-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-ENERGYX-022 frame 0: Alpha Mode masks, the small box feathered 2: a soft cut. | largest difference 1.0e-7 | yes |
+| FX-ENERGYX-022 frame 0: Alpha Mode masks, the small box feathered 2: a soft cut. | largest difference 8.8e-8 | yes |
 | FX-ENERGYX-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ENERGYX-023 frame 0: Two masks, the left six columns in mode Add and the right five in mode None: both cut alike, the mode not read; the Add mask also cuts the drawing, as a mask always does, and the light is added over it. | largest difference 5.1e-8 | yes |
 | FX-ENERGYX-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
