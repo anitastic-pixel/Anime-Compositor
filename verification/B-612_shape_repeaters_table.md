@@ -5,18 +5,18 @@ Written by `tests/b612_shape_repeaters.rs` from `Fixtures/shape_repeaters/`, aga
 | Case | Check | Should | The build | Matches |
 | --- | --- | --- | --- | --- |
 | FX-SHPR-001 | frame 0: how many shapes are drawn | 19 | 19 | yes |
-| FX-SHPR-001 | drawn 1 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.25 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.25 | yes |
-| FX-SHPR-001 | drawn 2 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.125 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.125 | yes |
-| FX-SHPR-001 | drawn 3 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.25 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.25 | yes |
-| FX-SHPR-001 | drawn 4 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.5 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.5 | yes |
-| FX-SHPR-001 | drawn 5 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.25 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.25 | yes |
-| FX-SHPR-001 | drawn 6 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.5 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.5 | yes |
-| FX-SHPR-001 | drawn 7 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.75 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.75 | yes |
-| FX-SHPR-001 | drawn 8 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.375 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.375 | yes |
-| FX-SHPR-001 | drawn 9 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.75 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.75 | yes |
+| FX-SHPR-001 | drawn 1 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.4375 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.4375 | yes |
+| FX-SHPR-001 | drawn 2 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.21875 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.21875 | yes |
+| FX-SHPR-001 | drawn 3 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.328125 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.328125 | yes |
+| FX-SHPR-001 | drawn 4 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.625 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.625 | yes |
+| FX-SHPR-001 | drawn 5 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.3125 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.3125 | yes |
+| FX-SHPR-001 | drawn 6 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.46875 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.46875 | yes |
+| FX-SHPR-001 | drawn 7 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.8125 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.8125 | yes |
+| FX-SHPR-001 | drawn 8 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.40625 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.40625 | yes |
+| FX-SHPR-001 | drawn 9 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.609375 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.609375 | yes |
 | FX-SHPR-001 | drawn 10 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | yes |
 | FX-SHPR-001 | drawn 11 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | yes |
-| FX-SHPR-001 | drawn 12 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | yes |
+| FX-SHPR-001 | drawn 12 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | yes |
 | FX-SHPR-001 | drawn 13 | "Plain" {}: first point [170,270], fill opacity 0.8 | "Plain" {}: first point [170.0,270.0], fill opacity 0.8 | yes |
 | FX-SHPR-001 | drawn 14 | "Petal" {"Fan":0}: first point [292.0637477567531,147.36511900412503], fill opacity 0.9 | "Petal" {"Fan":0}: first point [292.0637477567531,147.36511900412503], fill opacity 0.9 | yes |
 | FX-SHPR-001 | drawn 15 | "Petal" {"Fan":1}: first point [300.0,145.0], fill opacity 0.9 | "Petal" {"Fan":1}: first point [300.0,145.0], fill opacity 0.9 | yes |
@@ -26,18 +26,18 @@ Written by `tests/b612_shape_repeaters.rs` from `Fixtures/shape_repeaters/`, aga
 | FX-SHPR-001 | drawn 19 | "Petal" {"Fan":5}: first point [313.7854898855635,159.3402363728671], fill opacity 0.9 | "Petal" {"Fan":5}: first point [313.7854898855635,159.3402363728671], fill opacity 0.9 | yes |
 | FX-SHPR-001 | drawn as plain shapes of those outlines and paint | the same pixels | the same pixels | yes |
 | FX-SHPR-002 | frame 6: how many shapes are drawn | 19 | 19 | yes |
-| FX-SHPR-002 | drawn 1 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.125 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.125 | yes |
-| FX-SHPR-002 | drawn 2 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.0625 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.0625 | yes |
-| FX-SHPR-002 | drawn 3 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.125 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.125 | yes |
-| FX-SHPR-002 | drawn 4 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.5 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.5 | yes |
-| FX-SHPR-002 | drawn 5 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.25 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.25 | yes |
-| FX-SHPR-002 | drawn 6 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.5 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.5 | yes |
-| FX-SHPR-002 | drawn 7 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.75 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.75 | yes |
-| FX-SHPR-002 | drawn 8 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.375 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.375 | yes |
-| FX-SHPR-002 | drawn 9 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.75 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.75 | yes |
+| FX-SHPR-002 | drawn 1 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.178571 | "Dot" {"Row":3}: first point [285.0,135.0], fill opacity 0.178571 | yes |
+| FX-SHPR-002 | drawn 2 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.089286 | "Pip" {"Row":3,"Stack":0}: first point [265.0,180.0], fill opacity 0.089286 | yes |
+| FX-SHPR-002 | drawn 3 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.133929 | "Pip" {"Row":3,"Stack":1}: first point [265.0,200.0], fill opacity 0.133929 | yes |
+| FX-SHPR-002 | drawn 4 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.571429 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.571429 | yes |
+| FX-SHPR-002 | drawn 5 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.285714 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.285714 | yes |
+| FX-SHPR-002 | drawn 6 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.428571 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.428571 | yes |
+| FX-SHPR-002 | drawn 7 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.785714 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.785714 | yes |
+| FX-SHPR-002 | drawn 8 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.392857 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.392857 | yes |
+| FX-SHPR-002 | drawn 9 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.589286 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.589286 | yes |
 | FX-SHPR-002 | drawn 10 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | yes |
 | FX-SHPR-002 | drawn 11 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | yes |
-| FX-SHPR-002 | drawn 12 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | yes |
+| FX-SHPR-002 | drawn 12 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | yes |
 | FX-SHPR-002 | drawn 13 | "Plain" {}: first point [170,270], fill opacity 0.8 | "Plain" {}: first point [170.0,270.0], fill opacity 0.8 | yes |
 | FX-SHPR-002 | drawn 14 | "Petal" {"Fan":0}: first point [296.0606890177159,146.00048997800985], fill opacity 0.9 | "Petal" {"Fan":0}: first point [296.0606890177159,146.00048997800985], fill opacity 0.9 | yes |
 | FX-SHPR-002 | drawn 15 | "Petal" {"Fan":1}: first point [303.729390464237,145.6533337816992], fill opacity 0.9 | "Petal" {"Fan":1}: first point [303.729390464237,145.6533337816992], fill opacity 0.9 | yes |
@@ -47,15 +47,15 @@ Written by `tests/b612_shape_repeaters.rs` from `Fixtures/shape_repeaters/`, aga
 | FX-SHPR-002 | drawn 19 | "Petal" {"Fan":5}: first point [312.69714666193937,160.74189402114231], fill opacity 0.9 | "Petal" {"Fan":5}: first point [312.69714666193937,160.74189402114231], fill opacity 0.9 | yes |
 | FX-SHPR-002 | drawn as plain shapes of those outlines and paint | the same pixels | the same pixels | yes |
 | FX-SHPR-003 | frame 12: how many shapes are drawn | 16 | 16 | yes |
-| FX-SHPR-003 | drawn 1 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.25 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.25 | yes |
-| FX-SHPR-003 | drawn 2 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.125 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.125 | yes |
-| FX-SHPR-003 | drawn 3 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.25 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.25 | yes |
-| FX-SHPR-003 | drawn 4 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.625 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.625 | yes |
-| FX-SHPR-003 | drawn 5 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.3125 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.3125 | yes |
-| FX-SHPR-003 | drawn 6 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.625 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.625 | yes |
+| FX-SHPR-003 | drawn 1 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.5 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.5 | yes |
+| FX-SHPR-003 | drawn 2 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.25 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.25 | yes |
+| FX-SHPR-003 | drawn 3 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.375 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.375 | yes |
+| FX-SHPR-003 | drawn 4 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.75 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.75 | yes |
+| FX-SHPR-003 | drawn 5 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.375 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.375 | yes |
+| FX-SHPR-003 | drawn 6 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.5625 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.5625 | yes |
 | FX-SHPR-003 | drawn 7 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | yes |
 | FX-SHPR-003 | drawn 8 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | yes |
-| FX-SHPR-003 | drawn 9 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | yes |
+| FX-SHPR-003 | drawn 9 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | yes |
 | FX-SHPR-003 | drawn 10 | "Plain" {}: first point [170,270], fill opacity 0.8 | "Plain" {}: first point [170.0,270.0], fill opacity 0.8 | yes |
 | FX-SHPR-003 | drawn 11 | "Petal" {"Fan":0}: first point [300.0,145.0], fill opacity 0.9 | "Petal" {"Fan":0}: first point [300.0,145.0], fill opacity 0.9 | yes |
 | FX-SHPR-003 | drawn 12 | "Petal" {"Fan":1}: first point [307.25,146.53589838486224], fill opacity 0.9 | "Petal" {"Fan":1}: first point [307.25,146.53589838486224], fill opacity 0.9 | yes |
@@ -65,15 +65,15 @@ Written by `tests/b612_shape_repeaters.rs` from `Fixtures/shape_repeaters/`, aga
 | FX-SHPR-003 | drawn 16 | "Petal" {"Fan":5}: first point [311.5416196322701,161.98530153522884], fill opacity 0.9 | "Petal" {"Fan":5}: first point [311.5416196322701,161.98530153522884], fill opacity 0.9 | yes |
 | FX-SHPR-003 | drawn as plain shapes of those outlines and paint | the same pixels | the same pixels | yes |
 | FX-SHPR-004 | frame 18: how many shapes are drawn | 16 | 16 | yes |
-| FX-SHPR-004 | drawn 1 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.125 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.125 | yes |
-| FX-SHPR-004 | drawn 2 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.0625 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.0625 | yes |
-| FX-SHPR-004 | drawn 3 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.125 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.125 | yes |
-| FX-SHPR-004 | drawn 4 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.625 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.625 | yes |
-| FX-SHPR-004 | drawn 5 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.3125 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.3125 | yes |
-| FX-SHPR-004 | drawn 6 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.625 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.625 | yes |
+| FX-SHPR-004 | drawn 1 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.2 | "Dot" {"Row":2}: first point [215.0,135.0], fill opacity 0.2 | yes |
+| FX-SHPR-004 | drawn 2 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.1 | "Pip" {"Row":2,"Stack":0}: first point [195.0,180.0], fill opacity 0.1 | yes |
+| FX-SHPR-004 | drawn 3 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.15 | "Pip" {"Row":2,"Stack":1}: first point [195.0,200.0], fill opacity 0.15 | yes |
+| FX-SHPR-004 | drawn 4 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.7 | "Dot" {"Row":1}: first point [145.0,135.0], fill opacity 0.7 | yes |
+| FX-SHPR-004 | drawn 5 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.35 | "Pip" {"Row":1,"Stack":0}: first point [125.0,180.0], fill opacity 0.35 | yes |
+| FX-SHPR-004 | drawn 6 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.525 | "Pip" {"Row":1,"Stack":1}: first point [125.0,200.0], fill opacity 0.525 | yes |
 | FX-SHPR-004 | drawn 7 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | "Dot" {"Row":0}: first point [75.0,135.0], fill opacity 1 | yes |
 | FX-SHPR-004 | drawn 8 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | "Pip" {"Row":0,"Stack":0}: first point [55.0,180.0], fill opacity 0.5 | yes |
-| FX-SHPR-004 | drawn 9 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 1 | yes |
+| FX-SHPR-004 | drawn 9 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | "Pip" {"Row":0,"Stack":1}: first point [55.0,200.0], fill opacity 0.75 | yes |
 | FX-SHPR-004 | drawn 10 | "Plain" {}: first point [170,270], fill opacity 0.8 | "Plain" {}: first point [170.0,270.0], fill opacity 0.8 | yes |
 | FX-SHPR-004 | drawn 11 | "Petal" {"Fan":0}: first point [303.729390464237,145.6533337816992], fill opacity 0.9 | "Petal" {"Fan":0}: first point [303.729390464237,145.6533337816992], fill opacity 0.9 | yes |
 | FX-SHPR-004 | drawn 12 | "Petal" {"Fan":1}: first point [309.8627719926299,148.4802974922387], fill opacity 0.9 | "Petal" {"Fan":1}: first point [309.8627719926299,148.4802974922387], fill opacity 0.9 | yes |

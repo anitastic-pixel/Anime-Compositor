@@ -691,12 +691,9 @@ impl Repeater {
                     m = mul(&m, &by?);
                 }
                 m = mul(&m, &part(n - k));
-                let ramp = if count > 1 {
-                    i as f64 / (count - 1) as f64
-                } else {
-                    0.0
-                };
-                let mut o = start + (end - start) * ramp;
+                // D-778: i / copies, After Effects' own (the last copy stops a step short of
+                // the end); copies > 0 here, as count is.
+                let mut o = start + (end - start) * i as f64 / copies;
                 if i + 1 == count && copies != count as f64 {
                     o *= copies - copies.floor();
                 }
