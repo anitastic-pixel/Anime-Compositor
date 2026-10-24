@@ -1906,16 +1906,17 @@ fn serve_seen(
         .header("x-cached", if fresh { "0" } else { "1" })
         // D-263: a font this frame could not find, said beside the window's notes, as a note
         // is: its sentence, a tab, then its code and sentence for the error details. Missing
-        // drawings have their own Relink line and are not repeated here.
+        // drawings have their own Relink line and are not repeated here. D-767: and an
+        // expression that failed on this frame, whose property is drawn at its keyed value.
         .header(
             "x-frame-notes",
             for_a_header(
                 &finished
                     .warnings
                     .iter()
+                    .filter(|w| w.starts_with("TEXT_FONT_MISSING: ") || w.starts_with("EXPRESSION_"))
                     .filter_map(|w| {
-                        w.strip_prefix("TEXT_FONT_MISSING: ")
-                            .map(|said| format!("{said}\t{w}"))
+                        w.split_once(": ").map(|(_, said)| format!("{said}\t{w}"))
                     })
                     .collect::<Vec<_>>()
                     .join("\n"),

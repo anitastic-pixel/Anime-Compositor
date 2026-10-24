@@ -1070,3 +1070,97 @@ fn write_artifact(rows: &[(String, String, String)]) {
     );
     std::fs::write(repo("verification/B-08_shell_table.md"), out).expect("write the artifact");
 }
+
+/// D-767: a frame on which an expression fails carries document 28's diagnostic beside the
+/// window's notes (and so in the snapshot JSON), and the property is still drawn at its keyed
+/// value. A working expression says nothing.
+#[test]
+fn a_failed_expression_says_so_beside_the_frame() {
+    let directory = scratch("anime_compositor_b647_failed_expression");
+    let shot = |text: &str| -> PathBuf {
+        let project = directory.join("shot.json");
+        let json = serde_json::json!({
+          "schema_version": 0, "project_id": "proj-b647",
+          "color_settings": { "working_space": "linear-srgb", "alpha_mode": "premultiplied" },
+          "assets": [],
+          "compositions": [{
+            "id": "comp-main", "name": "Main", "width": 4, "height": 4, "pixel_aspect_ratio": 1,
+            "frame_rate": { "numerator": 24, "denominator": 1 }, "start_frame": 0,
+            "duration_frames": 1, "work_area": { "start_frame": 0, "end_frame_exclusive": 1 },
+            "layer_order": ["layer-box"],
+            "layers": [{
+              "id": "layer-box", "kind": "solid", "name": "Box", "enabled": true, "locked": false,
+              "in_frame": 0, "out_frame": 1,
+              "transform": {
+                "anchor": { "base": [2, 2], "keyframes": [] },
+                "position": { "base": [2, 2], "keyframes": [] },
+                "scale": { "base": [100, 100], "keyframes": [] },
+                "rotation": { "base": 0, "keyframes": [] },
+                "opacity": { "base": 1, "keyframes": [],
+                             "expression": { "text": text, "enabled": true } }
+              },
+              "mask": null, "matte": null, "blend_mode": "normal", "effects": [],
+              "solid": { "color": [1, 0, 0], "width": 4, "height": 4 }
+            }]
+          }]
+        });
+        std::fs::write(&project, json.to_string()).expect("write the project");
+        project
+    };
+    let export = Mutex::new(Export::default());
+    let mut rows: Vec<(String, String, String)> = Vec::new();
+    let mut look = |about: &str, text: &str, note: &str, pixel: &str| {
+        let viewer = Mutex::new(open(&shot(text)).expect("open the four-pixel project"));
+        let got = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        let notes = decode(&header(&got, "x-frame-notes"));
+        rows.push((
+            format!("{about}: the note beside the frame"),
+            note.to_string(),
+            notes.split('\t').nth(1).unwrap_or("no note").to_string(),
+        ));
+        rows.push((
+            format!("{about}: the first pixel"),
+            pixel.to_string(),
+            got.body()[..4]
+                .iter()
+                .map(|b| b.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        ));
+    };
+    look(
+        "Opacity typed `if (`, which cannot be read",
+        "if (",
+        "EXPRESSION_SYNTAX: The expression on Box's opacity does not work at frame 0. Correct the expression, or switch it off.",
+        "255, 0, 0, 255",
+    );
+    look(
+        "Opacity typed `effect(\"Slider Control\")(\"Slider\")` with no Slider Control on the layer",
+        "effect(\"Slider Control\")(\"Slider\")",
+        "EXPRESSION_REFERENCE_MISSING: The expression on Box's opacity does not work at frame 0. Correct the expression, or switch it off.",
+        "255, 0, 0, 255",
+    );
+    look(
+        "Opacity typed `if (1 == 1) 50 else 0`, which works",
+        "if (1 == 1) 50 else 0",
+        "no note",
+        "255, 0, 0, 128",
+    );
+    let failed = rows.iter().filter(|(_, e, a)| e != a).count();
+    let mut out = String::from(
+        "# B-647 table: a failed expression says so (D-767)\n\n\
+         Made by `a_failed_expression_says_so_beside_the_frame` in `app/src/tests/serving.rs`. \
+         A four-pixel red solid whose Opacity carries the expression; the window is asked for \
+         frame 0 as the page asks for it. The note is the code part of `x-frame-notes`, which \
+         the page lists under the error details and `tools/app_snapshot.py` reads as \
+         `frame_notes`.\n\n| Check | Expected | Got | Result |\n|---|---|---|---|\n",
+    );
+    for (check, expected, actual) in &rows {
+        let verdict = if expected == actual { "pass" } else { "FAIL" };
+        out.push_str(&format!("| {check} | {expected} | {actual} | {verdict} |\n"));
+    }
+    out.push_str(&format!("\n{} of {} pass.\n", rows.len() - failed, rows.len()));
+    std::fs::write(repo("verification/B-647_failed_expression_table.md"), out)
+        .expect("write the artifact");
+    assert_eq!(failed, 0, "{rows:#?}");
+}

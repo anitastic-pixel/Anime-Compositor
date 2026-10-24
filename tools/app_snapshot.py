@@ -264,7 +264,10 @@ FAIL_CODES = ("PROJECT_SCHEMA_NEWER", "PROJECT_SCHEMA_INVALID", "MEDIA_MISSING",
               "EFFECT_PARAMETER_INVALID", "EFFECT_LAYER_MISSING", "EFFECT_LAYER_CYCLE",
               "EFFECT_CHANNEL_MISSING", "EFFECT_PATH_MISSING", "MATTE_REFERENCE_MISSING", "MATTE_CYCLE",
               "PARENT_REFERENCE_MISSING", "PARENT_CYCLE", "COMPOSITION_REFERENCE_MISSING",
-              "COMPOSITION_CYCLE", "MASK_INVALID_OUTLINE", "SHAPE_INVALID_OUTLINE", "TEXT_FONT_MISSING")
+              "COMPOSITION_CYCLE", "MASK_INVALID_OUTLINE", "SHAPE_INVALID_OUTLINE", "TEXT_FONT_MISSING",
+              # D-767: an expression that failed; its property was drawn at the keyed value.
+              "EXPRESSION_SYNTAX", "EXPRESSION_TYPE", "EXPRESSION_REFERENCE_MISSING",
+              "EXPRESSION_CYCLE", "EXPRESSION_TIMEOUT")
 
 
 def problems(meta):
@@ -275,7 +278,9 @@ def problems(meta):
     # A note line is its sentence, a tab, then its code and detail (W-25), as the page splits it.
     frame_lines = (meta.get("frame_notes") or "").splitlines()
     codes = list(meta.get("note_codes") or []) + [line.split("\t")[-1] for line in frame_lines]
-    found +=[f"note {c.split()[0]}" for c in codes if c.split() and c.split()[0] in FAIL_CODES]
+    # The window writes a frame note's code as "CODE: sentence", so the colon goes.
+    heads = [c.split()[0].rstrip(":") for c in codes if c.split()]
+    found += [f"note {h}" for h in heads if h in FAIL_CODES]
     return list(dict.fromkeys(found))
 
 
@@ -420,6 +425,10 @@ def self_check():
                      "note_codes": ["MATTE_CYCLE layer a, layer b"]})
     assert problems({"notes": ["A drawing is missing."], "note_codes": ["MEDIA_MISSING media/a/0001.png"]}) == ["note MEDIA_MISSING"]
     assert problems({"frame_notes": "A font is missing.\tTEXT_FONT_MISSING Arial"}) == ["note TEXT_FONT_MISSING"]
+    # D-767: the window's own shape, "sentence<TAB>CODE: sentence".
+    said = "The expression on box's opacity does not work at frame 3."
+    assert problems({"frame_notes": f"{said}\tEXPRESSION_SYNTAX: {said}"}) == ["note EXPRESSION_SYNTAX"]
+    assert problems({"note_codes": [f"EXPRESSION_REFERENCE_MISSING: {said}"]}) == ["note EXPRESSION_REFERENCE_MISSING"]
     assert problems({"notes": ["Unsaved work can be recovered."], "note_codes": ["PROJECT_RECOVERY_AVAILABLE x"]}) == []
     assert problems({"error": "timed out"}) == ["error: timed out"]
 
