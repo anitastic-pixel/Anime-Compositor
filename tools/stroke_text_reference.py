@@ -157,7 +157,7 @@ def length(path):
 # --- the cases ------------------------------------------------------------------------------
 
 def case(words=WORD, move=None, kind="text", **settings):
-    c = SR.case(masks=[], paint_style="on_transparent", brush_size=2, **settings)
+    c = SR.case(masks=[], paint_style="on_transparent", brush_size=1, **settings)
     c.update({"words": words, "move": move, "kind": kind, "source": "text"})
     return c
 
@@ -190,7 +190,7 @@ LIFT = [(0, 0), (0, -3), (0, -6)]
 LIFT_ANIMATOR = {"position": [0, -6], "start": 50}
 
 CASES = {
-    "FX-STROKE-062": ("\"Yes\", All Masks on: every letter's outline drawn in white, Brush Size 2, "
+    "FX-STROKE-062": ("\"Yes\", All Masks on: every letter's outline drawn in white, Brush Size 1 (2 before D-773), "
                       "the e's and its eye's both.", case(all_masks="on"), [0]),
     "FX-STROKE-063": ("\"Yes\", Path 2: the e's eye alone. The Y has one outline and the e two, "
                       "and the font stores the e's eye before its outer edge.", case(mask=2), [0]),

@@ -55,7 +55,7 @@
  },
  "cases": {
   "FX-STROKE-062": {
-   "says": "\"Yes\", All Masks on: every letter's outline drawn in white, Brush Size 2, the e's and its eye's both.",
+   "says": "\"Yes\", All Masks on: every letter's outline drawn in white, Brush Size 1 (2 before D-773), the e's and its eye's both.",
    "project": "fx_stroke_062.json",
    "frames": {
     "0": [

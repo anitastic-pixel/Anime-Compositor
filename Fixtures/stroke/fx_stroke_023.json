@@ -166,7 +166,7 @@
                 "all_masks": "off",
                 "stroke_sequentially": "off",
                 "color": "#ffffff",
-                "brush_size": 3,
+                "brush_size": 1.5,
                 "brush_hardness": 75,
                 "opacity": 100,
                 "start": {

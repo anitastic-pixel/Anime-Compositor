@@ -972,7 +972,7 @@
    }
   },
   "FX-STROKE-048": {
-   "says": "A star of five points (ten corners) as a shape, Brush Size 1, End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet.",
+   "says": "A star of five points (ten corners) as a shape, Brush Size 0.5 (1 before D-773), End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet.",
    "project": "fx_stroke_048.json",
    "frames": {
     "0": [

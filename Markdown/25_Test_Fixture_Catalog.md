@@ -170871,7 +170871,7 @@ The build's test must open each project, send the request with each chosen key n
 
 ## Open mask fixtures
 
-D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
+D-737, accepted on 2026-10-21. `tools/open_mask_reference.py` writes `Fixtures/open_masks/`. Every drawn case is Path Stroke's (FX-STROKE-001's composition, 16 by 10, Lightning Bolt's night drawing, Brush Size 1.5 (3 before D-773; the same 3-pixel brush), Hardness 75, Spacing 15, white, On Original Image), its numbers `tools/stroke_reference.py`'s worked on the mask's path open or closed as the mask says, an open path measured without the piece from its last point back to its first, as FX-STROKE-049 measures an open shape. `expected_open_masks.json` gives each case's frames, every sample within 2e-5, and each refused file with the diagnostic and a word its message must contain.
 
 The build's test must draw each case's frames within the tolerance, warning of nothing on opening and nothing on frame 4; open and save each case's file and find what it held, `closed` included where it was written and nowhere else; open, close and open a mask again by command and find each one step to undo; and refuse each refused file with the diagnostic, naming the word.
 
@@ -183219,9 +183219,9 @@ FX-GLINT-020 (`fx_glint_020.json`): Shimmer keyed to 120 at frame 4. The file is
 
 ### Path Stroke (D-356)
 
-Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
+Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`. D-773 (2026-10-24): Brush Size is the brush's radius, so every case's `brush_size` is halved (3 to 1.5, FX-STROKE-010's 6 to 3, FX-STROKE-048's 1 to 0.5) and draws the same pixels as before; the expected frames do not move. The first project files are kept in the repository's history at commit a259ec22.
 
-FX-STROKE-001 (`fx_stroke_001.json`): Mask 1, a box from (2, 2) to (13, 7) of mode None, stroked with the defaults but Brush Size 3: a white line 3 pixels wide all round the box, over the night sky and the empty half, Hardness 75, Spacing 15, Start 0, End 100, On Original Image. Frames 0.
+FX-STROKE-001 (`fx_stroke_001.json`): Mask 1, a box from (2, 2) to (13, 7) of mode None, stroked with the defaults but Brush Size 1.5 (3 before D-773): a white line 3 pixels wide all round the box, over the night sky and the empty half, Hardness 75, Spacing 15, Start 0, End 100, On Original Image. Frames 0.
 
 FX-STROKE-002 (`fx_stroke_002.json`): End 50: from the top-left corner along the top and down the right side, half the box's 32 pixels. Frames 0.
 
@@ -183239,7 +183239,7 @@ FX-STROKE-008 (`fx_stroke_008.json`): Hardness 0: soft from its middle out. Fram
 
 FX-STROKE-009 (`fx_stroke_009.json`): Hardness 100: hard, smoothed over one pixel. Frames 0.
 
-FX-STROKE-010 (`fx_stroke_010.json`): Brush Size 6. Frames 0.
+FX-STROKE-010 (`fx_stroke_010.json`): Brush Size 3 (6 before D-773): a brush 6 pixels wide. Frames 0.
 
 FX-STROKE-011 (`fx_stroke_011.json`): Opacity 50: half covered at most. Frames 0.
 
@@ -183319,7 +183319,7 @@ Path From Shape Paths (`source` "shapes"), B-236. The same composition and night
 
 FX-STROKE-047 (`fx_stroke_047.json`): A shape layer holding one shape, the box, with no fill and no stroke (it draws nothing), Path From Shapes: the white line all round the box over nothing, FX-STROKE-013's frame. Frames 0.
 
-FX-STROKE-048 (`fx_stroke_048.json`): A star of five points (ten corners) as a shape, Brush Size 1, End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet. Frames 0.
+FX-STROKE-048 (`fx_stroke_048.json`): A star of five points (ten corners) as a shape, Brush Size 0.5 (1 before D-773), End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet. Frames 0.
 
 FX-STROKE-049 (`fx_stroke_049.json`): An open shape, a roof of two legs from (2, 7) up to (8, 2) and down to (14, 7): drawn open, nothing along the bottom. Frames 0.
 
@@ -183349,7 +183349,7 @@ FX-STROKE-061 (`fx_stroke_061.json`): Path From "layer", which is not "masks" or
 
 #### Path Stroke along text outlines (D-373)
 
-Path From Text Outlines (`source` "text"), B-252. Each case is a composition 48 by 30 at 24 fps, five frames, whose layer `art` is a text layer holding "Yes" in the bundled M PLUS Rounded 1c, size 24, white, its baseline starting at (4, 25), with Path Stroke `fx-0-0` on it, white, Brush Size 2, On Transparent, unless the case says. The numbers are produced by `tools/stroke_text_reference.py` (dc693ec), written before the code and independent of it: HarfBuzz (uharfbuzz, kerning off, ligatures on) places the glyphs, fontTools reads each glyph's stored points and slides a TrueType glyph by its hmtx left side bearing less its glyf xMin (D-372 (a)), its own code starts, raises and flattens each contour as document 21 says, and the stroke is `tools/stroke_reference.py`'s own; they are in `Fixtures/stroke/expected_stroke_text.json`, with the outlines' own numbers: 4 contours (the Y, the e's eye, the e's edge, the s), 193.452 pixels in all, each one's length, start and stretch at End 50 when sequential (tolerance 1e-6). Tolerance 2e-5. B-252 checks them in `verification/D-373_stroke_text_table.md`.
+Path From Text Outlines (`source` "text"), B-252. Each case is a composition 48 by 30 at 24 fps, five frames, whose layer `art` is a text layer holding "Yes" in the bundled M PLUS Rounded 1c, size 24, white, its baseline starting at (4, 25), with Path Stroke `fx-0-0` on it, white, Brush Size 1 (2 before D-773; the same 2-pixel brush), On Transparent, unless the case says. The numbers are produced by `tools/stroke_text_reference.py` (dc693ec), written before the code and independent of it: HarfBuzz (uharfbuzz, kerning off, ligatures on) places the glyphs, fontTools reads each glyph's stored points and slides a TrueType glyph by its hmtx left side bearing less its glyf xMin (D-372 (a)), its own code starts, raises and flattens each contour as document 21 says, and the stroke is `tools/stroke_reference.py`'s own; they are in `Fixtures/stroke/expected_stroke_text.json`, with the outlines' own numbers: 4 contours (the Y, the e's eye, the e's edge, the s), 193.452 pixels in all, each one's length, start and stretch at End 50 when sequential (tolerance 1e-6). Tolerance 2e-5. B-252 checks them in `verification/D-373_stroke_text_table.md`.
 
 FX-STROKE-062 (`fx_stroke_062.json`): All Masks on: every letter's outline drawn in white, the e's edge and its eye both. Frames 0.
 

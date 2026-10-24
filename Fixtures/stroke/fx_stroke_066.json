@@ -127,7 +127,7 @@
                 "all_masks": "on",
                 "stroke_sequentially": "off",
                 "color": "#ffffff",
-                "brush_size": 2,
+                "brush_size": 1,
                 "brush_hardness": 75,
                 "opacity": 100,
                 "start": 0,

@@ -12,7 +12,7 @@ document 28 keeps any field it does not know) and cuts nothing with the mask eit
 Path Stroke along it closed, and warns that a two-point mask cannot be drawn.
 
 Every case is `tools/stroke_reference.py`'s: a composition 16 by 10 holding Lightning Bolt's night
-drawing with Path Stroke on it, Brush Size 3, Hardness 75, Spacing 15, white, On Original Image.
+drawing with Path Stroke on it, Brush Size 1.5 (3 before D-773: Brush Size is the radius), Hardness 75, Spacing 15, white, On Original Image.
 The stroke's numbers are that file's, worked on the open path as it works an open shape's
 (FX-STROKE-049). `expected_open_masks.json` gives each case's frames, every sample within 2e-5,
 and the two refused files, each with the diagnostic and a word its message must contain.

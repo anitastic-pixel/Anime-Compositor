@@ -19,12 +19,13 @@ e L of its own length; with it on (and All Masks on), the paths are one length T
 order, and a path whose own length begins G along it draws from max(s T - G, 0) to min(e T - G,
 L). A path draws nothing when what it draws from is not less than what it draws to.
 
-The brush is laid as dabs, round, each Brush Size across, at every k step along each path, k =
-0, 1, 2 ..., where step = Spacing / 100 Brush Size, those from the first place it draws to the
+The brush is laid as dabs, round, each twice Brush Size across (D-773: Brush Size is the
+brush's radius, as After Effects draws it), at every k step along each path, k = 0, 1, 2 ...,
+where step = Spacing / 100 of the brush's width, 2 Brush Size, those from the first place it draws to the
 last, both ends included: so the dabs stay where they are as Start moves. With Spacing 0 the
 brush is laid all along, from the first place to the last. At a pixel, d is the distance from
 its centre to the nearest dab (with Spacing 0, to the nearest point of what is drawn). With r =
-Brush Size / 2, w = max(r (1 - Brush Hardness / 100), 1) and t = clamp((r + 0.5 - d) / w, 0,
+Brush Size (D-773; Brush Size / 2 before), w = max(r (1 - Brush Hardness / 100), 1) and t = clamp((r + 0.5 - d) / w, 0,
 1), the covering is c = Opacity / 100 t^2 (3 - 2 t): soft over w, smoothed over one pixel even
 when hard. Dabs do not build up: the nearest one is the one that counts. Brush Size 0 draws
 nothing.
@@ -147,7 +148,7 @@ def seg_distance(a, b, x, y):
 
 def drawn(paths, n):
     """Every dab's centre, or with Spacing 0 every straight bit of what is drawn."""
-    step = n["spacing"] / 100 * n["brush_size"]
+    step = n["spacing"] / 100 * 2 * n["brush_size"]  # D-773: of the width, 2 Brush Size
     dabs, bits = [], []
     for pieces, window in windows(paths, n["start"], n["end"], n["sequential"]):
         if window is None:
@@ -171,7 +172,7 @@ def covering(dabs, bits, n, X, Y):
         return 0.0
     d = min([math.hypot(X - p[0], Y - p[1]) for p in dabs]
             + [seg_distance(a, b, X, Y) for a, b in bits])
-    r = n["brush_size"] / 2
+    r = n["brush_size"]  # D-773: Brush Size is the radius
     w = max(r * (1 - n["brush_hardness"] / 100), 1.0)
     t = min(1.0, max(0.0, (r + 0.5 - d) / w))
     return n["opacity"] / 100 * t * t * (3 - 2 * t)
@@ -197,7 +198,7 @@ def stroke(layer, paths, n, color, style):
 # --- the cases ------------------------------------------------------------------------------
 
 def case(masks=None, mask=1, all_masks="off", stroke_sequentially="off", color="#ffffff",
-         brush_size=3, brush_hardness=75, opacity=100, start=0, end=100, spacing=15,
+         brush_size=1.5, brush_hardness=75, opacity=100, start=0, end=100, spacing=15,
          paint_style="on_original", shift=0, tile=False, source="masks", shapes=None):
     return {"drawing": "night", "masks": [{"points": BOX, "mode": "none"}] if masks is None
             else masks, "mask": mask, "all_masks": all_masks,
@@ -285,7 +286,8 @@ TWO = [none(BOX), none(SMALL)]
 
 CASES = {
     "FX-STROKE-001": ("Mask 1, a box from (2, 2) to (13, 7) of mode None, stroked with the "
-                      "defaults but Brush Size 3: a white line 3 pixels wide all round the box, "
+                      "defaults but Brush Size 1.5: a white line 3 pixels wide all round the box (D-773: "
+                      "Brush Size is the radius; 3 before), "
                       "over the night sky and the empty half, Hardness 75, Spacing 15, Start 0, "
                       "End 100, On Original Image.", case(), [0]),
     "FX-STROKE-002": ("End 50: from the top-left corner along the top and down the right side, "
@@ -303,7 +305,8 @@ CASES = {
     "FX-STROKE-008": ("Hardness 0: soft from its middle out.", case(brush_hardness=0), [0]),
     "FX-STROKE-009": ("Hardness 100: hard, smoothed over one pixel.", case(brush_hardness=100),
                       [0]),
-    "FX-STROKE-010": ("Brush Size 6.", case(brush_size=6), [0]),
+    "FX-STROKE-010": ("Brush Size 3: a brush 6 pixels wide (D-773; 6 before).", case(brush_size=3),
+                      [0]),
     "FX-STROKE-011": ("Opacity 50: half covered at most.", case(opacity=50), [0]),
     "FX-STROKE-012": ("Colour #ff3020, a red.", case(color=RED), [0]),
     "FX-STROKE-013": ("On Transparent: the stroke alone, the night sky gone.",
@@ -392,10 +395,10 @@ SHAPE_CASES = {
     "FX-STROKE-047": ("A shape layer holding one shape, the box, with no fill and no stroke "
                       "(it draws nothing), Path From Shapes: the white line all round the box "
                       "over nothing, FX-STROKE-013's frame.", shaped(sh(BOX)), [0]),
-    "FX-STROKE-048": ("A star of five points (ten corners) as a shape, Brush Size 1, End 60: "
+    "FX-STROKE-048": ("A star of five points (ten corners) as a shape, Brush Size 0.5 (1 before D-773), End 60: "
                       "the line follows its points and dips, clockwise from the top point, "
                       "three fifths of the way round; the left arms are not drawn yet.",
-                      shaped(sh(STAR), end=60, brush_size=1), [0]),
+                      shaped(sh(STAR), end=60, brush_size=0.5), [0]),
     "FX-STROKE-049": ("An open shape, a roof of two legs from (2, 7) up to (8, 2) and down to "
                       "(14, 7): drawn open, nothing along the bottom.",
                       shaped(sh(ROOF, closed=False)), [0]),
