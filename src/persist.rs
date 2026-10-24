@@ -7486,6 +7486,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         };
         params.insert(name.clone(), track_json(track, plain));
     }
+    // D-790: an expression kept and not run goes back on its setting, around the value now.
+    for (name, expression) in instance.held_expressions() {
+        let record = match params.get(name) {
+            Some(J::Object(m)) if m.contains_key("keyframes") => {
+                let mut m = m.clone();
+                m.insert("expression".into(), expression.clone());
+                J::Object(m)
+            }
+            Some(plain) => {
+                let mut m = Map::new();
+                m.insert("base".into(), plain.clone());
+                m.insert("keyframes".into(), J::Array(Vec::new()));
+                m.insert("expression".into(), expression.clone());
+                J::Object(m)
+            }
+            None => continue,
+        };
+        params.insert(name.to_string(), record);
+    }
     if !matches!(instance.effect, Effect::Unsupported { .. }) || base.is_some() {
         owned.push(("parameters", J::Object(params)));
     }
@@ -8236,14 +8255,24 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
                 "as many numbers as its base",
             ),
         };
-        // D-291: a number setting may carry D-59's expression; a colour or a point takes keys
-        // only.
+        // D-291: a number setting may carry D-59's expression. D-790: one on a colour, a point
+        // or a word is kept as written and not run (`EffectInstance::held_expressions`); the
+        // setting is its keys or its constant, and saving writes the expression back.
+        let numeric = record.get("base").is_some_and(|b| {
+            b.is_number() || b.as_array().is_some_and(|a| a.iter().all(J::is_number))
+        });
         let expression = match record.get("expression") {
-            Some(_) if count > 1 => {
-                return Err(invalid(
-                    &at,
-                    "no expression: a colour or a point takes keys only",
-                ))
+            Some(e) if count > 1 || !numeric => {
+                parse_expression(e, &format!("{at}/expression"))?;
+                let empty = record
+                    .get("keyframes")
+                    .and_then(J::as_array)
+                    .is_some_and(Vec::is_empty);
+                if !numeric && empty {
+                    plain.insert(name.into(), field(record, &at, "base")?.clone());
+                    continue;
+                }
+                None
             }
             Some(e) => Some(parse_expression(e, &format!("{at}/expression"))?),
             None => None,

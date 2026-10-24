@@ -253,6 +253,31 @@ impl EffectInstance {
         }
     }
 
+    /// D-790: each setting whose record in the file carries an expression this build keeps and
+    /// does not run, one on a colour, a point or a word, with the expression's record as read.
+    /// The setting is drawn at its keys or constant, and saving writes the expression back.
+    pub fn held_expressions(&self) -> Vec<(&str, &serde_json::Value)> {
+        if matches!(self.effect, Effect::Unsupported { .. }) {
+            return Vec::new();
+        }
+        let Some(serde_json::Value::Object(params)) =
+            self.record.get().and_then(|r| r.get("parameters"))
+        else {
+            return Vec::new();
+        };
+        params
+            .iter()
+            .filter_map(|(name, v)| {
+                let e = v.get("expression")?;
+                let held = match self.arity(name) {
+                    Some(n) => n > 1,
+                    None => !v.get("base").is_some_and(serde_json::Value::is_number),
+                };
+                held.then_some((name.as_str(), e))
+            })
+            .collect()
+    }
+
     /// D-291: the expression on the setting `name`, switched on or off.
     pub fn expression(&self, name: &str) -> Option<&crate::model::Expression> {
         self.tracks.get(name).and_then(|t| t[0].expression())

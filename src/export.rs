@@ -389,7 +389,10 @@ pub fn export_sequence_watched(
             for i in layer
                 .effects
                 .iter()
-                .filter(|i| i.tracks.values().any(|t| t[0].live_expression().is_some()))
+                .filter(|i| {
+                    i.tracks.values().any(|t| t[0].live_expression().is_some())
+                        || !i.held_expressions().is_empty()
+                })
             {
                 let mut failing: Vec<(i32, String, crate::expr::ExprError)> = Vec::new();
                 for &f in &frames {

@@ -99,7 +99,7 @@ fn an_expression_draws_the_number_it_comes_to() {
 }
 
 #[test]
-fn the_file_keeps_it_and_refuses_one_on_a_colour() {
+fn the_file_keeps_it_and_one_on_a_colour_opens() {
     let project = with_sigma(expression(1.0, json!([]), "wiggle(2, 1)"));
     let loaded = persist::load_str(&project.to_string()).expect("the project reads");
     let saved = persist::to_json(loaded.document.project(), &loaded.preserved);
@@ -120,15 +120,10 @@ fn the_file_keeps_it_and_refuses_one_on_a_colour() {
         "parameters": {"color": {"base": [0, 0, 1], "keyframes": [],
             "expression": {"text": "[1, 0, 0]", "enabled": true}}, "amount": 1.0}
     }]);
-    let refused = persist::load_str(&tint.to_string())
-        .err()
-        .expect("a colour's expression is refused");
+    // D-790: a colour's expression opens, kept and not run (tests/b670_held_expressions.rs).
     assert!(
-        refused
-            .detail
-            .contains("a colour or a point takes keys only"),
-        "{}",
-        refused.detail
+        persist::load_str(&tint.to_string()).is_ok(),
+        "a colour's expression opens"
     );
 }
 

@@ -1066,6 +1066,18 @@ pub fn effect_at(
             Err(e) => failed.push((name.clone(), e)),
         }
     }
+    // D-790: an expression on a colour, a point or a word is kept and not run.
+    for (name, e) in instance.held_expressions() {
+        if e.get("enabled").and_then(serde_json::Value::as_bool) == Some(true) {
+            failed.push((
+                name.to_string(),
+                type_error(format!(
+                    "This build runs an expression only on a setting of one number, and {name} \
+                     is a colour, a point or a word; the expression is kept as written"
+                )),
+            ));
+        }
+    }
     (out, failed)
 }
 
