@@ -9818,18 +9818,33 @@ fn curl_plane_at(i: i32, j: i32) -> f64 {
     return f64(textureLoad(input, p, 0).w);
 }
 
-// D-583, grade::CurlPlane::read: the plane between pixels, pixel centres at halves.
-fn curl_plane(x: f64, y: f64) -> f64 {
-    let fx = x - 0.5lf;
-    let fy = y - 0.5lf;
-    let i = floor(fx);
-    let j = floor(fy);
-    let ux = fx - i;
-    let uy = fy - j;
-    let a = vec2<i32>(i32(i), i32(j));
-    let top = (1.0lf - ux) * curl_plane_at(a.x, a.y) + ux * curl_plane_at(a.x + 1, a.y);
-    let bottom = (1.0lf - ux) * curl_plane_at(a.x, a.y + 1) + ux * curl_plane_at(a.x + 1, a.y + 1);
-    return (1.0lf - uy) * top + uy * bottom;
+// D-583, grade::CurlPlane::read's sum: the four pixels round a point, `u` its place among them.
+fn curl_mix(u: vec2<f64>, a: f64, b: f64, c: f64, d: f64) -> f64 {
+    let top = (1.0lf - u.x) * a + u.x * b;
+    let bottom = (1.0lf - u.x) * c + u.x * d;
+    return (1.0lf - u.y) * top + u.y * bottom;
+}
+
+// D-583, grade::CurlPlane::flow's slope, read(x + 1, y) - read(x - 1, y) and the same down, then
+// read(x, y) itself (the plane between pixels, pixel centres at halves). B-644: the five reads
+// share one corner and one place in it (each is a whole pixel from the point), so twelve pixels
+// are read instead of twenty; the sums are read's, in its order, and the place can differ from
+// five separate ones only in double's last bit.
+fn curl_plane_slope(b: vec2<f64>) -> vec3<f64> {
+    let f = b - vec2(0.5lf);
+    let c = floor(f);
+    let u = f - c;
+    let i = i32(c.x);
+    let j = i32(c.y);
+    let p00 = curl_plane_at(i, j);
+    let p10 = curl_plane_at(i + 1, j);
+    let p01 = curl_plane_at(i, j + 1);
+    let p11 = curl_plane_at(i + 1, j + 1);
+    let right = curl_mix(u, p10, curl_plane_at(i + 2, j), p11, curl_plane_at(i + 2, j + 1));
+    let left = curl_mix(u, curl_plane_at(i - 1, j), p00, curl_plane_at(i - 1, j + 1), p01);
+    let below = curl_mix(u, p01, p11, curl_plane_at(i, j + 2), curl_plane_at(i + 1, j + 2));
+    let above = curl_mix(u, curl_plane_at(i, j - 1), curl_plane_at(i + 1, j - 1), p00, p10);
+    return vec3(right - left, below - above, curl_mix(u, p00, p10, p01, p11));
 }
 
 // D-583, effects::held_blur exactly as the CPU sums the plane `input`'s alpha, along k[0] (0
@@ -9868,32 +9883,36 @@ fn curl_lin(x: f64, y: f64) -> vec2<f64> {
     return vec2((x * k[7] + y * k[8]) * k[9], (-x * k[8] + y * k[7]) * k[10]);
 }
 
-// grade::Curl::flow (grade::CurlPlane::flow with a picture).
-fn curl_flow(q: vec2<f64>) -> vec2<f64> {
-    if k[30] == 1.0lf {
-        let b = q + vec2(k[31], k[32]);
-        let gx = curl_plane(b.x + 1.0lf, b.y) - curl_plane(b.x - 1.0lf, b.y);
-        let gy = curl_plane(b.x, b.y + 1.0lf) - curl_plane(b.x, b.y - 1.0lf);
-        if sqrt(gx * gx + gy * gy) < 1e-5lf {
-            return vec2(0.0lf);
-        }
-        let w = vec2(k[16] * k[0] * gy / 2.0lf, -k[16] * k[0] * gx / 2.0lf);
-        let l = sqrt(w.x * w.x + w.y * w.y);
-        let most = 1.0lf / 9.0lf;
-        if l > most {
-            return vec2(w.x * most / l, w.y * most / l);
-        }
-        return w;
+// grade::CurlPlane::flow with a picture, then grade::Curl::value there (B-644: one read for
+// both).
+fn curl_plane_flow(q: vec2<f64>) -> vec3<f64> {
+    let g = curl_plane_slope(q + vec2(k[31], k[32]));
+    let gx = g.x;
+    let gy = g.y;
+    let v = 2.0lf * g.z - 1.0lf;
+    // B-644: the lengths compared squared, so a square root (slow in double on the card) is
+    // taken only where the flow is cut to 1 / 9.
+    if gx * gx + gy * gy < 1e-10lf {
+        return vec3(0.0lf, 0.0lf, v);
     }
+    let w = vec2(k[16] * k[0] * gy / 2.0lf, -k[16] * k[0] * gx / 2.0lf);
+    let l2 = w.x * w.x + w.y * w.y;
+    let most = 1.0lf / 9.0lf;
+    if l2 > most * most {
+        let l = sqrt(l2);
+        return vec3(w.x * most / l, w.y * most / l, v);
+    }
+    return vec3(w, v);
+}
+
+// grade::Curl::flow without a picture.
+fn curl_flow(q: vec2<f64>) -> vec2<f64> {
     let v = curl_two(0u, q.x / (k[0] * k[11]), q.y / (k[0] * k[12]), k[3]);
     return vec2(k[16] * v.z / k[12], -k[16] * v.y / k[11]);
 }
 
-// grade::Curl::value.
+// grade::Curl::value without a picture.
 fn curl_value(q: vec2<f64>) -> f64 {
-    if k[30] == 1.0lf {
-        return 2.0lf * curl_plane(q.x + k[31], q.y + k[32]) - 1.0lf;
-    }
     var v = 0.0lf;
     var total = 0.0lf;
     var amp = 1.0lf;
@@ -9924,8 +9943,20 @@ fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
         let d = curl_lin(q.x - k[4], q.y - k[5]);
         q = vec2(k[4] + d.x, k[5] + d.y);
     }
-    let v0 = curl_value(q);
-    var w = curl_flow(q);
+    // B-644: with a picture, the flow and the value at each point the trace reaches are read
+    // together (`cur`), and the flow there is the next part's first.
+    let picture = k[30] == 1.0lf;
+    var cur = vec3(0.0lf);
+    var v0: f64;
+    var w: vec2<f64>;
+    if picture {
+        cur = curl_plane_flow(q);
+        v0 = cur.z;
+        w = cur.xy;
+    } else {
+        v0 = curl_value(q);
+        w = curl_flow(q);
+    }
     var end = v0;
     var mean = v0;
     if k[17] > 0.0lf && k[16] != 0.0lf {
@@ -9940,11 +9971,21 @@ fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
         var total = v0;
         for (var i = 0u; i < steps; i++) {
             for (var j = 0u; j < u32(parts); j++) {
-                let a = curl_flow(q);
-                let b = curl_flow(vec2(q.x - h / 2.0lf * s * a.x, q.y - h / 2.0lf * s * a.y));
-                q = vec2(q.x - h * s * b.x, q.y - h * s * b.y);
+                if picture {
+                    let b = curl_plane_flow(vec2(q.x - h / 2.0lf * s * cur.x, q.y - h / 2.0lf * s * cur.y));
+                    q = vec2(q.x - h * s * b.x, q.y - h * s * b.y);
+                    cur = curl_plane_flow(q);
+                } else {
+                    let a = curl_flow(q);
+                    let b = curl_flow(vec2(q.x - h / 2.0lf * s * a.x, q.y - h / 2.0lf * s * a.y));
+                    q = vec2(q.x - h * s * b.x, q.y - h * s * b.y);
+                }
             }
-            end = curl_value(q);
+            if picture {
+                end = cur.z;
+            } else {
+                end = curl_value(q);
+            }
             total += end;
         }
         mean = total / (k[18] + 1.0lf);
