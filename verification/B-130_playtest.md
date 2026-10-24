@@ -24,7 +24,7 @@ frame 16:
 - `before.png`: the ball with no effect.
 - `trail_add.png`: 6 echoes 2 frames back, Decay 0.7, Add. A trail back along the bounce, each
   ball fainter, brighter where two balls overlap.
-- `trail_in_back.png`: the same with Composite In Back. The present ball whole on top, not
+- `trail_in_front.png`: the same with Composite In Front (D-768). The present ball whole on top, not
   brightened.
 - `smear.png`: 11 echoes 1 frame back, Decay 0.8, Add. A close smear.
 - `ahead_screen.png`: Echo Time +2, 3 echoes, Decay 0.5, Screen. Where the ball is going.
@@ -47,8 +47,8 @@ to frame 16.
    added to the ball of frame 16, brighter where they overlap.
 2. **A trail.** Set Echo Time -2, Number Of Echoes 6 and Decay 0.7: it looks like
    `trail_add.png`. Play: the trail follows the ball.
-3. **On top.** Echo Operator Composite In Back: like `trail_in_back.png`, the present ball clean
-   on top. Composite In Front puts the furthest echo on top instead.
+3. **On top.** Echo Operator Composite In Front (D-768): like `trail_in_front.png`, the present ball clean
+   on top. Composite In Back puts the furthest echo on top instead.
 4. **The other operators.** Maximum keeps the brightest of the balls where they overlap, Minimum
    only what every ball covers (with 6 echoes, nothing), Screen brightens more gently than Add,
    and Blend averages them: at 3 echoes 1 frame back and Decay 1 it looks like `blend.png`.

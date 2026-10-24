@@ -383,7 +383,7 @@ fn b130_echo() {
     };
     for (name, effects, from, what) in [
         ("trail_add", effect(-2, 6, 0.7, "add"), 90, "6 echoes 2 frames back, decay 0.7, Add: a trail back to drawing 5, brighter where the balls overlap"),
-        ("trail_in_back", effect(-2, 6, 0.7, "composite_in_back"), 90, "the same, Composite In Back: the present ball whole on top"),
+        ("trail_in_front", effect(-2, 6, 0.7, "composite_in_front"), 90, "the same, Composite In Front: the present ball whole on top (D-768)"),
         ("smear", effect(-1, 11, 0.8, "add"), 106, "11 echoes 1 frame back, decay 0.8, Add: a smear back to drawing 6"),
         ("ahead_screen", effect(2, 3, 0.5, "screen"), 282, "Echo Time +2, 3 echoes, decay 0.5, Screen: where the ball is going, to drawing 23"),
         ("blend", effect(-1, 3, 1.0, "blend"), 234, "3 echoes 1 frame back, Blend: four drawings averaged"),
@@ -397,7 +397,7 @@ fn b130_echo() {
                 let brighter = (0..w * h).filter(|&i| inside(i, 23.0) && brightness(&bytes, i) > brightness(&before, i)).count();
                 (format!(", {brighter} pixels of the present ball brighter"), brighter > 0)
             }
-            "trail_in_back" => {
+            "trail_in_front" => {
                 let differ = (0..w * h).filter(|&i| inside(i, 23.0) && bytes[i * 4..i * 4 + 4] != before[i * 4..i * 4 + 4]).count();
                 (format!(", {differ} pixels of the present ball differ from before.png"), differ == 0)
             }

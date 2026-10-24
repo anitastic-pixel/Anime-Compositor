@@ -28,9 +28,9 @@ D-195, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | FX-ECHO-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ECHO-009 frame 4: Three echoes, decay 0.7, Screen. | largest difference 9.7e-8 | yes |
 | FX-ECHO-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-ECHO-010 frame 4: Three echoes, decay 0.7, Composite In Back: the present ball on top. | largest difference 1.2e-7 | yes |
+| FX-ECHO-010 frame 4: Three echoes, decay 0.7, Composite In Back: the present ball at the back, the furthest echo on top. | largest difference 1.2e-7 | yes |
 | FX-ECHO-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-ECHO-011 frame 4: Three echoes, decay 0.7, Composite In Front: the furthest echo on top. | largest difference 1.2e-7 | yes |
+| FX-ECHO-011 frame 4: Three echoes, decay 0.7, Composite In Front: the present ball in front. | largest difference 1.2e-7 | yes |
 | FX-ECHO-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ECHO-012 frame 4: Three echoes, Blend: the four drawings averaged. | largest difference 4.6e-8 | yes |
 | FX-ECHO-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -150,7 +150,7 @@ D-195, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | --- | --- | --- |
 | before.png, frame 16 with no effect, draws cleanly, the ball in columns 282 to 330 | [], columns 282 to 329 | yes |
 | trail_add.png, 6 echoes 2 frames back, decay 0.7, Add: a trail back to drawing 5, brighter where the balls overlap, draws cleanly in columns 90 to 330 | [], columns 90 to 329, 352 pixels of the present ball brighter | yes |
-| trail_in_back.png, the same, Composite In Back: the present ball whole on top, draws cleanly in columns 90 to 330 | [], columns 90 to 329, 0 pixels of the present ball differ from before.png | yes |
+| trail_in_front.png, the same, Composite In Front: the present ball whole on top (D-768), draws cleanly in columns 90 to 330 | [], columns 90 to 329, 0 pixels of the present ball differ from before.png | yes |
 | smear.png, 11 echoes 1 frame back, decay 0.8, Add: a smear back to drawing 6, draws cleanly in columns 106 to 330 | [], columns 106 to 329 | yes |
 | ahead_screen.png, Echo Time +2, 3 echoes, decay 0.5, Screen: where the ball is going, to drawing 23, draws cleanly in columns 282 to 426 | [], columns 282 to 425 | yes |
 | blend.png, 3 echoes 1 frame back, Blend: four drawings averaged, draws cleanly in columns 234 to 330 | [], columns 234 to 329 | yes |

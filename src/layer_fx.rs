@@ -12722,12 +12722,13 @@ impl EchoFold {
                 |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].min(q[c]) })
             }
             "screen" => |r, q, _| (0..4).for_each(|c| r[c] *= 1.0 - q[c].clamp(0.0, 1.0)),
-            // What is there so far over the new copy, or the new copy over it.
-            "composite_in_back" => |r, q, _| {
+            // D-768: In Front keeps what is there so far (the present first) over each older copy;
+            // In Back lays each older copy over it, the furthest on top.
+            "composite_in_front" => |r, q, _| {
                 let a = r[3];
                 (0..4).for_each(|c| r[c] += (1.0 - a) * q[c])
             },
-            "composite_in_front" => {
+            "composite_in_back" => {
                 |r, q, _| (0..4).for_each(|c| r[c] = q[c] + (1.0 - q[3]) * r[c])
             }
             _ => |r, q, _| (0..4).for_each(|c| r[c] += q[c]),
