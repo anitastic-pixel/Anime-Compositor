@@ -195838,6 +195838,34 @@ FX-8BPC-LOAD-001: `both_depths.json`, `float_depth` and `eight_bpc` both true: r
 
 FX-8BPC-LOAD-002: `eight_word.json`, `eight_bpc` the word "yes": refused, `PROJECT_SCHEMA_INVALID`.
 
+### Colours mix in display values in 8 bpc (D-763)
+
+From the audit of 2026-10-22, Decision 1, accepted by the owner on 2026-10-23. Every case is a composition 6 by 2 at 24 fps in `Fixtures/display_mix/`. **Every number is produced by `tools/display_mix_reference.py`**, which works D-763's rule in double precision and never runs the build's code; the frames are in `Fixtures/display_mix/expected_display_mix.json`, tolerance 2e-5. Each scene is written twice: in 8 bpc (After Effects) (odd numbers) and in Display (even numbers), whose frame is the linear-light mix as before D-763. The colours below are the straight display values in 255ths, left block (columns 0 to 2) then right block (columns 3 to 5), row 0 then row 1; every pixel is opaque. The tool checks each claim on its numbers, and that every value it rounds lies clear of a rounding step.
+
+FX-MIX8-001 (`fx_mix8_001.json`): 8 bpc. Four colours (encoded 0.20 0.45 0.80 left, 0.90 0.60 0.15 right) under a Screen layer (0.70 0.25 0.55 in row 0, 0.35 0.80 0.40 in row 1, row 1 half covered, alpha 0.5). Row 0: 194 150 232, 247 178 157. Row 1: 87 171 214, 234 194 82.
+
+FX-MIX8-002 (`fx_mix8_002.json`): FX-MIX8-001 in Display, unchanged. Row 0: 182 127 219, 241 160 144. Row 1: 81 174 208, 231 192 82. Every pixel differs from FX-MIX8-001's.
+
+FX-MIX8-003 (`fx_mix8_003.json`): 8 bpc. The same under an Add layer; where the sum passes white it is held to white. Row 0: 229 178 255, 255 217 179. Row 1: 96 185 230, 242 204 89.
+
+FX-MIX8-004 (`fx_mix8_004.json`): FX-MIX8-003 in Display, unchanged. Row 0: 184 130 239, 255 164 145. Row 1: 82 183 214, 236 206 83.
+
+FX-MIX8-005 (`fx_mix8_005.json`): 8 bpc. A Normal layer half covered (alpha 0.5) over the same colours: each display value is the plain mean of the two. Row 0: 115 89 172, 204 108 89. Row 1: 70 159 153, 159 178 70.
+
+FX-MIX8-006 (`fx_mix8_006.json`): FX-MIX8-005 in Display, unchanged. Row 0: 135 94 176, 206 119 105. Row 1: 73 167 163, 178 181 78.
+
+FX-MIX8-007 (`fx_mix8_007.json`): 8 bpc. A black Drop Shadow at 50%, softness 0, cast one pixel right of a blue block (40 90 200, columns 0 to 2) onto white. Column 3, the shadow alone over white, is 127 127 127, After Effects' mid grey; columns 4 and 5 are white.
+
+FX-MIX8-008 (`fx_mix8_008.json`): FX-MIX8-007 in Display, unchanged: column 3 is 188 188 188.
+
+FX-MIX8-009 (`fx_mix8_009.json`): 8 bpc. A colour under another whose mask, the left three columns, is feathered 2 pixels (FX-MSK-014's mask). Columns 0 to 5, both rows: 108 92 176, 123 86 168, 108 92 176, 220 136 58, 228 150 42, 229 153 39. Where the mask covers fully or not at all it equals FX-MIX8-010.
+
+FX-MIX8-010 (`fx_mix8_010.json`): FX-MIX8-009 in Display, unchanged: 129 96 179, 141 90 172, 129 96 179, 221 141 73, 228 151 47, 229 153 39.
+
+FX-MIX8-011 (`fx_mix8_011.json`): 8 bpc. Mosaic in blocks of 2 by 2 over stripes of 250 60 10 and 0 120 200 (`media/stripes.png`): every block is 125 90 105, the mean of the two display values, a whole 255th.
+
+FX-MIX8-012 (`fx_mix8_012.json`): FX-MIX8-011 in Display, unchanged: every block is 184 96 147.
+
 ### 32 bpc (After Effects) working depth (D-333)
 
 From P-26 and the owner's approval of D-333 on 2026-10-06. After its step F tutorial 2 is in After Effects' 32 bpc, which by default has no linear working space: its blurs average display values, and Exposure, which the CS3 manual (p.402) says works "in a linear color space", is taken here to get there and back with a plain 2.2 curve. Which curve After Effects really uses is not written anywhere found; 2.2 is this program's best reading, the one that turns the tutorial's glowing block into its soft pool. **Every number is produced by `tools/ae_32bpc_reference.py`** and is in `Fixtures/ae_32bpc/expected_ae_32bpc.json`; the projects and `media/block.png` are beside it. Each case is FX-BLURRY-001's composition, 40 by 12, drawing `block`, a 4 by 4 orange square against the left edge, frame 0, with `float_depth` and `ae_32bpc` true. Solid Composite is black, Normal, both opacities 100. Values are linear premultiplied. Tolerance 2e-5. B-214 checks them in `verification/D-333_ae_32bpc_table.md`.

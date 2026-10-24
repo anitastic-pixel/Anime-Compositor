@@ -1,0 +1,153 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-mix8-008",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 6,
+      "height": 2,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 1,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 1
+      },
+      "layer_order": [
+        "white",
+        "ink"
+      ],
+      "layers": [
+        {
+          "id": "white",
+          "kind": "solid",
+          "name": "white",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "solid": {
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "width": 6,
+            "height": 2
+          },
+          "transform": {
+            "anchor": {
+              "base": [
+                3.0,
+                1.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                3.0,
+                1.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1.0,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "ink",
+          "kind": "solid",
+          "name": "ink",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "solid": {
+            "color": [
+              0.021219010376003555,
+              0.10224173308810132,
+              0.5775804404296506
+            ],
+            "width": 3,
+            "height": 2
+          },
+          "transform": {
+            "anchor": {
+              "base": [
+                1.5,
+                1.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                1.5,
+                1.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1.0,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.drop_shadow",
+              "enabled": true,
+              "parameters": {
+                "color": "#000000",
+                "opacity": 50,
+                "direction": 90,
+                "distance": 1,
+                "softness": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
