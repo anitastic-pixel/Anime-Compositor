@@ -1908,13 +1908,19 @@ fn serve_seen(
         // is: its sentence, a tab, then its code and sentence for the error details. Missing
         // drawings have their own Relink line and are not repeated here. D-767: and an
         // expression that failed on this frame, whose property is drawn at its keyed value.
+        // D-821: and an effect that cannot find the mask, shape or text it works from, as
+        // D-786's and D-791's effects on an adjustment layer say each frame.
         .header(
             "x-frame-notes",
             for_a_header(
                 &finished
                     .warnings
                     .iter()
-                    .filter(|w| w.starts_with("TEXT_FONT_MISSING: ") || w.starts_with("EXPRESSION_"))
+                    .filter(|w| {
+                        w.starts_with("TEXT_FONT_MISSING: ")
+                            || w.starts_with("EXPRESSION_")
+                            || w.starts_with("EFFECT_PATH_MISSING: ")
+                    })
                     .filter_map(|w| {
                         w.split_once(": ").map(|(_, said)| format!("{said}\t{w}"))
                     })

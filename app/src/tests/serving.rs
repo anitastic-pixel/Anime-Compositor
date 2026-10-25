@@ -1164,3 +1164,74 @@ fn a_failed_expression_says_so_beside_the_frame() {
         .expect("write the artifact");
     assert_eq!(failed, 0, "{rows:#?}");
 }
+
+/// B-701 (D-821): an effect on an adjustment layer that cannot use the masks it names says so
+/// beside the frame, as a failed expression does (B-647).
+#[test]
+fn an_adjustment_layer_warning_says_so_beside_the_frame() {
+    let export = Mutex::new(Export::default());
+    let mut rows: Vec<(String, String, String)> = Vec::new();
+    let mut sent = Vec::new();
+    for (about, file, note) in [
+        (
+            "Fill naming Fill Mask 1 on an adjustment layer (FX-FILLADJ-007)",
+            "Fixtures/fill_adjustment/fx_filladj_007.json",
+            "EFFECT_PATH_MISSING",
+        ),
+        (
+            "Fill with All Masks on, on an adjustment layer (FX-FILLADJ-008)",
+            "Fixtures/fill_adjustment/fx_filladj_008.json",
+            "EFFECT_PATH_MISSING",
+        ),
+        (
+            "Fill with Fill Mask 0 on an adjustment layer, which fills the frame (FX-FILLADJ-001)",
+            "Fixtures/fill_adjustment/fx_filladj_001.json",
+            "no note",
+        ),
+    ] {
+        let viewer = Mutex::new(open(&repo(file)).expect("open the fixture"));
+        let got = ask(&viewer, &export, "/frame/0", Some("q=full"));
+        let notes = decode(&header(&got, "x-frame-notes"));
+        let code = notes
+            .split('\t')
+            .nth(1)
+            .map_or("no note", |w| w.split(':').next().unwrap_or(""));
+        rows.push((
+            format!("{about}: the note's code beside the frame"),
+            note.to_string(),
+            code.to_string(),
+        ));
+        rows.push((
+            format!("{about}: the note's sentence"),
+            if note == "no note" { "none" } else { "the sentence the frame said" }.to_string(),
+            match notes.split_once('\t') {
+                None => "none".to_string(),
+                Some((said, _)) if !said.is_empty() => "the sentence the frame said".to_string(),
+                Some(_) => "empty".to_string(),
+            },
+        ));
+        if !notes.is_empty() {
+            sent.push(format!("- {about}: {}\n", notes.replace('\t', " / ")));
+        }
+    }
+    let failed = rows.iter().filter(|(_, e, a)| e != a).count();
+    let mut out = String::from(
+        "# B-701 table: an effect on an adjustment layer that cannot use its masks says so (D-821)\n\n\
+         Made by `an_adjustment_layer_warning_says_so_beside_the_frame` in \
+         `app/src/tests/serving.rs`. Each of D-786's fixtures is opened and the window is asked \
+         for frame 0 as the page asks for it. The note is the code part of `x-frame-notes`, \
+         which the page lists under the error details and `tools/app_snapshot.py` reads as \
+         `frame_notes`. Before D-821 the first two said nothing beside the frame.\n\n\
+         | Check | Expected | Got | Result |\n|---|---|---|---|\n",
+    );
+    for (check, expected, actual) in &rows {
+        let verdict = if expected == actual { "pass" } else { "FAIL" };
+        out.push_str(&format!("| {check} | {expected} | {actual} | {verdict} |\n"));
+    }
+    out.push_str(&format!("\n{} of {} pass.\n", rows.len() - failed, rows.len()));
+    out.push_str("\nThe notes as the window sent them (the sentence, then the code and sentence):\n\n");
+    out.push_str(&sent.concat());
+    std::fs::write(repo("verification/B-701_frame_notes_table.md"), out)
+        .expect("write the artifact");
+    assert_eq!(failed, 0, "{rows:#?}");
+}
