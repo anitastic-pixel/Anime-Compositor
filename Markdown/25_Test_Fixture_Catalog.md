@@ -212017,19 +212017,19 @@ FX-CSTAB-016 (`fx_cstab_016.json`): Sample size 101, above 100. The file is read
 
 ### Bend It (D-377)
 
-Bend It (`core.bend_it`), after CycoreFX's CC Bend It (B-256): the strip of the layer along a bar from Start to End bent into an arc that turns Bend degrees over the bar's length; Render Prestart says what is drawn before the Start, Distort whether the drawing runs on straight past the End, and where the bend lays the drawing over itself the part farther along the bar is on top. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, unmoved unless the case says. `tools/bend_it_reference.py` works the expected frames, `Fixtures/bend_it/expected_bend_it.json`, tolerance 2e-5; the rule is in document 21.
+Bend It (`core.bend_it`), after CycoreFX's CC Bend It (B-256): the strip of the layer along a bar from Start to End bent into an arc that turns 1.8 degrees for each unit of Bend over the bar's length (D-836; Bend 100 is half a turn, 200 a whole circle); Render Prestart says what is drawn before the Start, Distort whether the drawing runs on straight past the End, and where the bend lays the drawing over itself the part farther along the bar is on top. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, unmoved unless the case says. `tools/bend_it_reference.py` works the expected frames, `Fixtures/bend_it/expected_bend_it.json`, tolerance 2e-5; the rule is in document 21.
 
-FX-BENDIT-001 (`fx_bendit_001.json`): The settings as they start: Bend 45, the bar standing up from the middle of the bottom edge to the middle of the top, None, Legal. The drawing leans and curves to the right as it rises, its top an eighth of a turn over; the left part of the top rows, carried past the edge, is cut. Frames 0.
+FX-BENDIT-001 (`fx_bendit_001.json`): The settings as they start: Bend 25 (45 degrees; 45 before D-836), the bar standing up from the middle of the bottom edge to the middle of the top, None, Legal. The drawing leans and curves to the right as it rises, its top an eighth of a turn over; the left part of the top rows, carried past the edge, is cut. Frames 0.
 
 FX-BENDIT-002 (`fx_bendit_002.json`): Bend 0: the straight bar, the whole drawing on it: untouched. Frames 0.
 
-FX-BENDIT-003 (`fx_bendit_003.json`): Bend 90: a quarter turn, the top of the bar lying flat to the right, the circle's centre 6.37 pixels right of the bottom middle. Frames 0.
+FX-BENDIT-003 (`fx_bendit_003.json`): Bend 50 (90 before D-836): a quarter turn, the top of the bar lying flat to the right, the circle's centre 6.37 pixels right of the bottom middle. Frames 0.
 
-FX-BENDIT-004 (`fx_bendit_004.json`): Bend -90: the same quarter turn to the left, the picture FX-BENDIT-003's turned over left to right about the bar, as far as the drawing, not quite symmetric about its middle, allows. Frames 0.
+FX-BENDIT-004 (`fx_bendit_004.json`): Bend -50 (-90 before D-836): the same quarter turn to the left, the picture FX-BENDIT-003's turned over left to right about the bar, as far as the drawing, not quite symmetric about its middle, allows. Frames 0.
 
-FX-BENDIT-005 (`fx_bendit_005.json`): Bend 360: the bar bent into a whole circle 1.59 pixels round its centre, so the stripes' two ends meet; pixels the circle's sheets cross twice show the one farther along the bar over the other. Frames 0.
+FX-BENDIT-005 (`fx_bendit_005.json`): Bend 200 (360 before D-836): the bar bent into a whole circle 1.59 pixels round its centre, so the stripes' two ends meet; pixels the circle's sheets cross twice show the one farther along the bar over the other. Frames 0.
 
-FX-BENDIT-006 (`fx_bendit_006.json`): Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 60, None, Legal: what lies before the Start (rows 8 and 9) and past the End (rows 0 and 1) is not drawn; the six rows between bend. Frames 0.
+FX-BENDIT-006 (`fx_bendit_006.json`): Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 33.3 (100 / 3, 60 degrees; 60 before D-836), None, Legal: what lies before the Start (rows 8 and 9) and past the End (rows 0 and 1) is not drawn; the six rows between bend. Frames 0.
 
 FX-BENDIT-007 (`fx_bendit_007.json`): The same with Render Prestart Static: rows 8 and 9, before the Start, drawn unbent, under the bent part where it swings over them. Frames 0.
 
@@ -212039,19 +212039,19 @@ FX-BENDIT-009 (`fx_bendit_009.json`): The same with Render Prestart Mirror: the 
 
 FX-BENDIT-010 (`fx_bendit_010.json`): FX-BENDIT-006 with Distort Extended: rows 0 and 1, past the End, laid straight on along the bent bar's last direction, 60 degrees over. Frames 0.
 
-FX-BENDIT-011 (`fx_bendit_011.json`): Start 0, 50 and End 100, 50, the bar lying across, Bend 90: its right half curls down, n pointing down from a bar that runs to the right; rows above and below the bar bend with it. Frames 0.
+FX-BENDIT-011 (`fx_bendit_011.json`): Start 0, 50 and End 100, 50, the bar lying across, Bend 50 (90 before D-836): its right half curls down, n pointing down from a bar that runs to the right; rows above and below the bar bend with it. Frames 0.
 
 FX-BENDIT-012 (`fx_bendit_012.json`): Start and End the same point, 50, 50: no bar, the drawing untouched. Frames 0.
 
-FX-BENDIT-013 (`fx_bendit_013.json`): Bend keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. Frames 0, 2, 4.
+FX-BENDIT-013 (`fx_bendit_013.json`): Bend keyed from 0 at frame 0 to 50 at frame 4 (90 before D-836), linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. Frames 0, 2, 4.
 
-FX-BENDIT-014 (`fx_bendit_014.json`): Bend 60, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. Frames 0, 2, 4.
+FX-BENDIT-014 (`fx_bendit_014.json`): Bend 33.3 (60 before D-836), End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. Frames 0, 2, 4.
 
 FX-BENDIT-015 (`fx_bendit_015.json`): FX-BENDIT-003 moved three pixels right: the same, moved; the bend is worked in the drawing's own space and moves with it, nothing grows, and the three columns left of the drawing stay empty. Frames 0.
 
-FX-BENDIT-016 (`fx_bendit_016.json`): Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, and is FX-BENDIT-005, as frame 4 is. Frames 0, 2, 4.
+FX-BENDIT-016 (`fx_bendit_016.json`): Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, a turn of 648 degrees, one and four fifths of a whole circle, as at frame 4. Frames 0, 2, 4. Under D-377 (a degree a unit) frames 2 and 4 were FX-BENDIT-005's whole circle; D-836 retires them, 132 of their 160 pixels moving by up to 1.0.
 
-FX-BENDIT-017 (`fx_bendit_017.json`): Bend -150 on the short bar with Static and Extended: the bar curls back on itself to the left, past the Start row, over the static rows, and runs on straight from the End. Frames 0.
+FX-BENDIT-017 (`fx_bendit_017.json`): Bend -83.3 (-150 degrees; -150 before D-836) on the short bar with Static and Extended: the bar curls back on itself to the left, past the Start row, over the static rows, and runs on straight from the End. Frames 0.
 
 FX-BENDIT-018 (`fx_bendit_018.json`): Bend 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 

@@ -13,7 +13,9 @@ gathers every place of the drawing that the bend lays on it, and lays them one o
 the place farthest along the bar (the largest u) on top; each is document 21's bilinear sample of
 the drawing, transparent outside it.
 
-- `bend` B degrees is the whole turn of the bar from S to E: theta = B pi / 180, R = L / theta
+- `bend` B is the whole turn of the bar from S to E: theta = B pi / 100, so Bend 100 is half a turn
+  (D-836: After Effects' bend as seven tutorials measure it, 1.8 degrees a unit; D-377 had
+  theta = B pi / 180, a degree a unit), R = L / theta
   (signed), the circle's centre C = S + R n. The bar's points 0 <= u <= L lie on the circle:
   (u, v) goes to C + (v - R) n(phi), phi = u theta / L, where t(phi) = t cos phi + n sin phi and
   n(phi) = n cos phi - t sin phi. Working back from P, with q = P - C, phi+ = atan2(-q.t, q.n):
@@ -30,9 +32,9 @@ the drawing, transparent outside it.
   drawing untouched.
 
 The layer does not grow, so a bend that carries the bar past its edges is cut there, as After
-Effects cuts it. Nothing scales for a draft: the bend is degrees and the points shares.
+Effects cuts it. Nothing scales for a draft: the bend is a turn and the points shares.
 
-`bend` -360 to 360, 45 when added; `start` and `end` -1000 to 1000 per cent each way, 50, 100
+`bend` -360 to 360, 25 when added (45 degrees, the look D-377 started with); `start` and `end` -1000 to 1000 per cent each way, 50, 100
 and 50, 0 when added: the bar standing up, the drawing's full height. `render_prestart` `none`,
 `static`, `bend` or `mirror`, `none` when added; `distort` `legal` or `extended`, `legal`. The
 numbers are keyable. The values when added are chosen here.
@@ -110,7 +112,7 @@ def places(bend, start, end, prestart, distort, px, py):
             return [(a, *source(-a, b))]
         return []
 
-    theta = math.radians(bend)
+    theta = bend * math.pi / 100
     r = length / theta
     cx, cy = sx + r * nx, sy + r * ny
     qx, qy = px - cx, py - cy
@@ -182,7 +184,7 @@ def bent(layer, s, x, y):
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(bend=45, start=(50, 100), end=(50, 0), prestart="none", distort="legal", shift=0):
+def case(bend=25, start=(50, 100), end=(50, 0), prestart="none", distort="legal", shift=0):
     return {"drawing": "stripes", "bend": bend, "start": start, "end": end,
             "render_prestart": prestart, "distort": distort, "shift": shift}
 
@@ -213,69 +215,70 @@ def plain(c):
 
 
 SHORT = {"start": (50, 80), "end": (50, 20)}  # a bar from row 8 up to row 2, rows 0, 1, 8, 9 off it
+SIXTY = 100 / 3  # a 60-degree turn (D-836); these cases bent 60 degrees under D-377
 
 CASES = {
-    "FX-BENDIT-001": ("The settings as they start: Bend 45, the bar standing up from the middle "
+    "FX-BENDIT-001": ("The settings as they start: Bend 25 (45 degrees), the bar standing up from the middle "
                       "of the bottom edge to the middle of the top, None, Legal. The drawing "
                       "leans and curves to the right as it rises, its top an eighth of a turn "
                       "over; the left part of the top rows, carried past the edge, is cut.",
                       case(), [0]),
     "FX-BENDIT-002": ("Bend 0: the straight bar, the whole drawing on it: untouched.",
                       case(bend=0), [0]),
-    "FX-BENDIT-003": ("Bend 90: a quarter turn, the top of the bar lying flat to the right, the "
+    "FX-BENDIT-003": ("Bend 50: a quarter turn, the top of the bar lying flat to the right, the "
                       "circle's centre 6.37 pixels right of the bottom middle.",
-                      case(bend=90), [0]),
-    "FX-BENDIT-004": ("Bend -90: the same quarter turn to the left, the picture FX-BENDIT-003's "
+                      case(bend=50), [0]),
+    "FX-BENDIT-004": ("Bend -50: the same quarter turn to the left, the picture FX-BENDIT-003's "
                       "turned over left to right about the bar, as far as the drawing, "
                       "not quite symmetric about its middle, allows.",
-                      case(bend=-90), [0]),
-    "FX-BENDIT-005": ("Bend 360: the bar bent into a whole circle 1.59 pixels round its "
+                      case(bend=-50), [0]),
+    "FX-BENDIT-005": ("Bend 200: the bar bent into a whole circle 1.59 pixels round its "
                       "centre, so the stripes' two ends meet; pixels the circle's sheets cross "
                       "twice show the one farther along the bar over the other.",
-                      case(bend=360), [0]),
-    "FX-BENDIT-006": ("Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 60, None, "
+                      case(bend=200), [0]),
+    "FX-BENDIT-006": ("Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 33.3 (60 degrees), None, "
                       "Legal: what lies before the Start (rows 8 and 9) and past the End (rows "
                       "0 and 1) is not drawn; the six rows between bend.",
-                      case(bend=60, **SHORT), [0]),
+                      case(bend=SIXTY, **SHORT), [0]),
     "FX-BENDIT-007": ("The same with Render Prestart Static: rows 8 and 9, before the Start, "
                       "drawn unbent, under the bent part where it swings over them.",
-                      case(bend=60, prestart="static", **SHORT), [0]),
+                      case(bend=SIXTY, prestart="static", **SHORT), [0]),
     "FX-BENDIT-008": ("The same with Render Prestart Bend: the bend carried on back past the "
                       "Start the other way round the same circle, so rows 8 and 9 curve away "
                       "to the left below it.",
-                      case(bend=60, prestart="bend", **SHORT), [0]),
+                      case(bend=SIXTY, prestart="bend", **SHORT), [0]),
     "FX-BENDIT-009": ("The same with Render Prestart Mirror: the bar's own Start to End stretch "
                       "bent back from the Start as Bend bends it, mirrored, so the rows just "
                       "above the Start reappear below it.",
-                      case(bend=60, prestart="mirror", **SHORT), [0]),
+                      case(bend=SIXTY, prestart="mirror", **SHORT), [0]),
     "FX-BENDIT-010": ("FX-BENDIT-006 with Distort Extended: rows 0 and 1, past the End, laid "
                       "straight on along the bent bar's last direction, 60 degrees over.",
-                      case(bend=60, distort="extended", **SHORT), [0]),
-    "FX-BENDIT-011": ("Start 0, 50 and End 100, 50, the bar lying across, Bend 90: its right "
+                      case(bend=SIXTY, distort="extended", **SHORT), [0]),
+    "FX-BENDIT-011": ("Start 0, 50 and End 100, 50, the bar lying across, Bend 50: its right "
                       "half curls down, n pointing down from a bar that runs to the right; "
                       "rows above and below the bar bend with it.",
-                      case(bend=90, start=(0, 50), end=(100, 50)), [0]),
+                      case(bend=50, start=(0, 50), end=(100, 50)), [0]),
     "FX-BENDIT-012": ("Start and End the same point, 50, 50: no bar, the drawing untouched.",
-                      case(bend=90, start=(50, 50), end=(50, 50)), [0]),
-    "FX-BENDIT-013": ("Bend keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 the "
+                      case(bend=50, start=(50, 50), end=(50, 50)), [0]),
+    "FX-BENDIT-013": ("Bend keyed from 0 at frame 0 to 50 at frame 4, linear: frame 0 the "
                       "drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003.",
-                      case(bend=keyed((0, 0), (4, 90))), [0, 2, 4]),
-    "FX-BENDIT-014": ("Bend 60, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar "
+                      case(bend=keyed((0, 0), (4, 50))), [0, 2, 4]),
+    "FX-BENDIT-014": ("Bend 33.3, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar "
                       "shortens, the same turn in less length, a tighter curve; with Legal the "
                       "rows past the End go.",
-                      case(bend=60, end=keyed((0, (50, 0)), (4, (50, 50)))), [0, 2, 4]),
+                      case(bend=SIXTY, end=keyed((0, (50, 0)), (4, (50, 50)))), [0, 2, 4]),
     "FX-BENDIT-015": ("FX-BENDIT-003 moved three pixels right: the same, moved; the bend is "
                       "worked in the drawing's own space and moves with it, nothing grows, and "
                       "the three columns left of the drawing stay empty.",
-                      case(bend=90, shift=3), [0]),
+                      case(bend=50, shift=3), [0]),
     "FX-BENDIT-016": ("Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that "
-                      "overshoots: at frame 2 it would pass 360, is held at 360, and is "
-                      "FX-BENDIT-005, as frame 4 is.",
+                      "overshoots: at frame 2 it would pass 360, is held at 360, a turn of 648 "
+                      "degrees, one and four fifths of a whole circle, as at frame 4.",
                       case(bend=keyed((0, 0, OVERSHOOT), (4, 360))), [0, 2, 4]),
-    "FX-BENDIT-017": ("Bend -150 on the short bar with Static and Extended: the bar curls back "
+    "FX-BENDIT-017": ("Bend -83.3 (-150 degrees) on the short bar with Static and Extended: the bar curls back "
                       "on itself to the left, past the Start row, over the static rows, and "
                       "runs on straight from the End.",
-                      case(bend=-150, prestart="static", distort="extended", **SHORT), [0]),
+                      case(bend=-2.5 * SIXTY, prestart="static", distort="extended", **SHORT), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -359,7 +362,7 @@ def check(expected):
             assert all(px == drawn for px in frames.values())
 
     # The forward bend and the backward search agree: a point of the bar, bent, is found again.
-    s = case(bend=90)
+    s = case(bend=50)
     sx, sy = point(s["start"])
     length, theta = 10.0, math.pi / 2
     rr = length / theta
@@ -368,7 +371,7 @@ def check(expected):
         # t = (0, -1), n = (1, 0): n(phi) = n cos - t sin
         nphi = (math.cos(phi), math.sin(phi))
         p = (sx + rr + (v - rr) * nphi[0], sy + (v - rr) * nphi[1])
-        found = places(90, s["start"], s["end"], "none", "legal", *p)
+        found = places(50, s["start"], s["end"], "none", "legal", *p)
         assert any(abs(fx - (sx + v)) < 1e-9 and abs(fy - (sy - u)) < 1e-9 for _, fx, fy in found)
 
     one = c["FX-BENDIT-001"]["0"]
@@ -390,13 +393,14 @@ def check(expected):
     thirteen = c["FX-BENDIT-013"]
     assert thirteen["0"] == drawn and thirteen["2"] == one and thirteen["4"] == three
     fourteen = c["FX-BENDIT-014"]
-    assert fourteen["0"] == render(case(bend=60), 0)
-    assert fourteen["4"] == render(case(bend=60, end=(50, 50)), 0) != fourteen["0"]
+    assert fourteen["0"] == render(case(bend=SIXTY), 0)
+    assert fourteen["4"] == render(case(bend=SIXTY, end=(50, 50)), 0) != fourteen["0"]
     fifteen = c["FX-BENDIT-015"]["0"]
     assert all(fifteen[at(x, y)] == three[at(x - 3, y)] for x in range(3, W) for y in range(H))
     assert all(fifteen[at(x, y)] == EMPTY for x in range(3) for y in range(H))
     sixteen = c["FX-BENDIT-016"]
-    assert sixteen["0"] == drawn and sixteen["2"] == c["FX-BENDIT-005"]["0"] == sixteen["4"]
+    assert sixteen["0"] == drawn and sixteen["2"] == sixteen["4"] == render(case(bend=360), 0)
+    assert sixteen["4"] != c["FX-BENDIT-005"]["0"]
     assert c["FX-BENDIT-017"]["0"] not in (six, seven, ten)
     print("checked")
 

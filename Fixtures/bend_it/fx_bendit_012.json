@@ -89,7 +89,7 @@
               "type_id": "core.bend_it",
               "enabled": true,
               "parameters": {
-                "bend": 90,
+                "bend": 50,
                 "start": [
                   50,
                   50
