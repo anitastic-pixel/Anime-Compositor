@@ -133,21 +133,29 @@ fn straight(p: vec4<f32>) -> vec3<f32> {
     return p.xyz / p.w;
 }
 
-// composite::blend_pixel.
+// composite::blend_pixel. D-828: `L.blend`'s bit 16 is the T switch,
+// composite::blend_pixel_kept: the `(1-Ad)*Cs` term is taken back off and the alpha beneath kept.
 fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
-    if L.blend == 0u {
-        return s + d * (1.0 - s.w);
+    var out: vec4<f32>;
+    let mode = L.blend & 15u;
+    if mode == 0u {
+        out = s + d * (1.0 - s.w);
+    } else {
+        let cs = straight(s);
+        let cd = straight(d);
+        var b: vec3<f32>;
+        switch mode {
+            case 1u: { b = cs * cd; }
+            case 2u: { b = cs + cd - cs * cd; }
+            default: { b = min(cs + cd, vec3(1.0)); }
+        }
+        let rgb = (1.0 - s.w) * d.xyz + (1.0 - d.w) * s.xyz + s.w * d.w * b;
+        out = vec4(rgb, s.w + d.w - s.w * d.w);
     }
-    let cs = straight(s);
-    let cd = straight(d);
-    var b: vec3<f32>;
-    switch L.blend {
-        case 1u: { b = cs * cd; }
-        case 2u: { b = cs + cd - cs * cd; }
-        default: { b = min(cs + cd, vec3(1.0)); }
+    if (L.blend & 16u) != 0u {
+        out = vec4(out.xyz - (1.0 - d.w) * s.xyz, d.w);
     }
-    let rgb = (1.0 - s.w) * d.xyz + (1.0 - d.w) * s.xyz + s.w * d.w * b;
-    return vec4(rgb, s.w + d.w - s.w * d.w);
+    return out;
 }
 
 @compute @workgroup_size(16, 16)
@@ -25038,7 +25046,7 @@ impl Gpu {
                     (m0.0, m0.1, i.a, i.b, i.c, i.d)
                 });
                 let f = |v: f64| (v as f32).to_bits();
-                let blend = match layer.blend {
+                let blend = u32::from(layer.preserve) << 4 | match layer.blend {
                     BlendMode::Normal => 0,
                     BlendMode::Multiply => 1,
                     BlendMode::Screen => 2,

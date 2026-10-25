@@ -168,6 +168,7 @@ pub fn render_traced(
             layers: vec![LayerDraw {
                 opacity: 1.0,
                 adjust: None,
+                preserve: false,
                 ..layer.clone()
             }],
         };
@@ -189,6 +190,7 @@ pub fn render_traced(
             height: plan.height,
             layers: vec![LayerDraw {
                 adjust: None,
+                preserve: false,
                 ..layer.clone()
             }],
         };

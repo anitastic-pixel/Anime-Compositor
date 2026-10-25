@@ -194,6 +194,8 @@ const KEY_ORDER: &[&str] = &[
     "column",
     "track",
     "key_drawings",
+    // D-828: the T switch.
+    "preserve_transparency",
     "sheet_text",
     "entries",
     "text",
@@ -1240,6 +1242,10 @@ fn layer_fields_json(base: Option<&J>, layer: &Layer) -> J {
     if layer.motion_blur {
         owned.push(("motion_blur", J::from(true)));
     }
+    // D-828: written only when on.
+    if layer.preserve_transparency {
+        owned.push(("preserve_transparency", J::from(true)));
+    }
     // D-216: each written only when it is not its default (FX-FBLEND-014, 024).
     if layer.time_stretch != 100.0 {
         owned.push(("time_stretch", num(layer.time_stretch)));
@@ -1268,6 +1274,9 @@ fn layer_fields_json(base: Option<&J>, layer: &Layer) -> J {
         }
         if !layer.motion_blur {
             map.remove("motion_blur");
+        }
+        if !layer.preserve_transparency {
+            map.remove("preserve_transparency");
         }
         if layer.time_stretch == 100.0 {
             map.remove("time_stretch");
@@ -12784,6 +12793,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
         Some(b) => as_bool(b, &format!("{pointer}/motion_blur"))?,
     };
+    // D-828: the T switch, on a layer that draws (FX-PRESERVE-020, 021).
+    let preserve_transparency = match v.get("preserve_transparency") {
+        None => false,
+        Some(_) if matches!(kind, LayerKind::Null | LayerKind::Adjustment) => {
+            return Err(invalid(
+                &format!("{pointer}/preserve_transparency"),
+                "no preserve_transparency on a null or adjustment layer, which draws no picture \
+                 of its own to keep within the layers beneath (D-828)",
+            ))
+        }
+        Some(b) => as_bool(b, &format!("{pointer}/preserve_transparency"))?,
+    };
     // D-216: a stretch and Frame Mix on a raster or composition layer, the dissolve on a raster
     // one (FX-FBLEND-050 to 063).
     let timed = matches!(kind, LayerKind::Raster | LayerKind::Composition);
@@ -13350,6 +13371,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         timesheet,
         key_drawings,
         motion_blur,
+        preserve_transparency,
         time_stretch,
         frame_blend,
         drawing_dissolve,

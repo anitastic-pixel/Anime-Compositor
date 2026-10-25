@@ -972,6 +972,10 @@ pub struct Layer {
     /// D-188: the layer's motion-blur switch, on a layer that draws. Saved as `motion_blur`
     /// only when on.
     pub motion_blur: bool,
+    /// D-828: After Effects' Preserve Underlying Transparency (the T switch), on a layer that
+    /// draws: the layer shows only where the layers beneath it have alpha, and leaves their
+    /// alpha as it is. Saved as `preserve_transparency` only when on.
+    pub preserve_transparency: bool,
     /// D-216: per cent, 1 to 10000, on a raster or composition layer; 100 is none. Its source
     /// and its keys are read through it from the in point. Saved as `time_stretch` when not 100.
     pub time_stretch: f64,
@@ -1109,6 +1113,7 @@ impl Layer {
             timesheet: None,
             key_drawings: Vec::new(),
             motion_blur: false,
+            preserve_transparency: false,
             time_stretch: 100.0,
             frame_blend: false,
             drawing_dissolve: 0,

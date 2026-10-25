@@ -202,6 +202,9 @@ pub struct LayerDraw {
     pub matte: Option<Box<MatteDraw>>,
     /// Document 21's step 7. Applied after opacity, against whatever is already accumulated.
     pub blend: crate::model::BlendMode,
+    /// D-828: After Effects' T switch, so step 7 keeps the alpha already accumulated
+    /// ([`crate::composite::blend_pixel_kept`]). Never on an adjustment layer.
+    pub preserve: bool,
     /// D-66: `Some` makes this an adjustment layer. `source` is then its shape, an opaque
     /// composition-sized rectangle with its mask cut out, and the stack runs on the frame drawn
     /// so far rather than on `source`; where the shape's coverage `c` reaches, the frame becomes
@@ -959,6 +962,7 @@ fn same_draw(a: &LayerDraw, b: &LayerDraw) -> bool {
         && a.opacity.to_bits() == b.opacity.to_bits()
         && matte
         && a.blend == b.blend
+        && a.preserve == b.preserve
         && a.adjust == b.adjust
         && a.wrap == b.wrap
         && a.on_card == b.on_card
@@ -1047,6 +1051,15 @@ fn adjust_frame(
         });
 }
 
+/// Document 21's step 7 for `layer`: its blend mode, and D-828's T switch.
+fn lay(layer: &LayerDraw, src: [f32; 4], dst: [f32; 4], depth: (bool, bool)) -> [f32; 4] {
+    if layer.preserve {
+        crate::composite::blend_pixel_kept(layer.blend, src, dst, depth.0, depth.1)
+    } else {
+        crate::composite::blend_pixel_in(layer.blend, src, dst, depth.0, depth.1)
+    }
+}
+
 /// D-132: a layer with a Light Wrap, drawn onto the frame drawn so far. The layer is placed
 /// first, through its transform and matte at full opacity, a picture the frame's size; each
 /// Light Wrap that runs lays the light of the frame beneath on its edges, in stack order; then
@@ -1065,6 +1078,7 @@ fn wrap_layer(
     let alone = LayerDraw {
         opacity: 1.0,
         blend: crate::model::BlendMode::Normal,
+        preserve: false,
         wrap: Vec::new(),
         ..layer.clone()
     };
@@ -1105,13 +1119,7 @@ fn wrap_layer(
                 }
             }
             let under = [dst[0], dst[1], dst[2], dst[3]];
-            dst.copy_from_slice(&crate::composite::blend_pixel_in(
-                layer.blend,
-                src,
-                under,
-                depth.0,
-                depth.1,
-            ));
+            dst.copy_from_slice(&lay(layer, src, under, depth));
         });
 }
 
@@ -1305,13 +1313,7 @@ fn render_tile(
                 }
                 let i = col * 4;
                 let dst = [out[i], out[i + 1], out[i + 2], out[i + 3]];
-                out[i..i + 4].copy_from_slice(&crate::composite::blend_pixel_in(
-                    layer.blend,
-                    src,
-                    dst,
-                    depth.0,
-                    depth.1,
-                ));
+                out[i..i + 4].copy_from_slice(&lay(layer, src, dst, depth));
             }
         }
     }

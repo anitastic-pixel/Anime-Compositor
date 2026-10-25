@@ -88,6 +88,36 @@ pub fn over(src: &WorkingBuffer, dst: &mut WorkingBuffer) -> Result<(), Composit
     Ok(())
 }
 
+/// D-828: [`blend_pixel_in`] for a layer with After Effects' Preserve Underlying Transparency (the
+/// T switch): the layer shows only where the layers beneath have alpha, and their alpha is kept.
+/// The general equation without its `(1-Ad)*Cs` term, Porter and Duff's "atop":
+///
+/// ```text
+/// Co = (1-As)*Cd + As*Ad*B(cs,cd)      (Normal: Cs*Ad + Cd*(1-As))
+/// Ao = Ad
+/// ```
+///
+/// A clear source changes nothing, so a tile the layer does not reach is still skipped. A stencil
+/// draws nothing of its own, so the switch changes nothing on one.
+pub fn blend_pixel_kept(
+    mode: BlendMode,
+    src: [f32; 4],
+    dst: [f32; 4],
+    float: bool,
+    display: bool,
+) -> [f32; 4] {
+    let mut out = blend_pixel_in(mode, src, dst, float, display);
+    if matches!(mode, BlendMode::StencilAlpha | BlendMode::StencilLuma) {
+        return out;
+    }
+    let clear = 1.0 - dst[3];
+    for c in 0..3 {
+        out[c] -= clear * src[c];
+    }
+    out[3] = dst[3];
+    out
+}
+
 /// One pixel through document 21's "Blend modes", source over destination.
 ///
 /// The document's general equation, with `B` the mode's component-wise blend of the *straight*

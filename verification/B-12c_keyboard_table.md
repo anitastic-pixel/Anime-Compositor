@@ -114,6 +114,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.toggle_frame_blend` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_lock` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_motion_blur` can be asked for without a mouse | yes | yes | pass |
+| `layer.toggle_preserve_transparency` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_shy` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_solo` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_visibility` can be asked for without a mouse | yes | yes | pass |
@@ -221,4 +222,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**191 of 191 checks pass.**
+**192 of 192 checks pass.**

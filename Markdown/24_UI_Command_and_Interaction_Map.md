@@ -58,6 +58,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.paste | Paste the copied layers in front | Ctrl+V | yes |
 | layer.toggle_shy | Mark a layer shy, so the timeline can leave it out | none | yes |
 | layer.toggle_motion_blur | Turn a layer's motion-blur switch on or off, on a layer that draws (D-188; in the window since B-124b, 2026-09-28) | none | yes |
+| layer.toggle_preserve_transparency | Turn a layer's Preserve Underlying Transparency switch (After Effects' T) on or off, on a layer that draws; refused on a null or adjustment layer (D-828; in the window since B-708, 2026-10-25) | none | yes |
 | layer.toggle_frame_blend | Turn a drawn or composition layer's Frame mix on or off (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | layer.set_time_stretch | Set a drawn or composition layer's Time stretch, 1 to 10000 percent; the keys stretch with it (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | layer.set_time_remap | Enable Time Remapping on a drawn or composition layer, two keys that change no frame, or take it away; one entry to undo (D-323, 2026-10-04) | Ctrl+Alt+T | yes |

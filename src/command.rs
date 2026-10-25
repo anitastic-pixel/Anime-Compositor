@@ -168,6 +168,13 @@ pub enum Command {
         layer_id: Id,
         value: bool,
     },
+    /// D-828: After Effects' Preserve Underlying Transparency (the T switch), on a layer that
+    /// draws.
+    SetLayerPreserveTransparency {
+        composition: Id,
+        layer_id: Id,
+        value: bool,
+    },
     /// D-216: a drawn or composition layer's Time Stretch, in percent. The out point moves so
     /// the layer shows as much of its source as before; the keys stay stored where they are and
     /// play stretched with it.
@@ -630,6 +637,7 @@ impl Command {
             Command::SetLayerSource { .. } => "SET_LAYER_SOURCE",
             Command::SetLayerShy { .. } => "SET_LAYER_SHY",
             Command::SetLayerMotionBlur { .. } => "SET_LAYER_MOTION_BLUR",
+            Command::SetLayerPreserveTransparency { .. } => "SET_LAYER_PRESERVE_TRANSPARENCY",
             Command::SetLayerTimeStretch { .. } => "SET_LAYER_TIME_STRETCH",
             Command::SetTimeRemap { .. } => "SET_TIME_REMAP",
             Command::SetLayerFrameBlend { .. } => "SET_LAYER_FRAME_BLEND",
@@ -797,6 +805,10 @@ impl Command {
             Command::SetLayerMotionBlur { value, .. } => match value {
                 true => "Turn on the layer's motion blur".to_string(),
                 false => "Turn off the layer's motion blur".to_string(),
+            },
+            Command::SetLayerPreserveTransparency { value, .. } => match value {
+                true => "Turn on Preserve Underlying Transparency".to_string(),
+                false => "Turn off Preserve Underlying Transparency".to_string(),
             },
             Command::SetLayerTimeStretch { value, .. } => format!("Stretch the layer to {value}%"),
             Command::SetTimeRemap { value, .. } => match value {
@@ -1034,6 +1046,7 @@ impl Command {
             | Command::SetLayerSource { composition, .. }
             | Command::SetLayerShy { composition, .. }
             | Command::SetLayerMotionBlur { composition, .. }
+            | Command::SetLayerPreserveTransparency { composition, .. }
             | Command::SetLayerTimeStretch { composition, .. }
             | Command::SetTimeRemap { composition, .. }
             | Command::SetLayerFrameBlend { composition, .. }
@@ -1122,6 +1135,7 @@ impl Command {
             | Command::SetText { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
+            | Command::SetLayerPreserveTransparency { layer_id, .. }
             | Command::SetLayerTimeStretch { layer_id, .. }
             | Command::SetTimeRemap { layer_id, .. }
             | Command::SetLayerFrameBlend { layer_id, .. }
@@ -1293,6 +1307,7 @@ impl Command {
                 | Command::SetKeyKind { .. }
                 | Command::SetKeyRoving { .. }
                 | Command::SetLayerMotionBlur { .. }
+                | Command::SetLayerPreserveTransparency { .. }
         )
     }
 
@@ -1312,6 +1327,7 @@ impl Command {
             | Command::SetText { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
+            | Command::SetLayerPreserveTransparency { layer_id, .. }
             | Command::SetLayerTimeStretch { layer_id, .. }
             | Command::SetTimeRemap { layer_id, .. }
             | Command::SetLayerFrameBlend { layer_id, .. }
@@ -2589,6 +2605,24 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             layer.motion_blur = *value;
+        }
+        Command::SetLayerPreserveTransparency {
+            layer_id, value, ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            if matches!(
+                layer.kind,
+                crate::model::LayerKind::Null | crate::model::LayerKind::Adjustment
+            ) {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" draws no picture of its own, so it has no Preserve Underlying Transparency switch.",
+                        layer.name
+                    ),
+                    "D-828: a null or adjustment layer has no T switch.",
+                ));
+            }
+            layer.preserve_transparency = *value;
         }
         Command::SetLayerTimeStretch {
             layer_id, value, ..

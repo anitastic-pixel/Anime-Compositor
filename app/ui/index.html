@@ -506,6 +506,8 @@
   }
   #timeline .now small, .zoom { color: #909096; font-size: 12px; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  /* D-828: the T switch, a letter as After Effects draws it. */
+  .ic.keep { font-size: 11px; font-weight: 700; }
   #shyswitch[aria-pressed=true], #mbswitch[aria-pressed=true], #fbswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
   /* The headings over the switches, in the gutter beside the ruler. */
   #colheads {
@@ -516,10 +518,10 @@
   #colheads svg { width: 14px; height: 14px; }
   #colheads .l { place-items: center start; }
   /* W-31b: a layer's row, in columns under those headings: show, solo, lock, label, number,
-     arrow, name, shy, motion blur, mode, parent. */
+     arrow, name, shy, motion blur, mode, T (D-828), parent. */
   .rowhead.layerhead {
     display: grid; align-items: center; gap: 0 2px; padding-right: 6px; min-width: 0;
-    grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 64px 84px;
+    grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 64px 18px 84px;
   }
   #layers li.lab { position: relative; }
   #layers li.lab::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--lab); pointer-events: none; }
@@ -552,7 +554,7 @@
   .parentcell .whip svg { width: 14px; height: 14px; }
   #layers .rowhead.layerhead .parentcell select.blend { flex: 1 1 auto; width: auto; }
   #layers li.prop .value label { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: #909096; }
-  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 60px 22px; }
+  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 60px 18px 22px; }
   #timeline.narrow .pname { display: none; }
   /* An empty composition says so and offers the two ways to start. */
   #nolayers { display: grid; place-items: center; gap: 10px; padding: 32px 16px; text-align: center; color: #909096; }
@@ -5062,8 +5064,20 @@ function drawLayers() {
         () => command('/layer.toggle_motion_blur?layer=' + encodeURIComponent(layer.id))), 'blur', !!layer.motion_blur);
       blur.setAttribute('aria-pressed', String(!!layer.motion_blur));
     }
+    // D-828: After Effects' T switch, Preserve Underlying Transparency, beside the mode as After
+    // Effects puts it, on a layer that draws.
+    let keep = blank();
+    if (!adjust && !sound && !nul) {
+      const on = !!layer.preserve_transparency;
+      keep = iconButton('T', (on ? 'Stop preserving underlying transparency: ' : 'Preserve underlying transparency: ') + layer.name,
+        () => command('/layer.toggle_preserve_transparency?layer=' + encodeURIComponent(layer.id)));
+      keep.classList.add('ic', 'keep');
+      keep.classList.toggle('on', on);
+      keep.classList.toggle('hot', on);
+      keep.setAttribute('aria-pressed', String(on));
+    }
     // B-17c: an adjustment layer has normal and no list to choose from (D-66).
-    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, blur, !sound && !nul ? blend : blank(), parent);
+    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, blur, !sound && !nul ? blend : blank(), keep, parent);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -16967,7 +16981,7 @@ $('colheads').className = 'rowhead layerhead';
 $('colheads').innerHTML = '<span title="Show">' + svgOf('eye') + '</span><span title="Solo">' + svgOf('solo')
   + '</span><span title="Lock">' + svgOf('lock') + '</span><span></span><span>#</span><span></span>'
   + '<span class="l">Layer</span><span title="Shy">' + svgOf('shy') + '</span><span title="Motion blur">' + svgOf('blur')
-  + '</span><span class="l">Mode</span>'
+  + '</span><span class="l">Mode</span><span title="Preserve Underlying Transparency">T</span>'
   + '<span class="l pname">Parent</span>';
 
 function drawPanels() {

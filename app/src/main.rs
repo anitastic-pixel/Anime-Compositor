@@ -10282,6 +10282,7 @@ const ANSWERS: &[&str] = &[
     "layer.toggle_frame_blend",
     "layer.toggle_lock",
     "layer.toggle_motion_blur",
+    "layer.toggle_preserve_transparency",
     "layer.toggle_shy",
     "layer.toggle_solo",
     "layer.toggle_visibility",
@@ -13370,6 +13371,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     composition,
                     layer_id,
                     value: !layer.motion_blur,
+                },
+                // D-828: After Effects' T switch, read from the document the same way.
+                "layer.toggle_preserve_transparency" => Command::SetLayerPreserveTransparency {
+                    composition,
+                    layer_id,
+                    value: !layer.preserve_transparency,
                 },
                 // D-216: Frame Mix, Time Stretch and Drawing Dissolve. Which layers take
                 // them and what range is allowed is the core's to refuse.

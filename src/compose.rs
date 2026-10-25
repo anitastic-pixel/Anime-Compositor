@@ -487,6 +487,8 @@ fn plan_inside(
                 opacity: resolved.opacity,
                 matte,
                 blend: layer.blend_mode,
+                // D-828: the T switch, which an adjustment layer does not have.
+                preserve: layer.preserve_transparency && !layer.is_adjustment(),
                 // D-182: with each lookup file read. What kept one from being read was said by
                 // `resolve_rest`, which an adjustment layer goes through as well.
                 adjust: layer.is_adjustment().then(|| {
@@ -3083,6 +3085,7 @@ fn resolve_held(
                     opacity: 1.0,
                     matte: None,
                     blend: crate::model::BlendMode::Normal,
+                    preserve: false,
                     adjust: None,
                     nested: None,
                     on_card: Vec::new(),

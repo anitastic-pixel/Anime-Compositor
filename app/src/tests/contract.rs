@@ -155,6 +155,7 @@ const SENT: &[&str] = &[
     "layer.toggle_frame_blend",
     "layer.toggle_lock",
     "layer.toggle_motion_blur",
+    "layer.toggle_preserve_transparency",
     "layer.toggle_shy",
     "layer.toggle_solo",
     "layer.toggle_visibility",
@@ -642,6 +643,8 @@ const REACHED: &[(&str, &str)] = &[
     ("layer.toggle_shy", "a command the window answers"),
     // D-188, accepted on 2026-09-28 and built by B-124b.
     ("layer.toggle_motion_blur", "a command the window answers"),
+    // D-828, built by B-708: the T switch.
+    ("layer.toggle_preserve_transparency", "a command the window answers"),
     // D-216, accepted on 2026-09-29 and built by B-150b.
     ("layer.toggle_frame_blend", "a command the window answers"),
     ("layer.set_time_stretch", "a command the window answers"),
@@ -1602,6 +1605,8 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
         "layer.toggle_shy?layer=layer-3",
         // B-124b: and D-188's two switches, each written only when on.
         "layer.toggle_motion_blur?layer=layer-3",
+        // B-708: and D-828's T switch, written only when on.
+        "layer.toggle_preserve_transparency?layer=layer-3",
         "composition.set_motion_blur?enabled=true",
         // B-150b: and D-216's four, each written only when not the default.
         "composition.set_frame_blending?enabled=true",
