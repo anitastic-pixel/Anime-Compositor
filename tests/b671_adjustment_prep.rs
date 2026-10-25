@@ -2,8 +2,8 @@
 //!
 //! Before D-791 each of these, on an adjustment layer, was left out of the frame or drew part of
 //! itself and nothing was said. Now an Audio Spectrum or Audio Waveform on no mask draws on the
-//! frame beneath, and every one that works from the layer's own masks says EFFECT_PATH_MISSING
-//! every frame. Each expected frame is drawn by code that existed before D-791: the same effect on
+//! frame beneath. (Every one that works from the layer's own masks said EFFECT_PATH_MISSING every
+//! frame until D-830 drew it along the adjustment layer's masks: B-710.) Each expected frame is drawn by code that existed before D-791: the same effect on
 //! the layer itself, or the frame the adjustment layer drew before (what the effect left out
 //! taken out of the file by hand).
 
@@ -132,8 +132,9 @@ fn b671_adjustment_prep() {
          D-791 each effect below, on an adjustment layer, was left out of the frame (or drew \
          without its frozen area, its wall or its cut) and nothing was said. Now an Audio Spectrum \
          or Audio Waveform on no mask hears its sound and draws on the frame beneath, as After \
-         Effects' does, and each effect that works from the layer's own masks, shapes or text \
-         says EFFECT_PATH_MISSING every frame and draws as it did. The bands are \
+         Effects' does. (Each effect that works from the layer's own masks said \
+         EFFECT_PATH_MISSING every frame until D-830, which draws it along the adjustment \
+         layer's masks: B-710's table.) The bands are \
          `Fixtures/effect_mix`'s; the adjustment layer carries two masks drawn as paths only \
          (mode None), so it covers the whole frame. No expected pixel comes from the new code: \
          each is the same effect on the layer itself, or the file without what was left out.\n",
@@ -145,7 +146,6 @@ fn b671_adjustment_prep() {
         mask("Mask 2", &[[5.0, 3.0], [10.0, 3.0], [10.0, 7.0], [5.0, 7.0]]),
     ]);
     let on = |p: J| adjusted(p, Some(two.clone()), false);
-    let on_art = |p: J| adjusted(p, Some(two.clone()), true);
     let nothing = on(bands(&base, "core.stroke", json!({})));
     let mut nothing = nothing;
     nothing["compositions"][0]["layers"][1]["effects"] = json!([]);
@@ -184,47 +184,9 @@ fn b671_adjustment_prep() {
         }
     }
 
-    t.heading("Said every frame, the frame as it was");
-    let said_cases = [
-        ("Path Stroke on Mask 1", "core.stroke", json!({}), None),
-        ("Path Stroke on All Masks", "core.stroke", json!({"all_masks": "on"}), None),
-        ("Vegas on Mask 1", "core.vegas", json!({}), None),
-        ("Energy Stroke along the masks", "core.energy_stroke", json!({"source": "masks"}), None),
-        ("Energy Stroke between its points, Alpha Mode Masks", "core.energy_stroke", json!({"alpha_mode": "masks"}), Some(json!({"alpha_mode": "off"}))),
-        ("Audio Spectrum on Path 1", "core.audio_spectrum", json!({"path": 1}), None),
-        ("Audio Waveform on Path 1", "core.audio_waveform", json!({"path": 1}), None),
-        ("Inner/Outer Key, Foreground 1", "core.inner_outer_key", json!({"foreground": 1}), None),
-        ("Reshape, Mask 1 to Mask 2", "core.reshape", json!({"source_mask": 1, "destination_mask": 2}), None),
-        ("Mask Smear, Mask 1 moved 3 across", "core.mask_smear", json!({"source_mask": 1, "mask_offset": [3, 0]}), None),
-        ("Scribble on Mask 1", "core.scribble", json!({}), None),
-        ("Liquify with Freeze Area Mask 1 (fx_liquify_brushes_011's)", "core.liquify", json!({}), Some(json!({"freeze_area_mask": 0}))),
-        ("Particle Playground, Wall Mask 1", "core.particle_playground", json!({"persistent_map_layer": "", "wall_mask": 1}), Some(json!({"persistent_map_layer": "", "wall_mask": 0}))),
-    ];
-    for (what, id, changes, was) in &said_cases {
-        let name = what.split([',', ' ']).next().unwrap();
-        let p = on(bands(&base, id, changes.clone()));
-        for frame in [0, 2] {
-            let (got, said) = draw(&p, &mix, frame);
-            let (want, _) = match was {
-                Some(w) => draw(&on(bands(&base, id, w.clone())), &mix, frame),
-                None => draw(&nothing, &mix, frame),
-            };
-            let one = said.len() == 1
-                && said[0].starts_with(&format!("EFFECT_PATH_MISSING Adjustment layer adj's {name}"));
-            t.row(
-                &format!("{what}, frame {frame}: drawn as before D-791, and said"),
-                &format!("{}, said {said:?}", if got == want { "sample-identical" } else { "differs" }),
-                got == want && one,
-            );
-        }
-        // On the layer itself it is drawn (or does as it did) and nothing new is said.
-        let (_, art_said) = draw(&on_art(bands(&base, id, changes.clone())), &mix, 0);
-        t.row(
-            &format!("{what}, on the layer itself: nothing said"),
-            &format!("{art_said:?}"),
-            art_said.is_empty(),
-        );
-    }
+    // D-830: each effect that works from the layer's own masks now draws along the adjustment
+    // layer's masks on the frame beneath; B-710's table checks every one of them against the
+    // same effect on the layer itself.
 
     t.heading("Nothing named, nothing said (as before D-791)");
     for (what, id) in [

@@ -527,76 +527,12 @@ fn plan_inside(
                         cache,
                         log,
                     );
-                    // D-786: a Fill with Fill Mask 0 and All Masks off fills the whole frame
-                    // beneath, as After Effects' does. One that names a mask is not drawn here,
-                    // because the adjustment's masks are not carried to the frame beneath, and
-                    // that is said every frame.
-                    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-                        if let crate::effects::Effect::Fill {
-                            mask,
-                            all_masks,
-                            paths,
-                            ..
-                        } = &mut instance.effect
-                        {
-                            if all_masks == "off" && *mask < 1.0 {
-                                *paths = Some(Vec::new());
-                            } else {
-                                log.record(
-                                    frame,
-                                    layer.name.clone(),
-                                    Diagnostic::new(
-                                        DiagnosticId::EffectPathMissing,
-                                        Severity::Warning,
-                                        format!("Adjustment layer {}'s Fill names a mask, which a Fill on an adjustment layer cannot use yet, so it fills nothing.", layer.name),
-                                        format!("Frame {frame} is drawn without the fill. The effect is kept as it is."),
-                                    )
-                                    .with_remediation("Set Fill Mask to 0 and All Masks off to fill the whole frame beneath, or put the Fill on the layer itself."),
-                                );
-                            }
-                        }
-                    }
-                    // D-791: the other effects that work from the layer's own masks, shapes or
-                    // text, which are not carried to the frame beneath either, say so every frame
-                    // instead of being left out unsaid. An Audio Spectrum or Waveform on no mask
-                    // hears its sound and draws on the frame beneath, as After Effects' does.
-                    for instance in effects.iter().filter(|i| i.enabled && i.is_valid()) {
-                        use crate::effects::Effect as E;
-                        let without = match &instance.effect {
-                            E::Stroke { .. } | E::Vegas { .. } | E::Scribble { .. } => "without it",
-                            E::EnergyStroke { source, .. } if source != "points" => "without it",
-                            E::EnergyStroke { alpha_mode, .. } if alpha_mode != "off" => {
-                                "with the beam uncut"
-                            }
-                            E::InnerOuterKey { foreground, .. } if *foreground >= 1.0 => "without it",
-                            E::Reshape { source_mask, destination_mask, boundary_mask, .. }
-                                if source_mask.max(*destination_mask).max(*boundary_mask) >= 1.0 =>
-                            {
-                                "without it"
-                            }
-                            E::MaskSmear { source_mask, boundary_mask, .. }
-                                if source_mask.max(*boundary_mask) >= 1.0 =>
-                            {
-                                "without it"
-                            }
-                            E::Liquify { freeze_area_mask, .. } if *freeze_area_mask >= 1.0 => {
-                                "with nothing frozen"
-                            }
-                            E::ParticlePlayground { values, .. }
-                                if values[crate::playground::WALL_MASK].floor() >= 1.0 =>
-                            {
-                                "with the particles free of any wall"
-                            }
-                            _ => continue,
-                        };
-                        log.record(
-                            frame,
-                            layer.name.clone(),
-                            adjustment_mask(&layer.name, instance.effect.name(), &format!("Frame {frame} is drawn {without}")),
-                        );
-                    }
+                    // D-786, D-830: the effects that work from the layer's masks draw along
+                    // the adjustment layer's, moved onto the frame beneath by its transform; a
+                    // Fill with Fill Mask 0 and All Masks off fills the whole frame beneath.
+                    let masks = in_frame(&resolved.masks, &resolved.transform);
                     let at = posterized(comp, layer, frame);
-                    fill_sound(project, root, comp, layer, at, &[], &mut effects, frame, log, true);
+                    prepare_masked(project, root, comp, layer, at, 1.0, &masks, &mut effects, frame, log);
                     effects
                 }),
                 nested: resolved.nested,
@@ -662,6 +598,9 @@ struct ResolvedLayer {
     /// D-216: `source` is a frame mix or a drawing dissolve, which the graphics card leaves to
     /// the CPU.
     mixed: bool,
+    /// D-830: an adjustment layer's masks as they are at this frame, in `source`'s pixels, for
+    /// its effects to draw along on the frame beneath. Empty for any other layer.
+    masks: Vec<crate::mask::Mask>,
 }
 
 /// Steps 1 through 6 of document 21 for one layer: find its drawing at this frame, decode it,
@@ -4568,474 +4507,9 @@ fn resolve_rest(
             );
         }
     }
-    // D-356: each Path Stroke's paths, the masks it names as they are at this frame and at the
-    // size the effects run at: a mask is a path when it is on and has two points, whatever its
-    // mode. D-357: with Path From Shapes, the layer's shapes instead, open or closed as each
-    // says, a shape a path when it is on and has two points, whatever its fill and stroke. D-373:
-    // with Path From Text Outlines, the text layer's outlines as they are drawn at this frame,
-    // every one closed, in reading order. With none, the layer is left as it is and that is said
-    // every frame. D-444: Vegas's the same way, from its Stroke setting. D-508: an Energy Stroke's
-    // paths are found the same way, every one of its kind, unless it runs between its points.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        let (mask, all_masks, source, paths, vegas, energy) = match &mut instance.effect {
-            crate::effects::Effect::Stroke {
-                mask,
-                all_masks,
-                source,
-                paths,
-                ..
-            } => (
-                mask.floor(),
-                all_masks == "on",
-                source.as_str(),
-                paths,
-                false,
-                false,
-            ),
-            crate::effects::Effect::Vegas {
-                mask,
-                all_masks,
-                stroke: source,
-                paths,
-                ..
-            } => (
-                mask.floor(),
-                all_masks == "on",
-                source.as_str(),
-                paths,
-                true,
-                false,
-            ),
-            crate::effects::Effect::EnergyStroke { source, paths, .. } if source != "points" => {
-                (1.0, true, source.as_str(), paths, false, true)
-            }
-            _ => continue,
-        };
-        let (from, pick) = if vegas {
-            ("Stroke", "Mask")
-        } else {
-            ("Path From", "Path")
-        };
-        {
-            let (shapes, text) = (source == "shapes", source == "text");
-            let outlines: Vec<Vec<(f64, f64)>> = match &layer.text {
-                Some(words) if text => {
-                    crate::text::outlines(words, &text_animators(comp, layer, at))
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|c| c.into_iter().map(|(x, y)| (x / pre, y / pre)).collect())
-                        .collect()
-                }
-                _ => Vec::new(),
-            };
-            let path = |n: usize| -> Option<(Vec<(f64, f64)>, bool)> {
-                if text {
-                    outlines.get(n).map(|c| (c.clone(), true))
-                } else if shapes {
-                    let s = layer.shapes.get(n)?.placed(&layer.shape_groups, at);
-                    s.is_renderable().then(|| {
-                        (
-                            s.outline()
-                                .into_iter()
-                                .map(|(x, y)| (x / pre, y / pre))
-                                .collect(),
-                            s.closed,
-                        )
-                    })
-                } else {
-                    masks
-                        .get(n)
-                        .filter(|m| m.enabled && m.points.len() >= 2)
-                        .map(|m| (m.path(), m.closed))
-                }
-            };
-            let count = if text {
-                outlines.len()
-            } else if shapes {
-                layer.shapes.len()
-            } else {
-                masks.len()
-            };
-            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks {
-                (0..count).filter_map(path).collect()
-            } else {
-                path(mask as usize - 1).into_iter().collect()
-            };
-            if found.is_empty() {
-                let kind = if shapes { "shape" } else { "mask" };
-                let which = match (text, all_masks) {
-                    (true, true) => "no text outline".to_string(),
-                    (true, false) => format!("no text outline {mask}"),
-                    (false, true) => format!("no {kind} that is on with two points or more"),
-                    (false, false) => {
-                        format!("no {kind} {mask} that is on with two points or more")
-                    }
-                };
-                let (name, what) = if energy {
-                    ("Energy Stroke", "beam")
-                } else if vegas {
-                    ("Vegas", "stroke")
-                } else {
-                    ("Path Stroke", "stroke")
-                };
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    Diagnostic::new(
-                        DiagnosticId::EffectPathMissing,
-                        Severity::Warning,
-                        format!("Layer {}'s {name} has {which} to draw along, so it draws nothing.", layer.name),
-                        format!("Frame {frame} is drawn without the {what}. The effect is kept as it is."),
-                    )
-                    .with_remediation(if energy {
-                        match source {
-                            "text" => "Put the beam on a text layer whose font is on this computer and type words with letters, or set Path From to Points.",
-                            "shapes" => "Draw a shape on the shape layer, or set Path From to Points.",
-                            _ => "Draw a mask on the layer, or set Path From to Points.",
-                        }
-                        .to_string()
-                    } else if text {
-                        "Put the stroke on a text layer whose font is on this computer, type words with letters, set Path to an outline they have, or set Path From to Masks.".to_string()
-                    } else if shapes {
-                        format!("Draw a shape on the shape layer, set {pick} to a shape it has, or set {from} to Masks.")
-                    } else {
-                        format!("Draw a mask on the layer, or set {pick} to a mask it has.")
-                    }),
-                );
-            }
-            *paths = (!found.is_empty()).then_some(found);
-        }
-    }
-    // D-565: an Energy Stroke's matte, every mask that is drawn whatever its mode, at the size
-    // the effects run at; with none, the beam is drawn uncut and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        let crate::effects::Effect::EnergyStroke {
-            alpha_mode, matte, ..
-        } = &mut instance.effect
-        else {
-            continue;
-        };
-        if alpha_mode == "off" {
-            continue;
-        }
-        // D-737: an open mask encloses nothing, so it cuts no matte either.
-        let drawn: Vec<crate::mask::Mask> = masks
-            .iter()
-            .filter(|m| m.is_renderable() && m.closed)
-            .map(|m| crate::mask::Mask {
-                mode: crate::mask::MaskMode::Add,
-                ..m.clone()
-            })
-            .collect();
-        if drawn.is_empty() {
-            log.record(
-                frame,
-                layer.name.clone(),
-                Diagnostic::new(
-                    DiagnosticId::EffectPathMissing,
-                    Severity::Warning,
-                    format!("Layer {}'s Energy Stroke has Alpha Mode set and no mask that is on to cut by, so nothing is cut.", layer.name),
-                    format!("Frame {frame} is drawn with the beam uncut. The effect is kept as it is."),
-                )
-                .with_remediation("Draw a mask on the layer, or set Alpha Mode to Off."),
-            );
-        }
-        *matte = (!drawn.is_empty()).then_some(drawn);
-    }
-    // An adjustment layer's are found where its stack runs (D-791).
+    // D-830: an adjustment layer's are prepared where its stack runs, from its masks on the frame.
     if !layer.is_adjustment() {
-        fill_sound(project, root, comp, layer, at, masks, &mut effects, frame, log, false);
-    }
-    // D-418: each Fill's masks, chosen as Path Stroke's are (on, with two points, whatever the
-    // mode), as they are at this frame and at the size the effects run at; Fill Mask 0 with All
-    // Masks off is none, the whole layer. Asked for a mask and finding none, the layer is left as
-    // it is and that is said every frame. An adjustment layer's Fill is prepared where its stack
-    // runs (D-786).
-    for instance in effects
-        .iter_mut()
-        .filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment())
-    {
-        if let crate::effects::Effect::Fill {
-            mask,
-            all_masks,
-            paths,
-            ..
-        } = &mut instance.effect
-        {
-            let usable = |n: usize| {
-                masks
-                    .get(n)
-                    .filter(|m| m.enabled && m.points.len() >= 2)
-                    .map(|m| m.outline())
-            };
-            *paths = if all_masks == "on" {
-                Some((0..masks.len()).filter_map(usable).collect::<Vec<_>>())
-                    .filter(|p| !p.is_empty())
-            } else if *mask < 1.0 {
-                Some(Vec::new())
-            } else {
-                usable(mask.floor() as usize - 1).map(|p| vec![p])
-            };
-            if paths.is_none() {
-                let which = if all_masks == "on" {
-                    "no mask that is on with two points or more".to_string()
-                } else {
-                    format!(
-                        "no mask {} that is on with two points or more",
-                        mask.floor()
-                    )
-                };
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    Diagnostic::new(
-                        DiagnosticId::EffectPathMissing,
-                        Severity::Warning,
-                        format!("Layer {}'s Fill has {which} to fill, so it fills nothing.", layer.name),
-                        format!("Frame {frame} is drawn without the fill. The effect is kept as it is."),
-                    )
-                    .with_remediation("Draw a mask on the layer, set Fill Mask to a mask it has, or set it to 0 to fill the whole layer."),
-                );
-            }
-        }
-    }
-    // D-502: each Inner/Outer Key's foreground mask and, when one is named, its background mask,
-    // chosen as Fill's are, as they are at this frame and at the size the effects run at.
-    // Foreground 0 keys nothing and says nothing; a mask named and not found leaves the layer as
-    // it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        if let crate::effects::Effect::InnerOuterKey {
-            foreground,
-            background,
-            paths,
-            ..
-        } = &mut instance.effect
-        {
-            let usable = |n: f64| {
-                masks
-                    .get(n.floor() as usize - 1)
-                    .filter(|m| m.enabled && m.points.len() >= 2)
-                    .map(|m| m.outline())
-            };
-            *paths = None;
-            if *foreground < 1.0 {
-                continue;
-            }
-            let fg = usable(*foreground);
-            let bg = (*background >= 1.0).then(|| usable(*background));
-            let missing = if fg.is_none() {
-                Some(*foreground)
-            } else if let Some(None) = bg {
-                Some(*background)
-            } else {
-                None
-            };
-            if let Some(n) = missing {
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    Diagnostic::new(
-                        DiagnosticId::EffectPathMissing,
-                        Severity::Warning,
-                        format!(
-                            "Layer {}'s Inner/Outer Key has no mask {} that is on with two points or more, so it keys nothing.",
-                            layer.name,
-                            n.floor()
-                        ),
-                        format!("Frame {frame} is drawn without the key. The effect is kept as it is."),
-                    )
-                    .with_remediation("Draw the mask on the layer, or set Foreground and Background to masks it has."),
-                );
-            } else {
-                *paths = fg.map(|f| std::iter::once(f).chain(bg.flatten()).collect());
-            }
-        }
-    }
-    // D-606: each Reshape's source, destination and, when one is named, boundary masks, chosen
-    // as Fill's are, as they are at this frame and at the size the effects run at. A source or
-    // destination of 0 reshapes nothing and says nothing; a mask named and not found leaves the
-    // layer as it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        if let crate::effects::Effect::Reshape {
-            source_mask,
-            destination_mask,
-            boundary_mask,
-            paths,
-            ..
-        } = &mut instance.effect
-        {
-            let usable = |n: f64| {
-                masks
-                    .get(n.floor() as usize - 1)
-                    .filter(|m| m.enabled && m.points.len() >= 2)
-                    .map(|m| m.outline())
-            };
-            *paths = None;
-            let named: Vec<f64> = [*source_mask, *destination_mask, *boundary_mask]
-                .into_iter()
-                .filter(|n| *n >= 1.0)
-                .collect();
-            let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
-            if let Some(i) = found.iter().position(Option::is_none) {
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    Diagnostic::new(
-                        DiagnosticId::EffectPathMissing,
-                        Severity::Warning,
-                        format!("Layer {}'s Reshape has no mask {} that is on with two points or more, so it reshapes nothing.", layer.name, named[i].floor()),
-                        format!("Frame {frame} is drawn without the reshape. The effect is kept as it is."),
-                    )
-                    .with_remediation("Draw the masks on the layer, or set Source, Destination and Boundary Mask to masks it has."),
-                );
-            } else if *source_mask >= 1.0 && *destination_mask >= 1.0 {
-                *paths = Some(found.into_iter().flatten().collect());
-            }
-        }
-    }
-    // D-700: each Liquify's freeze area mask, chosen as Reshape's are; a mask named and not
-    // found is an empty outline, which leaves the layer as it is, and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        if let crate::effects::Effect::Liquify {
-            freeze_area_mask,
-            freeze_path,
-            ..
-        } = &mut instance.effect
-        {
-            *freeze_path = None;
-            if *freeze_area_mask >= 1.0 {
-                let found = masks
-                    .get(freeze_area_mask.floor() as usize - 1)
-                    .filter(|m| m.enabled && m.points.len() >= 2)
-                    .map(|m| m.outline());
-                if found.is_none() {
-                    log.record(
-                        frame,
-                        layer.name.clone(),
-                        Diagnostic::new(
-                            DiagnosticId::EffectPathMissing,
-                            Severity::Warning,
-                            format!("Layer {}'s Liquify has no mask {} that is on with two points or more, so it liquifies nothing.", layer.name, freeze_area_mask.floor()),
-                            format!("Frame {frame} is drawn without the liquify. The effect is kept as it is."),
-                        )
-                        .with_remediation("Draw the mask on the layer, or set Freeze Area Mask to a mask it has, or to 0."),
-                    );
-                }
-                *freeze_path = Some(found.unwrap_or_default());
-            }
-        }
-    }
-    // D-607: each Mask Smear's source and, when one is named, boundary masks, chosen as
-    // Reshape's are. A source of 0 smears nothing and says nothing; a mask named and not found
-    // leaves the layer as it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        if let crate::effects::Effect::MaskSmear {
-            source_mask,
-            boundary_mask,
-            paths,
-            ..
-        } = &mut instance.effect
-        {
-            let usable = |n: f64| {
-                masks
-                    .get(n.floor() as usize - 1)
-                    .filter(|m| m.enabled && m.points.len() >= 2)
-                    .map(|m| m.outline())
-            };
-            *paths = None;
-            let named: Vec<f64> = [*source_mask, *boundary_mask]
-                .into_iter()
-                .filter(|n| *n >= 1.0)
-                .collect();
-            let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
-            if let Some(i) = found.iter().position(Option::is_none) {
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    Diagnostic::new(
-                        DiagnosticId::EffectPathMissing,
-                        Severity::Warning,
-                        format!("Layer {}'s Mask Smear has no mask {} that is on with two points or more, so it smears nothing.", layer.name, named[i].floor()),
-                        format!("Frame {frame} is drawn without the smear. The effect is kept as it is."),
-                    )
-                    .with_remediation("Draw the masks on the layer, or set Source and Boundary Mask to masks it has."),
-                );
-            } else if *source_mask >= 1.0 {
-                *paths = Some(found.into_iter().flatten().collect());
-            }
-        }
-    }
-    // D-442: each Scribble's masks, chosen as Path Stroke's are (on, with two points), with
-    // their modes and whether each is inverted, as they are at this frame and at the size the
-    // effects run at. Finding none, the layer is left as it is and that is said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        if let crate::effects::Effect::Scribble {
-            scribble,
-            mask,
-            masks: chosen,
-            ..
-        } = &mut instance.effect
-        {
-            let usable = |n: usize| {
-                masks
-                    .get(n)
-                    .filter(|m| m.enabled && m.points.len() >= 2)
-                    .map(|m| (m.outline(), m.mode, m.inverted))
-            };
-            let single = scribble == "single_mask";
-            let found: Vec<_> = if single {
-                usable(mask.floor() as usize - 1).into_iter().collect()
-            } else {
-                (0..masks.len()).filter_map(usable).collect()
-            };
-            if found.is_empty() {
-                let which = if single {
-                    format!(
-                        "no mask {} that is on with two points or more",
-                        mask.floor()
-                    )
-                } else {
-                    "no mask that is on with two points or more".to_string()
-                };
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    Diagnostic::new(
-                        DiagnosticId::EffectPathMissing,
-                        Severity::Warning,
-                        format!("Layer {}'s Scribble has {which} to fill, so it draws nothing.", layer.name),
-                        format!("Frame {frame} is drawn without the scribble. The effect is kept as it is."),
-                    )
-                    .with_remediation("Draw a closed mask on the layer, or set Mask to a mask it has."),
-                );
-            }
-            *chosen = (!found.is_empty()).then_some(found);
-        }
-    }
-    // D-613: each Particle Playground's wall, the mask Wall Mask names (1 the first), on and of
-    // three points or more, as it is at this frame and at the size the effects run at. 0 is no
-    // wall and says nothing; a number naming no such mask is no wall, said every frame.
-    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid() && !layer.is_adjustment()) {
-        if let crate::effects::Effect::ParticlePlayground { values, wall, .. } =
-            &mut instance.effect
-        {
-            let n = values[crate::playground::WALL_MASK].floor();
-            *wall = None;
-            if n < 1.0 {
-                continue;
-            }
-            *wall = masks
-                .get(n as usize - 1)
-                .filter(|m| m.enabled && m.points.len() >= 3)
-                .map(|m| m.outline().into_iter().map(|(x, y)| [x, y]).collect());
-            if wall.is_none() {
-                log.record(
-                    frame,
-                    layer.name.clone(),
-                    playground_wall_missing(&layer.name, n, &format!("Frame {frame} is drawn")),
-                );
-            }
-        }
+        prepare_masked(project, root, comp, layer, at, pre, masks, &mut effects, frame, log);
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds
     // the drawing it makes (B-170).
@@ -5298,6 +4772,7 @@ fn resolve_rest(
             on_card: Vec::new(),
             moments: Vec::new(),
             mixed: false,
+            masks: Vec::new(),
         });
     }
     let mut offset = offset;
@@ -5523,6 +4998,7 @@ fn resolve_rest(
             nested: None,
             moments: Vec::new(),
             mixed: false,
+            masks: Vec::new(),
         });
     }
     if let (true, Projection::Behind) = (moments.is_empty(), &camera) {
@@ -5586,6 +5062,7 @@ fn resolve_rest(
         nested: None,
         moments,
         mixed: false,
+        masks: if layer.is_adjustment() { masks.to_vec() } else { Vec::new() },
     })
 }
 
@@ -7794,8 +7271,7 @@ fn fill_passes(
 // at the size the effects run at. No Audio Layer is silence. A mask or a layer that is not
 // there, or a layer that holds no sound, leaves the layer as it is and that is said every
 // frame.
-// D-791: on an adjustment layer (`adjustment`), one that stands along a mask is not drawn, because
-// the adjustment's masks are not carried to the frame beneath, and that is said every frame.
+// D-830: on an adjustment layer, along its masks on the frame beneath.
 #[allow(clippy::too_many_arguments)]
 fn fill_sound(
     project: &Project,
@@ -7807,7 +7283,6 @@ fn fill_sound(
     effects: &mut [crate::effects::EffectInstance],
     frame: i32,
     log: &mut FrameLog,
-    adjustment: bool,
 ) {
     type Hear = Box<dyn Fn(Option<(&crate::audio::Sound, i64, usize, f64)>) -> Vec<f64>>;
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
@@ -7892,14 +7367,6 @@ fn fill_sound(
         };
         *levels = None;
         *outline = None;
-        if path.floor() >= 1.0 && adjustment {
-            log.record(
-                frame,
-                layer.name.clone(),
-                adjustment_mask(&layer.name, &what, &format!("Frame {frame} is drawn without it")),
-            );
-            continue;
-        }
         if path.floor() >= 1.0 {
             match masks
                 .get(path.floor() as usize - 1)
@@ -7966,16 +7433,514 @@ fn fill_sound(
     }
 }
 
-/// D-791: an effect on an adjustment layer that works from the layer's own masks, shapes or text,
-/// which are not carried to the frame beneath, so the frame is drawn `without`.
-fn adjustment_mask(holder: &str, what: &str, without: &str) -> Diagnostic {
-    Diagnostic::new(
-        DiagnosticId::EffectPathMissing,
-        Severity::Warning,
-        format!("Adjustment layer {holder}'s {what} works from a mask, a shape or the text of its own layer, which an effect on an adjustment layer cannot use yet."),
-        format!("{without}. The effect is kept as it is."),
-    )
-    .with_remediation("Put the effect on the layer itself, or precompose the layers beneath and put it on the composition layer.")
+/// The effects that work from the layer's own masks, shapes or text: the paths, mattes, walls
+/// and sound each one draws from, as they are at this frame and at the size the effects run at
+/// (`pre`, the draft divisor). What one asks for and does not find is said every frame. D-830:
+/// an adjustment layer's `masks` are given in the pixels of the frame its stack runs on
+/// ([`in_frame`]), so its effects draw along them on the frame beneath.
+#[allow(clippy::too_many_arguments)]
+fn prepare_masked(
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    at: i32,
+    pre: f64,
+    masks: &[crate::mask::Mask],
+    effects: &mut [crate::effects::EffectInstance],
+    frame: i32,
+    log: &mut FrameLog,
+) {
+    // D-356: each Path Stroke's paths, the masks it names as they are at this frame and at the
+    // size the effects run at: a mask is a path when it is on and has two points, whatever its
+    // mode. D-357: with Path From Shapes, the layer's shapes instead, open or closed as each
+    // says, a shape a path when it is on and has two points, whatever its fill and stroke. D-373:
+    // with Path From Text Outlines, the text layer's outlines as they are drawn at this frame,
+    // every one closed, in reading order. With none, the layer is left as it is and that is said
+    // every frame. D-444: Vegas's the same way, from its Stroke setting. D-508: an Energy Stroke's
+    // paths are found the same way, every one of its kind, unless it runs between its points.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let (mask, all_masks, source, paths, vegas, energy) = match &mut instance.effect {
+            crate::effects::Effect::Stroke {
+                mask,
+                all_masks,
+                source,
+                paths,
+                ..
+            } => (
+                mask.floor(),
+                all_masks == "on",
+                source.as_str(),
+                paths,
+                false,
+                false,
+            ),
+            crate::effects::Effect::Vegas {
+                mask,
+                all_masks,
+                stroke: source,
+                paths,
+                ..
+            } => (
+                mask.floor(),
+                all_masks == "on",
+                source.as_str(),
+                paths,
+                true,
+                false,
+            ),
+            crate::effects::Effect::EnergyStroke { source, paths, .. } if source != "points" => {
+                (1.0, true, source.as_str(), paths, false, true)
+            }
+            _ => continue,
+        };
+        let (from, pick) = if vegas {
+            ("Stroke", "Mask")
+        } else {
+            ("Path From", "Path")
+        };
+        {
+            let (shapes, text) = (source == "shapes", source == "text");
+            let outlines: Vec<Vec<(f64, f64)>> = match &layer.text {
+                Some(words) if text => {
+                    crate::text::outlines(words, &text_animators(comp, layer, at))
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|c| c.into_iter().map(|(x, y)| (x / pre, y / pre)).collect())
+                        .collect()
+                }
+                _ => Vec::new(),
+            };
+            let path = |n: usize| -> Option<(Vec<(f64, f64)>, bool)> {
+                if text {
+                    outlines.get(n).map(|c| (c.clone(), true))
+                } else if shapes {
+                    let s = layer.shapes.get(n)?.placed(&layer.shape_groups, at);
+                    s.is_renderable().then(|| {
+                        (
+                            s.outline()
+                                .into_iter()
+                                .map(|(x, y)| (x / pre, y / pre))
+                                .collect(),
+                            s.closed,
+                        )
+                    })
+                } else {
+                    masks
+                        .get(n)
+                        .filter(|m| m.enabled && m.points.len() >= 2)
+                        .map(|m| (m.path(), m.closed))
+                }
+            };
+            let count = if text {
+                outlines.len()
+            } else if shapes {
+                layer.shapes.len()
+            } else {
+                masks.len()
+            };
+            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks {
+                (0..count).filter_map(path).collect()
+            } else {
+                path(mask as usize - 1).into_iter().collect()
+            };
+            if found.is_empty() {
+                let kind = if shapes { "shape" } else { "mask" };
+                let which = match (text, all_masks) {
+                    (true, true) => "no text outline".to_string(),
+                    (true, false) => format!("no text outline {mask}"),
+                    (false, true) => format!("no {kind} that is on with two points or more"),
+                    (false, false) => {
+                        format!("no {kind} {mask} that is on with two points or more")
+                    }
+                };
+                let (name, what) = if energy {
+                    ("Energy Stroke", "beam")
+                } else if vegas {
+                    ("Vegas", "stroke")
+                } else {
+                    ("Path Stroke", "stroke")
+                };
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s {name} has {which} to draw along, so it draws nothing.", layer.name),
+                        format!("Frame {frame} is drawn without the {what}. The effect is kept as it is."),
+                    )
+                    .with_remediation(if energy {
+                        match source {
+                            "text" => "Put the beam on a text layer whose font is on this computer and type words with letters, or set Path From to Points.",
+                            "shapes" => "Draw a shape on the shape layer, or set Path From to Points.",
+                            _ => "Draw a mask on the layer, or set Path From to Points.",
+                        }
+                        .to_string()
+                    } else if text {
+                        "Put the stroke on a text layer whose font is on this computer, type words with letters, set Path to an outline they have, or set Path From to Masks.".to_string()
+                    } else if shapes {
+                        format!("Draw a shape on the shape layer, set {pick} to a shape it has, or set {from} to Masks.")
+                    } else {
+                        format!("Draw a mask on the layer, or set {pick} to a mask it has.")
+                    }),
+                );
+            }
+            *paths = (!found.is_empty()).then_some(found);
+        }
+    }
+    // D-565: an Energy Stroke's matte, every mask that is drawn whatever its mode, at the size
+    // the effects run at; with none, the beam is drawn uncut and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let crate::effects::Effect::EnergyStroke {
+            alpha_mode, matte, ..
+        } = &mut instance.effect
+        else {
+            continue;
+        };
+        if alpha_mode == "off" {
+            continue;
+        }
+        // D-737: an open mask encloses nothing, so it cuts no matte either.
+        let drawn: Vec<crate::mask::Mask> = masks
+            .iter()
+            .filter(|m| m.is_renderable() && m.closed)
+            .map(|m| crate::mask::Mask {
+                mode: crate::mask::MaskMode::Add,
+                ..m.clone()
+            })
+            .collect();
+        if drawn.is_empty() {
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::EffectPathMissing,
+                    Severity::Warning,
+                    format!("Layer {}'s Energy Stroke has Alpha Mode set and no mask that is on to cut by, so nothing is cut.", layer.name),
+                    format!("Frame {frame} is drawn with the beam uncut. The effect is kept as it is."),
+                )
+                .with_remediation("Draw a mask on the layer, or set Alpha Mode to Off."),
+            );
+        }
+        *matte = (!drawn.is_empty()).then_some(drawn);
+    }
+    fill_sound(project, root, comp, layer, at, masks, effects, frame, log);
+    // D-418: each Fill's masks, chosen as Path Stroke's are (on, with two points, whatever the
+    // mode), as they are at this frame and at the size the effects run at; Fill Mask 0 with All
+    // Masks off is none, the whole layer. Asked for a mask and finding none, the layer is left as
+    // it is and that is said every frame. An adjustment layer's Fill is prepared the same way where
+    // its stack runs (D-786, D-830).
+    for instance in effects
+        .iter_mut()
+        .filter(|i| i.enabled && i.is_valid())
+    {
+        if let crate::effects::Effect::Fill {
+            mask,
+            all_masks,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: usize| {
+                masks
+                    .get(n)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
+            *paths = if all_masks == "on" {
+                Some((0..masks.len()).filter_map(usable).collect::<Vec<_>>())
+                    .filter(|p| !p.is_empty())
+            } else if *mask < 1.0 {
+                Some(Vec::new())
+            } else {
+                usable(mask.floor() as usize - 1).map(|p| vec![p])
+            };
+            if paths.is_none() {
+                let which = if all_masks == "on" {
+                    "no mask that is on with two points or more".to_string()
+                } else {
+                    format!(
+                        "no mask {} that is on with two points or more",
+                        mask.floor()
+                    )
+                };
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Fill has {which} to fill, so it fills nothing.", layer.name),
+                        format!("Frame {frame} is drawn without the fill. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw a mask on the layer, set Fill Mask to a mask it has, or set it to 0 to fill the whole layer."),
+                );
+            }
+        }
+    }
+    // D-502: each Inner/Outer Key's foreground mask and, when one is named, its background mask,
+    // chosen as Fill's are, as they are at this frame and at the size the effects run at.
+    // Foreground 0 keys nothing and says nothing; a mask named and not found leaves the layer as
+    // it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::InnerOuterKey {
+            foreground,
+            background,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: f64| {
+                masks
+                    .get(n.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
+            *paths = None;
+            if *foreground < 1.0 {
+                continue;
+            }
+            let fg = usable(*foreground);
+            let bg = (*background >= 1.0).then(|| usable(*background));
+            let missing = if fg.is_none() {
+                Some(*foreground)
+            } else if let Some(None) = bg {
+                Some(*background)
+            } else {
+                None
+            };
+            if let Some(n) = missing {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!(
+                            "Layer {}'s Inner/Outer Key has no mask {} that is on with two points or more, so it keys nothing.",
+                            layer.name,
+                            n.floor()
+                        ),
+                        format!("Frame {frame} is drawn without the key. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw the mask on the layer, or set Foreground and Background to masks it has."),
+                );
+            } else {
+                *paths = fg.map(|f| std::iter::once(f).chain(bg.flatten()).collect());
+            }
+        }
+    }
+    // D-606: each Reshape's source, destination and, when one is named, boundary masks, chosen
+    // as Fill's are, as they are at this frame and at the size the effects run at. A source or
+    // destination of 0 reshapes nothing and says nothing; a mask named and not found leaves the
+    // layer as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Reshape {
+            source_mask,
+            destination_mask,
+            boundary_mask,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: f64| {
+                masks
+                    .get(n.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
+            *paths = None;
+            let named: Vec<f64> = [*source_mask, *destination_mask, *boundary_mask]
+                .into_iter()
+                .filter(|n| *n >= 1.0)
+                .collect();
+            let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
+            if let Some(i) = found.iter().position(Option::is_none) {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Reshape has no mask {} that is on with two points or more, so it reshapes nothing.", layer.name, named[i].floor()),
+                        format!("Frame {frame} is drawn without the reshape. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw the masks on the layer, or set Source, Destination and Boundary Mask to masks it has."),
+                );
+            } else if *source_mask >= 1.0 && *destination_mask >= 1.0 {
+                *paths = Some(found.into_iter().flatten().collect());
+            }
+        }
+    }
+    // D-700: each Liquify's freeze area mask, chosen as Reshape's are; a mask named and not
+    // found is an empty outline, which leaves the layer as it is, and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Liquify {
+            freeze_area_mask,
+            freeze_path,
+            ..
+        } = &mut instance.effect
+        {
+            *freeze_path = None;
+            if *freeze_area_mask >= 1.0 {
+                let found = masks
+                    .get(freeze_area_mask.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline());
+                if found.is_none() {
+                    log.record(
+                        frame,
+                        layer.name.clone(),
+                        Diagnostic::new(
+                            DiagnosticId::EffectPathMissing,
+                            Severity::Warning,
+                            format!("Layer {}'s Liquify has no mask {} that is on with two points or more, so it liquifies nothing.", layer.name, freeze_area_mask.floor()),
+                            format!("Frame {frame} is drawn without the liquify. The effect is kept as it is."),
+                        )
+                        .with_remediation("Draw the mask on the layer, or set Freeze Area Mask to a mask it has, or to 0."),
+                    );
+                }
+                *freeze_path = Some(found.unwrap_or_default());
+            }
+        }
+    }
+    // D-607: each Mask Smear's source and, when one is named, boundary masks, chosen as
+    // Reshape's are. A source of 0 smears nothing and says nothing; a mask named and not found
+    // leaves the layer as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::MaskSmear {
+            source_mask,
+            boundary_mask,
+            paths,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: f64| {
+                masks
+                    .get(n.floor() as usize - 1)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| m.outline())
+            };
+            *paths = None;
+            let named: Vec<f64> = [*source_mask, *boundary_mask]
+                .into_iter()
+                .filter(|n| *n >= 1.0)
+                .collect();
+            let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
+            if let Some(i) = found.iter().position(Option::is_none) {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Mask Smear has no mask {} that is on with two points or more, so it smears nothing.", layer.name, named[i].floor()),
+                        format!("Frame {frame} is drawn without the smear. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw the masks on the layer, or set Source and Boundary Mask to masks it has."),
+                );
+            } else if *source_mask >= 1.0 {
+                *paths = Some(found.into_iter().flatten().collect());
+            }
+        }
+    }
+    // D-442: each Scribble's masks, chosen as Path Stroke's are (on, with two points), with
+    // their modes and whether each is inverted, as they are at this frame and at the size the
+    // effects run at. Finding none, the layer is left as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Scribble {
+            scribble,
+            mask,
+            masks: chosen,
+            ..
+        } = &mut instance.effect
+        {
+            let usable = |n: usize| {
+                masks
+                    .get(n)
+                    .filter(|m| m.enabled && m.points.len() >= 2)
+                    .map(|m| (m.outline(), m.mode, m.inverted))
+            };
+            let single = scribble == "single_mask";
+            let found: Vec<_> = if single {
+                usable(mask.floor() as usize - 1).into_iter().collect()
+            } else {
+                (0..masks.len()).filter_map(usable).collect()
+            };
+            if found.is_empty() {
+                let which = if single {
+                    format!(
+                        "no mask {} that is on with two points or more",
+                        mask.floor()
+                    )
+                } else {
+                    "no mask that is on with two points or more".to_string()
+                };
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Scribble has {which} to fill, so it draws nothing.", layer.name),
+                        format!("Frame {frame} is drawn without the scribble. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw a closed mask on the layer, or set Mask to a mask it has."),
+                );
+            }
+            *chosen = (!found.is_empty()).then_some(found);
+        }
+    }
+    // D-613: each Particle Playground's wall, the mask Wall Mask names (1 the first), on and of
+    // three points or more, as it is at this frame and at the size the effects run at. 0 is no
+    // wall and says nothing; a number naming no such mask is no wall, said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::ParticlePlayground { values, wall, .. } =
+            &mut instance.effect
+        {
+            let n = values[crate::playground::WALL_MASK].floor();
+            *wall = None;
+            if n < 1.0 {
+                continue;
+            }
+            *wall = masks
+                .get(n as usize - 1)
+                .filter(|m| m.enabled && m.points.len() >= 3)
+                .map(|m| m.outline().into_iter().map(|(x, y)| [x, y]).collect());
+            if wall.is_none() {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    playground_wall_missing(&layer.name, n, &format!("Frame {frame} is drawn")),
+                );
+            }
+        }
+    }
+}
+
+/// D-830: an adjustment layer's `masks`, in its source's pixels, moved onto the frame its stack
+/// runs on by `t`, its transform: each point mapped, each handle turned and scaled with it, and
+/// feather and expansion scaled by the transform's size. A mask moves, turns and scales with its
+/// layer, as After Effects' does; the effects' own distances stay in the frame's pixels, as every
+/// effect on an adjustment layer's do (D-66).
+fn in_frame(masks: &[crate::mask::Mask], t: &Affine) -> Vec<crate::mask::Mask> {
+    let size = (t.a * t.d - t.b * t.c).abs().sqrt();
+    let turn = |(x, y): (f64, f64)| (t.a * x + t.c * y, t.b * x + t.d * y);
+    masks
+        .iter()
+        .map(|m| {
+            let mut m = m.clone();
+            for p in &mut m.points {
+                p.point = t.apply(p.point.0, p.point.1);
+                p.in_handle = turn(p.in_handle);
+                p.out_handle = turn(p.out_handle);
+            }
+            m.feather_px *= size;
+            m.expansion_px *= size;
+            m
+        })
+        .collect()
 }
 
 pub(crate) fn playground_wall_missing(holder: &str, n: f64, when: &str) -> Diagnostic {
