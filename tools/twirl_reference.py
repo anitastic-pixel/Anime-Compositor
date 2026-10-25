@@ -16,12 +16,18 @@ as After Effects gives it, `twirl_radius`, per cent of the drawing's larger side
 After Effects' range). `radius`, pixels, stays: a file from before D-744 holds it, and where it
 is above 0 it is the circle's size, as before; only where it is 0 does `twirl_radius` set it.
 
+D-845 (2026-10-25) fits the fall-off closer still: tutorial pairs from eight creators turn about
+0.04 of the angle more than smoothstep from 0.6 to 1.0 of the reach, and the two cleanest (Jake
+In Motion's grid, AM Film's photo) follow f(u) = (exp(-K u^2) - exp(-K)) / (1 - exp(-K)), with
+u = d / r and K = 2.25, within 0.004 of the angle at every ring. It is still the whole angle at
+the centre and none at the edge.
+
 The rule. With w, h the drawing's own size, c the centre (center_x / 100 * w, center_y / 100 *
 h) in the drawing's own pixels (an earlier effect that grew the layer does not move it) and P a
 pixel's centre: the reach r is radius where radius > 0, else twirl_radius / 100 * max(w, h)
 (twirl_radius 0 where the file has none). Angle 0 or r 0 leaves every pixel as it is. Otherwise
 d = |P - c|; at d >= r the pixel is kept exactly; else t = 1 - d / r,
-beta = radians(angle) t^2 (3 - 2 t), and the output is document 21's bilinear sample of the
+beta = radians(angle) f(d / r) (D-845's fall-off above), and the output is document 21's bilinear sample of the
 layer at c + R(-beta)(P - c), transparent outside the layer, with
 R(b)(x, y) = (x cos b - y sin b, x sin b + y cos b), clockwise on the screen for a positive b.
 Premultiplied red, green, blue and alpha are sampled alike. The layer does not grow; the radius
@@ -66,7 +72,16 @@ NAMES = ("angle", "radius", "center")
 
 # --- the rule -------------------------------------------------------------------------------
 
+K = 2.25  # D-845: fitted on Jake In Motion's and AM Film's twirls (2.23 and 2.27 apart)
+
+
+def falloff(u):
+    """D-845: the share of the angle at u = distance / reach, 1 at the centre, 0 at the edge."""
+    return (math.exp(-K * u * u) - math.exp(-K)) / (1 - math.exp(-K))
+
+
 def smoothstep(t):
+    """D-744's fall-off, kept for the checks that compare against it."""
     return t * t * (3 - 2 * t)
 
 
@@ -86,8 +101,7 @@ def source(px, py, angle, radius, center, w=W, h=H, twirl_radius=0):
     d = math.sqrt(dx * dx + dy * dy)
     if d >= radius:
         return None
-    t = 1 - d / radius
-    b = math.radians(angle) * smoothstep(t)
+    b = math.radians(angle) * falloff(d / radius)
     # c + R(-b)(P - c)
     return (cx + dx * math.cos(b) + dy * math.sin(b), cy - dx * math.sin(b) + dy * math.cos(b))
 
@@ -344,7 +358,7 @@ def check(expected):
     near = lambda a, b, e=1e-12: all(abs(p - q) < e for u, v in zip(a, b)  # noqa: E731
                                      for p, q in zip(u, v))
     dist = lambda x, y, cx=8, cy=5: math.hypot(x + 0.5 - cx, y + 0.5 - cy)  # noqa: E731
-    turn = lambda x, y, angle=90, radius=50: angle * smoothstep(1 - dist(x, y) / radius)  # noqa: E731
+    turn = lambda x, y, angle=90, radius=50: angle * falloff(dist(x, y) / radius)  # noqa: E731
 
     # The rule's own pieces. A positive angle turns the picture clockwise: a pixel right of the
     # centre takes the picture from above it, one below from the right of it.
@@ -352,7 +366,7 @@ def check(expected):
     assert abs(sx - 8) < 1e-12 and abs(sy - 1) < 1e-12
     sx, sy = source(8, 9, 90, 1e300, (50, 50))
     assert abs(sx - 12) < 1e-12 and abs(sy - 5) < 1e-12
-    # The turn is the angle at the centre, falls off as smoothstep of the distance, and the
+    # The turn is the angle at the centre, falls off as D-845's f of the distance, and the
     # distance from the centre is kept.
     assert source(8, 5, 90, 50, (50, 50)) == (8, 5)
     for x in range(W):
@@ -380,7 +394,7 @@ def check(expected):
 
     one = c["FX-TWIRL-001"]["0"]
     assert all(source(x + 0.5, y + 0.5, 90, 50, (50, 50)) for x in range(W) for y in range(H))
-    assert 89.9 < turn(7, 4) < 90 and 82 < turn(0, 0) < 83 and 82 < turn(15, 9) < 83
+    assert 89.9 < turn(7, 4) < 90 and 83 < turn(0, 0) < 84 and 83 < turn(15, 9) < 84
     # The lines bend: the crossing's arms leave column 8 and row 5.
     assert one[at(8, 1)] != drawn[at(8, 1)] and one[at(2, 5)] != drawn[at(2, 5)]
     assert all(one[at(15, y)] == [0.0] * 4 for y in range(H))
@@ -451,6 +465,14 @@ def check(expected):
     assert reach(50, 30) == 50 and reach(0, 30) == 0.3 * 16 and reach(0, 0) == 0
     assert smoothstep(0) == 0 and smoothstep(1) == 1 and smoothstep(0.5) == 0.5
     assert abs(smoothstep(0.25) - 0.15625) < 1e-15  # gentler than t^2's 0.0625 near the edge
+    # D-845: whole at the centre, none at the edge, falling all the way; half the angle at 0.51
+    # of the reach (smoothstep 0.5), and about 0.04 more than smoothstep from 0.6 to 0.9, as
+    # the tutorials measured (Jake In Motion 0.38 and 0.17 at 0.6 and 0.78).
+    assert falloff(0) == 1 and abs(falloff(1)) < 1e-15
+    assert all(falloff(i / 100) > falloff((i + 1) / 100) for i in range(100))
+    assert abs(falloff(0.51) - 0.505) < 0.002
+    assert all(0.02 < falloff(u) - smoothstep(1 - u) < 0.05 for u in (0.6, 0.7, 0.8, 0.9))
+    assert abs(falloff(0.6) - 0.379) < 0.002 and abs(falloff(0.78) - 0.167) < 0.002
     # Grown-layer pixel centres of FX-TWIRL-025 stay clear of its circle, 8 about (4, 2.5).
     assert all(abs(math.hypot(x + 0.5 - 4, y + 0.5 - 2.5) - 8) > 1e-5
                for x in range(-2, W + 2) for y in range(-2, H + 2))
