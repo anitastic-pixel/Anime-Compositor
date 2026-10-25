@@ -3,7 +3,7 @@
 D-95 adds `core.radial_blur`. It smears a layer round a centre, as a camera spinning or zooming
 during the exposure would: each pixel becomes the plain average of samples taken along the arc
 of a circle about the centre through it (spin), or along the line from the centre to it (zoom),
-so a zoom smears the picture outward, away from the centre, as After Effects' does (D-110). `amount` is 0 to 100: the arc in degrees for a spin, and the stretch in per cent of the
+so a zoom smears the picture both ways about each pixel, as After Effects' does (D-838). `amount` is 0 to 100: the arc in degrees for a spin, and the stretch in per cent of the
 distance from the centre for a zoom. `center` is two numbers, per cent of the drawing's width and
 height, 50, 50 its middle. It is this program's own method, modelled on After Effects' Radial
 Blur; nothing is ported. Document 21 is the rule in words; this file is the reference for the
@@ -11,11 +11,12 @@ numbers document 25 pins against it.
 
 The rule. With c the centre in layer pixels, (center_x / 100 * width, center_y / 100 * height)
 of the drawing's own size, p the centre of the output pixel, d = p - c and r = |d|, the path is
-r * amount * pi / 180 for a spin and r * amount / 100 for a zoom, and n = min(ceil(path) + 1,
+r * amount * pi / 180 for a spin and r * amount / 200 for a zoom, and n = min(ceil(path) + 1,
 256). With n = 1 the output is the sample at p. Otherwise, for k = 0 to n - 1, a spin samples at
 c + d turned by -amount / 2 + k * amount / (n - 1) degrees, and a zoom at c + s_k * d with
-s_k = 1 - amount / 100 + k * (amount / 100) / (n - 1): from the pixel back toward the centre
-(D-110; D-95's zoom sampled half each way, 1 - amount / 200 to 1 + amount / 200). The output is (1 / n) times the sum of
+s_k = 1 - amount / 400 + k * (amount / 200) / (n - 1): a quarter of amount per cent either side
+of the pixel (D-838; D-110's ran from 1 - amount / 100 out to the pixel, and D-95's from
+1 - amount / 200 to 1 + amount / 200). The output is (1 / n) times the sum of
 document 21's bilinear samples of the layer there, transparent outside the layer; premultiplied
 red, green, blue and alpha are averaged alike. The layer does not grow: the blur is worked at
 the layer's own pixels only, so nothing is drawn outside it, and an earlier effect that grew the
@@ -77,13 +78,15 @@ def bilinear(layer, x, y, edges="transparent"):
     return out
 
 
-def samples(kind, amount, center, x, y):
-    """Where the pixel (x, y) of layer space is sampled."""
+def samples(kind, amount, center, x, y, centred=False):
+    """Where the pixel (x, y) of layer space is sampled. Radial Blur's own zoom is `centred`
+    (D-838); without it, the outward zoom of D-110 that Light Rays and CC Light Rays keep."""
     cx, cy = center[0] / 100 * W, center[1] / 100 * H
     px, py = x + 0.5, y + 0.5
     dx, dy = px - cx, py - cy
     r = math.sqrt(dx * dx + dy * dy)
-    path = r * amount * math.pi / 180 if kind == "spin" else r * amount / 100
+    span = amount / 200 if centred else amount / 100
+    path = r * amount * math.pi / 180 if kind == "spin" else r * span
     n = min(math.ceil(path) + 1, MOST)
     if n == 1:
         return [(px, py)]
@@ -94,16 +97,16 @@ def samples(kind, amount, center, x, y):
             out.append((cx + dx * math.cos(t) - dy * math.sin(t),
                         cy + dx * math.sin(t) + dy * math.cos(t)))
         else:
-            s = 1 - amount / 100 + k * (amount / 100) / (n - 1)
+            s = 1 - span * (0.5 if centred else 1) + k * span / (n - 1)
             out.append((cx + s * dx, cy + s * dy))
     return out
 
 
-def blurred(layer, kind, amount, center, x, y, edges="transparent"):
+def blurred(layer, kind, amount, center, x, y, edges="transparent", centred=False):
     """The output at the pixel (x, y) of layer space: nothing outside the layer."""
     if not (0 <= x - layer["left"] < layer["w"] and 0 <= y - layer["top"] < layer["h"]):
         return [0.0] * 4
-    at = samples(kind, amount, center, x, y)
+    at = samples(kind, amount, center, x, y, centred)
     total = [0.0] * 4
     for sx, sy in at:
         s = bilinear(layer, sx, sy, edges)
@@ -140,7 +143,7 @@ def render(c, frame_no):
     layer = layer_of(c)
     amount = clamp(value_at(c["amount"], frame_no), AMOUNT)
     center = [clamp(v, CENTER) for v in value_at(c["center"], frame_no)]
-    return [blurred(layer, c["type"], amount, center, x - c["shift"], y)
+    return [blurred(layer, c["type"], amount, center, x - c["shift"], y, centred=True)
             for y in range(H) for x in range(W)]
 
 
@@ -153,22 +156,23 @@ CASES = {
     "FX-RADIAL-001": ("Spin 30 about the middle: every edge smears round the centre, the "
                       "further out the longer, and the middle of the block stays solid.",
                       case(), [0]),
-    "FX-RADIAL-002": ("Zoom 30 about the middle: every edge smears outward, away from the "
-                      "centre, the further out the longer, and nothing smears inward.",
+    "FX-RADIAL-002": ("Zoom 30 about the middle: every edge smears both ways along the line "
+                      "from the centre, inward and outward alike, the further out the longer.",
                       case(kind="zoom"), [0]),
     "FX-RADIAL-003": ("Amount 0: the drawing, untouched.",
                       case(amount=0), [0]),
     "FX-RADIAL-004": ("Spin 30 about the top left corner, centre 0, 0: the smears are arcs about "
                       "that corner, so the far corner smears most.",
                       case(center=(0, 0)), [0]),
-    "FX-RADIAL-005": ("Zoom 30 about centre 25, 50, the point (4, 5): everything smears away "
-                      "from it, the block, right of it, to the right, and the line, left of it, "
-                      "to the left, off the drawing, so columns 1 to 3, between them, stay empty.",
+    "FX-RADIAL-005": ("Zoom 30 about centre 25, 50, the point (4, 5): everything smears along "
+                      "the line from it, the block, right of it, onto column 10, and the line, "
+                      "left of it, onto column 1 and off the drawing, so columns 2 and 3 stay "
+                      "empty.",
                       case(kind="zoom", center=(25, 50)), [0]),
     "FX-RADIAL-006": ("Spin 100, the most: longer arcs than FX-RADIAL-001.",
                       case(amount=100), [0]),
-    "FX-RADIAL-007": ("Zoom 100, the most: each pixel samples all the way from the centre "
-                      "out to itself.",
+    "FX-RADIAL-007": ("Zoom 100, the most: each pixel samples a quarter of its distance from "
+                      "the centre either side of itself.",
                       case(kind="zoom", amount=100), [0]),
     "FX-RADIAL-008": ("Amount keyed from 0 at frame 0 to 40 at frame 4, spin, linear: frame 0 "
                       "untouched, frame 2 spins 20, frame 4 spins 40.",
@@ -274,24 +278,29 @@ def check(expected):
     # hardly sideways where it is level with the centre: under a hundredth.
     assert one[at(0, 1)][3] > 0 and one[at(0, 8)][3] > 0
     assert one[at(1, 4)][3] < 0.01 and one[at(1, 5)][3] < 0.01
-    # Zoom (D-110): outward only. The line, the furthest out, feeds nothing nearer the centre,
-    # so column 1 stays empty, and thins where it stands; the block smears out on both sides,
+    # Zoom (D-838): both ways about each pixel, a quarter of the amount either side. The line,
+    # six and a half pixels out, smears inward onto column 1 as well as outward, but no further:
+    # columns 2 and 3 stay empty. It thins where it stands; the block smears out on both sides,
     # and less past the line's ends than a spin.
-    assert two[at(1, 4)][3] < 1e-9 and two[at(1, 5)][3] < 1e-9
+    assert two[at(1, 4)][3] > 0.2 and two[at(1, 5)][3] > 0.2
+    assert all(two[at(x, y)][3] < 1e-9 for x in (2, 3) for y in range(H))
     assert two[at(0, 4)][3] < 1
     assert two[at(4, 4)][3] > 0 and two[at(10, 4)][3] > 0
     assert two[at(0, 1)][3] < one[at(0, 1)][3]
     assert c["FX-RADIAL-004"]["0"] != one
     # About (4, 5): the line is left of the centre and the block right of it, so a zoom smears
-    # the block onto column 10 and the line off the drawing's left edge, and columns 1 to 3,
-    # whose samples lie between them and the centre, stay empty.
+    # the block onto column 10 and the line both ways, onto column 1 and off the drawing's left
+    # edge, and columns 2 and 3, past either's reach, stay empty.
     five = c["FX-RADIAL-005"]["0"]
-    assert five[at(10, 4)][3] > 0 and five[at(0, 5)][3] < 1
-    assert all(five[at(x, y)][3] < 1e-9 for x in (1, 2, 3) for y in range(H))
+    assert five[at(10, 4)][3] > 0 and five[at(0, 5)][3] < 1 and five[at(1, 4)][3] > 0
+    assert all(five[at(x, y)][3] < 1e-9 for x in (2, 3) for y in range(H))
     # The most smears further: the block's far corner is less covered at 100 than at 30.
     assert c["FX-RADIAL-006"]["0"][at(9, 6)][3] < one[at(9, 6)][3]
-    # A zoom reaches further at 100: (13, 8), four past the block, is reached then and not at 30.
-    assert c["FX-RADIAL-007"]["0"][at(13, 8)][3] > 0 and two[at(13, 8)][3] < 1e-9
+    # A zoom reaches further at 100: (14, 4), past the dot, and (2, 4), inside the line, are
+    # reached then and not at 30.
+    seven = c["FX-RADIAL-007"]["0"]
+    assert seven[at(14, 4)][3] > 0 and two[at(14, 4)][3] < 1e-9
+    assert seven[at(2, 4)][3] > 0 and two[at(2, 4)][3] < 1e-9
     eight, nine = c["FX-RADIAL-008"], c["FX-RADIAL-009"]
     assert eight["0"] == drawn and near(eight["2"], render(case(amount=20), 0))
     assert near(eight["4"], render(case(amount=40), 0))

@@ -127,7 +127,8 @@ def plain(c):
 
 CASES = {
     "FX-SPINZOOM-001": ("Straight zoom 30 about the middle: every edge streaks outward, evenly; "
-                        "Radial Blur's zoom 30, FX-RADIAL-002, exactly.", case(), [0]),
+                        "Radial Blur's zoom 30 as it was before D-838 (D-110's outward zoom), "
+                        "exactly.", case(), [0]),
     "FX-SPINZOOM-002": ("Fading zoom 30: the same streaks, fading as they run out, so the "
                         "drawing itself stays stronger.", case("fading_zoom"), [0]),
     "FX-SPINZOOM-003": ("Centered zoom 30: streaks both outward and inward, half as long each "
@@ -228,7 +229,11 @@ def check(expected):
                             for p, q in zip(u, v))
     radial = json.loads((OUT.parent / "radial_blur" / "expected_radial_blur.json")
                         .read_text(encoding="utf-8"))["cases"]
-    assert near(c["FX-SPINZOOM-001"], radial["FX-RADIAL-002"]["frames"]["0"])
+    # D-838 centred Radial Blur's own zoom; a straight zoom keeps D-110's outward one.
+    outward = RB.layer_of(RB.case(kind="zoom"))
+    assert near(c["FX-SPINZOOM-001"], [RB.blurred(outward, "zoom", 30, (50, 50), x, y)
+                                       for y in range(H) for x in range(W)])
+    assert not near(c["FX-SPINZOOM-001"], radial["FX-RADIAL-002"]["frames"]["0"])
     assert near(c["FX-SPINZOOM-006"], radial["FX-RADIAL-001"]["frames"]["0"])
     for f in ("FX-SPINZOOM-002", "FX-SPINZOOM-003", "FX-SPINZOOM-007", "FX-SPINZOOM-008",
               "FX-SPINZOOM-009", "FX-SPINZOOM-013"):

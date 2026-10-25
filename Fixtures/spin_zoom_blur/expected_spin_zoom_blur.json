@@ -4,7 +4,7 @@
  "height": 10,
  "cases": {
   "FX-SPINZOOM-001": {
-   "says": "Straight zoom 30 about the middle: every edge streaks outward, evenly; Radial Blur's zoom 30, FX-RADIAL-002, exactly.",
+   "says": "Straight zoom 30 about the middle: every edge streaks outward, evenly; Radial Blur's zoom 30 as it was before D-838 (D-110's outward zoom), exactly.",
    "project": "fx_spinzoom_001.json",
    "frames": {
     "0": [

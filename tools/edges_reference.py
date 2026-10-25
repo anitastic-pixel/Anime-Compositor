@@ -92,7 +92,7 @@ def directional(layer, direction, length, edges):
 
 def radial(layer, kind, amount, center, edges):
     """radial_blur_reference's rule: the layer keeps its rectangle."""
-    return dict(layer, px=[R.blurred(layer, kind, amount, center, x, y, edges)
+    return dict(layer, px=[R.blurred(layer, kind, amount, center, x, y, edges, centred=True)
                            for y in range(layer["top"], layer["top"] + layer["h"])
                            for x in range(layer["left"], layer["left"] + layer["w"])])
 
