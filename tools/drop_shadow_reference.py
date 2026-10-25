@@ -58,7 +58,7 @@ from directional_blur_reference import QUARTERS  # noqa: E402
 W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "drop_shadow"
 TOLERANCE = 2e-5  # document 25's default for a filter
-OPACITY, DIRECTION, DISTANCE, SOFTNESS = (0, 100), (-3600, 3600), (0, 1000), (0, 500)
+OPACITY, DIRECTION, DISTANCE, SOFTNESS = (0, 100), (-3600, 3600), (0, 1000), (0, 2000)  # D-829: 500 before
 EMPTY = [0.0] * 4
 
 
@@ -82,19 +82,50 @@ def pixel(layer, x, y):
     return EMPTY
 
 
-def drop_shadow(layer, color, opacity, direction, distance, softness, shadow_only=False):
+def blurred_near(covering, s, x0, y0, x1, y1):
+    """D-829: the same Gaussian sum as `gaussian`, worked only on the pixels x0..x1, y0..y1 of
+    layer space, from the covering's pixels that cover anything. At softness 2000 the reach is
+    1200 pixels and the sum over the whole grown layer would take days; the frame reads a few
+    dozen of its pixels."""
+    r = math.ceil(3 * s)
+    one = [math.exp(-(d * d) / (2 * s * s)) for d in range(-r, r + 1)]
+    total = sum(one)
+    one = [v / total for v in one]
+    shown = [(i % covering["w"] + covering["left"], i // covering["w"] + covering["top"], p[3])
+             for i, p in enumerate(covering["px"]) if p[3]]
+    px = []
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            a = sum(v * one[qx - x + r] * one[qy - y + r]
+                    for qx, qy, v in shown if abs(qx - x) <= r and abs(qy - y) <= r)
+            px.append([0.0, 0.0, 0.0, a])
+    return {"px": px, "left": x0, "top": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1}
+
+
+def drop_shadow(layer, color, opacity, direction, distance, softness, shadow_only=False,
+                window=None):
     """The layer with its shadow behind it, grown by ceil(distance) + the blur's reach; with
-    `shadow_only` (D-760) the shadow alone."""
+    `shadow_only` (D-760) the shadow alone. With `window`, (left, top, w, h) of layer space,
+    only those pixels of it are worked (the frame's), the same numbers."""
     s = softness / 5
     r = math.ceil(3 * s)
     covering = dict(layer, px=[[0.0, 0.0, 0.0, p[3]] for p in layer["px"]])
-    A = gaussian(covering, s, "transparent")
     g = math.ceil(distance) + r
     ux, uy = unit(direction)
     c = [srgb_to_linear(v / 255) for v in R.hex_color(color.lower())]
     k = opacity / 100
     left, top = layer["left"] - g, layer["top"] - g
     w, h = layer["w"] + 2 * g, layer["h"] + 2 * g
+    if window is not None:
+        x0, y0 = max(left, window[0]), max(top, window[1])
+        w = min(left + w, window[0] + window[2]) - x0
+        h = min(top + h, window[1] + window[3]) - y0
+        left, top = x0, y0
+    if r > 30:
+        d = math.ceil(distance) + 1
+        A = blurred_near(covering, s, left - d, top - d, left + w + d, top + h + d)
+    else:
+        A = gaussian(covering, s, "transparent")
     out = []
     for y in range(top, top + h):
         for x in range(left, left + w):
@@ -138,7 +169,8 @@ def frame(layer, shift):
 # --- the cases ------------------------------------------------------------------------------
 
 BLUE_HEX = "#2040a0"
-SHADOW_ONLY = ("FX-SHADOW-024", "FX-SHADOW-025", "FX-SHADOW-027", "FX-SHADOW-028")
+SHADOW_ONLY = ("FX-SHADOW-024", "FX-SHADOW-025", "FX-SHADOW-027", "FX-SHADOW-028",
+               "FX-SHADOW-031", "FX-SHADOW-032", "FX-SHADOW-033")
 
 
 def case(color="#000000", opacity=50, direction=135, distance=5, softness=0, shift=0,
@@ -157,7 +189,8 @@ def render(c, frame_no):
     at = lambda k, r: held(value_at(c[k], frame_no), r)  # noqa: E731
     return frame(drop_shadow(drawn_layer(c["drawing"]), c["color"], at("opacity", OPACITY),
                              at("direction", DIRECTION), at("distance", DISTANCE),
-                             at("softness", SOFTNESS), c["shadow_only"] == "on"), c["shift"])
+                             at("softness", SOFTNESS), c["shadow_only"] == "on",
+                             (-c["shift"], 0, W, H)), c["shift"])
 
 
 def plain(c):
@@ -254,6 +287,20 @@ CASES = {
     "FX-SHADOW-028": ("Shadow Only \"on\" with opacity 0: nothing at all, the frame is empty, "
                       "though the layer still grows.",
                       case(opacity=0, shadow_only="on"), [0]),
+    # D-829: After Effects takes softness 2000 (500 the top before).
+    "FX-SHADOW-031": ("Softness 600, above the old top of 500, Shadow Only \"on\", opacity "
+                      "100, distance 0: blurred at sigma 120, the card's shadow is spread so "
+                      "wide that every pixel of the frame takes a faint, almost even shadow, "
+                      "darkest where the card was.",
+                      case(opacity=100, distance=0, softness=600, shadow_only="on"), [0]),
+    "FX-SHADOW-032": ("Softness 1000, as FX-SHADOW-031: sigma 200, so about (120 / 200)^2, "
+                      "0.36, of its covering at every pixel.",
+                      case(opacity=100, distance=0, softness=1000, shadow_only="on"), [0]),
+    "FX-SHADOW-033": ("Softness 2000, the new top, as FX-SHADOW-031: sigma 400, about a "
+                      "quarter of FX-SHADOW-032's covering at every pixel. On this small frame "
+                      "it is near the tolerance, so B-709 also holds the build to it within a "
+                      "thousandth of each pixel's own value.",
+                      case(opacity=100, distance=0, softness=2000, shadow_only="on"), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -261,7 +308,9 @@ CASES = {
 INVALID = {
     "FX-SHADOW-018": ("Opacity 101, above 100.", case(opacity=101)),
     "FX-SHADOW-019": ("Distance -1, below 0.", case(distance=-1)),
-    "FX-SHADOW-020": ("Softness 501, above 500.", case(softness=501)),
+    # D-829: softness 501 to 2000 is now drawn; the case's first value, 501, is retired.
+    "FX-SHADOW-020": ("Softness 2001, above 2000 (501, above 500, before D-829).",
+                      case(softness=2001)),
     "FX-SHADOW-021": ("Direction 3601, above 3600.", case(direction=3601)),
     "FX-SHADOW-022": ("A colour written \"black\".", case(color="black")),
     "FX-SHADOW-023": ("Opacity keyed to 150 at frame 4.",
@@ -416,6 +465,22 @@ def check(expected):
     assert all(near(p[:3], [b * p[3] for b in blue]) for p in t27)
     assert t27[at(11, 5)][3] > t27[at(13, 5)][3] > 0 == t27[at(2, 5)][3]
     assert c["FX-SHADOW-028"]["0"] == [EMPTY] * (W * H)
+
+    # D-829: softness past 500. The wide blurs, worked only where the frame reads them, are the
+    # whole-layer sum's numbers: at softness 25 (sigma 5, reach 15) both ways agree.
+    card_layer = drawn_layer("card")
+    whole = frame(drop_shadow(card_layer, "#000000", 100, 135, 3, 25, True), 0)
+    covering = dict(card_layer, px=[[0.0, 0.0, 0.0, p[3]] for p in card_layer["px"]])
+    near_a = blurred_near(covering, 5, -4, -4, W + 3, H + 3)
+    sparse = [bilinear(near_a, x + 0.5 - 3 * math.sqrt(0.5), y + 0.5 - 3 * math.sqrt(0.5))[3]
+              for y in range(H) for x in range(W)]
+    assert all(abs(p[3] - q) < 1e-15 for p, q in zip(whole, sparse))
+    wide = [c[f"FX-SHADOW-03{n}"]["0"] for n in (1, 2, 3)]
+    for f in wide:
+        assert all(p[:3] == [0.0, 0.0, 0.0] and p[3] > 0 for p in f)
+        assert f[at(7, 4)][3] == max(p[3] for p in f)  # darkest where the card was
+    for f, g, k in ((wide[0], wide[1], 0.36), (wide[1], wide[2], 0.25)):
+        assert all(abs(q[3] / p[3] - k) < 0.02 for p, q in zip(f, g))
     print("checked")
 
 
