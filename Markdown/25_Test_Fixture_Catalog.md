@@ -634,7 +634,7 @@ FX-EXPR-016: a switched-off expression, and opacity read by another expression. 
 | Spin rotation reading Switched off's opacity | 100 | none |
 | Spin rotation reading Fade's opacity | 50 | none |
 
-FX-EXPR-017: After Effects' Expression Controls read by `effect(...)` (D-766). Every case is `Fixtures/projects/expression_controls_project.json`, the same composition with no camera and five layers: `layer-ctl` Controls, `layer-target` Target at (300, 400), `layer-reader` Reader, `layer-wiggle` Wiggle and `layer-box` Box. Controls holds eight effects, top to bottom: a Slider Control keyed 0 at frame 0 to 100 at frame 48 (linear), a Checkbox Control keyed off at frame 0 and on at frame 24 (hold keys), an Angle Control at 45, a Point Control at (100, 200), a Color Control at (0.25, 0.5, 0.75), a Layer Control naming `layer-target`, a second Slider Control (so named "Slider Control 2") whose Slider carries the expression `time * 10`, and a Gaussian Blur. Each row is Controls' rotation with the expression shown; the last is Reader's own rotation expression, `thisComp.layer("layer-ctl").effect("Slider Control")("Slider")`. Every row reports `none`.
+FX-EXPR-017: After Effects' Expression Controls read by `effect(...)` (D-766). Every case is `Fixtures/projects/expression_controls_project.json`, the same composition with no camera and five layers: `layer-ctl` Controls, `layer-target` Target at (300, 400), `layer-reader` Reader, `layer-wiggle` Wiggle and `layer-box` Box. Controls holds eight effects, top to bottom: a Slider Control keyed 0 at frame 0 to 100 at frame 48 (linear), a Checkbox Control keyed off at frame 0 and on at frame 24 (hold keys), an Angle Control at 45, a Point Control at (100, 200), a Color Control at (0.25, 0.5, 0.75), a Layer Control naming `layer-target`, a second Slider Control (so named "Slider Control 2") whose Slider carries the expression `time * 10`, and a Gaussian Blur. Each row is Controls' rotation with the expression shown; the last is Reader's own rotation expression, `thisComp.layer("layer-ctl").effect("Slider Control")("Slider")`. D-820 adds the three Gaussian Blur rows: any effect's setting, read by a number counting this build's settings from 1, by its name in the file, or by that name written as After Effects writes names. Every row reports `none`.
 
 | Controls rotation expression | frame 0 | frame 12 | frame 24 | frame 48 |
 | --- | --- | --- | --- | --- |
@@ -651,6 +651,9 @@ FX-EXPR-017: After Effects' Expression Controls read by `effect(...)` (D-766). E
 | `effect("Layer Control")("Layer").position[0]` | 300 | 300 | 300 | 300 |
 | `effect("Slider Control 2")("Slider")` | 0 | 5 | 10 | 20 |
 | `effect(7)("Slider") + effect("Slider Control")("Slider")` | 0 | 30 | 60 | 120 |
+| `effect("Gaussian Blur")(1)` | 2 | 2 | 2 | 2 |
+| `effect("Gaussian Blur")("sigma_px") * 10` | 20 | 20 | 20 | 20 |
+| `effect("Gaussian Blur")("Sigma Px").valueAtTime(0)` | 2 | 2 | 2 | 2 |
 | Reader's own expression, from another layer | 0 | 25 | 50 | 100 |
 
 FX-EXPR-018: `if` and `else`, comparisons, `&&`, `||`, `!`, `true` and `false` (D-766), each as Controls' rotation in the same file. `\n` is a line break. The last row is After Effects' one-line form reading the Checkbox Control. Every row reports `none`.
@@ -668,7 +671,7 @@ FX-EXPR-018: `if` and `else`, comparisons, `&&`, `||`, `!`, `true` and `false` (
 | `(0 || 7) + (5 && 0) * 10 + (5 && 6) * 100` | 607 | 607 | 607 | 607 |
 | `if (effect("Checkbox Control")("Checkbox") == 1) 100 else 0` | 0 | 0 | 100 | 100 |
 
-FX-EXPR-019: what is refused, each as Controls' rotation at frame 36 in the same file; the value is the keyed rotation, 0, and the diagnostic follows it. `effect(1)(2)` asks for a second setting the Slider Control does not have; Gaussian Blur is not an Expression Control; `effect("Slider Control")` ends on an effect rather than a number; `if (time < 1) 5` gives nothing after the first second; `y` is given its value only in a branch not taken. In the next-to-last row the second Slider Control's own expression is `effect("Slider Control 2")("Slider") + 1`, and in the last the Layer Control names no layer (`"layer": ""`).
+FX-EXPR-019: what is refused, each as Controls' rotation at frame 36 in the same file; the value is the keyed rotation, 0, and the diagnostic follows it. `effect(1)(2)` asks for a second setting the Slider Control does not have; this Gaussian Blur's one setting is a sigma, `sigma_px`, not After Effects' Blurriness, and it has no second (D-820; before D-820 `effect("Gaussian Blur")(1)` stood here, refused as EXPRESSION_SYNTAX, since no setting but an Expression Control's could be read); `effect("Slider Control")` ends on an effect rather than a number; `if (time < 1) 5` gives nothing after the first second; `y` is given its value only in a branch not taken. In the next-to-last row the second Slider Control's own expression is `effect("Slider Control 2")("Slider") + 1`, and in the last the Layer Control names no layer (`"layer": ""`).
 
 | case | Controls rotation at frame 36 |
 | --- | --- |
@@ -676,7 +679,8 @@ FX-EXPR-019: what is refused, each as Controls' rotation at frame 36 in the same
 | `effect("Slider Control")("Nothing Here")` | 0, EXPRESSION_REFERENCE_MISSING |
 | `effect(99)(1)` | 0, EXPRESSION_REFERENCE_MISSING |
 | `effect(1)(2)` | 0, EXPRESSION_REFERENCE_MISSING |
-| `effect("Gaussian Blur")(1)` | 0, EXPRESSION_SYNTAX |
+| `effect("Gaussian Blur")("Blurriness")` | 0, EXPRESSION_REFERENCE_MISSING |
+| `effect("Gaussian Blur")(2)` | 0, EXPRESSION_REFERENCE_MISSING |
 | `effect("Slider Control")` | 0, EXPRESSION_TYPE |
 | `thisComp.layer("layer-gone").effect(1)(1)` | 0, EXPRESSION_REFERENCE_MISSING |
 | `if (time < 1) 5` | 0, EXPRESSION_TYPE |

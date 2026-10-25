@@ -60,8 +60,17 @@ CONTROLS = {
     "core.color_control": ("Color Control", "ADBE Color Control", "Color", "color", None, None),
     "core.layer_control": ("Layer Control", "ADBE Layer Control", "Layer", "layer", None, None),
 }
-# The display names of the other effects the fixture project holds.
+# The display names of the other effects the fixture project holds. D-820: and their settings,
+# each by its name in the file and the range a number written to it is held in, in this
+# build's order, which `effect(...)(n)` counts from 1.
 OTHER_EFFECTS = {"core.gaussian_blur": "Gaussian Blur"}
+OTHER_SETTINGS = {"core.gaussian_blur": [("sigma_px", 0.0, 500.0)]}
+
+
+def file_name(text):
+    """D-820: a setting's name as After Effects shows it ("Sigma Px") as the file writes it."""
+    s = "".join(c.lower() if c.isalnum() else "_" for c in text)
+    return s.strip("_")
 
 # Which properties an expression may sit on or read, and how many numbers each holds.
 LAYER_PROPS = {"anchor": 2, "position": 2, "scale": 2, "rotation": 1, "opacity": 1, "depth": 1}
@@ -513,7 +522,10 @@ class Run:
     def setting(self, ref, frame):
         """D-766: an Expression Control's setting at a frame, after its own expression."""
         fx = self.project.layers[ref.target]["effects"][ref.index]
-        _, _, _, key_name, lo, hi = CONTROLS[fx["type_id"]]
+        if fx["type_id"] in CONTROLS:
+            _, _, _, key_name, lo, hi = CONTROLS[fx["type_id"]]
+        else:
+            key_name, lo, hi = next(s for s in OTHER_SETTINGS[fx["type_id"]] if s[0] == ref.key)
         prop = ("fx", ref.index, key_name)
         record = self.project.property(ref.target, prop)
         expr = record.get("expression")
@@ -553,8 +565,8 @@ class FxRef:
 
 
 class SettingRef:
-    def __init__(self, target, index):
-        self.target, self.index = target, index
+    def __init__(self, target, index, key=None):
+        self.target, self.index, self.key = target, index, key
 
 
 class PropRef:
@@ -902,10 +914,17 @@ class Scope:
         """D-766: an Expression Control's one setting, by name, match name or the number 1."""
         fx = self.p.layers[fx_ref.target]["effects"][fx_ref.index]
         control = CONTROLS.get(fx["type_id"])
-        if control is None:
-            raise syntax(f"{OTHER_EFFECTS[fx['type_id']]}'s settings cannot be read by an "
-                         f"expression; only Expression Controls' can")
         v = self.one_arg(arg_nodes, "an effect's setting")
+        if control is None:
+            # D-820: any other effect's setting, by its name in the file, that name as After
+            # Effects writes it, or a number counting the settings from 1.
+            names = [s[0] for s in OTHER_SETTINGS[fx["type_id"]]]
+            if isinstance(v, str) and file_name(v) in names:
+                return SettingRef(fx_ref.target, fx_ref.index, file_name(v))
+            if not isinstance(v, str) and float(v).is_integer() and 1 <= v <= len(names):
+                return SettingRef(fx_ref.target, fx_ref.index, names[int(v) - 1])
+            raise ExprError("EXPRESSION_REFERENCE_MISSING",
+                            f"{OTHER_EFFECTS[fx['type_id']]} has no setting {show_arg(v)}")
         if v not in (control[2], f"{control[1]}-0001", 1):
             raise ExprError("EXPRESSION_REFERENCE_MISSING",
                             f"{control[0]} has no setting {show_arg(v)}")
@@ -1397,6 +1416,9 @@ def controls_tables(data):
         'effect("Layer Control")("Layer").position[0]',
         'effect("Slider Control 2")("Slider")',
         'effect(7)("Slider") + effect("Slider Control")("Slider")',
+        'effect("Gaussian Blur")(1)',
+        'effect("Gaussian Blur")("sigma_px") * 10',
+        'effect("Gaussian Blur")("Sigma Px").valueAtTime(0)',
     ]
     table("FX-EXPR-017", ["Controls rotation expression"] + [f"frame {f}" for f in frames],
           [[f"`{t}`"] + [cell(on(t), "layer-ctl", "rotation", f) for f in frames]
@@ -1431,7 +1453,8 @@ def controls_tables(data):
         'effect("Slider Control")("Nothing Here")',
         "effect(99)(1)",
         "effect(1)(2)",
-        'effect("Gaussian Blur")(1)',
+        'effect("Gaussian Blur")("Blurriness")',
+        'effect("Gaussian Blur")(2)',
         'effect("Slider Control")',
         'thisComp.layer("layer-gone").effect(1)(1)',
         "if (time < 1) 5",
