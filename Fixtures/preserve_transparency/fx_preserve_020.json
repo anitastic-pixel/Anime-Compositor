@@ -1,0 +1,510 @@
+{
+ "schema_version": 0,
+ "project_id": "fx-preserve-020",
+ "color_settings": {
+  "working_space": "linear-srgb",
+  "alpha_mode": "premultiplied"
+ },
+ "assets": [],
+ "compositions": [
+  {
+   "id": "comp-main",
+   "name": "comp-main",
+   "width": 10,
+   "height": 8,
+   "pixel_aspect_ratio": 1,
+   "frame_rate": {
+    "numerator": 24,
+    "denominator": 1
+   },
+   "start_frame": 0,
+   "duration_frames": 1,
+   "work_area": {
+    "start_frame": 0,
+    "end_frame_exclusive": 1
+   },
+   "layer_order": [
+    "back-0",
+    "back-1",
+    "back-2",
+    "back-3",
+    "top-0",
+    "top-1",
+    "top-2",
+    "top-3",
+    "adj"
+   ],
+   "layers": [
+    {
+     "id": "back-0",
+     "kind": "solid",
+     "name": "back-0",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.05087608817155679,
+       0.5225215539683921,
+       0.21404114048223255
+      ],
+      "width": 2,
+      "height": 8
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        1.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        1.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 1.0,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "back-1",
+     "kind": "solid",
+     "name": "back-1",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.7874122893956174,
+       0.033104766570885055,
+       0.010022825574869039
+      ],
+      "width": 2,
+      "height": 8
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        1.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        3.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 0.5,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "back-2",
+     "kind": "solid",
+     "name": "back-2",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.010022825574869039,
+       0.07323895587840543,
+       0.8900054069935289
+      ],
+      "width": 2,
+      "height": 8
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        1.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        5.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 1.0,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "back-3",
+     "kind": "solid",
+     "name": "back-3",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.21404114048223255,
+       0.21404114048223255,
+       0.21404114048223255
+      ],
+      "width": 2,
+      "height": 8
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        1.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        7.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 0.25,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "top-0",
+     "kind": "solid",
+     "name": "top-0",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.6038273388553378,
+       0.07323895587840543,
+       0.21404114048223255
+      ],
+      "width": 10,
+      "height": 2
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        5.0,
+        1.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        5.0,
+        1.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 1.0,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "top-1",
+     "kind": "solid",
+     "name": "top-1",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.033104766570885055,
+       0.7874122893956174,
+       0.31854677812509186
+      ],
+      "width": 10,
+      "height": 2
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        5.0,
+        1.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        5.0,
+        3.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 1.0,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "top-2",
+     "kind": "solid",
+     "name": "top-2",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       1.0,
+       0.692071056865372,
+       0.010022825574869039
+      ],
+      "width": 10,
+      "height": 2
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        5.0,
+        1.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        5.0,
+        5.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 1.0,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "top-3",
+     "kind": "solid",
+     "name": "top-3",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "solid": {
+      "color": [
+       0.10048150993772331,
+       0.010022825574869039,
+       0.44798841244188325
+      ],
+      "width": 10,
+      "height": 2
+     },
+     "transform": {
+      "anchor": {
+       "base": [
+        5.0,
+        1.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        5.0,
+        7.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 0.5,
+       "keyframes": []
+      }
+     },
+     "masks": [],
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": []
+    },
+    {
+     "id": "adj",
+     "kind": "adjustment",
+     "name": "adj",
+     "enabled": true,
+     "locked": false,
+     "in_frame": 0,
+     "out_frame": 1,
+     "transform": {
+      "anchor": {
+       "base": [
+        5.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "position": {
+       "base": [
+        5.0,
+        4.0
+       ],
+       "keyframes": []
+      },
+      "scale": {
+       "base": [
+        100,
+        100
+       ],
+       "keyframes": []
+      },
+      "rotation": {
+       "base": 0,
+       "keyframes": []
+      },
+      "opacity": {
+       "base": 1.0,
+       "keyframes": []
+      }
+     },
+     "mask": null,
+     "matte": null,
+     "blend_mode": "normal",
+     "effects": [],
+     "preserve_transparency": true
+    }
+   ]
+  }
+ ]
+}

@@ -222451,3 +222451,27 @@ FX-LMARK-007 (`fx_lmark_007.json`): The layer, with a marker at 12 "hit" 3 frame
 FX-LMARK-008 (`fx_lmark_008.json`): A layer's `markers` that is `null`: read as none, no warning, written back as `null`.
 
 FX-LMARK-009 (`fx_lmark_009.json`): An empty list: none, no warning, written back as `[]`.
+
+### A layer's Preserve Underlying Transparency, the T switch (D-828)
+
+After Effects' T switch (B-708): `tools/preserve_transparency_reference.py` writes `Fixtures/preserve_transparency/expected_preserve_transparency.json` and `fx_preserve_001.json` to `fx_preserve_008.json`, `fx_preserve_020.json` and `fx_preserve_021.json`. Each drawn case is a 10 by 8 composition: five backdrop strips two pixels wide, encoded (0.25, 0.75, 0.5) opaque, (0.9, 0.2, 0.1) at 50 percent, (0.1, 0.3, 0.95) opaque, (0.5, 0.5, 0.5) at 25 percent and columns 8 and 9 clear; above them four strips two pixels tall in the mode, encoded (0.8, 0.3, 0.5), (0.2, 0.9, 0.6), (1, 0.85, 0.1) and (0.35, 0.1, 0.7), the last at 50 percent. Every pixel of frame 0, linear premultiplied, tolerance 2e-5. The rule is in document 21. Checked by `tests/b708_preserve_transparency.rs`.
+
+FX-PRESERVE-001 (`fx_preserve_001.json`): Normal with T: each strip shows only over the backdrop, by its alpha (Cs Ad + Cd (1-As)); columns 8 and 9 stay clear and every pixel keeps the backdrop's alpha. Frames 0.
+
+FX-PRESERVE-002 (`fx_preserve_002.json`): Multiply with T: the multiplied colour where the backdrop is, nothing over the clear columns, the backdrop's alpha kept. Frames 0.
+
+FX-PRESERVE-003 (`fx_preserve_003.json`): Screen with T, the same way. Frames 0.
+
+FX-PRESERVE-004 (`fx_preserve_004.json`): Add with T, the same way. Frames 0.
+
+FX-PRESERVE-005 (`fx_preserve_005.json`): Overlay (D-301, on the encoded colours) with T, the same way. Frames 0.
+
+FX-PRESERVE-006 (`fx_preserve_006.json`): Normal with T and an alpha track matte over columns 0 to 4: the matte cuts the layer first, so columns 5 to 9 are the backdrop as it is. Frames 0.
+
+FX-PRESERVE-007 (`fx_preserve_007.json`): Stencil Alpha with T, one solid over the whole frame at 50%: a stencil draws nothing of its own, so the switch changes nothing; the backdrop is kept at half, as D-301 has it. Frames 0.
+
+FX-PRESERVE-008 (`fx_preserve_008.json`): The same layers with the switch off, as every file before D-828: plain normal over, the strips drawn over the clear columns too. Frames 0.
+
+FX-PRESERVE-020 (`fx_preserve_020.json`): An adjustment layer with T: refused with the reason, as a motion-blur switch on one is (D-188); nothing is drawn without it (document 28). Error `PROJECT_SCHEMA_INVALID`, reason "no preserve_transparency on a null or adjustment layer".
+
+FX-PRESERVE-021 (`fx_preserve_021.json`): A null with T: refused the same way. Error `PROJECT_SCHEMA_INVALID`, reason "no preserve_transparency on a null or adjustment layer".
