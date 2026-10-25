@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **7522 of 7522 checks pass.**
 
-The worst comparison is "the reference shot with Black & White frame 0, Full": largest difference 1 of 255, pixels differing: 33060. Its pictures are in `verification/B-107 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with Black & White frame 0, Full": largest difference 1 of 255, pixels differing: 33065. Its pictures are in `verification/B-107 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 ## Each effect
 
@@ -18,7 +18,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Brightness & Contrast | 226 | 150 | 1 | 226 of 226 |
 | Black & White | 226 | 166 | 1 | 226 of 226 |
 | Posterize | 186 | 126 | 1 | 186 of 186 |
-| Threshold | 186 | 146 | 0 | 186 of 186 |
+| Threshold | 186 | 146 | 1 | 186 of 186 |
 | Channel Mixer | 226 | 150 | 1 | 226 of 226 |
 | Vibrance | 186 | 120 | 1 | 186 of 186 |
 | Leave Color | 226 | 152 | 1 | 226 of 226 |
@@ -4488,11 +4488,11 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_twirl_024 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_024 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_twirl_024 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_twirl_025 frame 0, Full | 1 | 1 | 1 | none | PASS |
-| fx_twirl_025 frame 1, Full | 1 | 1 | 1 | none | PASS |
-| fx_twirl_025 frame 2, Full | 1 | 1 | 1 | none | PASS |
-| fx_twirl_025 frame 3, Full | 1 | 1 | 1 | none | PASS |
-| fx_twirl_025 frame 4, Full | 1 | 1 | 1 | none | PASS |
+| fx_twirl_025 frame 0, Full | 1 | 1 | 4 | none | PASS |
+| fx_twirl_025 frame 1, Full | 1 | 1 | 4 | none | PASS |
+| fx_twirl_025 frame 2, Full | 1 | 1 | 4 | none | PASS |
+| fx_twirl_025 frame 3, Full | 1 | 1 | 4 | none | PASS |
+| fx_twirl_025 frame 4, Full | 1 | 1 | 4 | none | PASS |
 | fx_twirl_025 frame 0, Draft | 1 | 1 | 1 | none | PASS |
 | fx_twirl_025 frame 1, Draft | 1 | 1 | 1 | none | PASS |
 | fx_twirl_025 frame 2, Draft | 1 | 1 | 1 | none | PASS |
@@ -7338,21 +7338,21 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_rain_027 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_rain_027 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_rain_027 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with Invert frame 0, Full | 3 | 1 | 208 | none | PASS |
+| the reference shot with Invert frame 0, Full | 3 | 1 | 205 | none | PASS |
 | the reference shot with Invert frame 100, Full | 3 | 1 | 230 | none | PASS |
-| the reference shot with Invert frame 239, Full | 3 | 1 | 144 | none | PASS |
+| the reference shot with Invert frame 239, Full | 3 | 1 | 143 | none | PASS |
 | the reference shot with Invert frame 0, Draft | 3 | 1 | 1132 | none | PASS |
-| the reference shot with Invert frame 100, Draft | 3 | 1 | 898 | none | PASS |
+| the reference shot with Invert frame 100, Draft | 3 | 1 | 900 | none | PASS |
 | the reference shot with Invert frame 239, Draft | 3 | 1 | 1148 | none | PASS |
-| the reference shot with Brightness & Contrast frame 0, Full | 3 | 1 | 6447 | none | PASS |
-| the reference shot with Brightness & Contrast frame 100, Full | 3 | 1 | 6554 | none | PASS |
-| the reference shot with Brightness & Contrast frame 239, Full | 3 | 1 | 6345 | none | PASS |
+| the reference shot with Brightness & Contrast frame 0, Full | 3 | 1 | 6451 | none | PASS |
+| the reference shot with Brightness & Contrast frame 100, Full | 3 | 1 | 6560 | none | PASS |
+| the reference shot with Brightness & Contrast frame 239, Full | 3 | 1 | 6347 | none | PASS |
 | the reference shot with Brightness & Contrast frame 0, Draft | 3 | 1 | 32 | none | PASS |
 | the reference shot with Brightness & Contrast frame 100, Draft | 3 | 1 | 31 | none | PASS |
 | the reference shot with Brightness & Contrast frame 239, Draft | 3 | 1 | 31 | none | PASS |
-| the reference shot with Black & White frame 0, Full | 3 | 1 | 33060 | none | PASS |
-| the reference shot with Black & White frame 100, Full | 3 | 1 | 30045 | none | PASS |
-| the reference shot with Black & White frame 239, Full | 3 | 1 | 31298 | none | PASS |
+| the reference shot with Black & White frame 0, Full | 3 | 1 | 33065 | none | PASS |
+| the reference shot with Black & White frame 100, Full | 3 | 1 | 30057 | none | PASS |
+| the reference shot with Black & White frame 239, Full | 3 | 1 | 31307 | none | PASS |
 | the reference shot with Black & White frame 0, Draft | 3 | 1 | 418 | none | PASS |
 | the reference shot with Black & White frame 100, Draft | 3 | 1 | 252 | none | PASS |
 | the reference shot with Black & White frame 239, Draft | 3 | 1 | 334 | none | PASS |
@@ -7363,38 +7363,38 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Posterize frame 100, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Posterize frame 239, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Threshold frame 0, Full | 3 | 0 | 0 | none | PASS |
-| the reference shot with Threshold frame 100, Full | 3 | 0 | 0 | none | PASS |
-| the reference shot with Threshold frame 239, Full | 3 | 0 | 0 | none | PASS |
+| the reference shot with Threshold frame 100, Full | 3 | 1 | 1 | none | PASS |
+| the reference shot with Threshold frame 239, Full | 3 | 1 | 1 | none | PASS |
 | the reference shot with Threshold frame 0, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Threshold frame 100, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Threshold frame 239, Draft | 3 | 0 | 0 | none | PASS |
-| the reference shot with Channel Mixer frame 0, Full | 3 | 1 | 4924 | none | PASS |
+| the reference shot with Channel Mixer frame 0, Full | 3 | 1 | 4922 | none | PASS |
 | the reference shot with Channel Mixer frame 100, Full | 3 | 1 | 3121 | none | PASS |
-| the reference shot with Channel Mixer frame 239, Full | 3 | 1 | 3895 | none | PASS |
+| the reference shot with Channel Mixer frame 239, Full | 3 | 1 | 3897 | none | PASS |
 | the reference shot with Channel Mixer frame 0, Draft | 3 | 1 | 145 | none | PASS |
 | the reference shot with Channel Mixer frame 100, Draft | 3 | 1 | 56 | none | PASS |
 | the reference shot with Channel Mixer frame 239, Draft | 3 | 1 | 107 | none | PASS |
 | the reference shot with Vibrance frame 0, Full | 3 | 1 | 2754 | none | PASS |
-| the reference shot with Vibrance frame 100, Full | 3 | 1 | 673 | none | PASS |
-| the reference shot with Vibrance frame 239, Full | 3 | 1 | 942 | none | PASS |
+| the reference shot with Vibrance frame 100, Full | 3 | 1 | 675 | none | PASS |
+| the reference shot with Vibrance frame 239, Full | 3 | 1 | 944 | none | PASS |
 | the reference shot with Vibrance frame 0, Draft | 3 | 1 | 116 | none | PASS |
 | the reference shot with Vibrance frame 100, Draft | 3 | 1 | 39 | none | PASS |
 | the reference shot with Vibrance frame 239, Draft | 3 | 1 | 40 | none | PASS |
-| the reference shot with Leave Color frame 0, Full | 3 | 1 | 3577 | none | PASS |
-| the reference shot with Leave Color frame 100, Full | 3 | 1 | 1471 | none | PASS |
-| the reference shot with Leave Color frame 239, Full | 3 | 1 | 1762 | none | PASS |
+| the reference shot with Leave Color frame 0, Full | 3 | 1 | 3578 | none | PASS |
+| the reference shot with Leave Color frame 100, Full | 3 | 1 | 1470 | none | PASS |
+| the reference shot with Leave Color frame 239, Full | 3 | 1 | 1761 | none | PASS |
 | the reference shot with Leave Color frame 0, Draft | 3 | 1 | 147 | none | PASS |
 | the reference shot with Leave Color frame 100, Draft | 3 | 1 | 74 | none | PASS |
 | the reference shot with Leave Color frame 239, Draft | 3 | 1 | 83 | none | PASS |
 | the reference shot with Solarize frame 0, Full | 3 | 1 | 5716 | none | PASS |
 | the reference shot with Solarize frame 100, Full | 3 | 1 | 4221 | none | PASS |
-| the reference shot with Solarize frame 239, Full | 3 | 1 | 3979 | none | PASS |
+| the reference shot with Solarize frame 239, Full | 3 | 1 | 3980 | none | PASS |
 | the reference shot with Solarize frame 0, Draft | 3 | 1 | 135 | none | PASS |
 | the reference shot with Solarize frame 100, Draft | 3 | 1 | 89 | none | PASS |
-| the reference shot with Solarize frame 239, Draft | 3 | 1 | 62 | none | PASS |
+| the reference shot with Solarize frame 239, Draft | 3 | 1 | 61 | none | PASS |
 | the reference shot with Halftone frame 0, Full | 3 | 0 | 0 | none | PASS |
-| the reference shot with Halftone frame 100, Full | 3 | 0 | 0 | none | PASS |
-| the reference shot with Halftone frame 239, Full | 3 | 0 | 0 | none | PASS |
+| the reference shot with Halftone frame 100, Full | 3 | 1 | 1 | none | PASS |
+| the reference shot with Halftone frame 239, Full | 3 | 1 | 2 | none | PASS |
 | the reference shot with Halftone frame 0, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Halftone frame 100, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Halftone frame 239, Draft | 3 | 0 | 0 | none | PASS |
@@ -7404,9 +7404,9 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Mosaic frame 0, Draft | 3 | 1 | 70 | none | PASS |
 | the reference shot with Mosaic frame 100, Draft | 3 | 1 | 39 | none | PASS |
 | the reference shot with Mosaic frame 239, Draft | 3 | 1 | 50 | none | PASS |
-| the reference shot with Emboss frame 0, Full | 3 | 1 | 12645 | none | PASS |
-| the reference shot with Emboss frame 100, Full | 3 | 1 | 13148 | none | PASS |
-| the reference shot with Emboss frame 239, Full | 3 | 1 | 12500 | none | PASS |
+| the reference shot with Emboss frame 0, Full | 3 | 1 | 12654 | none | PASS |
+| the reference shot with Emboss frame 100, Full | 3 | 1 | 13147 | none | PASS |
+| the reference shot with Emboss frame 239, Full | 3 | 1 | 12480 | none | PASS |
 | the reference shot with Emboss frame 0, Draft | 3 | 1 | 276 | none | PASS |
 | the reference shot with Emboss frame 100, Draft | 3 | 1 | 247 | none | PASS |
 | the reference shot with Emboss frame 239, Draft | 3 | 1 | 235 | none | PASS |
@@ -7418,49 +7418,49 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Find Edges frame 239, Draft | 3 | 1 | 68 | none | PASS |
 | the reference shot with Sharpen frame 0, Full | 3 | 1 | 1171 | none | PASS |
 | the reference shot with Sharpen frame 100, Full | 3 | 1 | 841 | none | PASS |
-| the reference shot with Sharpen frame 239, Full | 3 | 1 | 720 | none | PASS |
+| the reference shot with Sharpen frame 239, Full | 3 | 1 | 721 | none | PASS |
 | the reference shot with Sharpen frame 0, Draft | 3 | 1 | 193 | none | PASS |
 | the reference shot with Sharpen frame 100, Draft | 3 | 1 | 135 | none | PASS |
-| the reference shot with Sharpen frame 239, Draft | 3 | 1 | 133 | none | PASS |
+| the reference shot with Sharpen frame 239, Draft | 3 | 1 | 132 | none | PASS |
 | the reference shot with Diffusion frame 0, Full | 3 | 1 | 869 | none | PASS |
-| the reference shot with Diffusion frame 100, Full | 3 | 1 | 861 | none | PASS |
-| the reference shot with Diffusion frame 239, Full | 3 | 1 | 726 | none | PASS |
+| the reference shot with Diffusion frame 100, Full | 3 | 1 | 862 | none | PASS |
+| the reference shot with Diffusion frame 239, Full | 3 | 1 | 725 | none | PASS |
 | the reference shot with Diffusion frame 0, Draft | 3 | 1 | 69 | none | PASS |
 | the reference shot with Diffusion frame 100, Draft | 3 | 1 | 59 | none | PASS |
 | the reference shot with Diffusion frame 239, Draft | 3 | 1 | 55 | none | PASS |
 | the reference shot with Wave Warp frame 0, Full | 3 | 1 | 2137 | none | PASS |
 | the reference shot with Wave Warp frame 100, Full | 3 | 1 | 953 | none | PASS |
-| the reference shot with Wave Warp frame 239, Full | 3 | 1 | 910 | none | PASS |
+| the reference shot with Wave Warp frame 239, Full | 3 | 1 | 909 | none | PASS |
 | the reference shot with Wave Warp frame 0, Draft | 3 | 1 | 86 | none | PASS |
-| the reference shot with Wave Warp frame 100, Draft | 3 | 1 | 60 | none | PASS |
+| the reference shot with Wave Warp frame 100, Draft | 3 | 1 | 61 | none | PASS |
 | the reference shot with Wave Warp frame 239, Draft | 3 | 1 | 62 | none | PASS |
-| the reference shot with Ripple frame 0, Full | 3 | 1 | 1981 | none | PASS |
-| the reference shot with Ripple frame 100, Full | 3 | 1 | 960 | none | PASS |
+| the reference shot with Ripple frame 0, Full | 3 | 1 | 1982 | none | PASS |
+| the reference shot with Ripple frame 100, Full | 3 | 1 | 959 | none | PASS |
 | the reference shot with Ripple frame 239, Full | 3 | 1 | 776 | none | PASS |
 | the reference shot with Ripple frame 0, Draft | 3 | 1 | 75 | none | PASS |
 | the reference shot with Ripple frame 100, Draft | 3 | 1 | 50 | none | PASS |
-| the reference shot with Ripple frame 239, Draft | 3 | 1 | 47 | none | PASS |
-| the reference shot with Twirl frame 0, Full | 3 | 1 | 3750 | none | PASS |
-| the reference shot with Twirl frame 100, Full | 3 | 1 | 1415 | none | PASS |
-| the reference shot with Twirl frame 239, Full | 3 | 1 | 1739 | none | PASS |
-| the reference shot with Twirl frame 0, Draft | 3 | 1 | 130 | none | PASS |
-| the reference shot with Twirl frame 100, Draft | 3 | 1 | 32 | none | PASS |
-| the reference shot with Twirl frame 239, Draft | 3 | 1 | 49 | none | PASS |
-| the reference shot with Bulge frame 0, Full | 3 | 1 | 3737 | none | PASS |
+| the reference shot with Ripple frame 239, Draft | 3 | 1 | 48 | none | PASS |
+| the reference shot with Twirl frame 0, Full | 3 | 1 | 3743 | none | PASS |
+| the reference shot with Twirl frame 100, Full | 3 | 1 | 1412 | none | PASS |
+| the reference shot with Twirl frame 239, Full | 3 | 1 | 1736 | none | PASS |
+| the reference shot with Twirl frame 0, Draft | 3 | 1 | 128 | none | PASS |
+| the reference shot with Twirl frame 100, Draft | 3 | 1 | 34 | none | PASS |
+| the reference shot with Twirl frame 239, Draft | 3 | 1 | 47 | none | PASS |
+| the reference shot with Bulge frame 0, Full | 3 | 1 | 3735 | none | PASS |
 | the reference shot with Bulge frame 100, Full | 3 | 1 | 1410 | none | PASS |
-| the reference shot with Bulge frame 239, Full | 3 | 1 | 1726 | none | PASS |
+| the reference shot with Bulge frame 239, Full | 3 | 1 | 1728 | none | PASS |
 | the reference shot with Bulge frame 0, Draft | 3 | 1 | 130 | none | PASS |
 | the reference shot with Bulge frame 100, Draft | 3 | 1 | 34 | none | PASS |
 | the reference shot with Bulge frame 239, Draft | 3 | 1 | 49 | none | PASS |
-| the reference shot with Mirror frame 0, Full | 3 | 1 | 5632 | none | PASS |
-| the reference shot with Mirror frame 100, Full | 3 | 1 | 10051 | none | PASS |
-| the reference shot with Mirror frame 239, Full | 3 | 1 | 6004 | none | PASS |
+| the reference shot with Mirror frame 0, Full | 3 | 1 | 5628 | none | PASS |
+| the reference shot with Mirror frame 100, Full | 3 | 1 | 10081 | none | PASS |
+| the reference shot with Mirror frame 239, Full | 3 | 1 | 6008 | none | PASS |
 | the reference shot with Mirror frame 0, Draft | 3 | 1 | 210 | none | PASS |
-| the reference shot with Mirror frame 100, Draft | 3 | 1 | 422 | none | PASS |
+| the reference shot with Mirror frame 100, Draft | 3 | 1 | 423 | none | PASS |
 | the reference shot with Mirror frame 239, Draft | 3 | 1 | 235 | none | PASS |
-| the reference shot with Linear Wipe frame 0, Full | 3 | 1 | 2830 | none | PASS |
+| the reference shot with Linear Wipe frame 0, Full | 3 | 1 | 2828 | none | PASS |
 | the reference shot with Linear Wipe frame 100, Full | 3 | 0 | 0 | none | PASS |
-| the reference shot with Linear Wipe frame 239, Full | 3 | 1 | 538 | none | PASS |
+| the reference shot with Linear Wipe frame 239, Full | 3 | 1 | 540 | none | PASS |
 | the reference shot with Linear Wipe frame 0, Draft | 3 | 1 | 105 | none | PASS |
 | the reference shot with Linear Wipe frame 100, Draft | 3 | 0 | 0 | none | PASS |
 | the reference shot with Linear Wipe frame 239, Draft | 3 | 1 | 17 | none | PASS |
@@ -7470,45 +7470,45 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | the reference shot with Radial Wipe frame 0, Draft | 3 | 1 | 23 | none | PASS |
 | the reference shot with Radial Wipe frame 100, Draft | 3 | 1 | 32 | none | PASS |
 | the reference shot with Radial Wipe frame 239, Draft | 3 | 1 | 30 | none | PASS |
-| the reference shot with Venetian Blinds frame 0, Full | 3 | 1 | 1877 | none | PASS |
+| the reference shot with Venetian Blinds frame 0, Full | 3 | 1 | 1875 | none | PASS |
 | the reference shot with Venetian Blinds frame 100, Full | 3 | 1 | 722 | none | PASS |
-| the reference shot with Venetian Blinds frame 239, Full | 3 | 1 | 930 | none | PASS |
+| the reference shot with Venetian Blinds frame 239, Full | 3 | 1 | 931 | none | PASS |
 | the reference shot with Venetian Blinds frame 0, Draft | 3 | 1 | 79 | none | PASS |
 | the reference shot with Venetian Blinds frame 100, Draft | 3 | 1 | 15 | none | PASS |
 | the reference shot with Venetian Blinds frame 239, Draft | 3 | 1 | 29 | none | PASS |
-| the reference shot with Iris Wipe frame 0, Full | 3 | 1 | 3782 | none | PASS |
+| the reference shot with Iris Wipe frame 0, Full | 3 | 1 | 3781 | none | PASS |
 | the reference shot with Iris Wipe frame 100, Full | 3 | 1 | 1417 | none | PASS |
 | the reference shot with Iris Wipe frame 239, Full | 3 | 1 | 1772 | none | PASS |
 | the reference shot with Iris Wipe frame 0, Draft | 3 | 1 | 128 | none | PASS |
 | the reference shot with Iris Wipe frame 100, Draft | 3 | 1 | 32 | none | PASS |
 | the reference shot with Iris Wipe frame 239, Draft | 3 | 1 | 47 | none | PASS |
-| the reference shot with Simple Choker frame 0, Full | 3 | 1 | 3781 | none | PASS |
+| the reference shot with Simple Choker frame 0, Full | 3 | 1 | 3782 | none | PASS |
 | the reference shot with Simple Choker frame 100, Full | 3 | 1 | 1417 | none | PASS |
-| the reference shot with Simple Choker frame 239, Full | 3 | 1 | 1772 | none | PASS |
+| the reference shot with Simple Choker frame 239, Full | 3 | 1 | 1773 | none | PASS |
 | the reference shot with Simple Choker frame 0, Draft | 3 | 1 | 128 | none | PASS |
 | the reference shot with Simple Choker frame 100, Draft | 3 | 1 | 32 | none | PASS |
 | the reference shot with Simple Choker frame 239, Draft | 3 | 1 | 47 | none | PASS |
 | the reference shot with Speed Lines frame 0, Full | 3 | 1 | 2850 | none | PASS |
 | the reference shot with Speed Lines frame 100, Full | 3 | 1 | 990 | none | PASS |
-| the reference shot with Speed Lines frame 239, Full | 3 | 1 | 1445 | none | PASS |
+| the reference shot with Speed Lines frame 239, Full | 3 | 1 | 1446 | none | PASS |
 | the reference shot with Speed Lines frame 0, Draft | 3 | 1 | 94 | none | PASS |
 | the reference shot with Speed Lines frame 100, Draft | 3 | 1 | 48 | none | PASS |
 | the reference shot with Speed Lines frame 239, Draft | 3 | 1 | 70 | none | PASS |
-| the reference shot with Cross Glare frame 0, Full | 3 | 1 | 2201 | none | PASS |
-| the reference shot with Cross Glare frame 100, Full | 3 | 1 | 733 | none | PASS |
-| the reference shot with Cross Glare frame 239, Full | 3 | 1 | 623 | none | PASS |
+| the reference shot with Cross Glare frame 0, Full | 3 | 1 | 2199 | none | PASS |
+| the reference shot with Cross Glare frame 100, Full | 3 | 1 | 730 | none | PASS |
+| the reference shot with Cross Glare frame 239, Full | 3 | 1 | 622 | none | PASS |
 | the reference shot with Cross Glare frame 0, Draft | 3 | 1 | 100 | none | PASS |
 | the reference shot with Cross Glare frame 100, Draft | 3 | 1 | 48 | none | PASS |
-| the reference shot with Cross Glare frame 239, Draft | 3 | 1 | 27 | none | PASS |
+| the reference shot with Cross Glare frame 239, Draft | 3 | 1 | 26 | none | PASS |
 | the reference shot with Camera Shake frame 0, Full | 3 | 1 | 1735 | none | PASS |
 | the reference shot with Camera Shake frame 100, Full | 3 | 1 | 906 | none | PASS |
-| the reference shot with Camera Shake frame 239, Full | 3 | 1 | 777 | none | PASS |
+| the reference shot with Camera Shake frame 239, Full | 3 | 1 | 779 | none | PASS |
 | the reference shot with Camera Shake frame 0, Draft | 3 | 1 | 58 | none | PASS |
 | the reference shot with Camera Shake frame 100, Draft | 3 | 1 | 58 | none | PASS |
-| the reference shot with Camera Shake frame 239, Draft | 3 | 1 | 67 | none | PASS |
-| the reference shot with Rain frame 0, Full | 3 | 1 | 3721 | none | PASS |
+| the reference shot with Camera Shake frame 239, Draft | 3 | 1 | 68 | none | PASS |
+| the reference shot with Rain frame 0, Full | 3 | 1 | 3719 | none | PASS |
 | the reference shot with Rain frame 100, Full | 3 | 1 | 1414 | none | PASS |
-| the reference shot with Rain frame 239, Full | 3 | 1 | 1759 | none | PASS |
+| the reference shot with Rain frame 239, Full | 3 | 1 | 1761 | none | PASS |
 | the reference shot with Rain frame 0, Draft | 3 | 1 | 124 | none | PASS |
 | the reference shot with Rain frame 100, Draft | 3 | 1 | 39 | none | PASS |
 | the reference shot with Rain frame 239, Draft | 3 | 1 | 49 | none | PASS |

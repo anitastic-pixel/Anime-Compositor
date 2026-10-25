@@ -3424,9 +3424,18 @@ pub(crate) fn ripple(
         });
 }
 
+/// D-845: Twirl's share of the angle at `u` = distance / reach, (e^(-K u^2) - e^(-K)) / (1 - e^(-K))
+/// with K = 2.25: the whole angle at the centre, none at the edge, about 0.04 more than D-744's
+/// smoothstep from 0.6 to 0.9 of the reach, as tutorial After Effects twirls measured.
+pub(crate) fn twirl_falloff(u: f64) -> f64 {
+    const K: f64 = 2.25;
+    let edge = (-K).exp();
+    ((-K * u * u).exp() - edge) / (1.0 - edge)
+}
+
 /// D-151: each pixel within `radius` of `center`, a point in the buffer, read from a place
-/// turned back round it by `angle` degrees times smoothstep of how near the centre it is (D-744,
-/// After Effects' falloff; the square before), so a positive angle twists the picture
+/// turned back round it by `angle` degrees times `twirl_falloff` of its distance over the radius
+/// (D-845; smoothstep under D-744, the square before), so a positive angle twists the picture
 /// clockwise, most at the middle. The settings are already valid.
 pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center: (f64, f64)) {
     if angle == 0.0 || radius <= 0.0 {
@@ -3446,8 +3455,7 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
             if d >= radius {
                 return;
             }
-            let t = 1.0 - d / radius;
-            let (sin, cos) = (turn * t * t * (3.0 - 2.0 * t)).sin_cos();
+            let (sin, cos) = (turn * twirl_falloff(d / radius)).sin_cos();
             let (sx, sy) = (vx * cos + vy * sin, vy * cos - vx * sin);
             px.copy_from_slice(&sample_bilinear(&drawing, center.0 + sx, center.1 + sy));
         });

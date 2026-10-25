@@ -30,7 +30,7 @@ fn b623_twirl() {
         "# B-623: Twirl turns as After Effects' does\n\nD-744, accepted on 2026-10-23 by the \
          owner's message \"Proceed, if an effect is more like a inspiration/modified version of \
          a AE effect, only improve it. But it is to be a 1 to 1 match, then go for it.\" The \
-         turn now eases out with a smoothstep, and a new Twirl Radius gives the reach in per \
+         turn now eases out (a smoothstep, since D-845 the fall-off B-725 fits), and a new Twirl Radius gives the reach in per \
          cent of the layer's larger side, as After Effects' does; Radius in pixels stays for \
          projects made before it. Every expected pixel is \
          `Fixtures/twirl/expected_twirl.json`, written by `tools/twirl_reference.py` before \

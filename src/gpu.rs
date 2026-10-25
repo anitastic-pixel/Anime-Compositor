@@ -2284,6 +2284,17 @@ fn cos_series(r: f64) -> f64 {
         + s * (4.779477332387385e-14lf - s * 1.5619206968586225e-16lf))))))));
 }
 
+// D-845: e^x for x in [-2.25, 0] (Twirl's fall-off): the series of x / 16, squared four times.
+fn exp_small64(x: f64) -> f64 {
+    let y = x / 16.0lf;
+    var e = 1.0lf + y * (1.0lf + y / 2.0lf * (1.0lf + y / 3.0lf * (1.0lf + y / 4.0lf * (1.0lf + y / 5.0lf
+        * (1.0lf + y / 6.0lf * (1.0lf + y / 7.0lf * (1.0lf + y / 8.0lf * (1.0lf + y / 9.0lf))))))));
+    e = e * e;
+    e = e * e;
+    e = e * e;
+    return e * e;
+}
+
 fn turns(n: f64) -> i32 {
     return ((i32(n) % 4) + 4) % 4;
 }
@@ -4516,7 +4527,10 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             let t = 1.0lf - d / k[3];
             if F.mode == 2u {
-                let turn = k[2] * t * t * (3.0lf - 2.0lf * t);
+                // layer_fx::twirl_falloff (D-845), K = 2.25, e^-2.25 = 0.10539922456186433.
+                let u = d / k[3];
+                let turn = k[2] * (exp_small64(-2.25lf * u * u) - 0.10539922456186433lf)
+                    / (1.0lf - 0.10539922456186433lf);
                 let s = sin64(turn);
                 let c = cos64(turn);
                 sx = k[0] + (vx * c + vy * s);

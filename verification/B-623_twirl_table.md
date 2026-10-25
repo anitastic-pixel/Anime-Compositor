@@ -1,6 +1,6 @@
 # B-623: Twirl turns as After Effects' does
 
-D-744, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is more like a inspiration/modified version of a AE effect, only improve it. But it is to be a 1 to 1 match, then go for it." The turn now eases out with a smoothstep, and a new Twirl Radius gives the reach in per cent of the layer's larger side, as After Effects' does; Radius in pixels stays for projects made before it. Every expected pixel is `Fixtures/twirl/expected_twirl.json`, written by `tools/twirl_reference.py` before this code and printed in document 25 as FX-TWIRL-001 to 027. The build's frame is compared sample by sample against the catalogue's tolerance of 2e-5.
+D-744, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is more like a inspiration/modified version of a AE effect, only improve it. But it is to be a 1 to 1 match, then go for it." The turn now eases out (a smoothstep, since D-845 the fall-off B-725 fits), and a new Twirl Radius gives the reach in per cent of the layer's larger side, as After Effects' does; Radius in pixels stays for projects made before it. Every expected pixel is `Fixtures/twirl/expected_twirl.json`, written by `tools/twirl_reference.py` before this code and printed in document 25 as FX-TWIRL-001 to 027. The build's frame is compared sample by sample against the catalogue's tolerance of 2e-5.
 
 ## FX-TWIRL-001 to 027 (document 25)
 
@@ -16,7 +16,7 @@ D-744, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-TWIRL-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TWIRL-005 frame 0: Radius 4: only the pixels whose centres are less than 4 pixels from the middle are turned, the crossing of the two lines swirled; every pixel 4 or more from it is kept exactly. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TWIRL-006 frame 0: Angle 360, radius 8: a whole turn at the very centre, less further out, so the lines wind round the middle; the corners, 8 or more from it, are kept exactly. | largest difference 2.5e-7 | yes |
+| FX-TWIRL-006 frame 0: Angle 360, radius 8: a whole turn at the very centre, less further out, so the lines wind round the middle; the corners, 8 or more from it, are kept exactly. | largest difference 2.9e-7 | yes |
 | FX-TWIRL-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TWIRL-007 frame 0: Angle 3600, the most: ten turns at the centre, the picture wound so tightly that the middle pixels sample it almost at random. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -34,7 +34,7 @@ D-744, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-TWIRL-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TWIRL-012 frame 0: Centre keyed from 50, 50 at frame 0 to 0, 0 at frame 4, linear: frame 0 is FX-TWIRL-001, frame 2 turns about 25, 25, and frame 4 about the top left corner. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-012 frame 2: Centre keyed from 50, 50 at frame 0 to 0, 0 at frame 4, linear: frame 0 is FX-TWIRL-001, frame 2 turns about 25, 25, and frame 4 about the top left corner. | largest difference 2.5e-7 | yes |
-| FX-TWIRL-012 frame 4: Centre keyed from 50, 50 at frame 0 to 0, 0 at frame 4, linear: frame 0 is FX-TWIRL-001, frame 2 turns about 25, 25, and frame 4 about the top left corner. | largest difference 2.0e-7 | yes |
+| FX-TWIRL-012 frame 4: Centre keyed from 50, 50 at frame 0 to 0, 0 at frame 4, linear: frame 0 is FX-TWIRL-001, frame 2 turns about 25, 25, and frame 4 about the top left corner. | largest difference 1.5e-7 | yes |
 | FX-TWIRL-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TWIRL-013 frame 0: Angle eased from 0 at frame 0 to 3600 at frame 4 on a curve that overshoots: at frame 2 it would pass 3600, is held at 3600, and is FX-TWIRL-007; frame 0 is the drawing. | largest difference 1.9e-7 | yes |
 | FX-TWIRL-013 frame 2: Angle eased from 0 at frame 0 to 3600 at frame 4 on a curve that overshoots: at frame 2 it would pass 3600, is held at 3600, and is FX-TWIRL-007; frame 0 is the drawing. | largest difference 2.5e-7 | yes |
@@ -42,7 +42,7 @@ D-744, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-TWIRL-014 frame 0: FX-TWIRL-001 moved three pixels right: the same, moved; the twirl moves with the drawing, and nothing is drawn left of the drawing's edge. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-014 frame 3: FX-TWIRL-001 moved three pixels right: the same, moved; the twirl moves with the drawing, and nothing is drawn left of the drawing's edge. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TWIRL-015 frame 0: A directional blur, direction 90 and length 4, then angle 90 about centre 25, 25: the blur grew the layer two pixels on every side, its grown pixels are turned too, and the centre is still the drawing's own point (4, 2.5), not a point of the grown layer. | largest difference 2.5e-7 | yes |
+| FX-TWIRL-015 frame 0: A directional blur, direction 90 and length 4, then angle 90 about centre 25, 25: the blur grew the layer two pixels on every side, its grown pixels are turned too, and the centre is still the drawing's own point (4, 2.5), not a point of the grown layer. | largest difference 2.9e-7 | yes |
 | FX-TWIRL-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TWIRL-016 frame 0: Angle 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TWIRL-016 frame 4: Angle 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -70,7 +70,7 @@ D-744, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-TWIRL-024 frame 2: Radius 0, twirl radius keyed from 0 at frame 0 to 60 at frame 4, linear: frame 0 the drawing, frame 2 FX-TWIRL-022, and frame 4 a circle of 9.6 pixels. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-024 frame 4: Radius 0, twirl radius keyed from 0 at frame 0 to 60 at frame 4, linear: frame 0 the drawing, frame 2 FX-TWIRL-022, and frame 4 a circle of 9.6 pixels. | largest difference 2.5e-7 | yes |
 | FX-TWIRL-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TWIRL-025 frame 0: FX-TWIRL-015's directional blur, then radius 0, twirl radius 50 about centre 25, 25: the circle is half the drawing's own larger side, 8 pixels, not half the grown layer's 20. | largest difference 2.5e-7 | yes |
+| FX-TWIRL-025 frame 0: FX-TWIRL-015's directional blur, then radius 0, twirl radius 50 about centre 25, 25: the circle is half the drawing's own larger side, 8 pixels, not half the grown layer's 20. | largest difference 2.6e-7 | yes |
 | FX-TWIRL-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TWIRL-026 frame 0: Twirl radius 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TWIRL-026 frame 4: Twirl radius 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
