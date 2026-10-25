@@ -28,8 +28,11 @@ use anime_compositor::{persist, sha256};
 /// Re-taken after D-773 and D-774 (W7), which changed no saving code: they halved Path Stroke's
 /// `brush_size` and raised three Drop Shadows' `softness` in the fixture projects so their pixels
 /// stay put. The hash before them was c66b9656...
+/// Re-taken after D-829 (W8), which changed no saving code: it moved `fx_shadow_020.json`'s
+/// refused softness from 501 to 2001 when the top of the range rose to 2000. The hash before it
+/// was 95f69ad9...
 const FIXTURES_OPENED: usize = 2297;
-const FIXTURES_SAVED: &str = "95f69ad9226bbe68904e9fdad99176dd3928aac66051283897fa781985ea1a18";
+const FIXTURES_SAVED: &str = "89c082f2e1b1bbaaf12f74aea4d32a60fa483a2c5064507135d443bd905e3f0e";
 
 fn repo(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)

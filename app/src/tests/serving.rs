@@ -1174,14 +1174,19 @@ fn an_adjustment_layer_warning_says_so_beside_the_frame() {
     let mut sent = Vec::new();
     for (about, file, note) in [
         (
-            "Fill naming Fill Mask 1 on an adjustment layer (FX-FILLADJ-007)",
-            "Fixtures/fill_adjustment/fx_filladj_007.json",
+            "Fill naming Fill Mask 2 with only one mask, on an adjustment layer (FX-FILLADJ-012)",
+            "Fixtures/fill_adjustment/fx_filladj_012.json",
             "EFFECT_PATH_MISSING",
         ),
         (
-            "Fill with All Masks on, on an adjustment layer (FX-FILLADJ-008)",
+            "Fill naming Fill Mask 1 on an adjustment layer, which D-830 draws (FX-FILLADJ-007)",
+            "Fixtures/fill_adjustment/fx_filladj_007.json",
+            "no note",
+        ),
+        (
+            "Fill with All Masks on, on an adjustment layer, which D-830 draws (FX-FILLADJ-008)",
             "Fixtures/fill_adjustment/fx_filladj_008.json",
-            "EFFECT_PATH_MISSING",
+            "no note",
         ),
         (
             "Fill with Fill Mask 0 on an adjustment layer, which fills the frame (FX-FILLADJ-001)",
@@ -1221,7 +1226,7 @@ fn an_adjustment_layer_warning_says_so_beside_the_frame() {
          `app/src/tests/serving.rs`. Each of D-786's fixtures is opened and the window is asked \
          for frame 0 as the page asks for it. The note is the code part of `x-frame-notes`, \
          which the page lists under the error details and `tools/app_snapshot.py` reads as \
-         `frame_notes`. Before D-821 the first two said nothing beside the frame.\n\n\
+         `frame_notes`. Before D-821 a missing mask said nothing beside the frame; since D-830 an adjustment layer's own masks are used, so only a mask it does not have warns.\n\n\
          | Check | Expected | Got | Result |\n|---|---|---|---|\n",
     );
     for (check, expected, actual) in &rows {
