@@ -8,7 +8,7 @@
 //! `tools/<name>_reference.py` is the same rule worked a second way, and each
 //! `tests/b5x_<name>.rs` holds it to its numbers.
 
-use crate::effects::{blur, kernel_radius};
+use crate::effects::{blur, blur_alpha, kernel_radius};
 use crate::render::sample_bilinear;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -40,6 +40,47 @@ pub(crate) fn disc_runs(radius: f64) -> Vec<(isize, isize)> {
         .collect()
 }
 
+/// D-813: a drawing's covering, its alpha alone, blurred: the alpha of [`blur`] on the drawing
+/// with its colour set to nought, bit for bit, at a quarter of the sums.
+struct Covering {
+    alpha: Vec<f32>,
+    w: usize,
+    h: usize,
+}
+
+fn blurred_covering(source: &WorkingBuffer, sigma: f64) -> Covering {
+    let (w, h) = (source.width(), source.height());
+    let alpha: Vec<f32> = source.data().par_chunks_exact(4).map(|px| px[3]).collect();
+    let (alpha, r) = blur_alpha(&alpha, w, h, sigma);
+    Covering { alpha, w: w + 2 * r, h: h + 2 * r }
+}
+
+impl Covering {
+    /// [`sample_bilinear`]'s alpha at `(x, y)`, summed in its order.
+    fn at(&self, x: f64, y: f64) -> f32 {
+        let (w, h) = (self.w as isize, self.h as isize);
+        let (fx, fy) = (x - 0.5, y - 0.5);
+        let (x0, y0) = (fx.floor(), fy.floor());
+        let (ux, uy) = (fx - x0, fy - y0);
+        let (x0, y0) = (x0 as isize, y0 as isize);
+        let mut out = 0.0f32;
+        for (dy, wy) in [(0isize, 1.0 - uy), (1, uy)] {
+            let sy = y0 + dy;
+            if wy == 0.0 || sy < 0 || sy >= h {
+                continue;
+            }
+            for (dx, wx) in [(0isize, 1.0 - ux), (1, ux)] {
+                let sx = x0 + dx;
+                if wx == 0.0 || sx < 0 || sx >= w {
+                    continue;
+                }
+                out += self.alpha[(sy * w + sx) as usize] * (wx * wy) as f32;
+            }
+        }
+        out
+    }
+}
+
 /// D-115: the drawing's own shape, blurred at sigma `softness` / 5 (D-774; / 3 before), moved `distance` pixels in
 /// `direction`, in `color` (linear, or in display values in 8 bpc, D-763) at `opacity` per cent, laid behind the drawing. The
 /// layer grows by `ceil(distance)` and the blur's reach on every side, returned. The settings
@@ -56,11 +97,7 @@ pub(crate) fn drop_shadow(
     let s = softness / 5.0;
     let r = kernel_radius(s) as isize;
     let g = distance.ceil() as usize + r as usize;
-    let mut covering = source.clone();
-    covering.data_mut().par_chunks_exact_mut(4).for_each(|px| {
-        px[..3].fill(0.0);
-    });
-    blur(&mut covering, s);
+    let covering = blurred_covering(source, s);
     let (ux, uy) = crate::blurs::along(direction);
     let (k, c) = (opacity / 100.0, color);
     let ow = source.width() + 2 * g;
@@ -74,11 +111,10 @@ pub(crate) fn drop_shadow(
                 (i % ow) as isize - g as isize,
                 (i / ow) as isize - g as isize,
             );
-            let a = sample_bilinear(
-                &covering,
+            let a = covering.at(
                 (x + r) as f64 + 0.5 - distance * ux,
                 (y + r) as f64 + 0.5 - distance * uy,
-            )[3] as f64
+            ) as f64
                 * k;
             let d = if shadow_only {
                 [0.0; 4]
@@ -564,11 +600,7 @@ pub(crate) fn rim_light(
     }
     let s = softness / 3.0;
     let r = kernel_radius(s) as f64;
-    let mut covering = source.clone();
-    covering.data_mut().par_chunks_exact_mut(4).for_each(|px| {
-        px[..3].fill(0.0);
-    });
-    blur(&mut covering, s);
+    let covering = blurred_covering(source, s);
     let (ux, uy) = crate::blurs::along(direction);
     let (k, c) = (intensity / 100.0, color.map(crate::grade::to_linear));
     let mix = crate::grade::mixer(blend);
@@ -583,7 +615,7 @@ pub(crate) fn rim_light(
                 return;
             }
             let (x, y) = ((i % w) as f64 + r + 0.5, (i / w) as f64 + r + 0.5);
-            let off = sample_bilinear(&covering, x + width * ux, y + width * uy)[3] as f64;
+            let off = covering.at(x + width * ux, y + width * uy) as f64;
             let rim = (1.0 - off).clamp(0.0, 1.0) * k;
             for j in 0..3 {
                 let b = px[j] as f64 / a;

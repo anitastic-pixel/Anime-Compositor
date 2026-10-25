@@ -21629,6 +21629,22 @@ pub(crate) fn blur_axes(source: &mut WorkingBuffer, taps: &[f32], axes: (bool, b
     radius
 }
 
+/// D-813: [`blur`]'s alpha alone, of a plane of `w` by `h` alphas: the plane grown by the
+/// radius on each side, the same bits as the alpha of [`blur`] on the picture they came from.
+pub(crate) fn blur_alpha(alpha: &[f32], w: usize, h: usize, sigma_px: f64) -> (Vec<f32>, usize) {
+    let taps = gaussian_weights(sigma_px);
+    let radius = taps.len() / 2;
+    if radius == 0 {
+        return (alpha.to_vec(), 0);
+    }
+    let wide_w = w + 2 * radius;
+    let mut wide = vec![0.0f32; wide_w * h];
+    convolve_c::<1>(alpha, w, &mut wide, wide_w, radius, &taps, Axis::X);
+    let mut tall = vec![0.0f32; wide_w * (h + 2 * radius)];
+    convolve_c::<1>(&wide, wide_w, &mut tall, wide_w, radius, &taps, Axis::Y);
+    (tall, radius)
+}
+
 /// D-109: [`blur`] with the edge pixels repeated. Each tap's column, and then its row, is held
 /// inside the picture, so nothing outside it is read and the buffer keeps its size. The taps of
 /// a pixel are added in [`convolve`]'s order.
@@ -21731,29 +21747,43 @@ fn convolve(
     weights: &[f32],
     axis: Axis,
 ) {
-    let row = src_w * 4;
+    convolve_c::<4>(src, src_w, dst, dst_w, radius, weights, axis)
+}
+
+/// D-813: [`convolve`] on pictures of `C` floats a pixel; `C` 1 is a plane of alpha alone,
+/// whose sums are the four-float picture's alpha bit for bit, as each float is summed alone.
+fn convolve_c<const C: usize>(
+    src: &[f32],
+    src_w: usize,
+    dst: &mut [f32],
+    dst_w: usize,
+    radius: usize,
+    weights: &[f32],
+    axis: Axis,
+) {
+    let row = src_w * C;
     let src_h = src.len() / row;
     // Each source row's shown extent, in floats: from its first nonzero sample's pixel to just
     // past its last's. NaN is nonzero, so it is carried as the old loop carried it.
     let extents: Vec<(usize, usize)> = src
         .par_chunks(row)
         .map(|s| {
-            let first = s.iter().position(|&v| v != 0.0).map_or(row, |i| i / 4 * 4);
+            let first = s.iter().position(|&v| v != 0.0).map_or(row, |i| i / C * C);
             let last = s
                 .iter()
                 .rposition(|&v| v != 0.0)
-                .map_or(0, |i| i / 4 * 4 + 4);
+                .map_or(0, |i| i / C * C + C);
             (first, last.max(first))
         })
         .collect();
     let span = 2 * radius;
-    dst.par_chunks_mut(dst_w * 4)
+    dst.par_chunks_mut(dst_w * C)
         .enumerate()
         .for_each(|(y, out)| {
             for (k, &weight) in weights.iter().enumerate() {
                 // The source row and where in `out` its pixel 0 lands.
                 let (sy, at) = match axis {
-                    Axis::X => (y, (span - k) * 4),
+                    Axis::X => (y, (span - k) * C),
                     Axis::Y => match (y + k).checked_sub(span) {
                         Some(sy) if sy < src_h => (sy, 0),
                         _ => continue,
