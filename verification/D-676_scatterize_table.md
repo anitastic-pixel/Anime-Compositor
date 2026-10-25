@@ -137,26 +137,26 @@ B-555, after CycoreFX's CC Scatterize (Simulation): every pixel of the layer tha
 | fx_scatz_022.json, frames [0, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | fx_scatz_023.json, frames [0, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Scatterize as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072695 pixels changed | yes |
-| the reference shot, Scatterize as added on three layers, frame 0, Full | largest difference 1 of 255, 1304 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize as added on three layers, frame 100, Full | largest difference 1 of 255, 1291 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize as added on three layers, frame 239, Full | largest difference 1 of 255, 1255 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize as added on three layers, frame 0, Draft | largest difference 1 of 255, 117 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize as added on three layers, frame 100, Draft | largest difference 1 of 255, 127 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize as added on three layers, frame 239, Draft | largest difference 1 of 255, 122 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize as added on three layers, frame 0, Full | largest difference 1 of 255, 1376 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize as added on three layers, frame 100, Full | largest difference 1 of 255, 1369 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize as added on three layers, frame 239, Full | largest difference 1 of 255, 1329 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize as added on three layers, frame 0, Draft | largest difference 1 of 255, 138 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize as added on three layers, frame 100, Draft | largest difference 1 of 255, 144 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize as added on three layers, frame 239, Draft | largest difference 1 of 255, 139 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
-| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 0, Full | largest difference 1 of 255, 1181 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 100, Full | largest difference 1 of 255, 1203 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 239, Full | largest difference 1 of 255, 1148 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 0, Draft | largest difference 1 of 255, 118 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 100, Draft | largest difference 1 of 255, 120 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 239, Draft | largest difference 1 of 255, 119 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 0, Full | largest difference 1 of 255, 1259 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 100, Full | largest difference 1 of 255, 1305 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 239, Full | largest difference 1 of 255, 1243 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 0, Draft | largest difference 1 of 255, 149 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 100, Draft | largest difference 1 of 255, 149 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount 300, the right edge turned edge-on, screened on three layers, frame 239, Draft | largest difference 1 of 255, 151 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073449 pixels changed | yes |
-| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 0, Full | largest difference 1 of 255, 1119 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 100, Full | largest difference 1 of 255, 1070 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 239, Full | largest difference 1 of 255, 1055 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 0, Draft | largest difference 1 of 255, 43 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 100, Draft | largest difference 1 of 255, 113 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 239, Draft | largest difference 1 of 255, 115 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 0, Full | largest difference 1 of 255, 1134 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 100, Full | largest difference 1 of 255, 1155 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 239, Full | largest difference 1 of 255, 1173 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 0, Draft | largest difference 1 of 255, 50 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 100, Draft | largest difference 1 of 255, 137 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Scatterize Amount keyed 0 to 600, the ends twisted opposite ways, Alpha Add on three layers, frame 239, Draft | largest difference 1 of 255, 163 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures (verification/D-676 pictures)
 

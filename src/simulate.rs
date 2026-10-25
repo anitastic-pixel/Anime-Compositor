@@ -1763,54 +1763,58 @@ fn scatter_mode(e: &Effect) -> usize {
         .unwrap_or(0)
 }
 
-/// D-676: the card's list for Scatterize on a drawing `w0` by `h0` at `(ox, oy)` in a buffer
-/// `bw` by `bh`: k[1] the transfer mode, k[2] and k[3] the drawing's size, k[6] the count; the
-/// dots from 7, three each, `[x, y, n]`, farthest first; then each 16 by 16 tile's start and the
-/// lists, every dot in each tile it can cover, in order.
+/// D-676, D-801: the card's lists for Scatterize on a drawing `w0` by `h0` at `(ox, oy)` in a
+/// buffer `bw` by `bh`. `k`: k[1] the transfer mode, k[2] and k[3] the drawing's size, then from
+/// 7 each 16 by 16 tile's start in the entries and the end. The entries, three single-precision
+/// numbers each, every dot in each tile it can cover, farthest first: `[x, y, n]`, x and y the
+/// dot's centre from the tile's corner in the drawing's pixels (small, so single precision holds
+/// them to about 1e-6 of a pixel), n the pixel j w + i the dot came from, as its bits.
 pub(crate) fn scatterize_list(
     e: &Effect,
     (w0, h0): (usize, usize),
     (ox, oy): (usize, usize),
     (bw, bh): (usize, usize),
-) -> Vec<f64> {
+) -> (Vec<f64>, Vec<f32>) {
     let dots = scatter_dots(e, w0, h0);
     let (tw, th) = (bw.div_ceil(TILE), bh.div_ceil(TILE));
-    let tiles = |&(x, y, _): &(f64, f64, usize)| {
-        let ((x0, x1), (y0, y1)) = (scatter_reach(x, w0)?, scatter_reach(y, h0)?);
-        Some((
-            (x0 + ox) / TILE..=(x1 + ox) / TILE,
-            (y0 + oy) / TILE..=(y1 + oy) / TILE,
-        ))
-    };
-    let mut starts = vec![0usize; tw * th + 1];
-    for (cols, rows) in dots.iter().filter_map(tiles) {
-        for t in rows.flat_map(|ty| cols.clone().map(move |tx| ty * tw + tx)) {
-            starts[t + 1] += 1;
-        }
-    }
-    for t in 0..tw * th {
-        starts[t + 1] += starts[t];
-    }
-    let mut list = vec![0.0; starts[tw * th]];
-    let mut fill = starts.clone();
-    for (n, d) in dots.iter().enumerate() {
-        if let Some((cols, rows)) = tiles(d) {
-            for t in rows.flat_map(|ty| cols.clone().map(move |tx| ty * tw + tx)) {
-                list[fill[t]] = n as f64;
-                fill[t] += 1;
-            }
-        }
-    }
-    let mut k = vec![0.0; HEAD];
+    // Each dot's tiles, as (tile, dot) pairs in dot order; sorted by tile, each tile's dots stay
+    // farthest first.
+    let mut pairs: Vec<(u32, u32)> = dots
+        .par_iter()
+        .enumerate()
+        .flat_map_iter(|(n, &(x, y, _))| {
+            let reach = scatter_reach(x, w0).zip(scatter_reach(y, h0));
+            reach.into_iter().flat_map(move |((x0, x1), (y0, y1))| {
+                ((y0 + oy) / TILE..=(y1 + oy) / TILE).flat_map(move |ty| {
+                    ((x0 + ox) / TILE..=(x1 + ox) / TILE)
+                        .map(move |tx| ((ty * tw + tx) as u32, n as u32))
+                })
+            })
+        })
+        .collect();
+    pairs.par_sort_unstable();
+    let mut k = vec![0.0; HEAD + tw * th + 1];
     k[1] = scatter_mode(e) as f64;
     k[2] = w0 as f64;
     k[3] = h0 as f64;
-    k[6] = dots.len() as f64;
-    k.reserve(3 * dots.len() + starts.len() + list.len());
-    k.extend(dots.iter().flat_map(|&(x, y, n)| [x, y, n as f64]));
-    k.extend(starts.iter().map(|&s| s as f64));
-    k.extend(list);
-    k
+    let mut at = 0;
+    for t in 0..=tw * th {
+        while at < pairs.len() && (pairs[at].0 as usize) < t {
+            at += 1;
+        }
+        k[HEAD + t] = at as f64;
+    }
+    let mut list = vec![0.0f32; 3 * pairs.len()];
+    list.par_chunks_exact_mut(3)
+        .zip(&pairs)
+        .for_each(|(o, &(t, n))| {
+            let (x, y, from) = dots[n as usize];
+            let (tx, ty) = (t as usize % tw, t as usize / tw);
+            o[0] = (x - (tx * TILE) as f64 + ox as f64) as f32;
+            o[1] = (y - (ty * TILE) as f64 + oy as f64) as f32;
+            o[2] = f32::from_bits(from as u32);
+        });
+    (k, list)
 }
 
 /// D-676: Scatterize, after CycoreFX's CC Scatterize (document 21): every pixel of the drawing

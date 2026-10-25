@@ -7921,10 +7921,11 @@ fn foam(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // D-676, simulate::scatterize, a pixel a thread (k: k[1] the transfer mode, k[2] and k[3] the
-// drawing's size, k[6] the count, the dots from 7, three each and not sprites, [x, y, n] in the
-// drawing's own pixels, n the pixel j w + i the dot came from, farthest first, then each tile's
-// start and the lists): every dot within 1 of the pixel centre, its colour the drawing's at n,
-// laid onto clear in order by the transfer mode. Clear outside the drawing.
+// drawing's size, from 7 each tile's start in `row` and the end; `row` three numbers an entry,
+// [x, y, n], every dot in the tile it can cover, farthest first, x and y from the tile's corner
+// in the drawing's pixels, n the pixel j w + i the dot came from, as bits): every dot within 1 of
+// the pixel centre, its colour the drawing's at n, laid onto clear in order by the transfer mode.
+// Clear outside the drawing. D-801: in single precision, as the card keeps the picture.
 @compute @workgroup_size(16, 16)
 fn scatterize(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -7932,43 +7933,40 @@ fn scatterize(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let tw = (size.x + 15u) / 16u;
-    let nt = tw * ((size.y + 15u) / 16u);
     let t = (id.y / 16u) * tw + id.x / 16u;
-    let o = 7u + u32(k[6]) * 3u;
     let px = i32(id.x) - F.ox;
     let py = i32(id.y) - F.oy;
-    var d = vec4(0.0lf);
+    var d = vec4(0.0);
     if px >= 0 && py >= 0 && f64(px) < k[2] && f64(py) < k[3] {
         let w0 = u32(k[2]);
-        let x = f64(px) + 0.5lf;
-        let y = f64(py) + 0.5lf;
-        let mode = k[1];
-        for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
-            let s = 7u + u32(k[o + nt + 1u + j]) * 3u;
-            let dx = x - k[s];
-            let dy = y - k[s + 1u];
-            let c = clamp(1.0lf - sqrt(dx * dx + dy * dy), 0.0lf, 1.0lf);
-            if c <= 0.0lf {
+        let x = f32(id.x % 16u) + 0.5;
+        let y = f32(id.y % 16u) + 0.5;
+        let mode = u32(k[1]);
+        for (var j = u32(k[7u + t]); j < u32(k[8u + t]); j++) {
+            let dx = x - row[3u * j];
+            let dy = y - row[3u * j + 1u];
+            let c = clamp(1.0 - sqrt(dx * dx + dy * dy), 0.0, 1.0);
+            if c <= 0.0 {
                 continue;
             }
-            let n = u32(k[s + 2u]);
-            let col = vec4<f64>(at(input, vec2<i32>(i32(n % w0) + F.ox, i32(n / w0) + F.oy)));
-            if col.w <= 0.0lf {
+            let n = bitcast<u32>(row[3u * j + 2u]);
+            let col = at(input, vec2<i32>(i32(n % w0) + F.ox, i32(n / w0) + F.oy));
+            if col.w <= 0.0 {
                 continue;
             }
             let sc = col * c;
-            if mode == 1.0lf {
+            if mode == 1u {
                 d = sc + d - sc * d;
-            } else if mode == 2.0lf {
-                d = vec4(sc.xyz + d.xyz, sc.w + d.w * (1.0lf - sc.w));
-            } else if mode == 3.0lf {
-                d = vec4(sc.xyz + d.xyz, min(1.0lf, sc.w + d.w));
+            } else if mode == 2u {
+                d = vec4(sc.xyz + d.xyz, sc.w + d.w * (1.0 - sc.w));
+            } else if mode == 3u {
+                d = vec4(sc.xyz + d.xyz, min(1.0, sc.w + d.w));
             } else {
-                d = sc + d * (1.0lf - sc.w);
+                d = sc + d * (1.0 - sc.w);
             }
         }
     }
-    textureStore(output, id.xy, vec4<f32>(d));
+    textureStore(output, id.xy, d);
 }
 
 // D-677, simulate::star_burst, a pixel a thread (k as simulate::star_list has it: k[0] the share
@@ -13202,7 +13200,7 @@ impl Gpu {
                 mercury: pass("mercury", &[0, 1, 2, 3]),
                 shards: pass("shards", &[0, 1, 2, 3]),
                 foam: pass("foam", &[0, 1, 2, 3]),
-                scatterize: pass("scatterize", &[0, 1, 2, 3]),
+                scatterize: pass("scatterize", &[0, 1, 2, 3, 5]),
                 star_burst: pass("star_burst", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
@@ -20274,7 +20272,16 @@ impl Gpu {
                 if w0 == 0 || h0 == 0 {
                     return (still.clone(), (w, h));
                 }
-                let k = crate::simulate::scatterize_list(e, (w0, h0), (ox, oy), (w, h));
+                let (k, list) = crate::simulate::scatterize_list(e, (w0, h0), (ox, oy), (w, h));
+                // A binding cannot be empty on the card; an unread entry stands in.
+                let list = if list.is_empty() { vec![0.0; 3] } else { list };
+                let entries = self
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("D-801 scatterize entries"),
+                        contents: bytemuck::cast_slice(&list),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
                 let p = FxParams {
                     ox: ox as i32,
                     oy: oy as i32,
@@ -20289,7 +20296,7 @@ impl Gpu {
                     Some(&out),
                     Some(&k),
                     None,
-                    [None; 5],
+                    [Some(&entries)],
                     tiles(w, h),
                 );
                 (out, (w, h))
@@ -24639,11 +24646,11 @@ impl Gpu {
                                     + 12.0)
                                     * 8.0) as u64
                             }
-                            // D-676: Scatterize's dots, one a pixel, three numbers each and a
-                            // place in up to four tiles' lists, and its tiles' starts.
+                            // D-676, D-801: Scatterize's dots, one a pixel, in up to four
+                            // tiles' lists, three single numbers an entry, and its tiles' starts.
                             crate::effects::Effect::Scatterize { .. } => {
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
-                                ((7.0 + 7.0 * (w * h) as f64 + tiles + 1.0) * 8.0) as u64
+                                ((7.0 + tiles + 1.0) * 8.0 + 48.0 * (w * h) as f64) as u64
                             }
                             // D-677: Star Burst's stars, one a grid point, STRIDE numbers each
                             // and a place in the lists of the tiles the nearest star could
