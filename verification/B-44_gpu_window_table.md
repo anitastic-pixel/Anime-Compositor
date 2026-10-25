@@ -16,7 +16,7 @@ Written by `cargo test -p anime_compositor_app`. The reference shot, through `se
 | and the viewer has no processor note beside it | no note | no note | PASS |
 | an Echo put before the blur, which only the processor draws: still drawn on the GPU | GPU | GPU | PASS |
 | and the viewer's note names it | partly on the processor (Echo) | partly on the processor (Echo) | PASS |
-| the blur in an 8 bpc composition, whose layers D-763 lays together on the CPU only: the CPU draws it and says so | CPU, not GPU | CPU, not GPU | PASS |
+| the blur in an 8 bpc composition, which D-808 draws on the card in 8 bpc's own order: the card draws it | GPU | GPU | PASS |
 | choosing CPU goes back to the CPU | CPU | CPU | PASS |
 | and says so | The preview is drawn on the CPU. | The preview is drawn on the CPU. | PASS |
 | choosing Auto says the card is used whenever it can be | yes | yes | PASS |
