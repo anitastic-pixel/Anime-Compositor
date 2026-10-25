@@ -538,3 +538,100 @@ fn perf_audit_stages() {
         }
     }
 }
+
+/// B-688 (D-808): every effect in 8 bpc (After Effects), as added and heavy, frames 30 and 120 at
+/// Draft and Full, drawn by the processor and by the card, each pixel's largest channel
+/// difference in levels of 255. D-808's bar: within 1 level on at least 99.9% of an effect's
+/// pixels and within 2 everywhere. Run deliberately with
+/// `cargo test --release -p anime_compositor_app perf_audit_eight -- --ignored --nocapture`; it
+/// writes `verification/B-688_eight_card_settings_table.md` (or `B688_OUT`).
+#[test]
+#[ignore = "B-688: a measurement, run deliberately with --release --ignored"]
+fn perf_audit_eight() {
+    let out = std::env::var("B688_OUT").map(PathBuf::from).unwrap_or_else(|_| {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../verification/B-688_eight_card_settings_table.md")
+    });
+    let only: Option<Vec<String>> = std::env::var("W7_ONLY")
+        .ok()
+        .map(|s| s.split(',').map(str::to_string).collect());
+    let mut gpu = Gpu::new().expect("a usable card");
+    let mut cache = CelCache::with_budget(8 << 30);
+    let mut s = format!(
+        "# B-688 (D-808): 8 bpc (After Effects) on the card against the processor, W7's settings\n\n\
+         - Card: {}\n- Shot: W7's, the reference shot at 1920 by 1080 with the effect on layer-2, \
+         set to 8 bpc; frames 30 and 120, Draft and Full\n- Bar (D-808): at most 1 level of 255 on \
+         at least 99.9% of pixels, at most 2 anywhere\n\n\
+         | Effect | Setting | On the card (Draft/Full) | Largest | Pixels over 1 | Pixels over 2 | \
+         Within 1 | Bar |\n|---|---|---|---:|---:|---:|---:|---|\n",
+        gpu.about(),
+    );
+    let (mut rows, mut met) = (0, 0);
+    let mut list: Vec<Option<&str>> = vec![None];
+    list.extend(ids().into_iter().map(Some));
+    for id in list {
+        let name = id.unwrap_or("(none)");
+        if only.as_ref().is_some_and(|o| !o.iter().any(|x| x == name)) {
+            continue;
+        }
+        let (viewer, fx) = with_effect(id);
+        let viewer = Mutex::new(viewer);
+        for pass in 0..2 {
+            let setting = if pass == 0 {
+                "as added".to_string()
+            } else {
+                let Some(fx) = &fx else { break };
+                let h = heavy(&viewer, fx);
+                if h.is_empty() {
+                    break;
+                }
+                h
+            };
+            let (project, comp, root) = {
+                let held = viewer.lock().unwrap();
+                (held.document.project().clone(), held.composition.clone(), held.root.clone())
+            };
+            let eight = eight_bpc(&project);
+            let card = |q| if on_card(&eight, &comp, &root, q) { "card" } else { "CPU" };
+            let taken = format!("{}/{}", card(PreviewQuality::Draft), card(PreviewQuality::Full));
+            let (mut largest, mut over1, mut over2, mut all) = (0u8, 0usize, 0usize, 0usize);
+            for q in [PreviewQuality::Draft, PreviewQuality::Full] {
+                for frame in [30, 120] {
+                    let mut log = FrameLog::new(3);
+                    let cpu = preview::preview_frame_cached(
+                        &eight, &comp, frame, &root, q, DEFAULT_TILE_SIZE, &mut log, &mut cache,
+                    )
+                    .expect("CPU frame")
+                    .to_srgb8_straight();
+                    gpu.forget();
+                    let mut log = FrameLog::new(3);
+                    let (on, ..) = preview::preview_frame_srgb8(
+                        &eight, &comp, frame, &root, q, DEFAULT_TILE_SIZE, &mut log, &mut cache,
+                        &mut gpu,
+                    )
+                    .expect("card frame");
+                    for (a, b) in cpu.chunks_exact(4).zip(on.chunks_exact(4)) {
+                        let d = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+                        largest = largest.max(d);
+                        over1 += (d > 1) as usize;
+                        over2 += (d > 2) as usize;
+                        all += 1;
+                    }
+                }
+            }
+            let within = 100.0 * (all - over1) as f64 / all as f64;
+            let ok = over2 == 0 && (all - over1) * 1000 >= all * 999;
+            rows += 1;
+            met += ok as usize;
+            let row = format!(
+                "| {name} | {setting} | {taken} | {largest} | {over1} | {over2} | {within:.4}% | {} |\n",
+                if ok { "met" } else { "**NOT MET**" }
+            );
+            eprint!("{row}");
+            s.push_str(&row);
+            std::fs::write(&out, &s).unwrap();
+        }
+    }
+    s.push_str(&format!("\n**{met} of {rows} rows meet the bar.**\n"));
+    std::fs::write(&out, &s).unwrap();
+}

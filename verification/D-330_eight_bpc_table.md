@@ -48,9 +48,9 @@ From P-26: tutorial 2 is drawn in After Effects' 8 bpc until its step F, and its
 | --- | --- | --- |
 | FX-8BPC-001 in the viewer, first time (its effects are not kept between frames) | largest difference 7.8e-8 | yes |
 | FX-8BPC-001 in the viewer, second time (its effects are not kept between frames) | largest difference 7.8e-8 | yes |
-| fx_8bpc_001.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | CPU, largest difference 0 of 255 | yes |
-| fx_8bpc_002.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | CPU, largest difference 0 of 255 | yes |
-| fx_8bpc_004.json: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU) | CPU, largest difference 0 of 255 | yes |
+| fx_8bpc_001.json: the preview draws the CPU's picture, within 1 level of 255, laid on the card (B-688) | card, largest difference 0 of 255 | yes |
+| fx_8bpc_002.json: the preview draws the CPU's picture, within 1 level of 255, laid on the card (B-688) | card, largest difference 0 of 255 | yes |
+| fx_8bpc_004.json: the preview draws the CPU's picture, within 1 level of 255, laid on the card (B-688) | card, largest difference 0 of 255 | yes |
 
 ## Pictures: tutorial 2's reflection, in `verification/D-330 pictures/`, over black
 

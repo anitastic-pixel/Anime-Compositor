@@ -215,8 +215,12 @@ fn encode(@builtin(global_invocation_id) id: vec3<u32>) {
     let at = id.y * S.width + id.x;
     let p = frame[at];
     let c = straight(p);
-    bytes[at] = level(srgb(c.x)) | (level(srgb(c.y)) << 8u) | (level(srgb(c.z)) << 16u)
-        | (level(p.w) << 24u);
+    // B-688 (D-808): an 8 bpc frame's sum is in display values already.
+    var e = vec3(srgb(c.x), srgb(c.y), srgb(c.z));
+    if S.pad0 == 1u {
+        e = c;
+    }
+    bytes[at] = level(e.x) | (level(e.y) << 8u) | (level(e.z) << 16u) | (level(p.w) << 24u);
 }
 
 struct Radial {
@@ -11951,6 +11955,40 @@ fn mixback(@builtin(global_invocation_id) id: vec3<u32>) {
     let b = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
     textureStore(output, id.xy, b + vec4<f32>(f64(f32(k[0])) * vec4<f64>(e - b)));
 }
+
+// B-688 (D-808), effects::encode and effects::eight_bits: F.mode 0, linear premultiplied to
+// display premultiplied, the straight colour held to 0..1; 1, back; 2, the alpha and the straight
+// display colour each rounded to a 255th, a pixel whose alpha rounds to 0 clear.
+@compute @workgroup_size(16, 16)
+fn eight(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var p = textureLoad(input, id.xy, 0);
+    var a = p.w;
+    if F.mode == 2u {
+        a = f32(floor(f64(clamp(p.w, 0.0, 1.0) * 255.0) + 0.5lf) / 255.0lf);
+    }
+    if a <= 0.0 || p.w <= 0.0 {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    var q = vec4(0.0, 0.0, 0.0, a);
+    for (var i = 0; i < 3; i++) {
+        let c = f64(clamp(p[i] / p.w, 0.0, 1.0));
+        var v: f64;
+        if F.mode == 0u {
+            v = to_srgb(c);
+        } else if F.mode == 1u {
+            v = to_linear(c);
+        } else {
+            v = to_linear(floor(to_srgb(c) * 255.0lf + 0.5lf) / 255.0lf);
+        }
+        q[i] = f32(v) * a;
+    }
+    textureStore(output, id.xy, q);
+}
 // D-352, matte_refine::choker_stage: each pixel's covering the average over the disc from each
 // row's running totals in `sums` (outside counting as clear), through the ramp; its colour its
 // own, or where it had none the disc's. k: the disc's pixel count, the ramp's centre and width,
@@ -12355,6 +12393,8 @@ struct FxPasses {
     chain: Pass,
     /// B-221.
     mix_back: Pass,
+    /// B-688.
+    eight: Pass,
     /// B-223.
     chanmix: Pass,
     crossmix: Pass,
@@ -13236,6 +13276,7 @@ impl Gpu {
                 cells: pass("cells", &[0, 1, 2, 3]),
                 adjust: pass("adjust", &[0, 1, 3, 4, 10, 11]),
                 mix_back: pass("mixback", &[0, 1, 2, 3, 4]),
+                eight: pass("eight", &[0, 1, 2]),
                 chanmix: pass("chanmix", &[0, 1, 2, 4]),
                 crossmix: pass("crossmix", &[0, 1, 2, 4]),
                 selprep: pass("selprep", &[0, 1, 2, 3]),
@@ -13827,7 +13868,9 @@ impl Gpu {
         views: &mut Vec<Option<(wgpu::TextureView, (usize, usize))>>,
     ) {
         let one = |e: &OnCard| {
-            self.fused && matches!(e.unmixed(), OnCard::Fx(f) if one_pixel(&f.instance.effect))
+            self.fused
+                && !matches!(e, OnCard::Eight(..))
+                && matches!(e.unmixed(), OnCard::Fx(f) if one_pixel(&f.instance.effect))
         };
         let mut i = 0;
         while i < effects.len() {
@@ -13864,6 +13907,27 @@ impl Gpu {
                 continue;
             }
             let given = (moved.clone(), size);
+            // B-688 (D-808): render::draw_card's order: to display values, the effect, back,
+            // mixed with what it was given, held to 8 bits.
+            if let OnCard::Eight(inner, display) = &effects[i] {
+                if *display {
+                    moved = self.eight(steps, &moved, size, 0);
+                }
+                let mut drawn = Vec::new();
+                let inner_effect = std::slice::from_ref(inner.unmixed());
+                self.run(steps, source, (moved, size), inner_effect, 0, &mut drawn);
+                (moved, size) = drawn.pop().flatten().expect("the effect's picture");
+                if *display {
+                    moved = self.eight(steps, &moved, size, 1);
+                }
+                if let OnCard::Mix(_, mix) = &**inner {
+                    moved = self.mixed_back(steps, &moved, size, &given, *mix);
+                }
+                moved = self.eight(steps, &moved, size, 2);
+                views.push(Some((moved.clone(), size)));
+                i += 1;
+                continue;
+            }
             (moved, size) = match effects[i].unmixed() {
                 OnCard::Radial(r) => (self.blur(steps, &moved, size, *r), size),
                 OnCard::Bloom(b) => self.bloom(steps, &moved, size, *b),
@@ -13871,34 +13935,67 @@ impl Gpu {
                 OnCard::Gaussian(g) => self.gaussian(steps, &moved, size, *g),
                 OnCard::Glow(g) => self.glow(steps, &moved, size, *g),
                 OnCard::Fx(f) => self.fx(steps, source, size, &moved, f, &RefCell::new(None)),
-                OnCard::Mix(..) => unreachable!("a Mix holds an effect"),
+                OnCard::Mix(..) | OnCard::Eight(..) => unreachable!("a Mix holds an effect"),
             };
             // B-221 (D-340): what it was given laid back by its Mix, where it was, as `mix_back`.
             if let OnCard::Mix(_, mix) = &effects[i] {
-                let passes = self.fx.as_ref().expect("a Mix only with the passes");
-                let at = FxParams {
-                    ox: ((size.0 - given.1 .0) / 2) as i32,
-                    oy: ((size.1 - given.1 .1) / 2) as i32,
-                    ..Default::default()
-                };
-                let out = self.scratch("B-221", size.0, size.1);
-                let tiles = ((size.0 as u32).div_ceil(16), (size.1 as u32).div_ceil(16));
-                self.fx_step(
-                    steps,
-                    &passes.mix_back,
-                    at,
-                    Some(&moved),
-                    Some(&out),
-                    Some(&[mix / 100.0]),
-                    Some(&given.0),
-                    [None; 4],
-                    tiles,
-                );
-                moved = out;
+                moved = self.mixed_back(steps, &moved, size, &given, *mix);
             }
             views.push(Some((moved.clone(), size)));
             i += 1;
         }
+    }
+
+    /// B-221 (D-340): `moved`, `size`, laid over `given`, what the effect was given, by `mix`, as
+    /// `mix_back`.
+    fn mixed_back(
+        &self,
+        steps: &mut Vec<Step>,
+        moved: &wgpu::TextureView,
+        size: (usize, usize),
+        given: &(wgpu::TextureView, (usize, usize)),
+        mix: f64,
+    ) -> wgpu::TextureView {
+        let passes = self.fx.as_ref().expect("a Mix only with the passes");
+        let at = FxParams {
+            ox: ((size.0 - given.1 .0) / 2) as i32,
+            oy: ((size.1 - given.1 .1) / 2) as i32,
+            ..Default::default()
+        };
+        let out = self.scratch("B-221", size.0, size.1);
+        let tiles = ((size.0 as u32).div_ceil(16), (size.1 as u32).div_ceil(16));
+        self.fx_step(
+            steps,
+            &passes.mix_back,
+            at,
+            Some(moved),
+            Some(&out),
+            Some(&[mix / 100.0]),
+            Some(&given.0),
+            [None; 4],
+            tiles,
+        );
+        out
+    }
+
+    /// B-688 (D-808): the `eight` pass of `mode` on `still`, `size`, into a texture of its own.
+    fn eight(
+        &self,
+        steps: &mut Vec<Step>,
+        still: &wgpu::TextureView,
+        size: (usize, usize),
+        mode: u32,
+    ) -> wgpu::TextureView {
+        let passes = self.fx.as_ref().expect("8 bpc only with the passes");
+        let out = self.scratch("B-688", size.0, size.1);
+        let tiles = ((size.0 as u32).div_ceil(16), (size.1 as u32).div_ceil(16));
+        let p = FxParams {
+            mode,
+            ..Default::default()
+        };
+        let pass = &passes.eight;
+        self.fx_step(steps, pass, p, Some(still), Some(&out), None, None, [None; 4], tiles);
+        out
     }
 
     /// B-172: a run of colour effects, `staged` by [`Gpu::fx`], drawn on `still`, a drawing `w` by
@@ -24253,7 +24350,7 @@ impl Gpu {
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("B-44 size"),
                         contents: bytemuck::cast_slice(&[width as u32, height as u32, 0, 0]),
-                        usage: U::UNIFORM,
+                        usage: U::UNIFORM | U::COPY_DST,
                     }),
             });
         }
@@ -24270,12 +24367,20 @@ impl Gpu {
                 "D-319's Float working depth (Add, Screen and Fractal Noise past white) is drawn on the CPU only.".into(),
             ));
         }
-        // D-763: 8 bpc (After Effects) lays its layers together in display values, on the CPU.
-        if plan.display {
+        // D-763: 8 bpc (After Effects) lays its layers together in display values. B-688 (D-808):
+        // the card does too, and rounds as the CPU does with its double-precision passes; an
+        // adjustment layer or a Light Wrap there, which read the frame laid so far, stay the CPU's.
+        if plan.display
+            && (self.fx.is_none()
+                || plan
+                    .layers
+                    .iter()
+                    .any(|l| l.adjust.is_some() || !wraps(l).is_empty()))
+        {
             return Some(on_cpu(
                 Severity::Info,
-                "The CPU drew this frame: its composition works in 8 bpc (After Effects).".into(),
-                "D-763: in 8 bpc (After Effects) the layers are laid together in display values, on the CPU only.".into(),
+                "The CPU drew this frame: its composition works in 8 bpc (After Effects) and has an adjustment layer or a Light Wrap, or this graphics card cannot do double-precision sums.".into(),
+                "D-763, B-688 (D-808): in 8 bpc (After Effects) an adjustment layer or a Light Wrap is laid in display values on the CPU only; the card's 8-bit rounding needs SHADER_F64.".into(),
             ));
         }
         // B-156 (D-225): an adjustment layer whose every effect the card draws on the frame.
@@ -24724,7 +24829,7 @@ impl Gpu {
                             bytes,
                         )
                     }
-                    OnCard::Radial(_) | OnCard::Mix(..) => continue,
+                    OnCard::Radial(_) | OnCard::Mix(..) | OnCard::Eight(..) => continue,
                 };
                 let (gx, gy) = grow;
                 if self.bloom.is_none() || self.fx.is_none() {
@@ -25011,6 +25116,10 @@ impl Gpu {
         self.target(width, height);
         let target = self.target.as_ref().expect("made above");
         let (sum, size) = (target.sum.clone(), target.size.clone());
+        // B-688 (D-808): whether the sum is in display values.
+        let shape = [width as u32, height as u32, plan.display as u32, 0];
+        self.queue
+            .write_buffer(&size, 0, bytemuck::cast_slice(&shape));
         let mut uploads = self.device.create_command_encoder(&Default::default());
         let mut steps = Vec::new();
         perf::time(Stage::GpuUpload, || {
@@ -25223,7 +25332,9 @@ impl Gpu {
                 // B-156: under an adjustment layer every drawing is sent whole, not in half
                 // precision: Posterize, Threshold, a wipe's cut and the like turn the smallest
                 // difference in the frame beneath into a large one (D-225).
-                let wide = plan.layers.iter().any(|l| l.adjust.is_some())
+                // B-688 (D-808): and in 8 bpc, where each step rounds to 8 bits.
+                let wide = plan.display
+                    || plan.layers.iter().any(|l| l.adjust.is_some())
                     || !wraps.is_empty()
                     || matches!(
                         layer.on_card.first().map(OnCard::unmixed),
@@ -25240,6 +25351,12 @@ impl Gpu {
                 }
                 if !layer.on_card.is_empty() {
                     source = self.applied(&mut steps, &layer.source, &source, &layer.on_card);
+                }
+                // D-763, B-688 (D-808): in 8 bpc each picture is laid in display values.
+                if plan.display {
+                    let t = source.texture();
+                    let size = (t.width() as usize, t.height() as usize);
+                    source = self.eight(&mut steps, &source, size, 0);
                 }
                 let matte = matte.map(|(m, _)| {
                     self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false)

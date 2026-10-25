@@ -204,7 +204,7 @@ fn b642_display_mix() {
     );
     match Gpu::new() {
         Err(why) => t.row(
-            "The preview card leaves an 8 bpc frame to the CPU",
+            "The preview card draws an 8 bpc frame (B-688)",
             &format!("NOT RUN: no usable card ({why})"),
             false,
         ),
@@ -252,13 +252,13 @@ fn b642_display_mix() {
                     &format!(
                         "{name} ({}): the preview draws the CPU's picture within 1 level of 255, {}",
                         if eight { "8 bpc" } else { "Display" },
-                        if eight { "on the CPU" } else { "the card free to draw it" }
+                        if eight { "on the card (B-688)" } else { "the card free to draw it" }
                     ),
                     &format!(
                         "{}, largest difference {worst} of 255",
                         if on_cpu { "CPU" } else { "card" }
                     ),
-                    worst <= 1 && (!eight || on_cpu),
+                    worst <= 1 && (!eight || !on_cpu),
                 );
             }
         }

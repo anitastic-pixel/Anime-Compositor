@@ -344,13 +344,17 @@ pub enum OnCard {
     /// B-221 (D-340): the effect inside, its result laid over what it was given by its Mix (D-202),
     /// 0 to 100 and below 100, as `effects::mix_back` lays it. The effect inside holds no Mix.
     Mix(Box<OnCard>, f64),
+    /// B-688 (D-808): the effect inside, or its Mix, in an 8 bpc (After Effects) composition, as
+    /// `effects::apply_stack_at` runs it there: with `true`, on display values; the result held
+    /// to 8 bits.
+    Eight(Box<OnCard>, bool),
 }
 
 impl OnCard {
     /// The effect itself, inside its Mix if it has one.
     pub fn unmixed(&self) -> &OnCard {
         match self {
-            OnCard::Mix(inner, _) => inner,
+            OnCard::Mix(inner, _) | OnCard::Eight(inner, _) => inner.unmixed(),
             card => card,
         }
     }
@@ -501,7 +505,7 @@ pub struct FramePlan {
     /// D-763: the composition works in 8 bpc (After Effects), so the layers are laid together in
     /// display values, as After Effects lays them in an 8-bit project: each layer's picture is
     /// taken to display values, blended, and the frame taken back to linear light when drawn.
-    /// The card never draws such a plan.
+    /// B-688 (D-808): the card draws such a plan too, rounding as the CPU does.
     pub display: bool,
     pub layers: Vec<LayerDraw>,
 }
@@ -542,7 +546,7 @@ pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
             OnCard::Gaussian(g) => even(g.grow()),
             OnCard::Glow(g) => even(crate::effects::kernel_radius(g.radius / 3.0)),
             OnCard::Fx(f) => (2 * f.grow.0, 2 * f.grow.1),
-            OnCard::Radial(_) | OnCard::Mix(..) => (0, 0),
+            OnCard::Radial(_) | OnCard::Mix(..) | OnCard::Eight(..) => (0, 0),
         };
         (x + gx, y + gy)
     });
@@ -852,6 +856,31 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
                 (source.height() - given.height()) / 2,
             );
             crate::effects::mix_back(std::sync::Arc::make_mut(source), &given, at, mix / 100.0);
+        }
+        // B-688 (D-808): `apply_stack_at`'s order in 8 bpc: what it was given kept for its Mix,
+        // to display values and back round the effect, mixed, and held to 8 bits.
+        OnCard::Eight(inner, display) => {
+            let (mix, inner) = match *inner {
+                OnCard::Mix(inner, mix) => (Some(mix), *inner),
+                inner => (None, inner),
+            };
+            let given = mix.map(|m| (std::sync::Arc::clone(source), m));
+            if display {
+                crate::effects::encode(std::sync::Arc::make_mut(source), true, 1.0);
+            }
+            draw_card(source, inner);
+            let source = std::sync::Arc::make_mut(source);
+            if display {
+                crate::effects::encode(source, false, 1.0);
+            }
+            if let Some((given, mix)) = given {
+                let at = (
+                    (source.width() - given.width()) / 2,
+                    (source.height() - given.height()) / 2,
+                );
+                crate::effects::mix_back(source, &given, at, mix / 100.0);
+            }
+            crate::effects::eight_bits(source);
         }
     }
 }

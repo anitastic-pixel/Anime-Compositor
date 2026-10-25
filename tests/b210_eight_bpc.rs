@@ -365,9 +365,9 @@ fn b210_eight_bpc() {
                     .max()
                     .unwrap_or(0);
                 t.row(
-                    &format!("{name}: the preview draws the CPU's picture, within 1 level of 255 (the effects all run on the CPU)"),
+                    &format!("{name}: the preview draws the CPU's picture, within 1 level of 255, laid on the card (B-688)"),
                     &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
-                    worst <= 1,
+                    worst <= 1 && !on_cpu,
                 );
             }
         }

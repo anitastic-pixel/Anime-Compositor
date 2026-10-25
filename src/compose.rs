@@ -1492,10 +1492,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if map.is_some() || layer.as_str() != Some("") || mask_map.is_some() || mask_layer.as_str() != Some(""))
         // B-107: valid as it runs, at the draft's distances, since a draft can take a
         // distance below its least (a Rain's spacing), which the CPU then reports and skips.
+        // B-688: its Mix too, which the CPU skips outside 0 to 100 (D-202, FX-MIX-014).
         && {
-            let mut effect = instance.effect.clone();
-            effect.scale_distances(|d| d / pre);
-            effect.is_valid()
+            let mut now = instance.clone();
+            now.effect.scale_distances(|d| d / pre);
+            now.is_valid()
         }
 }
 
@@ -2566,6 +2567,24 @@ fn mixed(card: render::OnCard, instance: &crate::effects::EffectInstance) -> ren
     } else {
         card
     }
+}
+
+/// B-688 (D-808): whether the card draws `effect` in 8 bpc (After Effects). Not those that read
+/// the depth themselves (Exposure; Glow, Drop Shadow, Fill and Solid Composite through their
+/// display colours; Echo), nor a Bloom, which the plan leaves out where it lights nothing, as the
+/// CPU's 8-bit rounding is not.
+fn eight_card(effect: &crate::effects::Effect) -> bool {
+    use crate::effects::Effect as E;
+    !matches!(
+        effect,
+        E::Exposure { .. }
+            | E::Glow { .. }
+            | E::DropShadow { .. }
+            | E::Fill { .. }
+            | E::SolidComposite { .. }
+            | E::Echo { .. }
+            | E::Bloom { .. }
+    )
 }
 
 /// B-155 (D-224): whether `effect` can only begin the card's run: it looks at the drawing it is
@@ -4618,11 +4637,18 @@ fn resolve_rest(
     // reads the covering it is given; B-226 (D-346), a Line Smooth and a Line Width, which decide
     // which pixels mix or spread by exact comparisons of the drawing, made on the CPU's.
     // D-440: so can a Paint Bucket, whose area is grown by the same kind of comparisons.
-    // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
-    // 32 bpc (After Effects) it is left nothing.
+    // D-330, D-333: the card does not blur display values as 32 bpc (After Effects) does, so
+    // there it is left nothing. B-688 (D-808): in 8 bpc it rounds to 8 bits and turns to display
+    // values and back as the CPU does (`render::OnCard::Eight`), for the effects `eight_card` lets.
     let plain = bits == crate::effects::Bits::Linear;
+    let eight = bits == crate::effects::Bits::Eight;
     let pixels = source.width() * source.height();
-    let can = |i: usize| plain && card && cel.is_some() && card_can(&effects[i], pre, pixels);
+    let can = |i: usize| {
+        (plain || eight && eight_card(&effects[i].effect))
+            && card
+            && cel.is_some()
+            && card_can(&effects[i], pre, pixels)
+    };
     let mut chain = Vec::new();
     for i in (0..effects.len()).rev() {
         use crate::effects::Effect as E;
@@ -4859,7 +4885,14 @@ fn resolve_rest(
                 }
                 effect => card_effect(effect, &effects[i], size, &mut offset),
             }
-            .map(|c| mixed(c, &effects[i])),
+            .map(|c| mixed(c, &effects[i]))
+            .map(|c| match eight {
+                true => render::OnCard::Eight(
+                    Box::new(c),
+                    crate::effects::on_display(&effects[i].effect, bits),
+                ),
+                false => c,
+            }),
         );
     }
     // Audit W8, W9: on a frame planned for the card, the effects run above on the processor: one

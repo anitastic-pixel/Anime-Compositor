@@ -16104,30 +16104,7 @@ pub(crate) fn apply_stack_at(
         } else {
             f32::INFINITY
         };
-        // D-763: in 8 bpc, Drop Shadow, Fill and Mosaic mix the display values too, as After
-        // Effects does in an 8-bit project; their colours are taken as they are encoded.
-        let mixes = bits == Bits::Eight
-            && matches!(
-                instance.effect,
-                Effect::DropShadow { .. } | Effect::Fill { .. } | Effect::Mosaic { .. }
-            );
-        let display = bits != Bits::Linear
-            && instance.is_valid()
-            && (mixes || matches!(
-                instance.effect,
-                Effect::GaussianBlur { .. }
-                    | Effect::ReduceInterlaceFlicker { .. }
-                    | Effect::FastBoxBlur { .. }
-                    | Effect::FastBlurLegacy { .. }
-                    | Effect::GaussianBlurLegacy { .. }
-                    | Effect::DirectionalBlur { .. }
-                    | Effect::RadialBlur { .. }
-                    | Effect::CrossBlur { .. }
-                    | Effect::SpinZoomBlur { .. }
-                    | Effect::FastZoomBlur { .. }
-                    | Effect::SolidComposite { .. }
-                    | Effect::Glow { .. }
-            ));
+        let display = instance.is_valid() && on_display(&instance.effect, bits);
         if display {
             encode(source, true, top);
         }
@@ -20749,6 +20726,35 @@ pub(crate) fn apply_stack_at(
     (ox, oy)
 }
 
+/// D-330, D-333, D-337: whether `apply_stack_at` runs `effect` on display values at `bits`.
+/// B-688 (D-808): the card asks the same.
+pub(crate) fn on_display(effect: &Effect, bits: Bits) -> bool {
+    // D-763: in 8 bpc, Drop Shadow, Fill and Mosaic mix the display values too, as After
+    // Effects does in an 8-bit project; their colours are taken as they are encoded.
+    let mixes = bits == Bits::Eight
+        && matches!(
+            effect,
+            Effect::DropShadow { .. } | Effect::Fill { .. } | Effect::Mosaic { .. }
+        );
+    bits != Bits::Linear
+        && (mixes
+            || matches!(
+                effect,
+                Effect::GaussianBlur { .. }
+                    | Effect::ReduceInterlaceFlicker { .. }
+                    | Effect::FastBoxBlur { .. }
+                    | Effect::FastBlurLegacy { .. }
+                    | Effect::GaussianBlurLegacy { .. }
+                    | Effect::DirectionalBlur { .. }
+                    | Effect::RadialBlur { .. }
+                    | Effect::CrossBlur { .. }
+                    | Effect::SpinZoomBlur { .. }
+                    | Effect::FastZoomBlur { .. }
+                    | Effect::SolidComposite { .. }
+                    | Effect::Glow { .. }
+            ))
+}
+
 /// D-330: linear premultiplied to display premultiplied, the straight colour held to 0..`top`
 /// through the sRGB curve (`forward`), or back.
 pub(crate) fn encode(buffer: &mut WorkingBuffer, forward: bool, top: f32) {
@@ -20772,7 +20778,7 @@ pub(crate) fn encode(buffer: &mut WorkingBuffer, forward: bool, top: f32) {
 
 /// D-330: each pixel held to what 8 bits keep, its alpha and its straight display colour each
 /// rounded to a 255th. A pixel whose alpha rounds to 0 is clear.
-fn eight_bits(buffer: &mut WorkingBuffer) {
+pub(crate) fn eight_bits(buffer: &mut WorkingBuffer) {
     use crate::color::{linear_to_srgb, srgb_to_linear};
     buffer.data_mut().par_chunks_mut(4).for_each(|p| {
         let a = (p[3].clamp(0.0, 1.0) * 255.0).round() / 255.0;

@@ -75,8 +75,8 @@ Written by `tests/b642_display_mix.rs`. Every expected pixel is from `tools/disp
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | FX-MIX8-007 (Drop Shadow 50% over white) in the viewer | largest difference 9.0e-8 | yes |
-| fx_mix8_001.json (8 bpc): the preview draws the CPU's picture within 1 level of 255, on the CPU | CPU, largest difference 0 of 255 | yes |
-| fx_mix8_007.json (8 bpc): the preview draws the CPU's picture within 1 level of 255, on the CPU | CPU, largest difference 0 of 255 | yes |
+| fx_mix8_001.json (8 bpc): the preview draws the CPU's picture within 1 level of 255, on the card (B-688) | card, largest difference 0 of 255 | yes |
+| fx_mix8_007.json (8 bpc): the preview draws the CPU's picture within 1 level of 255, on the card (B-688) | card, largest difference 0 of 255 | yes |
 | fx_mix8_002.json (Display): the preview draws the CPU's picture within 1 level of 255, the card free to draw it | card, largest difference 0 of 255 | yes |
 
 ## Result
