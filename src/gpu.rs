@@ -12837,6 +12837,21 @@ struct Stored {
     before: Vec<(Vec<OnCard>, wgpu::TextureView, (usize, usize), u64)>,
     /// B-47: held in 32-bit floats, for a Bloom.
     wide: bool,
+    /// B-684: held in 32-bit floats though asked for in half, because it has a pixel too faint
+    /// for half precision to keep its colour (see [`faint`]); it serves a request for half too.
+    faint: bool,
+}
+
+/// B-684: whether `source` has a pixel whose alpha rounds to 0 of 255 but is not 0. Half
+/// precision keeps such a pixel's covering but not its colour: at an alpha of about 1e-6 the
+/// colour channels are half-float subnormals of a few bits, and the straight colour the card
+/// writes for it differed from the CPU's by up to 10 levels (b222, fx_pmb_013 and fx_tw_020 in a
+/// run). Sent in 32-bit floats, its colour is the CPU's.
+fn faint(source: &WorkingBuffer) -> bool {
+    source
+        .data()
+        .par_chunks_exact(4)
+        .any(|p| p[3] > 0.0 && p[3] < 1.0 / 510.0)
 }
 
 /// B-153: the memory drawings are sent to the card through, kept from frame to frame rather than
@@ -13562,7 +13577,7 @@ impl Gpu {
         // A drawing the CPU still holds is found by its address; one it has let go of, by the
         // CPU cache's name for it.
         let found = self.store.iter_mut().find(|s| {
-            s.wide == wide
+            (s.wide == wide || (s.faint && !wide))
                 && ((s.held.strong_count() > 0 && s.held.as_ptr() == Arc::as_ptr(source))
                     || (name.is_some() && s.name == name))
         });
@@ -13579,6 +13594,8 @@ impl Gpu {
         self.store = kept;
         self.spare
             .extend(gone.into_iter().map(|s| s.view.texture().clone()));
+        let faint = !wide && faint(source);
+        let wide = wide || faint;
         let (width, height) = (source.width(), source.height());
         let per_pixel = if wide { 16 } else { BYTES_PER_PIXEL };
         let bytes = width * height * per_pixel;
@@ -13688,6 +13705,7 @@ impl Gpu {
             applied: None,
             before: Vec::new(),
             wide,
+            faint,
         });
         view
     }
