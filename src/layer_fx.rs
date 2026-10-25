@@ -13537,6 +13537,185 @@ pub(crate) fn wave_world(
     *source = out;
 }
 
+/// D-800: an in-place radix-2 FFT of `a`, its length a power of two, `tw` e^(-2 pi i k / n) for
+/// k below n / 2; `inverse` turns the other way and does not divide by n.
+fn fft(a: &mut [[f64; 2]], tw: &[[f64; 2]], inverse: bool) {
+    let n = a.len();
+    let mut j = 0;
+    for i in 1..n {
+        let mut bit = n >> 1;
+        while j & bit != 0 {
+            j ^= bit;
+            bit >>= 1;
+        }
+        j |= bit;
+        if i < j {
+            a.swap(i, j);
+        }
+    }
+    let mut len = 2;
+    while len <= n {
+        let (half, step) = (len / 2, n / len);
+        for s in (0..n).step_by(len) {
+            for k in 0..half {
+                let [wr, wi] = tw[k * step];
+                let wi = if inverse { -wi } else { wi };
+                let [br, bi] = a[s + k + half];
+                let (xr, xi) = (br * wr - bi * wi, br * wi + bi * wr);
+                let [ar, ai] = a[s + k];
+                a[s + k] = [ar + xr, ai + xi];
+                a[s + k + half] = [ar - xr, ai - xi];
+            }
+        }
+        len <<= 1;
+    }
+}
+
+/// D-800: each line `len` long of `v` (one after another) convolved with the taps `t`, every line
+/// held out by r = taps / 2 at both ends, through an FFT, two channels a transform (the real and
+/// imaginary parts). The same taps as the direct sum.
+fn caustics_fft_lines<const N: usize>(v: &[[f64; N]], len: usize, t: &[f64]) -> Vec<[f64; N]> {
+    let r = t.len() / 2;
+    let n = (len + 2 * r).next_power_of_two();
+    let tw: Vec<[f64; 2]> = (0..n / 2)
+        .map(|k| {
+            let a = -2.0 * std::f64::consts::PI * k as f64 / n as f64;
+            [a.cos(), a.sin()]
+        })
+        .collect();
+    let mut kh = vec![[0.0; 2]; n];
+    for (k, &tk) in t.iter().enumerate() {
+        kh[k][0] = tk;
+    }
+    fft(&mut kh, &tw, false);
+    let s = 1.0 / n as f64;
+    let mut out = vec![[0.0; N]; v.len()];
+    out.par_chunks_mut(len).zip(v.par_chunks(len)).for_each_init(
+        || vec![[0.0; 2]; n],
+        |buf, (out, line)| {
+            for p in (0..N).step_by(2) {
+                let held = |i: usize| line[i.saturating_sub(r).min(len - 1)];
+                for (i, b) in buf.iter_mut().enumerate() {
+                    *b = if i < len + 2 * r {
+                        let h = held(i);
+                        [h[p], if p + 1 < N { h[p + 1] } else { 0.0 }]
+                    } else {
+                        [0.0; 2]
+                    };
+                }
+                fft(buf, &tw, false);
+                for (b, k) in buf.iter_mut().zip(&kh) {
+                    *b = [b[0] * k[0] - b[1] * k[1], b[0] * k[1] + b[1] * k[0]];
+                }
+                fft(buf, &tw, true);
+                for (o, b) in out.iter_mut().zip(&buf[2 * r..]) {
+                    o[p] = b[0] * s;
+                    if p + 1 < N {
+                        o[p + 1] = b[1] * s;
+                    }
+                }
+            }
+        },
+    );
+    out
+}
+
+/// `v`, `w` by `h`, turned so its columns are rows.
+fn caustics_turned<const N: usize>(v: &[[f64; N]], w: usize, h: usize) -> Vec<[f64; N]> {
+    let mut out = vec![[0.0; N]; w * h];
+    out.par_chunks_mut(h).enumerate().for_each(|(x, col)| {
+        for (y, o) in col.iter_mut().enumerate() {
+            *o = v[y * w + x];
+        }
+    });
+    out
+}
+
+/// D-800: Caustics' Gaussian of taps `t` across then down `v`, `lw` by `lh`, the outer pixels
+/// held, each line by [`caustics_fft_lines`].
+fn caustics_fft_gaussian<const N: usize>(
+    v: &[[f64; N]],
+    lw: usize,
+    lh: usize,
+    t: &[f64],
+) -> Vec<[f64; N]> {
+    let across = caustics_fft_lines(v, lw, t);
+    let down = caustics_fft_lines(&caustics_turned(&across, lw, lh), lh, t);
+    caustics_turned(&down, lh, lw)
+}
+
+/// D-631 step 3: Caustics' Gaussian of `sigma` across then down `v`, `lw` by `lh`, the outer
+/// pixels held, its taps to 3 sigma and summing to 1.
+fn caustics_gaussian<const N: usize>(v: &[[f64; N]], lw: usize, lh: usize, sigma: f64) -> Vec<[f64; N]> {
+    if sigma <= 0.0 {
+        return v.to_vec();
+    }
+    let t = caustics_taps(sigma);
+    // D-800: a wide blur takes the same taps through an FFT of each held-out line, the sums in
+    // another order (about 1e-15 apart); a narrow one keeps the direct taps.
+    if t.len() / 2 > FFT_ABOVE {
+        caustics_fft_gaussian(v, lw, lh, &t)
+    } else {
+        caustics_direct_gaussian(v, lw, lh, &t)
+    }
+}
+
+/// D-800: the radius above which [`caustics_gaussian`] goes through the FFT, where it was measured
+/// faster at 1920 by 1080 (Smoothing as added, radius 29, keeps the taps, bit for bit).
+const FFT_ABOVE: usize = 48;
+
+fn caustics_taps(sigma: f64) -> Vec<f64> {
+    let r = (3.0 * sigma).ceil() as i64;
+    let t: Vec<f64> = (-r..=r)
+        .map(|i| (-((i * i) as f64) / (2.0 * sigma * sigma)).exp())
+        .collect();
+    let total: f64 = t.iter().sum();
+    t.iter().map(|v| v / total).collect()
+}
+
+/// D-631 step 3 tap by tap: every pixel adds each tap `t` in order, across then down.
+fn caustics_direct_gaussian<const N: usize>(
+    v: &[[f64; N]],
+    lw: usize,
+    lh: usize,
+    t: &[f64],
+) -> Vec<[f64; N]> {
+    let r = (t.len() / 2) as i64;
+    let across = |v: &[[f64; N]]| -> Vec<[f64; N]> {
+        (0..lw * lh)
+            .into_par_iter()
+            .map(|i| {
+                let (x, y) = ((i % lw) as i64, (i / lw) as i64);
+                let mut s = [0.0; N];
+                for (k, tk) in t.iter().enumerate() {
+                    let j = y * lw as i64 + (x + k as i64 - r).clamp(0, lw as i64 - 1);
+                    for c in 0..N {
+                        s[c] += tk * v[j as usize][c];
+                    }
+                }
+                s
+            })
+            .collect()
+    };
+    // B-661: down a whole row at a time, each tap's row read in order rather than one pixel
+    // reading a column; every pixel still adds the same taps in the same order.
+    let down = |v: &[[f64; N]]| -> Vec<[f64; N]> {
+        let mut out = vec![[0.0; N]; lw * lh];
+        out.par_chunks_mut(lw).enumerate().for_each(|(y, row)| {
+            for (k, tk) in t.iter().enumerate() {
+                let j = (y as i64 + k as i64 - r).clamp(0, lh as i64 - 1) as usize;
+                for (s, p) in row.iter_mut().zip(&v[j * lw..(j + 1) * lw]) {
+                    for c in 0..N {
+                        s[c] += tk * p[c];
+                    }
+                }
+            }
+        });
+        out
+    };
+    down(&across(v))
+}
+
 /// D-631: Caustics, `tools/caustics_reference.py`'s rule step for step, in double precision: a
 /// bottom (the drawing, or a layer read whole) placed, blurred and seen through a water surface
 /// whose waves come from a layer's luma, brightened where the waves gather the light, under a lit
@@ -13670,54 +13849,8 @@ pub(crate) fn caustics(
             .collect()
     };
 
-    // Step 3: the Gaussian, across then down, the outer pixels held.
-    // ponytail: direct taps, about 577 a pass at blur 50 on a 1920 layer; a running box or the
-    // FFT path if a big blur is too slow to play.
-    fn gaussian<const N: usize>(v: &[[f64; N]], lw: usize, lh: usize, sigma: f64) -> Vec<[f64; N]> {
-        if sigma <= 0.0 {
-            return v.to_vec();
-        }
-        let r = (3.0 * sigma).ceil() as i64;
-        let t: Vec<f64> = (-r..=r)
-            .map(|i| (-((i * i) as f64) / (2.0 * sigma * sigma)).exp())
-            .collect();
-        let total: f64 = t.iter().sum();
-        let t: Vec<f64> = t.iter().map(|v| v / total).collect();
-        let across = |v: &[[f64; N]]| -> Vec<[f64; N]> {
-            (0..lw * lh)
-                .into_par_iter()
-                .map(|i| {
-                    let (x, y) = ((i % lw) as i64, (i / lw) as i64);
-                    let mut s = [0.0; N];
-                    for (k, tk) in t.iter().enumerate() {
-                        let j = y * lw as i64 + (x + k as i64 - r).clamp(0, lw as i64 - 1);
-                        for c in 0..N {
-                            s[c] += tk * v[j as usize][c];
-                        }
-                    }
-                    s
-                })
-                .collect()
-        };
-        // B-661: down a whole row at a time, each tap's row read in order rather than one pixel
-        // reading a column; every pixel still adds the same taps in the same order.
-        let down = |v: &[[f64; N]]| -> Vec<[f64; N]> {
-            let mut out = vec![[0.0; N]; lw * lh];
-            out.par_chunks_mut(lw).enumerate().for_each(|(y, row)| {
-                for (k, tk) in t.iter().enumerate() {
-                    let j = (y as i64 + k as i64 - r).clamp(0, lh as i64 - 1) as usize;
-                    for (s, p) in row.iter_mut().zip(&v[j * lw..(j + 1) * lw]) {
-                        for c in 0..N {
-                            s[c] += tk * p[c];
-                        }
-                    }
-                }
-            });
-            out
-        };
-        down(&across(v))
-    }
-    let bottom = gaussian(
+    // Step 3: the Gaussian, across then down, the outer pixels held ([`caustics_gaussian`]).
+    let bottom = caustics_gaussian(
         &placed(&bottom_q, *bottom_scaling, bottom_repeat_mode, bottom_fit),
         lw,
         lh,
@@ -13765,7 +13898,7 @@ pub(crate) fn caustics(
             None => [0.5],
         })
         .collect();
-    let z: Vec<f64> = gaussian(&lum, lw, lh, smoothing * wf / 1000.0)
+    let z: Vec<f64> = caustics_gaussian(&lum, lw, lh, smoothing * wf / 1000.0)
         .iter()
         .map(|l| wave_height * (l[0] - 0.5) * wf / 4.0)
         .collect();
@@ -15251,4 +15384,75 @@ pub(crate) fn shatter(
             px[3] = p[3] as f32;
         });
     *source = out;
+}
+
+#[cfg(test)]
+mod d800 {
+    use super::*;
+
+    /// A picture of `lw` by `lh` hard-edged squares and ramps, four channels.
+    fn picture(lw: usize, lh: usize) -> Vec<[f64; 4]> {
+        (0..lw * lh)
+            .map(|i| {
+                let (x, y) = (i % lw, i / lw);
+                let sq = (((x / 37) + (y / 23)) % 2) as f64;
+                [sq, x as f64 / lw as f64, 1.0 - sq, (sq + y as f64 / lh as f64) / 2.0]
+            })
+            .collect()
+    }
+
+    /// D-800: the FFT blur against every tap, at the radii it takes (Smoothing 5 and Bottom Blur
+    /// up to 50 on a 1920-wide layer), and lines shorter than the taps.
+    #[test]
+    fn d800_fft_blur_is_the_tap_sum() {
+        for (lw, lh) in [(193, 101), (40, 7)] {
+            let v = picture(lw, lh);
+            let one: Vec<[f64; 1]> = v.iter().map(|p| [p[3]]).collect();
+            for sigma in [8.4, 9.6, 20.0, 76.8, 96.0] {
+                let t = caustics_taps(sigma);
+                let a = caustics_direct_gaussian(&v, lw, lh, &t);
+                let b = caustics_fft_gaussian(&v, lw, lh, &t);
+                let most = a
+                    .iter()
+                    .zip(&b)
+                    .flat_map(|(a, b)| a.iter().zip(b).map(|(a, b)| (a - b).abs()))
+                    .fold(0.0, f64::max);
+                assert!(most < 1e-12, "{lw}x{lh} sigma {sigma}: {most:e}");
+                let a = caustics_direct_gaussian(&one, lw, lh, &t);
+                let b = caustics_fft_gaussian(&one, lw, lh, &t);
+                let most = a.iter().zip(&b).map(|(a, b)| (a[0] - b[0]).abs()).fold(0.0, f64::max);
+                assert!(most < 1e-12, "one channel {lw}x{lh} sigma {sigma}: {most:e}");
+            }
+        }
+    }
+
+    /// D-800: the two blurs' times at 1920 by 1080, four channels and one, the median of five.
+    #[test]
+    #[ignore = "D-800: a measurement, run deliberately with --release --ignored"]
+    fn d800_fft_blur_timing() {
+        let (lw, lh) = (1920, 1080);
+        let v = picture(lw, lh);
+        let one: Vec<[f64; 1]> = v.iter().map(|p| [p[1]]).collect();
+        for sigma in [9.6, 16.4, 38.4, 76.8] {
+            let t = caustics_taps(sigma);
+            let ms = |f: &dyn Fn()| {
+                let mut v: Vec<f64> = (0..5)
+                    .map(|_| {
+                        let s = std::time::Instant::now();
+                        f();
+                        s.elapsed().as_secs_f64() * 1e3
+                    })
+                    .collect();
+                v.sort_by(f64::total_cmp);
+                v[2]
+            };
+            eprintln!(
+                "sigma {sigma}: four channels taps {:.1} ms, FFT {:.1} ms; one channel taps {:.1} ms, FFT {:.1} ms",
+                ms(&|| drop(caustics_direct_gaussian(&v, lw, lh, &t))),
+                ms(&|| drop(caustics_fft_gaussian(&v, lw, lh, &t))),
+                ms(&|| drop(caustics_direct_gaussian(&one, lw, lh, &t))),
+                ms(&|| drop(caustics_fft_gaussian(&one, lw, lh, &t))),
+            );
+        }
+    }
 }

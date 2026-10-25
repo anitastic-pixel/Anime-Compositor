@@ -335,12 +335,29 @@ fn hashes() -> Vec<String> {
         bytes.hash(&mut h);
         h.finish()
     };
+    let mut s = Vec::new();
+    each_frame(|name, setting, cpu, card, eight| {
+        let cpu: Vec<u8> = cpu.data().iter().flat_map(|v| v.to_bits().to_le_bytes()).collect();
+        let row = format!(
+            "{name} | {setting} | {:016x} {:016x} {:016x}\n",
+            hash(&cpu),
+            hash(card),
+            hash(eight)
+        );
+        eprint!("{row}");
+        s.push(row);
+    });
+    s
+}
+
+/// Frame 30 at Full of `(none)` and each effect (or the `W7_ONLY` ones), as added and heavy,
+/// handed to `f`: name, setting, the processor's frame, the card's bytes and 8 bpc's bytes.
+fn each_frame(mut f: impl FnMut(&str, &str, &anime_compositor::WorkingBuffer, &[u8], &[u8])) {
     let only: Option<Vec<String>> = std::env::var("W7_ONLY")
         .ok()
         .map(|s| s.split(',').map(str::to_string).collect());
     let mut gpu = Gpu::new().expect("a usable card");
     let mut cache = CelCache::with_budget(8 << 30);
-    let mut s = Vec::new();
     let mut list: Vec<Option<&str>> = vec![None];
     list.extend(ids().into_iter().map(Some));
     for id in list {
@@ -371,7 +388,6 @@ fn hashes() -> Vec<String> {
                 &project, &comp, 30, &root, q, DEFAULT_TILE_SIZE, &mut log, &mut cache,
             )
             .expect("CPU frame");
-            let cpu: Vec<u8> = cpu.data().iter().flat_map(|v| v.to_bits().to_le_bytes()).collect();
             let mut on = |p: &Project| {
                 gpu.forget();
                 preview::preview_frame_srgb8(
@@ -382,17 +398,112 @@ fn hashes() -> Vec<String> {
             };
             let card = on(&project);
             let eight = on(&eight_bpc(&project));
-            let row = format!(
-                "{name} | {setting} | {:016x} {:016x} {:016x}\n",
-                hash(&cpu),
-                hash(&card),
-                hash(&eight)
-            );
-            eprint!("{row}");
-            s.push(row);
+            f(name, &setting, &cpu, &card, &eight);
         }
     }
-    s
+}
+
+/// W8 (D-800 to D-802): the pixels of each `W7_ONLY` row's frame 30 at Full, written into the
+/// folder `W8_PIXELS` (the processor's floats and its, the card's and 8 bpc's bytes); with
+/// `W8_BEFORE` naming a folder an older build wrote, each is measured against it by the pixel-cost
+/// bar of the owner's 2026-10-25 request, as a table into `W8_TABLE`: the largest 8-bit
+/// difference, the share of pixels within 1 level, the largest float error anywhere and on solid
+/// areas, and the largest edge shift (a float difference over the slope beside it, where the
+/// slope is at least 0.01 a pixel).
+#[test]
+#[ignore = "W8: a check run deliberately with --release --ignored"]
+fn perf_audit_pixels() {
+    let dir = PathBuf::from(std::env::var("W8_PIXELS").expect("W8_PIXELS names a folder"));
+    std::fs::create_dir_all(&dir).unwrap();
+    let before = std::env::var("W8_BEFORE").ok().map(PathBuf::from);
+    let mut t = String::from(
+        "| Effect | Setting | Picture | Pixels changed | Largest 8-bit difference | Pixels within 1 level | \
+         Pixels over 2 levels | Largest float error | On solid areas | Largest edge shift (px) | \
+         Within the bar |\n|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|\n",
+    );
+    let mut all_ok = true;
+    each_frame(|name, setting, cpu, card, eight| {
+        let stem: String = format!("{name} {setting}")
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() || c == '.' { c } else { '_' })
+            .collect();
+        let floats: Vec<u8> = cpu.data().iter().flat_map(|v| v.to_le_bytes()).collect();
+        let cpu8 = cpu.to_srgb8_straight();
+        let files = [
+            ("cpu.f32", floats.as_slice()),
+            ("cpu.u8", cpu8.as_slice()),
+            ("card.u8", card),
+            ("8bpc.u8", eight),
+        ];
+        for (ext, bytes) in files {
+            std::fs::write(dir.join(format!("{stem}.{ext}")), bytes).unwrap();
+        }
+        let Some(before) = &before else { return };
+        let (w, h) = (cpu.width(), cpu.height());
+        let read = |ext: &str| std::fs::read(before.join(format!("{stem}.{ext}"))).unwrap();
+        for (what, ext, now) in [
+            ("processor", "cpu.u8", cpu8.as_slice()),
+            ("card", "card.u8", card),
+            ("8 bpc", "8bpc.u8", eight),
+        ] {
+            let was = read(ext);
+            let (mut most, mut within, mut over, mut changed) = (0u8, 0usize, 0usize, 0usize);
+            for (a, b) in was.chunks_exact(4).zip(now.chunks_exact(4)) {
+                let d = a.iter().zip(b).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                most = most.max(d);
+                within += (d <= 1) as usize;
+                over += (d > 2) as usize;
+                changed += (d > 0) as usize;
+            }
+            let share = within as f64 / (w * h) as f64;
+            let mut row = format!(
+                "| {name} | {setting} | {what} | {changed} | {most} | {:.4}% | {over} |",
+                100.0 * share
+            );
+            let mut ok = most <= 2 && share >= 0.999;
+            if what == "processor" {
+                let was: Vec<f32> = read("cpu.f32")
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+                    .collect();
+                let now = cpu.data();
+                let (mut err, mut solid, mut shift) = (0f64, 0f64, 0f64);
+                for y in 1..h - 1 {
+                    for x in 1..w - 1 {
+                        for c in 0..4 {
+                            let at = |x: usize, y: usize| was[(y * w + x) * 4 + c] as f64;
+                            let i = (y * w + x) * 4 + c;
+                            let e = (now[i] as f64 - was[i] as f64).abs();
+                            let slope = ((at(x + 1, y) - at(x - 1, y)) / 2.0)
+                                .hypot((at(x, y + 1) - at(x, y - 1)) / 2.0);
+                            err = err.max(e);
+                            if slope < 1e-3 {
+                                solid = solid.max(e);
+                            } else if slope >= 0.01 {
+                                shift = shift.max(e / slope);
+                            }
+                        }
+                    }
+                }
+                ok &= solid <= 1e-4 && shift <= 0.05;
+                row.push_str(&format!(" {err:.2e} | {solid:.2e} | {shift:.2e} |"));
+            } else {
+                row.push_str(" (bytes) | (bytes) | (bytes) |");
+            }
+            all_ok &= ok;
+            row.push_str(if ok { " yes |\n" } else { " NO |\n" });
+            eprint!("{row}");
+            t.push_str(&row);
+        }
+    });
+    if before.is_some() {
+        let out = std::env::var("W8_TABLE").expect("W8_TABLE names the table");
+        t.push_str(&format!(
+            "\n**{}**\n",
+            if all_ok { "Every row within the bar." } else { "A row is outside the bar." }
+        ));
+        std::fs::write(&out, &t).unwrap();
+    }
 }
 
 /// Where one frame of each `W7_ONLY` effect goes, by the perf stages, on the processor, on the
