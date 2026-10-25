@@ -3307,6 +3307,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("transfer_mode", "add"),
             ("depth_cue", "fog"),
             ("composite_on_original", "on"),
+            ("opacity_map", "constant"),
             ("birth_color", "#ffd933"),
             ("death_color", "#cc1a00"),
             ("custom_color_1", "#ffd933"),

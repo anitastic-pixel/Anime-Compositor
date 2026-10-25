@@ -188,6 +188,11 @@ B-490, the particle engine's first effect (P0-6), after the purpose of CycoreFX'
 | FX-PSPACE-070: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-PSPACE-071 frame 20: Custom as added, from the birth colour to the death colour: at a fifth of its life, close to FX-PSPACE-002 but not equal (the stops are spaced in 8-bit steps, the mix in linear light). | largest difference 2.8e-8 | yes |
 | FX-PSPACE-071: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-PSPACE-072 frame 11: Opacity Map Fade In And Out (D-837), the one disc: at frame 11, 0.037 of its life, its centre 0.32 covered; at frame 20, 0.224 of its life, 0.96. | largest difference 1.5e-8 | yes |
+| FX-PSPACE-072 frame 20: Opacity Map Fade In And Out (D-837), the one disc: at frame 11, 0.037 of its life, its centre 0.32 covered; at frame 20, 0.224 of its life, 0.96. | largest difference 2.7e-8 | yes |
+| FX-PSPACE-072: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-PSPACE-073 frame 12: Fade In And Out on the burst: the newest and oldest faint, the middle-aged as FX-PSPACE-024 has them. | largest difference 2.7e-8 | yes |
+| FX-PSPACE-073: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## The particles themselves: where each is and how fast it goes
 
@@ -382,39 +387,41 @@ B-490, the particle engine's first effect (P0-6), after the purpose of CycoreFX'
 | fx_pspace_069.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | fx_pspace_070.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | fx_pspace_071.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| fx_pspace_072.json, frames [11, 20] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| fx_pspace_073.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Particle Space as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
 | the reference shot, Particle Space as added on three layers, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space as added on three layers, frame 100, Full | largest difference 1 of 255, 27 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space as added on three layers, frame 239, Full | largest difference 1 of 255, 35 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space as added on three layers, frame 100, Full | largest difference 1 of 255, 30 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space as added on three layers, frame 239, Full | largest difference 1 of 255, 59 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space as added on three layers, frame 0, Draft | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space as added on three layers, frame 100, Draft | largest difference 1 of 255, 8 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space as added on three layers, frame 239, Draft | largest difference 1 of 255, 7 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 10539 pixels changed | yes |
+| the reference shot, Particle Space as added on three layers, frame 100, Draft | largest difference 1 of 255, 6 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space as added on three layers, frame 239, Draft | largest difference 1 of 255, 9 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 10524 pixels changed | yes |
 | the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 0, Full | largest difference 1 of 255, 3781 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 100, Full | largest difference 1 of 255, 1426 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 239, Full | largest difference 1 of 255, 1772 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 100, Full | largest difference 1 of 255, 1414 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 239, Full | largest difference 1 of 255, 1754 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 0, Draft | largest difference 1 of 255, 129 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 100, Draft | largest difference 1 of 255, 36 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 239, Draft | largest difference 1 of 255, 54 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 9114 pixels changed | yes |
+| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 100, Draft | largest difference 1 of 255, 32 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space shaded spheres in a vortex, fog, over the drawing on three layers, frame 239, Draft | largest difference 1 of 255, 49 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 9105 pixels changed | yes |
 | the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 0, Full | largest difference 1 of 255, 3781 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 100, Full | largest difference 1 of 255, 1422 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 239, Full | largest difference 1 of 255, 1719 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 100, Full | largest difference 1 of 255, 1418 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 239, Full | largest difference 1 of 255, 1708 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 0, Draft | largest difference 1 of 255, 129 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 100, Draft | largest difference 1 of 255, 32 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 239, Draft | largest difference 1 of 255, 45 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 100, Draft | largest difference 1 of 255, 33 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space bubbles bouncing on the floor, screened, birth rate keyed 0 to 4 on three layers, frame 239, Draft | largest difference 1 of 255, 50 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures (verification/D-610 pictures)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | 1_as_added_frame_24.png, frame 24: drawn without a warning, the street changed | 129600 pixels changed; warnings [] | yes |
-| 2_fountain.png, frame 48: drawn without a warning, the street changed | 5326 pixels changed; warnings [] | yes |
-| 3_fire.png, frame 48: drawn without a warning, the street changed | 5459 pixels changed; warnings [] | yes |
-| 4_vortex.png, frame 72: drawn without a warning, the street changed | 19160 pixels changed; warnings [] | yes |
-| 5_glue_floor.png, frame 72: drawn without a warning, the street changed | 19087 pixels changed; warnings [] | yes |
-| 6_composition_camera_dollied_in.png, frame 48: drawn without a warning, the street changed | 71834 pixels changed; warnings [] | yes |
+| 2_fountain.png, frame 48: drawn without a warning, the street changed | 5258 pixels changed; warnings [] | yes |
+| 3_fire.png, frame 48: drawn without a warning, the street changed | 5405 pixels changed; warnings [] | yes |
+| 4_vortex.png, frame 72: drawn without a warning, the street changed | 18977 pixels changed; warnings [] | yes |
+| 5_glue_floor.png, frame 72: drawn without a warning, the street changed | 19066 pixels changed; warnings [] | yes |
+| 6_composition_camera_dollied_in.png, frame 48: drawn without a warning, the street changed | 71795 pixels changed; warnings [] | yes |
 
 ## Result
 
-383 of 383 checks pass.
+390 of 390 checks pass.

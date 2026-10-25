@@ -161,34 +161,34 @@ B-491 (P0-6): three more particle types, Textured Square, Textured Disc and Text
 | fx_ptex_030.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Particle Space textured squares, no texture layer: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
 | the reference shot, Particle Space textured squares, no texture layer on three layers, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 100, Full | largest difference 1 of 255, 13 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 239, Full | largest difference 1 of 255, 48 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 100, Full | largest difference 1 of 255, 19 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 239, Full | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space textured squares, no texture layer on three layers, frame 0, Draft | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 100, Draft | largest difference 1 of 255, 4 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 239, Draft | largest difference 1 of 255, 3 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 8639 pixels changed | yes |
+| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 100, Draft | largest difference 1 of 255, 7 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured squares, no texture layer on three layers, frame 239, Draft | largest difference 1 of 255, 5 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 8503 pixels changed | yes |
 | the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 0, Full | largest difference 1 of 255, 3781 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 100, Full | largest difference 1 of 255, 1405 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 239, Full | largest difference 1 of 255, 1736 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 100, Full | largest difference 1 of 255, 1408 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 239, Full | largest difference 1 of 255, 1747 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 0, Draft | largest difference 1 of 255, 129 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 100, Draft | largest difference 1 of 255, 34 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 239, Draft | largest difference 1 of 255, 49 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 100, Draft | largest difference 1 of 255, 32 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured discs showing the background layer-4, turning, over the drawing on three layers, frame 239, Draft | largest difference 1 of 255, 51 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
 | the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 100, Full | largest difference 1 of 255, 44 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 239, Full | largest difference 1 of 255, 49 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 100, Full | largest difference 1 of 255, 41 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 239, Full | largest difference 1 of 255, 39 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 0, Draft | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 100, Draft | largest difference 1 of 255, 7 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 239, Draft | largest difference 1 of 255, 9 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 100, Draft | largest difference 1 of 255, 11 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Space textured faded discs of layer-4, fogged, Rotation Speed keyed -360 to 360 on three layers, frame 239, Draft | largest difference 1 of 255, 7 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures (verification/D-611 pictures)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| 1_squares_no_texture.png, frame 48: drawn without a warning, the street changed | 3779 pixels changed; warnings [] | yes |
-| 2_street_squares_turning.png, frame 48: drawn without a warning, the street changed | 38868 pixels changed; warnings [] | yes |
-| 3_street_discs_fountain.png, frame 48: drawn without a warning, the street changed | 14043 pixels changed; warnings [] | yes |
-| 4_street_faded_discs_fog.png, frame 72: drawn without a warning, the street changed | 35233 pixels changed; warnings [] | yes |
+| 1_squares_no_texture.png, frame 48: drawn without a warning, the street changed | 3770 pixels changed; warnings [] | yes |
+| 2_street_squares_turning.png, frame 48: drawn without a warning, the street changed | 38867 pixels changed; warnings [] | yes |
+| 3_street_discs_fountain.png, frame 48: drawn without a warning, the street changed | 13972 pixels changed; warnings [] | yes |
+| 4_street_faded_discs_fog.png, frame 72: drawn without a warning, the street changed | 34984 pixels changed; warnings [] | yes |
 | the street with Particle Space's texture layer `gone`, not in the composition: the effect left out, the street unchanged, the warning said | 0 pixels changed; warnings ["EFFECT_LAYER_MISSING An effect on layer art reads layer gone, which is not in this composition."] | yes |
 
 ## Result

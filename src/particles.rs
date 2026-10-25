@@ -191,7 +191,7 @@ struct Particle {
     bounces: u64,
 }
 
-fn word(words: &[String; 7], i: usize) -> usize {
+fn word(words: &[String; 8], i: usize) -> usize {
     PARTICLE_SPACE_WORDS[i]
         .1
         .iter()
@@ -656,7 +656,8 @@ fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
                 cue: w(5),
                 keep: w(6) == 1,
                 colors: std::array::from_fn(|i| colors[i].as_str()),
-                fade: None,
+                // D-837: Fade In And Out is the map's 5.
+                fade: (w(7) == 1).then_some((5, [0.0; 5])),
                 view: *view,
             };
             Some((run, look))
@@ -718,6 +719,32 @@ fn opacity_map(m: usize, o: [f64; 5], f: f64) -> f64 {
         1 => f,
         2 => 1.0 - f,
         3 => 1.0 - (2.0 * f - 1.0).abs(),
+        // D-837: Particle Space's Fade In And Out, CC Particle World's map as added.
+        5 => {
+            const FADE: [(f64, f64); 18] = [
+                (0.0, 0.0),
+                (0.025, 0.24),
+                (0.05, 0.41),
+                (0.075, 0.55),
+                (0.1, 0.67),
+                (0.15, 0.84),
+                (0.2, 0.94),
+                (0.25, 0.98),
+                (0.3, 1.0),
+                (0.7, 1.0),
+                (0.75, 0.98),
+                (0.8, 0.94),
+                (0.85, 0.84),
+                (0.9, 0.67),
+                (0.925, 0.55),
+                (0.95, 0.41),
+                (0.975, 0.24),
+                (1.0, 0.0),
+            ];
+            FADE.windows(2)
+                .find(|s| f <= s[1].0)
+                .map_or(0.0, |s| s[0].1 + (s[1].1 - s[0].1) * (f - s[0].0) / (s[1].0 - s[0].0))
+        }
         _ => {
             let i = ((f * 4.0).floor() as usize).min(3);
             o[i] + (o[i + 1] - o[i]) * (f * 4.0 - i as f64)

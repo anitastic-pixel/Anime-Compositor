@@ -9344,7 +9344,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             for (v, s) in values.iter_mut().zip(PARTICLE_SPACE_SETTINGS) {
                 *v = number(s.0)?;
             }
-            let mut words: [String; 7] = Default::default();
+            let mut words: [String; 8] = Default::default();
             for (w, s) in words.iter_mut().zip(PARTICLE_SPACE_WORDS) {
                 *w = word(s.0)?;
             }

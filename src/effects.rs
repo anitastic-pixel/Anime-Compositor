@@ -3547,7 +3547,7 @@ pub enum Effect {
     /// as the textured particles' picture; `texture` is not a setting and is never saved.
     ParticleSpace {
         values: [f64; 46],
-        words: [String; 7],
+        words: [String; 8],
         colors: [String; 8],
         clock: [f64; 2],
         view: [f64; 4],
@@ -5658,7 +5658,7 @@ pub const PARTICLE_SPACE_SETTINGS: [(&str, f64, f64, f64); 46] = [
     ("initial_rotation", 0.0, 360.0, 0.0),
 ];
 /// D-610: Particle Space's words: name, the words, the word when added.
-pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
+pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 8] = [
     (
         "animation",
         &[
@@ -5709,6 +5709,8 @@ pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
     ),
     ("depth_cue", &["none", "fade", "fog"], "none"),
     ("composite_on_original", &["off", "on"], "off"),
+    // D-837: CC Particle World's Opacity Map as added; a file without it is Constant.
+    ("opacity_map", &["constant", "fade_in_and_out"], "fade_in_and_out"),
 ];
 /// D-610: Particle Space's colours and each when added; Custom's five run from the birth colour
 /// to the death colour.

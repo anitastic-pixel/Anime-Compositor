@@ -4579,7 +4579,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("texture_layer".into(), texture_layer.clone());
             }
             for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS.iter().zip(words) {
-                params.insert((*name).into(), J::from(w.as_str()));
+                // D-837: a Constant map is written only when the file had one.
+                if *name != "opacity_map" || w != "constant" || params.contains_key(*name) {
+                    params.insert((*name).into(), J::from(w.as_str()));
+                }
             }
             for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS.iter().zip(colors) {
                 params.insert((*name).into(), J::from(c.as_str()));
@@ -10922,12 +10925,17 @@ fn parse_effect(
                     effect_number_or(params, name, at, *start)?
                 };
             }
-            let mut words: [String; 7] = Default::default();
+            let mut words: [String; 8] = Default::default();
             for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words.iter_mut())
             {
-                *w = effect_word(params, name, at)?;
+                // D-837: a file written before the Opacity Map has it Constant.
+                *w = if *name == "opacity_map" {
+                    effect_word_or(params, name, at, "constant")?
+                } else {
+                    effect_word(params, name, at)?
+                };
             }
             let mut colors: [String; 8] = Default::default();
             for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS
