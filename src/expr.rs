@@ -961,11 +961,12 @@ impl<'a> Run<'a> {
         let inst = &comp.layer(layer).expect("picked from this layer").effects[index];
         let mut now = inst.at(frame);
         let kind = kind_of(inst, &now, name, self.drawing_of(layer))?;
+        let linear = linear_colours(comp);
         if let Some(text) = live_text(inst, name) {
             let v = self.run_text(layer, inst, name, kind, &text, frame)?;
-            apply(&mut now, name, kind, &v)?;
+            apply(&mut now, name, kind, &v, linear)?;
         }
-        read_now(inst, &now, name, kind)
+        read_now(inst, &now, name, kind, linear)
     }
 
     /// D-820: the drawing's width and height in layer pixels, known only for the layer whose
@@ -1070,11 +1071,12 @@ enum Kind {
     Checkbox,
     /// A colour stored as three linear numbers: four in an expression, `[r, g, b, a]`, the alpha
     /// read as 1; the alpha an expression gives is not kept, as there is none to keep it in.
+    /// D-822: sRGB numbers in an expression unless [`linear_colours`].
     Color,
     /// A point stored as per cents of the drawing's width and height: layer pixels in an
     /// expression, these being the drawing's width and height over 100.
     Point(f64, f64),
-    /// A colour word, `#rrggbb` in sRGB: four linear numbers in an expression, as `Color`.
+    /// A colour word, `#rrggbb` in sRGB: four numbers in an expression, as `Color`.
     Hex,
 }
 
@@ -1142,25 +1144,67 @@ fn live_text(inst: &crate::effects::EffectInstance, name: &str) -> Option<String
     e.get("text")?.as_str().map(str::to_string)
 }
 
-/// D-820: a colour word as four linear numbers.
-fn hex_linear(word: &str) -> V {
-    let [r, g, b] = crate::selective_blur::parse_hex(word).unwrap_or_default();
-    let lin = |c: u8| crate::color::srgb_to_linear(crate::color::dequantise_u8(c)) as f64;
-    V::List(vec![lin(r), lin(g), lin(b), 1.0])
+/// D-822: whether an expression's colours are linear numbers, as in After Effects with Linearize
+/// Working Space on: in Float without After Effects' 32 bpc. Elsewhere (Display, 8 bpc and AE
+/// 32 bpc) they are After Effects' usual 0 to 1 sRGB numbers, so `[1, 0.5, 0, 1]` is #ff8000.
+/// Read from the composition the expression is in.
+// ponytail: a nested composition's own depth, not the outermost one's that its pixels follow;
+// thread the outermost's flag through `effect_in` if a nested Float file needs it.
+fn linear_colours(comp: &Composition) -> bool {
+    comp.float_depth && !comp.ae_32bpc
 }
 
-/// D-820: linear numbers as a colour word, each held to 0 to 1 and rounded to 8 bits.
-fn linear_hex(v: &[f64]) -> String {
-    let q = |c: f64| crate::color::quantise_u8(crate::color::linear_to_srgb(c as f32));
+/// D-822: sRGB's transfer on a stored linear number, unclamped (AE 32 bpc goes past 1).
+fn encode(c: f64) -> f64 {
+    if c <= 0.0031308 {
+        12.92 * c
+    } else {
+        1.055 * c.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+/// D-822: [`encode`] undone.
+fn decode(c: f64) -> f64 {
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+/// D-820: a colour word as four numbers; D-822: its codes over 255 unless colours are linear.
+fn hex_units(word: &str, linear: bool) -> V {
+    let [r, g, b] = crate::selective_blur::parse_hex(word).unwrap_or_default();
+    let n = |c: u8| {
+        let e = crate::color::dequantise_u8(c);
+        if linear {
+            crate::color::srgb_to_linear(e) as f64
+        } else {
+            e as f64
+        }
+    };
+    V::List(vec![n(r), n(g), n(b), 1.0])
+}
+
+/// D-820: numbers as a colour word, each held to 0 to 1 and rounded to 8 bits.
+fn units_hex(v: &[f64], linear: bool) -> String {
+    let q = |c: f64| {
+        crate::color::quantise_u8(if linear {
+            crate::color::linear_to_srgb(c as f32)
+        } else {
+            c as f32
+        })
+    };
     format!("#{:02x}{:02x}{:02x}", q(v[0]), q(v[1]), q(v[2]))
 }
 
 /// D-820: stored numbers in expression units.
-fn read_units(kind: Kind, v: &[f64]) -> V {
+fn read_units(kind: Kind, v: &[f64], linear: bool) -> V {
     match kind {
         Kind::Numbers(1) => V::Num(v[0]),
         Kind::Checkbox => V::Num(if v[0] != 0.0 { 1.0 } else { 0.0 }),
-        Kind::Color | Kind::Hex => V::List(v.iter().copied().chain([1.0]).collect()),
+        Kind::Color | Kind::Hex if linear => V::List(v.iter().copied().chain([1.0]).collect()),
+        Kind::Color | Kind::Hex => V::List(v.iter().map(|c| encode(*c)).chain([1.0]).collect()),
         Kind::Point(sx, sy) => V::List(vec![v[0] * sx, v[1] * sy]),
         Kind::Numbers(_) => V::List(v.to_vec()),
     }
@@ -1172,28 +1216,36 @@ fn read_now(
     now: &crate::effects::EffectInstance,
     name: &str,
     kind: Kind,
+    linear: bool,
 ) -> R<V> {
     if kind == Kind::Hex {
         return crate::persist::word_of(inst.record.get(), now, name)
-            .map(|w| hex_linear(&w))
+            .map(|w| hex_units(&w, linear))
             .ok_or_else(|| missing(format!("{} has no setting \"{name}\"", inst.effect.name())));
     }
-    Ok(read_units(kind, &now.get(name).unwrap_or_default()))
+    Ok(read_units(kind, &now.get(name).unwrap_or_default(), linear))
 }
 
 /// D-820: an expression's value `v`, which the result check has given the setting's count, put
 /// in the setting `name` of `now`, turned back into stored units and held in the range.
-fn apply(now: &mut crate::effects::EffectInstance, name: &str, kind: Kind, v: &V) -> R<()> {
+fn apply(
+    now: &mut crate::effects::EffectInstance,
+    name: &str,
+    kind: Kind,
+    v: &V,
+    linear: bool,
+) -> R<()> {
     let numbers = match v {
         V::Num(n) => vec![*n],
         V::List(l) => l.clone(),
         _ => unreachable!("the result check gives a number or a list"),
     };
     let stored = match kind {
-        Kind::Color => numbers[..3].to_vec(),
+        Kind::Color if linear => numbers[..3].to_vec(),
+        Kind::Color => numbers[..3].iter().map(|c| decode(*c)).collect(),
         Kind::Point(sx, sy) => vec![numbers[0] / sx, numbers[1] / sy],
         Kind::Hex => {
-            let word = linear_hex(&numbers);
+            let word = units_hex(&numbers, linear);
             now.effect = crate::persist::with_word(now, name, &word).ok_or_else(|| {
                 type_error(format!(
                     "{}'s {name} does not take the colour {word}",
@@ -1266,7 +1318,7 @@ pub fn effect_in(
         };
         let done = kind_of(instance, &out, &name, Some(drawing)).and_then(|kind| {
             let v = run.run_text(layer, instance, &name, kind, &text, frame)?;
-            apply(&mut out, &name, kind, &v)
+            apply(&mut out, &name, kind, &v, linear_colours(comp))
         });
         if let Err(e) = done {
             failed.push((name, e));
@@ -1416,7 +1468,7 @@ impl Scope<'_, '_> {
     fn pre(&self, frame: i32) -> R<V> {
         if let Some(s) = &self.setting {
             if let Some(w) = &s.word {
-                return Ok(hex_linear(w));
+                return Ok(hex_units(w, linear_colours(self.run.comp)));
             }
             let keyed = s.keys.first().is_some_and(|p| !p.keyframes().is_empty());
             let v: Vec<f64> = if keyed {
@@ -1433,7 +1485,7 @@ impl Scope<'_, '_> {
                 Kind::Checkbox => Kind::Numbers(1),
                 k => k,
             };
-            return Ok(read_units(kind, &v));
+            return Ok(read_units(kind, &v, linear_colours(self.run.comp)));
         }
         self.run.keyed(&self.target, self.prop, frame)
     }

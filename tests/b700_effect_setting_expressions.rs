@@ -127,8 +127,9 @@ fn b700_effect_setting_expressions() {
         "# D-820: expressions on an effect's colour and point, and reading any effect's setting\n\n\
          B-700. Each frame is the file with the expression; the expected frame is the same file \
          with the value the expression should give written in, worked out by this test from \
-         After Effects' rules: a colour is four numbers, red, green, blue and alpha (in this \
-         build's linear numbers, FX-EXPR-017); a point is in the layer's pixels, which the file \
+         After Effects' rules: a colour is four numbers, red, green, blue and alpha (since D-822 \
+         After Effects' 0 to 1 sRGB numbers, B-702; a Color Control linked in gives its own \
+         colour, out and back); a point is in the layer's pixels, which the file \
          holds as per cent of the layer's width and height (bands is 16 by 10); a colour word is \
          the sRGB code of the linear numbers. The file's own constant must draw differently, so \
          no row passes by the expression doing nothing. The Color Control holds the linear \
