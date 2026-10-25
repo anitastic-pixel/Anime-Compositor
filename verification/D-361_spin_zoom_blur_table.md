@@ -6,7 +6,7 @@ B-240, after CycoreFX's CC Radial Blur: each pixel averaged along a circle round
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-SPINZOOM-001 frame 0: Straight zoom 30 about the middle: every edge streaks outward, evenly; Radial Blur's zoom 30, FX-RADIAL-002, exactly. | largest difference 2.5e-7 | yes |
+| FX-SPINZOOM-001 frame 0: Straight zoom 30 about the middle: every edge streaks outward, evenly; Radial Blur's zoom 30 as it was before D-838 (D-110's outward zoom), exactly. | largest difference 2.5e-7 | yes |
 | FX-SPINZOOM-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SPINZOOM-002 frame 0: Fading zoom 30: the same streaks, fading as they run out, so the drawing itself stays stronger. | largest difference 1.9e-7 | yes |
 | FX-SPINZOOM-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

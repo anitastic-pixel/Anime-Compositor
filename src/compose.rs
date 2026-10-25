@@ -1515,13 +1515,16 @@ fn card_effect(
             amount,
             center,
             edges,
-        } => Some(render::OnCard::Radial(render::Radial {
-            spin: kind == "spin",
-            amount,
-            center: crate::effects::radial_center(center, size, *offset),
-            repeat: edges == "repeat",
-            sweep: None,
-        })),
+        } => {
+            let (amount, sweep) = crate::blurs::radial_pass(kind == "spin", amount);
+            Some(render::OnCard::Radial(render::Radial {
+                spin: kind == "spin",
+                amount,
+                center: crate::effects::radial_center(center, size, *offset),
+                repeat: edges == "repeat",
+                sweep,
+            }))
+        }
         // D-361/D-362: Radial Blur's pass, its samples laid and weighed their own way.
         crate::effects::Effect::SpinZoomBlur { amount, center, .. }
         | crate::effects::Effect::FastZoomBlur { amount, center, .. } => {

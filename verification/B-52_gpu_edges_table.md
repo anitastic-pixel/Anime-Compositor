@@ -85,11 +85,11 @@ The worst comparison is "the reference shot with a Directional Blur at 45 degree
 | fx_edges_008 frame 2, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_008 frame 3, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_008 frame 4, Full | 1 | 0 | 0 | none | PASS |
-| fx_edges_008 frame 0, Draft | 1 | 1 | 1 | none | PASS |
-| fx_edges_008 frame 1, Draft | 1 | 1 | 1 | none | PASS |
-| fx_edges_008 frame 2, Draft | 1 | 1 | 1 | none | PASS |
-| fx_edges_008 frame 3, Draft | 1 | 1 | 1 | none | PASS |
-| fx_edges_008 frame 4, Draft | 1 | 1 | 1 | none | PASS |
+| fx_edges_008 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_edges_008 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_edges_008 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_edges_008 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_edges_008 frame 4, Draft | 1 | 0 | 0 | none | PASS |
 | fx_edges_009 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_009 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_edges_009 frame 2, Full | 1 | 0 | 0 | none | PASS |

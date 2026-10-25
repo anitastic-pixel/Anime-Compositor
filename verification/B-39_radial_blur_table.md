@@ -8,7 +8,7 @@ D-95, accepted by the owner on 2026-09-25; FX-RADIAL-012's directional blur is r
 | --- | --- | --- |
 | FX-RADIAL-001 frame 0: Spin 30 about the middle: every edge smears round the centre, the further out the longer, and the middle of the block stays solid. | largest difference 2.1e-7 | yes |
 | FX-RADIAL-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RADIAL-002 frame 0: Zoom 30 about the middle: every edge smears outward, away from the centre, the further out the longer, and nothing smears inward. | largest difference 2.5e-7 | yes |
+| FX-RADIAL-002 frame 0: Zoom 30 about the middle: every edge smears outward, away from the centre, the further out the longer, and nothing smears inward. | largest difference 2.1e-7 | yes |
 | FX-RADIAL-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RADIAL-003 frame 0: Amount 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
 | FX-RADIAL-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

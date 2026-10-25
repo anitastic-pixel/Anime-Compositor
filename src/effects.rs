@@ -16279,14 +16279,15 @@ pub(crate) fn apply_stack_at(
                 edges,
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                let (amount, sweep) = crate::blurs::radial_pass(kind == "spin", *amount);
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
                     crate::blurs::radial_blur(
                         source,
                         kind == "spin",
-                        *amount,
+                        amount,
                         c,
                         edges == "repeat",
-                        None,
+                        sweep,
                     )
                 })
             }

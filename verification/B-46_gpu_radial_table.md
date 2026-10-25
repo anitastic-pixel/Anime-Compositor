@@ -6,7 +6,7 @@ Each row compares the eight-bit picture the page receives, drawn by the CPU and 
 
 **188 of 188 checks pass.**
 
-The worst comparison is "the reference shot with three Radial Blurs frame 239, Full": largest difference 1 of 255, pixels differing: 20203. Its pictures are in `verification/B-46 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with three Radial Blurs frame 100, Full": largest difference 1 of 255, pixels differing: 22235. Its pictures are in `verification/B-46 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 | Case | Blurs left to the card | Largest difference (of 255) | Pixels differing | Warnings | Result |
 |---|---:|---:|---:|---|---|
@@ -55,11 +55,11 @@ The worst comparison is "the reference shot with three Radial Blurs frame 239, F
 | fx_radial_005 frame 2, Full | 1 | 0 | 0 | none | PASS |
 | fx_radial_005 frame 3, Full | 1 | 0 | 0 | none | PASS |
 | fx_radial_005 frame 4, Full | 1 | 0 | 0 | none | PASS |
-| fx_radial_005 frame 0, Draft | 1 | 0 | 0 | none | PASS |
-| fx_radial_005 frame 1, Draft | 1 | 0 | 0 | none | PASS |
-| fx_radial_005 frame 2, Draft | 1 | 0 | 0 | none | PASS |
-| fx_radial_005 frame 3, Draft | 1 | 0 | 0 | none | PASS |
-| fx_radial_005 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_radial_005 frame 0, Draft | 1 | 1 | 1 | none | PASS |
+| fx_radial_005 frame 1, Draft | 1 | 1 | 1 | none | PASS |
+| fx_radial_005 frame 2, Draft | 1 | 1 | 1 | none | PASS |
+| fx_radial_005 frame 3, Draft | 1 | 1 | 1 | none | PASS |
+| fx_radial_005 frame 4, Draft | 1 | 1 | 1 | none | PASS |
 | fx_radial_006 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_radial_006 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_radial_006 frame 2, Full | 1 | 0 | 0 | none | PASS |
@@ -70,11 +70,11 @@ The worst comparison is "the reference shot with three Radial Blurs frame 239, F
 | fx_radial_006 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_006 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_006 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_radial_007 frame 0, Full | 1 | 1 | 7 | none | PASS |
-| fx_radial_007 frame 1, Full | 1 | 1 | 7 | none | PASS |
-| fx_radial_007 frame 2, Full | 1 | 1 | 7 | none | PASS |
-| fx_radial_007 frame 3, Full | 1 | 1 | 7 | none | PASS |
-| fx_radial_007 frame 4, Full | 1 | 1 | 7 | none | PASS |
+| fx_radial_007 frame 0, Full | 1 | 1 | 1 | none | PASS |
+| fx_radial_007 frame 1, Full | 1 | 1 | 1 | none | PASS |
+| fx_radial_007 frame 2, Full | 1 | 1 | 1 | none | PASS |
+| fx_radial_007 frame 3, Full | 1 | 1 | 1 | none | PASS |
+| fx_radial_007 frame 4, Full | 1 | 1 | 1 | none | PASS |
 | fx_radial_007 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_007 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_007 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -120,11 +120,11 @@ The worst comparison is "the reference shot with three Radial Blurs frame 239, F
 | fx_radial_011 frame 2, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_011 frame 3, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_011 frame 4, Draft | 1 | 0 | 0 | none | PASS |
-| fx_radial_012 frame 0, Full | 1 | 1 | 4 | none | PASS |
-| fx_radial_012 frame 1, Full | 1 | 1 | 4 | none | PASS |
-| fx_radial_012 frame 2, Full | 1 | 1 | 4 | none | PASS |
-| fx_radial_012 frame 3, Full | 1 | 1 | 4 | none | PASS |
-| fx_radial_012 frame 4, Full | 1 | 1 | 4 | none | PASS |
+| fx_radial_012 frame 0, Full | 1 | 1 | 2 | none | PASS |
+| fx_radial_012 frame 1, Full | 1 | 1 | 2 | none | PASS |
+| fx_radial_012 frame 2, Full | 1 | 1 | 2 | none | PASS |
+| fx_radial_012 frame 3, Full | 1 | 1 | 2 | none | PASS |
+| fx_radial_012 frame 4, Full | 1 | 1 | 2 | none | PASS |
 | fx_radial_012 frame 0, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_012 frame 1, Draft | 1 | 0 | 0 | none | PASS |
 | fx_radial_012 frame 2, Draft | 1 | 0 | 0 | none | PASS |
@@ -190,11 +190,11 @@ The worst comparison is "the reference shot with three Radial Blurs frame 239, F
 | fx_radial_018 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_radial_018 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_radial_018 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with three Radial Blurs frame 0, Full | 3 | 1 | 20144 | none | PASS |
-| the reference shot with three Radial Blurs frame 100, Full | 3 | 1 | 19987 | none | PASS |
-| the reference shot with three Radial Blurs frame 239, Full | 3 | 1 | 20203 | none | PASS |
-| the reference shot with three Radial Blurs frame 0, Draft | 3 | 1 | 1031 | none | PASS |
-| the reference shot with three Radial Blurs frame 100, Draft | 3 | 1 | 1043 | none | PASS |
-| the reference shot with three Radial Blurs frame 239, Draft | 3 | 1 | 1016 | none | PASS |
+| the reference shot with three Radial Blurs frame 0, Full | 3 | 1 | 21904 | none | PASS |
+| the reference shot with three Radial Blurs frame 100, Full | 3 | 1 | 22235 | none | PASS |
+| the reference shot with three Radial Blurs frame 239, Full | 3 | 1 | 21821 | none | PASS |
+| the reference shot with three Radial Blurs frame 0, Draft | 3 | 1 | 1192 | none | PASS |
+| the reference shot with three Radial Blurs frame 100, Draft | 3 | 1 | 1171 | none | PASS |
+| the reference shot with three Radial Blurs frame 239, Draft | 3 | 1 | 1164 | none | PASS |
 | the reference shot with three Radial Blurs frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
 | the reference shot with three Radial Blurs frame 100, Draft: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |

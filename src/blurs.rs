@@ -345,6 +345,21 @@ pub struct Sweep {
     pub density: f64,
 }
 
+/// D-838: Radial Blur's own pass, `(amount, sweep)` for [`radial_blur`]. A zoom samples a quarter
+/// of its amount per cent either side of the pixel, as After Effects' does: a centred, even
+/// sweep of half the amount. A spin is D-95's. Light Rays keeps D-110's outward zoom.
+pub(crate) fn radial_pass(spin: bool, amount: f64) -> (f64, Option<Sweep>) {
+    if spin {
+        return (amount, None);
+    }
+    let sweep = Sweep {
+        from: amount / 4.0,
+        weigh: Weigh::Even,
+        density: 1.0,
+    };
+    (amount / 2.0, Some(sweep))
+}
+
 /// P-17: each sample count's turns as `(sin, cos)`, or scales as `(scale, 0)` for a zoom, worked
 /// once by the same sums a pixel would do, rather than a sine and cosine for every sample of
 /// every pixel. Entry `n` holds `n` of them from 2 up; 0 and 1 are empty. B-46 sends the same
