@@ -450,6 +450,14 @@ impl FrameLog {
         }
     }
 
+    /// D-812: a second journal of the same records, to replay into a second log.
+    pub fn copy(&self) -> FrameLog {
+        FrameLog {
+            journal: self.journal.clone(),
+            ..FrameLog::new(usize::MAX)
+        }
+    }
+
     /// Whether nothing has been recorded.
     pub fn is_empty(&self) -> bool {
         self.groups.is_empty()

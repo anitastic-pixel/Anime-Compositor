@@ -432,14 +432,20 @@ pub fn export_sequence_watched(
     // Document 07's default: a missing drawing blocks a final export, and nothing is written
     // before that is known. This plans every frame first, which costs the decode twice over a
     // long range.
-    // ponytail: re-planning is the cost of blocking before the first write. A job snapshot that
-    // kept the plans would remove it, and belongs with the cache in document 27, which is PARKED.
+    // D-812: so a chunk of frames whose plans are all whole is drawn and encoded then from those
+    // plans, and its files kept until the range is known whole, up to KEPT_BYTES of files; past
+    // that, or once a frame is missing a drawing, frames are only planned and drawn again when
+    // written, as before.
+    let mut kept: Vec<Option<(FrameLog, Result<Drawn, Diagnostic>)>> =
+        (0..frames.len()).map(|_| None).collect();
     if request.missing == MissingSource::Block {
         let mut scan = FrameLog::new(3);
         let mut unresolved: Vec<i32> = Vec::new();
+        let mut kept_bytes = 0usize;
+        let mut at = 0;
         // D-231: planned side by side, then read in order as if planned one after another.
         for chunk in frames.chunks(frames_at_once(project, request)) {
-            let planned: Vec<(FrameLog, Result<(), Diagnostic>)> = chunk
+            let plans: Vec<(FrameLog, Result<crate::render::FramePlan, Diagnostic>)> = chunk
                 .par_iter()
                 .map(|&frame| {
                     let mut journal = FrameLog::journal();
@@ -450,10 +456,39 @@ pub fn export_sequence_watched(
                         root,
                         &mut journal,
                     );
-                    (journal, planned.map(|_| ()))
+                    (journal, planned)
                 })
                 .collect();
-            for (&frame, (journal, planned)) in chunk.iter().zip(planned) {
+            // Drawn only when the whole chunk is, so a blocked export costs no more than before.
+            // Nor once cancelled, so a Cancel during the check waits no longer than it did.
+            let keep = unresolved.is_empty()
+                && kept_bytes < KEPT_BYTES
+                && !cancel.load(Ordering::SeqCst)
+                && chunk.iter().zip(&plans).all(|(&frame, (journal, planned))| {
+                    planned.is_ok() && !journal.ids_at(frame).into_iter().any(is_unresolved_source)
+                });
+            let planned: Vec<(FrameLog, Result<(), Diagnostic>, Option<_>)> = chunk
+                .par_iter()
+                .zip(plans)
+                .map(|(&frame, (journal, planned))| match planned {
+                    Ok(plan) if keep => {
+                        let read = journal.copy();
+                        let (journal, mut drawn) =
+                            drawn_from(project, request, frame, journal, Ok(plan));
+                        if let Ok(d) = &mut drawn {
+                            d.buffer = None;
+                        }
+                        (read, Ok(()), Some((journal, drawn)))
+                    }
+                    planned => (journal, planned.map(|_| ()), None),
+                })
+                .collect();
+            for (&frame, (journal, planned, drawn)) in chunk.iter().zip(planned) {
+                if let Some((_, Ok(d))) = &drawn {
+                    kept_bytes += d.bytes();
+                }
+                kept[at] = drawn;
+                at += 1;
                 journal.replay_into(&mut scan);
                 if let Err(d) = planned {
                     report.status = ExportStatus::Failed;
@@ -500,9 +535,14 @@ pub fn export_sequence_watched(
     // frames had been drawn one after another, so the files, the report and the order of writing
     // are what drawing one frame at a time gave.
     for chunk in frames.chunks(frames_at_once(project, request)) {
+        let ready: Vec<_> = chunk
+            .iter()
+            .map(|&f| kept[(f - request.first_frame) as usize].take())
+            .collect();
         let mut drawn = chunk
             .par_iter()
-            .map(|&frame| draw(project, root, request, frame, cancel))
+            .zip(ready)
+            .map(|(&frame, ready)| ready.or_else(|| draw(project, root, request, frame, cancel)))
             .collect::<Vec<_>>()
             .into_iter();
         for &frame in chunk {
@@ -554,6 +594,7 @@ pub fn export_sequence_watched(
             journal.replay_into(&mut log);
             let Drawn {
                 buffer,
+                size: (width, height),
                 bypassed: drew_bypassed,
                 encoded,
                 small,
@@ -580,7 +621,7 @@ pub fn export_sequence_watched(
                     .composition(&request.composition)
                     .map(|c| c.frame_rate)
                     .ok_or_else(|| "the composition is not in the project".to_string());
-                let (w, h) = (buffer.width(), buffer.height());
+                let (w, h) = (width, height);
                 let opened = rate.and_then(|rate| match request.format {
                     OutputFormat::Gif => match Film::gif_refusal(w, h) {
                         Some(why) => Err(why),
@@ -636,7 +677,7 @@ pub fn export_sequence_watched(
             let written = match encoded {
                 Encoded::Film { srgb8, samples } => {
                     let film = film.as_mut().expect("the film was opened above");
-                    film.push(buffer.width(), buffer.height(), &srgb8, &samples)
+                    film.push(width, height, &srgb8, &samples)
                         .and_then(|()| match film {
                             // D-641: each frame's sound goes in after its picture.
                             Film::Mp4(mp4) if mp4.carries_sound() => {
@@ -683,7 +724,12 @@ pub fn export_sequence_watched(
                     let bytes = if drew_bypassed == bypassed {
                         bytes
                     } else {
-                        png_encode(request, &buffer, &tags)
+                        let again = || {
+                            let (_, drawn) = draw(project, root, request, frame, &AtomicBool::new(false))
+                                .expect("not cancelled");
+                            drawn.ok().and_then(|d| d.buffer).expect("drawn before")
+                        };
+                        png_encode(request, &buffer.unwrap_or_else(again), &tags)
                     };
                     bytes.and_then(|b| std::fs::write(&path, b).map_err(|e| e.to_string()))
                 }
@@ -816,13 +862,31 @@ fn frames_at_once(project: &Project, request: &ExportRequest) -> usize {
 
 /// One frame drawn ahead of its turn to be written.
 struct Drawn {
-    buffer: WorkingBuffer,
+    /// D-812: let go of for a frame kept from the check for missing drawings, and drawn again in
+    /// the rare case its file is encoded again.
+    buffer: Option<WorkingBuffer>,
+    size: (usize, usize),
     /// Whether this frame's own log marked it as missing something, which is what its PNG was
     /// encoded with.
     bypassed: bool,
     encoded: Encoded,
     /// D-252: the frame [`small`], for a window watching.
     small: (usize, usize, Vec<u8>),
+}
+
+/// D-812: how much of the frames' files the check for missing drawings keeps for writing.
+// ponytail: a fixed 1 GiB, as frames_at_once's 2 GiB; take both from Preferences if needed.
+const KEPT_BYTES: usize = 1 << 30;
+
+impl Drawn {
+    /// What it holds, near enough.
+    fn bytes(&self) -> usize {
+        let file = match &self.encoded {
+            Encoded::Png(b) | Encoded::Exr(b) => b.as_ref().map_or(0, Vec::len),
+            Encoded::Film { srgb8, samples } => srgb8.len() + samples.len(),
+        };
+        file + self.small.2.len() + self.buffer.as_ref().map_or(0, |b| b.data().len() * 4)
+    }
 }
 
 /// The file a frame becomes, made beside the other frames' so that writing it is only writing.
@@ -863,15 +927,19 @@ fn draw(
         return None;
     }
     let mut journal = FrameLog::journal();
-    let drawn = compose::render_frame(
-        project,
-        &request.composition,
-        frame,
-        root,
-        request.tile_size,
-        &mut journal,
-    )
-    .map(|buffer| {
+    let plan = compose::plan_frame(project, &request.composition, frame, root, &mut journal);
+    Some(drawn_from(project, request, frame, journal, plan))
+}
+
+/// D-812: [`draw`] from the frame's plan, rendered as `compose::render_frame` renders it.
+fn drawn_from(
+    project: &Project,
+    request: &ExportRequest,
+    frame: i32,
+    journal: FrameLog,
+    plan: Result<crate::render::FramePlan, Diagnostic>,
+) -> (FrameLog, Result<Drawn, Diagnostic>) {
+    let drawn = plan.map(|plan| crate::render::render(&plan, request.tile_size)).map(|buffer| {
         let bypassed = bypassed(&journal.ids_at(frame));
         let encoded = match request.format {
             OutputFormat::Png => Encoded::Png(png_encode(
@@ -904,13 +972,14 @@ fn draw(
         };
         let small = small(&buffer, 480);
         Drawn {
-            buffer,
+            size: (buffer.width(), buffer.height()),
+            buffer: Some(buffer),
             bypassed,
             encoded,
             small,
         }
     });
-    Some((journal, drawn))
+    (journal, drawn)
 }
 
 /// Document 28: "exported output must report that fidelity is incomplete" when a feature was
