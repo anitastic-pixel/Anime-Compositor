@@ -432,6 +432,11 @@ def key_value(prop, frame):
     return keys[-1]["value"]
 
 
+def srgb_encode(c):
+    """D-822: sRGB's transfer on a linear number, unclamped."""
+    return 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055
+
+
 class Project:
     def __init__(self, data, comp_index=0):
         self.comp = data["compositions"][comp_index]
@@ -548,7 +553,12 @@ class Run:
         if key_name == "checkbox":
             return 1.0 if v != 0 else 0.0
         if key_name == "color":
-            return list(v) + [1.0]
+            # D-822: After Effects' 0 to 1 sRGB numbers, linear only in Float without AE 32 bpc
+            # (Linearize Working Space on).
+            comp = self.project.comp
+            if comp.get("float_depth") and not comp.get("ae_32bpc"):
+                return list(v) + [1.0]
+            return [srgb_encode(c) for c in v] + [1.0]
         return v
 
 
