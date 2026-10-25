@@ -3,7 +3,8 @@
 //!
 //! Dense pyramidal Lucas-Kanade with a ridge term: a fixed count of steps, no search and no
 //! choice made on the data, so the same two pictures always give the same field. The rule is
-//! pinned step by step in `tools/flow_reference.py`; this is that rule in double precision.
+//! pinned step by step in `tools/flow_reference.py`; this is that rule, worked in single
+//! precision (D-804): the found motion stays within 1e-4 px of the rule's double precision.
 //! Pixels are indexed from 0; "held" means an index outside the picture is moved to its edge.
 
 use rayon::prelude::*;
@@ -38,10 +39,8 @@ impl Tuning {
     }
 }
 
-/// A field of vectors in pixels, across and down, `w` by `h`.
+/// A field of vectors in pixels, across and down, one per pixel of the picture.
 pub(crate) struct Field {
-    pub w: usize,
-    pub h: usize,
     pub x: Vec<f64>,
     pub y: Vec<f64>,
 }
@@ -54,31 +53,31 @@ fn held(i: isize, n: usize) -> usize {
 struct Planes {
     w: usize,
     h: usize,
-    c: [Vec<f64>; 2],
+    c: [Vec<f32>; 2],
 }
 
 fn grey(p: &WorkingBuffer, weights: [f64; 3]) -> Planes {
-    let [wr, wg, wb] = weights;
+    let [wr, wg, wb] = weights.map(|v| v as f32);
     let px = p.data().par_chunks_exact(4);
     Planes {
         w: p.width(),
         h: p.height(),
         c: [
             px.clone()
-                .map(|q| wr * q[0] as f64 + wg * q[1] as f64 + wb * q[2] as f64)
+                .map(|q| wr * q[0] + wg * q[1] + wb * q[2])
                 .collect(),
-            px.map(|q| q[3] as f64).collect(),
+            px.map(|q| q[3]).collect(),
         ],
     }
 }
 
-fn halve(plane: &[f64], w: usize, h: usize) -> Vec<f64> {
+fn halve(plane: &[f32], w: usize, h: usize) -> Vec<f32> {
     let (w2, h2) = (w.div_ceil(2), h.div_ceil(2));
     (0..w2 * h2)
         .into_par_iter()
         .map(|i| {
             let (x, y) = ((i % w2) as isize, (i / w2) as isize);
-            let mut s = 0.0;
+            let mut s = 0.0f32;
             for dy in 0..2 {
                 for dx in 0..2 {
                     s += plane[held(2 * y + dy, h) * w + held(2 * x + dx, w)];
@@ -90,21 +89,21 @@ fn halve(plane: &[f64], w: usize, h: usize) -> Vec<f64> {
 }
 
 /// The sum over the (2r + 1)^2 pixels around each, held, across first, then down.
-fn boxed(plane: &[f64], w: usize, h: usize, r: isize) -> Vec<f64> {
-    let mut across = vec![0.0; w * h];
+fn boxed(plane: &[f32], w: usize, h: usize, r: isize) -> Vec<f32> {
+    let mut across = vec![0.0f32; w * h];
     across.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
         for (x, out) in row.iter_mut().enumerate() {
-            let mut s = 0.0;
+            let mut s = 0.0f32;
             for i in -r..=r {
                 s += plane[y * w + held(x as isize + i, w)];
             }
             *out = s;
         }
     });
-    let mut out = vec![0.0; w * h];
+    let mut out = vec![0.0f32; w * h];
     out.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
         for (x, o) in row.iter_mut().enumerate() {
-            let mut s = 0.0;
+            let mut s = 0.0f32;
             for j in -r..=r {
                 s += across[held(y as isize + j, h) * w + x];
             }
@@ -114,9 +113,9 @@ fn boxed(plane: &[f64], w: usize, h: usize, r: isize) -> Vec<f64> {
     out
 }
 
-fn bilinear_held(plane: &[f64], w: usize, h: usize, x: f64, y: f64) -> f64 {
-    let x = x.clamp(0.0, w as f64 - 1.0);
-    let y = y.clamp(0.0, h as f64 - 1.0);
+fn bilinear_held(plane: &[f32], w: usize, h: usize, x: f32, y: f32) -> f32 {
+    let x = x.clamp(0.0, w as f32 - 1.0);
+    let y = y.clamp(0.0, h as f32 - 1.0);
     let (x0, y0) = (x.floor(), y.floor());
     let (ux, uy) = (x - x0, y - y0);
     let (x0, y0) = (x0 as usize, y0 as usize);
@@ -145,20 +144,28 @@ pub(crate) fn finest(vector_detail: f64, top: usize) -> usize {
         .clamp(0.0, top as f64) as usize
 }
 
+/// A field while it is found: `w` by `h`, across and down, in single precision.
+struct Grid {
+    w: usize,
+    h: usize,
+    x: Vec<f32>,
+    y: Vec<f32>,
+}
+
 /// `field` read at (x + 0.5)/f - 0.5 for each pixel of a `w2` by `h2` picture, times f.
-fn enlarge(field: &Field, w2: usize, h2: usize, f: f64) -> Field {
+fn enlarge(field: &Grid, w2: usize, h2: usize, f: f32) -> Grid {
     let (x, y) = (0..w2 * h2)
         .into_par_iter()
         .map(|i| {
-            let sx = ((i % w2) as f64 + 0.5) / f - 0.5;
-            let sy = ((i / w2) as f64 + 0.5) / f - 0.5;
+            let sx = ((i % w2) as f32 + 0.5) / f - 0.5;
+            let sy = ((i / w2) as f32 + 0.5) / f - 0.5;
             (
                 f * bilinear_held(&field.x, field.w, field.h, sx, sy),
                 f * bilinear_held(&field.y, field.w, field.h, sx, sy),
             )
         })
         .unzip();
-    Field { w: w2, h: h2, x, y }
+    Grid { w: w2, h: h2, x, y }
 }
 
 /// The field from `a` to `b`, the same size: for each pixel p, u(p) with a(p) close to
@@ -167,8 +174,6 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
     let (w, h) = (a.width(), a.height());
     if w == 0 || h == 0 {
         return Field {
-            w,
-            h,
             x: Vec::new(),
             y: Vec::new(),
         };
@@ -176,12 +181,12 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
     let ca = grey(a, s.weights);
     let mut cb = grey(b, s.weights);
     if s.correct_luminance {
-        let (ma, mb) = (
-            ca.c[0].iter().sum::<f64>() / (w * h) as f64,
-            cb.c[0].iter().sum::<f64>() / (w * h) as f64,
-        );
+        // The means are summed in double precision, in one pass in order.
+        let mean = |c: &[f32]| c.iter().map(|&v| f64::from(v)).sum::<f64>() / (w * h) as f64;
+        let (ma, mb) = (mean(&ca.c[0]), mean(&cb.c[0]));
         if mb > 0.0 {
-            cb.c[0].par_iter_mut().for_each(|v| *v *= ma / mb);
+            let k = (ma / mb) as f32;
+            cb.c[0].par_iter_mut().for_each(|v| *v *= k);
         }
     }
     let top = top_level(w, h);
@@ -199,15 +204,15 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         levels.push(pair);
     }
     let r = (s.block_size / 2.0).floor().max(1.0) as isize;
-    let area = ((2 * r + 1) * (2 * r + 1)) as f64;
-    let ridge = area * (0.0001 + 0.01 * s.global_smoothness);
-    let mut field: Option<Field> = None;
+    let area = ((2 * r + 1) * (2 * r + 1)) as f32;
+    let ridge = area * (0.0001 + 0.01 * s.global_smoothness as f32);
+    let mut field: Option<Grid> = None;
     for level in (lf..=top).rev() {
         let (pa, pb) = &levels[level];
         let (lw, lh) = (pa.w, pa.h);
         let n = lw * lh;
-        let Field { mut x, mut y, .. } = match &field {
-            None => Field {
+        let Grid { mut x, mut y, .. } = match &field {
+            None => Grid {
                 w: lw,
                 h: lh,
                 x: vec![0.0; n],
@@ -215,7 +220,7 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
             },
             Some(f) => enlarge(f, lw, lh, 2.0),
         };
-        let grad = |c: &[f64], dx: isize, dy: isize| -> Vec<f64> {
+        let grad = |c: &[f32], dx: isize, dy: isize| -> Vec<f32> {
             (0..n)
                 .into_par_iter()
                 .map(|i| {
@@ -256,10 +261,10 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
             r,
         );
         for _ in 0..s.iterations {
-            let (ex, ey): (Vec<f64>, Vec<f64>) = (0..n)
+            let (ex, ey): (Vec<f32>, Vec<f32>) = (0..n)
                 .into_par_iter()
                 .map(|i| {
-                    let (px, py) = ((i % lw) as f64 + x[i], (i / lw) as f64 + y[i]);
+                    let (px, py) = ((i % lw) as f32 + x[i], (i / lw) as f32 + y[i]);
                     let e0 = bilinear_held(&pb.c[0], lw, lh, px, py) - pa.c[0][i];
                     let e1 = bilinear_held(&pb.c[1], lw, lh, px, py) - pa.c[1][i];
                     (gx[0][i] * e0 + gx[1][i] * e1, gy[0][i] * e0 + gy[1][i] * e1)
@@ -276,7 +281,7 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
                     *uy -= (a * by[i] - c * bx[i]) / det;
                 });
         }
-        let smooth = s.local_smoothness;
+        let smooth = s.local_smoothness as f32;
         let (mx, my) = (boxed(&x, lw, lh, r), boxed(&y, lw, lh, r));
         x.par_iter_mut()
             .zip(&mx)
@@ -284,13 +289,17 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         y.par_iter_mut()
             .zip(&my)
             .for_each(|(u, m)| *u += smooth * (m / area - *u));
-        field = Some(Field { w: lw, h: lh, x, y });
+        field = Some(Grid { w: lw, h: lh, x, y });
     }
     let field = field.unwrap();
-    if lf == 0 {
+    let field = if lf == 0 {
         field
     } else {
-        enlarge(&field, w, h, f64::powi(2.0, lf as i32))
+        enlarge(&field, w, h, f32::powi(2.0, lf as i32))
+    };
+    Field {
+        x: field.x.into_iter().map(f64::from).collect(),
+        y: field.y.into_iter().map(f64::from).collect(),
     }
 }
 

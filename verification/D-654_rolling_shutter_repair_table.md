@@ -6,47 +6,47 @@ D-654, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-RSR-001 frame 0: As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. | largest difference 2.1e-7 | yes |
-| FX-RSR-001 frame 2: As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. | largest difference 2.1e-7 | yes |
-| FX-RSR-001 frame 5: As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. | largest difference 2.1e-7 | yes |
+| FX-RSR-001 frame 0: As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. | largest difference 2.2e-7 | yes |
+| FX-RSR-001 frame 2: As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. | largest difference 3.4e-7 | yes |
+| FX-RSR-001 frame 5: As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. | largest difference 2.7e-7 | yes |
 | FX-RSR-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-002 frame 2: Rate 80, the camera's own: the slant taken out. | largest difference 3.6e-7 | yes |
+| FX-RSR-002 frame 2: Rate 80, the camera's own: the slant taken out. | largest difference 7.2e-7 | yes |
 | FX-RSR-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RSR-003 frame 2: Rate 0: the layer exactly as it is. | largest difference 1.6e-7 | yes |
 | FX-RSR-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-004 frame 2: Rate 100. | largest difference 3.9e-7 | yes |
+| FX-RSR-004 frame 2: Rate 100. | largest difference 6.1e-7 | yes |
 | FX-RSR-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-005 frame 2: Bottom to Top on the card scanned top to bottom: the slant doubled, not taken out. | largest difference 4.4e-7 | yes |
+| FX-RSR-005 frame 2: Bottom to Top on the card scanned top to bottom: the slant doubled, not taken out. | largest difference 6.6e-7 | yes |
 | FX-RSR-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-006 frame 2: Left to Right on the card panning down and scanned left to right. | largest difference 1.9e-7 | yes |
+| FX-RSR-006 frame 2: Left to Right on the card panning down and scanned left to right. | largest difference 2.5e-7 | yes |
 | FX-RSR-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-007 frame 2: Right to Left on the same card. | largest difference 2.3e-7 | yes |
+| FX-RSR-007 frame 2: Right to Left on the same card. | largest difference 3.3e-7 | yes |
 | FX-RSR-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-008 frame 2: Pixel Motion at 80 per cent. | largest difference 6.1e-7 | yes |
+| FX-RSR-008 frame 2: Pixel Motion at 80 per cent. | largest difference 1.6e-6 | yes |
 | FX-RSR-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-009 frame 2: Pixel Motion, Pixel Motion Detail 100. | largest difference 5.5e-7 | yes |
+| FX-RSR-009 frame 2: Pixel Motion, Pixel Motion Detail 100. | largest difference 1.2e-6 | yes |
 | FX-RSR-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-010 frame 2: Pixel Motion Detail keyed from 20 at frame 0 to 100 at frame 4: 60 at frame 2. | largest difference 5.5e-7 | yes |
+| FX-RSR-010 frame 2: Pixel Motion Detail keyed from 20 at frame 0 to 100 at frame 4: 60 at frame 2. | largest difference 1.5e-6 | yes |
 | FX-RSR-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-011 frame 2: Warp with Detailed Analysis on. | largest difference 2.0e-7 | yes |
+| FX-RSR-011 frame 2: Warp with Detailed Analysis on. | largest difference 2.6e-7 | yes |
 | FX-RSR-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-012 frame 2: Rate keyed from 0 at frame 0 to 100 at frame 4: 50 at frame 2, as added. | largest difference 2.1e-7 | yes |
+| FX-RSR-012 frame 2: Rate keyed from 0 at frame 0 to 100 at frame 4: 50 at frame 2, as added. | largest difference 3.4e-7 | yes |
 | FX-RSR-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-013 frame 2: Pixel Motion Blur's disc running over nothing, Pixel Motion at 100: only its own pixels move. | largest difference 1.7e-7 | yes |
+| FX-RSR-013 frame 2: Pixel Motion Blur's disc running over nothing, Pixel Motion at 100: only its own pixels move. | largest difference 1.8e-7 | yes |
 | FX-RSR-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-014 frame 2: An Exposure of +1 before Rolling Shutter Repair: the frames it reads are brightened too. | largest difference 3.9e-7 | yes |
+| FX-RSR-014 frame 2: An Exposure of +1 before Rolling Shutter Repair: the frames it reads are brightened too. | largest difference 1.2e-6 | yes |
 | FX-RSR-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-015 frame 2: An Exposure of -1 after Rolling Shutter Repair darkens its picture. | largest difference 1.9e-7 | yes |
+| FX-RSR-015 frame 2: An Exposure of -1 after Rolling Shutter Repair darkens its picture. | largest difference 3.4e-7 | yes |
 | FX-RSR-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RSR-016 frame 2: The holder moved 3 right and 2 down: FX-RSR-001 moved. | largest difference 2.1e-7 | yes |
 | FX-RSR-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-RSR-017 frame 2: The layer's in point at frame 2: frame 2 is its first, its motion before taken as the motion after turned round. | largest difference 2.1e-7 | yes |
-| FX-RSR-017 frame 3: The layer's in point at frame 2: frame 2 is its first, its motion before taken as the motion after turned round. | largest difference 2.1e-7 | yes |
+| FX-RSR-017 frame 2: The layer's in point at frame 2: frame 2 is its first, its motion before taken as the motion after turned round. | largest difference 2.2e-7 | yes |
+| FX-RSR-017 frame 3: The layer's in point at frame 2: frame 2 is its first, its motion before taken as the motion after turned round. | largest difference 2.2e-7 | yes |
 | FX-RSR-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RSR-018 frame 2: The effect on an adjustment layer above the holder: nothing changes, and the frame says why. | largest difference 1.6e-7 | yes |
 | FX-RSR-018: what opening it warns of, and what frame 4 warns of | [] and ["TEMPORAL_SMOOTHING_SKIPPED"] | yes |
-| FX-RSR-019 frame 2: The card on twos: each frame's held side takes the other side's motion turned round. | largest difference 4.2e-7 | yes |
-| FX-RSR-019 frame 3: The card on twos: each frame's held side takes the other side's motion turned round. | largest difference 3.5e-7 | yes |
+| FX-RSR-019 frame 2: The card on twos: each frame's held side takes the other side's motion turned round. | largest difference 4.8e-7 | yes |
+| FX-RSR-019 frame 3: The card on twos: each frame's held side takes the other side's motion turned round. | largest difference 4.3e-7 | yes |
 | FX-RSR-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-RSR-020 frame 0: Rolling Shutter Rate 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.6e-7 | yes |
 | FX-RSR-020 frame 4: Rolling Shutter Rate 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.6e-7 | yes |

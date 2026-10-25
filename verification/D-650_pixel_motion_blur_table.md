@@ -10,7 +10,7 @@ D-650, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | FX-PMB-001 frame 2: As added: Automatic, so the composition's 180 degrees and 16 samples, Vector Detail 20. The disc is smeared along its run, half a frame's travel; at frame 0 the frame before is the layer's first, and at frame 5 the frame after is past its out point, so each smears one way only. | largest difference 2.8e-7 | yes |
 | FX-PMB-001 frame 5: As added: Automatic, so the composition's 180 degrees and 16 samples, Vector Detail 20. The disc is smeared along its run, half a frame's travel; at frame 0 the frame before is the layer's first, and at frame 5 the frame after is past its out point, so each smears one way only. | largest difference 2.8e-7 | yes |
 | FX-PMB-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-PMB-002 frame 2: Manual, 360 degrees in 8 samples: a whole frame's travel. | largest difference 2.3e-7 | yes |
+| FX-PMB-002 frame 2: Manual, 360 degrees in 8 samples: a whole frame's travel. | largest difference 2.2e-7 | yes |
 | FX-PMB-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-PMB-003 frame 2: Manual, 0 degrees: the shutter never opens, the layer exactly as it is. | largest difference 1.4e-7 | yes |
 | FX-PMB-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -28,9 +28,9 @@ D-650, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | FX-PMB-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-PMB-010 frame 2: The card, Manual 360 degrees in 16 samples, Vector Detail 100. | largest difference 2.3e-7 | yes |
 | FX-PMB-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-PMB-011 frame 2: Automatic with the composition's blur set to 90 degrees and 4 samples, its switch off: those are the ones used. | largest difference 1.6e-7 | yes |
+| FX-PMB-011 frame 2: Automatic with the composition's blur set to 90 degrees and 4 samples, its switch off: those are the ones used. | largest difference 1.5e-7 | yes |
 | FX-PMB-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-PMB-012 frame 2: Manual, 360 degrees in the fewest samples, 2: two copies a half frame apart. | largest difference 1.7e-7 | yes |
+| FX-PMB-012 frame 2: Manual, 360 degrees in the fewest samples, 2: two copies a half frame apart. | largest difference 1.6e-7 | yes |
 | FX-PMB-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-PMB-013 frame 2: An Exposure of +1 before Pixel Motion Blur: the frames either side are brightened too, and the brighter picture is smeared. | largest difference 5.5e-7 | yes |
 | FX-PMB-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

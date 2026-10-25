@@ -7,33 +7,33 @@ D-653, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | FX-WS-001 frame 0: As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. | largest difference 1.6e-7 | yes |
-| FX-WS-001 frame 2: As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. | largest difference 2.0e-7 | yes |
-| FX-WS-001 frame 3: As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. | largest difference 1.9e-7 | yes |
+| FX-WS-001 frame 2: As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. | largest difference 2.4e-7 | yes |
+| FX-WS-001 frame 3: As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. | largest difference 2.2e-7 | yes |
 | FX-WS-001 frame 5: As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. | largest difference 1.5e-7 | yes |
 | FX-WS-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-002 frame 2: Stabilize Only: steadied, the edges the shake uncovers left clear. | largest difference 2.1e-7 | yes |
+| FX-WS-002 frame 2: Stabilize Only: steadied, the edges the shake uncovers left clear. | largest difference 2.0e-7 | yes |
 | FX-WS-002 frame 3: Stabilize Only: steadied, the edges the shake uncovers left clear. | largest difference 1.9e-7 | yes |
 | FX-WS-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-003 frame 2: Stabilize, Crop: steadied, cut to the largest middle rectangle the shake never uncovers, not scaled. | largest difference 2.1e-7 | yes |
+| FX-WS-003 frame 2: Stabilize, Crop: steadied, cut to the largest middle rectangle the shake never uncovers, not scaled. | largest difference 2.0e-7 | yes |
 | FX-WS-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-004 frame 2: Method Position, Stabilize Only: moves only. | largest difference 1.4e-7 | yes |
+| FX-WS-004 frame 2: Method Position, Stabilize Only: moves only. | largest difference 1.5e-7 | yes |
 | FX-WS-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-005 frame 2: The card also turned a little each frame, Position, Scale, Rotation, Stabilize Only. | largest difference 2.1e-7 | yes |
 | FX-WS-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-006 frame 2: The turned card, Perspective, Stabilize Only. | largest difference 2.1e-7 | yes |
+| FX-WS-006 frame 2: The turned card, Perspective, Stabilize Only. | largest difference 4.8e-7 | yes |
 | FX-WS-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-007 frame 2: The turned card, Preserve Scale on, Stabilize Only. | largest difference 2.0e-7 | yes |
+| FX-WS-007 frame 2: The turned card, Preserve Scale on, Stabilize Only. | largest difference 2.1e-7 | yes |
 | FX-WS-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-008 frame 1: No Motion, Stabilize Only: every frame held to the layer's first, the pan taken out too. | largest difference 2.0e-7 | yes |
-| FX-WS-008 frame 3: No Motion, Stabilize Only: every frame held to the layer's first, the pan taken out too. | largest difference 7.5e-7 | yes |
+| FX-WS-008 frame 1: No Motion, Stabilize Only: every frame held to the layer's first, the pan taken out too. | largest difference 3.7e-7 | yes |
+| FX-WS-008 frame 3: No Motion, Stabilize Only: every frame held to the layer's first, the pan taken out too. | largest difference 8.9e-7 | yes |
 | FX-WS-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-009 frame 2: Smoothness 0: the window is one frame, the layer exactly as it is. | largest difference 1.6e-7 | yes |
 | FX-WS-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-010 frame 2: Smoothness 8: one frame either side, where 50 reaches as far as the layer allows, two at frame 2. | largest difference 1.7e-7 | yes |
+| FX-WS-010 frame 2: Smoothness 8: one frame either side, where 50 reaches as far as the layer allows, two at frame 2. | largest difference 1.9e-7 | yes |
 | FX-WS-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-011 frame 2: Maximum Scale 101: the scale stops short, and the cut edges show clear. | largest difference 2.5e-7 | yes |
+| FX-WS-011 frame 2: Maximum Scale 101: the scale stops short, and the cut edges show clear. | largest difference 2.1e-7 | yes |
 | FX-WS-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-012 frame 2: Action-Safe Margin 10: scaled less, since a tenth of each side may stay cut. | largest difference 2.1e-7 | yes |
+| FX-WS-012 frame 2: Action-Safe Margin 10: scaled less, since a tenth of each side may stay cut. | largest difference 2.0e-7 | yes |
 | FX-WS-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-013 frame 2: Additional Scale 120 on Stabilize Only. | largest difference 2.1e-7 | yes |
 | FX-WS-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -41,21 +41,21 @@ D-653, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | FX-WS-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-015 frame 2: Detailed Analysis on: the motion found with a vector for every pixel. | largest difference 1.7e-7 | yes |
 | FX-WS-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-016 frame 2: Pixel Motion Blur's disc running steadily over nothing, Stabilize Only: only its own pixels count, and a steady run is left nearly as it is. | largest difference 1.7e-7 | yes |
+| FX-WS-016 frame 2: Pixel Motion Blur's disc running steadily over nothing, Stabilize Only: only its own pixels count, and a steady run is left nearly as it is. | largest difference 1.8e-7 | yes |
 | FX-WS-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-017 frame 2: An Exposure of +1 before Warp Stabilizer: the frames it reads are brightened too. | largest difference 4.6e-7 | yes |
+| FX-WS-017 frame 2: An Exposure of +1 before Warp Stabilizer: the frames it reads are brightened too. | largest difference 4.1e-7 | yes |
 | FX-WS-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-018 frame 2: An Exposure of -1 after Warp Stabilizer darkens its picture. | largest difference 1.2e-7 | yes |
 | FX-WS-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-WS-019 frame 2: The holder moved 3 right and 2 down: FX-WS-002 moved. | largest difference 2.1e-7 | yes |
+| FX-WS-019 frame 2: The holder moved 3 right and 2 down: FX-WS-002 moved. | largest difference 2.0e-7 | yes |
 | FX-WS-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-020 frame 2: The layer's in point at frame 2: frame 2 is its first, as drawn; frame 3 has one frame either side. | largest difference 1.6e-7 | yes |
-| FX-WS-020 frame 3: The layer's in point at frame 2: frame 2 is its first, as drawn; frame 3 has one frame either side. | largest difference 1.7e-7 | yes |
+| FX-WS-020 frame 3: The layer's in point at frame 2: frame 2 is its first, as drawn; frame 3 has one frame either side. | largest difference 1.8e-7 | yes |
 | FX-WS-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-021 frame 2: The effect on an adjustment layer above the holder: nothing changes, and the frame says why. | largest difference 1.6e-7 | yes |
 | FX-WS-021: what opening it warns of, and what frame 4 warns of | [] and ["TEMPORAL_SMOOTHING_SKIPPED"] | yes |
-| FX-WS-022 frame 2: The shaken card on twos: the frames that repeat a drawing add no motion. | largest difference 1.9e-7 | yes |
-| FX-WS-022 frame 3: The shaken card on twos: the frames that repeat a drawing add no motion. | largest difference 1.8e-7 | yes |
+| FX-WS-022 frame 2: The shaken card on twos: the frames that repeat a drawing add no motion. | largest difference 2.0e-7 | yes |
+| FX-WS-022 frame 3: The shaken card on twos: the frames that repeat a drawing add no motion. | largest difference 1.9e-7 | yes |
 | FX-WS-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-WS-023 frame 0: Smoothness 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.6e-7 | yes |
 | FX-WS-023 frame 4: Smoothness 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |

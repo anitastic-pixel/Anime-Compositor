@@ -8,7 +8,7 @@ D-652, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | --- | --- | --- |
 | FX-TW-001 frame 0: As added: Pixel Motion at Speed 50. Frame 0 is the first drawing (the source time, a quarter frame before the in point, held there); frames 1, 2 and 5 are made a quarter, three quarters and a quarter of the way between drawings. | largest difference 1.4e-7 | yes |
 | FX-TW-001 frame 1: As added: Pixel Motion at Speed 50. Frame 0 is the first drawing (the source time, a quarter frame before the in point, held there); frames 1, 2 and 5 are made a quarter, three quarters and a quarter of the way between drawings. | largest difference 1.6e-7 | yes |
-| FX-TW-001 frame 2: As added: Pixel Motion at Speed 50. Frame 0 is the first drawing (the source time, a quarter frame before the in point, held there); frames 1, 2 and 5 are made a quarter, three quarters and a quarter of the way between drawings. | largest difference 1.7e-7 | yes |
+| FX-TW-001 frame 2: As added: Pixel Motion at Speed 50. Frame 0 is the first drawing (the source time, a quarter frame before the in point, held there); frames 1, 2 and 5 are made a quarter, three quarters and a quarter of the way between drawings. | largest difference 2.2e-7 | yes |
 | FX-TW-001 frame 5: As added: Pixel Motion at Speed 50. Frame 0 is the first drawing (the source time, a quarter frame before the in point, held there); frames 1, 2 and 5 are made a quarter, three quarters and a quarter of the way between drawings. | largest difference 1.6e-7 | yes |
 | FX-TW-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-002 frame 1: Whole Frames at Speed 50: each drawing shown twice, no new pictures. | largest difference 1.4e-7 | yes |
@@ -24,30 +24,30 @@ D-652, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | FX-TW-005 frame 1: Speed 200: twice as fast, made halfway between drawings 3 and 4 at frame 1; from frame 3 on it holds the last drawing. | largest difference 1.6e-7 | yes |
 | FX-TW-005 frame 3: Speed 200: twice as fast, made halfway between drawings 3 and 4 at frame 1; from frame 3 on it holds the last drawing. | largest difference 1.4e-7 | yes |
 | FX-TW-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-006 frame 2: Speed keyed from 200 at frame 0 down to 0 at frame 4: it slows to a stop at source time 4.5. | largest difference 1.6e-7 | yes |
+| FX-TW-006 frame 2: Speed keyed from 200 at frame 0 down to 0 at frame 4: it slows to a stop at source time 4.5. | largest difference 1.4e-7 | yes |
 | FX-TW-006 frame 4: Speed keyed from 200 at frame 0 down to 0 at frame 4: it slows to a stop at source time 4.5. | largest difference 1.5e-7 | yes |
 | FX-TW-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-007 frame 1: Source Frame keyed from 0 at frame 0 to 5 at frame 4: frame 1 shows source frame 1.25 and frame 2 shows 2.5. | largest difference 1.6e-7 | yes |
+| FX-TW-007 frame 1: Source Frame keyed from 0 at frame 0 to 5 at frame 4: frame 1 shows source frame 1.25 and frame 2 shows 2.5. | largest difference 2.2e-7 | yes |
 | FX-TW-007 frame 2: Source Frame keyed from 0 at frame 0 to 5 at frame 4: frame 1 shows source frame 1.25 and frame 2 shows 2.5. | largest difference 1.6e-7 | yes |
 | FX-TW-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-008 frame 0: Source Frame 3.5, Frame Mix: halfway between drawings 4 and 5 on every frame. | largest difference 1.1e-7 | yes |
 | FX-TW-008 frame 4: Source Frame 3.5, Frame Mix: halfway between drawings 4 and 5 on every frame. | largest difference 1.1e-7 | yes |
 | FX-TW-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-009 frame 1: Build From One Image: a quarter of the way uses the drawing before only, three quarters the drawing after only. | largest difference 1.6e-7 | yes |
-| FX-TW-009 frame 2: Build From One Image: a quarter of the way uses the drawing before only, three quarters the drawing after only. | largest difference 1.7e-7 | yes |
+| FX-TW-009 frame 2: Build From One Image: a quarter of the way uses the drawing before only, three quarters the drawing after only. | largest difference 2.2e-7 | yes |
 | FX-TW-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-010 frame 1: Error Threshold 0: never mixed toward Frame Mix. | largest difference 1.7e-7 | yes |
-| FX-TW-010 frame 2: Error Threshold 0: never mixed toward Frame Mix. | largest difference 1.7e-7 | yes |
+| FX-TW-010 frame 1: Error Threshold 0: never mixed toward Frame Mix. | largest difference 1.8e-7 | yes |
+| FX-TW-010 frame 2: Error Threshold 0: never mixed toward Frame Mix. | largest difference 2.2e-7 | yes |
 | FX-TW-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-011 frame 1: Error Threshold 10: wherever the two warped pictures disagree, mixed toward Frame Mix. | largest difference 2.1e-7 | yes |
-| FX-TW-011 frame 2: Error Threshold 10: wherever the two warped pictures disagree, mixed toward Frame Mix. | largest difference 2.4e-7 | yes |
+| FX-TW-011 frame 1: Error Threshold 10: wherever the two warped pictures disagree, mixed toward Frame Mix. | largest difference 8.5e-7 | yes |
+| FX-TW-011 frame 2: Error Threshold 10: wherever the two warped pictures disagree, mixed toward Frame Mix. | largest difference 2.9e-7 | yes |
 | FX-TW-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-012 frame 1: Filtering Extreme: the warped pictures read by the cubic. | largest difference 2.2e-7 | yes |
-| FX-TW-012 frame 2: Filtering Extreme: the warped pictures read by the cubic. | largest difference 2.2e-7 | yes |
+| FX-TW-012 frame 1: Filtering Extreme: the warped pictures read by the cubic. | largest difference 1.9e-7 | yes |
+| FX-TW-012 frame 2: Filtering Extreme: the warped pictures read by the cubic. | largest difference 2.1e-7 | yes |
 | FX-TW-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-013 frame 2: Correct Luminance Changes on, on the textured card, whose mean brightness changes as it slides. | largest difference 2.0e-7 | yes |
+| FX-TW-013 frame 2: Correct Luminance Changes on, on the textured card, whose mean brightness changes as it slides. | largest difference 2.5e-7 | yes |
 | FX-TW-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-014 frame 2: Tuning changed: Vector Detail 100, Global Smoothness 1, Local Smoothness 0, 8 iterations, Block Size 4, weights 1, 0 and 0. | largest difference 1.6e-7 | yes |
+| FX-TW-014 frame 2: Tuning changed: Vector Detail 100, Global Smoothness 1, Local Smoothness 0, 8 iterations, Block Size 4, weights 1, 0 and 0. | largest difference 7.8e-7 | yes |
 | FX-TW-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-015 frame 2: Motion Blur on, Automatic, with the composition's 180 degrees in 8 samples (its switch off): the moments spread a quarter frame of source time. | largest difference 1.3e-7 | yes |
 | FX-TW-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -55,18 +55,18 @@ D-652, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | FX-TW-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-017 frame 2: Motion Blur on, Manual, 360 degrees in 4 samples, Frame Mix on keyed Source Frame. | largest difference 1.1e-7 | yes |
 | FX-TW-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-018 frame 2: Motion Blur on, Manual, 0 degrees: as with it off. | largest difference 1.7e-7 | yes |
+| FX-TW-018 frame 2: Motion Blur on, Manual, 0 degrees: as with it off. | largest difference 2.2e-7 | yes |
 | FX-TW-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-019 frame 1: The textured card, as added. | largest difference 2.1e-7 | yes |
-| FX-TW-019 frame 2: The textured card, as added. | largest difference 1.9e-7 | yes |
+| FX-TW-019 frame 2: The textured card, as added. | largest difference 2.7e-7 | yes |
 | FX-TW-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-020 frame 1: An Exposure of +1 before Timewarp: the frames it reads are brightened too. | largest difference 3.1e-7 | yes |
+| FX-TW-020 frame 1: An Exposure of +1 before Timewarp: the frames it reads are brightened too. | largest difference 3.3e-7 | yes |
 | FX-TW-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-TW-021 frame 1: An Exposure of -1 after Timewarp darkens its picture. | largest difference 8.5e-8 | yes |
+| FX-TW-021 frame 1: An Exposure of -1 after Timewarp darkens its picture. | largest difference 9.3e-8 | yes |
 | FX-TW-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-022 frame 2: The layer's in point at frame 2: its source time starts there. | largest difference 1.4e-7 | yes |
 | FX-TW-022 frame 3: The layer's in point at frame 2: its source time starts there. | largest difference 1.6e-7 | yes |
-| FX-TW-022 frame 4: The layer's in point at frame 2: its source time starts there. | largest difference 1.7e-7 | yes |
+| FX-TW-022 frame 4: The layer's in point at frame 2: its source time starts there. | largest difference 2.2e-7 | yes |
 | FX-TW-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TW-023 frame 1: The holder moved 3 right and 2 down: FX-TW-001 moved. | largest difference 1.6e-7 | yes |
 | FX-TW-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
