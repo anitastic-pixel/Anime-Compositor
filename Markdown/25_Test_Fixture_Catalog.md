@@ -220084,6 +220084,10 @@ FX-PSPACE-070 (`fx_pspace_070.json`): Transfer Mode "multiply". The file is read
 
 FX-PSPACE-071 (`fx_pspace_071.json`): Custom as added, from the birth colour to the death colour: at a fifth of its life, close to FX-PSPACE-002 but not equal (the stops are spaced in 8-bit steps, the mix in linear light). Frames 20.
 
+FX-PSPACE-072 (`fx_pspace_072.json`): Opacity Map Fade In And Out (D-837), the one disc: at frame 11, 0.037 of its life, its centre 0.32 covered; at frame 20, 0.224 of its life, 0.96. Frames 11, 20.
+
+FX-PSPACE-073 (`fx_pspace_073.json`): Fade In And Out on the burst: the newest and oldest faint, the middle-aged as FX-PSPACE-024 has them. Frames 12.
+
 ### Contour Paint, Arrowheads (D-585)
 
 Contour Paint's Arrowheads (B-463), more cases of Contour Paint (D-470) in the same folder and expected file: `tools/contour_paint_reference.py` writes `Fixtures/contour_paint/expected_contour_paint.json`, tolerance 2e-5; the rule is in document 21. FX-CONTOUR-001 to 041 are unchanged in value, 014 and 018 byte-identical; FX-CONTOUR-027's description alone is reworded under D-566.

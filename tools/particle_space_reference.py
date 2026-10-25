@@ -85,7 +85,9 @@ composition frame, the layer's in point i0 and fps the composition's rate:
   the world turned by Rx(Rotation X) Ry(Rotation Y) Rz(Rotation Z) (Rz first) and moved Distance
   away, c = M x + (0, 0, Distance); drawn at (W/2 + f c_x / c_z, H/2 + f c_y / c_z), f = (W/2) /
   tan(FOV / 2), one unit f / c_z pixels across, at depth c_z; not drawn when c_z <= 0.01.
-- Drawing. The radius R is half the size's pixels. Opacity Max Opacity / 100; Depth Cue Fade
+- Drawing. The radius R is half the size's pixels. Opacity Max Opacity / 100 times the Opacity
+  Map at f (D-837): Constant 1; Fade In And Out straight-line between the FADE points below, CC Particle World's
+  map as added as two tutorials draw it. A file without the word is Constant. Depth Cue Fade
   times it by clamp(1 - depth / distance, 0, 1), Fog mixes the colour towards its colour by 1
   minus that. Line: from the particle to the point x - v (1 / fps)(size / 0.15), width
   w = max(1, 2 R), covering clamp(w / 2 - e + 1/2, 0, 1), e the pixel centre's distance from that
@@ -167,7 +169,19 @@ WORDS = [
     ("transfer_mode", ("composite", "screen", "add"), "composite"),
     ("depth_cue", ("none", "fade", "fog"), "none"),
     ("composite_on_original", ("off", "on"), "off"),
+    # D-837: added as Fade In And Out; a case leaves it Constant, and a file without it is.
+    ("opacity_map", ("constant", "fade_in_and_out"), "fade_in_and_out"),
 ]
+FADE = [(0, 0), (0.025, 0.24), (0.05, 0.41), (0.075, 0.55), (0.1, 0.67), (0.15, 0.84), (0.2, 0.94), (0.25, 0.98), (0.3, 1), (0.7, 1), (0.75, 0.98), (0.8, 0.94), (0.85, 0.84), (0.9, 0.67), (0.925, 0.55), (0.95, 0.41), (0.975, 0.24), (1, 0)]
+
+
+def opacity_map(c, f):
+    if c["opacity_map"] == "constant":
+        return 1.0
+    for (f0, o0), (f1, o1) in zip(FADE, FADE[1:]):
+        if f <= f1:
+            return o0 + (o1 - o0) * (f - f0) / (f1 - f0)
+    return 0.0
 COLOURS = [
     ("birth_color", "#ffd933"), ("death_color", "#cc1a00"),
     # Custom's five run from the birth colour to the death colour, a quarter of the 8-bit way
@@ -593,7 +607,7 @@ def sprites(run, px, view):
         X, Y, ppu, depth = s
         rad = size / 100 * ppu / 2
         col = colour(c, f, origin(px, p["x0"]))
-        alpha = now["max_opacity"] / 100
+        alpha = now["max_opacity"] / 100 * opacity_map(c, f)
         if c["depth_cue"] != "none":
             fd = clamp(1 - depth / now["depth_cue_distance"])
             if c["depth_cue"] == "fade":
@@ -699,6 +713,7 @@ def case(shift=0, camera=None, in_frame=0, **given):
     composition camera whose plane at depth 0 is drawn 1:1."""
     c = {s[0]: s[3] for s in SETTINGS}
     c.update({w[0]: w[2] for w in WORDS})
+    c["opacity_map"] = "constant"
     c.update({k: v for k, v in COLOURS})
     for k, v in given.items():
         assert k in c, k
@@ -746,7 +761,7 @@ def plain(c):
 
 def file_json(fx, c):
     params = {n: setting_json(c[n]) for n in NAMES}
-    params.update({w[0]: c[w[0]] for w in WORDS})
+    params.update({w[0]: c[w[0]] for w in WORDS if w[0] != "opacity_map" or c[w[0]] != "constant"})
     params.update({k: c[k] for k, _ in COLOURS})
     p = B.project_json(fx, "core.particle_space", params, c["shift"])
     comp = p["compositions"][0]
@@ -835,6 +850,13 @@ CASES = {
                       "its life, close to FX-PSPACE-002 but not equal (the stops are spaced in "
                       "8-bit steps, the mix in linear light).",
                       case(**dict(ONE, particle_type="disc", color_map="custom")), [20]),
+    "FX-PSPACE-072": ("Opacity Map Fade In And Out (D-837), the one disc: at frame 11, 0.037 of its "
+                      "life, its centre 0.32 covered; at frame 20, 0.224 of its life, 0.96.",
+                      case(**dict(ONE, particle_type="disc", opacity_map="fade_in_and_out")),
+                      [11, 20]),
+    "FX-PSPACE-073": ("Fade In And Out on the burst: the newest and oldest faint, the middle-aged "
+                      "as FX-PSPACE-024 has them.",
+                      case(**dict(FLOW, opacity_map="fade_in_and_out")), [12]),
     "FX-PSPACE-017": ("Two overlapping discs, Composite: the nearer one over the farther.",
                       case(**TWO), [20]),
     "FX-PSPACE-018": ("The two, Screen: brighter where they overlap, neither over the other.",
@@ -1064,6 +1086,11 @@ def check(expected):
     assert c["FX-PSPACE-056"]["12"] == clear_frame
     assert c["FX-PSPACE-057"]["12"] == clear_frame
     assert c["FX-PSPACE-045"]["20"] != c["FX-PSPACE-023"]["20"]
+    # D-837: the faded disc's centre is the map at its age; the burst is fainter, not moved
+    for fr, f in (("11", (11 - 0.5 / 1.3 * 24) / 48), ("20", (20 - 0.5 / 1.3 * 24) / 48)):
+        fd = c["FX-PSPACE-072"][fr]
+        assert abs(max(p[3] for p in fd) - opacity_map({"opacity_map": "fade_in_and_out"}, f)) < 1e-9, (fr, f)
+    assert total(c["FX-PSPACE-073"]["12"]) < total(c["FX-PSPACE-024"]["12"])
     assert c["FX-PSPACE-047"]["20"] != c["FX-PSPACE-045"]["20"]
     # the camera's own plane is 1:1: a particle at depth 0 sits where the layer puts it
     see = camera(Run(CASES["FX-PSPACE-045"][1], 20), view_of(CASES["FX-PSPACE-045"][1]))
