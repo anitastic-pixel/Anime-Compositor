@@ -1352,6 +1352,35 @@ fn noise_more(params: Option<&J>, at: &str) -> Result<crate::effects::NoiseMore,
 /// An unsupported effect writes back only its identity and enabled flag; its parameters come
 /// through the merge untouched, because this build does not know what they mean and rewriting
 /// them from a model it never parsed them into is how a record gets quietly damaged.
+/// D-820: the word setting `name` of `now`, as saving writes it over the record `base`.
+pub(crate) fn word_of(
+    base: Option<&J>,
+    now: &crate::effects::EffectInstance,
+    name: &str,
+) -> Option<String> {
+    let j = effect_json(base, now);
+    let p = j.get("parameters")?.get(name)?;
+    p.as_str()
+        .or_else(|| p.get("base")?.as_str())
+        .map(str::to_string)
+}
+
+/// D-820: `now`'s effect with its word setting `name` made `word`, read as a file's is; None when
+/// the word is not one the setting takes.
+pub(crate) fn with_word(
+    now: &crate::effects::EffectInstance,
+    name: &str,
+    word: &str,
+) -> Option<crate::effects::Effect> {
+    let mut j = effect_json(None, now);
+    j.get_mut("parameters")?
+        .as_object_mut()?
+        .insert(name.into(), J::from(word));
+    let id = Id::new("expression");
+    let fx = parse_effect(&j, "/expression", "expression", &id, &mut Vec::new()).ok()?;
+    fx.effect.is_valid().then_some(fx.effect)
+}
+
 fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J {
     use crate::effects::Effect;
     let mut owned = vec![

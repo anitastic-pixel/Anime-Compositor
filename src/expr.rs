@@ -123,6 +123,25 @@ fn show_arg(v: &V) -> String {
     }
 }
 
+/// D-820: a setting's name as After Effects shows it ("Glow Radius") written the way this
+/// build's files write names ("glow_radius").
+fn file_name(t: &str) -> String {
+    let s: String = t
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+        .collect();
+    s.trim_matches('_').to_string()
+}
+
+/// D-820: After Effects' own names for a few settings this build files under another name:
+/// (effect, After Effects' name as [`file_name`] writes it, this build's name).
+const AE_NAMES: &[(&str, &str, &str)] = &[
+    ("core.drop_shadow", "shadow_color", "color"),
+    ("core.glow", "glow_threshold", "threshold"),
+    ("core.glow", "glow_radius", "radius"),
+    ("core.glow", "glow_intensity", "intensity"),
+];
+
 type R<T> = Result<T, ExprError>;
 
 /// A property's value at `frame` after its expression, in model units, or why the expression
@@ -133,6 +152,7 @@ pub fn evaluate(comp: &Composition, target: &Target, prop: Prop, frame: i32) -> 
         steps: 0,
         stack: Vec::new(),
         fx_stack: Vec::new(),
+        drawing: None,
     };
     let v = run.finished(target, prop, frame)?;
     Ok(to_model(prop, &v))
@@ -854,11 +874,12 @@ enum V {
     Method(Target, Prop, bool),
     Func(&'static str),
     /// D-766: a layer's effects, which `effect(...)` picks from; one of them, by its place in
-    /// the stack; an Expression Control's setting; and its `valueAtTime`, waiting.
+    /// the stack; an Expression Control's setting; and its `valueAtTime`, waiting. D-820: any
+    /// effect's setting, by its name in the file.
     Effects(Id),
     Fx(Id, usize),
-    Setting(Id, usize),
-    SettingMethod(Id, usize),
+    Setting(Id, usize, String),
+    SettingMethod(Id, usize, String),
 }
 
 /// One top-level evaluation: its step budget and the properties being evaluated.
@@ -868,6 +889,8 @@ struct Run<'a> {
     stack: Vec<(Target, Prop, i32)>,
     /// D-766: the effect settings being evaluated, by layer, instance and setting.
     fx_stack: Vec<(Id, String, i32)>,
+    /// D-820: the layer whose effects are being drawn and its drawing's width and height.
+    drawing: Option<(Id, (f64, f64))>,
 }
 
 impl<'a> Run<'a> {
@@ -931,64 +954,82 @@ impl<'a> Run<'a> {
         out
     }
 
-    /// D-766: an Expression Control's setting at `frame`, after its own expression, held in
-    /// its range: a checkbox 1 or 0, a colour four numbers with alpha 1, a point two.
-    fn setting(&mut self, layer: &Id, index: usize, frame: i32) -> R<V> {
+    /// D-766: an effect's setting at `frame`, after its own expression, held in its range.
+    /// D-820: any effect's, in expression units ([`Kind`]).
+    fn setting(&mut self, layer: &Id, index: usize, name: &str, frame: i32) -> R<V> {
         let comp = self.comp;
         let inst = &comp.layer(layer).expect("picked from this layer").effects[index];
-        let (_, _, key) = inst.effect.control().expect("only a control's setting is read");
-        let live = inst
-            .tracks
-            .get(key)
-            .and_then(|t| t[0].live_expression().map(|e| (&t[0], e)));
         let mut now = inst.at(frame);
-        if let Some((property, text)) = live {
-            let name = format!("{}/{key}", inst.instance_id.as_str());
-            let here = (layer.clone(), name.clone(), frame);
-            if self.fx_stack.contains(&here) {
-                return Err(ExprError {
-                    id: DiagnosticId::ExpressionCycle,
-                    message: format!("{key} depends on itself at frame {frame}"),
-                });
-            }
-            if self.stack.len() + self.fx_stack.len() >= MAX_DEPTH {
-                return Err(ExprError {
-                    id: DiagnosticId::ExpressionTimeout,
-                    message: format!("More than {MAX_DEPTH} expressions deep"),
-                });
-            }
-            self.fx_stack.push(here);
-            let mut scope = Scope {
-                run: self,
-                target: Target::Layer(layer.clone()),
-                prop: Prop::Rotation,
-                frame,
-                posterize: None,
-                user_seed: 0,
-                timeless: false,
-                wiggles: 0,
-                randoms: 0,
-                locals: HashMap::new(),
-                setting: Some(Setting {
-                    property,
-                    constant: inst.effect.get(key).map_or(0.0, |v| v[0]),
-                    name,
-                }),
-            };
-            let out = scope.outcome(text);
-            self.fx_stack.pop();
-            match out? {
-                V::Num(n) => now.set_held(key, n),
-                _ => unreachable!("a setting is one number, which the result check holds to"),
-            }
+        let kind = kind_of(inst, &now, name, self.drawing_of(layer))?;
+        if let Some(text) = live_text(inst, name) {
+            let v = self.run_text(layer, inst, name, kind, &text, frame)?;
+            apply(&mut now, name, kind, &v)?;
         }
-        let v = now.get(key).unwrap_or_default();
-        Ok(match key {
-            "checkbox" => V::Num(if v[0] != 0.0 { 1.0 } else { 0.0 }),
-            "color" => V::List(v.into_iter().chain([1.0]).collect()),
-            "point" => V::List(v),
-            _ => V::Num(v[0]),
-        })
+        read_now(inst, &now, name, kind)
+    }
+
+    /// D-820: the drawing's width and height in layer pixels, known only for the layer whose
+    /// effects are being drawn.
+    fn drawing_of(&self, layer: &Id) -> Option<(f64, f64)> {
+        self.drawing
+            .as_ref()
+            .filter(|(l, _)| l == layer)
+            .map(|(_, d)| *d)
+    }
+
+    /// D-291: the expression `text` on the setting `name` of `inst` on `layer`, run at `frame`;
+    /// D-766: a setting that reads itself is a cycle.
+    fn run_text(
+        &mut self,
+        layer: &Id,
+        inst: &'a crate::effects::EffectInstance,
+        name: &str,
+        kind: Kind,
+        text: &str,
+        frame: i32,
+    ) -> R<V> {
+        let setting_name = format!("{}/{name}", inst.instance_id.as_str());
+        let here = (layer.clone(), setting_name.clone(), frame);
+        if self.fx_stack.contains(&here) {
+            return Err(ExprError {
+                id: DiagnosticId::ExpressionCycle,
+                message: format!("{name} depends on itself at frame {frame}"),
+            });
+        }
+        if self.stack.len() + self.fx_stack.len() >= MAX_DEPTH {
+            return Err(ExprError {
+                id: DiagnosticId::ExpressionTimeout,
+                message: format!("More than {MAX_DEPTH} expressions deep"),
+            });
+        }
+        let word = match kind {
+            Kind::Hex => crate::persist::word_of(inst.record.get(), inst, name),
+            _ => None,
+        };
+        self.fx_stack.push(here);
+        let mut scope = Scope {
+            run: self,
+            target: Target::Layer(layer.clone()),
+            // Not read while `setting` is there; a one-number property that is no percentage.
+            prop: Prop::Rotation,
+            frame,
+            posterize: None,
+            user_seed: 0,
+            timeless: false,
+            wiggles: 0,
+            randoms: 0,
+            locals: HashMap::new(),
+            setting: Some(Setting {
+                keys: inst.tracks.get(name).map_or(&[][..], |t| &t[..]),
+                constant: inst.get(name).unwrap_or_default(),
+                word,
+                kind,
+                name: setting_name,
+            }),
+        };
+        let out = scope.outcome(text);
+        self.fx_stack.pop();
+        out
     }
 }
 
@@ -1007,17 +1048,172 @@ struct Scope<'r, 'a> {
     setting: Option<Setting<'a>>,
 }
 
-/// D-291: one number setting of an effect, its keys, its constant and its name, `fx/setting`.
+/// D-291: one setting of an effect, its keys (one property for each number it stores, none when
+/// it has no keys), its constant and its name, `fx/setting`. D-820: and what it is to an
+/// expression, with a colour word's constant.
 struct Setting<'a> {
-    property: &'a Property,
-    constant: f64,
+    keys: &'a [Property],
+    constant: Vec<f64>,
+    word: Option<String>,
+    kind: Kind,
     name: String,
 }
 
+/// D-820: what an effect's setting is to an expression. Where After Effects' units differ from
+/// the numbers this build stores, they are turned at the seam, so a file's numbers keep their
+/// meaning.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Kind {
+    /// As many numbers as are stored; one is a plain number.
+    Numbers(usize),
+    /// A Checkbox Control's, read as 1 or 0.
+    Checkbox,
+    /// A colour stored as three linear numbers: four in an expression, `[r, g, b, a]`, the alpha
+    /// read as 1; the alpha an expression gives is not kept, as there is none to keep it in.
+    Color,
+    /// A point stored as per cents of the drawing's width and height: layer pixels in an
+    /// expression, these being the drawing's width and height over 100.
+    Point(f64, f64),
+    /// A colour word, `#rrggbb` in sRGB: four linear numbers in an expression, as `Color`.
+    Hex,
+}
+
+/// D-820: what the setting `name` of `inst` (`now` at its frame) is to an expression, a point
+/// measured on `drawing`. A choice from a list is refused, as is a point on a layer whose
+/// drawing is not known here.
+fn kind_of(
+    inst: &crate::effects::EffectInstance,
+    now: &crate::effects::EffectInstance,
+    name: &str,
+    drawing: Option<(f64, f64)>,
+) -> R<Kind> {
+    if name == "checkbox" && inst.effect.control().is_some_and(|c| c.2 == "checkbox") {
+        return Ok(Kind::Checkbox);
+    }
+    if name == "mix" && inst.has_mix() {
+        return Ok(Kind::Numbers(1));
+    }
+    let what = inst.effect.name();
+    match inst.effect.range(name) {
+        Some((1, ..)) => Ok(Kind::Numbers(1)),
+        Some((3, ..)) if name == "color" => Ok(Kind::Color),
+        Some((2, lo, hi)) if (lo, hi) == (-1000.0, 1000.0) || (lo, hi) == (-400.0, 500.0) => {
+            match drawing {
+                Some((w, h)) if w > 0.0 && h > 0.0 => Ok(Kind::Point(w / 100.0, h / 100.0)),
+                Some(_) => Err(type_error(format!(
+                    "{what}'s {name} is a point on the layer's picture, and the layer draws \
+                     nothing here to measure it on"
+                ))),
+                None => Err(type_error(format!(
+                    "{what}'s {name} is a point on its own layer's picture, whose size is known \
+                     only while that layer's effects are drawn; read it there, or keep the point \
+                     in a Point Control"
+                ))),
+            }
+        }
+        Some((n, ..)) if n <= 4 => Ok(Kind::Numbers(n)),
+        Some((n, ..)) => Err(type_error(format!(
+            "{what}'s {name} is {n} numbers, and an expression's list holds at most four"
+        ))),
+        None => match crate::persist::word_of(inst.record.get(), now, name) {
+            Some(w) if crate::selective_blur::parse_hex(&w).is_some() => Ok(Kind::Hex),
+            Some(_) => Err(type_error(format!(
+                "{what}'s {name} is a choice from a list, which this build neither runs an \
+                 expression on nor reads into one; the expression is kept as written"
+            ))),
+            None => Err(missing(format!("{what} has no setting \"{name}\""))),
+        },
+    }
+}
+
+/// D-291: the switched-on expression on the setting `name`, a number setting's or, D-790, one
+/// kept in the file's record of a colour, a point or a word.
+fn live_text(inst: &crate::effects::EffectInstance, name: &str) -> Option<String> {
+    if let Some(t) = inst.tracks.get(name).and_then(|t| t[0].live_expression()) {
+        return Some(t.to_string());
+    }
+    let (_, e) = inst
+        .held_expressions()
+        .into_iter()
+        .find(|(n, _)| *n == name)?;
+    if e.get("enabled").and_then(serde_json::Value::as_bool) != Some(true) {
+        return None;
+    }
+    e.get("text")?.as_str().map(str::to_string)
+}
+
+/// D-820: a colour word as four linear numbers.
+fn hex_linear(word: &str) -> V {
+    let [r, g, b] = crate::selective_blur::parse_hex(word).unwrap_or_default();
+    let lin = |c: u8| crate::color::srgb_to_linear(crate::color::dequantise_u8(c)) as f64;
+    V::List(vec![lin(r), lin(g), lin(b), 1.0])
+}
+
+/// D-820: linear numbers as a colour word, each held to 0 to 1 and rounded to 8 bits.
+fn linear_hex(v: &[f64]) -> String {
+    let q = |c: f64| crate::color::quantise_u8(crate::color::linear_to_srgb(c as f32));
+    format!("#{:02x}{:02x}{:02x}", q(v[0]), q(v[1]), q(v[2]))
+}
+
+/// D-820: stored numbers in expression units.
+fn read_units(kind: Kind, v: &[f64]) -> V {
+    match kind {
+        Kind::Numbers(1) => V::Num(v[0]),
+        Kind::Checkbox => V::Num(if v[0] != 0.0 { 1.0 } else { 0.0 }),
+        Kind::Color | Kind::Hex => V::List(v.iter().copied().chain([1.0]).collect()),
+        Kind::Point(sx, sy) => V::List(vec![v[0] * sx, v[1] * sy]),
+        Kind::Numbers(_) => V::List(v.to_vec()),
+    }
+}
+
+/// D-820: the setting `name` of `now` (an instance at its frame) as an expression reads it.
+fn read_now(
+    inst: &crate::effects::EffectInstance,
+    now: &crate::effects::EffectInstance,
+    name: &str,
+    kind: Kind,
+) -> R<V> {
+    if kind == Kind::Hex {
+        return crate::persist::word_of(inst.record.get(), now, name)
+            .map(|w| hex_linear(&w))
+            .ok_or_else(|| missing(format!("{} has no setting \"{name}\"", inst.effect.name())));
+    }
+    Ok(read_units(kind, &now.get(name).unwrap_or_default()))
+}
+
+/// D-820: an expression's value `v`, which the result check has given the setting's count, put
+/// in the setting `name` of `now`, turned back into stored units and held in the range.
+fn apply(now: &mut crate::effects::EffectInstance, name: &str, kind: Kind, v: &V) -> R<()> {
+    let numbers = match v {
+        V::Num(n) => vec![*n],
+        V::List(l) => l.clone(),
+        _ => unreachable!("the result check gives a number or a list"),
+    };
+    let stored = match kind {
+        Kind::Color => numbers[..3].to_vec(),
+        Kind::Point(sx, sy) => vec![numbers[0] / sx, numbers[1] / sy],
+        Kind::Hex => {
+            let word = linear_hex(&numbers);
+            now.effect = crate::persist::with_word(now, name, &word).ok_or_else(|| {
+                type_error(format!(
+                    "{}'s {name} does not take the colour {word}",
+                    now.effect.name()
+                ))
+            })?;
+            return Ok(());
+        }
+        _ => numbers,
+    };
+    now.set_held(name, &stored);
+    Ok(())
+}
+
 /// D-291: `instance` as it is at `frame` (keys read at `u`, as `EffectInstance::at_time` reads
-/// them), with each number setting that carries a switched-on expression set to what it gives,
-/// held in the setting's range as a key's value is. A failing expression leaves the setting at
-/// its keyed value and is given back by the setting's name, to be reported.
+/// them), with each setting that carries a switched-on expression set to what it gives, held in
+/// the setting's range as a key's value is. A failing expression leaves the setting at its keyed
+/// value and is given back by the setting's name, to be reported. D-820: a point is measured on
+/// the composition's frame, which is an adjustment layer's drawing; [`effect_in`] measures it on
+/// a layer's own.
 pub fn effect_at(
     comp: &Composition,
     layer: &Id,
@@ -1025,57 +1221,55 @@ pub fn effect_at(
     frame: i32,
     u: f64,
 ) -> (crate::effects::EffectInstance, Vec<(String, ExprError)>) {
+    let frame_size = (comp.width as f64, comp.height as f64);
+    effect_in(comp, layer, instance, frame, u, frame_size)
+}
+
+/// D-820: [`effect_at`] with a point measured on `drawing`, the layer's picture's width and
+/// height in layer pixels before its effects.
+pub fn effect_in(
+    comp: &Composition,
+    layer: &Id,
+    instance: &crate::effects::EffectInstance,
+    frame: i32,
+    u: f64,
+    drawing: (f64, f64),
+) -> (crate::effects::EffectInstance, Vec<(String, ExprError)>) {
     let mut out = instance.at_time(frame, u);
     let mut failed = Vec::new();
     if !instance.is_valid() {
         return (out, failed);
     }
-    for (name, track) in &instance.tracks {
-        let Some(text) = track[0].live_expression() else {
+    // D-790's kept expressions come after the number settings', in the order they were said.
+    let names: Vec<String> = instance
+        .tracks
+        .iter()
+        .filter(|(_, t)| t[0].live_expression().is_some())
+        .map(|(n, _)| n.clone())
+        .chain(
+            instance
+                .held_expressions()
+                .into_iter()
+                .map(|(n, _)| n.to_string()),
+        )
+        .collect();
+    for name in names {
+        let Some(text) = live_text(instance, &name) else {
             continue;
         };
-        let setting_name = format!("{}/{name}", instance.instance_id.as_str());
         let mut run = Run {
             comp,
             steps: 0,
             stack: Vec::new(),
-            // D-766: a control's expression that reads its own setting is a cycle.
-            fx_stack: vec![(layer.clone(), setting_name.clone(), frame)],
+            fx_stack: Vec::new(),
+            drawing: Some((layer.clone(), drawing)),
         };
-        let mut scope = Scope {
-            run: &mut run,
-            target: Target::Layer(layer.clone()),
-            // Not read while `setting` is there; a one-number property that is no percentage.
-            prop: Prop::Rotation,
-            frame,
-            posterize: None,
-            user_seed: 0,
-            timeless: false,
-            wiggles: 0,
-            randoms: 0,
-            locals: HashMap::new(),
-            setting: Some(Setting {
-                property: &track[0],
-                constant: instance.effect.get(name).map_or(0.0, |v| v[0]),
-                name: setting_name,
-            }),
-        };
-        match scope.outcome(text) {
-            Ok(V::Num(n)) => out.set_held(name, n),
-            Ok(_) => unreachable!("a setting is one number, which the result check holds to"),
-            Err(e) => failed.push((name.clone(), e)),
-        }
-    }
-    // D-790: an expression on a colour, a point or a word is kept and not run.
-    for (name, e) in instance.held_expressions() {
-        if e.get("enabled").and_then(serde_json::Value::as_bool) == Some(true) {
-            failed.push((
-                name.to_string(),
-                type_error(format!(
-                    "This build runs an expression only on a setting of one number, and {name} \
-                     is a colour, a point or a word; the expression is kept as written"
-                )),
-            ));
+        let done = kind_of(instance, &out, &name, Some(drawing)).and_then(|kind| {
+            let v = run.run_text(layer, instance, &name, kind, &text, frame)?;
+            apply(&mut out, &name, kind, &v)
+        });
+        if let Err(e) = done {
+            failed.push((name, e));
         }
     }
     (out, failed)
@@ -1123,14 +1317,14 @@ impl Scope<'_, '_> {
             V::List(l) => {
                 return Err(type_error(format!(
                     "{} is {dims} numbers and the expression gives {}",
-                    self.prop,
+                    self.what(),
                     l.len()
                 )))
             }
             V::Num(_) => {
                 return Err(type_error(format!(
                     "{} is {dims} numbers and the expression gives 1",
-                    self.prop
+                    self.what()
                 )))
             }
             _ => {
@@ -1155,12 +1349,15 @@ impl Scope<'_, '_> {
         Ok(result)
     }
 
-    /// D-291: how many numbers the property being run is; a setting is one.
+    /// D-291: how many numbers the property being run is. D-820: a setting's, in expression
+    /// units.
     fn dims(&self) -> usize {
-        if self.setting.is_some() {
-            1
-        } else {
-            dims(self.prop)
+        match self.setting.as_ref().map(|s| s.kind) {
+            None => dims(self.prop),
+            Some(Kind::Numbers(n)) => n,
+            Some(Kind::Checkbox) => 1,
+            Some(Kind::Color | Kind::Hex) => 4,
+            Some(Kind::Point(..)) => 2,
         }
     }
 
@@ -1218,11 +1415,25 @@ impl Scope<'_, '_> {
 
     fn pre(&self, frame: i32) -> R<V> {
         if let Some(s) = &self.setting {
-            return Ok(V::Num(if s.property.keyframes().is_empty() {
-                s.constant
+            if let Some(w) = &s.word {
+                return Ok(hex_linear(w));
+            }
+            let keyed = s.keys.first().is_some_and(|p| !p.keyframes().is_empty());
+            let v: Vec<f64> = if keyed {
+                s.keys
+                    .iter()
+                    .zip(&s.constant)
+                    .map(|(p, c)| p.value_at(frame).as_scalar().unwrap_or(*c))
+                    .collect()
             } else {
-                s.property.value_at(frame).as_scalar().unwrap_or(s.constant)
-            }));
+                s.constant.clone()
+            };
+            // A checkbox's own `value` is its number as stored.
+            let kind = match s.kind {
+                Kind::Checkbox => Kind::Numbers(1),
+                k => k,
+            };
+            return Ok(read_units(kind, &v));
         }
         self.run.keyed(&self.target, self.prop, frame)
     }
@@ -1238,7 +1449,7 @@ impl Scope<'_, '_> {
     fn plain(&mut self, v: V) -> R<V> {
         match v {
             V::Prop(t, p, own) => self.value_of(&t, p, own, self.frame),
-            V::Setting(l, i) => self.run.setting(&l, i, self.frame),
+            V::Setting(l, i, n) => self.run.setting(&l, i, &n, self.frame),
             v => Ok(v),
         }
     }
@@ -1447,11 +1658,13 @@ impl Scope<'_, '_> {
             }
             (V::Layer(Target::Layer(_)), "transform") => return Ok(obj),
             (V::Layer(Target::Layer(id)), "effect") => return Ok(V::Effects(id.clone())),
-            (V::Setting(l, i), "value") => {
-                let (l, i) = (l.clone(), *i);
-                return self.run.setting(&l, i, self.frame);
+            (V::Setting(l, i, n), "value") => {
+                let (l, i, n) = (l.clone(), *i, n.clone());
+                return self.run.setting(&l, i, &n, self.frame);
             }
-            (V::Setting(l, i), "valueAtTime") => return Ok(V::SettingMethod(l.clone(), *i)),
+            (V::Setting(l, i, n), "valueAtTime") => {
+                return Ok(V::SettingMethod(l.clone(), *i, n.clone()))
+            }
             (V::Layer(t), n) => {
                 let camera = *t == Target::Camera;
                 let n = if !camera && n == "anchorPoint" {
@@ -1495,7 +1708,7 @@ impl Scope<'_, '_> {
             let frame = self.frame_of(secs);
             return match func {
                 V::Method(t, p, own) => self.value_of(&t, p, own, frame),
-                V::SettingMethod(l, i) => self.run.setting(&l, i, frame),
+                V::SettingMethod(l, i, n) => self.run.setting(&l, i, &n, frame),
                 _ => unreachable!(),
             };
         }
@@ -1636,28 +1849,51 @@ impl Scope<'_, '_> {
     }
 
     /// D-766: an Expression Control's one setting, by name, match name or the number 1; a
-    /// Layer Control's is the layer it names.
+    /// Layer Control's is the layer it names. D-820: any other effect's, by its name in the file
+    /// ("sigma_px"), that name written as After Effects shows it ("Sigma Px"), a few of After
+    /// Effects' own names ([`AE_NAMES`]), or a number counting this build's settings from 1.
     fn pick_setting(&mut self, layer: &Id, index: usize, nodes: &[Node]) -> R<V> {
         let comp = self.run.comp;
         let fx = &comp.layer(layer).expect("picked from this layer").effects[index];
-        let Some((matched, setting, _)) = fx.effect.control() else {
-            return Err(syntax(format!(
-                "{}'s settings cannot be read by an expression; only Expression Controls' can",
-                fx.effect.name()
-            )));
-        };
         let v = self.one_arg(nodes, "An effect's setting")?;
+        let no = || {
+            missing(format!(
+                "{} has no setting {}",
+                fx.effect.name(),
+                show_arg(&v)
+            ))
+        };
+        let Some((matched, setting, key)) = fx.effect.control() else {
+            let names = fx.effect.names();
+            let name = match &v {
+                V::Num(n) if n.fract() == 0.0 && *n >= 1.0 && *n <= names.len() as f64 => {
+                    names[*n as usize - 1].to_string()
+                }
+                V::Text(t) => {
+                    let plain = file_name(t);
+                    AE_NAMES
+                        .iter()
+                        .find(|(ty, ae, _)| *ty == fx.type_id() && *ae == plain)
+                        .map_or(plain, |(_, _, ours)| ours.to_string())
+                }
+                _ => return Err(no()),
+            };
+            let at = fx.at(self.frame);
+            let known = names.contains(&name.as_str())
+                || (name == "mix" && fx.has_mix())
+                || crate::persist::word_of(fx.record.get(), &at, &name).is_some();
+            if !known {
+                return Err(no());
+            }
+            return Ok(V::Setting(layer.clone(), index, name));
+        };
         let hit = match &v {
             V::Text(t) => t == setting || *t == format!("{matched}-0001"),
             V::Num(n) => *n == 1.0,
             _ => false,
         };
         if !hit {
-            return Err(missing(format!(
-                "{} has no setting {}",
-                fx.effect.name(),
-                show_arg(&v)
-            )));
+            return Err(no());
         }
         if let crate::effects::Effect::LayerControl { layer: id } = &fx.effect {
             if id.is_empty() {
@@ -1667,7 +1903,7 @@ impl Scope<'_, '_> {
             property(comp, &target, Prop::Position)?;
             return Ok(V::Layer(target));
         }
-        Ok(V::Setting(layer.clone(), index))
+        Ok(V::Setting(layer.clone(), index, key.to_string()))
     }
 
     fn math(&mut self, name: &str, args: Vec<V>) -> R<V> {
@@ -1910,13 +2146,15 @@ impl Scope<'_, '_> {
             ));
         }
         let keys: Vec<i64> = match &self.setting {
-            Some(s) => Cow::Borrowed(s.property),
-            None => property(self.run.comp, &self.target, self.prop)?,
-        }
-        .keyframes()
-        .iter()
-        .map(|k| k.frame as i64)
-        .collect();
+            Some(s) => s.keys.first().map_or_else(Vec::new, |p| {
+                p.keyframes().iter().map(|k| k.frame as i64).collect()
+            }),
+            None => property(self.run.comp, &self.target, self.prop)?
+                .keyframes()
+                .iter()
+                .map(|k| k.frame as i64)
+                .collect(),
+        };
         let f = self.frame as i64;
         let Some(&last) = keys.last() else {
             return self.pre(self.frame);

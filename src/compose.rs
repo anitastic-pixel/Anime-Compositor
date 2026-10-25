@@ -493,7 +493,10 @@ fn plan_inside(
                     let mut effects: Vec<_> = layer
                         .effects
                         .iter()
-                        .map(|i| effect_now(comp, layer, i, frame, frame, frame as f64, float, log))
+                        .map(|i| {
+                            let size = (comp.width as f64, comp.height as f64);
+                            effect_now(comp, layer, i, frame, frame, frame as f64, float, log, size)
+                        })
                         .collect();
                     crate::lut::fill(&mut effects, project, root, &layer.name);
                     // D-191: an adjustment layer's maps lie on the frame it runs on.
@@ -3205,8 +3208,15 @@ fn effect_now(
     u: f64,
     float: bool,
     log: &mut FrameLog,
+    drawing: (f64, f64),
 ) -> crate::effects::EffectInstance {
-    let (mut now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
+    // D-820: a per-cent point an expression reads or writes is of this layer's drawing.
+    let effect_at = |comp: &crate::model::Composition,
+                     id: &Id,
+                     instance: &crate::effects::EffectInstance,
+                     f: i32,
+                     u: f64| crate::expr::effect_in(comp, id, instance, f, u, drawing);
+    let (mut now, failed) = effect_at(comp, &layer.id, instance, at, u);
     // D-319: Fractal Noise is held to white only in Display depth; D-445: Turbulent Noise too.
     if let crate::effects::Effect::FractalNoise { float: f, .. }
     | crate::effects::Effect::TurbulentNoise { float: f, .. } = &mut now.effect
@@ -3246,7 +3256,7 @@ fn effect_now(
         let (frames, way) = if at >= 0 { (0..at, 1.0) } else { (at..0, -1.0) };
         let moved = if keyed {
             frames.fold([0.0; 3], |m, f| {
-                let then = crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64));
+                let then = effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64));
                 let d = step(&then.0.effect);
                 [m[0] + way * d[0], m[1] + way * d[1], m[2] + way * d[2]]
             })
@@ -3271,7 +3281,7 @@ fn effect_now(
             let n = (*time_span * fps + 0.5).floor() as i32;
             *levels = std::iter::once(*pulse_level)
                 .chain((1..=n).map(|j| {
-                    let then = crate::expr::effect_at(
+                    let then = effect_at(
                         comp,
                         &layer.id,
                         instance,
@@ -3307,7 +3317,7 @@ fn effect_now(
             *clock = [at as f64, fps];
             *trail = std::iter::once(*brush_position)
                 .chain((1..=n).map(|j| {
-                    let then = crate::expr::effect_at(
+                    let then = effect_at(
                         comp,
                         &layer.id,
                         instance,
@@ -3363,7 +3373,7 @@ fn effect_now(
                 .filter_map(|uk| {
                     let then =
                         (start + (uk - start) * layer.time_stretch / 100.0 + 1e-9).floor() as i32;
-                    match crate::expr::effect_at(comp, &layer.id, instance, then, uk)
+                    match effect_at(comp, &layer.id, instance, then, uk)
                         .0
                         .effect
                     {
@@ -3404,7 +3414,7 @@ fn effect_now(
                 while k * *interval <= f {
                     let born = k * *interval;
                     k += 1.0;
-                    let then = crate::expr::effect_at(
+                    let then = effect_at(
                         comp,
                         &layer.id,
                         instance,
@@ -3462,7 +3472,7 @@ fn effect_now(
         ) {
             let mut then: Vec<Vec<f64>> = (layer.in_frame..at)
                 .map(|f| {
-                    crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64))
+                    effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64))
                         .0
                         .effect
                         .wave_numbers()
@@ -3542,7 +3552,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -3571,7 +3581,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -3598,7 +3608,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -3624,7 +3634,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -3652,7 +3662,7 @@ fn effect_now(
                     (layer.in_frame..=at + 1)
                         .map(|f| {
                             crate::playground::numbers(
-                                &crate::expr::effect_at(
+                                &effect_at(
                                     comp,
                                     &layer.id,
                                     instance,
@@ -3693,7 +3703,7 @@ fn effect_now(
                     (layer.in_frame..=at + 1)
                         .map(|f| {
                             crate::particles::emitter_numbers_row(
-                                &crate::expr::effect_at(
+                                &effect_at(
                                     comp,
                                     &layer.id,
                                     instance,
@@ -3734,7 +3744,7 @@ fn effect_now(
                     (layer.in_frame..=at + 1)
                         .map(|f| {
                             crate::particles::grid_numbers_row(
-                                &crate::expr::effect_at(
+                                &effect_at(
                                     comp,
                                     &layer.id,
                                     instance,
@@ -3758,7 +3768,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -3801,7 +3811,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -3845,7 +3855,7 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at)
                         .map(|f| {
-                            match crate::expr::effect_at(
+                            match effect_at(
                                 comp,
                                 &layer.id,
                                 instance,
@@ -4009,6 +4019,8 @@ fn resolve_rest(
     bits: crate::effects::Bits,
 ) -> Option<ResolvedLayer> {
     let step1 = (source.width(), source.height());
+    // D-820: the drawing's size in layer pixels, what a per-cent point is of.
+    let drawing = (step1.0 as f64 * pre, step1.1 as f64 * pre);
     // D-188: the moments of a motion-blurred layer's shutter. Its effects all run here, once,
     // because the card does not draw motion blur yet.
     let times = if layer.motion_blur && !layer.is_adjustment() {
@@ -4033,6 +4045,7 @@ fn resolve_rest(
                 layer.key_time(at as f64),
                 float,
                 log,
+                drawing,
             )
         })
         .collect();
@@ -4393,6 +4406,7 @@ fn resolve_rest(
             float,
             cache,
             log,
+            drawing,
         );
         fill_wire(
             &mut effects,
@@ -6315,6 +6329,7 @@ fn fill_stabilizer(
     float: bool,
     cache: &mut CelCache,
     log: &mut FrameLog,
+    drawing: (f64, f64),
 ) {
     for i in 0..effects.len() {
         let r = match &effects[i] {
@@ -6340,6 +6355,7 @@ fn fill_stabilizer(
             holder.key_time(r as f64),
             float,
             &mut inside,
+            drawing,
         );
         if pre != 1.0 {
             then.effect.scale_distances(|d| d / pre);

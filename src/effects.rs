@@ -243,9 +243,9 @@ impl EffectInstance {
     }
 
     /// D-291: one number setting of an instance already at its frame given an expression's
-    /// value, held in the setting's range as a key's is.
-    pub(crate) fn set_held(&mut self, name: &str, v: f64) {
-        self.set(name, &[v]);
+    /// value, held in the setting's range as a key's is. D-820: or a setting of several numbers.
+    pub(crate) fn set_held(&mut self, name: &str, v: &[f64]) {
+        self.set(name, v);
         for (_, slots, low, high) in self.effect.numbers() {
             for v in slots {
                 *v = v.clamp(low, high);
@@ -11004,6 +11004,17 @@ impl Effect {
             .find(|n| n.0 == name)
             .map(|n| n.1.len());
         n
+    }
+
+    /// D-820: how many numbers the setting of this name holds and the range they are held in.
+    pub fn range(&self, name: &str) -> Option<(usize, f64, f64)> {
+        let mut e = self.clone();
+        let r = e
+            .numbers()
+            .into_iter()
+            .find(|n| n.0 == name)
+            .map(|n| (n.1.len(), n.2, n.3));
+        r
     }
 
     /// D-332: the name of every setting a key can be put on.

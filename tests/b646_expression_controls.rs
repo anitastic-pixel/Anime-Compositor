@@ -144,7 +144,7 @@ fn code(cell: &str) -> String {
     cell.trim_matches('`').replace("\\n", "\n")
 }
 
-fn build_row(data: &J, n: u32, i: usize, row: &[String]) -> Vec<String> {
+fn build_row(data: &J, n: u32, _i: usize, row: &[String]) -> Vec<String> {
     let mut built = vec![row[0].clone()];
     match n {
         17 | 18 => {
@@ -161,14 +161,14 @@ fn build_row(data: &J, n: u32, i: usize, row: &[String]) -> Vec<String> {
             }
         }
         19 => {
-            let d = match i {
-                13 => {
+            let d = match row[0].as_str() {
+                r if r.starts_with("Slider Control 2's own") => {
                     let mut d = with(data, "effect(\"Slider Control 2\")(\"Slider\")");
                     layer(&mut d, "layer-ctl")["effects"][6]["parameters"]["slider"]
                         ["expression"]["text"] = J::from("effect(\"Slider Control 2\")(\"Slider\") + 1");
                     d
                 }
-                14 => {
+                r if r.starts_with("the Layer Control set") => {
                     let mut d = with(data, "effect(\"Layer Control\")(\"Layer\").position[0]");
                     layer(&mut d, "layer-ctl")["effects"][5]["parameters"]["layer"] = J::from("");
                     d

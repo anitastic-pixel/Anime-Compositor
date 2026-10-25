@@ -66,18 +66,10 @@ fn tint(color: J) -> J {
         "parameters": {"color": color, "amount": 1.0}}]))
 }
 
-/// Smertimba's neon: a Color Control and a Drop Shadow whose Color reads it, the shadow moved
-/// out from under the layer so its colour shows, on a layer half its size.
-fn neon(color: J) -> J {
-    let mut p = with(json!([
-        {"instance_id": "fx-cc", "type_id": "core.color_control", "enabled": true,
-         "parameters": {"color": [1.0, 0.0, 0.8713671191987972]}},
-        {"instance_id": "fx-ds1", "type_id": "core.drop_shadow", "enabled": true,
-         "parameters": {"color": color, "opacity": 100, "direction": 135, "distance": 3,
-                        "softness": 2}}
-    ]));
-    p["compositions"][0]["layers"][0]["transform"]["scale"]["base"] = json!([50, 50]);
-    p
+/// D-820: a Gaussian Blur whose Units, a choice from a list, carries `units`.
+fn blur_units(units: J) -> J {
+    with(json!([{"instance_id": "fx-0-0", "type_id": "core.gaussian_blur", "enabled": true,
+        "parameters": {"sigma_px": 2, "units": units}}]))
 }
 
 fn twirl(center: J) -> J {
@@ -95,7 +87,11 @@ fn b670_held_expressions() {
          (PROJECT_SCHEMA_INVALID). Now the project opens; the expression's text is kept and \
          saved as read; the setting is drawn at its keys or constant, and every frame says \
          EXPRESSION_TYPE naming the setting. Each expected frame is the same file without the \
-         expression, drawn as before D-790.\n",
+         expression, drawn as before D-790.\n\nD-820 runs the expression on a colour, a point and a colour word, so lane \
+         w7e's neon now draws its Color Control's colour (B-700). What is still kept and said is \
+         an expression that cannot give the setting what it holds: three numbers for a colour, \
+         which After Effects holds as four; three for a point, which is two; and anything on a \
+         choice from a list.\n",
     );
     let cases = [
         (
@@ -121,20 +117,15 @@ fn b670_held_expressions() {
             2,
         ),
         (
-            "Drop Shadow's Color, a word, `effect(\"Color Control\")(\"Color\")` (Smertimba's neon)",
-            neon(held(
-                json!("#ff00f0"),
-                json!([]),
-                "effect(\"Color Control\")(\"Color\")",
-                true,
-            )),
-            neon(json!("#ff00f0")),
-            "color",
+            "Gaussian Blur's Units, a choice from a list, `1`",
+            blur_units(held(json!("sigma"), json!([]), "1", true)),
+            blur_units(json!("sigma")),
+            "units",
             0,
         ),
         (
-            "Twirl's Center, a point, `[4, 2]`",
-            twirl(held(json!([8, 5]), json!([]), "[4, 2]", true)),
+            "Twirl's Center, a point, three numbers, `[4, 2, 0]`",
+            twirl(held(json!([8, 5]), json!([]), "[4, 2, 0]", true)),
             twirl(json!([8, 5])),
             "center",
             1,
@@ -230,7 +221,7 @@ fn b670_held_expressions() {
     let _ = std::fs::remove_dir_all(&out);
     let said: Vec<&str> = report.diagnostics.iter().map(|d| d.id.as_str()).collect();
     t.row(
-        "the neon project's export is refused with EXPRESSION_TYPE, as any failing expression's is (document 28)",
+        "the Units project's export is refused with EXPRESSION_TYPE, as any failing expression's is (document 28)",
         &format!("{:?} {said:?}", report.status),
         report.status == ExportStatus::Blocked && said.contains(&"EXPRESSION_TYPE"),
     );
