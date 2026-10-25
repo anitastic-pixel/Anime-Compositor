@@ -4,7 +4,7 @@
 //!
 //! Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by
 //! `tools/drop_shadow_reference.py` before this code existed and printed in document 25 as
-//! FX-SHADOW-001 to 030 (024 to 030 by D-760). Tolerance 2e-5. Nothing here is a snapshot of a run.
+//! FX-SHADOW-001 to 033 (024 to 030 by D-760, 031 to 033 by D-829). Tolerance 2e-5. Nothing here is a snapshot of a run.
 
 mod effect_table;
 
@@ -30,12 +30,12 @@ fn b58_drop_shadow() {
         "# B-58: drop shadow\n\nD-115, accepted by the owner on 2026-09-26 in the batch of ten. \
          Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by \
          `tools/drop_shadow_reference.py` before this code existed and printed in document 25 \
-         as FX-SHADOW-001 to 030 (024 to 030 added by D-760). The build's frame is compared \
+         as FX-SHADOW-001 to 033 (024 to 030 added by D-760, 031 to 033 by D-829). The build's frame is compared \
          sample by sample; the answer is \
          the largest difference over all of them, against the catalogue's tolerance of 2e-5.\n",
     );
 
-    t.heading("FX-SHADOW-001 to 030 (document 25)");
+    t.heading("FX-SHADOW-001 to 033 (document 25)");
     t.fixtures("expected_drop_shadow.json");
 
     t.heading("How far it reaches");
@@ -114,8 +114,8 @@ fn b58_drop_shadow() {
                 set(shadow("#000000", 50.0, 135.0, 1001.0, 0.0)),
             ),
             (
-                "softness 501",
-                set(shadow("#000000", 50.0, 135.0, 5.0, 501.0)),
+                "softness 2001 (501 before D-829)",
+                set(shadow("#000000", 50.0, 135.0, 5.0, 2001.0)),
             ),
             (
                 "colour \"black\"",
@@ -132,8 +132,8 @@ fn b58_drop_shadow() {
         "fx_shadow_001.json",
         vec![
             (
-                "opacity 100, distance 1000 and softness 500, the tops,",
-                set(shadow("#2040a0", 100.0, 3600.0, 1000.0, 500.0)),
+                "opacity 100, distance 1000 and softness 2000 (500 before D-829), the tops,",
+                set(shadow("#2040a0", 100.0, 3600.0, 1000.0, 2000.0)),
             ),
             (
                 "direction -3600, the bottom,",

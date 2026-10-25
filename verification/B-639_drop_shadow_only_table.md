@@ -82,7 +82,10 @@ D-760, accepted by the owner on 2026-10-23 in the audit's waves ("if it is to be
 | FX-SHADOW-028, fx_shadow_028.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
 | FX-SHADOW-029, fx_shadow_029.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | FX-SHADOW-030, fx_shadow_030.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-SHADOW-031, fx_shadow_031.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-SHADOW-032, fx_shadow_032.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-SHADOW-033, fx_shadow_033.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
 
 ## Result
 
-61 of 61 checks pass.
+64 of 64 checks pass.

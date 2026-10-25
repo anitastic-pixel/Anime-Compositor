@@ -61,8 +61,8 @@ Seven tutorials from seven creators fit After Effects' Drop Shadow edge at sigma
 | FX-SHADOW-019 frame 0: Distance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-019 frame 4: Distance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-019: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-SHADOW-020 frame 0: Softness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-SHADOW-020 frame 4: Softness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-020 frame 0: Softness 2001, above 2000 (501, above 500, before D-829). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-020 frame 4: Softness 2001, above 2000 (501, above 500, before D-829). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-020: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-SHADOW-021 frame 0: Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-021 frame 4: Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -89,6 +89,12 @@ Seven tutorials from seven creators fit After Effects' Drop Shadow edge at sigma
 | FX-SHADOW-030 frame 0: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-030 frame 4: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-030: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SHADOW-031 frame 0: Softness 600, above the old top of 500, Shadow Only "on", opacity 100, distance 0: blurred at sigma 120, the card's shadow is spread so wide that every pixel of the frame takes a faint, almost even shadow, darkest where the card was. | largest difference 3.7e-11 | yes |
+| FX-SHADOW-031: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-032 frame 0: Softness 1000, as FX-SHADOW-031: sigma 200, so about (120 / 200)^2, 0.36, of its covering at every pixel. | largest difference 1.2e-11 | yes |
+| FX-SHADOW-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-033 frame 0: Softness 2000, the new top, as FX-SHADOW-031: sigma 400, about a quarter of FX-SHADOW-032's covering at every pixel. On this small frame it is near the tolerance, so B-709 also holds the build to it within a thousandth of each pixel's own value. | largest difference 4.3e-12 | yes |
+| FX-SHADOW-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## An old project
 
@@ -112,4 +118,4 @@ Seven tutorials from seven creators fit After Effects' Drop Shadow edge at sigma
 
 ## Result
 
-88 of 88 checks pass.
+94 of 94 checks pass.

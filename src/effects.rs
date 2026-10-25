@@ -879,7 +879,7 @@ pub enum Effect {
     },
     /// D-115: `color`, `#rrggbb`, kept as written so a wrong one is reported; `opacity`, 0 to
     /// 100; `direction`, -3600 to 3600 degrees clockwise from up; `distance`, 0 to 1000 pixels;
-    /// and `softness`, 0 to 500 pixels.
+    /// and `softness`, 0 to 2000 pixels (D-829, After Effects' panel taking 2000; 500 before).
     /// D-760: `shadow_only`, "off" or "on", kept as written so a wrong word is reported; "off"
     /// when a file leaves it out.
     DropShadow {
@@ -7676,7 +7676,7 @@ impl Effect {
                 ("opacity", vec![opacity], 0.0, 100.0),
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("distance", vec![distance], 0.0, 1000.0),
-                ("softness", vec![softness], 0.0, 500.0),
+                ("softness", vec![softness], 0.0, 2000.0),
             ],
             Effect::LensBlur {
                 radius,

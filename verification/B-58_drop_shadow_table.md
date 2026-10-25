@@ -1,8 +1,8 @@
 # B-58: drop shadow
 
-D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by `tools/drop_shadow_reference.py` before this code existed and printed in document 25 as FX-SHADOW-001 to 030 (024 to 030 added by D-760). The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/drop_shadow/expected_drop_shadow.json`, written by `tools/drop_shadow_reference.py` before this code existed and printed in document 25 as FX-SHADOW-001 to 033 (024 to 030 added by D-760, 031 to 033 by D-829). The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-SHADOW-001 to 030 (document 25)
+## FX-SHADOW-001 to 033 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -52,8 +52,8 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-SHADOW-019 frame 0: Distance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-019 frame 4: Distance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-019: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-SHADOW-020 frame 0: Softness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-SHADOW-020 frame 4: Softness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-020 frame 0: Softness 2001, above 2000 (501, above 500, before D-829). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SHADOW-020 frame 4: Softness 2001, above 2000 (501, above 500, before D-829). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-020: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-SHADOW-021 frame 0: Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-021 frame 4: Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -80,6 +80,12 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-SHADOW-030 frame 0: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-030 frame 4: Shadow Only written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SHADOW-030: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SHADOW-031 frame 0: Softness 600, above the old top of 500, Shadow Only "on", opacity 100, distance 0: blurred at sigma 120, the card's shadow is spread so wide that every pixel of the frame takes a faint, almost even shadow, darkest where the card was. | largest difference 3.7e-11 | yes |
+| FX-SHADOW-031: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-032 frame 0: Softness 1000, as FX-SHADOW-031: sigma 200, so about (120 / 200)^2, 0.36, of its covering at every pixel. | largest difference 1.2e-11 | yes |
+| FX-SHADOW-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SHADOW-033 frame 0: Softness 2000, the new top, as FX-SHADOW-031: sigma 400, about a quarter of FX-SHADOW-032's covering at every pixel. On this small frame it is near the tolerance, so B-709 also holds the build to it within a thousandth of each pixel's own value. | largest difference 4.3e-12 | yes |
+| FX-SHADOW-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## How far it reaches
 
@@ -119,10 +125,10 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | direction -3601 is refused with a sentence, and nothing changes | Drop Shadow's direction runs from -3600 to 3600, and this is -3601. | yes |
 | distance -1 is refused with a sentence, and nothing changes | Drop Shadow's distance runs from 0 to 1000, and this is -1. | yes |
 | distance 1001 is refused with a sentence, and nothing changes | Drop Shadow's distance runs from 0 to 1000, and this is 1001. | yes |
-| softness 501 is refused with a sentence, and nothing changes | Drop Shadow's softness runs from 0 to 500, and this is 501. | yes |
+| softness 2001 (501 before D-829) is refused with a sentence, and nothing changes | Drop Shadow's softness runs from 0 to 2000, and this is 2001. | yes |
 | colour "black" is refused with a sentence, and nothing changes | Drop Shadow's colour is written #rrggbb, and this is "black". | yes |
 | opacity keyed to 150 is refused with a sentence, and nothing changes | Drop Shadow's opacity runs from 0 to 100, and this is 150. | yes |
-| opacity 100, distance 1000 and softness 500, the tops, is taken | taken | yes |
+| opacity 100, distance 1000 and softness 2000 (500 before D-829), the tops, is taken | taken | yes |
 | direction -3600, the bottom, is taken | taken | yes |
 | distance keyed from 0 to 4 is taken | taken | yes |
 | direction keyed from 0 to 180 is taken | taken | yes |
@@ -137,4 +143,4 @@ D-115, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 
 ## Result
 
-108 of 108 checks pass.
+114 of 114 checks pass.
