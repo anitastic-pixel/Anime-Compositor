@@ -5456,10 +5456,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             composite_over: "on".to_string(),
             mask_map: None,
         }),
-        // D-377..D-379: CycoreFX's starting values, a bar bent 45 degrees up the middle, a
+        // D-377..D-379: CycoreFX's starting values, a bar bent 45 degrees (Bend 25, D-836) up the middle, a
         // 20-pixel bend up the middle, and the layer's own alpha softened by 10, lit from the top left.
         BEND_IT => Some(Effect::BendIt {
-            bend: 45.0,
+            bend: 25.0,
             start: [50.0, 100.0],
             end: [50.0, 0.0],
             render_prestart: "none".to_string(),

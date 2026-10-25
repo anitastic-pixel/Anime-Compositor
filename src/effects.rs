@@ -2569,7 +2569,8 @@ pub enum Effect {
         map_softness: f64,
         map: Option<crate::layer_map::Map>,
     },
-    /// D-377: after CycoreFX's CC Bend It. `bend`, -360 to 360 degrees, the bar's whole turn;
+    /// D-377: after CycoreFX's CC Bend It. `bend`, -360 to 360, the bar's whole turn at 1.8 degrees
+    /// a unit (D-836: Bend 100 is half a turn);
     /// `start` and `end`, per cent of the drawing as Radial Blur's centre is (D-95), -1000 to
     /// 1000; `render_prestart`, one of [`BEND_IT_PRESTARTS`]; `distort`, "legal" or "extended".
     /// The words are kept as written, so a wrong one is reported.

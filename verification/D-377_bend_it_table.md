@@ -6,17 +6,17 @@ B-256, after CycoreFX's CC Bend It: the strip of the layer along a bar from Star
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-BENDIT-001 frame 0: The settings as they start: Bend 45, the bar standing up from the middle of the bottom edge to the middle of the top, None, Legal. The drawing leans and curves to the right as it rises, its top an eighth of a turn over; the left part of the top rows, carried past the edge, is cut. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-001 frame 0: The settings as they start: Bend 25 (45 degrees), the bar standing up from the middle of the bottom edge to the middle of the top, None, Legal. The drawing leans and curves to the right as it rises, its top an eighth of a turn over; the left part of the top rows, carried past the edge, is cut. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BENDIT-002 frame 0: Bend 0: the straight bar, the whole drawing on it: untouched. | largest difference 1.9e-7 | yes |
 | FX-BENDIT-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-003 frame 0: Bend 90: a quarter turn, the top of the bar lying flat to the right, the circle's centre 6.37 pixels right of the bottom middle. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-003 frame 0: Bend 50: a quarter turn, the top of the bar lying flat to the right, the circle's centre 6.37 pixels right of the bottom middle. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-004 frame 0: Bend -90: the same quarter turn to the left, the picture FX-BENDIT-003's turned over left to right about the bar, as far as the drawing, not quite symmetric about its middle, allows. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-004 frame 0: Bend -50: the same quarter turn to the left, the picture FX-BENDIT-003's turned over left to right about the bar, as far as the drawing, not quite symmetric about its middle, allows. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-005 frame 0: Bend 360: the bar bent into a whole circle 1.59 pixels round its centre, so the stripes' two ends meet; pixels the circle's sheets cross twice show the one farther along the bar over the other. | largest difference 2.8e-7 | yes |
+| FX-BENDIT-005 frame 0: Bend 200: the bar bent into a whole circle 1.59 pixels round its centre, so the stripes' two ends meet; pixels the circle's sheets cross twice show the one farther along the bar over the other. | largest difference 2.8e-7 | yes |
 | FX-BENDIT-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-006 frame 0: Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 60, None, Legal: what lies before the Start (rows 8 and 9) and past the End (rows 0 and 1) is not drawn; the six rows between bend. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-006 frame 0: Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 33.3 (60 degrees), None, Legal: what lies before the Start (rows 8 and 9) and past the End (rows 0 and 1) is not drawn; the six rows between bend. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BENDIT-007 frame 0: The same with Render Prestart Static: rows 8 and 9, before the Start, drawn unbent, under the bent part where it swings over them. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -26,25 +26,25 @@ B-256, after CycoreFX's CC Bend It: the strip of the layer along a bar from Star
 | FX-BENDIT-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BENDIT-010 frame 0: FX-BENDIT-006 with Distort Extended: rows 0 and 1, past the End, laid straight on along the bent bar's last direction, 60 degrees over. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-011 frame 0: Start 0, 50 and End 100, 50, the bar lying across, Bend 90: its right half curls down, n pointing down from a bar that runs to the right; rows above and below the bar bend with it. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-011 frame 0: Start 0, 50 and End 100, 50, the bar lying across, Bend 50: its right half curls down, n pointing down from a bar that runs to the right; rows above and below the bar bend with it. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BENDIT-012 frame 0: Start and End the same point, 50, 50: no bar, the drawing untouched. | largest difference 1.9e-7 | yes |
 | FX-BENDIT-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-013 frame 0: Bend keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. | largest difference 1.9e-7 | yes |
-| FX-BENDIT-013 frame 2: Bend keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. | largest difference 2.5e-7 | yes |
-| FX-BENDIT-013 frame 4: Bend keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-013 frame 0: Bend keyed from 0 at frame 0 to 50 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. | largest difference 1.9e-7 | yes |
+| FX-BENDIT-013 frame 2: Bend keyed from 0 at frame 0 to 50 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-013 frame 4: Bend keyed from 0 at frame 0 to 50 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-014 frame 0: Bend 60, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. | largest difference 2.5e-7 | yes |
-| FX-BENDIT-014 frame 2: Bend 60, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. | largest difference 2.5e-7 | yes |
-| FX-BENDIT-014 frame 4: Bend 60, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-014 frame 0: Bend 33.3, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-014 frame 2: Bend 33.3, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-014 frame 4: Bend 33.3, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BENDIT-015 frame 0: FX-BENDIT-003 moved three pixels right: the same, moved; the bend is worked in the drawing's own space and moves with it, nothing grows, and the three columns left of the drawing stay empty. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-016 frame 0: Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, and is FX-BENDIT-005, as frame 4 is. | largest difference 1.9e-7 | yes |
-| FX-BENDIT-016 frame 2: Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, and is FX-BENDIT-005, as frame 4 is. | largest difference 2.8e-7 | yes |
-| FX-BENDIT-016 frame 4: Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, and is FX-BENDIT-005, as frame 4 is. | largest difference 2.8e-7 | yes |
+| FX-BENDIT-016 frame 0: Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, a turn of 648 degrees, one and four fifths of a whole circle, as at frame 4. | largest difference 1.9e-7 | yes |
+| FX-BENDIT-016 frame 2: Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, a turn of 648 degrees, one and four fifths of a whole circle, as at frame 4. | largest difference 2.5e-7 | yes |
+| FX-BENDIT-016 frame 4: Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, a turn of 648 degrees, one and four fifths of a whole circle, as at frame 4. | largest difference 2.5e-7 | yes |
 | FX-BENDIT-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BENDIT-017 frame 0: Bend -150 on the short bar with Static and Extended: the bar curls back on itself to the left, past the Start row, over the static rows, and runs on straight from the End. | largest difference 3.1e-7 | yes |
+| FX-BENDIT-017 frame 0: Bend -83.3 (-150 degrees) on the short bar with Static and Extended: the bar curls back on itself to the left, past the Start row, over the static rows, and runs on straight from the End. | largest difference 3.1e-7 | yes |
 | FX-BENDIT-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BENDIT-018 frame 0: Bend 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-BENDIT-018 frame 4: Bend 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -92,7 +92,7 @@ B-256, after CycoreFX's CC Bend It: the strip of the layer along a bar from Star
 | fx_bendit_021.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_bendit_022.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_bendit_023.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
-| fx_bendit_017.json is saved with its bend, start, end, render prestart and distort | {"bend":-150,"distort":"extended","end":[50,20],"render_prestart":"static","start":[50,80]} | yes |
+| fx_bendit_017.json is saved with its bend, start, end, render prestart and distort | {"bend":-83.33333333333334,"distort":"extended","end":[50,20],"render_prestart":"static","start":[50,80]} | yes |
 | fx_bendit_018.json is refused in a sentence | Bend It's bend runs from -360 to 360, and this is 361. | yes |
 | fx_bendit_019.json is refused in a sentence | Bend It's bend runs from -360 to 360, and this is -361. | yes |
 | fx_bendit_020.json is refused in a sentence | Bend It's render prestart is none, static, bend or mirror, and this is "Bend". | yes |
@@ -161,27 +161,27 @@ B-256, after CycoreFX's CC Bend It: the strip of the layer along a bar from Star
 | the reference shot, Bend It as it starts (45, up the middle) on three layers, frame 0, Draft | largest difference 1 of 255, 62 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bend It as it starts (45, up the middle) on three layers, frame 100, Draft | largest difference 1 of 255, 70 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bend It as it starts (45, up the middle) on three layers, frame 239, Draft | largest difference 1 of 255, 66 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2044464 pixels changed | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 0, Full | largest difference 1 of 255, 3787 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 100, Full | largest difference 1 of 255, 721 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 239, Full | largest difference 1 of 255, 3539 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 0, Draft | largest difference 1 of 255, 160 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 100, Draft | largest difference 1 of 255, 58 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 239, Draft | largest difference 1 of 255, 143 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 300 across the middle, mirror: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2039106 pixels changed | yes |
-| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 0, Full | largest difference 1 of 255, 108 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 100, Full | largest difference 1 of 255, 262 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 239, Full | largest difference 1 of 255, 213 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 0, Draft | largest difference 1 of 255, 20 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 100, Draft | largest difference 1 of 255, 36 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 239, Draft | largest difference 1 of 255, 38 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 75 on the upper half, static: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1193294 pixels changed | yes |
-| the reference shot, Bend It 75 on the upper half, static on three layers, frame 0, Full | largest difference 1 of 255, 2039 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 75 on the upper half, static on three layers, frame 100, Full | largest difference 1 of 255, 1079 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 75 on the upper half, static on three layers, frame 239, Full | largest difference 1 of 255, 1233 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2057464 pixels changed | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 0, Full | largest difference 1 of 255, 679 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 100, Full | largest difference 1 of 255, 983 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 239, Full | largest difference 1 of 255, 778 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 0, Draft | largest difference 1 of 255, 44 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 100, Draft | largest difference 1 of 255, 67 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It -120 from 20, 90 to 80, 10, bend before, extended on three layers, frame 239, Draft | largest difference 1 of 255, 56 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 300 across the middle, mirror: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073566 pixels changed | yes |
+| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 0, Full | largest difference 1 of 255, 24 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 100, Full | largest difference 1 of 255, 176 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 239, Full | largest difference 1 of 255, 95 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 0, Draft | largest difference 1 of 255, 1 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 100, Draft | largest difference 1 of 255, 16 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 300 across the middle, mirror on three layers, frame 239, Draft | largest difference 1 of 255, 9 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 75 on the upper half, static: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1466919 pixels changed | yes |
+| the reference shot, Bend It 75 on the upper half, static on three layers, frame 0, Full | largest difference 1 of 255, 1676 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 75 on the upper half, static on three layers, frame 100, Full | largest difference 1 of 255, 1073 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 75 on the upper half, static on three layers, frame 239, Full | largest difference 1 of 255, 1280 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bend It 75 on the upper half, static on three layers, frame 0, Draft | largest difference 1 of 255, 65 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 75 on the upper half, static on three layers, frame 100, Draft | largest difference 1 of 255, 32 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bend It 75 on the upper half, static on three layers, frame 239, Draft | largest difference 1 of 255, 37 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 75 on the upper half, static on three layers, frame 100, Draft | largest difference 1 of 255, 36 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bend It 75 on the upper half, static on three layers, frame 239, Draft | largest difference 1 of 255, 52 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: the street, in `verification/D-377 pictures/`
 
@@ -190,8 +190,8 @@ B-256, after CycoreFX's CC Bend It: the strip of the layer along a bar from Star
 | 1_before.png, the street with no effect; draws cleanly | [] | yes |
 | 2_as_added.png, as it starts (45 up the middle): the street leans and curls to the right as it rises; draws cleanly | [], 99450 pixels changed | yes |
 | 3_bend_0.png, bend 0: the straight bar, nothing changes; draws cleanly | [], 0 pixels changed | yes |
-| 4_curl_180_static.png, 180 from 70 per cent up to 10, static: the upper street rolls over into a half circle, the lower part stays; draws cleanly | [], 109903 pixels changed | yes |
-| 5_banner_across_mirror.png, -90 from the middle to the right edge, mirror: the street curls up at both sides like a banner; draws cleanly | [], 109210 pixels changed | yes |
+| 4_curl_180_static.png, 180 from 70 per cent up to 10, static: the upper street rolls over into a half circle, the lower part stays; draws cleanly | [], 121083 pixels changed | yes |
+| 5_banner_across_mirror.png, -90 from the middle to the right edge, mirror: the street curls up at both sides like a banner; draws cleanly | [], 113010 pixels changed | yes |
 
 ## Result
 

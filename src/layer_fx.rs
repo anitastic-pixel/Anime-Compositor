@@ -2211,7 +2211,7 @@ pub(crate) fn plastic(
 
 /// D-377: Bend It, this program's own reading of CycoreFX's CC Bend It. The bar from `start` to
 /// `end` (points of the buffer, length L, direction t, n = t turned a quarter clockwise) is bent
-/// into an arc turning `bend` degrees over its length, round C = S + R n with R = L / theta. Each
+/// into an arc turning `bend` x 1.8 degrees over its length (D-836: Bend 100 is half a turn), round C = S + R n with R = L / theta. Each
 /// pixel lays over one another, the farthest along the bar on top, the bilinear samples of every
 /// place the bend puts on it: on the arc, phi = atan2(-q.t, q.n) + j pi for q = P - C, v = R +
 /// (-1)^j |q| and u = phi L / theta, kept for `lo` <= u <= L. `prestart` 0 draws nothing before
@@ -2234,7 +2234,7 @@ pub(crate) fn bend_it(
     let (tx, ty) = ((end.0 - start.0) / length, (end.1 - start.1) / length);
     let (nx, ny) = (-ty, tx);
     let from = |u: f64, v: f64| (start.0 + u * tx + v * nx, start.1 + u * ty + v * ny);
-    let theta = bend.to_radians();
+    let theta = bend * std::f64::consts::PI / 100.0;
     let r = length / theta;
     let (cx, cy) = (start.0 + r * nx, start.1 + r * ny);
     // The frame turned `phi` along the arc: its point on the bar's line, its t and n.

@@ -16914,7 +16914,8 @@ impl Gpu {
                 let length = (e.0 - s.0).hypot(e.1 - s.1);
                 let (tx, ty) = ((e.0 - s.0) / length, (e.1 - s.1) / length);
                 let (nx, ny) = (-ty, tx);
-                let theta = bend.to_radians();
+                // D-836: 1.8 degrees a unit, as layer_fx::bend_it.
+                let theta = bend * std::f64::consts::PI / 100.0;
                 let (r, (cx, cy)) = if theta == 0.0 {
                     (0.0, (0.0, 0.0))
                 } else {

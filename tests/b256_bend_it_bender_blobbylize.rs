@@ -142,7 +142,7 @@ fn refused_holder(
 fn fx(type_id: &str, id: &str, p: &J) -> J {
     let mut all = match type_id {
         "core.bend_it" => {
-            json!({"bend": 45, "start": [50, 100], "end": [50, 0], "render_prestart": "none", "distort": "legal"})
+            json!({"bend": 25, "start": [50, 100], "end": [50, 0], "render_prestart": "none", "distort": "legal"})
         }
         "core.bender" => {
             json!({"amount": 20, "style": "bend", "adjust_to_distance": "off", "top": [50, 0], "base": [50, 100]})
@@ -389,7 +389,7 @@ fn b256_bend_it() {
     t.row(
         "fx_bendit_017.json is saved with its bend, start, end, render prestart and distort",
         &saved.to_string(),
-        saved["bend"] == -150
+        saved["bend"] == -2.5 * (100.0 / 3.0)
             && saved["start"] == json!([50, 80])
             && saved["end"] == json!([50, 20])
             && saved["render_prestart"] == "static"
