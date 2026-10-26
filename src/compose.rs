@@ -4643,11 +4643,19 @@ fn resolve_rest(
     // D-330, D-333: the card does not blur display values as 32 bpc (After Effects) does, so
     // there it is left nothing. B-688 (D-808): in 8 bpc it rounds to 8 bits and turns to display
     // values and back as the CPU does (`render::OnCard::Eight`), for the effects `eight_card` lets.
+    // B-754 (D-874): in 32 bpc (After Effects) the card draws those that work in linear values
+    // there as everywhere: all but the blurs, Glow and Solid Composite, and Exposure.
     let plain = bits == crate::effects::Bits::Linear;
     let eight = bits == crate::effects::Bits::Eight;
+    let ae = bits == crate::effects::Bits::Ae32;
     let pixels = source.width() * source.height();
     let can = |i: usize| {
-        (plain || eight && eight_card(&effects[i].effect))
+        let e = &effects[i].effect;
+        (plain
+            || eight && eight_card(e)
+            || ae
+                && !crate::effects::on_display(e, bits)
+                && !matches!(e, crate::effects::Effect::Exposure { .. }))
             && card
             && cel.is_some()
             && card_can(&effects[i], pre, pixels)

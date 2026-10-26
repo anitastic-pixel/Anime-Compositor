@@ -200,7 +200,7 @@ fn b200_float_depth() {
     t.heading("The preview card");
     match Gpu::new() {
         Err(why) => t.row(
-            "The card hands a Float frame to the CPU",
+            "The card draws a Float frame",
             &format!("NOT RUN: no usable card ({why})"),
             false,
         ),
@@ -253,13 +253,10 @@ fn b200_float_depth() {
                     .map(|(a, b)| a.abs_diff(*b))
                     .max()
                     .unwrap_or(0);
-                let ok = if float {
-                    on_cpu && worst == 0
-                } else {
-                    !on_cpu && worst <= 1
-                };
+                // B-754 (D-874): Float is drawn on the card too, within D-808's level.
+                let ok = !on_cpu && worst <= 1;
                 t.row(
-                    &format!("{name}: {}", if float { "Float, drawn by the CPU, the CPU's picture exactly, and said as GPU_PREVIEW_ON_CPU" } else { "Display, drawn on the card as before, within 1 level of 255" }),
+                    &format!("{name}: {}", if float { "Float, drawn on the card since B-754, within 1 level of 255" } else { "Display, drawn on the card as before, within 1 level of 255" }),
                     &format!("{}, largest difference {worst} of 255", if on_cpu { "CPU" } else { "card" }),
                     ok,
                 );

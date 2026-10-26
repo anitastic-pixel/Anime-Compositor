@@ -183,8 +183,17 @@ fn on_card(project: &Project, comp: &Id, root: &Path, quality: PreviewQuality) -
 fn eight_bpc(project: &Project) -> Project {
     let mut j: serde_json::Value =
         serde_json::from_str(&persist::to_json(project, &Preserved::none())).unwrap();
+    // B-754: `W7_DEPTH` float or ae times Float or 32 bpc (After Effects) in these columns instead.
+    let depth = std::env::var("W7_DEPTH").unwrap_or_default();
     for c in j["compositions"].as_array_mut().unwrap() {
-        c["eight_bpc"] = serde_json::Value::from(true);
+        match depth.as_str() {
+            "float" => c["float_depth"] = serde_json::Value::from(true),
+            "ae" => {
+                c["float_depth"] = serde_json::Value::from(true);
+                c["ae_32bpc"] = serde_json::Value::from(true);
+            }
+            _ => c["eight_bpc"] = serde_json::Value::from(true),
+        }
     }
     persist::load_str(&j.to_string())
         .expect("8 bpc")

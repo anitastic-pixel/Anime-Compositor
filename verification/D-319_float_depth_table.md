@@ -54,9 +54,9 @@ Written by `tests/b200_float_depth.rs`. A composition's working depth is Display
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| fx_blend_addf_001.json: Float, drawn by the CPU, the CPU's picture exactly, and said as GPU_PREVIEW_ON_CPU | CPU, largest difference 0 of 255 | yes |
+| fx_blend_addf_001.json: Float, drawn on the card since B-754, within 1 level of 255 | card, largest difference 0 of 255 | yes |
 | fx_blend_addf_002.json: Display, drawn on the card as before, within 1 level of 255 | card, largest difference 0 of 255 | yes |
-| fx_fnoise_hdr_001.json: Float, drawn by the CPU, the CPU's picture exactly, and said as GPU_PREVIEW_ON_CPU | CPU, largest difference 0 of 255 | yes |
+| fx_fnoise_hdr_001.json: Float, drawn on the card since B-754, within 1 level of 255 | card, largest difference 0 of 255 | yes |
 
 ## Files from before D-319
 

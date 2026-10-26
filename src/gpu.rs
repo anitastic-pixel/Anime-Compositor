@@ -149,6 +149,12 @@ fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
             case 2u: { b = cs + cd - cs * cd; }
             default: { b = min(cs + cd, vec3(1.0)); }
         }
+        // D-874: bit 32 is D-319's Float, composite::blend_pixel_in's: Add is not held to 1
+        // and Screen takes the brighter where both are past white.
+        if (L.blend & 32u) != 0u {
+            if mode == 3u { b = cs + cd; }
+            if mode == 2u { b = select(b, max(cs, cd), cs > vec3(1.0) & cd > vec3(1.0)); }
+        }
         let rgb = (1.0 - s.w) * d.xyz + (1.0 - d.w) * s.xyz + s.w * d.w * b;
         out = vec4(rgb, s.w + d.w - s.w * d.w);
     }
@@ -1497,6 +1503,9 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         } else if k[20] == 3.0lf {
             v = v - 2.0lf * floor(v / 2.0lf);
             v = select(v, 2.0lf - v, v > 1.0lf);
+        } else if F.flag == 1u && k[20] == 0.0lf {
+            // D-874: grade::overflowed in D-319's Float, `flag` 1: only black holds.
+            v = max(v, 0.0lf);
         } else {
             v = clamp(v, 0.0lf, 1.0lf);
         }
@@ -1528,6 +1537,10 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         } else {
             for (var c = 0u; c < 3u; c++) {
                 m[c] = mixed(b[c], col[c]);
+                // D-874: grade::screen_float.
+                if F.flag == 1u && F.blend == 2u && b[c] > 1.0lf && col[c] > 1.0lf {
+                    m[c] = max(b[c], col[c]);
+                }
             }
         }
         for (var c = 0u; c < 3u; c++) {
@@ -15960,7 +15973,7 @@ impl Gpu {
                 scale_height,
                 cycle,
                 frame,
-                float: _,
+                float,
                 more,
             } => {
                 let base = crate::grade::mix(seed.floor() as u64);
@@ -16035,6 +16048,8 @@ impl Gpu {
                     },
                     blend: noise_blend,
                     count: complexity.floor() as u32,
+                    // D-874.
+                    flag: *float as u32,
                     base: [base as u32, (base >> 32) as u32],
                     ox: ox as i32,
                     oy: oy as i32,
@@ -24361,7 +24376,7 @@ impl Gpu {
             self.target = Some(Target {
                 width,
                 height,
-                sum: buffer("B-44 sum", n * 16, U::STORAGE | U::COPY_DST),
+                sum: buffer("B-44 sum", n * 16, U::STORAGE | U::COPY_SRC | U::COPY_DST),
                 bytes: buffer("B-44 bytes", n * 4, U::STORAGE | U::COPY_SRC | U::COPY_DST),
                 readback: buffer("B-44 readback", n * 4, U::MAP_READ | U::COPY_DST),
                 size: self
@@ -24378,14 +24393,6 @@ impl Gpu {
 
     /// Why this plan cannot go to the card, if it cannot.
     fn refuse(&self, plan: &FramePlan) -> Option<Diagnostic> {
-        // D-319: Float working depth is the CPU's until the card's blends and noise match it.
-        if plan.float {
-            return Some(on_cpu(
-                Severity::Info,
-                "The CPU drew this frame: its composition works in Float depth.".into(),
-                "D-319's Float working depth (Add, Screen and Fractal Noise past white) is drawn on the CPU only.".into(),
-            ));
-        }
         // D-763: 8 bpc (After Effects) lays its layers together in display values. B-688 (D-808):
         // the card does too, and rounds as the CPU does with its double-precision passes; an
         // adjustment layer or a Light Wrap there, which read the frame laid so far, stay the CPU's.
@@ -24940,6 +24947,34 @@ impl Gpu {
         perf::time(Stage::GpuDraw, || self.read_back()).map_err(|e| self.failed(e))
     }
 
+    /// B-754 (D-874): the frame [`Gpu::draw_held`] laid, linear premultiplied RGBA floats as
+    /// `preview_frame_cached` gives them (display values in 8 bpc), for the tests' float bar.
+    #[doc(hidden)]
+    pub fn sum_back(&self) -> Result<Vec<f32>, String> {
+        let target = self.target.as_ref().ok_or("nothing drawn")?;
+        let size = (target.width * target.height * 16) as u64;
+        let back = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("B-754 sum back"),
+            size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        encoder.copy_buffer_to_buffer(&target.sum, 0, &back, 0, size);
+        self.queue.submit([encoder.finish()]);
+        let slice = back.slice(..);
+        let (tell, told) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| drop(tell.send(r)));
+        self.device
+            .poll(wgpu::PollType::Wait)
+            .map_err(|e| e.to_string())?;
+        told.recv()
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
+        let floats = bytemuck::cast_slice(&slice.get_mapped_range()).to_vec();
+        Ok(floats)
+    }
+
     /// B-45: [`Gpu::draw`], with the picture left on the card for [`Gpu::show`].
     /// One layer laid onto `onto`, a frame of `sum`'s size: `numbers` as the shader's `Layer`,
     /// its drawing and its matte's. Added to `steps`.
@@ -25188,7 +25223,8 @@ impl Gpu {
                     (m0.0, m0.1, i.a, i.b, i.c, i.d)
                 });
                 let f = |v: f64| (v as f32).to_bits();
-                let blend = u32::from(layer.preserve) << 4 | match layer.blend {
+                // D-874: bit 32 is Float's Add and Screen.
+                let blend = u32::from(plan.float) << 5 | u32::from(layer.preserve) << 4 | match layer.blend {
                     BlendMode::Normal => 0,
                     BlendMode::Multiply => 1,
                     BlendMode::Screen => 2,
@@ -25352,7 +25388,9 @@ impl Gpu {
                 // precision: Posterize, Threshold, a wipe's cut and the like turn the smallest
                 // difference in the frame beneath into a large one (D-225).
                 // B-688 (D-808): and in 8 bpc, where each step rounds to 8 bits.
+                // D-874: and in Float, whose 1e-4 bar half precision's 2.4e-4 steps miss.
                 let wide = plan.display
+                    || plan.float
                     || plan.layers.iter().any(|l| l.adjust.is_some())
                     || !wraps.is_empty()
                     || matches!(
@@ -25378,7 +25416,7 @@ impl Gpu {
                     source = self.eight(&mut steps, &source, size, 0);
                 }
                 let matte = matte.map(|(m, _)| {
-                    self.resident(&mut uploads, &m.source, cache.name_of(&m.source), false)
+                    self.resident(&mut uploads, &m.source, cache.name_of(&m.source), plan.float)
                 });
                 if wraps.is_empty() {
                     self.lay(&mut steps, numbers, &source, matte.as_ref(), &sum);
