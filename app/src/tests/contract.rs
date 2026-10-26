@@ -271,6 +271,8 @@ const ROUTES: &[&str] = &[
     // D-71: the sixth on the frame scheme, one sound file's bytes for the page's decoder.
     "sound",
     "state",
+    // D-893: the viewer stops a frame being drawn once it is stale.
+    "stop",
     // D-260: the Project panel's small pictures.
     "thumb",
 ];
@@ -474,7 +476,7 @@ fn the_page_asks_for_nothing_the_window_cannot_answer() {
         // no arm of that name to look for.
         if matches!(
             route.as_str(),
-            "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "ready"
+            "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "ready" | "stop"
         ) {
             continue;
         }
@@ -5401,6 +5403,7 @@ fn the_windows_own_routes_are_not_swallowed_on_the_way_past() {
                     | "mix"
                     | "place"
                     | "ready"
+                    | "stop"
             )
         })
         .map(|route| route.to_string())
