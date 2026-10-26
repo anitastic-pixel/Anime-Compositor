@@ -18528,6 +18528,132 @@ fn failed_response(said: String) -> Response<Vec<u8>> {
         .expect("build the failed response")
 }
 
+/// One request on the `frame` scheme: a frame, or a question about what is on screen.
+/// D-890: answered on [`off_the_window_thread`], except `/place`.
+fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+    contained(app, "drawing a frame", || {
+        let viewer = app.state::<Mutex<Viewer>>();
+        let export = app.state::<Mutex<Export>>();
+        // `/boxes/<n>` rides on the frame scheme rather than the command one because it is
+        // the same kind of thing a frame is: a question about what is on screen, whose
+        // answer changes nothing and needs no undo record.
+        if let Some(n) = request
+            .uri()
+            .path()
+            .trim_matches('/')
+            .strip_prefix("boxes/")
+            .and_then(|n| n.parse::<i32>().ok())
+        {
+            return boxes(&viewer, n, quality_asked(request.uri().query()));
+        }
+        // D-71: `/sound?asset=`, one sound file's bytes for the page's decoder.
+        if request.uri().path().trim_matches('/') == "sound" {
+            return sound(&viewer, request.uri().query());
+        }
+        // D-640: `/mix?from=&frames=`, the composition's sound as the core mixes it.
+        if request.uri().path().trim_matches('/') == "mix" {
+            return mix(&viewer, request.uri().query());
+        }
+        // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
+        // question as `boxes` above, on the same scheme, for the same reason.
+        if request.uri().path().trim_matches('/') == "curve" {
+            return curve(&viewer, request.uri().query());
+        }
+        // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
+        if request.uri().path().trim_matches('/') == "sheet" {
+            return sheet(&viewer);
+        }
+        // B-45: `/place?p=`, where the viewer's picture and what is under it lie in the window.
+        if request.uri().path().trim_matches('/') == "place" {
+            return place(app, request.uri().query());
+        }
+        // W-40c (D-249): `/ready`, the frames the green line under the ruler marks.
+        if request.uri().path().trim_matches('/') == "ready" {
+            let card = app.state::<Mutex<Card>>();
+            return allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "application/json; charset=utf-8")
+                .body(ready_frames(&viewer, Some(&card)).to_string().into_bytes())
+                .expect("build the ready response");
+        }
+        // D-84d: `/sheet/print`, the same grid as a page to print.
+        if request.uri().path().trim_matches('/') == "sheet/print" {
+            return sheet_print(&viewer, request.uri().query());
+        }
+        match parse(request.uri().path(), request.uri().query()) {
+            Some((ask, quality)) => {
+                let session = app.state::<Mutex<SessionLog>>();
+                let card = app.state::<Mutex<Card>>();
+                // B-158: `v=`, the part of the picture on screen.
+                let seen = parameter(request.uri().query(), "v");
+                let reply = serve_frame(
+                    &viewer,
+                    &export,
+                    Some(&session),
+                    Some(&card),
+                    ask,
+                    quality,
+                    seen.as_deref(),
+                    // D-885: the boxes for this frame, after its pixels.
+                    parameter(request.uri().query(), "b").as_deref() == Some("1"),
+                    // D-886: the picture the page holds, to send only what changed.
+                    parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
+                );
+                // B-154: while playing, the rest of the loop is made in the background, one
+                // worker at a time.
+                static AHEAD: AtomicBool = AtomicBool::new(false);
+                if matches!(ask, Ask::At(_) | Ask::Play(_))
+                    && !AHEAD.swap(true, Ordering::SeqCst)
+                {
+                    let app = app.clone();
+                    std::thread::spawn(move || {
+                        let _ = contained(&app, "drawing frames ahead", || {
+                            render_ahead(
+                                &app.state::<Mutex<Viewer>>(),
+                                Some(&app.state::<Mutex<Card>>()),
+                            )
+                        });
+                        AHEAD.store(false, Ordering::SeqCst);
+                    });
+                }
+                reply
+            }
+            None => allow_the_page_to_read_this(Response::builder().status(404))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(
+                    b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>"
+                        .to_vec(),
+                )
+                .expect("build the not-found response"),
+        }
+    })
+    .unwrap_or_else(failed_response)
+}
+
+/// D-890's switch: `false` answers every `frame` request on the window's thread, as before.
+const FRAMES_OFF_THE_WINDOW_THREAD: bool = true;
+
+/// D-890: the `frame` scheme's answers are worked out on one thread of their own, in the
+/// order they were asked, so a slow render no longer holds up the window's own thread (its
+/// input, its commands, and the requests behind it). Commands stay on the window's thread:
+/// a command finishes before any read the page sends after it is even queued here, so that
+/// read sees it; a read queued before it may see it too, which is newer, never staler.
+fn off_the_window_thread(job: Box<dyn FnOnce() + Send>) {
+    static QUEUE: std::sync::OnceLock<std::sync::mpsc::Sender<Box<dyn FnOnce() + Send>>> =
+        std::sync::OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<Box<dyn FnOnce() + Send>>();
+        std::thread::Builder::new()
+            .name("frames".into())
+            .spawn(move || rx.into_iter().for_each(|job| job()))
+            .expect("start the frame thread");
+        tx
+    });
+    // The thread only ends with the program; were it gone, the job is done here instead.
+    if let Err(std::sync::mpsc::SendError(job)) = queue.send(job) {
+        job();
+    }
+}
+
 fn main() {
     quieten_the_web_view();
     // A project named on the command line goes through the same `take` a dropped one does, so
@@ -18638,103 +18764,15 @@ fn main() {
             })
             .unwrap_or_else(failed_response)
         })
-        .register_uri_scheme_protocol("frame", |ctx, request: Request<Vec<u8>>| {
-            contained(ctx.app_handle(), "drawing a frame", || {
-                let viewer = ctx.app_handle().state::<Mutex<Viewer>>();
-                let export = ctx.app_handle().state::<Mutex<Export>>();
-                // `/boxes/<n>` rides on the frame scheme rather than the command one because it is
-                // the same kind of thing a frame is: a question about what is on screen, whose
-                // answer changes nothing and needs no undo record.
-                if let Some(n) = request
-                    .uri()
-                    .path()
-                    .trim_matches('/')
-                    .strip_prefix("boxes/")
-                    .and_then(|n| n.parse::<i32>().ok())
-                {
-                    return boxes(&viewer, n, quality_asked(request.uri().query()));
-                }
-                // D-71: `/sound?asset=`, one sound file's bytes for the page's decoder.
-                if request.uri().path().trim_matches('/') == "sound" {
-                    return sound(&viewer, request.uri().query());
-                }
-                // D-640: `/mix?from=&frames=`, the composition's sound as the core mixes it.
-                if request.uri().path().trim_matches('/') == "mix" {
-                    return mix(&viewer, request.uri().query());
-                }
-                // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
-                // question as `boxes` above, on the same scheme, for the same reason.
-                if request.uri().path().trim_matches('/') == "curve" {
-                    return curve(&viewer, request.uri().query());
-                }
-                // D-84a: `/sheet`, the Sheet tab's grid, for the same reason again.
-                if request.uri().path().trim_matches('/') == "sheet" {
-                    return sheet(&viewer);
-                }
-                // B-45: `/place?p=`, where the viewer's picture and what is under it lie in the window.
-                if request.uri().path().trim_matches('/') == "place" {
-                    return place(ctx.app_handle(), request.uri().query());
-                }
-                // W-40c (D-249): `/ready`, the frames the green line under the ruler marks.
-                if request.uri().path().trim_matches('/') == "ready" {
-                    let card = ctx.app_handle().state::<Mutex<Card>>();
-                    return allow_the_page_to_read_this(Response::builder())
-                        .header("content-type", "application/json; charset=utf-8")
-                        .body(ready_frames(&viewer, Some(&card)).to_string().into_bytes())
-                        .expect("build the ready response");
-                }
-                // D-84d: `/sheet/print`, the same grid as a page to print.
-                if request.uri().path().trim_matches('/') == "sheet/print" {
-                    return sheet_print(&viewer, request.uri().query());
-                }
-                match parse(request.uri().path(), request.uri().query()) {
-                    Some((ask, quality)) => {
-                        let session = ctx.app_handle().state::<Mutex<SessionLog>>();
-                        let card = ctx.app_handle().state::<Mutex<Card>>();
-                        // B-158: `v=`, the part of the picture on screen.
-                        let seen = parameter(request.uri().query(), "v");
-                        let reply = serve_frame(
-                            &viewer,
-                            &export,
-                            Some(&session),
-                            Some(&card),
-                            ask,
-                            quality,
-                            seen.as_deref(),
-                            // D-885: the boxes for this frame, after its pixels.
-                            parameter(request.uri().query(), "b").as_deref() == Some("1"),
-                            // D-886: the picture the page holds, to send only what changed.
-                            parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
-                        );
-                        // B-154: while playing, the rest of the loop is made in the background, one
-                        // worker at a time.
-                        static AHEAD: AtomicBool = AtomicBool::new(false);
-                        if matches!(ask, Ask::At(_) | Ask::Play(_))
-                            && !AHEAD.swap(true, Ordering::SeqCst)
-                        {
-                            let app = ctx.app_handle().clone();
-                            std::thread::spawn(move || {
-                                let _ = contained(&app, "drawing frames ahead", || {
-                                    render_ahead(
-                                        &app.state::<Mutex<Viewer>>(),
-                                        Some(&app.state::<Mutex<Card>>()),
-                                    )
-                                });
-                                AHEAD.store(false, Ordering::SeqCst);
-                            });
-                        }
-                        reply
-                    }
-                    None => allow_the_page_to_read_this(Response::builder().status(404))
-                        .header("content-type", "text/plain; charset=utf-8")
-                        .body(
-                            b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>"
-                                .to_vec(),
-                        )
-                        .expect("build the not-found response"),
-                }
-            })
-            .unwrap_or_else(failed_response)
+        .register_asynchronous_uri_scheme_protocol("frame", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            // `/place` attaches the card to the window, which is the window thread's work.
+            if !FRAMES_OFF_THE_WINDOW_THREAD || request.uri().path().trim_matches('/') == "place" {
+                return responder.respond(answer_frame(&app, &request));
+            }
+            off_the_window_thread(Box::new(move || {
+                responder.respond(answer_frame(&app, &request));
+            }));
         })
         .run(tauri::generate_context!())
         .expect("the window could not be created");
@@ -19025,3 +19063,8 @@ mod frame_boxes;
 #[cfg(test)]
 #[path = "tests/changed_part.rs"]
 mod changed_part;
+
+/// D-890: frames answered on their own thread stay in order and never older than a command.
+#[cfg(test)]
+#[path = "tests/async_frames.rs"]
+mod async_frames;
