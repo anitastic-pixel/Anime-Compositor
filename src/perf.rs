@@ -42,8 +42,8 @@ pub enum Stage {
     /// The parallel decode of every cel this frame is about to ask for, wall-clock from
     /// fan-out to join (P-03(b)). The three stages below are what it does; while a cel is being
     /// decoded inside this fan-out they record nothing, so that this stage and they stay
-    /// disjoint and the table can still be summed. A cel decoded outside it — by an export, by
-    /// a caller with no cache, or by a request this could not see coming — reports in them as
+    /// disjoint and the table can still be summed. A cel decoded outside it — by a request this could not see
+    /// coming, or one this read-ahead could not decode — reports in them as
     /// before and nothing in this one.
     Prewarm,
     /// Opening a cel's file and reading the compressed bytes back out as 8-bit RGBA.

@@ -23,6 +23,6 @@ The two thread counts are written into the test rather than read from the machin
 
 It settles one reading of bound 3, and that reading is now retired. Threads have run on the export path since B-05a, because ADR-011 renders every frame tiled across the rayon pool and export renders through the same function the viewer does. Whatever bound 3 forbids, it has never been read as forbidding that, and the frames above are identical either way.
 
-What it does **not** do is give export a parallel decode. The parallel decode this build has is `CelCache::prewarm`, which returns early at a zero budget, and export holds a zero budget. Building one would be a unit of its own with byte-equality evidence of its own. The amended bound removes the reason not to; it does not do the work.
+Export has also read a frame's cels side by side since B-744 (D-864): `CelCache::prewarm` now reads ahead for a zero budget too, inside a cache made fresh for each frame, so nothing it reads outlives the frame. That unit's byte-equality evidence is `verification/B-744_export_read_ahead_table.md`.
 
 It settles nothing about caching, which is what bound 3 is for. A full-resolution preview matching an export in 0 of 8,294,400 samples is a property this build has, and a cache reachable from export is the obvious way to lose it. That property is guarded by `tests/p03_byte_equality.rs` and is not touched here.

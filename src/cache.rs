@@ -1127,16 +1127,19 @@ impl CelCache {
     /// **It does not admit anything.** Nothing here touches `held`, the eviction order, or the
     /// hit and miss counts.
     ///
-    /// **It does nothing at all without a budget.** [`none`](Self::none) is what export and every
-    /// non-preview caller hold, and ADR-015 keeps the cache off that path; decoding in advance
-    /// for a cache that cannot store would be work thrown away twice over.
+    /// **It reads ahead without a budget too** (P5, D-864). [`none`](Self::none) is what export
+    /// holds, and export made each frame wait on its cels one after another. A zero budget still
+    /// admits nothing: `pending` is one frame's read-ahead inside a cache `plan_frame` makes fresh
+    /// for that one frame and drops after it, so nothing read here outlives the frame, and ADR-015
+    /// bound 3 (no remembered result reaches an exported sample) holds. The decode is the same
+    /// [`working_cel`] call [`decoded`](Self::decoded) makes, so the bytes are the same.
     ///
     /// ponytail: the whole `wanted` set is decoded in one fan-out, so the transient peak is one
     /// frame's cels held at once. That is the frame's own working set, which is what the budget
     /// is chosen to hold; chunk it if a composition ever has more layers than the budget has
     /// room for.
     pub fn prewarm(&mut self, wanted: &[(PathBuf, Interpretation)]) {
-        if self.budget == 0 || wanted.is_empty() {
+        if wanted.is_empty() {
             return;
         }
         let keys: Vec<Key> = wanted
