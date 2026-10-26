@@ -726,6 +726,8 @@ fn draw(
         .any(|l| !l.on_card.is_empty() || !l.moments.is_empty())
     {
         for layer in layers.to_mut().iter_mut() {
+            // B-781 (D-901): the card's effects drawn here by the processor count to their layer.
+            let mark = crate::perf::open_layer(layer.id.as_str());
             if !layer.moments.is_empty() {
                 let moments = std::mem::take(&mut layer.moments);
                 layer.source =
@@ -735,6 +737,7 @@ fn draw(
             for card in std::mem::take(&mut layer.on_card) {
                 draw_card(&mut layer.source, card);
             }
+            crate::perf::close_layer(mark, 0);
         }
     }
     // D-763: in 8 bpc each picture is laid in display values; its matte gives only its alpha.
@@ -767,7 +770,10 @@ fn draw(
                 at,
                 (plan.float, plan.display),
             );
+            // B-781 (D-901): an adjustment layer's effects run here, so its profile row is here.
+            let mark = crate::perf::open_layer(layer.id.as_str());
             adjust_frame(layer, stack, frame, (plan.float, plan.display));
+            crate::perf::close_layer(mark, 0);
             start = index + 1;
         } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
             render_layers(

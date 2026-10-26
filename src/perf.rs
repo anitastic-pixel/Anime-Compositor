@@ -27,7 +27,7 @@
 //! time, because the frame's cost is when the last tile finishes and not how many core-seconds
 //! were spent. Every other stage runs on the calling thread.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::Instant;
 
 /// A stage of one preview frame that this build spends measurable time in.
@@ -1106,6 +1106,157 @@ thread_local! {
     static SUPPRESSED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// P-19: this thread's own share of the counters since [`begin_capture`], if one is running.
     static CAPTURE: std::cell::RefCell<Option<[u64; N]>> = const { std::cell::RefCell::new(None) };
+    /// B-781 (D-901): this thread's frame profile since [`begin_profile`], if one is running.
+    static OPEN: std::cell::RefCell<Option<Open>> = const { std::cell::RefCell::new(None) };
+}
+
+/// B-781 (D-901): how many threads are profiling a frame. While it is 0 nothing below records
+/// for the profiler, so with the panel closed the cost is this one relaxed load beside `ON`'s.
+static PROFILING: AtomicUsize = AtomicUsize::new(0);
+
+/// Recording for P-01 / P-19, or for a frame profile somewhere. `is_enabled` stays P-01's switch.
+fn recording() -> bool {
+    ON.load(Ordering::Relaxed) || PROFILING.load(Ordering::Relaxed) > 0
+}
+
+/// B-781 (D-901): one layer of a profiled frame. `stages` are the same P-01 stages, charged to the
+/// layer whose preparation was running when they were recorded.
+#[derive(Clone, Debug, Default)]
+pub struct LayerTime {
+    pub id: String,
+    /// Wall-clock nanoseconds preparing the layer: reading, mask, effects and its matte.
+    pub nanos: u64,
+    pub stages: Vec<(Stage, u64)>,
+    /// Effects left for the card to draw (their time is in the card's whole-frame time).
+    pub on_card: Vec<String>,
+    /// Effect results this layer took from the P-11 cache instead of running them.
+    pub effects_kept: u64,
+}
+
+/// B-781 (D-901): one frame's profile: its layers, in the order first prepared, and the stages
+/// recorded outside any layer (putting the layers together, the card, the encode).
+#[derive(Clone, Debug, Default)]
+pub struct Profile {
+    pub layers: Vec<LayerTime>,
+    pub frame: Vec<(Stage, u64)>,
+}
+
+struct Open {
+    frame: [u64; N],
+    layers: Vec<(LayerTime, [u64; N])>,
+    open: Option<usize>,
+}
+
+impl Open {
+    fn new() -> Self {
+        Open {
+            frame: [0; N],
+            layers: Vec::new(),
+            open: None,
+        }
+    }
+}
+
+/// B-781 (D-901): start profiling this thread's frame.
+pub fn begin_profile() {
+    if OPEN.with(|o| o.borrow_mut().replace(Open::new())).is_none() {
+        PROFILING.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// B-781 (D-901): stop profiling and hand back what was recorded, or `None` if nothing was.
+pub fn end_profile() -> Option<Profile> {
+    let open = OPEN.with(|o| o.borrow_mut().take())?;
+    PROFILING.fetch_sub(1, Ordering::Relaxed);
+    let listed = |own: &[u64; N]| -> Vec<(Stage, u64)> {
+        Stage::ALL
+            .iter()
+            .map(|&s| (s, own[s.index()]))
+            .filter(|&(_, n)| n > 0)
+            .collect()
+    };
+    Some(Profile {
+        frame: listed(&open.frame),
+        layers: open
+            .layers
+            .into_iter()
+            .map(|(mut l, own)| {
+                l.stages = listed(&own);
+                l
+            })
+            .collect(),
+    })
+}
+
+/// B-781 (D-901): a layer's preparation begins. `None`, and nothing to close, when this thread is
+/// not profiling or a layer is already open: a precomposition's layers stay in the layer that
+/// holds them.
+pub fn open_layer(id: &str) -> Option<Instant> {
+    if PROFILING.load(Ordering::Relaxed) == 0 {
+        return None;
+    }
+    OPEN.with(|o| {
+        let mut o = o.borrow_mut();
+        let o = o.as_mut()?;
+        if o.open.is_some() {
+            return None;
+        }
+        let at = match o.layers.iter().position(|(l, _)| l.id == id) {
+            Some(at) => at,
+            None => {
+                o.layers.push((
+                    LayerTime {
+                        id: id.to_string(),
+                        ..LayerTime::default()
+                    },
+                    [0; N],
+                ));
+                o.layers.len() - 1
+            }
+        };
+        o.open = Some(at);
+        Some(Instant::now())
+    })
+}
+
+/// B-781 (D-901): the layer opened at `opened` is prepared, `effects_kept` of its effect results
+/// taken from the P-11 cache while it was.
+pub fn close_layer(opened: Option<Instant>, effects_kept: u64) {
+    let Some(at) = opened else { return };
+    let nanos = at.elapsed().as_nanos() as u64;
+    OPEN.with(|o| {
+        if let Some(o) = o.borrow_mut().as_mut() {
+            if let Some(i) = o.open.take() {
+                let l = &mut o.layers[i].0;
+                l.nanos += nanos;
+                l.effects_kept += effects_kept;
+            }
+        }
+    });
+}
+
+/// B-781 (D-901): an effect of the open layer is left for the card to draw.
+pub fn left_for_card(name: &str) {
+    if PROFILING.load(Ordering::Relaxed) == 0 {
+        return;
+    }
+    OPEN.with(|o| {
+        if let Some(o) = o.borrow_mut().as_mut() {
+            if let Some(i) = o.open {
+                o.layers[i].0.on_card.push(name.to_string());
+            }
+        }
+    });
+}
+
+/// B-781 (D-901): the card refused this frame and it is planned again on the processor, so what
+/// the refused plan recorded is let go.
+pub fn restart_profile() {
+    OPEN.with(|o| {
+        if let Some(o) = o.borrow_mut().as_mut() {
+            *o = Open::new();
+        }
+    });
 }
 
 /// Start recording. The P-01 harness calls this, and so does P-19's session log in the window
@@ -1137,7 +1288,7 @@ pub fn reset() {
 /// microseconds or milliseconds, so the timer is inside the noise of the thing it times. When
 /// recording is off it is not taken at all.
 pub fn time<T>(stage: Stage, f: impl FnOnce() -> T) -> T {
-    if !is_enabled() || SUPPRESSED.with(|s| s.get()) {
+    if !recording() || SUPPRESSED.with(|s| s.get()) {
         return f();
     }
     let at = Instant::now();
@@ -1158,7 +1309,7 @@ pub fn time<T>(stage: Stage, f: impl FnOnce() -> T) -> T {
 /// It is a thread-local and set inside the fan-out rather than around it, because a rayon closure
 /// runs on whichever worker steals it and the calling thread steals work too.
 pub fn untimed<T>(f: impl FnOnce() -> T) -> T {
-    if !is_enabled() {
+    if !recording() {
         return f();
     }
     SUPPRESSED.with(|s| s.set(true));
@@ -1170,14 +1321,25 @@ pub fn untimed<T>(f: impl FnOnce() -> T) -> T {
 /// Add an already-measured duration to a stage, for a caller that cannot wrap a closure around
 /// it — a lock acquisition whose guard has to outlive the timing.
 pub fn record(stage: Stage, nanos: u64) {
-    if !is_enabled() || SUPPRESSED.with(|s| s.get()) {
+    if !recording() || SUPPRESSED.with(|s| s.get()) {
         return;
     }
-    NANOS[stage.index()].fetch_add(nanos, Ordering::Relaxed);
-    CALLS[stage.index()].fetch_add(1, Ordering::Relaxed);
-    CAPTURE.with(|c| {
-        if let Some(own) = c.borrow_mut().as_mut() {
-            own[stage.index()] += nanos;
+    if is_enabled() {
+        NANOS[stage.index()].fetch_add(nanos, Ordering::Relaxed);
+        CALLS[stage.index()].fetch_add(1, Ordering::Relaxed);
+        CAPTURE.with(|c| {
+            if let Some(own) = c.borrow_mut().as_mut() {
+                own[stage.index()] += nanos;
+            }
+        });
+    }
+    // B-781 (D-901): to the layer being prepared, or to the frame outside any layer.
+    OPEN.with(|o| {
+        if let Some(o) = o.borrow_mut().as_mut() {
+            match o.open {
+                Some(i) => o.layers[i].1[stage.index()] += nanos,
+                None => o.frame[stage.index()] += nanos,
+            }
         }
     });
 }

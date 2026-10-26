@@ -368,6 +368,8 @@ fn on_processor(
     if crate::flow::card_uses() == uses {
         Ok(plan)
     } else {
+        // B-781 (D-901): the profile is of the plan drawn, not the one refused.
+        crate::perf::restart_profile();
         again()
     }
 }

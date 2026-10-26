@@ -1628,6 +1628,19 @@
   #sessionlog table { border-collapse: collapse; width: 100%; }
   #sessionlog caption { text-align: left; margin: 4px 0; }
   #sessionlog th, #sessionlog td { text-align: left; vertical-align: top; padding: 2px 6px; border-top: 1px solid #333339; }
+  /* D-901: the profiler, placed and coloured as the session log is. */
+  #profiler {
+    position: fixed; top: 40px; right: 16px; left: auto; margin: 0; z-index: 50;
+    width: min(620px, calc(100vw - 32px)); max-height: 75vh; overflow: auto; box-sizing: border-box;
+    background: #1e1e20; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
+    padding: 10px 14px;
+  }
+  #profiler h2 { margin-top: 0; }
+  #profiler table { border-collapse: collapse; width: 100%; }
+  #profiler th, #profiler td { text-align: left; vertical-align: top; padding: 2px 6px; border-top: 1px solid #333339; }
+  #profiler tr.slowest td { color: #ffb070; }
+  #profiler tr.slowest td:first-child::before { content: '\25B6  '; }
+  #profiler ul { margin: 6px 0; padding-left: 18px; }
   #prefs input { width: 100%; box-sizing: border-box; }
   #relinking p { margin: 0 0 6px; }
 /* sheet paper: begin. D-84d: the Sheet on paper. Here, in the window's own style, since the
@@ -2149,6 +2162,7 @@
       <button id="gridbtn" class="vb" title="Grid over the picture" aria-label="Grid"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor"/><path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11" stroke="currentColor" stroke-width=".8"/></svg></button>
       <button id="guidebtn" class="vb" title="Field guide (12F, 10F, 8F) and safe areas" aria-label="Field guide and safe areas"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" fill="none" stroke="currentColor"/><rect x="4.5" y="5.5" width="7" height="5" fill="none" stroke="currentColor" stroke-dasharray="1.5 1"/><path d="M8 7v2M7 8h2" stroke="currentColor"/></svg></button>
       <button id="regionbtn" class="vb" title="Region of interest: drag a box on the picture and only it is drawn; click again for all of it" aria-label="Region of interest" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" fill="currentColor" opacity=".3"/><rect x="5" y="5.5" width="6.5" height="5" fill="#1e1e21" stroke="currentColor" stroke-dasharray="1.5 1"/></svg></button>
+      <button id="profilerbtn" class="vb" title="Profiler: where this frame's time went, layer by layer" aria-label="Profiler" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="9" r="5.5" fill="none" stroke="currentColor"/><path d="M8 9V5.5M6.5 1.5h3M12.5 4l1-1" stroke="currentColor"/></svg></button>
       <span class="gs"></span>
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="sizemenu" title="Picture size"><span id="zoomlabel">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture size" hidden>
         <button id="fit" data-line="Fit the picture" data-key="Shift+/" title="Fill the area">Fit</button>
@@ -2559,6 +2573,18 @@
   <p class="hint">Kept in memory only, for the last 5,000 frames, and emptied when the window closes. Off every time the window opens. Each frame's time is its own work: reading ahead and exporting run beside it and are not counted in it, but they share the processor, so a frame says when either was running. A diagnostic, not a benchmark.</p>
   <p><button id="sessionlogclear">Clear</button> <button id="sessionlogsave">Save a copy&hellip;</button> <button id="sessionlogclose">Close</button></p>
 </dialog>
+<!-- D-901: the profiler. Not modal; each frame drawn while it is open says where its time went. -->
+<dialog id="profiler" aria-labelledby="profilertitle">
+  <h2 id="profilertitle">Profiler</h2>
+  <p id="profilersummary">Measuring this frame&hellip;</p>
+  <table id="profilertable">
+    <thead><tr><th>Layer</th><th>Time</th><th>Drawn on</th><th>Effects</th><th>From cache</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <ul id="profilerframe"></ul>
+  <p class="hint">Slowest layer first, marked &#9654;. A layer's time is getting it ready: reading its drawings when not read already, moving it and its effects on the processor. Putting the layers together, and all the graphics card's work, are counted for the whole frame, not per layer. Two effects of the same kind on one layer are added together. A frame shown from memory has no layers to show; Measure again draws it fresh.</p>
+  <p><button id="profileragain">Measure this frame again</button> <button id="profilerclose">Close</button></p>
+</dialog>
 <div id="bar">
   <span id="status"></span>
   <span id="autosaved"></span>
@@ -2596,6 +2622,7 @@ const stage = $('stage');
 let playing = false;
 let started = null;   // performance.now() when the clock's first frame came back; null until then
 let quality = 'draft';
+let profiling = 0;
 let frame = 0;        // the frame on screen, as the answer that drew it described it
 // The frame that has been *asked* for, which is not always the one on screen. A held arrow key
 // repeats faster than a frame renders, and stepping from `frame` would throw away every press
@@ -2790,7 +2817,8 @@ async function show(url, keep = true) {
     // D-886: the picture held, so only what changed comes back; `had` is it as asked.
     const had = heldSent;
     const extra = [part && 'v=' + part.join(','), BOXES_WITH_FRAME && doc && !playing && url.includes('/frame/') && 'b=1',
-      SEND_CHANGED && !part && url.includes('/frame/') && 'have=' + (had || 0)].filter(Boolean);
+      SEND_CHANGED && !part && url.includes('/frame/') && 'have=' + (had || 0),
+      profiling && url.includes('/frame/') && 'prof=' + profiling].filter(Boolean);
     const response = await fetch(extra.length ? url + (url.includes('?') ? '&' : '?') + extra.join('&') : url);
     if (mine !== generation) return;
     // D-893: stopped part way, so there is nothing to draw; the newest request goes out next, or
@@ -2809,6 +2837,11 @@ async function show(url, keep = true) {
       return;
     }
     const h = response.headers;
+    // D-901: the profiler's answer for this frame; a fresh draw is asked only once per opening.
+    if (profiling && h.get('x-profile')) {
+      if (profiling === 2) profiling = 1;
+      showProfile(JSON.parse(decodeURIComponent(h.get('x-profile'))));
+    }
     const width = +h.get('x-width'), height = +h.get('x-height');
     // B-45: already in the window, under the page, and the answer carries no pixels.
     const onScreen = h.get('x-on-screen') === '1';
@@ -5607,6 +5640,7 @@ function paletteLines() {
     ['Grid over the picture', '', () => $('gridbtn').click()],
     ['Field guide and safe areas', '', () => $('guidebtn').click()],
     ['Region of interest', '', () => $('regionbtn').click()],
+    ['Profiler: where this frame\'s time went', '', () => $('profilerbtn').click()],
     ['Cut slate above the picture', '', () => $('slatebtn').click()],
     ['Sheet strip under the picture', '', () => $('stripbtn').click()],
     ['Turn the view left', '', () => $('turnleft').click()],
@@ -17257,6 +17291,51 @@ function drawRegion() {
     Object.assign(roi.firstElementChild.style, { left: l * 100 + '%', top: t * 100 + '%', width: (r - l) * 100 + '%', height: (b - t) * 100 + '%' });
   }
 }
+// D-901: the profiler. 0 off; 2 asks the next frame drawn fresh, not from memory; 1 every frame after.
+function showProfile(p) {
+  const ms = (v) => v == null ? '' : v < 0.05 ? '0.0 ms' : v.toFixed(1) + ' ms';
+  const where = { processor: 'processor', card: 'graphics card', 'card and processor': 'card and processor' };
+  $('profilersummary').textContent = 'Frame ' + p.frame + ': ' + ms(p.ms) + ' in all, drawn on the ' + (p.drawn_on === 'GPU' ? 'graphics card' : 'processor') + '.'
+    + (p.from_memory ? ' Shown from memory, so nothing was drawn.' : '');
+  const rows = p.layers.slice().sort((a, b) => b.ms - a.ms);
+  const body = $('profilertable').tBodies[0];
+  body.replaceChildren(...rows.map((l, i) => {
+    const tr = document.createElement('tr');
+    if (i === 0 && rows.length > 1) tr.className = 'slowest';
+    const effects = l.effects.map((e) => e.name[0].toUpperCase() + e.name.slice(1) + (e.ms == null ? ' (card)' : ' ' + ms(e.ms) + (e.on === 'card' ? ' (card)' : ''))).join(', ');
+    for (const text of [l.name, ms(l.ms), where[l.on] || l.on, effects || (l.kept ? 'kept from before' : 'none'), l.kept ? l.kept + ' effect' + (l.kept > 1 ? 's' : '') : 'no'])
+      tr.insertCell().textContent = text;
+    return tr;
+  }));
+  const [hits, misses] = p.cels;
+  const lines = [
+    'Reading drawings: ' + ms(p.read_ms) + ' (' + hits + ' already read, ' + misses + ' read from disk)',
+    'Putting the layers together: ' + ms(p.together_ms),
+  ];
+  if (p.card_ms) lines.push('Graphics card, the whole frame: ' + ms(p.card_ms));
+  lines.push('Sending the picture to the window: ' + ms(p.encode_ms));
+  $('profilerframe').replaceChildren(...lines.map((t) => { const li = document.createElement('li'); li.textContent = t; return li; }));
+}
+function measureAgain() {
+  profiling = 2;
+  $('profilersummary').textContent = 'Measuring this frame\u2026';
+  if (!playing) show(FRAMES + '/frame/' + frame + '?q=' + quality);
+}
+$('profilerbtn').onclick = () => {
+  const d = $('profiler');
+  if (d.open) { d.close(); return; }
+  d.show();
+  $('profilerbtn').classList.add('on');
+  $('profilerbtn').setAttribute('aria-pressed', 'true');
+  measureAgain();
+};
+$('profileragain').onclick = measureAgain;
+$('profilerclose').onclick = () => $('profiler').close();
+$('profiler').addEventListener('close', () => {
+  profiling = 0;
+  $('profilerbtn').classList.remove('on');
+  $('profilerbtn').setAttribute('aria-pressed', 'false');
+});
 $('regionbtn').onclick = () => {
   if (regionBox) setRegion(null);
   else { regionArmed = !regionArmed; drawRegion(); }

@@ -394,9 +394,17 @@ fn plan_inside(
         if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
+        // B-781 (D-901): the profiler's mark, `None` unless the viewer's profiler asked.
+        let mark = crate::perf::open_layer(layer.id.as_str()).map(|at| (at, cache.effect_hits()));
+        let close = |cache: &CelCache| {
+            if let Some((at, hits)) = mark {
+                crate::perf::close_layer(Some(at), cache.effect_hits() - hits);
+            }
+        };
         let Some(mut resolved) = resolve_layer(
             project, comp, layer, frame, root, quality, cache, log, above, card, false,
         ) else {
+            close(cache);
             continue;
         };
         // B-156b (D-226): a plan for the card leaves a drawn layer's moments for the card to add
@@ -578,6 +586,7 @@ fn plan_inside(
                 },
             },
         ));
+        close(cache);
     }
 
     // D-58: far to near, and layers at equal depth keep composition order. A **stable** sort is
@@ -4846,6 +4855,7 @@ fn resolve_rest(
         );
         let mut effect = effects[i].effect.clone();
         effect.scale_distances(|d| d / pre);
+        let had = on_card.len();
         on_card.extend(
             match effect {
                 // B-47: a Bloom that lights nothing changes nothing and grows nothing, on the CPU too,
@@ -4939,6 +4949,9 @@ fn resolve_rest(
                 false => c,
             }),
         );
+        if on_card.len() > had {
+            crate::perf::left_for_card(effects[i].effect.name());
+        }
     }
     // Audit W8, W9: on a frame planned for the card, the effects run above on the processor: one
     // the card does not draw and every one before it, or every one of an 8 bpc or 32 bpc stack.

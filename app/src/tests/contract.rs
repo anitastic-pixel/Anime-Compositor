@@ -5756,7 +5756,7 @@ fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
 }
 
 /// Every control the page wires a handler to, or clicks for the person, or reads.
-const CONTROLS: [&str; 131] = [
+const CONTROLS: [&str; 134] = [
     "addadjust",
     "addeffect",
     "addexposure",
@@ -5843,6 +5843,9 @@ const CONTROLS: [&str; 131] = [
     "prefram",
     "printnow",
     "printsheet",
+    "profileragain",
+    "profilerbtn",
+    "profilerclose",
     "recent",
     "recovery",
     "redo",

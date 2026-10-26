@@ -1478,6 +1478,100 @@ fn serve_seen(
     serve_frame(viewer, export, session, card, ask, quality, seen, false, None)
 }
 
+thread_local! {
+    /// B-781 (D-901): what the viewer's profiler asked of the frame this thread is answering: 0
+    /// nothing, 1 a profile, 2 a profile of the frame drawn afresh rather than sent from memory.
+    static PROFILE_ASK: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
+}
+
+/// B-781 (D-901): `f`, a [`serve_frame`], answered for the profiler as `ask` says.
+fn profiled<T>(ask: u8, f: impl FnOnce() -> T) -> T {
+    PROFILE_ASK.with(|p| p.set(ask));
+    let out = f();
+    PROFILE_ASK.with(|p| p.set(0));
+    out
+}
+
+/// B-781 (D-901): the profile of one viewer frame for the page's Profiler, as JSON. Each layer's
+/// time is its preparation (reading, mask, effects, matte); putting the layers together, the
+/// card's draw and the encode are the frame's, since they are done for all layers at once.
+fn profile_json(
+    profile: anime_compositor::perf::Profile,
+    project: &Project,
+    frame: i32,
+    drawn_on: &str,
+    ms: f64,
+    from_memory: bool,
+    counted: (u64, u64, u64),
+) -> String {
+    use anime_compositor::perf::Stage;
+    let ms_of = |n: u64| (n as f64 / 1e4).round() / 100.0;
+    let card = drawn_on == "GPU";
+    let layers: Vec<serde_json::Value> = profile
+        .layers
+        .iter()
+        .map(|l| {
+            let name = project
+                .compositions
+                .iter()
+                .find_map(|c| c.layer(&Id::new(l.id.clone())))
+                .map_or_else(|| l.id.clone(), |layer| layer.name.clone());
+            let mut effects: Vec<serde_json::Value> = l
+                .stages
+                .iter()
+                .filter_map(|&(stage, n)| {
+                    stage.label().strip_prefix("effect: ").map(|e| {
+                        serde_json::json!({"name": e, "ms": ms_of(n), "on": "processor"})
+                    })
+                })
+                .collect();
+            let on_processor = !effects.is_empty();
+            // Left for the card but drawn by the processor: already timed above, under its stage.
+            let timed = |name: &str| effects.iter().any(|t| t["name"].as_str().is_some_and(|t| t.eq_ignore_ascii_case(name)));
+            let left: Vec<serde_json::Value> = l
+                .on_card
+                .iter()
+                .filter(|e| card || !timed(e))
+                .map(|e| serde_json::json!({"name": e, "ms": null, "on": if card { "card" } else { "processor" }}))
+                .collect();
+            effects.extend(left);
+            serde_json::json!({
+                "name": name,
+                "ms": ms_of(l.nanos),
+                "on": match (card, on_processor) {
+                    (false, _) => "processor",
+                    (true, false) => "card",
+                    (true, true) => "card and processor",
+                },
+                "effects": effects,
+                "kept": l.effects_kept,
+            })
+        })
+        .collect();
+    let sum = |stages: &[Stage]| -> u64 {
+        profile
+            .frame
+            .iter()
+            .filter(|(s, _)| stages.contains(s))
+            .map(|&(_, n)| n)
+            .sum()
+    };
+    serde_json::json!({
+        "frame": frame,
+        "ms": (ms * 100.0).round() / 100.0,
+        "drawn_on": drawn_on,
+        "from_memory": from_memory,
+        "layers": layers,
+        "read_ms": ms_of(sum(&[Stage::Prewarm, Stage::FileRead, Stage::Dequantise, Stage::ToLinear])),
+        "together_ms": ms_of(sum(&[Stage::TileLoop, Stage::FrameAssembly])),
+        "card_ms": ms_of(sum(&[Stage::GpuUpload, Stage::GpuDraw, Stage::GpuShow])),
+        "encode_ms": ms_of(sum(&[Stage::Encode])),
+        "cels": [counted.0, counted.1],
+        "effects_kept": counted.2,
+    })
+    .to_string()
+}
+
 /// D-885: [`serve_seen`], and with `boxes` the `/boxes` answer for the same snapshot after the
 /// pixels, its length in bytes in `x-boxes`, so the page needs no second ask per frame and the
 /// outline drawn is always the picture's own.
@@ -1519,6 +1613,10 @@ fn serve_frame(
         session.is_some_and(|s| s.lock().expect("the session log lock was poisoned").is_on());
     if logging {
         anime_compositor::perf::begin_capture();
+    }
+    let profiling = PROFILE_ASK.with(std::cell::Cell::get);
+    if profiling > 0 {
+        anime_compositor::perf::begin_profile();
     }
     let (exporting, exported, progress) = {
         let export = export.lock().expect("the export lock was poisoned");
@@ -1628,7 +1726,7 @@ fn serve_frame(
         card: card.and_then(|c| drawn_by(Some(&*c.lock().expect("the card lock was poisoned")))),
     };
     // A frame already made for this same sight is sent from memory, without waiting for the cels.
-    let kept = if taken.dragging {
+    let kept = if taken.dragging || profiling == 2 {
         None
     } else {
         taken
@@ -1812,6 +1910,7 @@ fn serve_frame(
         // sent; the page asks for the newer frame instead.
         Err(diagnostic) if diagnostic.id == anime_compositor::diagnostics::DiagnosticId::PreviewFrameStopped => {
             anime_compositor::perf::end_capture();
+            anime_compositor::perf::end_profile();
             return allow_the_page_to_read_this(Response::builder().status(204))
                 .header("x-stopped", "1")
                 .body(Vec::new())
@@ -1821,6 +1920,7 @@ fn serve_frame(
         // that looks like a frame. The page shows this sentence instead of a picture.
         Err(diagnostic) => {
             anime_compositor::perf::end_capture();
+            anime_compositor::perf::end_profile();
             return allow_the_page_to_read_this(Response::builder().status(500))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(diagnostic.sentence().into_bytes())
@@ -1873,6 +1973,19 @@ fn serve_frame(
     let outline = (boxes && !on_screen)
         .then(|| boxes_of(&sight, taken.frame, &taken.cache).to_string().into_bytes());
 
+    // No silent fallback: a frame the switch sent to the card and the CPU drew says so.
+    let fell_back = finished.fell_back;
+    let drawn_on = match (on_gpu, fell_back) {
+        (false, _) => "CPU",
+        (true, false) => "GPU",
+        (true, true) => "CPU, not GPU",
+    };
+    // B-781 (D-901): the Profiler's answer, only when it asked; the frame's work is done here.
+    let profile = anime_compositor::perf::end_profile().map(|p| {
+        let ms = began.elapsed().as_secs_f64() * 1000.0;
+        profile_json(p, &sight.project, taken.frame, drawn_on, ms, !fresh, counted)
+    });
+
     // P-18: the next frame's drawings are read while this one is encoded, sent and drawn.
     let read_ahead = taken.ahead.is_some();
     if let Some(next) = taken.ahead {
@@ -1894,13 +2007,6 @@ fn serve_frame(
         rect_of(&finished.pixels, width, [p.x, p.y, p.width, p.height])
     } else {
         Arc::try_unwrap(finished.pixels).unwrap_or_else(|kept| kept.to_vec())
-    };
-    // No silent fallback: a frame the switch sent to the card and the CPU drew says so.
-    let fell_back = finished.fell_back;
-    let drawn_on = match (on_gpu, fell_back) {
-        (false, _) => "CPU",
-        (true, false) => "GPU",
-        (true, true) => "CPU, not GPU",
     };
     if taken.alpha_only {
         as_alpha_only(&mut pixels);
@@ -1971,6 +2077,10 @@ fn serve_frame(
     };
     let reply = match changed {
         Some([x, y, w, h]) => reply.header("x-changed", format!("{x},{y},{w},{h}")),
+        None => reply,
+    };
+    let reply = match profile {
+        Some(profile) => reply.header("x-profile", for_a_header(&profile)),
         None => reply,
     };
     let reply = match outline {
@@ -18596,7 +18706,13 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>, since: u64) -> Resp
                 let card = app.state::<Mutex<Card>>();
                 // B-158: `v=`, the part of the picture on screen.
                 let seen = parameter(request.uri().query(), "v");
-                let reply = anime_compositor::stop::watching(since, || serve_frame(
+                // B-781 (D-901): `prof=`, the Profiler's ask.
+                let prof = parameter(request.uri().query(), "prof").map_or(0, |p| match p.as_str() {
+                    "1" => 1,
+                    "2" => 2,
+                    _ => 0,
+                });
+                let reply = anime_compositor::stop::watching(since, || profiled(prof, || serve_frame(
                     &viewer,
                     &export,
                     Some(&session),
@@ -18608,7 +18724,7 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>, since: u64) -> Resp
                     parameter(request.uri().query(), "b").as_deref() == Some("1"),
                     // D-886: the picture the page holds, to send only what changed.
                     parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
-                ));
+                )));
                 // B-154: while playing, the rest of the loop is made in the background, one
                 // worker at a time.
                 static AHEAD: AtomicBool = AtomicBool::new(false);
@@ -19095,3 +19211,8 @@ mod async_frames;
 #[cfg(test)]
 #[path = "tests/stoppable_frames.rs"]
 mod stoppable_frames;
+
+/// D-901: the viewer's profiler names each layer, its time and where it was drawn.
+#[cfg(test)]
+#[path = "tests/profiler.rs"]
+mod profiler;
