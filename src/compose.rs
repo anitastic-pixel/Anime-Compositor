@@ -4690,9 +4690,15 @@ fn resolve_rest(
     // that cannot be drawn writes nothing, and a copy taken to write nothing is the whole
     // cost P-03(a) removed. D-77 keeps that: with no mask that takes part, `coverage` is
     // `None` and `apply` returns before the copy. A cache hit already holds the mask's work.
+    // B-740 (D-860): the coverage itself is kept by the viewer's cache, so a mask that holds
+    // still over a drawing that changes is worked out once. `drawn_masks` gives the same
+    // coverage as `masks`: the ones left out are the ones `coverage` passes over.
     if masked && hit.is_none() {
         crate::perf::time(crate::perf::Stage::Mask, || {
-            crate::mask::apply(std::sync::Arc::make_mut(&mut source), masks)
+            let (w, h) = (source.width(), source.height());
+            if let Some(field) = cache.mask_coverage(&drawn_masks, w, h) {
+                crate::mask::apply_coverage(std::sync::Arc::make_mut(&mut source), &field)
+            }
         });
     }
     let offset = match &cel {

@@ -1072,6 +1072,12 @@ pub fn apply(buffer: &mut WorkingBuffer, masks: &[Mask]) {
     let Some(field) = coverage(masks, width, height) else {
         return;
     };
+    apply_coverage(buffer, &field);
+}
+
+/// B-740: a coverage [`coverage`] worked out for this buffer's size, multiplied into it as
+/// [`apply`] does: the viewer keeps the coverage (`CelCache::mask_coverage`) and hands it here.
+pub fn apply_coverage(buffer: &mut WorkingBuffer, field: &[f32]) {
     let data = buffer.data_mut();
     for (i, m) in field.iter().enumerate() {
         if *m == 1.0 {

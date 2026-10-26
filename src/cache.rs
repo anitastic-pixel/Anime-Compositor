@@ -712,7 +712,14 @@ pub struct CelCache {
     /// Held under the effect budget beside the effect results, and let go with them in the order
     /// the two were last used, so neither kind can push out the other's newest.
     inner: Vec<(String, Vec<Stamp>, Arc<WorkingBuffer>, u64)>,
-    /// A count of uses, the clock the two lists above are let go by.
+    /// B-740 (D-860): a layer's finished mask coverage, [`crate::mask::coverage`]'s answer, by
+    /// the masks it was worked from compared whole by value (at their shape at the frame and at
+    /// the draft size, so time and Draft/Full are in them) and the layer's width and height,
+    /// which is everything it reads. Under the effect budget beside the two lists above, let go
+    /// with them in the order the three were last used.
+    coverages: Vec<(Vec<Mask>, (usize, usize), Arc<Vec<f32>>, u64)>,
+    coverage_hits: u64,
+    /// A count of uses, the clock the three lists above are let go by.
     tick: u64,
     effect_hits: u64,
     effect_misses: u64,
@@ -758,6 +765,8 @@ impl CelCache {
             effect_held: 0,
             effect_entries: Vec::new(),
             inner: Vec::new(),
+            coverages: Vec::new(),
+            coverage_hits: 0,
             tick: 0,
             effect_hits: 0,
             effect_misses: 0,
@@ -806,23 +815,75 @@ impl CelCache {
         self.trim_effects();
     }
 
-    /// Let go of effect results and composition frames, least recently used first, until what is
-    /// held fits the effect budget.
+    /// Let go of effect results, composition frames and mask coverages, least recently used
+    /// first, until what is held fits the effect budget.
     fn trim_effects(&mut self) {
         while self.effect_held > self.effect_budget {
-            let inner_older = match (self.inner.first(), self.effect_entries.first()) {
-                (Some(inner), Some(effect)) => inner.3 < effect.2,
-                (Some(_), None) => true,
-                (None, Some(_)) => false,
-                (None, None) => break,
+            let oldest = [
+                self.effect_entries.first().map(|e| e.2),
+                self.inner.first().map(|e| e.3),
+                self.coverages.first().map(|e| e.3),
+            ];
+            let Some(which) = (0..3)
+                .filter(|&i| oldest[i].is_some())
+                .min_by_key(|&i| oldest[i])
+            else {
+                break;
             };
-            self.effect_held -= if inner_older {
-                bytes_of(&self.inner.remove(0).2)
-            } else {
-                self.effect_evicted += 1;
-                bytes_of(&self.effect_entries.remove(0).1.buffer)
+            self.effect_held -= match which {
+                0 => {
+                    self.effect_evicted += 1;
+                    bytes_of(&self.effect_entries.remove(0).1.buffer)
+                }
+                1 => bytes_of(&self.inner.remove(0).2),
+                _ => 4 * self.coverages.remove(0).2.len(),
             };
         }
+    }
+
+    /// B-740 (D-860): `masks`' coverage over a `width` by `height` layer, as
+    /// [`crate::mask::coverage`] works it out, kept when this cache has an effect budget and
+    /// answered from what was kept when the same masks are asked for at the same size. Without
+    /// an effect budget, which is every cache an export or a render to file uses, it is worked
+    /// out every time and nothing is kept (ADR-015). Bit for bit the same either way: a kept
+    /// coverage is the very numbers the function returned for an equal question.
+    pub fn mask_coverage(
+        &mut self,
+        masks: &[Mask],
+        width: usize,
+        height: usize,
+    ) -> Option<Arc<Vec<f32>>> {
+        if self.effect_budget == 0 {
+            return crate::mask::coverage(masks, width, height).map(Arc::new);
+        }
+        self.tick += 1;
+        let size = (width, height);
+        if let Some(at) = self
+            .coverages
+            .iter()
+            .position(|(m, s, ..)| *s == size && m.as_slice() == masks)
+        {
+            let mut entry = self.coverages.remove(at);
+            entry.3 = self.tick;
+            let field = Arc::clone(&entry.2);
+            self.coverages.push(entry);
+            self.coverage_hits += 1;
+            return Some(field);
+        }
+        let field = Arc::new(crate::mask::coverage(masks, width, height)?);
+        let bytes = 4 * field.len();
+        if bytes <= self.effect_budget {
+            self.coverages
+                .push((masks.to_vec(), size, Arc::clone(&field), self.tick));
+            self.effect_held += bytes;
+            self.trim_effects();
+        }
+        Some(field)
+    }
+
+    /// B-740: how many mask coverages were answered from what was kept.
+    pub fn mask_coverage_hits(&self) -> u64 {
+        self.coverage_hits
     }
 
     /// B-171 (G12, D-243): the frame of a composition shown inside another kept under `key`, from
