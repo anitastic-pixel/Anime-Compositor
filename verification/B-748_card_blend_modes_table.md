@@ -34,59 +34,59 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | normal, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| normal, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| normal, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | normal, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| normal, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| normal, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | darken, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| darken, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| darken, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | darken, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | darken, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | multiply, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| multiply, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| multiply, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | multiply, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | multiply, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | add, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | add, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | add, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| add, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| add, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | lighten, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | lighten, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | lighten, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| lighten, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| lighten, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 3 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | screen, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | screen, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | screen, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| screen, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| screen, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | overlay, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| overlay, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| overlay, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | overlay, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| overlay, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| overlay, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | soft_light, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| soft_light, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| soft_light, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | soft_light, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| soft_light, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| soft_light, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | hard_light, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| hard_light, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| hard_light, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | hard_light, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| hard_light, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| hard_light, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | difference, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | difference, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | difference, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| difference, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| difference, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | hue, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| hue, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| hue, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | hue, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| hue, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| hue, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | saturation, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| saturation, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| saturation, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | saturation, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| saturation, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| saturation, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 2 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | color, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | color, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | color, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| color, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| color, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | luminosity, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| luminosity, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| luminosity, linear, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1 fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white 0 | yes |
 | luminosity, 8 bpc, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | luminosity, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | stencil_alpha, linear, Preserve Transparency off | on the card: 1 frames, 262144 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |

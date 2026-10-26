@@ -6,7 +6,7 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| (layers only, no effect on the card) | 466 fixtures, 953 frames, 64844 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| (layers only, no effect on the card) | 462 fixtures, 933 frames, 60568 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | 3D Glasses | 24 fixtures, 96 frames, 8256 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | 4-Color Gradient | 18 fixtures, 70 frames, 6020 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Add Grain | 27 fixtures, 106 frames, 9116 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -26,6 +26,7 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Blobbylize | 19 fixtures, 76 frames, 6536 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Block Dissolve | 12 fixtures, 44 frames, 3784 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Block Load | 15 fixtures, 60 frames, 5160 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Bloom | 17 fixtures, 66 frames, 5676 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Brightness & Contrast | 15 fixtures, 54 frames, 4644 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Broadcast Safe | 10 fixtures, 40 frames, 3440 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Brush Strokes | 20 fixtures, 80 frames, 6880 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -65,17 +66,17 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Color Range | 12 fixtures, 48 frames, 4128 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Colorama | 23 fixtures, 92 frames, 7912 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Colour Key | 13 fixtures, 52 frames, 4472 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Compound Blur | 15 fixtures, 58 frames, 4988 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Compound Blur | 16 fixtures, 62 frames, 5332 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Contour Paint | 31 fixtures, 124 frames, 10664 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Corner Pin | 14 fixtures, 52 frames, 4472 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Cross Blur | 12 fixtures, 48 frames, 4128 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Cross Glare | 33 fixtures, 128 frames, 11008 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Cryptomatte | 16 fixtures, 64 frames, 1664 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Cryptomatte | 17 fixtures, 68 frames, 1768 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Curl Noise | 62 fixtures, 248 frames, 21328 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Curves | 13 fixtures, 52 frames, 4472 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Deband | 18 fixtures, 70 frames, 6020 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Depth Key | 10 fixtures, 40 frames, 1040 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Depth of Field | 17 fixtures, 68 frames, 1768 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Depth of Field | 18 fixtures, 72 frames, 1872 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Detail-preserving Upscale | 13 fixtures, 48 frames, 16320 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Difference Matte | 14 fixtures, 56 frames, 4816 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Diffusion | 19 fixtures, 72 frames, 6192 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -83,24 +84,27 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Displacement Map | 32 fixtures, 128 frames, 11008 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Distance Gradation | 14 fixtures, 52 frames, 4472 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Drizzle | 24 fixtures, 94 frames, 76704 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Drop Shadow | 35 fixtures, 140 frames, 12040 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Dust & Scratches | 9 fixtures, 18 frames, 2732 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Ellipse | 18 fixtures, 72 frames, 6192 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Emboss | 18 fixtures, 72 frames, 6192 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Energy Stroke | 46 fixtures, 174 frames, 15704 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Exposure | 61 fixtures, 240 frames, 34748 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Exposure Flicker | 14 fixtures, 52 frames, 4472 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Extract | 17 fixtures, 68 frames, 5848 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Eyedropper Fill | 22 fixtures, 86 frames, 7396 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Fast Blur (Legacy) | 6 fixtures, 22 frames, 5610 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Fast Box Blur | 9 fixtures, 36 frames, 9180 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Fast Blur (Legacy) | 7 fixtures, 26 frames, 6630 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Fast Box Blur | 16 fixtures, 64 frames, 16320 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Fill | 28 fixtures, 110 frames, 9460 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Find Edges | 12 fixtures, 44 frames, 3784 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Fisheye | 14 fixtures, 56 frames, 4816 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Flow Motion | 14 fixtures, 52 frames, 4472 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Foam | 41 fixtures, 162 frames, 132192 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Fog 3D | 18 fixtures, 70 frames, 1820 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Fog 3D | 19 fixtures, 74 frames, 1924 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Fractal | 30 fixtures, 120 frames, 10320 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Fractal Noise | 32 fixtures, 126 frames, 10836 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Gamma/Pedestal/Gain | 13 fixtures, 50 frames, 4300 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Gaussian | 12 fixtures, 44 frames, 8020 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Gaussian | 17 fixtures, 64 frames, 12204 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Glass Melt | 20 fixtures, 78 frames, 6708 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Glow Wipe | 15 fixtures, 58 frames, 4988 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Glue Gun | 16 fixtures, 64 frames, 5504 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -116,8 +120,8 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Hex Tile | 14 fixtures, 33 frames, 4540 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Hue/Saturation | 17 fixtures, 64 frames, 5504 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | ID Key | 11 fixtures, 44 frames, 1144 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| IDentifier | 15 fixtures, 60 frames, 1560 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Invert | 20 fixtures, 74 frames, 6364 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| IDentifier | 16 fixtures, 64 frames, 1664 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Invert | 21 fixtures, 78 frames, 6708 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Iris Wipe | 17 fixtures, 64 frames, 5504 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Kernel | 11 fixtures, 42 frames, 3612 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Kira-kira | 18 fixtures, 68 frames, 5848 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -127,7 +131,7 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Levels | 19 fixtures, 70 frames, 6020 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Levels (Individual Controls) | 8 fixtures, 30 frames, 2580 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Light Burst | 20 fixtures, 78 frames, 6708 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Light Rays | 41 fixtures, 160 frames, 13760 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Light Rays | 44 fixtures, 172 frames, 14792 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Light Sweep | 17 fixtures, 66 frames, 5676 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Lightning Bolt | 66 fixtures, 262 frames, 22532 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Line Blur | 9 fixtures, 34 frames, 2924 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -146,7 +150,7 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Mesh Warp | 19 fixtures, 72 frames, 6192 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Mirror | 18 fixtures, 72 frames, 6192 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Mosaic | 27 fixtures, 82 frames, 8236 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Motion Tile | 46 fixtures, 178 frames, 15456 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Motion Tile | 47 fixtures, 182 frames, 15800 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Mr. Smoothie | 18 fixtures, 72 frames, 6192 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Noise | 11 fixtures, 42 frames, 3612 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Noise Alpha | 21 fixtures, 82 frames, 7052 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -162,8 +166,8 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Particle Grid | 72 fixtures, 286 frames, 24596 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Particle Plane | 85 fixtures, 336 frames, 28896 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Particle Playground | 122 fixtures, 454 frames, 41412 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Particle Space | 83 fixtures, 330 frames, 28380 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| Pass Extract | 37 fixtures, 148 frames, 3848 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Particle Space | 85 fixtures, 338 frames, 29068 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Pass Extract | 39 fixtures, 156 frames, 4056 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Path Stroke | 36 fixtures, 144 frames, 12384 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Photo Filter | 13 fixtures, 50 frames, 4300 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Plastic | 22 fixtures, 88 frames, 7568 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -201,6 +205,7 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | Snowfall | 17 fixtures, 34 frames, 5144 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Soft Physical Glow | 71 fixtures, 284 frames, 24424 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Solarize | 12 fixtures, 48 frames, 4128 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| Solid Composite | 19 fixtures, 76 frames, 9916 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Speed Lines | 21 fixtures, 84 frames, 7224 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Spherize | 10 fixtures, 36 frames, 3096 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | Spill Suppressor | 10 fixtures, 40 frames, 3440 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
@@ -255,13 +260,15 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | exposure_ae/fx_expae_009 | opens; the card's frame within 1 level of the CPU's, or the CPU's exactly | yes |
 | glow_display/fx_gldisp_006 | opens; the card's frame within 1 level of the CPU's, or the CPU's exactly | yes |
 | glow_display/fx_gldisp_016 | opens; the card's frame within 1 level of the CPU's, or the CPU's exactly | yes |
+| light_rays_cc/fx_rayscc_040 | opens; the card's frame within 1 level of the CPU's, or the CPU's exactly | yes |
+| light_rays_cc/fx_rayscc_041 | opens; the card's frame within 1 level of the CPU's, or the CPU's exactly | yes |
 
 ## All the frames
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| 4711 fixture projects | 18822 frames on the card; 8 the card refused, 8 of them the CPU's exactly | yes |
+| 4844 fixture projects | 19362 frames on the card; 0 the card refused, 0 of them the CPU's exactly | yes |
 
 ## Result
 
-245 of 245 checks pass.
+252 of 252 checks pass.

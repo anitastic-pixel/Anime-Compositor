@@ -18,6 +18,8 @@ use anime_compositor::persist;
 use anime_compositor::preview::{self, PreviewQuality};
 use serde_json::Value;
 
+use crate::effect_table::{hidden, seen, shown};
+
 pub fn repo(rel: &str) -> PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(rel)
 }
@@ -34,6 +36,10 @@ pub struct Stats {
     pub exact_frames: usize,
     /// Frames whose plan leaves the group's effect to the card in 8 bpc.
     pub on_card: usize,
+    /// D-894: pixels fully transparent on both sides whose hidden colours differ, not graded,
+    /// and the largest difference they show over black or white (0 by the rule's proof).
+    pub excused: usize,
+    pub excused_shown: u8,
 }
 
 impl Stats {
@@ -53,7 +59,16 @@ impl Stats {
             self.over1,
             self.over2,
             100.0 * (self.pixels - self.over1) as f64 / self.pixels.max(1) as f64
-        )
+        ) + &excused(self.excused, self.excused_shown)
+    }
+}
+
+/// D-894: what a table row says of the pixels the rule did not grade, when there are any.
+pub fn excused(n: usize, shown: u8) -> String {
+    if n == 0 {
+        String::new()
+    } else {
+        format!("; {n} fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white {shown}")
     }
 }
 
@@ -139,17 +154,23 @@ pub fn walk(
                     .iter()
                     .find(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str())
                     .map(|d| d.message.clone());
-                let (mut largest, mut over1, mut over2) = (0u8, 0usize, 0usize);
+                let (mut largest, mut over1, mut over2, mut every) = (0u8, 0usize, 0usize, 0u8);
+                let (mut excused, mut excused_shown) = (0usize, 0u8);
                 for (a, b) in c.chunks_exact(4).zip(g.chunks_exact(4)) {
-                    let d = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+                    let d = seen(a, b);
                     largest = largest.max(d);
+                    every = every.max(a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0));
                     over1 += (d > 1) as usize;
                     over2 += (d > 2) as usize;
+                    if hidden(a, b) {
+                        excused += 1;
+                        excused_shown = excused_shown.max(shown(a, b));
+                    }
                 }
                 if let Some(why) = why {
                     let r = w.refused.entry(why).or_default();
                     r.0 += 1;
-                    r.1 += (largest == 0) as usize;
+                    r.1 += (every == 0) as usize;
                     continue;
                 }
                 if largest > 1 {
@@ -164,7 +185,9 @@ pub fn walk(
                         counted.push(e.clone());
                     }
                     s.frames += 1;
-                    s.exact_frames += (largest == 0) as usize;
+                    s.exact_frames += (every == 0) as usize;
+                    s.excused += excused;
+                    s.excused_shown = s.excused_shown.max(excused_shown);
                     s.pixels += c.len() / 4;
                     s.over1 += over1;
                     s.over2 += over2;

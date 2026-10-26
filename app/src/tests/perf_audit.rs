@@ -620,7 +620,9 @@ fn perf_audit_eight() {
                     )
                     .expect("card frame");
                     for (a, b) in cpu.chunks_exact(4).zip(on.chunks_exact(4)) {
-                        let d = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+                        // D-894: a pixel fully transparent on both sides is not graded.
+                        let hidden = a[3] == 0 && b[3] == 0;
+                        let d = if hidden { 0 } else { a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0) };
                         largest = largest.max(d);
                         over1 += (d > 1) as usize;
                         over2 += (d > 2) as usize;

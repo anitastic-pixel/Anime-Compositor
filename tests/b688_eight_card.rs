@@ -22,7 +22,7 @@ use anime_compositor::render::OnCard;
 use serde_json::Value;
 
 mod effect_table;
-use effect_table::{repo, Table};
+use effect_table::{hidden, repo, seen, shown, Table};
 
 /// The fixture project files, as `b222_gpu_colour` walks them.
 fn files() -> Vec<PathBuf> {
@@ -75,6 +75,9 @@ struct Stats {
     over1: usize,
     over2: usize,
     largest: u8,
+    /// D-894: as `eight_walk::Stats` has them.
+    excused: usize,
+    excused_shown: u8,
 }
 
 #[test]
@@ -140,17 +143,23 @@ fn b688_eight_card() {
                 let (g, ..) = preview::preview_frame_srgb8(&project, &id, frame, &root, q, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
                     .unwrap_or_else(|d| panic!("{name} frame {frame} on the card: {}", d.message));
                 let cpu = log.finish().iter().any(|d| d.id.as_str() == DiagnosticId::GpuPreviewOnCpu.as_str());
-                let (mut largest, mut over1, mut over2) = (0u8, 0usize, 0usize);
+                let (mut largest, mut over1, mut over2, mut every) = (0u8, 0usize, 0usize, 0u8);
+                let (mut excused, mut excused_shown) = (0usize, 0u8);
                 for (a, b) in c.chunks_exact(4).zip(g.chunks_exact(4)) {
-                    let d = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+                    let d = seen(a, b);
                     largest = largest.max(d);
+                    every = every.max(a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0));
                     over1 += (d > 1) as usize;
                     over2 += (d > 2) as usize;
+                    if hidden(a, b) {
+                        excused += 1;
+                        excused_shown = excused_shown.max(shown(a, b));
+                    }
                 }
                 if cpu {
                     refused += 1;
-                    refused_exact += (largest == 0) as usize;
-                    old_ok &= largest == 0;
+                    refused_exact += (every == 0) as usize;
+                    old_ok &= every == 0;
                     continue;
                 }
                 drawn += 1;
@@ -173,6 +182,8 @@ fn b688_eight_card() {
                     s.over1 += over1;
                     s.over2 += over2;
                     s.largest = s.largest.max(largest);
+                    s.excused += excused;
+                    s.excused_shown = s.excused_shown.max(excused_shown);
                 }
             }
         }
@@ -187,8 +198,9 @@ fn b688_eight_card() {
         t.row(
             e,
             &format!(
-                "{} fixtures, {} frames, {} pixels: largest {}, {} over 1, {} over 2, {within:.4}% within 1",
-                s.fixtures, s.frames, s.pixels, s.largest, s.over1, s.over2
+                "{} fixtures, {} frames, {} pixels: largest {}, {} over 1, {} over 2, {within:.4}% within 1{}",
+                s.fixtures, s.frames, s.pixels, s.largest, s.over1, s.over2,
+                if s.excused == 0 { String::new() } else { format!("; {} fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white {}", s.excused, s.excused_shown) }
             ),
             ok,
         );

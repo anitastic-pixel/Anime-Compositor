@@ -441,19 +441,38 @@ pub fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let (mut largest, mut pixels) = (0, 0);
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        if p[3] == 0 && q[3] == 0 {
-            continue;
-        }
-        let d = p
-            .iter()
-            .zip(q)
-            .map(|(x, y)| x.abs_diff(*y))
-            .max()
-            .unwrap_or(0);
+        let d = seen(p, q);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
+}
+
+/// D-894: the difference, of 255, a viewer can see between two straight 8-bit pixels of the
+/// card's and the CPU's pictures. None where both alpha bytes are 0 (alpha below 1/255 on both
+/// sides): such a pixel shows only what is behind it, over any background, whatever colour it
+/// keeps. Else the largest of the four channels. Only for the card-against-CPU checks; fixture,
+/// export and byte-for-byte checks still compare every channel.
+pub fn seen(p: &[u8], q: &[u8]) -> u8 {
+    if p[3] == 0 && q[3] == 0 {
+        return 0;
+    }
+    p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0)
+}
+
+/// D-894: whether `seen` excused the pair: both alpha bytes 0, the hidden colours different.
+pub fn hidden(p: &[u8], q: &[u8]) -> bool {
+    p[3] == 0 && q[3] == 0 && p[..3] != q[..3]
+}
+
+/// D-894's proof, pixel by pixel: the largest difference, of 255, between the two pixels
+/// composited over black and over white, rounded to 8 bits.
+pub fn shown(p: &[u8], q: &[u8]) -> u8 {
+    let over = |x: &[u8], c: usize, back: u32| (x[c] as u32 * x[3] as u32 + back * (255 - x[3] as u32) + 127) / 255;
+    (0..3)
+        .flat_map(|c| [0, 255].map(|b| over(p, c, b).abs_diff(over(q, c, b)) as u8))
+        .max()
+        .unwrap_or(0)
 }
 
 /// The warnings a frame gave, by id, each once.

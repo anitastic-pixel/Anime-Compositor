@@ -64,14 +64,21 @@ struct Stats {
     over1: usize,
     over2: usize,
     largest: u8,
+    /// D-894: as `eight_walk::Stats` has them.
+    excused: usize,
+    excused_shown: u8,
 }
 
 impl Stats {
     fn add(&mut self, a: &[u8], b: &[u8]) -> u8 {
         let mut largest = 0u8;
         for (a, b) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-            let d = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+            let d = effect_table::seen(a, b);
             largest = largest.max(d);
+            if effect_table::hidden(a, b) {
+                self.excused += 1;
+                self.excused_shown = self.excused_shown.max(effect_table::shown(a, b));
+            }
             self.over1 += (d > 1) as usize;
             self.over2 += (d > 2) as usize;
         }
@@ -94,7 +101,11 @@ impl Stats {
             self.over1,
             self.over2,
             100.0 * (self.pixels - self.over1) as f64 / self.pixels.max(1) as f64
-        )
+        ) + &if self.excused == 0 {
+            String::new()
+        } else {
+            format!("; {} fully transparent pixels with different hidden colours not graded (D-894), largest difference over black or white {}", self.excused, self.excused_shown)
+        }
     }
 }
 
