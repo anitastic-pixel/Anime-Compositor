@@ -308,6 +308,21 @@ fn bits(project: &Project, above: &[Id], comp: &crate::model::Composition) -> cr
     }
 }
 
+/// D-893: a viewer frame stopped by newer input ([`crate::stop`]) ends here, between layers of
+/// the top composition only. A layer is always finished, so whatever it kept stays true; a
+/// composition layer's inner frame is never cut short, since a cut one would draw as empty.
+pub(crate) fn stopped(above: &[Id]) -> Result<(), Diagnostic> {
+    if !above.is_empty() || !crate::stop::asked() {
+        return Ok(());
+    }
+    Err(Diagnostic::new(
+        DiagnosticId::PreviewFrameStopped,
+        Severity::Info,
+        "The viewer stopped drawing this frame because a newer one was asked for.".to_string(),
+        "Newer input arrived while the frame was drawn; nothing of it is shown or kept.".to_string(),
+    ))
+}
+
 fn plan_inside(
     project: &Project,
     composition_id: &Id,
@@ -375,6 +390,7 @@ fn plan_inside(
     }
     // Step 3: composition order, bottom of the stack first, which is `FramePlan.layers`' order.
     for layer in comp.layers_in_order() {
+        stopped(above)?;
         if !layer.enabled || matte_only.contains(&&layer.id) {
             continue;
         }
@@ -572,6 +588,7 @@ fn plan_inside(
     // animatable property: two planes can cross mid-shot and what is in front of what changes
     // with them. FX-CAM-010 is the case that fails if this moves anywhere cheaper.
     layers.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    stopped(above)?;
 
     Ok(FramePlan {
         width: comp.width as usize,

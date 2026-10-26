@@ -208,10 +208,13 @@ pub fn preview_frame_cached(
         false,
     )?;
     let tile_size = compose::tile_size(quality, tile_size);
-    Ok(match cache.below(composition_id, frame) {
+    // D-893: the viewer's draw can be stopped between tiles; a stopped one is an error, never shown.
+    let pixels = crate::stop::tiles(|| match cache.below(composition_id, frame) {
         Some(below) => render::render_below(&plan, tile_size, None, below),
         None => render::render(&plan, tile_size),
-    })
+    });
+    compose::stopped(&[])?;
+    Ok(pixels)
 }
 
 /// B-158 (G8): the pixels of a frame `width` by `height` that `seen` touches, fractions of the
@@ -264,11 +267,12 @@ pub fn preview_part(
     )?;
     let part = part_in(seen, plan.width, plan.height);
     let tile_size = compose::tile_size(quality, tile_size);
-    let pixels = match (cache.below(composition_id, frame), part) {
+    let pixels = crate::stop::tiles(|| match (cache.below(composition_id, frame), part) {
         (Some(below), part) => render::render_below(&plan, tile_size, part, below),
         (None, Some(part)) => render::render_part(&plan, tile_size, part),
         (None, None) => render::render(&plan, tile_size),
-    };
+    });
+    compose::stopped(&[])?; // D-893
     Ok((pixels, plan.width, plan.height, part))
 }
 

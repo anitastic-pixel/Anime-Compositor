@@ -72,6 +72,7 @@ One row per identifier this build can print, and the table where a person can re
 | `TIMESHEET_DRAWING_UNUSED` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_NOT_USED` | yes | `verification/B-28b_timesheet_table.md` |
 | `GPU_PREVIEW_ON_CPU` | **no — added by a decision** | `verification/B-44_gpu_preview_table.md` |
+| `PREVIEW_FRAME_STOPPED` | **no — added by a decision** | `verification/B-773_stoppable_frames_table.md` |
 | `PRESET_FILE_INVALID` | yes | `verification/B-116_preset_file_table.md` |
 | `EFFECT_LAYER_MISSING` | yes | `verification/B-125b_layer_map_table.md` |
 | `EFFECT_LAYER_CYCLE` | yes | `verification/B-127_compound_blur_table.md` |
@@ -93,7 +94,7 @@ One row per identifier this build can print, and the table where a person can re
 
 ## What the build says that the catalogue does not list
 
-10 identifiers, every one of them registered as a decision in `Markdown/14_Decisions_Risks.md` rather than invented at a keyboard: D-19 for the four import ones, D-21 for the three command ones, D-28 for the blocked export. The reason they exist at all is the rule in document 28 itself — a library error string is not a user-facing identifier — so the alternative to naming a new condition was reusing an identifier that means something else, which is worse for exactly the person a catalogue is written for.
+11 identifiers, every one of them registered as a decision in `Markdown/14_Decisions_Risks.md` rather than invented at a keyboard: D-19 for the four import ones, D-21 for the three command ones, D-28 for the blocked export. The reason they exist at all is the rule in document 28 itself — a library error string is not a user-facing identifier — so the alternative to naming a new condition was reusing an identifier that means something else, which is worse for exactly the person a catalogue is written for.
 
 - `COMMAND_INVALID_VALUE`
 - `COMMAND_LAYER_LOCKED`
@@ -104,6 +105,7 @@ One row per identifier this build can print, and the table where a person can re
 - `MEDIA_SEQUENCE_DUPLICATE_NUMBER`
 - `MEDIA_SEQUENCE_NAME_VARIANT`
 - `MEDIA_SEQUENCE_UNNUMBERED`
+- `PREVIEW_FRAME_STOPPED`
 - `PROJECT_FEATURE_UNSUPPORTED`
 
 ## The checks
@@ -303,6 +305,9 @@ One row per identifier this build can print, and the table where a person can re
 | GPU_PREVIEW_ON_CPU: the enum spells it the way the catalogue does | GPU_PREVIEW_ON_CPU | GPU_PREVIEW_ON_CPU | pass |
 | GPU_PREVIEW_ON_CPU: says truthfully whether document 28 lists it | false | false | pass |
 | GPU_PREVIEW_ON_CPU: a table somewhere shows a person this sentence | named in B-44_gpu_preview_table.md | named in B-44_gpu_preview_table.md | pass |
+| PREVIEW_FRAME_STOPPED: the enum spells it the way the catalogue does | PREVIEW_FRAME_STOPPED | PREVIEW_FRAME_STOPPED | pass |
+| PREVIEW_FRAME_STOPPED: says truthfully whether document 28 lists it | false | false | pass |
+| PREVIEW_FRAME_STOPPED: a table somewhere shows a person this sentence | named in B-773_stoppable_frames_table.md | named in B-773_stoppable_frames_table.md | pass |
 | PRESET_FILE_INVALID: the enum spells it the way the catalogue does | PRESET_FILE_INVALID | PRESET_FILE_INVALID | pass |
 | PRESET_FILE_INVALID: says truthfully whether document 28 lists it | true | true | pass |
 | PRESET_FILE_INVALID: a table somewhere shows a person this sentence | named in B-116_preset_file_table.md | named in B-116_preset_file_table.md | pass |
@@ -336,7 +341,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**225 of 225 checks pass.**
+**228 of 228 checks pass.**
 
 ## What this cannot cover
 

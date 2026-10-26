@@ -987,10 +987,15 @@ pub fn render_below(
         0 => above,
         _ => None,
     };
-    below.kept = match (
-        keep,
-        draw(plan, from, &mut frame, at, keep, tile_size, true),
-    ) {
+    let since = crate::stop::tile_watch();
+    let drawn = draw(plan, from, &mut frame, at, keep, tile_size, true);
+    // D-893: stopped part way, so what was drawn, and a picture kept from it, may be unfinished.
+    // Everything stays as it was before this draw; the caller throws the frame away.
+    if crate::stop::passed(since) {
+        below.kept = kept;
+        return frame;
+    }
+    below.kept = match (keep, drawn) {
         (Some(n), Some(picture)) => Some((n, picture)),
         _ => kept,
     };
@@ -1278,11 +1283,17 @@ fn render_layers(
             rows_for
         });
 
+    // D-893: a viewer frame stopped by newer input leaves its remaining tiles undrawn; the
+    // caller throws the whole frame away.
+    let since = crate::stop::tile_watch();
     crate::perf::time(crate::perf::Stage::TileLoop, || {
         rows_for
             .par_drain(..)
             .zip(tiles.par_iter())
             .for_each(|(rows, &tile)| {
+                if crate::stop::passed(since) {
+                    return;
+                }
                 let tile = Tile {
                     x: tile.x + at.0,
                     y: tile.y + at.1,

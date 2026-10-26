@@ -2654,6 +2654,16 @@ function askedAs(url, restless) {
 function drawnWhenBack(asked, waiting, restless) {
   return !(restless && waiting !== null && asked.endsWith('?q=full'));
 }
+// D-893: whether the frame in flight, `flying` as it went out, is told to stop now that `waiting`
+// is the newest request. A frame that would not be drawn anyway (B-162) is stopped, and so is
+// any frame once the hand is `still`, which is a click, an undo or a typed value rather than a
+// drag. A drag's own frames are not: each is the nearest picture there is to the hand, and
+// stopping them all would draw nothing until it let go. Never twice running (`stoppedLast`), so
+// a stopped frame is always followed by one that is drawn.
+function stopsInFlight(flying, waiting, restless, still, stoppedLast) {
+  if (stoppedLast || waiting === null || !flying.includes('/frame/') || !waiting.includes('/frame/')) return false;
+  return !drawnWhenBack(flying, waiting, restless) || still;
+}
 // ---- B-162 / B-163 end
 
 // Whether the hand moved within SETTLE_MS, with Refine when idle ticked.
@@ -2689,10 +2699,10 @@ function sharpen() {
 // export poll and the autosave refresh are timers, and a timer that fires into a queue is
 // exactly how an older frame arrives after a newer one.
 //
-// B-162: the frame in flight cannot be stopped part way. The window answers this address on
-// its own thread, one request after another, so word that a newer frame is wanted could not
-// reach the render until it had finished anyway, and the renderer has no point at which to
-// stop. It is left to finish, and what it made is not drawn when it is stale (`drawnWhenBack`).
+// B-162: what a frame in flight made is not drawn when it is stale (`drawnWhenBack`). D-893: and
+// since the frames are answered on their own thread (D-890), `/stop` reaches a frame in flight,
+// which ends between two layers or two tiles and answers `x-stopped` with no picture
+// (`stopsInFlight`).
 // B-158 (G8): what of the picture shows, as fractions of it across and down (left, top, right,
 // bottom), cut to the window and to everything that scrolls or hides it; null when it has no size.
 function showing() {
@@ -2747,15 +2757,28 @@ function partStillDrawn() {
 }
 // D-885: off while it is PROPOSED; see `show`.
 const BOXES_WITH_FRAME = false;
+// D-893: the switch (false: no frame is ever told to stop, as before); the frame in flight as it
+// went out, whether it has been told to stop, and whether the last answer was a stopped one.
+const STOP_FRAMES = true;
+let flying = '';
+let stopAsked = false;
+let stoppedLast = false;
 async function show(url, keep = true) {
   if (inFlight) {
     if (keep) pending = url;
+    if (keep && STOP_FRAMES && !stopAsked && stopsInFlight(flying, pending, restless(),
+      performance.now() - stirred >= SETTLE_MS, stoppedLast)) {
+      stopAsked = true;
+      fetch(FRAMES + '/stop').catch(() => {});
+    }
     return;
   }
   inFlight = true;
   const mine = ++generation;
   const chosen = url;
   url = askedAs(url, restless());
+  flying = url;
+  stopAsked = false;
   const rough = url !== chosen; // B-163: a Draft stand-in for the Full picture chosen
   try {
     const asked = performance.now();
@@ -2770,6 +2793,13 @@ async function show(url, keep = true) {
       SEND_CHANGED && !part && url.includes('/frame/') && 'have=' + (had || 0)].filter(Boolean);
     const response = await fetch(extra.length ? url + (url.includes('?') ? '&' : '?') + extra.join('&') : url);
     if (mine !== generation) return;
+    // D-893: stopped part way, so there is nothing to draw; the newest request goes out next, or
+    // this one again when nothing is waiting, so the picture is never left behind.
+    stoppedLast = response.headers.get('x-stopped') === '1';
+    if (stoppedLast) {
+      if (!pending) pending = chosen;
+      return;
+    }
     if (!drawnWhenBack(url, pending, restless())) return;
     if (!response.ok) {
       $('report').textContent = await response.text();

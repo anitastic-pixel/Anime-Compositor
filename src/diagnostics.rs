@@ -254,6 +254,10 @@ diagnostic_ids! {
     /// the card failing. INFO when planned, WARNING when the card failed. Nothing is refused, so
     /// this is not document 28's GPU_BACKEND_FAILED, which is an ERROR.
     GpuPreviewOnCpu = ("GPU_PREVIEW_ON_CPU", false),
+    /// **Accepted (D-893)**, outside document 28's core table. A viewer frame was stopped between
+    /// layers because newer input made it useless ([`crate::stop`]). INFO. Nothing of it is shown
+    /// or kept; the newer frame is drawn instead.
+    PreviewFrameStopped = ("PREVIEW_FRAME_STOPPED", false),
     /// Document 28, added by D-180: a preset file that is not the preset file format, or is a
     /// newer version of it. Nothing is imported and nothing is changed.
     PresetFileInvalid = ("PRESET_FILE_INVALID", true),

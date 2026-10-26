@@ -96,6 +96,7 @@ pub mod shape;
 mod shape_ops;
 pub mod simulate;
 mod soft_glow;
+pub mod stop;
 pub mod text;
 pub mod time;
 pub mod timesheet;

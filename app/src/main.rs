@@ -1808,6 +1808,15 @@ fn serve_frame(
     drop(cache);
     let made = match made {
         Ok(made) => made,
+        // D-893: stopped by newer input. No picture, and nothing of it is kept or counted as
+        // sent; the page asks for the newer frame instead.
+        Err(diagnostic) if diagnostic.id == anime_compositor::diagnostics::DiagnosticId::PreviewFrameStopped => {
+            anime_compositor::perf::end_capture();
+            return allow_the_page_to_read_this(Response::builder().status(204))
+                .header("x-stopped", "1")
+                .body(Vec::new())
+                .expect("build the stopped response");
+        }
         // Document 28: a frame that cannot be made is reported, never replaced by something
         // that looks like a frame. The page shows this sentence instead of a picture.
         Err(diagnostic) => {
@@ -18530,7 +18539,9 @@ fn failed_response(said: String) -> Response<Vec<u8>> {
 
 /// One request on the `frame` scheme: a frame, or a question about what is on screen.
 /// D-890: answered on [`off_the_window_thread`], except `/place`.
-fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+/// D-893: `since` is [`anime_compositor::stop::now`] as the request arrived; a `/stop` after
+/// that stops the frame it asks for.
+fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>, since: u64) -> Response<Vec<u8>> {
     contained(app, "drawing a frame", || {
         let viewer = app.state::<Mutex<Viewer>>();
         let export = app.state::<Mutex<Export>>();
@@ -18585,7 +18596,7 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>
                 let card = app.state::<Mutex<Card>>();
                 // B-158: `v=`, the part of the picture on screen.
                 let seen = parameter(request.uri().query(), "v");
-                let reply = serve_frame(
+                let reply = anime_compositor::stop::watching(since, || serve_frame(
                     &viewer,
                     &export,
                     Some(&session),
@@ -18597,7 +18608,7 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>
                     parameter(request.uri().query(), "b").as_deref() == Some("1"),
                     // D-886: the picture the page holds, to send only what changed.
                     parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
-                );
+                ));
                 // B-154: while playing, the rest of the loop is made in the background, one
                 // worker at a time.
                 static AHEAD: AtomicBool = AtomicBool::new(false);
@@ -18766,12 +18777,23 @@ fn main() {
         })
         .register_asynchronous_uri_scheme_protocol("frame", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
+            // D-893: `/stop` is answered here at once, on the window's thread, so it reaches the
+            // frame being drawn on the frames thread.
+            if request.uri().path().trim_matches('/') == "stop" {
+                anime_compositor::stop::stop();
+                return responder.respond(
+                    allow_the_page_to_read_this(Response::builder().status(204))
+                        .body(Vec::new())
+                        .expect("build the stop response"),
+                );
+            }
+            let since = anime_compositor::stop::now();
             // `/place` attaches the card to the window, which is the window thread's work.
             if !FRAMES_OFF_THE_WINDOW_THREAD || request.uri().path().trim_matches('/') == "place" {
-                return responder.respond(answer_frame(&app, &request));
+                return responder.respond(answer_frame(&app, &request, since));
             }
             off_the_window_thread(Box::new(move || {
-                responder.respond(answer_frame(&app, &request));
+                responder.respond(answer_frame(&app, &request, since));
             }));
         })
         .run(tauri::generate_context!())
@@ -19068,3 +19090,8 @@ mod changed_part;
 #[cfg(test)]
 #[path = "tests/async_frames.rs"]
 mod async_frames;
+
+/// D-893: a viewer frame stopped part way is never shown or kept, and the next is the whole one.
+#[cfg(test)]
+#[path = "tests/stoppable_frames.rs"]
+mod stoppable_frames;

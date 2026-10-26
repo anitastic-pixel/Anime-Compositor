@@ -352,6 +352,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "B-44_gpu_preview_table.md",
     ),
     (
+        DiagnosticId::PreviewFrameStopped,
+        "PREVIEW_FRAME_STOPPED",
+        "B-773_stoppable_frames_table.md",
+    ),
+    (
         DiagnosticId::PresetFileInvalid,
         "PRESET_FILE_INVALID",
         "B-116_preset_file_table.md",
