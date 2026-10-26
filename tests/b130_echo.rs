@@ -386,7 +386,7 @@ fn b130_echo() {
         ("trail_in_front", effect(-2, 6, 0.7, "composite_in_front"), 90, "the same, Composite In Front: the present ball whole on top (D-768)"),
         ("smear", effect(-1, 11, 0.8, "add"), 106, "11 echoes 1 frame back, decay 0.8, Add: a smear back to drawing 6"),
         ("ahead_screen", effect(2, 3, 0.5, "screen"), 282, "Echo Time +2, 3 echoes, decay 0.5, Screen: where the ball is going, to drawing 23"),
-        ("blend", effect(-1, 3, 1.0, "blend"), 234, "3 echoes 1 frame back, Blend: four drawings averaged"),
+        ("blend", effect(-1, 3, 1.0, "blend"), 234, "3 echoes 1 frame back, Blend: as Add (D-891)"),
     ] {
         let to = if name == "ahead_screen" { 426 } else { 330 };
         let (_, bytes, said) = draw(&picture(effects), &dir, 16, full);

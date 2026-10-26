@@ -5703,7 +5703,10 @@ fn fill_echoes(
         };
         let drawing = bare(holder, true);
         let mut inside = FrameLog::new(usize::MAX);
-        let mut fold = crate::layer_fx::EchoFold::new(operator, size);
+        // D-891: Echo's Blend draws as its Add, as After Effects'; the fold's own "blend", a true
+        // average, stays CC Wide Time's and CC Force Motion Blur's.
+        let fold_as = if operator == "blend" { "add" } else { operator.as_str() };
+        let mut fold = crate::layer_fx::EchoFold::new(fold_as, size);
         for k in 0..=echoes.floor() as i32 {
             let at = frame + k * echo_time.floor() as i32;
             let p = resolve_layer(

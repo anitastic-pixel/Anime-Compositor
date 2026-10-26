@@ -12750,17 +12750,26 @@ impl EchoFold {
     pub(crate) fn add(&mut self, p: Option<&WorkingBuffer>, weight: f64) {
         let first = self.count == 0;
         self.count += 1;
-        // Nothing added, laid over or under changes nothing; only Maximum and Minimum see it.
-        if p.is_none() && !matches!(self.operator.as_str(), "maximum" | "minimum") {
+        // Nothing added, laid over or under changes nothing; only Maximum sees it.
+        if p.is_none() && self.operator != "maximum" {
             return;
         }
         let fold: fn(&mut [f32], [f32; 4], bool) = match self.operator.as_str() {
             "maximum" => {
                 |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].max(q[c]) })
             }
-            "minimum" => {
-                |r, q, first| (0..4).for_each(|c| r[c] = if first { q[c] } else { r[c].min(q[c]) })
-            }
+            // D-891: the darker straight colour of the copies that cover, held straight until
+            // `finish`, at the largest covering; a copy that covers nothing is left out.
+            "minimum" => |r, q, _| {
+                if q[3] <= 0.0 {
+                    return;
+                }
+                (0..3).for_each(|c| {
+                    let s = q[c] / q[3];
+                    r[c] = if r[3] > 0.0 { r[c].min(s) } else { s };
+                });
+                r[3] = r[3].max(q[3]);
+            },
             "screen" => |r, q, _| (0..4).for_each(|c| r[c] *= 1.0 - q[c].clamp(0.0, 1.0)),
             // D-768: In Front keeps what is there so far (the present first) over each older copy;
             // In Back lays each older copy over it, the furthest on top.
@@ -12795,6 +12804,12 @@ impl EchoFold {
         };
         if let Some(last) = last {
             self.out.data_mut().par_iter_mut().for_each(|v| last(v, n));
+        }
+        if self.operator == "minimum" {
+            self.out.data_mut().par_chunks_exact_mut(4).for_each(|r| {
+                let a = r[3];
+                r[..3].iter_mut().for_each(|v| *v *= a);
+            });
         }
         self.out
     }

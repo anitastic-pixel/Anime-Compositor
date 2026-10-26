@@ -24,7 +24,7 @@ D-195, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | FX-ECHO-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ECHO-007 frame 4: Three echoes, decay 0.7, Maximum. | largest difference 9.7e-8 | yes |
 | FX-ECHO-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-ECHO-008 frame 3: One echo, Minimum: only where drawings 4 and 3 overlap is anything left. | largest difference 9.8e-8 | yes |
+| FX-ECHO-008 frame 3: One echo, Minimum (D-891): both drawings' covering, the smaller colour where they overlap. | largest difference 9.8e-8 | yes |
 | FX-ECHO-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ECHO-009 frame 4: Three echoes, decay 0.7, Screen. | largest difference 9.7e-8 | yes |
 | FX-ECHO-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -32,7 +32,7 @@ D-195, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | FX-ECHO-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ECHO-011 frame 4: Three echoes, decay 0.7, Composite In Front: the present ball in front. | largest difference 1.2e-7 | yes |
 | FX-ECHO-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-ECHO-012 frame 4: Three echoes, Blend: the four drawings averaged. | largest difference 4.6e-8 | yes |
+| FX-ECHO-012 frame 4: Three echoes, Blend (D-891): as Add, the four drawings summed and held at 1. | largest difference 1.7e-7 | yes |
 | FX-ECHO-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-ECHO-013 frame 3: The layer's in point at frame 2, three echoes: at frame 3 its drawings 2 and 1; frames 1 and 0 are before it, empty. | largest difference 1.4e-7 | yes |
 | FX-ECHO-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -153,7 +153,7 @@ D-195, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | trail_in_front.png, the same, Composite In Front: the present ball whole on top (D-768), draws cleanly in columns 90 to 330 | [], columns 90 to 329, 0 pixels of the present ball differ from before.png | yes |
 | smear.png, 11 echoes 1 frame back, decay 0.8, Add: a smear back to drawing 6, draws cleanly in columns 106 to 330 | [], columns 106 to 329 | yes |
 | ahead_screen.png, Echo Time +2, 3 echoes, decay 0.5, Screen: where the ball is going, to drawing 23, draws cleanly in columns 282 to 426 | [], columns 282 to 425 | yes |
-| blend.png, 3 echoes 1 frame back, Blend: four drawings averaged, draws cleanly in columns 234 to 330 | [], columns 234 to 329 | yes |
+| blend.png, 3 echoes 1 frame back, Blend: as Add (D-891), draws cleanly in columns 234 to 330 | [], columns 234 to 329 | yes |
 | trail_add at Draft draws cleanly, a quarter the size: the trail in columns 22 to 83 (the last row, half covered by the solid since 270 is no whole number of quarters, left out) | [], 120 wide, columns 22 to 82 | yes |
 
 ## The frame does not depend on how it is cut up
