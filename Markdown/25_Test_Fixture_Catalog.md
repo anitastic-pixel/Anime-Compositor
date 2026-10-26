@@ -214338,7 +214338,7 @@ FX-BURST-030 (`fx_burst_030.json`): A colour written "orange", a name, not #rrgg
 
 CycoreFX's CC Light Rays controls (Generate) for `core.light_rays` (B-302). Every case is a composition 16 by 10 holding Light Rays' lamp drawing (`Fixtures/light_rays_cc/media/lamp.png`, written again by the reference: a yellow, a brown and a purple patch, with empty columns and rows round them), the same size, unmoved unless the case says. `tools/light_rays_cc_reference.py` works the expected frames, `Fixtures/light_rays_cc/expected_light_rays_cc.json`, tolerance 2e-5; the rule is in document 21. Light Rays saved before D-423 stay pinned by FX-RAYS-001 to 024.
 
-FX-RAYSCC-001 (`fx_rayscc_001.json`): The settings as they start: intensity 100, centre 50, 50, the point (8, 5), radius 50, warp softness 50, Round, Color from Source on, Allow Brightening on, Transfer Mode None. The source covers the whole drawing, so all of it is light: each pixel is the drawing averaged along the line from the centre out to it, turned 5 degrees both ways, laid over the drawing. The empty columns and rows round the drawing take the patches' rays; the patches show through where the rays are thin. Frames 0.
+FX-RAYSCC-001 (`fx_rayscc_001.json`): The settings as they started under D-423 (D-892 starts a new one at centre 25, 25): intensity 100, centre 50, 50, the point (8, 5), radius 50, warp softness 50, Round, Color from Source on, Allow Brightening on, Transfer Mode None. The source covers the whole drawing, so all of it is light: each pixel is the drawing averaged along the line from the centre out to it, turned 5 degrees both ways, laid over the drawing. The empty columns and rows round the drawing take the patches' rays; the patches show through where the rays are thin. Frames 0.
 
 FX-RAYSCC-002 (`fx_rayscc_002.json`): Intensity 0: the drawing, untouched. Frames 0.
 
@@ -214415,6 +214415,14 @@ FX-RAYSCC-037 (`fx_rayscc_037.json`): Allow Brightening "yes", neither "off" nor
 FX-RAYSCC-038 (`fx_rayscc_038.json`): Transfer Mode "multiply", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-RAYSCC-039 (`fx_rayscc_039.json`): A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-040 (`fx_rayscc_040.json`): 8 bpc, FX-RAYSCC-012's settings (radius 3, Add): the rays worked and added in display values, then held to 8 bits, so a faint ray lifts a dark pixel no more than it lifts a light one (D-892). Frames 0.
+
+FX-RAYSCC-041 (`fx_rayscc_041.json`): 8 bpc, FX-RAYSCC-009's orange rays at intensity 90: #ff8000 used as written, so its green is half its red in display values, not a fifth (D-892; at intensity 100 a pixel lands on a tie between two 8-bit levels). Frames 0.
+
+FX-RAYSCC-042 (`fx_rayscc_042.json`): 32 bpc (After Effects), FX-RAYSCC-015's intensity 300 with Add: in display values and nothing cut off at white (D-892). Frames 0.
+
+**D-892 changed** FX-RAYSCC-001, 003 to 018 and 020 to 026 when the owner's instruction of 2026-10-26 accepted it: the rays are laid on at 0.625 of the zoomed light (fitted to After Effects' rays on Jake In Motion's photograph), and in 8 bpc and 32 bpc (After Effects) worked on display values (FX-RAYSCC-040 to 042, added). D-423's values are retired, kept in the repository's history at commit 80345f73. Moved: up to 160 pixels of a frame's 160, at most 0.94 (FX-RAYSCC-015), FX-RAYSCC-023's intensity 2000 at most 6.3. FX-RAYSCC-002, 019, 021's and 023's frame 0 and 027 to 039 are unchanged; so are FX-RAYS-001 to 024 (D-124's form).
 
 ### Fill (D-418)
 

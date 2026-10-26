@@ -30,9 +30,11 @@ about c of `warp_softness` / 10 degrees, both ways evenly, which melts neighbour
 together (the manual: "higher values softens (warps) light rays together into larger, more
 subtle, rays"); warp softness 0 leaves the zoom as it is.
 (4) k = intensity / 100, held at 1 or less when `allow_brightening` is "off" (our reading of the
-manual's "give brightness a boost at higher Intensity values, 100 or greater"). The rays' colour
-R = k T Ry, Ry's colour with Color from Source on, Ry's covering with it off; T white with
-Color from Source on, Color in linear light with it off. Their covering a = min(1, k Ry.a).
+manual's "give brightness a boost at higher Intensity values, 100 or greater"), times 0.625
+(D-892, fitted to After Effects' rays on Jake In Motion's photograph: five cases within 4
+levels). The rays' colour R = k T Ry, Ry's colour with Color from Source on, Ry's covering with
+it off; T white with Color from Source on, Color in linear light with it off. Their covering
+a = min(1, k Ry.a).
 (5) Laid on the layer O by `transfer_mode`, premultiplied, channel by channel:
   "none"     R + O (1 - a), covering a + O.a (1 - a): the rays over the layer, normally;
   "add"      O + R, covering min(1, O.a + k Ry.a): D-124's last step;
@@ -41,7 +43,15 @@ Color from Source on, Color in linear light with it off. Their covering a = min(
 Nothing is cut off at white. The layer does not grow: the rays stop at its edge. `radius` is a
 distance: a draft divides it by its scale.
 
-Ranges and defaults (ours): intensity 0 to 2000, 100; center -1000 to 1000 per cent, (50, 50);
+D-892: in a composition at 8 bpc or 32 bpc (After Effects), as After Effects works there, all of
+the above is done on display values: the layer taken to display values (the straight colour held
+to 0..top, top 1 at 8 bpc and none at 32 bpc, through the sRGB curve, premultiplied), Color used
+as written rather than in linear light, and the result taken back the same way; at 8 bpc it is
+then held to 8 bits (D-330). So the rays fade with distance as After Effects' do, where in
+linear light the faint far rays lift dark pixels a long way.
+
+Ranges and defaults (ours): intensity 0 to 2000, 100; center -1000 to 1000 per cent, (25, 25)
+(D-892, as After Effects starts it; (50, 50) before);
 radius 0 to 10000 pixels, 50; warp_softness 0 to 1000, 50; shape "round"; direction -3600 to
 3600 degrees, 0; color_from_source "on"; allow_brightening "on"; color #ffffff; transfer_mode
 "none". The numbers are keyable.
@@ -73,12 +83,15 @@ import smooth_reference as S  # noqa: E402
 import recolor_reference as R  # noqa: E402
 import radial_blur_reference as RB  # noqa: E402
 import light_rays_reference as LR  # noqa: E402
+import eight_bpc_reference as E  # noqa: E402
+import glow_display_reference as GD  # noqa: E402
 
 W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "light_rays_cc"
 TOLERANCE = 2e-5  # document 25's default for a filter
 INTENSITY, CENTER, RADIUS, WARP, DIRECTION = (0, 2000), (-1000, 1000), (0, 10000), (0, 1000), \
     (-3600, 3600)
+RAYS = 0.625  # D-892: the share of the zoomed light laid on at intensity 100
 NAMES = ("intensity", "center", "radius", "warp_softness", "shape", "direction",
          "color_from_source", "allow_brightening", "color", "transfer_mode")
 
@@ -99,10 +112,13 @@ def share(x, y, c, radius, shape, direction):
 
 
 def light_rays(pixels, intensity, center, radius, warp, shape, direction, from_source,
-               brighten, color, mode):
+               brighten, color, mode, depth="plain"):
     """The layer's pixels with the rays laid on. `pixels` is the drawing's 8-bit straight
-    pixels, row by row, 16 by 10."""
+    pixels, row by row, 16 by 10. `depth` "eight" or "ae32" works on display values (D-892)."""
+    top = 1.0 if depth == "eight" else math.inf
     working = [R.working(p) for p in pixels]
+    if depth != "plain":
+        working = [GD.display(p, top) for p in working]
     c = (center[0] / 100 * W, center[1] / 100 * H)
     # 1, 2. The light: the source's share of the layer, or of its covering.
     lit = []
@@ -116,9 +132,10 @@ def light_rays(pixels, intensity, center, radius, warp, shape, direction, from_s
     rays = [RB.blurred(layer(zoomed), "spin", turn, center, i % W, i // W)
             for i in range(W * H)] if turn else zoomed
     # 4. The strength and the tint.
-    k = intensity / 100 if brighten == "on" else min(intensity / 100, 1.0)
+    k = RAYS * (intensity / 100 if brighten == "on" else min(intensity / 100, 1.0))
     tint = [1.0] * 3 if from_source == "on" else \
-        [srgb_to_linear(v / 255) for v in R.hex_color(color.lower())]
+        [v / 255 if depth != "plain" else srgb_to_linear(v / 255)
+         for v in R.hex_color(color.lower())]
     out = []
     for o, ry in zip(working, rays):
         r = [k * tint[ch] * (ry[ch] if from_source == "on" else ry[3]) for ch in range(3)]
@@ -133,6 +150,10 @@ def light_rays(pixels, intensity, center, radius, warp, shape, direction, from_s
             out.append([max(o[ch], r[ch]) for ch in range(3)] + [max(o[3], a)])
         else:
             out.append([r[ch] + o[ch] * (1 - a) for ch in range(3)] + [a + o[3] * (1 - a)])
+    if depth != "plain":
+        out = [GD.linear(p, top) for p in out]
+    if depth == "eight":
+        out = E.eight(out)
     return out
 
 
@@ -140,11 +161,11 @@ def light_rays(pixels, intensity, center, radius, warp, shape, direction, from_s
 
 def case(intensity=100, center=(50, 50), radius=50, warp_softness=50, shape="round", direction=0,
          color_from_source="on", allow_brightening="on", color="#ffffff", transfer_mode="none",
-         shift=0):
+         shift=0, depth="plain"):
     return {"drawing": "lamp", "intensity": intensity, "center": center, "radius": radius,
             "warp_softness": warp_softness, "shape": shape, "direction": direction,
             "color_from_source": color_from_source, "allow_brightening": allow_brightening,
-            "color": color, "transfer_mode": transfer_mode, "shift": shift}
+            "color": color, "transfer_mode": transfer_mode, "shift": shift, "depth": depth}
 
 
 def small(**kw):
@@ -166,12 +187,12 @@ def render(c, frame_no):
                               number("radius", RADIUS), number("warp_softness", WARP),
                               c["shape"], number("direction", DIRECTION),
                               c["color_from_source"], c["allow_brightening"], c["color"],
-                              c["transfer_mode"]), c["shift"])
+                              c["transfer_mode"], c["depth"]), c["shift"])
 
 
 def plain(c):
     """The drawing untouched, moved as the case moves it."""
-    return render(case(intensity=0, shift=c["shift"]), 0)
+    return render(case(intensity=0, shift=c["shift"], depth=c["depth"]), 0)
 
 
 CASES = {
@@ -269,6 +290,17 @@ CASES = {
                       small(shape="square", radius=4, direction=30, warp_softness=120,
                             color_from_source="off", color="#40c0ff", intensity=180,
                             transfer_mode="screen", center=(40, 60)), [0]),
+    # D-892: on display values in 8 bpc and in 32 bpc (After Effects).
+    "FX-RAYSCC-040": ("8 bpc, FX-RAYSCC-012's settings (radius 3, Add): the rays worked and "
+                      "added in display values, then held to 8 bits, so a faint ray lifts a "
+                      "dark pixel no more than it lifts a light one.",
+                      small(transfer_mode="add", depth="eight"), [0]),
+    "FX-RAYSCC-041": ("8 bpc, FX-RAYSCC-009's orange rays at intensity 90: #ff8000 used as written, so its "
+                      "green is half its red in display values, not a fifth (at 100 a pixel lands on a tie between two 8-bit levels).",
+                      small(color_from_source="off", color="#ff8000", intensity=90, depth="eight"), [0]),
+    "FX-RAYSCC-042": ("32 bpc (After Effects), FX-RAYSCC-015's intensity 300 with Add: in "
+                      "display values and nothing cut off at white.",
+                      small(intensity=300, transfer_mode="add", depth="ae32"), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -309,6 +341,11 @@ def project_json(fx, c):
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.light_rays", "enabled": True,
         "parameters": {k: setting_json(c[k]) for k in NAMES}}]
+    if c["depth"] == "eight":
+        comp["eight_bpc"] = True
+    elif c["depth"] == "ae32":
+        comp["float_depth"] = True
+        comp["ae_32bpc"] = True
     return p
 
 
@@ -408,7 +445,7 @@ def check(expected):
     assert twenty[at(9, 5)][3] > 0 and twenty[at(14, 5)] != drawn[at(14, 5)]
     # The keyed cases meet the plain ones at their frames.
     k = c["FX-RAYSCC-021"]
-    assert k["0"] == drawn and k["2"] == three and k["4"][at(10, 5)] != three[at(10, 5)]
+    assert k["0"] == drawn and k["2"] == three and k["4"][at(4, 2)] != three[at(4, 2)]
     k = c["FX-RAYSCC-022"]
     assert near(k["2"], c["FX-RAYSCC-005"]["0"]) and near(k["4"], k["0"])
     assert near(k["0"], c["FX-RAYSCC-004"]["0"])
@@ -424,8 +461,18 @@ def check(expected):
     # Add with Color from Source on and a source over the whole drawing is D-124's last step on the source's light, exactly.
     pixels = [p for row in LR.DRAWINGS["lamp"] for p in row]
     whole = light_rays(pixels, 100, (50, 50), 10000, 0, "round", 0, "on", "on", "#ffffff", "add")
-    old = LR.light_rays(pixels, (50, 50), 100, 0, 1, "#ffffff")
+    old = LR.light_rays(pixels, (50, 50), 100, 0, RAYS, "#ffffff")
     assert near(whole, old)
+    # D-892: on display values. 040 differs from 012 and lies on 8-bit steps; 041's orange
+    # keeps its written green, half its red, where it is alone on the empty column.
+    forty, add8 = c["FX-RAYSCC-040"]["0"], c["FX-RAYSCC-012"]["0"]
+    assert forty != add8 and forty[at(1, 5)][3] > 0
+    assert all(abs(p[3] * 255 - round(p[3] * 255)) < 1e-9 for p in forty)
+    o = c["FX-RAYSCC-041"]["0"][at(1, 5)]
+    from smooth_reference import linear_to_srgb
+    g, r_ = linear_to_srgb(o[1] / o[3]), linear_to_srgb(o[0] / o[3])
+    assert o[2] == 0 and abs(g / r_ - 128 / 255) < 0.02, (g, r_)
+    assert any(v > 1 for p in c["FX-RAYSCC-042"]["0"] for v in p[:3])
     print("checked")
 
 
