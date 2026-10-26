@@ -94,6 +94,19 @@ fn twice(path: &Path, interpretation: Interpretation) -> Option<(bool, bool)> {
     Some((tight.hits() == 1, first_same && same(&fresh, &second)))
 }
 
+/// Held as floats in a cache with room for them, then let down to 8 bits by the cache shrinking
+/// to 9 bytes a pixel (`resize` keeps 9/16 of a total of 16 for drawings), and asked for again:
+/// whether that answer came from memory, and whether it is a fresh decode's to the bit.
+fn let_down(path: &Path, interpretation: Interpretation) -> Option<(bool, bool)> {
+    let fresh = CelCache::none().decoded(path, interpretation).ok()?;
+    let n = fresh.width() * fresh.height();
+    let mut cache = CelCache::with_budget(n * 16);
+    drop(cache.decoded(path, interpretation).ok()?);
+    cache.resize(n * 16);
+    let again = cache.decoded(path, interpretation).ok()?;
+    Some((cache.hits() == 1, same(&fresh, &again)))
+}
+
 fn write_every_pair(path: &Path) {
     let mut rgba = Vec::with_capacity(256 * 256 * 4);
     for a in 0..=255u8 {
@@ -151,8 +164,16 @@ fn b777_compact_cels_are_exact() {
     all.sort();
     let (mut asked, mut eight_bit, mut from_memory, mut exact) = (0, 0, 0, 0);
     let (mut exr, mut exr_from_memory) = (0, 0);
+    let (mut down, mut down_from_memory, mut down_exact) = (0, 0, 0);
     for path in &all {
         for interpretation in interpretations() {
+            if let Some((hit, identical)) = let_down(path, interpretation) {
+                down_exact += usize::from(identical);
+                if !is_exr(path) {
+                    down += 1;
+                    down_from_memory += usize::from(hit);
+                }
+            }
             let Some((hit, identical)) = twice(path, interpretation) else {
                 continue;
             };
@@ -183,12 +204,36 @@ fn b777_compact_cels_are_exact() {
         format!("{exr_from_memory} of {exr}"),
     );
 
+    check(
+        "An 8-bit drawing held as floats, let down to 8 bits when the room shrank, and asked for again: from memory",
+        format!("{down} of {down}"),
+        format!("{down_from_memory} of {down}"),
+    );
+    check(
+        "and every such answer (EXRs, let go whole, decoded again) is a fresh decode's, bit for bit",
+        format!("{asked} of {asked}"),
+        format!("{down_exact} of {asked}"),
+    );
+
     // --- Every colour byte with every alpha byte. ----------------------------------------------
     let scratch = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("b777");
     fs::create_dir_all(&scratch).unwrap();
     let pairs = scratch.join("every_pair.png");
     write_every_pair(&pairs);
     for interpretation in interpretations() {
+        let (down_hit, down_same) = let_down(&pairs, interpretation).expect("the pairs picture");
+        check(
+            &format!(
+                "All 65,536 pairs, {:?} {:?}, held as floats then let down to 8 bits: from memory, bit for bit a fresh decode",
+                interpretation.color_space, interpretation.alpha
+            ),
+            "from memory, identical".into(),
+            format!(
+                "{}, {}",
+                if down_hit { "from memory" } else { "**decoded again**" },
+                if down_same { "identical" } else { "**different**" }
+            ),
+        );
         let (hit, identical) = twice(&pairs, interpretation).expect("the pairs picture decodes");
         check(
             &format!(
@@ -209,8 +254,8 @@ fn b777_compact_cels_are_exact() {
     let root = repo("Fixtures/reference_shot");
     // Four drawings at 8 bits: 4 x 1920 x 1080 x 4 bytes, one float drawing's worth.
     let mut tight = CelCache::with_budget(4 * 1920 * 1080 * 4);
-    // Fourteen drawings at 8 bits, or two at floats and six at 8 bits: floats are kept, let go
-    // and written over by the next drawing widened.
+    // Fourteen drawings at 8 bits, or three at floats and two at 8 bits: floats are held, let
+    // down to 8 bits as others come, and widened again.
     let mut some = CelCache::with_budget(14 * 1920 * 1080 * 4);
     let mut none = CelCache::none();
     let frames = [0, 12, 14, 25, 100, 101];

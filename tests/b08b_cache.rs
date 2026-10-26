@@ -70,9 +70,9 @@ const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
 /// One decoded cel in the working space: RGBA f32 at the composition's extent.
 const ONE_CEL: usize = WIDTH * HEIGHT * 4 * std::mem::size_of::<f32>();
-/// The three sides of the drawn cels the eviction section uses, and what each costs to hold once
-/// the budget is full: side x side x 4 channels x 1 byte. D-897 holds a drawing at the decoder's
-/// 8 bits and keeps its floats only while there is room, letting floats go before any drawing.
+/// The three sides of the drawn cels the eviction section uses, and what each costs to hold at
+/// the decoder's 8 bits: side x side x 4 channels x 1 byte. D-897 holds a drawing as floats (four
+/// times that) while they fit and at 8 bits when keeping its floats would push something out.
 const SIDES: [usize; 3] = [64, 32, 16];
 const LARGE_BYTES: usize = SIDES[0] * SIDES[0] * 4;
 const MIDDLE_BYTES: usize = SIDES[1] * SIDES[1] * 4;
@@ -517,7 +517,9 @@ fn b08b_cache_is_invisible_in_the_result() {
     decoded(&mut two, &small);
     report.check(
         "A third cel drops exactly one, and the room that makes is the size of the one dropped",
-        format!("2 cels, {} bytes, 1 eviction", LARGE_BYTES + SMALL_BYTES),
+        // The large at 8 bits (its floats never fit) and the small as floats, which fit once the
+        // middle has gone: 8 bits of all three would not, so the middle goes whole (D-897).
+        format!("2 cels, {} bytes, 1 eviction", LARGE_BYTES + SMALL_BYTES * 4),
         format!(
             "{} cels, {} bytes, {} eviction",
             two.len(),
@@ -710,9 +712,9 @@ fn write_report(report: &Report, looping: &CelCache) {
          use a budget with room for every drawing the six frames touch, because a check about \
          whether remembering changes the answer should not also depend on how much is remembered. \
          Ten loops of six frames ended holding {} bytes in {} cels, which is every distinct drawing \
-         those frames use and no second copy of any of them: since D-897 each is held as the \
-         decoder's 8 bits, a quarter of the floats, and also as floats while the budget has room, \
-         which this one does. When it fills, floats are let go before any drawing.",
+         those frames use and no copy of any of them: since D-897 a drawing is held as floats \
+         while they fit, as here, and at the decoder's 8 bits when keeping its floats would push \
+         something out.",
         DEFAULT_BUDGET_BYTES / ONE_CEL,
         budget_label(DEFAULT_BUDGET_BYTES),
         looping.held_bytes(),

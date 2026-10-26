@@ -25,9 +25,9 @@
 //! the decoder's 8-bit output. Eviction is least-recently-used and changes performance only, which is document 27's
 //! requirement and is checked as a byte comparison rather than asserted.
 //!
-//! **What it is held as** (D-897). An 8-bit drawing is held as the decoder's bytes, a quarter of
-//! the floats, and as floats too while the budget has room; when it fills, floats are let go
-//! before any drawing is. A drawing asked for whose floats have gone is widened again by the
+//! **What it is held as** (D-897). A drawing is held as floats while they fit. When keeping a
+//! drawing's floats would push something out, an 8-bit drawing drops to the decoder's bytes, a
+//! quarter of the size, instead of being let go. A drawing asked for whose floats have gone is widened again by the
 //! same arithmetic a decode does after the decoder, so it is the same buffer to the bit, which
 //! `verification/B-777_compact_cels_table.md` checks on every byte pair and every fixture image.
 //! An EXR has no 8-bit bytes and is held as floats only.
@@ -49,6 +49,7 @@
 //! than the file took to decode: 49.0 ms against 44.5 ms a frame of the reference shot when this
 //! was first built that way (2026-09-29, provisional).
 
+use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -561,7 +562,7 @@ fn checksum(bytes: &[u8]) -> u64 {
     parts.into_iter().fold(0xcbf2_9ce4_8422_2325, fnv)
 }
 
-/// D-897's switch: `true` keeps an 8-bit drawing's bytes beside (or instead of) its floats;
+/// D-897's switch: `true` drops an 8-bit drawing to its bytes when its floats would push something out;
 /// `false` holds floats only, as before D-897. The pixels are the same either way.
 pub const KEEP_8BIT_CELS: bool = true;
 
@@ -592,12 +593,7 @@ fn widen(
         // Never, for bytes that widened once already; the decode's own steps say why if it were.
         return Ok(retag(media::from_8bit(path, *w, *h, rgba)?, interpretation).into_working());
     }
-    let alpha: [f32; 256] = std::array::from_fn(|v| crate::color::dequantise_u8(v as u8));
-    let colour = alpha.map(|c| match interpretation.color_space {
-        crate::ColorSpace::Srgb => crate::color::srgb_to_linear(c),
-        crate::ColorSpace::LinearLight => c,
-    });
-    let straight = interpretation.alpha == crate::AlphaMode::Straight;
+    let (alpha, colour, straight) = tables(interpretation);
     let mut out = spare
         .filter(|s| (s.width(), s.height()) == (*w, *h))
         .unwrap_or_else(|| WorkingBuffer::transparent(*w, *h));
@@ -618,9 +614,53 @@ fn widen(
     Ok(out)
 }
 
+/// D-897: what a byte becomes, as alpha and as colour, and whether colour is multiplied by alpha.
+fn tables(interpretation: Interpretation) -> ([f32; 256], [f32; 256], bool) {
+    let alpha: [f32; 256] = std::array::from_fn(|v| crate::color::dequantise_u8(v as u8));
+    let colour = alpha.map(|c| match interpretation.color_space {
+        crate::ColorSpace::Srgb => crate::color::srgb_to_linear(c),
+        crate::ColorSpace::LinearLight => c,
+    });
+    (alpha, colour, interpretation.alpha == crate::AlphaMode::Straight)
+}
+
+/// D-897: bytes that [`widen`] turns back into exactly `floats`, every sample to the bit, or
+/// `None` if there are none (floats no 8-bit drawing widens to). Each sample is looked up among
+/// the 256 values its byte can widen to, which only grow with the byte, and taken only on an
+/// exact match. Where two bytes widen to the same float (any colour under alpha 0, say) either
+/// gives the same floats back, which is all that is asked of them.
+fn narrow(interpretation: Interpretation, floats: &WorkingBuffer) -> Option<Compact> {
+    let (alpha, colour, straight) = tables(interpretation);
+    let (w, h) = (floats.width(), floats.height());
+    let mut rgba = vec![0u8; w * h * 4];
+    let exact = |table: &[f32; 256], of: &dyn Fn(f32) -> f32, want: f32| {
+        let at = table.partition_point(|&v| of(v) < want);
+        (at < 256 && of(table[at]).to_bits() == want.to_bits()).then_some(at as u8)
+    };
+    let all = rgba
+        .par_chunks_exact_mut(4)
+        .zip(floats.data().par_chunks_exact(4))
+        .with_min_len(4096)
+        .all(|(b, px)| {
+            let Some(ia) = exact(&alpha, &|v| v, px[3]) else {
+                return false;
+            };
+            let a = alpha[ia as usize];
+            b[3] = ia;
+            (0..3).all(|c| {
+                let of = |v: f32| if straight { v * a } else { v };
+                exact(&colour, &of, px[c]).map(|v| b[c] = v).is_some()
+            })
+        });
+    all.then_some((w, h, rgba))
+}
+
 /// B-161: the cel at `path` in the working space, from `disk` when a good copy is there, decoded
 /// when not, and written there after a decode, with the decoder's bytes when it had 8-bit ones
-/// (D-897; an EXR has none). The flag is whether the disk answered. A copy that
+/// (D-897; an EXR has none, `None`). The bytes are handed back only when the floats are larger
+/// than `budget`, the one case the cache holds a fresh decode as bytes; otherwise they are let
+/// go here, on the thread that decoded, as before D-897 (`Some(None)`). The flag is whether the
+/// disk answered. A copy that
 /// fails its checks, or cannot be written, adds a line to `notes` for the session log (document
 /// 28: the preview's pixels are unchanged either way, so it is a note and not a warning).
 fn working_cel(
@@ -628,8 +668,10 @@ fn working_cel(
     key: Option<&Key>,
     path: &Path,
     interpretation: Interpretation,
+    budget: usize,
     notes: &mut Vec<String>,
-) -> Result<(WorkingBuffer, Option<Compact>, bool), Diagnostic> {
+) -> Result<(WorkingBuffer, Option<Option<Compact>>, bool), Diagnostic> {
+    let keep = |c: Compact| Some((c.2.len() * 4 > budget).then_some(c));
     let name = path.file_name().map_or_else(
         || path.display().to_string(),
         |n| n.to_string_lossy().into_owned(),
@@ -642,7 +684,7 @@ fn working_cel(
         .and_then(|(disk, key)| Some((disk, disk.file(key)?)));
     if let Some((disk, file)) = &copy {
         match crate::perf::time(crate::perf::Stage::FileRead, || disk.load(file)) {
-            Ok(Some((image, compact))) => return Ok((working(image), Some(compact), true)),
+            Ok(Some((image, compact))) => return Ok((working(image), keep(compact), true)),
             Ok(None) => {}
             Err(reason) => {
                 let _ = std::fs::remove_file(file);
@@ -664,7 +706,7 @@ fn working_cel(
                     ));
                 }
             }
-            (media::from_8bit(path, w, h, &rgba)?, Some((w, h, rgba)))
+            (media::from_8bit(path, w, h, &rgba)?, keep((w, h, rgba)))
         }
     };
     Ok((working(image), compact, false))
@@ -756,18 +798,27 @@ pub struct CelCache {
     /// and a frame asks it four questions; a map plus an intrusive list if a real project ever
     /// makes the scan measurable.
     entries: Vec<Cel>,
-    /// D-897: how many of `held`'s bytes are floats, kept beside 8-bit drawings.
-    wide_held: usize,
     /// D-897: the last floats [`trim`](Self::trim) let go of that nothing else held, for the next
-    /// drawing widened to write into.
-    // ponytail: one buffer, outside the budget, as `below` is; count it if a budget is tight.
+    /// drawing widened to write into. Counted in `held`, and kept only while there is room.
     spare: Option<WorkingBuffer>,
+    /// D-897: the 8-bit sizes of the drawings last let go whole, newest last, up to the budget's
+    /// worth. While these and what is held would all fit at 8 bits, floats are let go to 8 bits
+    /// rather than a drawing going; when they would not, the drawings come round more than 8 bits
+    /// can hold, keeping bytes would not save a decode, and the oldest drawing goes, as it did
+    /// before D-897. A drawing decoded again stays counted here until it ages out: it is the
+    /// evidence.
+    ghosts: VecDeque<usize>,
+    ghost_held: usize,
+    /// D-897: the drawings the frame in hand uses, as [`prewarm`](Self::prewarm) was last told.
+    frame: Vec<Key>,
+    /// D-897: how many requests were answered by widening 8-bit bytes again.
+    widened: u64,
     /// Cels [`prewarm`](Self::prewarm) decoded ahead of the layer loop and that no request has
     /// collected yet (P-03(b)). Not part of `held`: a pending cel has not been admitted, and
     /// [`decoded`](Self::decoded) admits it through [`store`](Self::store) like any other miss,
     /// in the order the layer loop asks for it, so the budget, the eviction order and the hit
     /// and miss counts are exactly what they were when every decode was serial.
-    pending: Vec<(Key, Arc<WorkingBuffer>, Option<Compact>)>,
+    pending: Vec<(Key, Arc<WorkingBuffer>, Option<Option<Compact>>)>,
     hits: u64,
     misses: u64,
     evicted: u64,
@@ -829,8 +880,11 @@ impl CelCache {
             budget: cels,
             held: 0,
             entries: Vec::new(),
-            wide_held: 0,
             spare: None,
+            ghosts: VecDeque::new(),
+            ghost_held: 0,
+            frame: Vec::new(),
+            widened: 0,
             pending: Vec::new(),
             hits: 0,
             misses: 0,
@@ -1105,27 +1159,41 @@ impl CelCache {
                 // again, by the steps a decode takes after the decoder.
                 let buffer = match floats {
                     Some(buffer) => buffer,
-                    None => match cel
-                        .compact
-                        .as_ref()
-                        .map(|c| widen(path, interpretation, c, self.spare.take()))
-                    {
-                        Some(Ok(widened)) => Arc::new(widened),
-                        // Unreachable - these bytes widened once already - but if it were, the
-                        // entry goes and the request decodes as a miss would.
-                        _ => {
-                            self.held -= cel.bytes();
-                            self.wide_held -= cel.wide_bytes();
-                            return self.decoded(path, interpretation);
+                    None => {
+                        // Room for the floats first, so floats let go of are written over.
+                        let size = cel.compact.as_ref().map_or(0, |c| c.0 * c.1 * 16);
+                        self.held += size;
+                        let freed = self.trim_freeing();
+                        self.held -= size;
+                        let spare = freed.or_else(|| self.take_spare());
+                        match cel.compact.as_ref().map(|c| widen(path, interpretation, c, spare)) {
+                            Some(Ok(widened)) => {
+                                self.widened += 1;
+                                Arc::new(widened)
+                            }
+                            // Unreachable - these bytes widen to floats they were made from -
+                            // but if it were, the entry goes and the request decodes as a miss.
+                            _ => {
+                                self.held -= cel.bytes();
+                                return self.decoded(path, interpretation);
+                            }
                         }
-                    },
+                    }
                 };
                 self.hits += 1;
                 cel.seen = Arc::downgrade(&buffer);
-                if cel.wide.is_none() && cel.compact_bytes() + bytes_of(&buffer) <= self.budget {
+                // Widened again, the floats are held beside the bytes while there is room, so the
+                // next frames that use the drawing find them, and letting them go costs nothing.
+                if cel.wide.is_none() && bytes_of(&buffer) <= self.budget {
                     self.held += bytes_of(&buffer);
-                    self.wide_held += bytes_of(&buffer);
                     cel.wide = Some(Arc::clone(&buffer));
+                    // Drawings coming round more than 8 bits can hold (see `ghosts`): the bytes
+                    // will not save a decode, so it is held as floats only, as before D-897.
+                    let small: usize = self.entries.iter().map(Cel::small_bytes).sum();
+                    if small + cel.small_bytes() + self.ghost_held > self.budget {
+                        self.held -= cel.compact_bytes();
+                        cel.compact = None;
+                    }
                 }
                 self.entries.push(cel);
                 self.trim();
@@ -1153,6 +1221,7 @@ impl CelCache {
                     key.as_ref(),
                     path,
                     interpretation,
+                    self.budget,
                     &mut self.disk_notes,
                 )?;
                 self.disk_hits += u64::from(from_disk);
@@ -1251,6 +1320,7 @@ impl CelCache {
                 }
                 keys
             });
+        self.frame.clone_from(&keys);
         let todo: Vec<Key> = keys
             .iter()
             .filter(|key| !self.entries.iter().any(|c| c.key == **key))
@@ -1267,7 +1337,8 @@ impl CelCache {
         // this one goes, so `pending` never holds more than one frame's cels.
         self.pending.retain(|(k, ..)| keys.contains(k));
         let disk = self.disk.as_ref();
-        type Read = (Key, Arc<WorkingBuffer>, Option<Compact>, bool, Vec<String>);
+        let budget = self.budget;
+        type Read = (Key, Arc<WorkingBuffer>, Option<Option<Compact>>, bool, Vec<String>);
         let decoded: Vec<Read> =
             crate::perf::time(crate::perf::Stage::Prewarm, || {
                 todo.into_par_iter()
@@ -1278,7 +1349,7 @@ impl CelCache {
                         // stage table sum to more than the frame.
                         let mut notes = Vec::new();
                         let (buffer, compact, from_disk) = crate::perf::untimed(|| {
-                            working_cel(disk, Some(&key), &key.path, key.interpretation, &mut notes)
+                            working_cel(disk, Some(&key), &key.path, key.interpretation, budget, &mut notes)
                                 .ok()
                         })?;
                         Some((key, Arc::new(buffer), compact, from_disk, notes))
@@ -1399,57 +1470,122 @@ impl CelCache {
         self.effect_budget
     }
 
-    /// Admit a decoded cel: its 8-bit bytes when it has them (D-897), and its floats when both fit.
-    fn store(&mut self, key: Key, compact: Option<Compact>, buffer: &Arc<WorkingBuffer>) {
-        let compact = compact.filter(|_| KEEP_8BIT_CELS);
-        let wide = bytes_of(buffer);
-        let small = compact.as_ref().map_or(0, |c| c.2.len());
+    /// Admit a decoded cel, as floats when they fit the budget, and otherwise, for a drawing
+    /// decoded from 8 bits (D-897), as its bytes when they do.
+    /// `compact` is as [`working_cel`] gives it: `None` for a drawing with no 8-bit bytes.
+    fn store(&mut self, key: Key, compact: Option<Option<Compact>>, buffer: &Arc<WorkingBuffer>) {
+        let eightbit = compact.is_some() && KEEP_8BIT_CELS;
+        let compact = compact.flatten();
         // A cel larger than the whole budget, in the smallest form it can be held in, is not
         // stored at all. Evicting everything to hold one thing that will be evicted by the next
         // request is worse than not holding it.
-        if (compact.is_none() && wide > self.budget) || small > self.budget {
+        let (compact, wide) = if bytes_of(buffer) <= self.budget {
+            (None, Some(Arc::clone(buffer)))
+        } else if let Some(c) = compact.filter(|c| eightbit && c.2.len() <= self.budget) {
+            (Some(c), None)
+        } else {
             return;
-        }
-        let keep_wide = compact.is_none() || small + wide <= self.budget;
+        };
         let cel = Cel {
             key,
+            eightbit,
             compact,
-            wide: keep_wide.then(|| Arc::clone(buffer)),
+            wide,
             seen: Arc::downgrade(buffer),
         };
         self.held += cel.bytes();
-        self.wide_held += cel.wide_bytes();
         self.entries.push(cel);
         self.trim();
     }
 
-    /// D-897: let go of what is held, least recently used first, until it fits the budget. Floats
-    /// kept beside an 8-bit drawing go before any drawing does, because widening a drawing again
-    /// measured several times quicker than decoding it again; once no such floats are left, the
-    /// oldest drawing goes whole.
+    /// D-897: the spare floats, taken out of `held` for whoever writes into them.
+    fn take_spare(&mut self) -> Option<WorkingBuffer> {
+        let spare = self.spare.take()?;
+        self.held -= std::mem::size_of_val(spare.data());
+        Some(spare)
+    }
+
+    /// Let go of what is held until it fits the budget, keeping what it lets go of as the spare
+    /// floats when there is room for them.
     fn trim(&mut self) {
+        if let Some(spare) = self.trim_freeing() {
+            let size = std::mem::size_of_val(spare.data());
+            if self.held + size <= self.budget {
+                self.held += size;
+                self.spare = Some(spare);
+            }
+        }
+    }
+
+    /// Let go of what is held until it fits the budget, least recently used first within each
+    /// step, and hand back floats let go of that nothing else held (D-897):
+    /// 1. the spare floats;
+    /// 2. floats widened from 8-bit bytes the cache still holds, for a drawing the frame in hand
+    ///    does not use: they cost nothing to let go;
+    /// 3. while every drawing held and lately let go would fit at 8 bits, an 8-bit drawing's
+    ///    floats, kept as the bytes they widen back from, first those the frame does not use;
+    /// 4. floats widened from bytes the frame does use;
+    /// 5. otherwise the drawing least recently used, whole, as before D-897.
+    fn trim_freeing(&mut self) -> Option<WorkingBuffer> {
+        let mut freed = None;
         while self.held > self.budget {
-            let strip = self
-                .entries
-                .iter()
-                .position(|c| c.compact.is_some() && c.wide.is_some());
-            match strip {
-                Some(at) => {
-                    let wide = self.entries[at].wide_bytes();
-                    let floats = self.entries[at].wide.take().map(Arc::try_unwrap);
-                    if let Some(Ok(floats)) = floats {
-                        self.spare = Some(floats);
-                    }
-                    self.held -= wide;
-                    self.wide_held -= wide;
+            if self.take_spare().is_some() {
+                continue;
+            }
+            let frame = &self.frame;
+            let both = |c: &Cel| c.compact.is_some() && c.wide.is_some();
+            let only = |c: &Cel| c.eightbit && c.compact.is_none() && c.wide.is_some();
+            let small: usize = self.entries.iter().map(Cel::small_bytes).sum();
+            let room = small + self.ghost_held <= self.budget;
+            let at = |f: &dyn Fn(&Cel) -> bool| self.entries.iter().position(f);
+            let pick = at(&|c| both(c) && !frame.contains(&c.key))
+                .map(|at| (at, false))
+                .or_else(|| {
+                    room.then(|| at(&|c| only(c) && !frame.contains(&c.key)))
+                        .flatten()
+                        .map(|at| (at, true))
+                })
+                .or_else(|| at(&both).map(|at| (at, false)))
+                .or_else(|| room.then(|| at(&only)).flatten().map(|at| (at, true)));
+            let Some((at, narrowing)) = pick else {
+                // Nothing left to let go of: a drawing being widened is out of `entries` and
+                // counted in `held` while room is made for its floats.
+                if self.entries.is_empty() {
+                    break;
                 }
-                None => {
-                    let cel = self.entries.remove(0);
-                    self.held -= cel.bytes();
-                    self.wide_held -= cel.wide_bytes();
-                    self.evicted += 1;
+                let cel = self.entries.remove(0);
+                self.held -= cel.bytes();
+                self.evict(cel);
+                continue;
+            };
+            let floats = self.entries[at].wide.take().expect("picked holding floats");
+            self.held -= bytes_of(&floats);
+            if narrowing {
+                match narrow(self.entries[at].key.interpretation, &floats) {
+                    Some(c) => {
+                        self.held += c.2.len();
+                        self.entries[at].compact = Some(c);
+                    }
+                    // Never, for floats a decode made; if it were, the drawing goes whole.
+                    None => {
+                        let cel = self.entries.remove(at);
+                        self.evict(cel);
+                    }
                 }
             }
+            freed = Arc::try_unwrap(floats).ok().or(freed);
+        }
+        freed
+    }
+
+    /// A drawing let go whole, already out of `held`: its 8-bit size remembered.
+    fn evict(&mut self, cel: Cel) {
+        self.evicted += 1;
+        let small = cel.small_bytes();
+        self.ghost_held += small;
+        self.ghosts.push_back(small);
+        while self.ghost_held > self.budget {
+            self.ghost_held -= self.ghosts.pop_front().unwrap_or(0);
         }
     }
 
@@ -1477,6 +1613,11 @@ impl CelCache {
     /// How many requests had to decode.
     pub fn misses(&self) -> u64 {
         self.misses
+    }
+
+    /// D-897: how many requests were answered by widening 8-bit bytes again.
+    pub fn widened(&self) -> u64 {
+        self.widened
     }
 
     /// B-161: how many decodes a disk copy answered instead, read ahead or not.
@@ -1545,11 +1686,13 @@ fn bytes_of(buffer: &WorkingBuffer) -> usize {
     std::mem::size_of_val(buffer.as_image().data())
 }
 
-/// D-897: one drawing the cache holds. An 8-bit drawing is held as the decoder's bytes, a
-/// quarter of its floats, and also as floats while the budget has room; an EXR or a pass has no
-/// 8-bit bytes and is held as floats only. Either way at least one of the two is here.
+/// D-897: one drawing the cache holds: as floats, as it was decoded, while there is room; or, for
+/// a drawing decoded from 8 bits, as the bytes its floats widen back from, a quarter the size,
+/// with the floats last widened from them beside them while there is room. An EXR or a pass has
+/// no 8-bit bytes and is held as floats only.
 struct Cel {
     key: Key,
+    eightbit: bool,
     compact: Option<Compact>,
     wide: Option<Arc<WorkingBuffer>>,
     /// The floats last handed out for it, which a frame or the card may still hold after the
@@ -1570,6 +1713,15 @@ impl Cel {
 
     fn bytes(&self) -> usize {
         self.compact_bytes() + self.wide_bytes()
+    }
+
+    /// Its size at 8 bits, or as floats when it cannot be held at 8 bits.
+    fn small_bytes(&self) -> usize {
+        if self.eightbit && self.wide.is_some() {
+            self.wide_bytes() / 4
+        } else {
+            self.bytes()
+        }
     }
 }
 

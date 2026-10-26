@@ -3,16 +3,18 @@
 Built on 2026-10-26 under your "Do all of your picks at your recommended order." This is pick 6
 of wave 11, D-897.
 
-The viewer remembers the drawings it has read so it does not read them from disk again. It used
-to keep each one as large numbers, four times the size of the picture file's own 8-bit colours.
-Now it keeps the 8-bit colours, and the large numbers too while there is room. So the same memory
-setting remembers about four times as many drawings. When a drawing's large numbers have been let
-go, they are rebuilt from the 8-bit colours with exactly the same sums the program uses after
-reading the file, so the picture is the same to the last bit.
+The viewer remembers the drawings it has read so it does not read them from disk again. It
+keeps each one as large numbers, four times the size of the picture file's own 8-bit colours.
+It still does while they fit. When memory is full, instead of forgetting a drawing it now keeps
+just its 8-bit colours, a quarter of the size, so the same memory setting remembers many more
+drawings. When such a drawing is needed, its large numbers are rebuilt from the 8-bit colours
+with exactly the same sums the program uses after reading the file, so the picture is the same
+to the last bit.
 
-**What you should see:** nothing different in the picture. With a smaller memory setting, moving
-the playhead around a long shot should feel quicker, because fewer drawings are read from disk
-again. With your machine's Automatic setting there is no difference in speed.
+**What you should see:** nothing different in the picture. With a middling memory setting,
+playing and moving the playhead around a long shot should feel quicker, because fewer drawings
+are read from disk again. With the smallest setting and with your machine's Automatic setting
+there is no difference in speed.
 
 ## What to check
 
@@ -33,15 +35,16 @@ alternating the old and new build, on a machine busy with other work
 
 | Memory setting | Drawings kept, before / after | Playing, before / after | Scattered frames, before / after |
 |---|---|---:|---:|
-| 1 GB (the smallest) | 18 / 72 | 39.9 / 43.2 | 49.6 / 55.8 |
-| 4 GB | 72 / 166 | 41.6 / 19.2 | 49.7 / 23.0 |
-| 8 GB | 145 / 166 | 10.0 / 18.1 | 39.8 / 19.3 |
-| 16 GB (about your Automatic) | 166 / 166 | 8.8 / 9.2 | 9.1 / 9.2 |
+| 1 GB (the smallest) | 18 / 18 | 42.5 / 39.9 | 49.3 / 49.5 |
+| 4 GB | 72 / 166 | 41.5 / 20.6 | 50.8 / 29.1 |
+| 8 GB | 145 / 166 | 10.9 / 10.8 | 39.1 / 13.2 |
+| 16 GB (about your Automatic) | 166 / 166 | 9.0 / 8.9 | 9.0 / 9.2 |
 
-Faster at 4 GB, and when jumping around at 8 GB. Slower at 1 GB and when playing straight
-through at 8 GB, because the 8-bit copies take room the large numbers had. Both are written down
-in D-897 as gaps. If you would rather not have it, it can be switched off and the viewer
-goes back to how it was before, with the same pictures.
+About twice as fast at 4 GB, and three times as fast jumping around at 8 GB. The other rows are
+the same within the machine's wobble. A first version of this was slower at 1 GB and when
+playing at 8 GB; it was reworked until nothing got slower (D-897 says how). If you would rather
+not have it, it can be switched off and the viewer goes back to how it was before, with the
+same pictures.
 
 ## What to report
 
