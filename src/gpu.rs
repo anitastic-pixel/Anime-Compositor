@@ -2080,6 +2080,150 @@ fn gather(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(acc / k[0]));
 }
 
+// D-895: Lens Blur with transparent edges by fast Fourier transform. The field is F.base.x by
+// F.base.y, both powers of two, at least the grown layer; each point holds three complex
+// numbers in `row` (or `band`): red + i green, blue + i alpha, and the iris. The layer sits at
+// the field's corner and the iris about it, wrapped round, so the field's circular convolution is
+// the gather's sums, each pixel's at its place less the growth, wrapped round.
+
+// The field: the highlit layer and the iris. k: the iris's pixel count, the threshold and gain,
+// then each iris row's first and last from -F.r to F.r (an empty row has its first past its last).
+@compute @workgroup_size(16, 16)
+fn fftfill(@builtin(global_invocation_id) id: vec3<u32>) {
+    let pw = F.base.x;
+    let ph = F.base.y;
+    if id.x >= pw || id.y >= ph {
+        return;
+    }
+    let size = textureDimensions(input);
+    var p = vec4<f32>(0.0);
+    if id.x < size.x && id.y < size.y {
+        p = lit(textureLoad(input, id.xy, 0));
+    }
+    let dx = select(i32(id.x), i32(id.x) - i32(pw), id.x >= pw / 2u);
+    let dy = select(i32(id.y), i32(id.y) - i32(ph), id.y >= ph / 2u);
+    var on = 0.0;
+    if abs(dy) <= F.r {
+        let ri = 3u + 2u * u32(dy + F.r);
+        if dx >= i32(k[ri]) && dx <= i32(k[ri + 1u]) {
+            on = 1.0;
+        }
+    }
+    let i = (id.y * pw + id.x) * 6u;
+    row[i] = p.x;
+    row[i + 1u] = p.y;
+    row[i + 2u] = p.z;
+    row[i + 3u] = p.w;
+    row[i + 4u] = on;
+    row[i + 5u] = 0.0;
+}
+
+fn cmul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+// One Stockham step of the field's transforms, from `row` into `band`, of radix F.r (2, 4 or 8):
+// along its rows (F.mode 0) or columns (1), the steps so far F.count long, inverse with F.flag,
+// the first F.n of the three numbers. k: e^(-2 pi i t / width) for every t below the width, then
+// the same down the columns, in double precision.
+@compute @workgroup_size(64)
+fn fftstep(@builtin(global_invocation_id) id: vec3<u32>) {
+    let pw = F.base.x;
+    let ph = F.base.y;
+    let rad = u32(F.r);
+    var span = pw;
+    var j = id.x;
+    var across = id.y;
+    var start = id.y * pw;
+    var stride = 1u;
+    var toff = 0u;
+    if F.mode == 1u {
+        span = ph;
+        j = id.y;
+        across = id.x;
+        start = id.x;
+        stride = pw;
+        toff = pw;
+    }
+    if j >= span / rad || across >= select(ph, pw, F.mode == 1u) {
+        return;
+    }
+    let ns = F.count;
+    let kk = j & (ns - 1u);
+    let q = span / rad;
+    let unit = q / ns;
+    let sign = select(1.0, -1.0, F.flag == 1u);
+    // e^(-2 pi i m / 8), m below 8.
+    var root = array<vec2<f32>, 8>(
+        vec2(1.0, 0.0), vec2(0.70710677, -0.70710677), vec2(0.0, -1.0), vec2(-0.70710677, -0.70710677),
+        vec2(-1.0, 0.0), vec2(-0.70710677, 0.70710677), vec2(0.0, 1.0), vec2(0.70710677, 0.70710677));
+    var tw: array<vec2<f32>, 8>;
+    for (var r = 0u; r < rad; r++) {
+        let ti = toff + r * kk * unit;
+        tw[r] = vec2(f32(k[2u * ti]), sign * f32(k[2u * ti + 1u]));
+    }
+    let hop = 8u / rad;
+    let dst = (j / ns) * ns * rad + kk;
+    for (var l = 0u; l < 2u * F.n; l += 2u) {
+        var x: array<vec2<f32>, 8>;
+        for (var r = 0u; r < rad; r++) {
+            let s = (start + (j + r * q) * stride) * 6u + l;
+            x[r] = cmul(vec2(row[s], row[s + 1u]), tw[r]);
+        }
+        for (var m = 0u; m < rad; m++) {
+            var sum = vec2<f32>(0.0);
+            for (var r = 0u; r < rad; r++) {
+                let w = root[((r * m) % rad) * hop];
+                sum += cmul(x[r], vec2(w.x, sign * w.y));
+            }
+            let d = (start + (dst + m * ns) * stride) * 6u + l;
+            band[d] = sum.x;
+            band[d + 1u] = sum.y;
+        }
+    }
+}
+
+// The layer's transforms times the iris's, in place.
+@compute @workgroup_size(64)
+fn fftmul(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= F.base.x || id.y >= F.base.y {
+        return;
+    }
+    let i = (id.y * F.base.x + id.x) * 6u;
+    let iris = vec2(row[i + 4u], row[i + 5u]);
+    let a = cmul(vec2(row[i], row[i + 1u]), iris);
+    let b = cmul(vec2(row[i + 2u], row[i + 3u]), iris);
+    row[i] = a.x;
+    row[i + 1u] = a.y;
+    row[i + 2u] = b.x;
+    row[i + 3u] = b.y;
+}
+
+// The grown layer from the field: each pixel's sums wrapped round, divided by the iris's count
+// and the field's size (k[0]), a colour lit past its covering held at it as `gather` holds it.
+// A pixel whose alpha is below k[1] is left transparent: the iris reaches nothing there, and
+// what the transform leaves is rounding.
+@compute @workgroup_size(16, 16)
+fn fftout(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let pw = F.base.x;
+    let ph = F.base.y;
+    let u = (id.x + pw - u32(F.g)) % pw;
+    let v = (id.y + ph - u32(F.g)) % ph;
+    let i = (v * pw + u) * 6u;
+    var acc = vec4(row[i], row[i + 1u], row[i + 2u], row[i + 3u]) * f32(k[0]);
+    if F.flag == 1u {
+        acc = vec4(min(acc.xyz, vec3(acc.w)), acc.w);
+    }
+    if acc.w < f32(k[1]) {
+        acc = vec4(0.0);
+    }
+    textureStore(output, id.xy, acc);
+}
+
 // D-359, layer_fx::lens_blur_map: one level's mean at the drawing's pixel (x, y), its runs at
 // k[start..], summed as `gather` sums them.
 fn lmean(start: u32, count: u32, n: f64, x: i32, y: i32, w: i32, h: i32) -> vec4<f64> {
@@ -12429,6 +12573,15 @@ struct FxParams {
     oy: i32,
 }
 
+/// D-895: the smallest Lens Blur radius the viewer's card works by Fourier transform rather
+/// than by the exact gather, in the drawing's pixels (a Draft frame's radius is already shrunk):
+/// where B-775 measured the transform no slower on the reference shot. Export never does.
+pub const LENS_FFT_FROM: f64 = 100.0;
+
+/// D-895: a pixel of a Lens Blur worked by Fourier transform whose alpha is below this is left
+/// transparent; what the transform leaves there is rounding.
+const LENS_FFT_FLOOR: f64 = 0.0;
+
 /// B-65: [`FX_SHADER`]'s passes.
 struct FxPasses {
     grade: Pass,
@@ -12441,6 +12594,11 @@ struct FxPasses {
     ring: Pass,
     prefix: Pass,
     gather: Pass,
+    /// D-895.
+    fftfill: Pass,
+    fftstep: Pass,
+    fftmul: Pass,
+    fftout: Pass,
     /// D-359.
     lmgather: Pass,
     /// B-76.
@@ -13048,6 +13206,10 @@ pub struct Gpu {
     made: Cell<u64>,
     /// B-164: blurs worked small and enlarged since the card was opened.
     shrunk: Cell<u64>,
+    /// D-895: the smallest Lens Blur radius worked by Fourier transform (infinite: never), and
+    /// the Lens Blurs so worked since the card was opened.
+    lens_fft_from: f64,
+    lens_ffts: Cell<u64>,
     /// B-172: passes run since the card was opened, and whether a run of colour effects is drawn
     /// in one.
     dispatched: u64,
@@ -13361,6 +13523,10 @@ impl Gpu {
                 ring: pass("ring", &[0, 1, 2, 3, 4]),
                 prefix: pass("prefix", &[0, 1, 3, 7]),
                 gather: pass("gather", &[0, 1, 2, 3, 7]),
+                fftfill: pass("fftfill", &[0, 1, 3, 5]),
+                fftstep: pass("fftstep", &[0, 3, 5, 6]),
+                fftmul: pass("fftmul", &[0, 5]),
+                fftout: pass("fftout", &[0, 2, 3, 5]),
                 lmgather: pass("lmgather", &[0, 1, 2, 3, 4, 7]),
                 turb: pass("turb", &[0, 1, 2, 3]),
                 slide: pass("slide", &[0, 1, 2, 3]),
@@ -13594,6 +13760,8 @@ impl Gpu {
             spare: Vec::new(),
             made: Cell::new(0),
             shrunk: Cell::new(0),
+            lens_fft_from: LENS_FFT_FROM,
+            lens_ffts: Cell::new(0),
             dispatched: 0,
             fused: true,
             working: clear.then(|| RefCell::new(Vec::new())),
@@ -13656,6 +13824,34 @@ impl Gpu {
     /// B-164 (D-235): how many blurs the card has worked small and enlarged since it was opened.
     pub fn shrunk(&self) -> u64 {
         self.shrunk.get()
+    }
+
+    /// D-895: how many Lens Blurs the card has worked by Fourier transform since it was opened.
+    pub fn lens_ffts(&self) -> u64 {
+        self.lens_ffts.get()
+    }
+
+    /// D-895: the smallest Lens Blur radius the card works by Fourier transform, `None` for
+    /// never; [`LENS_FFT_FROM`] unless a check or a timing sets it.
+    pub fn lens_fft(&mut self, from: Option<f64>) {
+        self.lens_fft_from = from.unwrap_or(f64::INFINITY);
+    }
+
+    /// D-895: the field, both sides powers of two, in which a Lens Blur of `radius` with
+    /// transparent edges and no blur map is worked by Fourier transform on a `w` by `h`
+    /// drawing, when it is: at or past the switch's radius, and when the field's two buffers
+    /// fit the card.
+    fn lens_field(&self, radius: f64, aspect: f64, w: usize, h: usize) -> Option<(usize, usize)> {
+        if radius < self.lens_fft_from.max(1.0) {
+            return None;
+        }
+        let g = crate::layer_fx::lens_reach(radius, aspect).ceil() as usize;
+        let (pw, ph) = ((w + 2 * g).next_power_of_two(), (h + 2 * g).next_power_of_two());
+        let bytes = (pw * ph * 24) as u64;
+        (bytes <= self.limits.max_storage_buffer_binding_size as u64
+            && bytes <= self.limits.max_buffer_size
+            && ph / 2 <= 65535)
+            .then_some((pw, ph))
     }
 
     /// B-172: the passes the card has run since it was opened, the frame's encoding aside.
@@ -15879,6 +16075,80 @@ impl Gpu {
                         [None, None, Some(&sums), None],
                         tiles(w + 2 * g, h + 2 * g),
                     );
+                } else if let Some((pw, ph)) =
+                    (!repeat).then(|| self.lens_field(*radius, *aspect, w, h)).flatten()
+                {
+                    // D-895: by Fourier transform. The field, each step's turns in double
+                    // precision, the forward transforms of the layer and the iris, their
+                    // product, and the layer's inverse transform, read back where the gather
+                    // would have put each pixel.
+                    self.lens_ffts.set(self.lens_ffts.get() + 1);
+                    let runs =
+                        crate::layer_fx::iris_runs(*radius, blades, *roundness, *rotation, *aspect);
+                    let n: isize = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum();
+                    let r = runs.iter().map(|q| q[0].abs()).max().unwrap_or(0);
+                    let mut rows = vec![[1.0, 0.0]; 2 * r as usize + 1];
+                    for &[dy, lo, hi] in &runs {
+                        rows[(dy + r) as usize] = [lo as f64, hi as f64];
+                    }
+                    let mut k = vec![n as f64, at, m];
+                    k.extend(rows.iter().flatten());
+                    let base = [pw as u32, ph as u32];
+                    let (a, b) = (buffer(pw * ph * 24), buffer(pw * ph * 24));
+                    let q = FxParams {
+                        flag: p.flag,
+                        r: r as i32,
+                        base,
+                        ..Default::default()
+                    };
+                    self.fx_step(steps, &passes.fftfill, q, Some(still), None, Some(&k), None, [Some(&a), None], tiles(pw, ph));
+                    let mut turns = Vec::with_capacity(pw + ph);
+                    for side in [pw, ph] {
+                        for t in 0..side {
+                            let angle = -std::f64::consts::TAU * t as f64 / side as f64;
+                            turns.extend([angle.cos(), angle.sin()]);
+                        }
+                    }
+                    let mut cur = (&a, &b);
+                    for (lanes, inverse) in [(3, 0), (2, 1)] {
+                        for (mode, side) in [(0, pw), (1, ph)] {
+                            let mut ns = 1;
+                            while ns < side {
+                                let rad = (side / ns).min(8);
+                                let q = FxParams {
+                                    mode,
+                                    r: rad as i32,
+                                    count: ns as u32,
+                                    flag: inverse,
+                                    n: lanes,
+                                    base,
+                                    ..Default::default()
+                                };
+                                let groups = match mode {
+                                    0 => (((pw / rad) as u32).div_ceil(64), ph as u32),
+                                    _ => ((pw as u32).div_ceil(64), (ph / rad) as u32),
+                                };
+                                self.fx_step(steps, &passes.fftstep, q, None, None, Some(&turns), None, [Some(cur.0), Some(cur.1)], groups);
+                                cur = (cur.1, cur.0);
+                                ns *= rad;
+                            }
+                        }
+                        if inverse == 0 {
+                            let q = FxParams {
+                                base,
+                                ..Default::default()
+                            };
+                            self.fx_step(steps, &passes.fftmul, q, None, None, None, None, [Some(cur.0)], ((pw as u32).div_ceil(64), ph as u32));
+                        }
+                    }
+                    let q = FxParams {
+                        flag: p.flag,
+                        g: g as i32,
+                        base,
+                        ..Default::default()
+                    };
+                    let k = [1.0 / (n as f64 * pw as f64 * ph as f64), LENS_FFT_FLOOR];
+                    self.fx_step(steps, &passes.fftout, q, None, Some(&out), Some(&k), None, [Some(cur.0)], tiles(w + 2 * g, h + 2 * g));
                 } else {
                     let runs =
                         crate::layer_fx::iris_runs(*radius, blades, *roundness, *rotation, *aspect);
@@ -24666,6 +24936,13 @@ impl Gpu {
                     }
                     OnCard::Fx(f) => {
                         let bytes = match &f.instance.effect {
+                            // D-895: or the Fourier transform's two fields.
+                            crate::effects::Effect::LensBlur { radius, aspect, edges, map: None, .. }
+                                if edges != "repeat" && self.lens_field(*radius, *aspect, w, h).is_some() =>
+                            {
+                                let (pw, ph) = self.lens_field(*radius, *aspect, w, h).unwrap_or_default();
+                                (((w + 1) * h * 32) as u64).max((pw * ph * 48) as u64)
+                            }
                             crate::effects::Effect::LensBlur { .. }
                             | crate::effects::Effect::DepthOfField { .. } => {
                                 ((w + 1) * h * 32) as u64
