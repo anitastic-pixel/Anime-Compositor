@@ -2553,6 +2553,7 @@ fn card_effect(
                 instance,
                 origin: *offset,
                 grow,
+                display: false,
             };
             (!nothing).then(|| {
                 *offset = (offset.0 + grow.0, offset.1 + grow.1);
@@ -2572,22 +2573,17 @@ fn mixed(card: render::OnCard, instance: &crate::effects::EffectInstance) -> ren
     }
 }
 
-/// B-688 (D-808): whether the card draws `effect` in 8 bpc (After Effects). Not those that read
-/// the depth themselves (Exposure; Glow, Drop Shadow, Fill and Solid Composite through their
-/// display colours; Echo), nor a Bloom, which the plan leaves out where it lights nothing, as the
-/// CPU's 8-bit rounding is not.
-fn eight_card(effect: &crate::effects::Effect) -> bool {
+/// B-688 (D-808): whether the card draws `effect` in 8 bpc (After Effects). B-750 (D-870): not a
+/// Glow, whose 8 bpc light (D-337, D-746) the card does not have; an Echo is the CPU's at every
+/// depth. Nor an Exposure with Bypass under Mix 100: its result past white, which the card holds
+/// at white in display values, is mixed back on the CPU before it is rounded.
+fn eight_card(instance: &crate::effects::EffectInstance) -> bool {
     use crate::effects::Effect as E;
-    !matches!(
-        effect,
-        E::Exposure { .. }
-            | E::Glow { .. }
-            | E::DropShadow { .. }
-            | E::Fill { .. }
-            | E::SolidComposite { .. }
-            | E::Echo { .. }
-            | E::Bloom { .. }
-    )
+    match &instance.effect {
+        E::Glow { .. } | E::Echo { .. } => false,
+        E::Exposure { bypass, .. } => bypass != "on" || instance.mix >= 100.0,
+        _ => true,
+    }
 }
 
 /// B-155 (D-224): whether `effect` can only begin the card's run: it looks at the drawing it is
@@ -4652,7 +4648,7 @@ fn resolve_rest(
     let can = |i: usize| {
         let e = &effects[i].effect;
         (plain
-            || eight && eight_card(e)
+            || eight && eight_card(&effects[i])
             || ae
                 && !crate::effects::on_display(e, bits)
                 && !matches!(e, crate::effects::Effect::Exposure { .. }))
@@ -4902,11 +4898,22 @@ fn resolve_rest(
                 }
                 effect => card_effect(effect, &effects[i], size, &mut offset),
             }
+            // B-750 (D-870): in 8 bpc a Drop Shadow's, Fill's or Solid Composite's colour is
+            // taken as written, on display values, as `apply_stack_at` takes it there.
+            .map(|mut c| {
+                if let render::OnCard::Fx(f) = &mut c {
+                    f.display = eight && crate::effects::on_display(&effects[i].effect, bits);
+                }
+                c
+            })
             .map(|c| mixed(c, &effects[i]))
             .map(|c| match eight {
+                // B-750 (D-870): an Exposure with Bypass works on display values in 8 bpc.
                 true => render::OnCard::Eight(
                     Box::new(c),
-                    crate::effects::on_display(&effects[i].effect, bits),
+                    crate::effects::on_display(&effects[i].effect, bits)
+                        || matches!(&effects[i].effect,
+                            crate::effects::Effect::Exposure { bypass, .. } if bypass == "on"),
                 ),
                 false => c,
             }),

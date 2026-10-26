@@ -14938,7 +14938,11 @@ impl Gpu {
             "soft_light" => 5,
             _ => 0,
         };
-        let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
+        // B-750 (D-870): in 8 bpc Drop Shadow's and Fill's colours as written (`Fx::display`).
+        let linear = |c: &str| match f.display {
+            true => crate::effects::encoded(c),
+            false => crate::effects::encoded(c).map(crate::grade::to_linear),
+        };
         // D-413: a blending mode as the shader's `laid` takes it.
         let laid = |b: &str| {
             [
@@ -19424,8 +19428,12 @@ impl Gpu {
                 blend: b,
             } => {
                 let o = (opacity / 100.0) as f32;
-                let lin = crate::effects::encoded(color)
-                    .map(|c| (crate::color::srgb_to_linear(c as f32) * o) as f64);
+                let lin = crate::effects::encoded(color).map(|c| {
+                    (match f.display {
+                        true => c as f32,
+                        false => crate::color::srgb_to_linear(c as f32),
+                    } * o) as f64
+                });
                 let k = [
                     (source_opacity / 100.0) as f32 as f64,
                     o as f64,

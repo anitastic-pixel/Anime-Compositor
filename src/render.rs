@@ -368,6 +368,9 @@ pub struct Fx {
     pub instance: crate::effects::EffectInstance,
     pub origin: (usize, usize),
     pub grow: (usize, usize),
+    /// B-750 (D-870): the effect's colours as written, on display values (`effects::on_display`
+    /// in 8 bpc), rather than turned to linear light.
+    pub display: bool,
 }
 
 /// B-51: a Glow's settings (`glow::settings`), the radius already divided for Draft. Left for the
@@ -859,6 +862,28 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
         }
         // B-688 (D-808): `apply_stack_at`'s order in 8 bpc: what it was given kept for its Mix,
         // to display values and back round the effect, mixed, and held to 8 bits.
+        // B-750 (D-870): one of the batch is the CPU's own 8 bpc step, which reads the depth
+        // itself (Exposure's Bypass; Drop Shadow, Fill and Solid Composite's colours).
+        OnCard::Eight(inner, _) if matches!(inner.unmixed(), OnCard::Fx(_)) => {
+            let mix = match &*inner {
+                OnCard::Mix(_, mix) => *mix,
+                _ => 100.0,
+            };
+            let OnCard::Fx(f) = inner.unmixed() else {
+                unreachable!("matched above")
+            };
+            let instance = crate::effects::EffectInstance {
+                mix,
+                ..f.instance.clone()
+            };
+            crate::effects::apply_stack_at(
+                std::sync::Arc::make_mut(source),
+                std::slice::from_ref(&instance),
+                f.origin,
+                crate::effects::Bits::Eight,
+                |_, _, _| {},
+            );
+        }
         OnCard::Eight(inner, display) => {
             let (mix, inner) = match *inner {
                 OnCard::Mix(inner, mix) => (Some(mix), *inner),
