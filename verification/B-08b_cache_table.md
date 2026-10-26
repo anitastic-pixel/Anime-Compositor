@@ -38,12 +38,12 @@ The speed this bought is not here. It is a measurement, and it is in `verificati
 | One file asked for under two interpretations is decoded twice, not answered from memory | 2 decodes, 0 hits | 2 decodes, 0 hits | pass |
 | and the two answers are different pixels, because the second was never sRGB to undo | different | different | pass |
 | and asking the first way again gives the first answer back, not the second | 8294400 samples, from memory | 8294400 samples, from memory | pass |
-| Two cels of different sizes fill a budget that is exactly the two of them | 2 cels, 81920 bytes, 0 evictions | 2 cels, 81920 bytes, 0 evictions | pass |
+| Two cels of different sizes fill a budget that is exactly the two of them | 2 cels, 20480 bytes, 0 evictions | 2 cels, 20480 bytes, 0 evictions | pass |
 | Asking again for the first of them is answered from memory | 1 more hit | 1 more hit | pass |
-| A third cel drops exactly one, and the room that makes is the size of the one dropped | 2 cels, 69632 bytes, 1 eviction | 2 cels, 69632 bytes, 1 eviction | pass |
+| A third cel drops exactly one, and the room that makes is the size of the one dropped | 2 cels, 17408 bytes, 1 eviction | 2 cels, 17408 bytes, 1 eviction | pass |
 | and the one dropped is the one asked for longest ago, not the one stored longest ago | the first cel is still there | the first cel is still there | pass |
 | and the one that went has to be decoded again when it is asked for | 1 more decode | 1 more decode | pass |
-| Ten loops of the shot hold what one loop held | 497664000 then nine identical | 497664000 then nine identical | pass |
+| Ten loops of the shot hold what one loop held | 622080000 then nine identical | 622080000 then nine identical | pass |
 | and the nine loops after the first decode nothing at all | 0 decodes | 0 decodes | pass |
 
 **31 of 31 checks pass.**
@@ -52,4 +52,4 @@ The speed this bought is not here. It is a measurement, and it is in `verificati
 
 A cel of this composition is 1920 by 1080. On disk, and in `verification/D-37_decode_cost.md`, that is 8,294,400 bytes. In memory it is 33177600 bytes, four times as much, because the renderer samples a buffer of `f32` in the working space rather than the bytes that were on disk. ADR-015 records the correction; it matters because a budget written against the smaller figure would have held four times the memory it promised.
 
-The viewer's default budget is 1073741824 bytes, which is 32 cels of this size. The table below is where it was measured, and the row it was chosen by is not this shot's: 128 MB and 512 MB are a fraction of a millisecond apart on four layers, and what raised it to 1 GiB was the ten-layer fixture in `verification/T-06_declared_fixture.md`, where one frame is ten cels and 128 MB could not hold one. The checks above deliberately do not use that number: they use a budget with room for every drawing the six frames touch, because a check about whether remembering changes the answer should not also depend on how much is remembered. Ten loops of six frames ended holding 497664000 bytes in 15 cels, which is every distinct drawing those frames use and no copy of any of them.
+The viewer's default budget is 1073741824 bytes, which is 32 cels of this size. The table below is where it was measured, and the row it was chosen by is not this shot's: 128 MB and 512 MB are a fraction of a millisecond apart on four layers, and what raised it to 1 GiB was the ten-layer fixture in `verification/T-06_declared_fixture.md`, where one frame is ten cels and 128 MB could not hold one. The checks above deliberately do not use that number: they use a budget with room for every drawing the six frames touch, because a check about whether remembering changes the answer should not also depend on how much is remembered. Ten loops of six frames ended holding 622080000 bytes in 15 cels, which is every distinct drawing those frames use and no second copy of any of them: since D-897 each is held as the decoder's 8 bits, a quarter of the floats, and also as floats while the budget has room, which this one does. When it fills, floats are let go before any drawing.

@@ -70,12 +70,13 @@ const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
 /// One decoded cel in the working space: RGBA f32 at the composition's extent.
 const ONE_CEL: usize = WIDTH * HEIGHT * 4 * std::mem::size_of::<f32>();
-/// The three sides of the drawn cels the eviction section uses, and what each costs to hold:
-/// side x side x 4 channels x 4 bytes, the same multiplication as [`ONE_CEL`].
+/// The three sides of the drawn cels the eviction section uses, and what each costs to hold once
+/// the budget is full: side x side x 4 channels x 1 byte. D-897 holds a drawing at the decoder's
+/// 8 bits and keeps its floats only while there is room, letting floats go before any drawing.
 const SIDES: [usize; 3] = [64, 32, 16];
-const LARGE_BYTES: usize = SIDES[0] * SIDES[0] * 4 * std::mem::size_of::<f32>();
-const MIDDLE_BYTES: usize = SIDES[1] * SIDES[1] * 4 * std::mem::size_of::<f32>();
-const SMALL_BYTES: usize = SIDES[2] * SIDES[2] * 4 * std::mem::size_of::<f32>();
+const LARGE_BYTES: usize = SIDES[0] * SIDES[0] * 4;
+const MIDDLE_BYTES: usize = SIDES[1] * SIDES[1] * 4;
+const SMALL_BYTES: usize = SIDES[2] * SIDES[2] * 4;
 /// Samples in a draft frame: a quarter on each axis, RGBA.
 const DRAFT_SAMPLES: usize = (WIDTH / 4) * (HEIGHT / 4) * 4;
 /// Samples in a full frame.
@@ -709,7 +710,9 @@ fn write_report(report: &Report, looping: &CelCache) {
          use a budget with room for every drawing the six frames touch, because a check about \
          whether remembering changes the answer should not also depend on how much is remembered. \
          Ten loops of six frames ended holding {} bytes in {} cels, which is every distinct drawing \
-         those frames use and no copy of any of them.",
+         those frames use and no second copy of any of them: since D-897 each is held as the \
+         decoder's 8 bits, a quarter of the floats, and also as floats while the budget has room, \
+         which this one does. When it fills, floats are let go before any drawing.",
         DEFAULT_BUDGET_BYTES / ONE_CEL,
         budget_label(DEFAULT_BUDGET_BYTES),
         looping.held_bytes(),

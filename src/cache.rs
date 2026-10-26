@@ -25,6 +25,13 @@
 //! the decoder's 8-bit output. Eviction is least-recently-used and changes performance only, which is document 27's
 //! requirement and is checked as a byte comparison rather than asserted.
 //!
+//! **What it is held as** (D-897). An 8-bit drawing is held as the decoder's bytes, a quarter of
+//! the floats, and as floats too while the budget has room; when it fills, floats are let go
+//! before any drawing is. A drawing asked for whose floats have gone is widened again by the
+//! same arithmetic a decode does after the decoder, so it is the same buffer to the bit, which
+//! `verification/B-777_compact_cels_table.md` checks on every byte pair and every fixture image.
+//! An EXR has no 8-bit bytes and is held as floats only.
+//!
 //! **Where it is not.** Export never sees one. [`crate::compose::plan_frame`] and
 //! [`crate::export`] use [`CelCache::none`], whose budget is zero and which therefore cannot store
 //! anything; only the preview path is handed a real one. A full-resolution preview and an export
@@ -45,7 +52,7 @@
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
 use std::time::{Duration, SystemTime};
 
 use rayon::prelude::*;
@@ -289,9 +296,10 @@ impl DiskCache {
         )
     }
 
-    /// The drawing kept in `file`, as [`media::from_8bit`] makes it: `Ok(None)` when there is none,
-    /// `Err` with the reason when the file is there but is not a whole, unchanged copy.
-    fn load(&self, file: &Path) -> Result<Option<ImageBuffer>, String> {
+    /// The drawing kept in `file`, as [`media::from_8bit`] makes it, with the bytes it was made
+    /// from (D-897): `Ok(None)` when there is none, `Err` with the reason when the file is there
+    /// but is not a whole, unchanged copy.
+    fn load(&self, file: &Path) -> Result<Option<(ImageBuffer, Compact)>, String> {
         let mut f = match std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -333,7 +341,7 @@ impl DiskCache {
         // Least recently used is judged by this time, so reading a copy counts as using it.
         let _ = f.set_modified(SystemTime::now());
         media::from_8bit(file, w, h, &rgba)
-            .map(Some)
+            .map(|image| Some((image, (w, h, rgba))))
             .map_err(|d| format!("its header is not a picture's ({})", d.detail))
     }
 
@@ -553,8 +561,66 @@ fn checksum(bytes: &[u8]) -> u64 {
     parts.into_iter().fold(0xcbf2_9ce4_8422_2325, fnv)
 }
 
+/// D-897's switch: `true` keeps an 8-bit drawing's bytes beside (or instead of) its floats;
+/// `false` holds floats only, as before D-897. The pixels are the same either way.
+pub const KEEP_8BIT_CELS: bool = true;
+
+/// D-897: a drawing as the decoder gave it, width, height and 8-bit RGBA, before any arithmetic.
+type Compact = (usize, usize, Vec<u8>);
+
+/// D-897: `compact` in the working space, as a decode makes it after the decoder
+/// ([`media::from_8bit`], the asset's tags, [`ImageBuffer::into_working`]), to the bit.
+///
+/// In one pass over the pixels and one allocation rather than those steps' three passes and up
+/// to three allocations, which measured too slow to answer from memory with (D-897's first try).
+/// It does the same arithmetic on the same values in the same order: a byte divided by 255
+/// ([`crate::color::dequantise_u8`]), through the transfer function when the drawing is sRGB, then
+/// times alpha when alpha is straight; the two 256-entry tables are those functions' own answers
+/// for every byte. `tests/b777_compact_cels.rs` compares it to the decode on every byte pair and
+/// every fixture image.
+///
+/// Into `spare` when it is the drawing's size: floats the cache let go of that nothing else held.
+/// A new buffer this size is thousands of fresh pages the system has to clear on first touch, and
+/// that measured as most of the cost; every sample of `spare` is written over.
+fn widen(
+    path: &Path,
+    interpretation: Interpretation,
+    (w, h, rgba): &Compact,
+    spare: Option<WorkingBuffer>,
+) -> Result<WorkingBuffer, Diagnostic> {
+    if rgba.len() != w * h * 4 {
+        // Never, for bytes that widened once already; the decode's own steps say why if it were.
+        return Ok(retag(media::from_8bit(path, *w, *h, rgba)?, interpretation).into_working());
+    }
+    let alpha: [f32; 256] = std::array::from_fn(|v| crate::color::dequantise_u8(v as u8));
+    let colour = alpha.map(|c| match interpretation.color_space {
+        crate::ColorSpace::Srgb => crate::color::srgb_to_linear(c),
+        crate::ColorSpace::LinearLight => c,
+    });
+    let straight = interpretation.alpha == crate::AlphaMode::Straight;
+    let mut out = spare
+        .filter(|s| (s.width(), s.height()) == (*w, *h))
+        .unwrap_or_else(|| WorkingBuffer::transparent(*w, *h));
+    crate::perf::time(crate::perf::Stage::Dequantise, || {
+        out.data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(rgba.par_chunks_exact(4))
+            .with_min_len(4096)
+            .for_each(|(px, b)| {
+                let a = alpha[b[3] as usize];
+                for c in 0..3 {
+                    let v = colour[b[c] as usize];
+                    px[c] = if straight { v * a } else { v };
+                }
+                px[3] = a;
+            });
+    });
+    Ok(out)
+}
+
 /// B-161: the cel at `path` in the working space, from `disk` when a good copy is there, decoded
-/// when not, and written there after a decode. The flag is whether the disk answered. A copy that
+/// when not, and written there after a decode, with the decoder's bytes when it had 8-bit ones
+/// (D-897; an EXR has none). The flag is whether the disk answered. A copy that
 /// fails its checks, or cannot be written, adds a line to `notes` for the session log (document
 /// 28: the preview's pixels are unchanged either way, so it is a note and not a warning).
 fn working_cel(
@@ -563,7 +629,7 @@ fn working_cel(
     path: &Path,
     interpretation: Interpretation,
     notes: &mut Vec<String>,
-) -> Result<(WorkingBuffer, bool), Diagnostic> {
+) -> Result<(WorkingBuffer, Option<Compact>, bool), Diagnostic> {
     let name = path.file_name().map_or_else(
         || path.display().to_string(),
         |n| n.to_string_lossy().into_owned(),
@@ -576,7 +642,7 @@ fn working_cel(
         .and_then(|(disk, key)| Some((disk, disk.file(key)?)));
     if let Some((disk, file)) = &copy {
         match crate::perf::time(crate::perf::Stage::FileRead, || disk.load(file)) {
-            Ok(Some(image)) => return Ok((working(image), true)),
+            Ok(Some((image, compact))) => return Ok((working(image), Some(compact), true)),
             Ok(None) => {}
             Err(reason) => {
                 let _ = std::fs::remove_file(file);
@@ -587,8 +653,8 @@ fn working_cel(
         }
     }
     // `media::decode` is these two steps; they are taken apart here to keep the bytes between.
-    let image = match media::decode_8bit(path) {
-        None => media::decode(path)?,
+    let (image, compact) = match media::decode_8bit(path) {
+        None => (media::decode(path)?, None),
         Some(pixels) => {
             let (w, h, rgba) = pixels?;
             if let Some((disk, file)) = &copy {
@@ -598,10 +664,10 @@ fn working_cel(
                     ));
                 }
             }
-            media::from_8bit(path, w, h, &rgba)?
+            (media::from_8bit(path, w, h, &rgba)?, Some((w, h, rgba)))
         }
     };
-    Ok((working(image), false))
+    Ok((working(image), compact, false))
 }
 
 /// What makes two requests for a decoded cel the same request.
@@ -686,16 +752,22 @@ pub struct EffectResult {
 pub struct CelCache {
     budget: usize,
     held: usize,
-    /// Least recently used first. ponytail: a linear scan, because this holds tens of entries and
-    /// a frame asks it four questions; a map plus an intrusive list if a real project ever makes
-    /// the scan measurable.
-    entries: Vec<(Key, Arc<WorkingBuffer>)>,
+    /// Least recently used first. ponytail: a linear scan, because this holds hundreds of entries
+    /// and a frame asks it four questions; a map plus an intrusive list if a real project ever
+    /// makes the scan measurable.
+    entries: Vec<Cel>,
+    /// D-897: how many of `held`'s bytes are floats, kept beside 8-bit drawings.
+    wide_held: usize,
+    /// D-897: the last floats [`trim`](Self::trim) let go of that nothing else held, for the next
+    /// drawing widened to write into.
+    // ponytail: one buffer, outside the budget, as `below` is; count it if a budget is tight.
+    spare: Option<WorkingBuffer>,
     /// Cels [`prewarm`](Self::prewarm) decoded ahead of the layer loop and that no request has
     /// collected yet (P-03(b)). Not part of `held`: a pending cel has not been admitted, and
     /// [`decoded`](Self::decoded) admits it through [`store`](Self::store) like any other miss,
     /// in the order the layer loop asks for it, so the budget, the eviction order and the hit
     /// and miss counts are exactly what they were when every decode was serial.
-    pending: Vec<(Key, Arc<WorkingBuffer>)>,
+    pending: Vec<(Key, Arc<WorkingBuffer>, Option<Compact>)>,
     hits: u64,
     misses: u64,
     evicted: u64,
@@ -757,6 +829,8 @@ impl CelCache {
             budget: cels,
             held: 0,
             entries: Vec::new(),
+            wide_held: 0,
+            spare: None,
             pending: Vec::new(),
             hits: 0,
             misses: 0,
@@ -807,11 +881,7 @@ impl CelCache {
     pub fn resize(&mut self, total: usize) {
         self.budget = total - total / 16 * 7;
         self.effect_budget = total / 16 * 7;
-        while self.held > self.budget {
-            let (_, evicted) = self.entries.remove(0);
-            self.held -= bytes_of(&evicted);
-            self.evicted += 1;
-        }
+        self.trim();
         self.trim_effects();
     }
 
@@ -1025,14 +1095,40 @@ impl CelCache {
 
         if let Some(key) = &key {
             let hit = crate::perf::time(crate::perf::Stage::CacheHit, || {
-                let at = self.entries.iter().position(|(k, _)| k == key)?;
-                let entry = self.entries.remove(at);
-                let buffer = Arc::clone(&entry.1);
-                self.entries.push(entry);
-                Some(buffer)
+                let at = self.entries.iter().position(|c| c.key == *key)?;
+                let cel = self.entries.remove(at);
+                let floats = cel.wide.clone().or_else(|| cel.seen.upgrade());
+                Some((cel, floats))
             });
-            if let Some(buffer) = hit {
+            if let Some((mut cel, floats)) = hit {
+                // D-897: kept at 8 bits only, and no frame still holding the floats: widened
+                // again, by the steps a decode takes after the decoder.
+                let buffer = match floats {
+                    Some(buffer) => buffer,
+                    None => match cel
+                        .compact
+                        .as_ref()
+                        .map(|c| widen(path, interpretation, c, self.spare.take()))
+                    {
+                        Some(Ok(widened)) => Arc::new(widened),
+                        // Unreachable - these bytes widened once already - but if it were, the
+                        // entry goes and the request decodes as a miss would.
+                        _ => {
+                            self.held -= cel.bytes();
+                            self.wide_held -= cel.wide_bytes();
+                            return self.decoded(path, interpretation);
+                        }
+                    },
+                };
                 self.hits += 1;
+                cel.seen = Arc::downgrade(&buffer);
+                if cel.wide.is_none() && cel.compact_bytes() + bytes_of(&buffer) <= self.budget {
+                    self.held += bytes_of(&buffer);
+                    self.wide_held += bytes_of(&buffer);
+                    cel.wide = Some(Arc::clone(&buffer));
+                }
+                self.entries.push(cel);
+                self.trim();
                 return Ok(buffer);
             }
         }
@@ -1044,12 +1140,15 @@ impl CelCache {
         // those counts.
         let ready = key
             .as_ref()
-            .and_then(|key| self.pending.iter().position(|(k, _)| k == key))
-            .map(|at| self.pending.remove(at).1);
-        let buffer = match ready {
-            Some(buffer) => buffer,
+            .and_then(|key| self.pending.iter().position(|(k, ..)| k == key))
+            .map(|at| {
+                let (_, buffer, compact) = self.pending.remove(at);
+                (buffer, compact)
+            });
+        let (buffer, compact) = match ready {
+            Some(ready) => ready,
             None => {
-                let (buffer, from_disk) = working_cel(
+                let (buffer, compact, from_disk) = working_cel(
                     self.disk.as_ref(),
                     key.as_ref(),
                     path,
@@ -1057,12 +1156,12 @@ impl CelCache {
                     &mut self.disk_notes,
                 )?;
                 self.disk_hits += u64::from(from_disk);
-                Arc::new(buffer)
+                (Arc::new(buffer), compact)
             }
         };
         if let Some(key) = key {
             crate::perf::time(crate::perf::Stage::CacheStore, || {
-                self.store(key, Arc::clone(&buffer))
+                self.store(key, compact, &buffer)
             });
         }
         Ok(buffer)
@@ -1090,17 +1189,17 @@ impl CelCache {
             key
         });
         if let Some(key) = &key {
-            if let Some(at) = self.entries.iter().position(|(k, _)| k == key) {
-                let entry = self.entries.remove(at);
-                let buffer = Arc::clone(&entry.1);
-                self.entries.push(entry);
+            if let Some(at) = self.entries.iter().position(|c| c.key == *key) {
+                let cel = self.entries.remove(at);
+                let buffer = Arc::clone(cel.wide.as_ref().expect("a pass is held as floats"));
+                self.entries.push(cel);
                 return Ok((buffer, 0));
             }
         }
         let (buffer, non_finite) = crate::exr_io::read_pass(path, pass)?;
         let buffer = Arc::new(buffer);
         if let (Some(key), 0) = (key, non_finite) {
-            self.store(key, Arc::clone(&buffer));
+            self.store(key, None, &buffer);
         }
         Ok((buffer, non_finite))
     }
@@ -1154,8 +1253,8 @@ impl CelCache {
             });
         let todo: Vec<Key> = keys
             .iter()
-            .filter(|key| !self.entries.iter().any(|(k, _)| k == *key))
-            .filter(|key| !self.pending.iter().any(|(k, _)| k == *key))
+            .filter(|key| !self.entries.iter().any(|c| c.key == **key))
+            .filter(|key| !self.pending.iter().any(|(k, ..)| k == *key))
             .cloned()
             .collect();
         if todo.is_empty() {
@@ -1166,9 +1265,10 @@ impl CelCache {
         }
         // P-18: a frame with something new to read. What was read ahead for a frame that is not
         // this one goes, so `pending` never holds more than one frame's cels.
-        self.pending.retain(|(k, _)| keys.contains(k));
+        self.pending.retain(|(k, ..)| keys.contains(k));
         let disk = self.disk.as_ref();
-        let decoded: Vec<(Key, Arc<WorkingBuffer>, bool, Vec<String>)> =
+        type Read = (Key, Arc<WorkingBuffer>, Option<Compact>, bool, Vec<String>);
+        let decoded: Vec<Read> =
             crate::perf::time(crate::perf::Stage::Prewarm, || {
                 todo.into_par_iter()
                     .filter_map(|key| {
@@ -1177,16 +1277,16 @@ impl CelCache {
                         // counters the frame's wall-clock is measured against would make the
                         // stage table sum to more than the frame.
                         let mut notes = Vec::new();
-                        let (buffer, from_disk) = crate::perf::untimed(|| {
+                        let (buffer, compact, from_disk) = crate::perf::untimed(|| {
                             working_cel(disk, Some(&key), &key.path, key.interpretation, &mut notes)
                                 .ok()
                         })?;
-                        Some((key, Arc::new(buffer), from_disk, notes))
+                        Some((key, Arc::new(buffer), compact, from_disk, notes))
                     })
                     .collect()
             });
-        for (key, buffer, from_disk, notes) in decoded {
-            self.pending.push((key, buffer));
+        for (key, buffer, compact, from_disk, notes) in decoded {
+            self.pending.push((key, buffer, compact));
             self.disk_hits += u64::from(from_disk);
             self.disk_notes.extend(notes);
         }
@@ -1299,27 +1399,69 @@ impl CelCache {
         self.effect_budget
     }
 
-    fn store(&mut self, key: Key, buffer: Arc<WorkingBuffer>) {
-        let bytes = bytes_of(&buffer);
-        // A cel larger than the whole budget is not stored at all. Evicting everything to hold
-        // one thing that will be evicted by the next request is worse than not holding it.
-        if bytes > self.budget {
+    /// Admit a decoded cel: its 8-bit bytes when it has them (D-897), and its floats when both fit.
+    fn store(&mut self, key: Key, compact: Option<Compact>, buffer: &Arc<WorkingBuffer>) {
+        let compact = compact.filter(|_| KEEP_8BIT_CELS);
+        let wide = bytes_of(buffer);
+        let small = compact.as_ref().map_or(0, |c| c.2.len());
+        // A cel larger than the whole budget, in the smallest form it can be held in, is not
+        // stored at all. Evicting everything to hold one thing that will be evicted by the next
+        // request is worse than not holding it.
+        if (compact.is_none() && wide > self.budget) || small > self.budget {
             return;
         }
-        self.entries.push((key, buffer));
-        self.held += bytes;
+        let keep_wide = compact.is_none() || small + wide <= self.budget;
+        let cel = Cel {
+            key,
+            compact,
+            wide: keep_wide.then(|| Arc::clone(buffer)),
+            seen: Arc::downgrade(buffer),
+        };
+        self.held += cel.bytes();
+        self.wide_held += cel.wide_bytes();
+        self.entries.push(cel);
+        self.trim();
+    }
+
+    /// D-897: let go of what is held, least recently used first, until it fits the budget. Floats
+    /// kept beside an 8-bit drawing go before any drawing does, because widening a drawing again
+    /// measured several times quicker than decoding it again; once no such floats are left, the
+    /// oldest drawing goes whole.
+    fn trim(&mut self) {
         while self.held > self.budget {
-            let (_, evicted) = self.entries.remove(0);
-            self.held -= bytes_of(&evicted);
-            self.evicted += 1;
+            let strip = self
+                .entries
+                .iter()
+                .position(|c| c.compact.is_some() && c.wide.is_some());
+            match strip {
+                Some(at) => {
+                    let wide = self.entries[at].wide_bytes();
+                    let floats = self.entries[at].wide.take().map(Arc::try_unwrap);
+                    if let Some(Ok(floats)) = floats {
+                        self.spare = Some(floats);
+                    }
+                    self.held -= wide;
+                    self.wide_held -= wide;
+                }
+                None => {
+                    let cel = self.entries.remove(0);
+                    self.held -= cel.bytes();
+                    self.wide_held -= cel.wide_bytes();
+                    self.evicted += 1;
+                }
+            }
         }
     }
 
-    /// The name this cache holds `buffer` under, if it holds it (B-44b).
+    /// The name this cache holds `buffer` under, if it holds it (B-44b). A drawing kept at 8 bits
+    /// answers to the floats it was last widened to (D-897), which the card may still hold.
     pub fn name_of(&self, buffer: &Arc<WorkingBuffer>) -> Option<Name> {
-        let cel = self.entries.iter().find(|(_, b)| Arc::ptr_eq(b, buffer));
-        if let Some((key, _)) = cel {
-            return Some(Name(Named::Cel(key.clone())));
+        let cel = self
+            .entries
+            .iter()
+            .find(|c| std::ptr::eq(c.seen.as_ptr(), Arc::as_ptr(buffer)));
+        if let Some(cel) = cel {
+            return Some(Name(Named::Cel(cel.key.clone())));
         }
         self.effect_entries
             .iter()
@@ -1401,6 +1543,34 @@ impl CelCache {
 /// What one decoded cel costs to hold: its samples, four bytes each.
 fn bytes_of(buffer: &WorkingBuffer) -> usize {
     std::mem::size_of_val(buffer.as_image().data())
+}
+
+/// D-897: one drawing the cache holds. An 8-bit drawing is held as the decoder's bytes, a
+/// quarter of its floats, and also as floats while the budget has room; an EXR or a pass has no
+/// 8-bit bytes and is held as floats only. Either way at least one of the two is here.
+struct Cel {
+    key: Key,
+    compact: Option<Compact>,
+    wide: Option<Arc<WorkingBuffer>>,
+    /// The floats last handed out for it, which a frame or the card may still hold after the
+    /// cache let go of its own: asked for again, they are handed back rather than widened again,
+    /// and they keep the drawing's name. `Arc::make_mut` on the last holder parts them from this,
+    /// so a frame that draws a mask into its copy never finds its way back here.
+    seen: Weak<WorkingBuffer>,
+}
+
+impl Cel {
+    fn compact_bytes(&self) -> usize {
+        self.compact.as_ref().map_or(0, |c| c.2.len())
+    }
+
+    fn wide_bytes(&self) -> usize {
+        self.wide.as_deref().map_or(0, bytes_of)
+    }
+
+    fn bytes(&self) -> usize {
+        self.compact_bytes() + self.wide_bytes()
+    }
 }
 
 /// B-154 (G3): one file a frame looked at, as it was when it looked - its length and modification
