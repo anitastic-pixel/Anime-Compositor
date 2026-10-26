@@ -138,22 +138,29 @@ fn the_page_lists_the_core_modes() {
     assert_eq!(page, BlendMode::ALL.map(BlendMode::as_str).to_vec());
 }
 
-/// The card does not draw the eight, so a frame with one is drawn on the CPU and says so.
+/// B-748 (D-868): the card draws the eight, within 1 level of 255 of the CPU's picture.
 #[test]
-fn the_card_hands_them_to_the_cpu() {
+fn the_card_draws_them_as_the_cpu_does() {
     let Ok(mut gpu) = Gpu::new() else {
         eprintln!("no usable card; nothing to check");
         return;
     };
     for case in expected()["cases"].as_object().unwrap().values() {
         let loaded = persist::load_str(&read(case["project"].as_str().unwrap())).unwrap();
-        let mut log = FrameLog::new(8);
+        let project = loaded.document.project();
         let mut cache = CelCache::viewer();
-        preview::preview_frame_srgb8(
-            loaded.document.project(),
+        let mut log = FrameLog::new(8);
+        let cpu = preview::preview_frame_cached(
+            project, &Id::new("comp-main"), 0, &dir(), PreviewQuality::Full, 4, &mut log, &mut cache,
+        )
+        .expect("the CPU frame draws")
+        .to_srgb8_straight();
+        let mut log = FrameLog::new(8);
+        let (card, ..) = preview::preview_frame_srgb8(
+            project,
             &Id::new("comp-main"),
             0,
-            std::path::Path::new("."),
+            &dir(),
             PreviewQuality::Full,
             4,
             &mut log,
@@ -162,11 +169,11 @@ fn the_card_hands_them_to_the_cpu() {
         )
         .expect("the frame draws");
         assert!(
-            log.finish()
-                .iter()
-                .any(|d| d.id == DiagnosticId::GpuPreviewOnCpu),
-            "{}: drawn on the CPU",
+            !log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu),
+            "{}: drawn on the card",
             case["mode"]
         );
+        let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+        assert!(worst <= 1, "{}: the card within 1 level of the CPU, {worst}", case["mode"]);
     }
 }

@@ -133,11 +133,108 @@ fn straight(p: vec4<f32>) -> vec3<f32> {
     return p.xyz / p.w;
 }
 
-// composite::blend_pixel. D-828: `L.blend`'s bit 16 is the T switch,
+// B-748 (D-868): composite::blend_pixel_in's encoded colours, held to 0..1: `L.blend`'s bit 32
+// says the sum is in display values already (8 bpc, D-763), so neither curve is taken.
+fn encoded(c: vec3<f32>) -> vec3<f32> {
+    let v = clamp(c, vec3(0.0), vec3(1.0));
+    if (L.blend & 32u) != 0u {
+        return v;
+    }
+    return vec3(srgb(v.x), srgb(v.y), srgb(v.z));
+}
+
+fn linear1(c: f32) -> f32 {
+    if c <= 0.04045 {
+        return c / 12.92;
+    }
+    return pow((c + 0.055) / 1.055, 2.4);
+}
+
+fn decoded(c: vec3<f32>) -> vec3<f32> {
+    if (L.blend & 32u) != 0u {
+        return c;
+    }
+    return vec3(linear1(c.x), linear1(c.y), linear1(c.z));
+}
+
+// grade::noise_mixer, the backdrop `b` first: Overlay 4, Soft Light 5, Hard Light 6, Darken 7,
+// Lighten 8, Difference 9.
+fn mixer(m: u32, b: f32, c: f32) -> f32 {
+    switch m {
+        case 4u: { return select(1.0 - 2.0 * (1.0 - b) * (1.0 - c), 2.0 * b * c, b <= 0.5); }
+        case 5u: {
+            if c <= 0.5 {
+                return b - (1.0 - 2.0 * c) * b * (1.0 - b);
+            }
+            var e = sqrt(b);
+            if b <= 0.25 {
+                e = ((16.0 * b - 12.0) * b + 4.0) * b;
+            }
+            return b + (2.0 * c - 1.0) * (e - b);
+        }
+        case 6u: { return select(1.0 - 2.0 * (1.0 - b) * (1.0 - c), 2.0 * b * c, c <= 0.5); }
+        case 7u: { return min(b, c); }
+        case 8u: { return max(b, c); }
+        default: { return abs(b - c); }
+    }
+}
+
+// grade::noise_whole, the W3C's: Hue 10, Saturation 11, Color 12, Luminosity 13.
+fn lum(c: vec3<f32>) -> f32 {
+    return 0.3 * c.x + 0.59 * c.y + 0.11 * c.z;
+}
+
+fn set_lum(c0: vec3<f32>, l0: f32) -> vec3<f32> {
+    var c = c0 + vec3(l0 - lum(c0));
+    let l = lum(c);
+    let n = min(min(c.x, c.y), c.z);
+    let x = max(max(c.x, c.y), c.z);
+    if n < 0.0 && l > n {
+        c = vec3(l) + (c - vec3(l)) * l / (l - n);
+    }
+    if x > 1.0 && x > l {
+        c = vec3(l) + (c - vec3(l)) * (1.0 - l) / (x - l);
+    }
+    return c;
+}
+
+fn sat(c: vec3<f32>) -> f32 {
+    return max(max(c.x, c.y), c.z) - min(min(c.x, c.y), c.z);
+}
+
+fn set_sat(c: vec3<f32>, s: f32) -> vec3<f32> {
+    let n = min(min(c.x, c.y), c.z);
+    let x = max(max(c.x, c.y), c.z);
+    if x > n {
+        return (c - vec3(n)) * s / (x - n);
+    }
+    return vec3(0.0);
+}
+
+fn whole(m: u32, b: vec3<f32>, s: vec3<f32>) -> vec3<f32> {
+    switch m {
+        case 10u: { return set_lum(set_sat(s, sat(b)), lum(b)); }
+        case 11u: { return set_lum(set_sat(b, sat(s)), lum(b)); }
+        case 12u: { return set_lum(s, lum(b)); }
+        default: { return set_lum(b, lum(s)); }
+    }
+}
+
+// composite::blend_pixel_in. D-828: `L.blend`'s bit 16 is the T switch,
 // composite::blend_pixel_kept: the `(1-Ad)*Cs` term is taken back off and the alpha beneath kept.
+// B-748 (D-868): every mode: Normal 0, Multiply 1, Screen 2, Add 3, the encoded ones 4 to 13,
+// and the stencils, Alpha 14 and Luma 15, which keep what is under them by a share.
 fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
     var out: vec4<f32>;
     let mode = L.blend & 15u;
+    if mode == 14u {
+        return d * s.w;
+    }
+    if mode == 15u {
+        // Its picture luma, its colour over black, encoded as a Luma matte reads one.
+        let luma = clamp(0.2126 * s.x + 0.7152 * s.y + 0.0722 * s.z, 0.0, 1.0);
+        return d * encoded(vec3(luma)).x;
+    }
     if mode == 0u {
         out = s + d * (1.0 - s.w);
     } else {
@@ -147,11 +244,17 @@ fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
         switch mode {
             case 1u: { b = cs * cd; }
             case 2u: { b = cs + cd - cs * cd; }
-            default: { b = min(cs + cd, vec3(1.0)); }
+            case 3u: { b = min(cs + cd, vec3(1.0)); }
+            case 10u, 11u, 12u, 13u: { b = decoded(whole(mode, encoded(cd), encoded(cs))); }
+            default: {
+                let eb = encoded(cd);
+                let ec = encoded(cs);
+                b = decoded(vec3(mixer(mode, eb.x, ec.x), mixer(mode, eb.y, ec.y), mixer(mode, eb.z, ec.z)));
+            }
         }
-        // D-874: bit 32 is D-319's Float, composite::blend_pixel_in's: Add is not held to 1
+        // D-874: bit 64 is D-319's Float, composite::blend_pixel_in's: Add is not held to 1
         // and Screen takes the brighter where both are past white.
-        if (L.blend & 32u) != 0u {
+        if (L.blend & 64u) != 0u {
             if mode == 3u { b = cs + cd; }
             if mode == 2u { b = select(b, max(cs, cd), cs > vec3(1.0) & cd > vec3(1.0)); }
         }
@@ -24423,18 +24526,39 @@ impl Gpu {
                 "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira, HSV Key, Colour Key, Select Colour and Line Recolour stay the CPU's.".into(),
             ));
         }
-        // D-301, D-748: every mode after add is the CPU's.
-        // ponytail: a frame with one draws on the CPU; give the layer shader them if it is slow.
+        // B-748 (D-868): the card draws every mode, but a stencil that has collapsed to nothing,
+        // which clears the whole frame beneath on the CPU, is skipped by the card's loop.
         if plan.layers.iter().any(|l| {
-            !matches!(
-                l.blend,
-                BlendMode::Normal | BlendMode::Multiply | BlendMode::Screen | BlendMode::Add
-            )
+            matches!(l.blend, BlendMode::StencilAlpha | BlendMode::StencilLuma)
+                && (l.transform.invert().is_none()
+                    || l.source.width() == 0
+                    || l.source.height() == 0
+                    || l.matte.as_ref().is_some_and(|m| {
+                        m.transform.invert().is_none()
+                            || m.source.width() == 0
+                            || m.source.height() == 0
+                    }))
         }) {
             return Some(on_cpu(
                 Severity::Info,
-                "The CPU drew this frame: a layer has a blend mode the GPU does not draw.".into(),
-                "D-301's and D-748's modes (all but Normal, Multiply, Screen and Add) are drawn on the CPU only.".into(),
+                "The CPU drew this frame: a stencil layer has collapsed to nothing.".into(),
+                "D-301: a stencil that cannot be placed clears the frame beneath; the card leaves that to the CPU (B-748).".into(),
+            ));
+        }
+        // D-874 with B-748: in Float the card draws only Normal, Multiply, Screen and Add; the
+        // other modes' Float sums are not checked against the CPU's, so they stay the CPU's.
+        if plan.float
+            && plan.layers.iter().any(|l| {
+                !matches!(
+                    l.blend,
+                    BlendMode::Normal | BlendMode::Multiply | BlendMode::Screen | BlendMode::Add
+                )
+            })
+        {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw.".into(),
+                "D-874 draws Float's Normal, Multiply, Screen and Add on the card; B-748's other modes are drawn there in 8 and 16 bpc only.".into(),
             ));
         }
         // D-297: an adjustment layer in a blend mode other than normal is the CPU's.
@@ -25198,7 +25322,10 @@ impl Gpu {
                 // of the four modes, so only the box is dispatched. A box that cannot be
                 // computed is the whole frame, as it is in `render_tile`.
                 // B-156b: a motion-blurred layer's average is the frame's size.
-                let (l, t, r, b) = if layer.moments.is_empty() {
+                // B-748 (D-868): a stencil clears what is under it where it is empty, so it is
+                // dispatched over the whole frame, as `render_layers` reaches every tile with it.
+                let stencil = matches!(layer.blend, BlendMode::StencilAlpha | BlendMode::StencilLuma);
+                let (l, t, r, b) = if layer.moments.is_empty() && !stencil {
                     bounds(layer)
                 } else {
                     (0.0, 0.0, width as f64, height as f64)
@@ -25223,15 +25350,28 @@ impl Gpu {
                     (m0.0, m0.1, i.a, i.b, i.c, i.d)
                 });
                 let f = |v: f64| (v as f32).to_bits();
-                // D-874: bit 32 is Float's Add and Screen.
-                let blend = u32::from(plan.float) << 5 | u32::from(layer.preserve) << 4 | match layer.blend {
-                    BlendMode::Normal => 0,
-                    BlendMode::Multiply => 1,
-                    BlendMode::Screen => 2,
-                    BlendMode::Add => 3,
-                    // D-301, D-748: refused above.
-                    _ => 0,
-                };
+                // B-748 (D-868): the shader's mode numbers, bit 32 for an 8 bpc sum; D-874: bit 64 for Float.
+                let blend = u32::from(plan.float) << 6
+                    | u32::from(plan.display) << 5
+                    | u32::from(layer.preserve) << 4
+                    | match layer.blend {
+                        BlendMode::Normal => 0,
+                        BlendMode::Multiply => 1,
+                        BlendMode::Screen => 2,
+                        BlendMode::Add => 3,
+                        BlendMode::Overlay => 4,
+                        BlendMode::SoftLight => 5,
+                        BlendMode::HardLight => 6,
+                        BlendMode::Darken => 7,
+                        BlendMode::Lighten => 8,
+                        BlendMode::Difference => 9,
+                        BlendMode::Hue => 10,
+                        BlendMode::Saturation => 11,
+                        BlendMode::Color => 12,
+                        BlendMode::Luminosity => 13,
+                        BlendMode::StencilAlpha => 14,
+                        BlendMode::StencilLuma => 15,
+                    };
                 let mut numbers = [
                     f(s0.0),
                     f(s0.1),

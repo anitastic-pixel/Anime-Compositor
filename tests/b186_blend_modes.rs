@@ -167,10 +167,10 @@ fn a_stencil_keeps_the_backdrop_only_where_it_is() {
     );
 }
 
-/// The card does not draw these four, so a frame with one is drawn on the CPU and says so, and
-/// the viewer shows the same picture as the export.
+/// B-748 (D-868): the card draws all five, within 1 level of 255 of the CPU's picture, so the
+/// viewer shows the export's picture.
 #[test]
-fn the_card_hands_them_to_the_cpu() {
+fn the_card_draws_them_as_the_cpu_does() {
     let Ok(mut gpu) = Gpu::new() else {
         eprintln!("no usable card; nothing to check");
         return;
@@ -187,10 +187,18 @@ fn the_card_hands_them_to_the_cpu() {
             solid("top", [1.0; 3], 8, 1.0, mode),
         ]))
         .expect("the shot reads");
-        let mut log = FrameLog::new(8);
+        let project = loaded.document.project();
         let mut cache = CelCache::viewer();
-        preview::preview_frame_srgb8(
-            loaded.document.project(),
+        let mut log = FrameLog::new(8);
+        let cpu = preview::preview_frame_cached(
+            project, &Id::new(MAIN), 0, std::path::Path::new("."), PreviewQuality::Full, 4, &mut log,
+            &mut cache,
+        )
+        .expect("the CPU frame draws")
+        .to_srgb8_straight();
+        let mut log = FrameLog::new(8);
+        let (card, ..) = preview::preview_frame_srgb8(
+            project,
             &Id::new(MAIN),
             0,
             std::path::Path::new("."),
@@ -205,11 +213,9 @@ fn the_card_hands_them_to_the_cpu() {
             .finish()
             .iter()
             .any(|d| d.id == DiagnosticId::GpuPreviewOnCpu);
-        assert_eq!(
-            on_cpu,
-            mode != "multiply",
-            "{mode}: drawn on the CPU only if the card cannot"
-        );
+        assert!(!on_cpu, "{mode}: drawn on the card");
+        let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
+        assert!(worst <= 1, "{mode}: the card within 1 level of the CPU, {worst}");
     }
 }
 

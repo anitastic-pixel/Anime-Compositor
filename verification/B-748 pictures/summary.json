@@ -1,0 +1,50 @@
+{
+  "project": "C:\\Users\\Andrew\\AppData\\Local\\Temp\\claude\\I--AI-Coding-Claude-TotallyNotAfterEffects\\30557f80-0128-4a80-8e2f-d575d9738633\\scratchpad\\wave8\\w8d\\proj\\ref_L10.json",
+  "exe": "I:\\AI Coding\\Claude\\TotallyNotAfterEffects\\target\\lanes\\w9c\\release\\anime_compositor_app.exe",
+  "exe_written": "2026-10-25T17:53:45",
+  "port": 52182,
+  "started": "2026-10-25T17:54:11",
+  "shots": [
+    {
+      "name": "frame_0030_cpu",
+      "ms": 543,
+      "drawn_on": "CPU",
+      "error": null
+    },
+    {
+      "name": "frame_0030_card",
+      "ms": 639,
+      "drawn_on": "GPU",
+      "error": null
+    }
+  ],
+  "differences": [
+    {
+      "frame": 30,
+      "r": {
+        "max": 1,
+        "mean": 0.0076
+      },
+      "g": {
+        "max": 1,
+        "mean": 0.0078
+      },
+      "b": {
+        "max": 1,
+        "mean": 0.0053
+      },
+      "a": {
+        "max": 0,
+        "mean": 0.0
+      },
+      "solid": {
+        "max": 1
+      }
+    }
+  ],
+  "ready_ms": 3102,
+  "switch_cpu": "The preview is drawn on the CPU.",
+  "switch_card": "The preview is drawn on the graphics card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so.",
+  "temp_folder_removed": true,
+  "total_ms": 7977
+}

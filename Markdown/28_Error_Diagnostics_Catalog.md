@@ -86,7 +86,7 @@ Added 2026-10-15. D-101 (document 14, accepted 2026-09-27 under D-167) keeps the
 
 | ID | Severity | Meaning | Required behavior |
 |---|---|---|---|
-| GPU_PREVIEW_ON_CPU | INFO or WARNING | The viewer asked the graphics card for a frame (B-44) and the CPU drew it instead (D-101) | draw the same frame on the CPU and say why, never a quiet switch; INFO when the reason is the project's (for example an adjustment layer, a picture larger than the card's texture limit, a blend mode the card does not draw), WARNING when the card failed ("The CPU drew this frame: the graphics card failed.", with the remedy to switch the preview back to CPU or to Draft); the words go to the session log and the frame's reply, and the viewer's label reads "drawn on CPU, not GPU"; raised in `src/gpu.rs` |
+| GPU_PREVIEW_ON_CPU | INFO or WARNING | The viewer asked the graphics card for a frame (B-44) and the CPU drew it instead (D-101) | draw the same frame on the CPU and say why, never a quiet switch; INFO when the reason is the project's (for example an adjustment layer, a picture larger than the card's texture limit, a blend mode other than Normal, Multiply, Screen or Add in Float depth (D-874), a Stencil Alpha or Stencil Luma layer scaled to nothing, B-748), WARNING when the card failed ("The CPU drew this frame: the graphics card failed.", with the remedy to switch the preview back to CPU or to Draft); the words go to the session log and the frame's reply, and the viewer's label reads "drawn on CPU, not GPU"; raised in `src/gpu.rs` |
 
 ## Missing/unsupported render fallback
 
