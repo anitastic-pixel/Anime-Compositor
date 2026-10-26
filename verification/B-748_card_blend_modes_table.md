@@ -99,37 +99,53 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | stencil_luma, 8 bpc, Preserve Transparency on | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | stencil_alpha scaled to nothing | the card refuses it, so the CPU draws it; the CPU's frame is clear | yes |
 | stencil_luma scaled to nothing | the card refuses it, so the CPU draws it; the CPU's frame is clear | yes |
+| normal, Float | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| darken, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| multiply, Float | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| add, Float | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| lighten, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| screen, Float | on the card: 1 frames, 262144 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| overlay, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| soft_light, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| hard_light, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| difference, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| hue, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| saturation, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| color, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| luminosity, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| stencil_alpha, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
+| stencil_luma, Float | the card refused: The CPU drew this frame: in Float a layer has a blend mode the GPU does not draw. | yes |
 
 ## Every fixture project with two layers or more, its upper layers set to one of the twelve modes, first frame, Full
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| color, 8 bpc | on the card: 136 frames, 25828 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| color, 8 bpc | on the card: 137 frames, 25988 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | color, as saved | on the card: 136 frames, 25828 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| darken, 8 bpc | on the card: 135 frames, 25932 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| darken, 8 bpc | on the card: 136 frames, 26092 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | darken, as saved | on the card: 136 frames, 26092 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| difference, 8 bpc | on the card: 136 frames, 2104728 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| difference, 8 bpc | on the card: 138 frames, 2104936 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | difference, as saved | on the card: 137 frames, 2104776 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| hard_light, 8 bpc | on the card: 135 frames, 2103024 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| hard_light, 8 bpc | on the card: 136 frames, 2103184 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | hard_light, as saved | on the card: 136 frames, 2103184 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| hue, 8 bpc | on the card: 132 frames, 30748 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| hue, 8 bpc | on the card: 135 frames, 31004 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | hue, as saved | on the card: 135 frames, 31004 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| lighten, 8 bpc | on the card: 138 frames, 26264 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| lighten, 8 bpc | on the card: 140 frames, 26584 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | lighten, as saved | on the card: 140 frames, 26584 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| luminosity, 8 bpc | on the card: 134 frames, 25500 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| luminosity, 8 bpc | on the card: 136 frames, 25820 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | luminosity, as saved | on the card: 135 frames, 25660 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| overlay, 8 bpc | on the card: 136 frames, 4176872 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| overlay, 8 bpc | on the card: 138 frames, 4177192 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | overlay, as saved | on the card: 138 frames, 4177192 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| saturation, 8 bpc | on the card: 133 frames, 29664 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| saturation, 8 bpc | on the card: 135 frames, 29872 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | saturation, as saved | on the card: 134 frames, 29712 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| soft_light, 8 bpc | on the card: 137 frames, 2103592 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| soft_light, 8 bpc | on the card: 138 frames, 2103752 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | soft_light, as saved | on the card: 138 frames, 2103752 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| stencil_alpha, 8 bpc | on the card: 133 frames, 2098896 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| stencil_alpha, 8 bpc | on the card: 135 frames, 2099216 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | stencil_alpha, as saved | on the card: 135 frames, 2099216 pixels: largest 1, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| stencil_luma, 8 bpc | on the card: 128 frames, 24544 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
+| stencil_luma, 8 bpc | on the card: 130 frames, 24752 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
 | stencil_luma, as saved | on the card: 130 frames, 24752 pixels: largest 0, 0 over 1, 0 over 2, 100.0000% within 1 | yes |
-| 1718 fixture projects | 193 frames the card refused, 193 of them the CPU's exactly | yes |
+| 1718 fixture projects | 172 frames the card refused, 172 of them the CPU's exactly | yes |
 
 ## Result
 
-113 of 113 checks pass.
+129 of 129 checks pass.

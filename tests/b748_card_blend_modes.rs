@@ -320,6 +320,31 @@ fn b748_card_blend_modes() {
         );
     }
 
+    // D-874 with B-748: in Float the card draws the four modes D-874 checked; the twelve others
+    // are refused there, so the CPU draws them.
+    for mode in BlendMode::ALL {
+        let plan = FramePlan {
+            width: 512,
+            height: 512,
+            float: true,
+            display: false,
+            layers: vec![
+                layer("under", backdrop.clone(), Affine::IDENTITY, 1.0, BlendMode::Normal, false),
+                layer("top", top.clone(), Affine::translation(100.0, 100.0), 0.7, mode, false),
+            ],
+        };
+        let core = CORE.contains(&mode.as_str());
+        let what = format!("{}, Float", mode.as_str());
+        match gpu.draw(&plan, &CelCache::viewer()) {
+            Ok(card) => {
+                let mut s = Stats::default();
+                s.add(&render::render(&plan, DEFAULT_TILE_SIZE).to_srgb8_straight(), &card);
+                t.row(&what, &format!("on the card: {}", s.text()), core && s.ok());
+            }
+            Err(d) => t.row(&what, &format!("the card refused: {}", d.message), !core),
+        }
+    }
+
     // 3. Every fixture with two layers or more, its upper layers in one of the twelve modes.
     t.heading("Every fixture project with two layers or more, its upper layers set to one of the twelve modes, first frame, Full");
     let new: Vec<BlendMode> = BlendMode::ALL.into_iter().filter(|m| !CORE.contains(&m.as_str())).collect();
