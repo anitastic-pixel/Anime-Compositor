@@ -15,11 +15,14 @@ H at n:
    outside the layer's in and out points gives an empty picture. P_k lies on the drawing corner
    to corner and is cut to W by H, transparent outside it.
 3. Q_k = I D^k P_k, all four numbers, with I = intensity and D = decay (D^0 = 1).
-4. The operator makes R from Q_0 to Q_N, all four numbers each: `add` min(1, sum); `maximum` and
-   `minimum` the largest and smallest; `screen` 1 - product of (1 - clamp(Q, 0, 1));
+4. The operator makes R from Q_0 to Q_N, all four numbers each: `add` min(1, sum); `maximum` the
+   largest; `minimum` (D-891), over the Q_k whose covering is above 0 only, the smallest straight
+   colour Q_k / Q_k's covering, channel by channel, times the largest covering, and transparent
+   where no Q_k covers; `screen` 1 - product of (1 - clamp(Q, 0, 1));
    `composite_in_back` Q_N over ... over Q_0, the present at the back and each echo farther
    forward, the furthest on top; `composite_in_front` Q_0 over Q_1 over ... over Q_N, the present
-   in front (D-768, as Adobe's manual and After Effects); `blend` sum / (N + 1). Here a over b is
+   in front (D-768, as Adobe's manual and After Effects); `blend` as `add` (D-891: After Effects
+   draws its Blend as light as its Add, though the manual says it averages). Here a over b is
    a + (1 - a's covering) b.
 5. The output is R with its top-left pixel at (ox, oy), transparent elsewhere: what effects
    before Echo made is replaced. The bounds do not grow.
@@ -118,7 +121,14 @@ def combine(qs, operator):
         elif operator == "maximum":
             r = [max(v) for v in zip(*px)]
         elif operator == "minimum":
-            r = [min(v) for v in zip(*px)]
+            # D-891: the smallest straight colour of the copies that cover the pixel at all,
+            # covering the largest; a copy that covers nothing is left out.
+            seen = [q for q in px if q[3] > 0]
+            if not seen:
+                r = [0.0, 0.0, 0.0, 0.0]
+            else:
+                a = max(q[3] for q in seen)
+                r = [min(q[ch] / q[3] for q in seen) * a for ch in range(3)] + [a]
         elif operator == "screen":
             r = []
             for v in zip(*px):
@@ -135,7 +145,7 @@ def combine(qs, operator):
             for q in px[1:]:
                 r = over(q, r)
         elif operator == "blend":
-            r = [sum(v) / len(px) for v in zip(*px)]
+            r = [min(1.0, sum(v)) for v in zip(*px)]  # D-891: as `add`
         else:
             raise AssertionError(operator)
         out.append(r)
@@ -201,7 +211,8 @@ CASES = {
                     case(echo_time=-2, echoes=2), (4,)),
     "FX-ECHO-007": ("Three echoes, decay 0.7, Maximum.",
                     case(echoes=3, decay=0.7, operator="maximum"), (4,)),
-    "FX-ECHO-008": ("One echo, Minimum: only where drawings 4 and 3 overlap is anything left.",
+    "FX-ECHO-008": ("One echo, Minimum (D-891): both drawings' covering, the smaller colour "
+                    "where they overlap.",
                     case(operator="minimum"), (3,)),
     "FX-ECHO-009": ("Three echoes, decay 0.7, Screen.",
                     case(echoes=3, decay=0.7, operator="screen"), (4,)),
@@ -209,7 +220,7 @@ CASES = {
                     case(echoes=3, decay=0.7, operator="composite_in_back"), (4,)),
     "FX-ECHO-011": ("Three echoes, decay 0.7, Composite In Front: the present ball in front.",
                     case(echoes=3, decay=0.7, operator="composite_in_front"), (4,)),
-    "FX-ECHO-012": ("Three echoes, Blend: the four drawings averaged.",
+    "FX-ECHO-012": ("Three echoes, Blend (D-891): as Add, the four drawings summed and held at 1.",
                     case(echoes=3, operator="blend"), (4,)),
     "FX-ECHO-013": ("The layer's in point at frame 2, three echoes: at frame 3 its drawings 2 and "
                     "1; frames 1 and 0 are before it, empty.", case(echoes=3, start=2), (3,)),
@@ -331,9 +342,12 @@ def check(expected):
     assert near(c["FX-ECHO-005"]["6"], add(drawn(6), drawn(7)))
     assert near(c["FX-ECHO-006"]["4"], add(drawn(4), drawn(2), drawn(0)))
     assert c["FX-ECHO-016"]["4"] == c["FX-ECHO-006"]["4"]
-    # Minimum: only the two columns where drawings 4 and 3 meet keep anything.
+    # D-891. Minimum: drawings 4 and 3 both cover, columns 4 to 9; where both are whole the
+    # smaller colour, drawing 3's green with drawing 4's blue.
     kept = {x for y in range(H) for x in range(W) if c["FX-ECHO-008"]["3"][y * W + x] != CLEAR}
-    assert kept == {6, 7}, kept
+    assert kept == set(range(4, 10)), kept
+    d3, d4 = drawn(2)[2 * W + 7], drawn(3)[2 * W + 7]  # frames 2 and 3 show drawings 3 and 4
+    assert near([c["FX-ECHO-008"]["3"][2 * W + 7]], [[min(d3[0], d4[0]), d3[1], d4[2], 1.0]])
     # D-768. Composite In Front: the present ball whole on top. In Back: the oldest echo, frame
     # 1's drawing 2, alone in columns 2 and 3, and over frame 2's in column 5, where In Front has
     # frame 2's over it.
@@ -349,8 +363,7 @@ def check(expected):
         assert oldest[i][3] > 0.3 and next_[i][3] > 0.4
         assert near([c["FX-ECHO-010"]["4"][i]], [over(oldest[i], next_[i])])
         assert near([c["FX-ECHO-011"]["4"][i]], [over(next_[i], oldest[i])])
-    assert near(c["FX-ECHO-012"]["4"], [[sum(v) / 4 for v in zip(*px)]
-                                        for px in zip(drawn(4), drawn(3), drawn(2), drawn(1))])
+    assert near(c["FX-ECHO-012"]["4"], add(drawn(4), drawn(3), drawn(2), drawn(1)))
     late = lambda f: plain(case(start=2), f)  # noqa: E731
     assert near(c["FX-ECHO-013"]["3"], add(late(3), late(2)))
     twos = lambda f: plain(case(spans=TWOS), f)  # noqa: E731

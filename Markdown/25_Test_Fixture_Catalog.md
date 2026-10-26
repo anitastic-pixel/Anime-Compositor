@@ -191466,7 +191466,9 @@ D-195, accepted on 2026-09-28. Every case is a project of one composition 16 by 
 
 **D-768 changed** FX-ECHO-010 and 011 when the owner accepted it on 2026-10-24: Composite In Back now puts the present copy at the back and each echo farther forward, and Composite In Front puts the present copy in front, as Adobe's manual and After Effects do; before, the two were the other way round. D-195's values for the two cases are retired, kept in the repository's history at commit 440cecf0. It moved 18 pixels of each case's frame 4 by at most 0.206 (the two cases exchanged their pictures); every other case is unchanged.
 
-**Checked by what they claim.** The tool checks that no echoes at full intensity and the adjustment layer leave the drawing exactly (002, 021), and frame 0 of the first case, whose echo is before the layer (001); that Add is the sum of the named drawings held at 1 (001, 004, 005, 006, 013, 014, 022); that half intensity halves (003); that Minimum keeps only the two columns where two drawings meet (008); that Composite In Front has the present ball whole on top and In Back the oldest copy over the next (011, 010); that Blend is the average (012); that a part frame and a part echo count as the whole below (015, 016); that an Exposure before the Echo is not seen and one after it darkens all (017, 018); that the mask keeps nothing right of column 6 (019); that the moved holder is 001 moved (020); that keyed intensity 0 leaves nothing (023); and that every number of every case is between 0 and 1 with colour no more than covering.
+**D-891 changed** FX-ECHO-008 and 012 when the owner's instruction of 2026-10-26 accepted it: Minimum now takes, over the copies that cover a pixel at all, the smallest straight colour channel by channel at the largest covering, where it took the smallest premultiplied number and so lost every pixel one copy missed; and Blend now draws as Add, the copies summed and held at 1, where it averaged them. D-195's values for the two cases are retired, kept in the repository's history at commit b3c01d7e. FX-ECHO-008's frame 3 moved 15 pixels by at most 1.0 (the trail's pixels that were clear are now drawn); FX-ECHO-012's frame 4 moved 30 pixels by at most 0.75. Every other case is unchanged.
+
+**Checked by what they claim.** The tool checks that no echoes at full intensity and the adjustment layer leave the drawing exactly (002, 021), and frame 0 of the first case, whose echo is before the layer (001); that Add is the sum of the named drawings held at 1 (001, 004, 005, 006, 013, 014, 022); that half intensity halves (003); that Minimum covers both drawings' columns and, where both are whole, takes the smaller straight colour channel by channel (008); that Composite In Front has the present ball whole on top and In Back the oldest copy over the next (011, 010); that Blend is Add's sum held at 1 (012); that a part frame and a part echo count as the whole below (015, 016); that an Exposure before the Echo is not seen and one after it darkens all (017, 018); that the mask keeps nothing right of column 6 (019); that the moved holder is 001 moved (020); that keyed intensity 0 leaves nothing (023); and that every number of every case is between 0 and 1 with colour no more than covering.
 
 FX-ECHO-001: As added: one echo, one frame back, starting intensity and decay 1, Add. At frame 0 the frame before is outside the layer, so only the ball; at frame 2 drawings 3 and 2 added, brighter where they overlap; at frame 5 drawing 5, held, added to itself.
 
@@ -191735,33 +191737,36 @@ Row 3, the 8 pixels that change:
 | 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.5539086 0.4373921 0.02232722 0.7 |
 | 9 | 0.7912979 0.8713671 0.00303527 1 | 0.7912979 0.8713671 0.02232722 1 |
 
-FX-ECHO-008: One echo, Minimum: only where drawings 4 and 3 overlap is anything left.
+FX-ECHO-008: One echo, Minimum (D-891): both drawings' covering, the smaller colour where they overlap.
 
 Frame 3:
 
-Row 1, the 3 pixels that change:
+Row 1, the 4 pixels that change:
 
 | x | drawing | echoed |
 | --- | --- | --- |
+| 4 | 0 0 0 0 | 0.3972005 0.1764556 0.05132134 0.5019608 |
+| 5 | 0 0 0 0 | 0.7912979 0.3515326 0.1022417 1 |
+| 6 | 0.3972005 0.2899227 0.01601056 0.5019608 | 0.7912979 0.3515326 0.03189603 1 |
 | 7 | 0.7912979 0.5775804 0.03189603 1 | 0.7912979 0.3515326 0.03189603 1 |
-| 8 | 0.7912979 0.5775804 0.03189603 1 | 0 0 0 0 |
-| 9 | 0.7912979 0.5775804 0.03189603 1 | 0 0 0 0 |
 
-Row 2, the 3 pixels that change:
+Row 2, the 4 pixels that change:
 
 | x | drawing | echoed |
 | --- | --- | --- |
+| 4 | 0 0 0 0 | 0.3972005 0.1764556 0.05132134 0.5019608 |
+| 5 | 0 0 0 0 | 0.7912979 0.3515326 0.1022417 1 |
+| 6 | 0.3972005 0.2899227 0.01601056 0.5019608 | 0.7912979 0.3515326 0.03189603 1 |
 | 7 | 0.7912979 0.5775804 0.03189603 1 | 0.7912979 0.3515326 0.03189603 1 |
-| 8 | 0.7912979 0.5775804 0.03189603 1 | 0 0 0 0 |
-| 9 | 0.7912979 0.5775804 0.03189603 1 | 0 0 0 0 |
 
-Row 3, the 3 pixels that change:
+Row 3, the 4 pixels that change:
 
 | x | drawing | echoed |
 | --- | --- | --- |
+| 4 | 0 0 0 0 | 0.3972005 0.1764556 0.05132134 0.5019608 |
+| 5 | 0 0 0 0 | 0.7912979 0.3515326 0.1022417 1 |
+| 6 | 0.3972005 0.2899227 0.01601056 0.5019608 | 0.7912979 0.3515326 0.03189603 1 |
 | 7 | 0.7912979 0.5775804 0.03189603 1 | 0.7912979 0.3515326 0.03189603 1 |
-| 8 | 0.7912979 0.5775804 0.03189603 1 | 0 0 0 0 |
-| 9 | 0.7912979 0.5775804 0.03189603 1 | 0 0 0 0 |
 
 FX-ECHO-009: Three echoes, decay 0.7, Screen.
 
@@ -191895,54 +191900,48 @@ Row 3, the 7 pixels that change:
 | 7 | 0 0 0 0 | 0.6702294 0.4559816 0.03735676 0.847 |
 | 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.6730687 0.6387525 0.01264342 0.8505882 |
 
-FX-ECHO-012: Three echoes, Blend: the four drawings averaged.
+FX-ECHO-012: Three echoes, Blend (D-891): as Add, the four drawings summed and held at 1.
 
 Frame 4:
 
-Row 1, the 10 pixels that change:
+Row 1, the 8 pixels that change:
 
 | x | drawing | echoed |
 | --- | --- | --- |
-| 2 | 0 0 0 0 | 0.09930013 0.02356967 0.02801292 0.1254902 |
-| 3 | 0 0 0 0 | 0.1978245 0.04695519 0.05580699 0.25 |
-| 4 | 0 0 0 0 | 0.2971246 0.09106909 0.06863732 0.3754902 |
-| 5 | 0 0 0 0 | 0.395649 0.1348383 0.08136742 0.5 |
-| 6 | 0 0 0 0 | 0.2971246 0.1603638 0.02956307 0.3754902 |
-| 7 | 0 0 0 0 | 0.395649 0.2322783 0.03353444 0.5 |
-| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.2971246 0.2537431 0.008354905 0.3754902 |
-| 9 | 0.7912979 0.8713671 0.00303527 1 | 0.395649 0.3622369 0.008732826 0.5 |
-| 10 | 0.7912979 0.8713671 0.00303527 1 | 0.1978245 0.2178418 0.0007588175 0.25 |
-| 11 | 0.7912979 0.8713671 0.00303527 1 | 0.1978245 0.2178418 0.0007588175 0.25 |
+| 2 | 0 0 0 0 | 0.3972005 0.09427866 0.1120517 0.5019608 |
+| 3 | 0 0 0 0 | 0.7912979 0.1878208 0.223228 1 |
+| 4 | 0 0 0 0 | 1 0.3642764 0.2745493 1 |
+| 5 | 0 0 0 0 | 1 0.5393534 0.3254697 1 |
+| 6 | 0 0 0 0 | 1 0.6414553 0.1182523 1 |
+| 7 | 0 0 0 0 | 1 0.929113 0.1341378 1 |
+| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 1 1 0.03341962 1 |
+| 9 | 0.7912979 0.8713671 0.00303527 1 | 1 1 0.0349313 1 |
 
-Row 2, the 10 pixels that change:
+Row 2, the 8 pixels that change:
 
 | x | drawing | echoed |
 | --- | --- | --- |
-| 2 | 0 0 0 0 | 0.09930013 0.02356967 0.02801292 0.1254902 |
-| 3 | 0 0 0 0 | 0.1978245 0.04695519 0.05580699 0.25 |
-| 4 | 0 0 0 0 | 0.2971246 0.09106909 0.06863732 0.3754902 |
-| 5 | 0 0 0 0 | 0.395649 0.1348383 0.08136742 0.5 |
-| 6 | 0 0 0 0 | 0.2971246 0.1603638 0.02956307 0.3754902 |
-| 7 | 0 0 0 0 | 0.395649 0.2322783 0.03353444 0.5 |
-| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.2971246 0.2537431 0.008354905 0.3754902 |
-| 9 | 0.7912979 0.8713671 0.00303527 1 | 0.395649 0.3622369 0.008732826 0.5 |
-| 10 | 0.7912979 0.8713671 0.00303527 1 | 0.1978245 0.2178418 0.0007588175 0.25 |
-| 11 | 0.7912979 0.8713671 0.00303527 1 | 0.1978245 0.2178418 0.0007588175 0.25 |
+| 2 | 0 0 0 0 | 0.3972005 0.09427866 0.1120517 0.5019608 |
+| 3 | 0 0 0 0 | 0.7912979 0.1878208 0.223228 1 |
+| 4 | 0 0 0 0 | 1 0.3642764 0.2745493 1 |
+| 5 | 0 0 0 0 | 1 0.5393534 0.3254697 1 |
+| 6 | 0 0 0 0 | 1 0.6414553 0.1182523 1 |
+| 7 | 0 0 0 0 | 1 0.929113 0.1341378 1 |
+| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 1 1 0.03341962 1 |
+| 9 | 0.7912979 0.8713671 0.00303527 1 | 1 1 0.0349313 1 |
 
-Row 3, the 10 pixels that change:
+Row 3, the 8 pixels that change:
 
 | x | drawing | echoed |
 | --- | --- | --- |
-| 2 | 0 0 0 0 | 0.09930013 0.02356967 0.02801292 0.1254902 |
-| 3 | 0 0 0 0 | 0.1978245 0.04695519 0.05580699 0.25 |
-| 4 | 0 0 0 0 | 0.2971246 0.09106909 0.06863732 0.3754902 |
-| 5 | 0 0 0 0 | 0.395649 0.1348383 0.08136742 0.5 |
-| 6 | 0 0 0 0 | 0.2971246 0.1603638 0.02956307 0.3754902 |
-| 7 | 0 0 0 0 | 0.395649 0.2322783 0.03353444 0.5 |
-| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 0.2971246 0.2537431 0.008354905 0.3754902 |
-| 9 | 0.7912979 0.8713671 0.00303527 1 | 0.395649 0.3622369 0.008732826 0.5 |
-| 10 | 0.7912979 0.8713671 0.00303527 1 | 0.1978245 0.2178418 0.0007588175 0.25 |
-| 11 | 0.7912979 0.8713671 0.00303527 1 | 0.1978245 0.2178418 0.0007588175 0.25 |
+| 2 | 0 0 0 0 | 0.3972005 0.09427866 0.1120517 0.5019608 |
+| 3 | 0 0 0 0 | 0.7912979 0.1878208 0.223228 1 |
+| 4 | 0 0 0 0 | 1 0.3642764 0.2745493 1 |
+| 5 | 0 0 0 0 | 1 0.5393534 0.3254697 1 |
+| 6 | 0 0 0 0 | 1 0.6414553 0.1182523 1 |
+| 7 | 0 0 0 0 | 1 0.929113 0.1341378 1 |
+| 8 | 0.3972005 0.4373921 0.001523586 0.5019608 | 1 1 0.03341962 1 |
+| 9 | 0.7912979 0.8713671 0.00303527 1 | 1 1 0.0349313 1 |
 
 FX-ECHO-013: The layer's in point at frame 2, three echoes: at frame 3 its drawings 2 and 1; frames 1 and 0 are before it, empty.
 
