@@ -56,7 +56,7 @@ fn with_boxes(
     n: i32,
     q: PreviewQuality,
 ) -> (Response<Vec<u8>>, Vec<u8>, Option<serde_json::Value>) {
-    let r = serve_frame(viewer, export, None, None, Ask::Frame(n), Some(q), None, true);
+    let r = serve_frame(viewer, export, None, None, Ask::Frame(n), Some(q), None, true, None);
     let len: usize = header(&r, "x-boxes").parse().unwrap_or(0);
     let body = r.body().clone();
     let (pixels, outline) = body.split_at(body.len() - len);

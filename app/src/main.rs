@@ -38,7 +38,7 @@
 //! stays free, which is what D-36 wanted it for.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -209,6 +209,9 @@ struct Ram {
     playing: Option<i32>,
     /// What the card is showing in the window, so a frame made ahead on the card can put it back.
     shown: Option<Finished>,
+    /// D-886: the last whole picture sent to the page to keep, as the page has it after the alpha
+    /// view: its `x-sent` number, width, height and bytes.
+    sent: Option<(u64, usize, usize, Vec<u8>)>,
 }
 
 /// What the page is asking for.
@@ -1158,6 +1161,32 @@ fn allow_the_page_to_read_this(
         .header("access-control-expose-headers", "*")
 }
 
+/// The rows of the rectangle `[x, y, w, h]` of an RGBA picture `width` pixels across.
+fn rect_of(pixels: &[u8], width: usize, [x, y, w, h]: [usize; 4]) -> Vec<u8> {
+    (y..y + h)
+        .flat_map(|row| pixels[(row * width + x) * 4..(row * width + x + w) * 4].iter().copied())
+        .collect()
+}
+
+/// D-886: the smallest rectangle `[x, y, w, h]` holding every pixel that differs between two
+/// RGBA pictures of the same size, all 0 when none does.
+fn changed_rect(before: &[u8], after: &[u8], width: usize) -> [usize; 4] {
+    let stride = width * 4;
+    let rows = || before.chunks_exact(stride).zip(after.chunks_exact(stride)).enumerate();
+    let Some(top) = rows().find(|(_, (a, b))| a != b).map(|(y, _)| y) else {
+        return [0; 4];
+    };
+    let bottom = rows().rev().find(|(_, (a, b))| a != b).map_or(top, |(y, _)| y);
+    let (mut left, mut right) = (width, 0);
+    for (_, (a, b)) in rows().skip(top).take(bottom - top + 1) {
+        if let Some(i) = a.iter().zip(b).position(|(p, q)| p != q) {
+            left = left.min(i / 4);
+            right = right.max(a.iter().zip(b).rposition(|(p, q)| p != q).unwrap_or(i) / 4);
+        }
+    }
+    [left, top, right - left + 1, bottom - top + 1]
+}
+
 /// Replace a frame's colour with its own alpha, in place, so the page draws the alpha channel.
 ///
 /// Document 05 line 31 asks for an alpha-only view and document 21 line 97 requires it to be
@@ -1430,7 +1459,7 @@ fn serve_logged(
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
-    serve_frame(viewer, export, session, card, ask, quality, None, false)
+    serve_frame(viewer, export, session, card, ask, quality, None, false, None)
 }
 
 /// B-158 (G8): [`serve_logged`] for the part of the picture on screen. `seen` is the page's
@@ -1446,12 +1475,17 @@ fn serve_seen(
     quality: Option<PreviewQuality>,
     seen: Option<&str>,
 ) -> Response<Vec<u8>> {
-    serve_frame(viewer, export, session, card, ask, quality, seen, false)
+    serve_frame(viewer, export, session, card, ask, quality, seen, false, None)
 }
 
 /// D-885: [`serve_seen`], and with `boxes` the `/boxes` answer for the same snapshot after the
 /// pixels, its length in bytes in `x-boxes`, so the page needs no second ask per frame and the
 /// outline drawn is always the picture's own.
+///
+/// D-886: `have` is the `x-sent` number of the whole picture the page holds, 0 for none. When it
+/// is the last whole picture sent and the size is the same, only the rectangle that differs is
+/// sent, at `x-changed` (`x,y,w,h`, all 0 when nothing differs); otherwise the whole picture.
+/// Either way `x-sent` numbers the whole picture the page will hold once it has drawn this.
 #[allow(clippy::too_many_arguments)]
 fn serve_frame(
     viewer: &Mutex<Viewer>,
@@ -1462,6 +1496,7 @@ fn serve_frame(
     quality: Option<PreviewQuality>,
     seen: Option<&str>,
     boxes: bool,
+    have: Option<u64>,
 ) -> Response<Vec<u8>> {
     // B-158: four finite numbers, and only for a frame asked for by number; anything else is the
     // whole frame. Playback is sent whole.
@@ -1847,13 +1882,7 @@ fn serve_frame(
     let mut pixels = if on_screen {
         Vec::new()
     } else if let Some(p) = part.filter(|_| drawn_part.is_none()) {
-        (p.y..p.y + p.height)
-            .flat_map(|y| {
-                finished.pixels[(y * width + p.x) * 4..(y * width + p.x + p.width) * 4]
-                    .iter()
-                    .copied()
-            })
-            .collect()
+        rect_of(&finished.pixels, width, [p.x, p.y, p.width, p.height])
     } else {
         Arc::try_unwrap(finished.pixels).unwrap_or_else(|kept| kept.to_vec())
     };
@@ -1867,6 +1896,33 @@ fn serve_frame(
     if taken.alpha_only {
         as_alpha_only(&mut pixels);
     }
+    // D-886: compared on the bytes the page would be sent, after the alpha view.
+    let mut changed = None;
+    let sent = have
+        .filter(|_| part.is_none() && !on_screen && pixels.len() == width * height * 4)
+        .map(|have| {
+            static SENT: AtomicU64 = AtomicU64::new(0);
+            let id = SENT.fetch_add(1, Ordering::Relaxed) + 1;
+            let mut ram = taken
+                .ram
+                .lock()
+                .expect("the frame memory lock was poisoned");
+            let whole = std::mem::take(&mut pixels);
+            pixels = match ram
+                .sent
+                .take()
+                .filter(|s| s.0 == have && s.1 == width && s.2 == height)
+            {
+                Some(before) => {
+                    let r = changed_rect(&before.3, &whole, width);
+                    changed = Some(r);
+                    rect_of(&whole, width, r)
+                }
+                None => whole.clone(),
+            };
+            ram.sent = Some((id, width, height, whole));
+            id
+        });
     let ms = began.elapsed().as_secs_f64() * 1000.0;
     if let Some(session) = session.filter(|_| logging) {
         session
@@ -1899,6 +1955,14 @@ fn serve_frame(
             format!("{},{},{},{}", p.x, p.y, p.width, p.height),
         ),
         None => taken.reply,
+    };
+    let reply = match sent {
+        Some(id) => reply.header("x-sent", id.to_string()),
+        None => reply,
+    };
+    let reply = match changed {
+        Some([x, y, w, h]) => reply.header("x-changed", format!("{x},{y},{w},{h}")),
+        None => reply,
     };
     let reply = match outline {
         Some(outline) => {
@@ -2192,6 +2256,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
             frames: FrameCache::with_budget(frame_share()),
             playing: None,
             shown: None,
+            sent: None,
         })),
     })
 }
@@ -2397,6 +2462,7 @@ fn blank(root: PathBuf) -> Viewer {
             frames: FrameCache::with_budget(frame_share()),
             playing: None,
             shown: None,
+            sent: None,
         })),
     }
 }
@@ -18637,6 +18703,8 @@ fn main() {
                             seen.as_deref(),
                             // D-885: the boxes for this frame, after its pixels.
                             parameter(request.uri().query(), "b").as_deref() == Some("1"),
+                            // D-886: the picture the page holds, to send only what changed.
+                            parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
                         );
                         // B-154: while playing, the rest of the loop is made in the background, one
                         // worker at a time.
@@ -18952,3 +19020,8 @@ mod stretched_values;
 #[cfg(test)]
 #[path = "tests/frame_boxes.rs"]
 mod frame_boxes;
+
+/// D-886: a still frame sends only the part that changed, and the page's picture is the whole one.
+#[cfg(test)]
+#[path = "tests/changed_part.rs"]
+mod changed_part;
