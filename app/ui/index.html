@@ -2741,6 +2741,8 @@ function partStillDrawn() {
   const [l, t, r, b] = drawnPart;
   if (f[0] < l || f[1] < t || f[2] > r || f[3] > b) show(FRAMES + '/frame/' + frame + '?q=' + quality);
 }
+// D-885: off while it is PROPOSED; see `show`.
+const BOXES_WITH_FRAME = false;
 async function show(url, keep = true) {
   if (inFlight) {
     if (keep) pending = url;
@@ -2756,7 +2758,10 @@ async function show(url, keep = true) {
     // B-158: a still frame asks for the part on screen; the address the rest of `show` reads
     // stays the one chosen.
     const part = url.includes('/frame/') ? seenPart() : null;
-    const response = await fetch(part ? url + (url.includes('?') ? '&' : '?') + 'v=' + part.join(',') : url);
+    // D-885 (PROPOSED, off): a still frame could bring its own boxes after its pixels, `x-boxes`
+    // bytes of them; measured, the picture waiting for its boxes was no faster, so it is not asked.
+    const extra = [part && 'v=' + part.join(','), BOXES_WITH_FRAME && doc && !playing && url.includes('/frame/') && 'b=1'].filter(Boolean);
+    const response = await fetch(extra.length ? url + (url.includes('?') ? '&' : '?') + extra.join('&') : url);
     if (mine !== generation) return;
     if (!drawnWhenBack(url, pending, restless())) return;
     if (!response.ok) {
@@ -2770,7 +2775,10 @@ async function show(url, keep = true) {
     const width = +h.get('x-width'), height = +h.get('x-height');
     // B-45: already in the window, under the page, and the answer carries no pixels.
     const onScreen = h.get('x-on-screen') === '1';
-    const pixels = onScreen ? null : new Uint8ClampedArray(await response.arrayBuffer());
+    const nBoxes = +(h.get('x-boxes') || 0);
+    const body = onScreen && !nBoxes ? null : await response.arrayBuffer();
+    const pixels = onScreen ? null : new Uint8ClampedArray(body, 0, body.byteLength - nBoxes);
+    const said = nBoxes ? JSON.parse(new TextDecoder().decode(new Uint8Array(body, body.byteLength - nBoxes))) : null;
     const arrived = performance.now();
     if (view.width !== width || view.height !== height) {
       view.width = width; view.height = height;
@@ -2809,12 +2817,13 @@ async function show(url, keep = true) {
     frameBox.value = frame;
     movePlayhead();
     drawSketch();
-    // Where the selected layers are on this frame, asked for beside the frame rather than with
-    // it: a shot playing at twenty-four frames a second wants no outline and should pay for
-    // none, and `askForBoxes` is what decides that.
+    // Where the selected layers are on this frame. D-885: a still frame the page draws brought
+    // them with it (one the card painted did not, and they are asked for apart);
+    // a shot playing at twenty-four frames a second wants no outline and pays for none, and
+    // `askForBoxes` is what decides that.
     const differs = h.get('x-differs') === 'true';
     drawnAt = (h.get('x-quality') || (differs ? 'Draft' : 'Full')).toLowerCase(); // D-259: draft, half or full
-    askForBoxes();
+    askForBoxes(said);
     if (!dragFlight && !dragging) askReady(); // P-25: the green line can wait for the hand
 
     // The indicator describes the render that just arrived, because it came back with it.
@@ -6616,13 +6625,16 @@ function select(id, add) {
 // for with nothing selected, since W-06: a press on the picture has to know where every layer
 // is to say which one was pressed, and until then the first layer could only be picked from the
 // list. The plan is cached by the frame it is for, so this is the frame's own plan asked twice.
-async function askForBoxes() {
+// D-885: `said` is the answer that came with the frame on screen, when it did.
+async function askForBoxes(said) {
   if (!doc || playing) { boxes = []; drawBoxes(); return; }
   const asked = frame;
   try {
-    const answer = await fetch(FRAMES + '/boxes/' + asked + '?q=' + drawnAt);
-    if (!answer.ok) { boxes = []; drawBoxes(); return; }
-    const said = await answer.json();
+    if (!said) {
+      const answer = await fetch(FRAMES + '/boxes/' + asked + '?q=' + drawnAt);
+      if (!answer.ok) { boxes = []; drawBoxes(); return; }
+      said = await answer.json();
+    }
     // A later frame has already been asked for, so these corners describe a picture that is no
     // longer on screen. Dropping them is right: the answer for the frame now showing is on its
     // way behind this one.

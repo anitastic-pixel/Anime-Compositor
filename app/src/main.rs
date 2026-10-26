@@ -731,39 +731,43 @@ fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
 }
 
 fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) -> Response<Vec<u8>> {
-    let taken = {
+    let (sight, cache) = {
         let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
         if let Some(quality) = quality {
             viewer.quality = quality;
         }
-        Snapshot {
+        let sight = Sight {
             project: shown(viewer),
             composition: viewer.composition.clone(),
             root: viewer.root.clone(),
             quality: viewer.quality,
-            alpha_only: viewer.alpha_only,
-            cache: Arc::clone(&viewer.cache),
-            ram: Arc::clone(&viewer.ram),
-            frame,
-            skipped: 0,
-            ahead: None,
-            dragging: false,
-            reply: Response::builder(),
-        }
+            card: None,
+        };
+        (sight, Arc::clone(&viewer.cache))
     };
+    allow_the_page_to_read_this(Response::builder())
+        .header("content-type", "application/json; charset=utf-8")
+        .body(boxes_of(&sight, frame, &cache).to_string().into_bytes())
+        .expect("build the boxes response")
+}
+
+/// The boxes answer for one frame of one sight. D-885: the same answer rides on a frame asked
+/// for with `b=1`, made from that frame's own snapshot, so the outline on screen is always the
+/// picture's own.
+fn boxes_of(sight: &Sight, frame: i32, cache: &Mutex<CelCache>) -> serde_json::Value {
     let mut log = FrameLog::new(0);
     // B-18b: planned at the viewer's quality, so that a composition layer's picture (D-67) is
     // not rendered at full size to outline a draft frame.
     // P-25: and without the masks that cannot change an outline, which with a feather were a
     // whole mask drawn again for each outline asked for in a mask's drag.
     let plan = match anime_compositor::compose::plan_preview(
-        &taken.project.for_outlines(&taken.composition),
-        &taken.composition,
-        taken.frame,
-        &taken.root,
-        taken.quality,
+        &sight.project.for_outlines(&sight.composition),
+        &sight.composition,
+        frame,
+        &sight.root,
+        sight.quality,
         &mut log,
-        &mut taken.cache.lock().expect("the cel cache lock was poisoned"),
+        &mut cache.lock().expect("the cel cache lock was poisoned"),
         false,
     ) {
         Ok(plan) => plan,
@@ -790,7 +794,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
     let outline = |id: &str, w: f64, h: f64, map: &dyn Fn(f64, f64) -> (f64, f64)| {
         boxed(id, [0.0, 0.0, w, h], map)
     };
-    let comp_now = taken.project.composition(&taken.composition);
+    let comp_now = sight.project.composition(&sight.composition);
     let mut found: Vec<serde_json::Value> = plan
         .layers
         .iter()
@@ -826,8 +830,8 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
     // put among the others in the composition's order so a press on the picture finds the one
     // on top. A null that is switched off or outside its frames has no outline, as a drawing
     // would have none.
-    if let Some(comp) = taken.project.composition(&taken.composition) {
-        let s = 1.0 / taken.quality.divisor() as f64;
+    if let Some(comp) = sight.project.composition(&sight.composition) {
+        let s = 1.0 / sight.quality.divisor() as f64;
         for (at, layer) in comp.layers_in_order().enumerate() {
             let on = layer.enabled && layer.in_frame <= frame && frame < layer.out_frame;
             if layer.kind != LayerKind::Null || !on {
@@ -862,9 +866,9 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
     // drawn, and one whose expression fails is its keyed value with the reason in `errors`,
     // under the same two names, so the panel can say it beside the property.
     let mut errors = serde_json::Map::new();
-    let values: serde_json::Map<String, serde_json::Value> = taken
+    let values: serde_json::Map<String, serde_json::Value> = sight
         .project
-        .composition(&taken.composition)
+        .composition(&sight.composition)
         .map(|comp| {
             use anime_compositor::expr;
             let mut failed = |row: &str, prop: &str, e: Option<expr::ExprError>| {
@@ -1112,19 +1116,12 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             values
         })
         .unwrap_or_default();
-    allow_the_page_to_read_this(taken.reply)
-        .header("content-type", "application/json; charset=utf-8")
-        .body(
-            serde_json::json!({
-                "frame": frame,
-                "layers": found,
-                "values": values,
-                "errors": errors,
-            })
-            .to_string()
-            .into_bytes(),
-        )
-        .expect("build the boxes response")
+    serde_json::json!({
+        "frame": frame,
+        "layers": found,
+        "values": values,
+        "errors": errors,
+    })
 }
 
 /// Percent-encode a string so it can travel in an HTTP header and arrive unharmed.
@@ -1433,12 +1430,13 @@ fn serve_logged(
     ask: Ask,
     quality: Option<PreviewQuality>,
 ) -> Response<Vec<u8>> {
-    serve_seen(viewer, export, session, card, ask, quality, None)
+    serve_frame(viewer, export, session, card, ask, quality, None, false)
 }
 
 /// B-158 (G8): [`serve_logged`] for the part of the picture on screen. `seen` is the page's
 /// `v=left,top,right,bottom`, fractions of the picture across and down; `None`, or all of it,
 /// is the whole frame.
+#[cfg(test)]
 fn serve_seen(
     viewer: &Mutex<Viewer>,
     export: &Mutex<Export>,
@@ -1447,6 +1445,23 @@ fn serve_seen(
     ask: Ask,
     quality: Option<PreviewQuality>,
     seen: Option<&str>,
+) -> Response<Vec<u8>> {
+    serve_frame(viewer, export, session, card, ask, quality, seen, false)
+}
+
+/// D-885: [`serve_seen`], and with `boxes` the `/boxes` answer for the same snapshot after the
+/// pixels, its length in bytes in `x-boxes`, so the page needs no second ask per frame and the
+/// outline drawn is always the picture's own.
+#[allow(clippy::too_many_arguments)]
+fn serve_frame(
+    viewer: &Mutex<Viewer>,
+    export: &Mutex<Export>,
+    session: Option<&Mutex<SessionLog>>,
+    card: Option<&Mutex<Card>>,
+    ask: Ask,
+    quality: Option<PreviewQuality>,
+    seen: Option<&str>,
+    boxes: bool,
 ) -> Response<Vec<u8>> {
     // B-158: four finite numbers, and only for a frame asked for by number; anything else is the
     // whole frame. Playback is sent whole.
@@ -1808,6 +1823,12 @@ fn serve_seen(
         }
     }
 
+    // D-885: from the same snapshot as the pixels. A picture the card painted into the window
+    // brings none: there the answer carried no pixels and was waited on by the next frame, and
+    // the boxes asked apart, as before, measured faster; the page asks for them when none came.
+    let outline = (boxes && !on_screen)
+        .then(|| boxes_of(&sight, taken.frame, &taken.cache).to_string().into_bytes());
+
     // P-18: the next frame's drawings are read while this one is encoded, sent and drawn.
     let read_ahead = taken.ahead.is_some();
     if let Some(next) = taken.ahead {
@@ -1878,6 +1899,14 @@ fn serve_seen(
             format!("{},{},{},{}", p.x, p.y, p.width, p.height),
         ),
         None => taken.reply,
+    };
+    let reply = match outline {
+        Some(outline) => {
+            let reply = reply.header("x-boxes", outline.len().to_string());
+            pixels.extend_from_slice(&outline);
+            reply
+        }
+        None => reply,
     };
     reply
         // The only two things about a frame the window cannot say until it has been made.
@@ -18598,7 +18627,7 @@ fn main() {
                         let card = ctx.app_handle().state::<Mutex<Card>>();
                         // B-158: `v=`, the part of the picture on screen.
                         let seen = parameter(request.uri().query(), "v");
-                        let reply = serve_seen(
+                        let reply = serve_frame(
                             &viewer,
                             &export,
                             Some(&session),
@@ -18606,6 +18635,8 @@ fn main() {
                             ask,
                             quality,
                             seen.as_deref(),
+                            // D-885: the boxes for this frame, after its pixels.
+                            parameter(request.uri().query(), "b").as_deref() == Some("1"),
                         );
                         // B-154: while playing, the rest of the loop is made in the background, one
                         // worker at a time.
@@ -18917,3 +18948,7 @@ mod name_lists;
 #[cfg(test)]
 #[path = "tests/stretched_values.rs"]
 mod stretched_values;
+/// D-885: a still frame brings its own boxes, from its own snapshot.
+#[cfg(test)]
+#[path = "tests/frame_boxes.rs"]
+mod frame_boxes;
