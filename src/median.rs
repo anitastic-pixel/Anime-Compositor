@@ -210,7 +210,7 @@ pub(crate) fn bilateral_blur(
     };
     // Each pixel's worked values in straight linear light, and their levels; None where it does
     // not show.
-    let vals: Vec<Option<([f64; 3], [f64; 3])>> = source
+    let vals: Vec<Option<([f64; 3], [f32; 3])>> = source
         .data()
         .par_chunks_exact(4)
         .map(|p| {
@@ -222,19 +222,21 @@ pub(crate) fn bilateral_blur(
                 } else {
                     [0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; 3]
                 };
-                (v, v.map(level))
+                (v, v.map(|c| level(c) as f32))
             })
         })
         .collect();
     let s = radius / 2.0;
-    let near: Vec<f64> = if still {
+    let near: Vec<f32> = if still {
         Vec::new()
     } else {
         taps.iter()
-            .map(|&(dx, dy)| (-((dx * dx + dy * dy) as f64) / (2.0 * s * s)).exp())
+            .map(|&(dx, dy)| (-((dx * dx + dy * dy) as f64) / (2.0 * s * s)).exp() as f32)
             .collect()
     };
-    let spread = 1.0 / (2.0 * threshold * threshold);
+    // D-896: the weights (distance and level falloff) are single precision; the colours and
+    // their running sums stay double.
+    let spread = (1.0 / (2.0 * threshold * threshold)) as f32;
     let src = source.data();
     let mut out = WorkingBuffer::transparent(w, h);
     out.data_mut()
@@ -258,10 +260,10 @@ pub(crate) fn bilateral_blur(
                     let Some((t, t_level)) = vals[j] else {
                         continue;
                     };
-                    let ga = g * src[4 * j + 3] as f64;
+                    let ga = g * src[4 * j + 3];
                     for k in 0..n {
                         let d = t_level[k] - own_level[k];
-                        let wt = ga * (-d * d * spread).exp();
+                        let wt = (ga * (-d * d * spread).exp()) as f64;
                         sum[k] += wt * t[k];
                         weight[k] += wt;
                     }

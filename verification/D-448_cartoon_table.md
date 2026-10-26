@@ -6,15 +6,15 @@ B-328: `core.cartoon` takes After Effects' Cartoon controls (Render, Detail Radi
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-CARTOON-001 frame 0: The settings as they start: Fill & Edges, Detail Radius 8, Threshold 10, 8 shading steps at smoothness 40, edges at threshold 1.6, width 1.5, softness 60: the grain smoothed into the skin, the skin's shading cut into steps, and dark lines along the line, the specks, the hole and the drawing's outline. | largest difference 6.8e-8 | yes |
+| FX-CARTOON-001 frame 0: The settings as they start: Fill & Edges, Detail Radius 8, Threshold 10, 8 shading steps at smoothness 40, edges at threshold 1.6, width 1.5, softness 60: the grain smoothed into the skin, the skin's shading cut into steps, and dark lines along the line, the specks, the hole and the drawing's outline. | largest difference 6.7e-8 | yes |
 | FX-CARTOON-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-002 frame 0: Render Fill: the smoothed, stepped colours, no lines. | largest difference 1.6e-7 | yes |
 | FX-CARTOON-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CARTOON-003 frame 0: Render Edges: the lines alone, black on white, at the drawing's own covering. | largest difference 6.7e-8 | yes |
+| FX-CARTOON-003 frame 0: Render Edges: the lines alone, black on white, at the drawing's own covering. | largest difference 6.0e-8 | yes |
 | FX-CARTOON-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-004 frame 0: Detail Radius 0: nothing smoothed, so the grain keeps its edges. | largest difference 4.6e-8 | yes |
 | FX-CARTOON-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CARTOON-005 frame 0: Detail Threshold 255: the smoothing hardly minds the colours, a soft blur that softens the lines. | largest difference 3.5e-7 | yes |
+| FX-CARTOON-005 frame 0: Detail Threshold 255: the smoothing hardly minds the colours, a soft blur that softens the lines. | largest difference 3.6e-7 | yes |
 | FX-CARTOON-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-006 frame 0: Render Fill, 2 shading steps, smoothness 0: every pixel's shade pushed to black or white. | largest difference 1.6e-7 | yes |
 | FX-CARTOON-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -26,7 +26,7 @@ B-328: `core.cartoon` takes After Effects' Cartoon controls (Render, Detail Radi
 | FX-CARTOON-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-010 frame 0: Edge Width 4: thick lines. | largest difference 3.0e-8 | yes |
 | FX-CARTOON-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CARTOON-011 frame 0: Edge Softness 0: the lines' sides hard. | largest difference 1.1e-7 | yes |
+| FX-CARTOON-011 frame 0: Edge Softness 0: the lines' sides hard. | largest difference 9.8e-8 | yes |
 | FX-CARTOON-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-012 frame 0: Edge Opacity 0: no lines, the same as Render Fill. | largest difference 1.6e-7 | yes |
 | FX-CARTOON-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -36,7 +36,7 @@ B-328: `core.cartoon` takes After Effects' Cartoon controls (Render, Detail Radi
 | FX-CARTOON-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-015 frame 0: Render Fill, Edge Enhancement -100: the colours either side of an edge drawn together. | largest difference 1.6e-7 | yes |
 | FX-CARTOON-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CARTOON-016 frame 0: Edge Black Level 0.5: grey lines. | largest difference 6.4e-8 | yes |
+| FX-CARTOON-016 frame 0: Edge Black Level 0.5: grey lines. | largest difference 6.3e-8 | yes |
 | FX-CARTOON-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-017 frame 0: Render Edges, Edge Black Level 1: white lines on black. | largest difference 2.4e-7 | yes |
 | FX-CARTOON-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -48,9 +48,9 @@ B-328: `core.cartoon` takes After Effects' Cartoon controls (Render, Detail Radi
 | FX-CARTOON-020 frame 2: Detail Radius keyed from 0 at frame 0 to 16 at frame 4, linear, 8 at frame 2; Edge Width keyed from 0 to 10, eased past its end, held at 10 at frame 2. | largest difference 3.0e-8 | yes |
 | FX-CARTOON-020 frame 4: Detail Radius keyed from 0 at frame 0 to 16 at frame 4, linear, 8 at frame 2; Edge Width keyed from 0 to 10, eased past its end, held at 10 at frame 2. | largest difference 3.0e-8 | yes |
 | FX-CARTOON-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CARTOON-021 frame 0: FX-CARTOON-001 moved three pixels right. | largest difference 6.8e-8 | yes |
+| FX-CARTOON-021 frame 0: FX-CARTOON-001 moved three pixels right. | largest difference 6.7e-8 | yes |
 | FX-CARTOON-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CARTOON-022 frame 0: After a Motion Tile that grows the layer, unmirrored: the edges are the grown buffer's, so the tile's empty row and column now meet the top row and the left column, and lines run along the top and the left. | largest difference 8.5e-8 | yes |
+| FX-CARTOON-022 frame 0: After a Motion Tile that grows the layer, unmirrored: the edges are the grown buffer's, so the tile's empty row and column now meet the top row and the left column, and lines run along the top and the left. | largest difference 4.9e-8 | yes |
 | FX-CARTOON-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CARTOON-023 frame 0: Detail Radius 3, Threshold 30, 5 steps at smoothness 20, edges at threshold 2.5, width 2.5, softness 30, opacity 80, enhancement 40, black level 0.2, contrast 0.7: the controls together. | largest difference 2.5e-7 | yes |
 | FX-CARTOON-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -190,12 +190,12 @@ B-328: `core.cartoon` takes After Effects' Cartoon controls (Render, Detail Radi
 | fx_cartoon_031.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_cartoon_032.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Cartoon as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2053121 pixels changed | yes |
-| the reference shot, Cartoon as added on three layers, frame 0, Full | largest difference 1 of 255, 1034 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Cartoon as added on three layers, frame 100, Full | largest difference 1 of 255, 1212 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Cartoon as added on three layers, frame 239, Full | largest difference 1 of 255, 1086 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Cartoon as added on three layers, frame 0, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Cartoon as added on three layers, frame 100, Draft | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Cartoon as added on three layers, frame 239, Draft | largest difference 1 of 255, 83 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Cartoon as added on three layers, frame 0, Full | largest difference 1 of 255, 1038 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Cartoon as added on three layers, frame 100, Full | largest difference 1 of 255, 1215 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Cartoon as added on three layers, frame 239, Full | largest difference 1 of 255, 1089 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Cartoon as added on three layers, frame 0, Draft | largest difference 1 of 255, 71 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Cartoon as added on three layers, frame 100, Draft | largest difference 1 of 255, 78 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Cartoon as added on three layers, frame 239, Draft | largest difference 1 of 255, 82 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Cartoon Edges, width 4, softness 0, enhancement 60, black level 0.3: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073485 pixels changed | yes |
 | the reference shot, Cartoon Edges, width 4, softness 0, enhancement 60, black level 0.3 on three layers, frame 0, Full | largest difference 1 of 255, 845 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Cartoon Edges, width 4, softness 0, enhancement 60, black level 0.3 on three layers, frame 100, Full | largest difference 1 of 255, 1215 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |

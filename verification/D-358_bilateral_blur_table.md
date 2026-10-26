@@ -12,25 +12,25 @@ B-237, after After Effects' Bilateral Blur: each pixel mixes with the pixels rou
 | FX-BILAT-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-003 frame 0: Threshold 0: each pixel counts only itself, so the drawing is unchanged. | largest difference 1.9e-7 | yes |
 | FX-BILAT-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BILAT-004 frame 0: Colorize off: the same smoothing worked on luminance alone, and every pixel that shows is grey, red, green and blue equal; the line stays dark and the outline is kept. | largest difference 1.3e-7 | yes |
+| FX-BILAT-004 frame 0: Colorize off: the same smoothing worked on luminance alone, and every pixel that shows is grey, red, green and blue equal; the line stays dark and the outline is kept. | largest difference 1.4e-7 | yes |
 | FX-BILAT-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-005 frame 0: Colorize off with Radius 0: no smoothing, each pixel only its own luminance, grey. | largest difference 1.1e-7 | yes |
 | FX-BILAT-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-BILAT-006 frame 0: Threshold 255: likeness hardly matters, a soft blur that stays inside the drawing: the line and the specks are blurred into the skin, and the hole, the empty column and the empty row stay empty. | largest difference 2.0e-7 | yes |
+| FX-BILAT-006 frame 0: Threshold 255: likeness hardly matters, a soft blur that stays inside the drawing: the line and the specks are blurred into the skin, and the hole, the empty column and the empty row stay empty. | largest difference 2.1e-7 | yes |
 | FX-BILAT-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-007 frame 0: Radius 1.5, a disc of nine: a lighter smoothing of the grain than FX-BILAT-001. | largest difference 2.0e-7 | yes |
 | FX-BILAT-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-008 frame 0: Radius keyed from 0 at frame 0 to 10 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 1.9e-7 | yes |
 | FX-BILAT-008 frame 2: Radius keyed from 0 at frame 0 to 10 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 2.1e-7 | yes |
-| FX-BILAT-008 frame 4: Radius keyed from 0 at frame 0 to 10 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 2.9e-7 | yes |
+| FX-BILAT-008 frame 4: Radius keyed from 0 at frame 0 to 10 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 2.1e-7 | yes |
 | FX-BILAT-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-009 frame 0: Threshold keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 1.9e-7 | yes |
 | FX-BILAT-009 frame 2: Threshold keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 2.1e-7 | yes |
 | FX-BILAT-009 frame 4: Threshold keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. | largest difference 2.1e-7 | yes |
 | FX-BILAT-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-010 frame 0: Radius keyed from 0 at frame 0 to 50 at frame 4, eased past its end (about 64 at frame 2): frame 2 is held at 50, the same as frame 4. | largest difference 1.9e-7 | yes |
-| FX-BILAT-010 frame 2: Radius keyed from 0 at frame 0 to 50 at frame 4, eased past its end (about 64 at frame 2): frame 2 is held at 50, the same as frame 4. | largest difference 3.2e-7 | yes |
-| FX-BILAT-010 frame 4: Radius keyed from 0 at frame 0 to 50 at frame 4, eased past its end (about 64 at frame 2): frame 2 is held at 50, the same as frame 4. | largest difference 3.2e-7 | yes |
+| FX-BILAT-010 frame 2: Radius keyed from 0 at frame 0 to 50 at frame 4, eased past its end (about 64 at frame 2): frame 2 is held at 50, the same as frame 4. | largest difference 2.0e-7 | yes |
+| FX-BILAT-010 frame 4: Radius keyed from 0 at frame 0 to 50 at frame 4, eased past its end (about 64 at frame 2): frame 2 is held at 50, the same as frame 4. | largest difference 2.0e-7 | yes |
 | FX-BILAT-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-BILAT-011 frame 0: Bilateral Blur as it starts, the layer moved three pixels right: FX-BILAT-001 moved with it. | largest difference 2.1e-7 | yes |
 | FX-BILAT-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -129,22 +129,22 @@ B-237, after After Effects' Bilateral Blur: each pixel mixes with the pixels rou
 | fx_bilat_016.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_bilat_017.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1348088 pixels changed | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Full | largest difference 1 of 255, 928 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Full | largest difference 1 of 255, 929 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 100, Full | largest difference 1 of 255, 1095 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 239, Full | largest difference 1 of 255, 832 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Draft | largest difference 1 of 255, 64 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 100, Draft | largest difference 1 of 255, 64 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 239, Draft | largest difference 1 of 255, 53 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2003654 pixels changed | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Full | largest difference 1 of 255, 1154 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Full | largest difference 1 of 255, 1099 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 239, Full | largest difference 1 of 255, 1163 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Full | largest difference 1 of 255, 1155 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Full | largest difference 1 of 255, 1100 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 239, Full | largest difference 1 of 255, 1164 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Draft | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 239, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1692324 pixels changed | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Full | largest difference 1 of 255, 1045 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Full | largest difference 1 of 255, 1151 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Full | largest difference 1 of 255, 1046 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Full | largest difference 1 of 255, 1149 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 239, Full | largest difference 1 of 255, 985 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Draft | largest difference 1 of 255, 57 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Draft | largest difference 1 of 255, 60 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
