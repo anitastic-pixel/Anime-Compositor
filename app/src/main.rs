@@ -4084,11 +4084,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             invert: "off".to_string(),
             blend: "multiply".to_string(),
         }),
-        // D-423: CC Light Rays' controls, the source a round 50 pixels about the middle, the
-        // layer's own colours laid over it; D-124's form only opens from an older project.
+        // D-423: CC Light Rays' controls, the source a round 50 pixels, the layer's own colours
+        // laid over it; D-124's form only opens from an older project. D-892: the source a
+        // quarter of the way in, as After Effects starts it.
         LIGHT_RAYS => Some(Effect::CcLightRays {
             intensity: 100.0,
-            center: [50.0, 50.0],
+            center: [25.0, 25.0],
             radius: 50.0,
             warp_softness: 50.0,
             shape: "round".to_string(),

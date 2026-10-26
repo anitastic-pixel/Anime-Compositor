@@ -5,7 +5,7 @@
 //!
 //! Every expected pixel is `Fixtures/light_rays_cc/expected_light_rays_cc.json`, written by
 //! `tools/light_rays_cc_reference.py` before this code existed and printed in document 25 as
-//! FX-RAYSCC-001 to 039. Tolerance 2e-5. Nothing here is a snapshot of a run. A Light Rays saved
+//! FX-RAYSCC-001 to 042. Tolerance 2e-5. Nothing here is a snapshot of a run. A Light Rays saved
 //! before D-423 opens as D-124's form, saves as written and draws as before: `Fixtures/light_rays`
 //! keeps pinning it (tests/b67_light_rays.rs, tests/b76_gpu_fx.rs).
 //!
@@ -288,11 +288,11 @@ fn b302_light_rays_cc() {
          The manual gives no formula, ranges or defaults, so those are ours. Every expected pixel \
          is `Fixtures/light_rays_cc/expected_light_rays_cc.json`, written by \
          `tools/light_rays_cc_reference.py` before this code existed and printed in document 25 \
-         as FX-RAYSCC-001 to 039. Tolerance 2e-5. A Light Rays saved before D-423 opens as \
+         as FX-RAYSCC-001 to 042. Tolerance 2e-5. A Light Rays saved before D-423 opens as \
          D-124's form and draws as before.\n",
     );
 
-    t.heading("FX-RAYSCC-001 to 039 (document 25)");
+    t.heading("FX-RAYSCC-001 to 042 (document 25)");
     t.fixtures("expected_light_rays_cc.json");
 
     t.heading("Older projects: D-124's form, as before");
@@ -326,19 +326,19 @@ fn b302_light_rays_cc() {
         (
             "as it starts",
             json!({"radius": 10000, "warp_softness": 0, "transfer_mode": "add"}),
-            json!({"length": 100}),
+            json!({"length": 100, "intensity": 0.625}),
         ),
         (
             "round 30, 70",
             json!({"radius": 10000, "warp_softness": 0, "transfer_mode": "add", "center": [30, 70]}),
-            json!({"length": 100, "center": [30, 70]}),
+            json!({"length": 100, "intensity": 0.625, "center": [30, 70]}),
         ),
     ] {
         let (a, _) = picture(&dir, json!([fx("core.light_rays", "fx-0-0", &new)]));
         let (c, _) = picture(&dir, json!([fx("old", "fx-0-0", &old)]));
         let d = distance(&a, &c);
         t.row(
-            &format!("the street, {what}: the new form with a source over the whole layer, no warp, Add, against D-124's form at length 100, threshold 0, intensity 1"),
+            &format!("the street, {what}: the new form with a source over the whole layer, no warp, Add, against D-124's form at length 100, threshold 0, intensity 0.625 (D-892's share)"),
             &format!("largest difference {} of 255, {} pixels differ", d.0, d.1),
             d.0 == 0,
         );
@@ -370,7 +370,7 @@ fn b302_light_rays_cc() {
 
     t.heading("The file");
     // fx_rayscc_011.json's capitals are saved in small letters, the row after next.
-    let all: Vec<String> = files("fx_rayscc", 39)
+    let all: Vec<String> = files("fx_rayscc", 42)
         .into_iter()
         .filter(|f| f != "fx_rayscc_011.json")
         .collect();
@@ -511,8 +511,9 @@ fn b302_light_rays_cc() {
         &mut t,
         &mut gpu,
         "fx_rayscc",
-        39,
-        &[2, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+        42,
+        // 42 is in 32 bpc (After Effects), where Light Rays on display values is the processor's (D-892).
+        &[2, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 42],
         is_cc,
     );
     card_reference(

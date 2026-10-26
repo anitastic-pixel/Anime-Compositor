@@ -16653,7 +16653,10 @@ pub(crate) fn apply_stack_at(
                     (intensity / 100.0).min(1.0)
                 };
                 let square = (shape == "square").then(|| direction.to_radians().sin_cos());
-                let tint = (color_from_source == "off").then(|| encoded(color));
+                // D-892: on display values the colour is taken as it is encoded.
+                let tint = (color_from_source == "off").then(|| {
+                    encoded(color).map(|v| if display { v } else { crate::grade::to_linear(v) })
+                });
                 crate::perf::time(crate::perf::Stage::EffectLightRays, || {
                     crate::layer_fx::cc_light_rays(
                         source,
@@ -20734,6 +20737,7 @@ pub(crate) fn apply_stack_at(
 }
 
 /// D-330, D-333, D-337: whether `apply_stack_at` runs `effect` on display values at `bits`.
+/// D-892: CC Light Rays too, so its rays fade as After Effects' do.
 /// B-688 (D-808): the card asks the same.
 pub(crate) fn on_display(effect: &Effect, bits: Bits) -> bool {
     // D-763: in 8 bpc, Drop Shadow, Fill and Mosaic mix the display values too, as After
@@ -20759,6 +20763,7 @@ pub(crate) fn on_display(effect: &Effect, bits: Bits) -> bool {
                     | Effect::FastZoomBlur { .. }
                     | Effect::SolidComposite { .. }
                     | Effect::Glow { .. }
+                    | Effect::CcLightRays { .. }
             ))
 }
 

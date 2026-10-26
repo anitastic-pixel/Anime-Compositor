@@ -972,11 +972,15 @@ pub(crate) fn light_burst(
     add_rays(source, &rays, k, c, tint.is_some(), 0);
 }
 
+/// D-892: the share of the zoomed light CC Light Rays lays on at intensity 100, fitted to After
+/// Effects' rays on Jake In Motion's photograph (five cases, 8 bpc, within 4 levels).
+pub(crate) const CC_RAYS: f64 = 0.625;
+
 /// D-423: Light Rays with CC Light Rays' controls. The light is the layer times each pixel's
 /// share of a source `radius` pixels about `center` (round, or with `square`, the sine and cosine
 /// of its turn, a square), zoomed out from the centre at amount 100 and spun `turn` degrees, then
-/// laid on by `mode` (as [`crate::effects::ray_mode`]) `k` times; with `tint`, an encoded
-/// colour, the rays are that colour at their covering. The settings are already valid.
+/// laid on by `mode` (as [`crate::effects::ray_mode`]) `k` [`CC_RAYS`] times; with `tint`, a colour in the
+/// buffer's own values, the rays are that colour at their covering. The settings are already valid.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cc_light_rays(
     source: &mut WorkingBuffer,
@@ -1011,8 +1015,7 @@ pub(crate) fn cc_light_rays(
         });
     crate::blurs::radial_blur(&mut rays, false, 100.0, center, false, None);
     crate::blurs::radial_blur(&mut rays, true, turn, center, false, None);
-    let c = tint.map_or([1.0; 3], |c| c.map(crate::grade::to_linear));
-    add_rays(source, &rays, k, c, tint.is_some(), mode);
+    add_rays(source, &rays, k * CC_RAYS, tint.unwrap_or([1.0; 3]), tint.is_some(), mode);
 }
 
 /// D-423: how much of a pixel `d` from the centre the light source takes, a pixel-wide soft

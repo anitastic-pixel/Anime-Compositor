@@ -16382,11 +16382,12 @@ impl Gpu {
                     )
                 };
                 let tinted = color_from_source == "off";
-                let mut k = vec![if allow_brightening == "on" {
-                    intensity / 100.0
-                } else {
-                    (intensity / 100.0).min(1.0)
-                }];
+                let mut k = vec![crate::layer_fx::CC_RAYS
+                    * if allow_brightening == "on" {
+                        intensity / 100.0
+                    } else {
+                        (intensity / 100.0).min(1.0)
+                    }];
                 if tinted {
                     k.extend(linear(color));
                 } else {
