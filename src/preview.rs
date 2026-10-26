@@ -290,6 +290,7 @@ pub fn preview_frame_srgb8(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(Vec<u8>, usize, usize), Diagnostic> {
+    let uses = crate::flow::card_uses();
     let plan = compose::plan_preview(
         project,
         composition_id,
@@ -300,14 +301,18 @@ pub fn preview_frame_srgb8(
         cache,
         true,
     )?;
+    let (width, height) = (plan.width, plan.height);
     let pixels = match gpu.draw(&plan, cache) {
         Ok(pixels) => pixels,
         Err(why) => {
             log.record(frame, "GPU preview", why);
+            let plan = on_processor(plan, uses, || {
+                compose::plan_preview(project, composition_id, frame, root, quality, &mut FrameLog::new(usize::MAX), cache, false)
+            })?;
             render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight()
         }
     };
-    Ok((pixels, plan.width, plan.height))
+    Ok((pixels, width, height))
 }
 
 /// B-45: [`preview_frame_srgb8`], with the picture left on the card for [`Gpu::show`] rather
@@ -324,6 +329,7 @@ pub fn preview_frame_held(
     cache: &mut CelCache,
     gpu: &mut Gpu,
 ) -> Result<(usize, usize), Diagnostic> {
+    let uses = crate::flow::card_uses();
     let plan = compose::plan_preview(
         project,
         composition_id,
@@ -336,11 +342,30 @@ pub fn preview_frame_held(
     )?;
     if let Err(why) = gpu.draw_held(&plan, cache) {
         log.record(frame, "GPU preview", why);
+        let plan = on_processor(plan, uses, || {
+            compose::plan_preview(project, composition_id, frame, root, quality, &mut FrameLog::new(usize::MAX), cache, false)
+        })?;
         let pixels =
             render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight();
         gpu.hold(&pixels, plan.width, plan.height);
+        return Ok((plan.width, plan.height));
     }
     Ok((plan.width, plan.height))
+}
+
+/// D-878: the plan the processor draws when the card refuses `plan`. The card found motion for
+/// it when [`crate::flow::card_uses`] moved past `uses`; it is then planned again on the
+/// processor (`again`), so the frame is [`preview_frame_cached`]'s exactly.
+fn on_processor(
+    plan: FramePlan,
+    uses: u64,
+    again: impl FnOnce() -> Result<FramePlan, Diagnostic>,
+) -> Result<FramePlan, Diagnostic> {
+    if crate::flow::card_uses() == uses {
+        Ok(plan)
+    } else {
+        again()
+    }
 }
 
 /// Read the drawings `frame` will ask for, on a thread of its own, into `cache`'s pending list

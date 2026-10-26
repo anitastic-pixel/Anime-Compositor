@@ -1631,13 +1631,13 @@ pub enum Effect {
     /// `shutter_samples`, 2 to 64, taken whole below; `vector_detail`, 0 to 100. `frames` is not
     /// a setting and is never saved: compose draws the holder at the frames before and after into
     /// it, with the angle and the sample count the shutter control names
-    /// (`compose::fill_pixel_motion`).
+    /// (`compose::fill_pixel_motion`), and whether the motion is found on the card (D-878).
     PixelMotionBlur {
         shutter_control: String,
         shutter_angle: f64,
         shutter_samples: f64,
         vector_detail: f64,
-        frames: Option<(crate::layer_map::Map, crate::layer_map::Map, f64, u32)>,
+        frames: Option<(crate::layer_map::Map, crate::layer_map::Map, f64, u32, bool)>,
     },
     /// D-652: after After Effects' Timewarp (Time), its rule ours (`tools/timewarp_reference.py`,
     /// `flow`, document 21). Words: `method` `whole_frames`, `frame_mix` or `pixel_motion`;
@@ -20281,12 +20281,15 @@ pub(crate) fn apply_stack_at(
                 frames,
                 ..
             } => {
-                if let Some((before, after, angle, samples)) = frames {
+                if let Some((before, after, angle, samples, card)) = frames {
                     if *angle > 0.0 {
                         crate::perf::time(crate::perf::Stage::EffectPixelMotionBlur, || {
                             let size = (before.0.width(), before.0.height());
                             let o = crate::layer_map::cut(source, (ox, oy), size);
-                            let tuning = crate::flow::Tuning::added(*vector_detail);
+                            let tuning = crate::flow::Tuning {
+                                card: *card,
+                                ..crate::flow::Tuning::added(*vector_detail)
+                            };
                             let back = crate::flow::estimate(&o, &before.0, &tuning);
                             let ahead = crate::flow::estimate(&o, &after.0, &tuning);
                             let out =

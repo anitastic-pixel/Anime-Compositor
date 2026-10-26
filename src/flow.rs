@@ -11,6 +11,125 @@ use rayon::prelude::*;
 
 use crate::WorkingBuffer;
 
+mod card;
+
+/// D-878: whether the finder has a card on this machine whose found motion is within
+/// [`CARD_OFF`] px of the processor's. It is checked once, on a test pair; a card that is not
+/// is not used, and says so.
+pub(crate) fn card_available() -> bool {
+    static AGREES: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *AGREES.get_or_init(|| card::available() && agrees())
+}
+
+/// D-878: how many fields the card has found, so that a frame the card then refuses is planned
+/// again on the processor (`preview::preview_frame_srgb8`).
+pub(crate) fn card_uses() -> u64 {
+    CARD_USES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+static CARD_USES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// D-878: the card finder switched off, for B-758's before-and-after checks.
+pub(crate) static CARD_SWITCHED_OFF: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// D-878: whether a tuning that asks for the card is found there, for a cache that keeps what
+/// the finder found.
+pub(crate) fn card_on(s: &Tuning) -> bool {
+    s.card && !CARD_SWITCHED_OFF.load(std::sync::atomic::Ordering::Relaxed) && card_available()
+}
+
+/// The most the card's found motion may be off the processor's on the test pair: a tenth of
+/// D-804's 1e-4 px. This machine's card was 4.8e-7 px off on it, and 0 on the reference shot.
+const CARD_OFF: f64 = 1e-5;
+
+/// The card's and the processor's found motion's largest difference on a test pair, at Vector
+/// Detail 20 and 100, within [`CARD_OFF`].
+fn agrees() -> bool {
+    let (w, h) = (200, 120);
+    let picture = |shift: f32| {
+        let mut p = WorkingBuffer::transparent(w, h);
+        for (i, q) in p.data_mut().chunks_exact_mut(4).enumerate() {
+            let (x, y) = ((i % w) as f32 + shift, (i / w) as f32 - shift / 2.0);
+            let v = 0.5 + 0.25 * (x * 0.13).sin() * (y * 0.07 + x * 0.02).cos();
+            let alpha = 0.9 + 0.1 * (y * 0.05).sin();
+            q.copy_from_slice(&[v, 0.8 * v, 1.0 - v, alpha]);
+        }
+        p
+    };
+    let (a, b) = (picture(0.0), picture(1.7));
+    let off = [20.0, 100.0].iter().try_fold(0.0f64, |most, &vd| {
+        let s = Tuning {
+            correct_luminance: true,
+            ..Tuning::added(vd)
+        };
+        let p = prepare(&a, &b, &s);
+        let smooth = s.local_smoothness as f32;
+        let found = card::estimate(
+            &p.ca,
+            &p.cb,
+            p.top,
+            p.lf,
+            p.r,
+            p.ridge,
+            p.area,
+            s.iterations,
+            smooth,
+        )?;
+        let cpu = estimate(&a, &b, &s);
+        let pairs = found.x.iter().zip(&cpu.x).chain(found.y.iter().zip(&cpu.y));
+        Some(pairs.fold(most, |m, (u, v)| m.max((u - v).abs())))
+    });
+    match off {
+        Some(d) if d <= CARD_OFF => true,
+        Some(d) => {
+            eprintln!("D-878: this card's found motion is {d:e} px off the processor's; the processor finds it");
+            false
+        }
+        None => false,
+    }
+}
+
+/// The planes and the levels [`estimate`] works on, for the processor and the card alike.
+struct Prepared {
+    ca: Planes,
+    cb: Planes,
+    top: usize,
+    lf: usize,
+    r: isize,
+    area: f32,
+    ridge: f32,
+}
+
+fn prepare(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Prepared {
+    let (w, h) = (a.width(), a.height());
+    let ca = grey(a, s.weights);
+    let mut cb = grey(b, s.weights);
+    if s.correct_luminance {
+        // The means are summed in double precision, in one pass in order.
+        let mean = |c: &[f32]| c.iter().map(|&v| f64::from(v)).sum::<f64>() / (w * h) as f64;
+        let (ma, mb) = (mean(&ca.c[0]), mean(&cb.c[0]));
+        if mb > 0.0 {
+            let k = (ma / mb) as f32;
+            cb.c[0].par_iter_mut().for_each(|v| *v *= k);
+        }
+    }
+    let top = top_level(w, h);
+    let lf = finest(s.vector_detail, top);
+    let r = (s.block_size / 2.0).floor().max(1.0) as isize;
+    let area = ((2 * r + 1) * (2 * r + 1)) as f32;
+    let ridge = area * (0.0001 + 0.01 * s.global_smoothness as f32);
+    Prepared {
+        ca,
+        cb,
+        top,
+        lf,
+        r,
+        area,
+        ridge,
+    }
+}
+
 /// The estimate's settings. Pixel Motion Blur sets Vector Detail and keeps the rest as added.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Tuning {
@@ -21,6 +140,9 @@ pub(crate) struct Tuning {
     pub block_size: f64,
     pub weights: [f64; 3],
     pub correct_luminance: bool,
+    /// D-878: found on the graphics card, for a frame the card draws; the processor's finder
+    /// when the card cannot. Not a setting: compose sets it.
+    pub card: bool,
 }
 
 impl Tuning {
@@ -35,6 +157,7 @@ impl Tuning {
             block_size: 6.0,
             weights: [0.3, 0.6, 0.1],
             correct_luminance: false,
+            card: false,
         }
     }
 }
@@ -178,19 +301,22 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
             y: Vec::new(),
         };
     }
-    let ca = grey(a, s.weights);
-    let mut cb = grey(b, s.weights);
-    if s.correct_luminance {
-        // The means are summed in double precision, in one pass in order.
-        let mean = |c: &[f32]| c.iter().map(|&v| f64::from(v)).sum::<f64>() / (w * h) as f64;
-        let (ma, mb) = (mean(&ca.c[0]), mean(&cb.c[0]));
-        if mb > 0.0 {
-            let k = (ma / mb) as f32;
-            cb.c[0].par_iter_mut().for_each(|v| *v *= k);
+    let Prepared {
+        ca,
+        cb,
+        top,
+        lf,
+        r,
+        area,
+        ridge,
+    } = prepare(a, b, s);
+    if card_on(s) {
+        let smooth = s.local_smoothness as f32;
+        if let Some(f) = card::estimate(&ca, &cb, top, lf, r, ridge, area, s.iterations, smooth) {
+            CARD_USES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return f;
         }
     }
-    let top = top_level(w, h);
-    let lf = finest(s.vector_detail, top);
     let mut levels = vec![(ca, cb)];
     for _ in 0..top {
         let (pa, pb) = levels.last().unwrap();
@@ -203,9 +329,6 @@ pub(crate) fn estimate(a: &WorkingBuffer, b: &WorkingBuffer, s: &Tuning) -> Fiel
         let pair = (next(pa), next(pb));
         levels.push(pair);
     }
-    let r = (s.block_size / 2.0).floor().max(1.0) as isize;
-    let area = ((2 * r + 1) * (2 * r + 1)) as f32;
-    let ridge = area * (0.0001 + 0.01 * s.global_smoothness as f32);
     let mut field: Option<Grid> = None;
     for level in (lf..=top).rev() {
         let (pa, pb) = &levels[level];

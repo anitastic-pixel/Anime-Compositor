@@ -9,6 +9,42 @@
 
 use rayon::prelude::*;
 
+/// D-878: the motion the finder finds from `a` to `b`, Pixel Motion Blur's settings as added at
+/// `vector_detail`, on the graphics card with `card` (the processor's finder when the card
+/// cannot), for the checks that hold the card's to the processor's.
+#[doc(hidden)]
+pub fn found_motion(
+    a: &WorkingBuffer,
+    b: &WorkingBuffer,
+    vector_detail: f64,
+    card: bool,
+) -> (Vec<f64>, Vec<f64>) {
+    let tuning = flow::Tuning {
+        card,
+        ..flow::Tuning::added(vector_detail)
+    };
+    let f = flow::estimate(a, b, &tuning);
+    (f.x, f.y)
+}
+
+/// D-878: whether the motion finder has a graphics card on this machine.
+#[doc(hidden)]
+pub fn motion_card() -> bool {
+    flow::card_available()
+}
+
+/// D-878: the card motion finder switched off (`true`) or on again, for B-758's before and after.
+#[doc(hidden)]
+pub fn motion_card_off(off: bool) {
+    flow::CARD_SWITCHED_OFF.store(off, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// D-878: how many motions the card has found in this process, for B-758's evidence.
+#[doc(hidden)]
+pub fn motion_card_uses() -> u64 {
+    flow::card_uses()
+}
+
 mod along;
 pub mod audio;
 mod bloom;

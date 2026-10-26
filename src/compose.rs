@@ -4387,6 +4387,7 @@ fn resolve_rest(
             layer,
             at,
             quality,
+            card,
             cache,
             log,
         );
@@ -4399,6 +4400,7 @@ fn resolve_rest(
             at,
             quality,
             step1,
+            card,
             cache,
             log,
         );
@@ -4411,6 +4413,7 @@ fn resolve_rest(
             at,
             quality,
             step1,
+            card,
             cache,
             log,
         );
@@ -4423,6 +4426,7 @@ fn resolve_rest(
             at,
             quality,
             step1,
+            card,
             cache,
             log,
         );
@@ -6003,6 +6007,15 @@ fn fill_wire(
     }
 }
 
+/// D-878: whether the card finds a motion at `vector_detail` in a frame planned for the card
+/// (`card`) at `quality`: at Draft always, and otherwise from vector detail 40, where B-758's
+/// timing measured the card's finder 1.7x to 1.9x the processor's at Full. Below 40 at Full it
+/// measured 1.0x to 1.4x, and the viewer frame with it no faster, so those stay on the processor
+/// and the card is neither opened nor given its ~125 bytes a pixel for them.
+fn finder_on_card(card: bool, quality: PreviewQuality, vector_detail: f64) -> bool {
+    card && (quality == PreviewQuality::Draft || vector_detail >= 40.0)
+}
+
 /// D-650: each switched-on Pixel Motion Blur's frames either side: the holder one composition
 /// frame before and one after, with the effects before this one, at the drawing's size, and the
 /// shutter angle and sample count its control names (the composition's under `automatic`,
@@ -6019,11 +6032,12 @@ fn fill_pixel_motion(
     holder: &crate::model::Layer,
     frame: i32,
     quality: PreviewQuality,
+    card: bool,
     cache: &mut CelCache,
     log: &mut FrameLog,
 ) {
     for i in 0..effects.len() {
-        let (angle, samples) = match &effects[i] {
+        let (angle, samples, card) = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
             crate::effects::EffectInstance {
                 effect:
@@ -6031,14 +6045,20 @@ fn fill_pixel_motion(
                         shutter_control,
                         shutter_angle,
                         shutter_samples,
+                        vector_detail,
                         ..
                     },
                 ..
             } => {
+                let card = finder_on_card(card, quality, *vector_detail);
                 if shutter_control == "automatic" {
-                    (comp.motion_blur.shutter_angle, comp.motion_blur.samples)
+                    (
+                        comp.motion_blur.shutter_angle,
+                        comp.motion_blur.samples,
+                        card,
+                    )
                 } else {
-                    (*shutter_angle, shutter_samples.floor() as u32)
+                    (*shutter_angle, shutter_samples.floor() as u32, card)
                 }
             }
             _ => continue,
@@ -6085,7 +6105,7 @@ fn fill_pixel_motion(
             }
         }
         if let crate::effects::Effect::PixelMotionBlur { frames, .. } = &mut effects[i].effect {
-            *frames = pair.map(|(b, a)| (b, a, angle, samples));
+            *frames = pair.map(|(b, a)| (b, a, angle, samples, card));
         }
     }
 }
@@ -6108,6 +6128,7 @@ fn fill_timewarp(
     frame: i32,
     quality: PreviewQuality,
     size: (usize, usize),
+    card: bool,
     cache: &mut CelCache,
     log: &mut FrameLog,
 ) {
@@ -6268,6 +6289,7 @@ fn fill_timewarp(
                 block_size,
                 weights: [red_weight, green_weight, blue_weight],
                 correct_luminance: correct_luminance_changes == "on",
+                card: finder_on_card(card, quality, vector_detail),
             };
             let fields =
                 (method == "pixel_motion" && shifts.iter().any(|d| f + d != 0.0)).then(|| {
@@ -6337,6 +6359,7 @@ fn fill_rolling_shutter_repair(
     frame: i32,
     quality: PreviewQuality,
     size: (usize, usize),
+    card: bool,
     cache: &mut CelCache,
     log: &mut FrameLog,
 ) {
@@ -6412,15 +6435,22 @@ fn fill_rolling_shutter_repair(
                     let f = crate::flow::estimate(
                         &o,
                         q,
-                        &crate::flow::Tuning::added(pixel_motion_detail),
+                        &crate::flow::Tuning {
+                            card: finder_on_card(card, quality, pixel_motion_detail),
+                            ..crate::flow::Tuning::added(pixel_motion_detail)
+                        },
                     );
                     return (f.x, f.y);
                 }
-                let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" {
+                let detail = if detailed_analysis == "on" {
                     100.0
                 } else {
                     50.0
-                });
+                };
+                let tuning = crate::flow::Tuning {
+                    card: finder_on_card(card, quality, detail),
+                    ..crate::flow::Tuning::added(detail)
+                };
                 let m = ws_pair_kept(
                     &o,
                     q,
@@ -6506,6 +6536,7 @@ fn fill_warp_stabilizer(
     frame: i32,
     quality: PreviewQuality,
     size: (usize, usize),
+    card: bool,
     cache: &mut CelCache,
     log: &mut FrameLog,
 ) {
@@ -6583,11 +6614,15 @@ fn fill_warp_stabilizer(
                 (w as f64).hypot(h as f64) / 2.0,
             );
             // Step 3: M_k for k from lo to hi - 1.
-            let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" {
+            let detail = if detailed_analysis == "on" {
                 100.0
             } else {
                 50.0
-            });
+            };
+            let tuning = crate::flow::Tuning {
+                card: finder_on_card(card, quality, detail),
+                ..crate::flow::Tuning::added(detail)
+            };
             let digests: Vec<u64> = frames.iter().map(ws_digest).collect();
             let ks: Vec<usize> = (0..frames.len().saturating_sub(1)).collect();
             // ponytail: four pairs at once, each a few hundred MB at 1080p while it is worked;
@@ -6720,8 +6755,8 @@ static WS_KEPT: std::sync::Mutex<Vec<(String, [[f64; 3]; 3])>> = std::sync::Mute
 static WS_REUSED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Audit P1, P5: [`ws_pair`] kept by everything it is worked from: both pictures' contents
-/// (`digests`, by [`ws_digest`]), their size, the estimate's settings, the method and Preserve
-/// Scale. An edit, a rewritten drawing or another layer gives other pictures or settings, so what
+/// (`digests`, by [`ws_digest`]), their size, the estimate's settings, whether the card finds it
+/// (D-878), the method and Preserve Scale. An edit, a rewritten drawing or another layer gives other pictures or settings, so what
 /// comes back is always what working it again would give. Warp Stabilizer's window moves on by
 /// one frame each frame played, so it works one new pair; Rolling Shutter Repair (Warp) works
 /// none when a frame is shown again.
@@ -6736,11 +6771,12 @@ fn ws_pair_kept(
     preserve: bool,
 ) -> [[f64; 3]; 3] {
     let key = format!(
-        "{:016x} {:016x} {}x{} {tuning:?} {method} {preserve}",
+        "{:016x} {:016x} {}x{} {tuning:?} {} {method} {preserve}",
         digests.0,
         digests.1,
         a.width(),
-        a.height()
+        a.height(),
+        crate::flow::card_on(tuning)
     );
     let hit = |kept: &mut Vec<(String, [[f64; 3]; 3])>| {
         let i = kept.iter().position(|(k, _)| *k == key)?;
