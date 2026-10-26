@@ -4730,7 +4730,30 @@ sheet.onpointerdown = (e) => {
     sheet.onpointermove = null;
     sheet.onpointerup = null;
     window.removeEventListener('keydown', escape, true);
-    send(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+    // D-887: the panels are drawn again once, from the core, when the hand lets go; that redraw
+    // also takes away the bars' local moves below, so an Escape shows the bars where they were.
+    queue = queue.then(() => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end'));
+  };
+  // D-887: during a move or a trim the bar is moved here, in the page, at once, and the core is
+  // told through the drag path, which keeps only the newest step for each layer and asks for one
+  // frame, rather than reading the whole project back and drawing every panel again at every
+  // step. The owner felt that redraw as a bar that followed the hand late.
+  const lane = (id) => [...$('layers').querySelectorAll('li[data-id="' + CSS.escape(id) + '"] > .track')];
+  // Measured from where the rows were last drawn, which is the core's place for the bar if
+  // anything drew the panels again during the drag.
+  const slide = (id, to) => {
+    const by = to - layers().find((l) => l.id === id).in_frame;
+    for (const box of lane(id)) {
+      const px = by / viewOf(composition()).len * box.getBoundingClientRect().width;
+      box.style.clipPath = by ? 'inset(-20px 0)' : '';
+      for (const piece of box.children) piece.style.transform = by ? 'translateX(' + px + 'px)' : '';
+    }
+  };
+  const trimTo = (inAt, outAt) => {
+    const life = lane(layer.id)[0]?.querySelector('.life');
+    if (!life) return;
+    life.style.left = percent(atFrame(composition(), inAt));
+    life.style.width = percent(atFrame(composition(), outAt) - atFrame(composition(), inAt));
   };
   sheet.onpointermove = (m) => {
     const now = frameUnder(m.clientX);
@@ -4763,15 +4786,15 @@ sheet.onpointerdown = (e) => {
       if (to > seamAt) both.reverse();
       both.forEach(send);
       seamAt = to;
-    } else if (edge === 'in') {
-      send('/layer.trim' + q + '&in=' + Math.min(start[0][1] + by, start[0][2] - 1)
-        + '&out=' + start[0][2]);
-    } else if (edge === 'out') {
-      send('/layer.trim' + q + '&in=' + start[0][1]
-        + '&out=' + Math.max(start[0][2] + by, start[0][1] + 1));
+    } else if (edge) {
+      const inAt = edge === 'in' ? Math.min(start[0][1] + by, start[0][2] - 1) : start[0][1];
+      const outAt = edge === 'out' ? Math.max(start[0][2] + by, start[0][1] + 1) : start[0][2];
+      trimTo(inAt, outAt);
+      dragSend('/layer.trim' + q + '&in=' + inAt + '&out=' + outAt, layer.id);
     } else {
       for (const [id, from] of start) {
-        send('/layer.shift?layer=' + encodeURIComponent(id) + '&drag=1&in=' + (from + by));
+        slide(id, from + by);
+        dragSend('/layer.shift?layer=' + encodeURIComponent(id) + '&drag=1&in=' + (from + by), id);
       }
     }
   };

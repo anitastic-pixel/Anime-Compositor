@@ -14387,3 +14387,123 @@ fn b645_layer_markers_are_added_undone_and_shown() {
         assert!(page.contains(drawn), "the page has {drawn}");
     }
 }
+
+/// D-887: a layer's bar is moved and trimmed in the page while the hand moves, and the core is
+/// told through the drag path, which drops the steps a newer one has overtaken. What the core
+/// must still do is the same as before: one history entry per drag, Escape back to the start,
+/// and a frame after the release that is the frame of the bar where it was let go.
+#[test]
+fn d887_a_bar_dragged_in_the_page_is_one_entry_and_the_frame_follows_it() {
+    let mut report = Report { rows: Vec::new() };
+    let source = repo("Fixtures/projects/keyed_settings_project.json");
+    let open_one = || {
+        Mutex::new(open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)))
+    };
+    let viewer = open_one();
+    let frames = |viewer: &Mutex<Viewer>| -> Vec<Vec<u8>> {
+        let export = Mutex::new(Export::default());
+        (0..5)
+            .map(|f| {
+                let (ask, quality) = parse(&format!("/frame/{f}"), None).expect("a readable request");
+                serve(viewer, &export, ask, quality).body().clone()
+            })
+            .collect()
+    };
+    let span = |viewer: &Mutex<Viewer>| {
+        layer(viewer, "layer-1", |l| format!("{} to {}", l.in_frame, l.out_frame))
+            .unwrap_or_else(|| "(no such layer)".to_string())
+    };
+    let depth = |viewer: &Mutex<Viewer>| held(viewer).document.undo_depth();
+    let at_rest = frames(&viewer);
+    let start = span(&viewer);
+
+    // ---- a move, with the steps the drag path dropped never sent -----------------------------
+    let before = depth(&viewer);
+    run(&viewer, "layer.shift?layer=layer-1&drag=1&in=1");
+    run(&viewer, "layer.shift?layer=layer-1&drag=1&in=2");
+    report.check("the bar moved two frames along is where the last step put it", "2 to 302", span(&viewer));
+    run(&viewer, "property.drag_end");
+    report.check("and the drag is one entry in the undo list", before + 1, depth(&viewer));
+    let dragged = frames(&viewer);
+    let direct = open_one();
+    run(&direct, "layer.shift?layer=layer-1&in=2");
+    report.check(
+        "every frame after the release is the frame of the bar put there in one step",
+        "5 of 5 the same",
+        format!("{} of 5 the same", dragged.iter().zip(frames(&direct)).filter(|(a, b)| **a == *b).count()),
+    );
+    report.check(
+        "and the move changed the picture, so that check could have failed",
+        true,
+        dragged != at_rest,
+    );
+    undo(&viewer);
+    report.check("undo puts the bar back", start.clone(), span(&viewer));
+    report.check(
+        "and every frame is the frame from before the drag again",
+        "5 of 5 the same",
+        format!("{} of 5 the same", frames(&viewer).iter().zip(&at_rest).filter(|(a, b)| *a == *b).count()),
+    );
+
+    // ---- Escape ----------------------------------------------------------------------------
+    let before = depth(&viewer);
+    run(&viewer, "layer.shift?layer=layer-1&drag=1&in=3");
+    run(&viewer, "property.drag_cancel");
+    report.check("Escape during a move puts the bar back", start.clone(), span(&viewer));
+    report.check("and leaves no entry", before, depth(&viewer));
+    report.check(
+        "and the frames are the frames from before the drag",
+        "5 of 5 the same",
+        format!("{} of 5 the same", frames(&viewer).iter().zip(&at_rest).filter(|(a, b)| *a == *b).count()),
+    );
+
+    // ---- a trim of each end ------------------------------------------------------------------
+    let before = depth(&viewer);
+    run(&viewer, "layer.trim?layer=layer-1&drag=1&in=1&out=300");
+    run(&viewer, "layer.trim?layer=layer-1&drag=1&in=2&out=300");
+    run(&viewer, "property.drag_end");
+    report.check("the start trimmed in two steps is one entry", format!("undo list {}, 2 to 300", before + 1), format!("undo list {}, {}", depth(&viewer), span(&viewer)));
+    let before = depth(&viewer);
+    run(&viewer, "layer.trim?layer=layer-1&drag=1&in=2&out=4");
+    run(&viewer, "property.drag_cancel");
+    report.check("Escape during a trim of the end puts the end back", format!("undo list {before}, 2 to 300"), format!("undo list {}, {}", depth(&viewer), span(&viewer)));
+    undo(&viewer);
+    report.check("undo puts the trimmed start back", start.clone(), span(&viewer));
+
+    // ---- the page --------------------------------------------------------------------------
+    let page = include_str!("../../ui/index.html");
+    let from = page.find("sheet.onpointerdown = (e) => {").expect("the bar's press");
+    let to = from + page[from..].find("// A bar that has been dragged").expect("the end of the bar's press");
+    let bar = &page[from..to];
+    report.check(
+        "the page moves and trims the bar through the drag path, one newest step per layer",
+        "true true",
+        format!("{} {}", bar.contains("dragSend('/layer.shift"), bar.contains("dragSend('/layer.trim")),
+    );
+    report.check(
+        "and no longer reads the project back and redraws the panels at every step",
+        "false false",
+        format!("{} {}", bar.contains("send('/layer.shift"), bar.contains("send('/layer.trim")),
+    );
+    report.check(
+        "the release and Escape wait for the last step, then redraw the panels once",
+        true,
+        bar.contains("afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end')"),
+    );
+
+    write_artifact(
+        &report,
+        "verification/B-767_bar_drag_table.md",
+        "B-767: a layer's bar follows the hand in the page (D-887)",
+        &[
+            "The bar moves and trims in the page during the drag; the core is told the newest step \
+             for each layer and makes one frame; the panels are drawn again once, on release.",
+        ],
+        &[
+            "What the page draws during the drag is checked in the running window, in \
+             `verification/B-767_playtest.md` and the lag measurement there.",
+        ],
+    );
+    let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+    assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+}
