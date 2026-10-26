@@ -24497,19 +24497,13 @@ impl Gpu {
     /// Why this plan cannot go to the card, if it cannot.
     fn refuse(&self, plan: &FramePlan) -> Option<Diagnostic> {
         // D-763: 8 bpc (After Effects) lays its layers together in display values. B-688 (D-808):
-        // the card does too, and rounds as the CPU does with its double-precision passes; an
-        // adjustment layer or a Light Wrap there, which read the frame laid so far, stay the CPU's.
-        if plan.display
-            && (self.fx.is_none()
-                || plan
-                    .layers
-                    .iter()
-                    .any(|l| l.adjust.is_some() || !wraps(l).is_empty()))
-        {
+        // the card does too, and rounds as the CPU does with its double-precision passes. B-749
+        // (D-869): so it lays an adjustment layer and a Light Wrap there too.
+        if plan.display && self.fx.is_none() {
             return Some(on_cpu(
                 Severity::Info,
-                "The CPU drew this frame: its composition works in 8 bpc (After Effects) and has an adjustment layer or a Light Wrap, or this graphics card cannot do double-precision sums.".into(),
-                "D-763, B-688 (D-808): in 8 bpc (After Effects) an adjustment layer or a Light Wrap is laid in display values on the CPU only; the card's 8-bit rounding needs SHADER_F64.".into(),
+                "The CPU drew this frame: its composition works in 8 bpc (After Effects) and this graphics card cannot do double-precision sums.".into(),
+                "D-763, B-688 (D-808): the card's 8-bit rounding needs SHADER_F64.".into(),
             ));
         }
         // B-156 (D-225): an adjustment layer whose every effect the card draws on the frame.
@@ -25420,6 +25414,11 @@ impl Gpu {
                         ],
                     });
                     steps.push((self.take.0.clone(), group, tiles));
+                    // B-749 (D-869), as adjust_frame: in 8 bpc the stack is given linear light.
+                    let taken = match plan.display {
+                        true => self.eight(&mut steps, &taken, (width, height), 1),
+                        false => taken,
+                    };
                     // Only Paraffin and Kira-kira read the drawing on the CPU, and they stay there.
                     let mut views = Vec::new();
                     self.run(
@@ -25432,6 +25431,10 @@ impl Gpu {
                     );
                     let (effected, (ew, eh)) =
                         views.pop().flatten().unwrap_or((taken, (width, height)));
+                    let effected = match plan.display {
+                        true => self.eight(&mut steps, &effected, (ew, eh), 0),
+                        false => effected,
+                    };
                     // Its shape is the composition's size, opaque, unless a mask cut it: that one is
                     // kept on the card, and only the cut ones are sent each frame. Both wide, so the
                     // cover is the CPU's to the bit.
