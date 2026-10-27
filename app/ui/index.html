@@ -7795,12 +7795,30 @@ function rotateHandle(box, unit) {
 
 // A point of the window, in the frame's own pixels. The canvas is scaled to fit the panel, so
 // its box on screen and its pixel count are two different numbers and both are needed.
+//
+// While a press lasts the point stays in the pixels of the frame that was on screen when it went
+// down. A drag's start, its handles and its layer map are all read then, and the frame under it
+// changes size part way (an In motion stand-in, D-898, or the size shown, D-899): read in the
+// new frame's pixels the pointer seemed to jump back toward the top left, and a dragged layer
+// flew off the other way (owner, 2026-10-27).
+let pressed = null;
 function atCanvas(e) {
   const shown = view.getBoundingClientRect();
+  const [w, h] = pressed ? [pressed.w, pressed.h] : [view.width, view.height];
   return [
-    (e.clientX - shown.left) * view.width / shown.width,
-    (e.clientY - shown.top) * view.height / shown.height,
+    (e.clientX - shown.left) * w / shown.width,
+    (e.clientY - shown.top) * h / shown.height,
   ];
+}
+// Composition pixels per frame pixel for a point from `atCanvas`: the press's frame while it lasts.
+const pressPer = () => (pressed ? pressed.per : perFramePixel());
+// Taken before any press handler runs, the mesh, liquify and picker ones included.
+stage.addEventListener('pointerdown', () => {
+  pressed = { w: view.width, h: view.height, per: perFramePixel() };
+}, true);
+// Let go after the gesture's own handlers have read their last point.
+for (const end of ['pointerup', 'pointercancel']) {
+  window.addEventListener(end, () => setTimeout(() => { pressed = null; }), true);
 }
 
 // Whether a point is inside a layer's box. The box is the image of a rectangle under an affine
@@ -7909,7 +7927,7 @@ function alignLayers(how, chosen = movable()) {
 // pixel per frame pixel crossed. They keep their distances from one another because each one
 // starts from its own position and every one of them is moved by the same amount.
 const moveLayer = (start, from, at, m, during) => {
-  const per = perFramePixel();
+  const per = pressPer();
   // W-23: Shift holds the move to one line, whichever the pointer has gone further along.
   let [dx, dy] = [at[0] - from[0], at[1] - from[1]];
   if (m.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
@@ -7976,7 +7994,7 @@ function rotateAbout(anchorAt) {
 let panAt = null;
 const panBehind = (start, from, at, m, during) => {
   const [layer, one] = start[0];
-  const per = perFramePixel();
+  const per = pressPer();
   const dx = (at[0] - from[0]) * per, dy = (at[1] - from[1]) * per;
   const position = [one.position[0] + dx, one.position[1] + dy];
   const turn = -one.rotation[0] * Math.PI / 180;
@@ -8087,7 +8105,7 @@ stage.onpointerdown = (e) => {
     stage.onpointerup = () => {
       stage.onpointermove = null;
       stage.onpointerup = null;
-      const per = perFramePixel();
+      const per = pressPer();
       const [x0, x1] = [Math.min(x, marquee[2]), Math.max(x, marquee[2])];
       const y0 = Math.min(y, marquee[3]);
       const wide = x1 - x0 > 6 * unit ? Math.round((x1 - x0) * per) : 0;
