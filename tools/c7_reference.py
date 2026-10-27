@@ -40,6 +40,7 @@ CHECKER = [  # X-Rite's published sRGB values, as tools/view_reference.py has th
     (231, 199, 31), (187, 86, 149), (8, 133, 161), (243, 243, 242), (200, 200, 200),
     (160, 160, 160), (122, 122, 121), (85, 85, 85), (52, 52, 52),
 ]
+PRIMARIES = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 PLAIN = [(255, 128, 0), (0, 0, 0), (255, 255, 255), (128, 128, 128), (255, 0, 0), (0, 255, 0),
          (0, 0, 255), (1, 1, 1), (254, 254, 254)]
 
@@ -108,7 +109,11 @@ def main():
         back = [level(1.055 * s ** (1 / 2.4) - 0.055 if s > 0.0031308 else 12.92 * s) for s in stored]
         assert back == list(rgb), (hex_, back)
         working, display = numbers(stored)
-        picker.append({"hex": hex_, "stored": stored, "working": working, "display": display})
+        # D-918 correction: a pure primary at full strength is where D-915's table cannot follow
+        # ACES 2.0's gamut compression; reported, as D-915 reports its pure primary ramps.
+        barred = rgb not in PRIMARIES
+        picker.append({"hex": hex_, "barred": barred, "stored": stored, "working": working,
+                       "display": display})
 
     pixels = []
     for b, (name, barred, colour) in enumerate(bands()):
@@ -125,12 +130,12 @@ def main():
         "ocio_version": VERSION, "config": CONFIG, "optimization": "OPTIMIZATION_LOSSLESS",
         "display": DISPLAY, "views": VIEWS,
         "bars": {
-            "working": "|ours - expected| at most 1e-6 times max(1, |expected|), every channel",
+            "working": "|ours - expected| at most 1e-6 times the colour's size (its largest channel, at least 1), every channel (D-918 correction: as D-909's bar)",
             "stored": "a pixel's stored number back from its working numbers within the same bar; "
                       "a picker hex's stored number the sRGB curve's decode within the same bar, and its "
                       "hex back exactly the hex",
             "display": "at most 1 level of 255 from OpenColorIO on every channel of the picker "
-                       "cases and the barred bands (the rest are reported), and exactly the "
+                       "cases marked barred and the barred bands (the pure primaries and their ramps are reported), and exactly the "
                        "viewer's own byte at that pixel",
             "off": "colour management off: the window says so and shows nothing new",
         },
