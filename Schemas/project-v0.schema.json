@@ -27,7 +27,15 @@
       ],
       "properties": {
         "working_space": {
-          "const": "linear-srgb"
+          "enum": [
+            "linear-srgb",
+            "acescg"
+          ],
+          "$comment": "D-909: acescg only with color_management true"
+        },
+        "color_management": {
+          "const": true,
+          "$comment": "D-909: written only when on"
         },
         "alpha_mode": {
           "const": "premultiplied"
@@ -1478,8 +1486,17 @@
             "color_space": {
               "enum": [
                 "srgb",
-                "linear-srgb"
-              ]
+                "linear-srgb",
+                "acescg",
+                "aces2065-1",
+                "acescct",
+                "acescc",
+                "linear-rec2020",
+                "linear-p3-d65",
+                "bt1886-rec709",
+                "gamma22-rec709"
+              ],
+              "$comment": "D-909: a word not listed is kept and reported as COLOR_SPACE_UNKNOWN"
             },
             "alpha": {
               "enum": [

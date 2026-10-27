@@ -27,6 +27,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | media.import | Import still/sequence | Ctrl+I | yes |
 | media.relink | Relink missing asset | none | yes |
 | asset.set_redistribute | Mark whether an asset's drawings may be passed on in a package (D-61) | none | yes |
+| asset.set_interpretation | Interpret as: the colour space a still's or a sequence's files are stored in (D-909) | none | yes |
 | item.set_label | A composition's or a footage item's label colour, 0 for none (D-254) | none | yes |
 | project.collect | Collect the project and its media into one folder with a manifest (D-61) | none | no history item |
 | package.check | Check the files of the open package against its manifest (D-61) | none | no |

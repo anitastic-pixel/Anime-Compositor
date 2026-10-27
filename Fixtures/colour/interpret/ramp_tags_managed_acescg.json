@@ -1,0 +1,614 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-ramp-managed",
+  "color_settings": {
+    "working_space": "acescg",
+    "color_management": true,
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-srgb",
+      "kind": "still",
+      "name": "ramp srgb",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-linear-srgb",
+      "kind": "still",
+      "name": "ramp linear-srgb",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "linear-srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-acescg",
+      "kind": "still",
+      "name": "ramp acescg",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "acescg",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-aces2065-1",
+      "kind": "still",
+      "name": "ramp aces2065-1",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "aces2065-1",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-acescct",
+      "kind": "still",
+      "name": "ramp acescct",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "acescct",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-acescc",
+      "kind": "still",
+      "name": "ramp acescc",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "acescc",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-linear-rec2020",
+      "kind": "still",
+      "name": "ramp linear-rec2020",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "linear-rec2020",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-linear-p3-d65",
+      "kind": "still",
+      "name": "ramp linear-p3-d65",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "linear-p3-d65",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-bt1886-rec709",
+      "kind": "still",
+      "name": "ramp bt1886-rec709",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "bt1886-rec709",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-gamma22-rec709",
+      "kind": "still",
+      "name": "ramp gamma22-rec709",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "gamma22-rec709",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 16,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 1,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 1
+      },
+      "layer_order": [
+        "layer-srgb",
+        "layer-linear-srgb",
+        "layer-acescg",
+        "layer-aces2065-1",
+        "layer-acescct",
+        "layer-acescc",
+        "layer-linear-rec2020",
+        "layer-linear-p3-d65",
+        "layer-bt1886-rec709",
+        "layer-gamma22-rec709"
+      ],
+      "layers": [
+        {
+          "id": "layer-srgb",
+          "kind": "raster",
+          "name": "srgb",
+          "asset_id": "asset-srgb",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-linear-srgb",
+          "kind": "raster",
+          "name": "linear-srgb",
+          "asset_id": "asset-linear-srgb",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-acescg",
+          "kind": "raster",
+          "name": "acescg",
+          "asset_id": "asset-acescg",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-aces2065-1",
+          "kind": "raster",
+          "name": "aces2065-1",
+          "asset_id": "asset-aces2065-1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-acescct",
+          "kind": "raster",
+          "name": "acescct",
+          "asset_id": "asset-acescct",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-acescc",
+          "kind": "raster",
+          "name": "acescc",
+          "asset_id": "asset-acescc",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-linear-rec2020",
+          "kind": "raster",
+          "name": "linear-rec2020",
+          "asset_id": "asset-linear-rec2020",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-linear-p3-d65",
+          "kind": "raster",
+          "name": "linear-p3-d65",
+          "asset_id": "asset-linear-p3-d65",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-bt1886-rec709",
+          "kind": "raster",
+          "name": "bt1886-rec709",
+          "asset_id": "asset-bt1886-rec709",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "layer-gamma22-rec709",
+          "kind": "raster",
+          "name": "gamma22-rec709",
+          "asset_id": "asset-gamma22-rec709",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

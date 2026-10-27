@@ -1,0 +1,31 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-unknown-working",
+  "color_settings": {
+    "working_space": "linear-rec2020",
+    "color_management": true,
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 144,
+      "height": 120,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 1,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 1
+      },
+      "layer_order": [],
+      "layers": []
+    }
+  ]
+}

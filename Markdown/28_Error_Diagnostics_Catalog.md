@@ -25,6 +25,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | MEDIA_AUDIO_PREVIEW_ONLY | WARNING | A sound the core does not read, Opus (D-639) | keep the layer and its reference; the window still plays it; exports and sound effects leave it out; say so on import |
 | MEDIA_EXR_ADJUSTED | WARNING | An EXR drawing was drawn, but not exactly as stored (D-62) | draw it; name the file and each reason: channels ignored (D-349: never the depth, normals or ids an effect reads, nor the colour layer taken from a Blender file), pixels outside the display window, samples not finite, alpha clamped, pixel aspect, primaries |
 | MEDIA_COLOR_METADATA_IGNORED | WARNING | A PNG carries colour information (sRGB, gAMA, cHRM, iCCP or cICP chunk) saying something other than the sRGB the build assumes (D-902) | draw it as sRGB with its numbers unchanged; at import name the file, or the sequence and its drawings once, and each colour chunk with its stored values; chunks that all say exactly sRGB are quiet. An EXR's own primaries are `MEDIA_EXR_ADJUSTED` `primaries` |
+| COLOR_SPACE_UNKNOWN | WARNING | A saved project's asset names a colour space this build does not have (D-909, step C3 of ADR-023) | keep the stored name byte for byte and save it back; draw the asset as missing (transparent), name the asset and the space once at load, and say so in every frame's log that would have drawn it, which marks exports made meanwhile incomplete; never draw it as sRGB in silence. A working space this build does not have refuses the project as `PROJECT_SCHEMA_INVALID` |
 | EFFECT_UNSUPPORTED | WARNING | Effect type not installed/implemented | preserve serialized record; bypass with visible warning |
 | PRESET_FILE_INVALID | ERROR | A preset file that is not the preset file format, or is a newer version of it (D-180) | import nothing and change nothing; name what was wrong. An effect or setting this build does not have is `EFFECT_UNSUPPORTED`, and refuses the file likewise |
 | EFFECT_PARAMETER_INVALID | ERROR on a command, WARNING on a load and per frame | Effect parameter violates contract | reject the command; on load preserve the record exactly and unrepaired, bypass that one effect while the rest of the stack still runs, warn once per frame it happens, and report fidelity incomplete |
@@ -91,11 +92,10 @@ Added 2026-10-15. D-101 (document 14, accepted 2026-09-27 under D-167) keeps the
 
 ## Colour management identifiers reserved by ADR-023
 
-Added 2026-10-26 by D-905. ADR-023's later steps (C3 to C5) will raise these; none is built yet, so they are kept out of the Core IDs table, whose every row the build must have. Each moves to Core IDs with the step that raises it.
+Added 2026-10-26 by D-905. ADR-023's later steps (C3 to C5) will raise these; none is built yet, so they are kept out of the Core IDs table, whose every row the build must have. Each moves to Core IDs with the step that raises it: `COLOR_SPACE_UNKNOWN` moved with C3 (D-909).
 
 | ID | Severity | Meaning | Required behavior |
 |---|---|---|---|
-| COLOR_SPACE_UNKNOWN | WARNING | A saved project or an asset names a colour space this build does not have (C3) | keep the stored name byte for byte and save it back; draw the asset as missing (transparent), name the asset and the space once at load, and mark exports made meanwhile incomplete; never draw it as sRGB in silence |
 | COLOR_DEPTH_REFUSED | ERROR | 8 bpc (AE) or 32 bpc (AE) chosen with colour management on, or colour management switched on in one of those depths (C4) | refuse the command and leave the project as it was; say that those depths copy After Effects' project without colour management, and that Display or Float work with it |
 | COLOR_VIEW_UNAVAILABLE | WARNING | The ACES view's baked table cannot be read or does not match its recorded check (C5) | show the Standard view instead and say so in the viewer's label and the session log; never export through a view that failed |
 
