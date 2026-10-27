@@ -31,8 +31,10 @@ use std::sync::Mutex;
 
 use rayon::prelude::*;
 
+use crate::cache::CelCache;
 use crate::compose;
 use crate::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
+use crate::gpu::Gpu;
 use crate::exr_io::{self, ExrSamples};
 use crate::film_out::Film;
 use crate::model::{Id, Project};
@@ -111,6 +113,17 @@ pub struct ExportRequest {
     pub format: OutputFormat,
     pub choices: ExportChoices,
 }
+
+/// D-907 (PROPOSED, off): frames drawn on the graphics card, as the viewer's card draws them
+/// (B-44 and on), read back as floats and written as the processor's would be. Not in the export
+/// window, and false unless a test sets it. A frame the card refuses is drawn by the processor and
+/// named in the report, and the report says which frames the card drew. Off, an export is what it
+/// always was, byte for byte.
+pub static ON_CARD: AtomicBool = AtomicBool::new(false);
+
+/// D-907: how many connections to the card an export on it opens, to draw that many frames at
+/// once. One: three were measured slower than one (`verification/B-786_card_export_table.md`).
+pub static CARDS: AtomicUsize = AtomicUsize::new(1);
 
 /// What a job did. Everything a person needs to know without opening the folder.
 /// D-73's choices. Each belongs to one format and is ignored by the others.
@@ -429,6 +442,32 @@ pub fn export_sequence_watched(
         }
     }
 
+    // D-907: a card of the export's own, when asked for; none to be had is said, never silent.
+    let card: Option<Vec<Mutex<Card>>> = ON_CARD.load(Ordering::SeqCst).then(Gpu::new).and_then(|g| {
+        g.map_err(|e| {
+            report.diagnostics.push(Diagnostic::new(
+                DiagnosticId::GpuPreviewOnCpu,
+                Severity::Warning,
+                "Export on the graphics card was asked for, but no card could be opened, so the \
+                 processor drew every frame."
+                    .to_string(),
+                e,
+            ))
+        })
+        .ok()
+        .map(|first| {
+            // Several frames on the card at once, each on a card connection of its own; one
+            // that cannot be opened is simply not used.
+            let more = (1..CARDS.load(Ordering::SeqCst)).filter_map(|_| Gpu::new().ok());
+            std::iter::once(first)
+                .chain(more)
+                .map(|gpu| Mutex::new((gpu, CelCache::with_budget(CARD_CELS))))
+                .collect()
+        })
+    });
+    let card = card.as_deref();
+    let mut card_said = OnCardSaid::default();
+
     // Document 07's default: a missing drawing blocks a final export, and nothing is written
     // before that is known. This plans every frame first, which costs the decode twice over a
     // long range.
@@ -449,13 +488,7 @@ pub fn export_sequence_watched(
                 .par_iter()
                 .map(|&frame| {
                     let mut journal = FrameLog::journal();
-                    let planned = compose::plan_frame(
-                        project,
-                        &request.composition,
-                        frame,
-                        root,
-                        &mut journal,
-                    );
+                    let planned = plan(project, root, request, frame, &mut journal, card);
                     (journal, planned)
                 })
                 .collect();
@@ -473,8 +506,20 @@ pub fn export_sequence_watched(
                 .map(|(&frame, (journal, planned))| match planned {
                     Ok(plan) if keep => {
                         let read = journal.copy();
-                        let (journal, mut drawn) =
-                            drawn_from(project, request, frame, journal, Ok(plan));
+                        let mut journal = journal;
+                        let drawn = match card {
+                            None => Ok((crate::render::render(&plan, request.tile_size), None)),
+                            Some(card) => on_card(
+                                project,
+                                root,
+                                request,
+                                frame,
+                                &mut journal,
+                                Some(plan),
+                                card,
+                            ),
+                        };
+                        let (journal, mut drawn) = drawn_from(project, request, frame, journal, drawn);
                         if let Ok(d) = &mut drawn {
                             d.buffer = None;
                         }
@@ -542,7 +587,9 @@ pub fn export_sequence_watched(
         let mut drawn = chunk
             .par_iter()
             .zip(ready)
-            .map(|(&frame, ready)| ready.or_else(|| draw(project, root, request, frame, cancel)))
+            .map(|(&frame, ready)| {
+                ready.or_else(|| draw(project, root, request, frame, cancel, card))
+            })
             .collect::<Vec<_>>()
             .into_iter();
         for &frame in chunk {
@@ -598,6 +645,7 @@ pub fn export_sequence_watched(
                 bypassed: drew_bypassed,
                 encoded,
                 small,
+                card: drew_on_card,
             } = match drawn {
                 Ok(drawn) => drawn,
                 Err(d) => {
@@ -725,7 +773,7 @@ pub fn export_sequence_watched(
                         bytes
                     } else {
                         let again = || {
-                            let (_, drawn) = draw(project, root, request, frame, &AtomicBool::new(false))
+                            let (_, drawn) = draw(project, root, request, frame, &AtomicBool::new(false), card)
                                 .expect("not cancelled");
                             drawn.ok().and_then(|d| d.buffer).expect("drawn before")
                         };
@@ -779,6 +827,7 @@ pub fn export_sequence_watched(
                 }
                 written.push_back((frame, small.0, small.1, small.2));
             }
+            card_said.drew(frame, drew_on_card);
             done.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -841,6 +890,9 @@ pub fn export_sequence_watched(
     }
 
     report.diagnostics.extend(log.finish());
+    if card.is_some() {
+        report.diagnostics.push(card_said.finish());
+    }
     report
 }
 
@@ -872,6 +924,9 @@ struct Drawn {
     encoded: Encoded,
     /// D-252: the frame [`small`], for a window watching.
     small: (usize, usize, Vec<u8>),
+    /// D-907: drawn on the card, with the effects the processor ran first; `None` when the
+    /// processor drew it.
+    card: Option<Vec<String>>,
 }
 
 /// D-812: how much of the frames' files the check for missing drawings keeps for writing.
@@ -922,24 +977,188 @@ fn draw(
     request: &ExportRequest,
     frame: i32,
     cancel: &AtomicBool,
+    card: Option<&[Mutex<Card>]>,
 ) -> Option<(FrameLog, Result<Drawn, Diagnostic>)> {
     if cancel.load(Ordering::SeqCst) {
         return None;
     }
     let mut journal = FrameLog::journal();
-    let plan = compose::plan_frame(project, &request.composition, frame, root, &mut journal);
-    Some(drawn_from(project, request, frame, journal, plan))
+    let drawn = match card {
+        None => compose::plan_frame(project, &request.composition, frame, root, &mut journal)
+            .map(|plan| (crate::render::render(&plan, request.tile_size), None)),
+        Some(card) => on_card(project, root, request, frame, &mut journal, None, card),
+    };
+    Some(drawn_from(project, request, frame, journal, drawn))
 }
 
-/// D-812: [`draw`] from the frame's plan, rendered as `compose::render_frame` renders it.
+/// D-907: a connection to the card, and the drawings it planned with, so that a drawing held
+/// over several frames is decoded and sent to the card once, as in the viewer.
+type Card = (Gpu, CelCache);
+
+/// D-907: what each connection's [`CelCache`] may hold.
+// ponytail: a fixed 1 GiB each, as KEPT_BYTES; take it from Preferences' memory setting if needed.
+const CARD_CELS: usize = 1 << 30;
+
+/// The frame's plan, for the check for missing drawings: the processor's, or with a card (D-907)
+/// the viewer's plan for the card at Full, whose effects the card does not draw are run here, on
+/// the processor.
+fn plan(
+    project: &Project,
+    root: &Path,
+    request: &ExportRequest,
+    frame: i32,
+    journal: &mut FrameLog,
+    card: Option<&[Mutex<Card>]>,
+) -> Result<crate::render::FramePlan, Diagnostic> {
+    match card {
+        None => compose::plan_frame(project, &request.composition, frame, root, journal),
+        Some(_) => compose::plan_frame_for_card(
+            project,
+            &request.composition,
+            frame,
+            root,
+            crate::preview::PreviewQuality::Full,
+            journal,
+            &mut CelCache::none(),
+        ),
+    }
+}
+
+/// D-907: the frame drawn on the card and read back as the processor's working floats, with the
+/// effects the processor ran first; or, when the card refuses or fails, why, in `journal`, and the
+/// frame planned again and drawn by the processor, exactly as an export without the card. `plan`
+/// is the frame's when the check for missing drawings has made it; otherwise it is planned here,
+/// with the connection's drawings.
+fn on_card(
+    project: &Project,
+    root: &Path,
+    request: &ExportRequest,
+    frame: i32,
+    journal: &mut FrameLog,
+    plan: Option<crate::render::FramePlan>,
+    cards: &[Mutex<Card>],
+) -> Result<(WorkingBuffer, Option<Vec<String>>), Diagnostic> {
+    // The first connection free, or else this frame's own, waited for.
+    let mut held = cards.iter().find_map(|c| c.try_lock().ok()).unwrap_or_else(|| {
+        cards[frame.rem_euclid(cards.len() as i32) as usize]
+            .lock()
+            .expect("the card lock was poisoned")
+    });
+    let (gpu, cels) = &mut *held;
+    let plan = match plan {
+        Some(plan) => plan,
+        None => compose::plan_frame_for_card(
+            project,
+            &request.composition,
+            frame,
+            root,
+            crate::preview::PreviewQuality::Full,
+            journal,
+            cels,
+        )?,
+    };
+    let (width, height) = (plan.width, plan.height);
+    if width == 0 || height == 0 {
+        return Ok((crate::render::render(&plan, request.tile_size), Some(Vec::new())));
+    }
+    let drawn = gpu.draw_held(&plan, cels).and_then(|()| {
+        gpu.sum_back().map_err(|e| {
+            Diagnostic::new(
+                DiagnosticId::GpuPreviewOnCpu,
+                Severity::Warning,
+                "The processor drew this frame: the graphics card's frame could not be read back."
+                    .to_string(),
+                e,
+            )
+        })
+    });
+    drop(held);
+    match drawn {
+        Ok(floats) => {
+            let mut buffer = WorkingBuffer::transparent(width, height);
+            buffer.data_mut().copy_from_slice(&floats);
+            Ok((buffer, Some(journal.on_processor().to_vec())))
+        }
+        Err(why) => {
+            journal.record(frame, "card export", why);
+            let plan = compose::plan_frame(
+                project,
+                &request.composition,
+                frame,
+                root,
+                &mut FrameLog::new(usize::MAX),
+            )?;
+            Ok((crate::render::render(&plan, request.tile_size), None))
+        }
+    }
+}
+
+/// D-907: what an export on the card says at its end: which frames the card drew, which the
+/// processor drew (each one's reason is in the report above), and the effects the processor ran
+/// on the card's frames before handing them over.
+#[derive(Default)]
+struct OnCardSaid {
+    card: Vec<i32>,
+    processor: Vec<i32>,
+    ran: Vec<String>,
+}
+
+impl OnCardSaid {
+    fn drew(&mut self, frame: i32, card: Option<Vec<String>>) {
+        match card {
+            Some(ran) => {
+                self.card.push(frame);
+                for name in ran {
+                    if !self.ran.contains(&name) {
+                        self.ran.push(name);
+                    }
+                }
+            }
+            None => self.processor.push(frame),
+        }
+    }
+
+    fn finish(self) -> Diagnostic {
+        let total = self.card.len() + self.processor.len();
+        let mut detail = Vec::new();
+        if !self.card.is_empty() {
+            detail.push(format!("The card drew frames {}.", ranges(&self.card)));
+        }
+        if !self.processor.is_empty() {
+            detail.push(format!(
+                "The processor drew frames {}, for the reasons given above.",
+                ranges(&self.processor)
+            ));
+        }
+        if !self.ran.is_empty() {
+            detail.push(format!(
+                "On the card's frames the processor ran these effects first: {}.",
+                self.ran.join(", ")
+            ));
+        }
+        Diagnostic::new(
+            DiagnosticId::GpuPreviewOnCpu,
+            Severity::Info,
+            format!(
+                "Exported on the graphics card (D-907, a trial): the card drew {} of {total} \
+                 frames. Its pixels can differ a little from the processor's, so its files are \
+                 not the processor's bytes.",
+                self.card.len()
+            ),
+            detail.join(" "),
+        )
+    }
+}
+
+/// D-812: [`draw`] from the frame's drawn picture (D-907: and whether the card drew it), encoded.
 fn drawn_from(
     project: &Project,
     request: &ExportRequest,
     frame: i32,
     journal: FrameLog,
-    plan: Result<crate::render::FramePlan, Diagnostic>,
+    drawn: Result<(WorkingBuffer, Option<Vec<String>>), Diagnostic>,
 ) -> (FrameLog, Result<Drawn, Diagnostic>) {
-    let drawn = plan.map(|plan| crate::render::render(&plan, request.tile_size)).map(|buffer| {
+    let drawn = drawn.map(|(buffer, on_card)| {
         let bypassed = bypassed(&journal.ids_at(frame));
         let encoded = match request.format {
             OutputFormat::Png => Encoded::Png(png_encode(
@@ -977,6 +1196,7 @@ fn drawn_from(
             bypassed,
             encoded,
             small,
+            card: on_card,
         }
     });
     (journal, drawn)
