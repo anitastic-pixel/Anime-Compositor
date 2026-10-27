@@ -70,7 +70,7 @@ The hybrid.
 | C2 | The named spaces and curves, checked against OpenColorIO; the app does not use them yet | D-906 / B-785 |
 | C3 | The switch, the working space, "Interpret as" per file; conversion at decode | later |
 | C4 | Stored colours, display-value rules and the depths with colour management on | later |
-| C5 | The viewer's view: Standard, Un-tone-mapped, ACES 2.0 SDR | later |
+| C5 | The viewer's view: Standard, Un-tone-mapped, ACES 2.0 SDR | D-915 / B-794 |
 | C6 | An Output colour choice per export, files tagged honestly | later |
 | C7 | Pickers and Info show working and display numbers | later |
 | C8 | Studio configs, camera logs, wide-gamut and HDR monitors: ask first | waits |

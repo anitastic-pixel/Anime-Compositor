@@ -10,7 +10,7 @@ Effects declare bounds expansion and sampling requirements. Blur must request en
 
 ## Color and alpha
 
-Use floating-point linear-light working RGB with premultiplied alpha for compositing; proposed initial working primaries are sRGB/Rec.709. Decode straight PNG color to linear before premultiplying. Input interpretation must be explicit when metadata is absent or conflicting.
+Use floating-point linear-light working RGB with premultiplied alpha for compositing; proposed initial working primaries are sRGB/Rec.709. Decode straight PNG color to linear before premultiplying. Input interpretation must be explicit when metadata is absent or conflicting. With colour management on the viewer shows the working space through a view, ACES 2.0 SDR by default, Un-tone-mapped or Standard (D-915); exports do not take it.
 
 For normal over, premultiplied output color is Cs + Cd × (1 − As), and alpha is As + Ad × (1 − As). Alpha is coverage and is not gamma-encoded. At zero alpha, guarded unpremultiplication returns zero RGB; do not divide by zero.
 

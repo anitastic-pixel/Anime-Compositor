@@ -44,6 +44,10 @@ verification/B-16b[[:space:]]export/*.exr -text
 # its reason for being refused.
 Fixtures/arbitrary_map/**/*.amp -text
 
+# The ACES view's table (D-915) is single-precision numbers, built into the program and checked by
+# its SHA-256, so it is exact bytes.
+assets/colour/*.f32 -text
+
 # The app's tests read its own source and page as text (include_str!) and look for exact lines
 # in them, newlines included. A CRLF checkout breaks those pins, so the app's text files are LF
 # everywhere. Named by extension so the icons stay exact bytes.

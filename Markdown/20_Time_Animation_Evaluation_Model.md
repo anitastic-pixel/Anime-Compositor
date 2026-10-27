@@ -106,7 +106,7 @@ Opacity is clamped to 0..1 at command validation. Scale may be negative to permi
 6. Evaluate animated properties/effect parameters at the composition frame. D-68, accepted on 2026-09-18: an effect parameter with keys is evaluated exactly as a transform property is, a colour's three numbers at the same fraction in linear light, and the result is then held inside the parameter's range, because an ease may overshoot. D-69, accepted on 2026-09-18: a position written as X and Y apart is `[x at the frame, y at the frame]`, each evaluated as any number is; a key's `kind` and `roving` are not read by evaluation at all.
 7. Evaluate source, mask, effects, transform and matte using 21.
 8. Composite the ordered result.
-9. Apply output/display transform only for the requested destination.
+9. Apply output/display transform only for the requested destination. The viewer's view (D-915, document 21 "The view") is applied at the viewer's encode only, never to an export or a trace image.
 
 Parents, accepted by D-57, create dependencies in the same way: a parent's anchor, position, scale and rotation are evaluated at the same composition frame as its child's, whether or not that frame is inside the parent's in and out points, whether or not the parent is enabled, and whatever drawing its exposure holds. Nothing else of the parent is evaluated for the child.
 

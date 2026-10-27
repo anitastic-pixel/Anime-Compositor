@@ -865,6 +865,22 @@ FX-COLC4-004: `luma_matte_*`, an opaque black solid; above it a red solid of 0.9
 
 FX-COLC4-005: depths. `refused_eight_bpc.json` (8 bpc (AE)) and `refused_ae_32bpc.json` (32 bpc (AE)), each with colour management on working in ACEScg, are refused at opening with `COLOR_DEPTH_REFUSED`, nothing on disk changed; `float_acescg.json` (Float) opens. With colour management on, `composition.set_settings` choosing either AE depth is refused with `COLOR_DEPTH_REFUSED` and the project left as it was; Display and Float are accepted.
 
+## View fixtures
+
+Specified on 2026-10-26 by D-915 for B-794. Every file is in `Fixtures/colour/view/` and was written by `tools/view_reference.py`: the picture with Python's standard library, the expected levels by OpenColorIO 2.5.1 (PyOpenColorIO, its built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5`, `OPTIMIZATION_LOSSLESS`, nothing downloaded), display "sRGB - Display". The same tool bakes the shipped table `assets/colour/aces2_sdr_srgb_97.f32`. A level is floor(clamp(v, 0, 1) times 255 plus 0.5). The bar, set before the code: within 1 level on every channel on at least 99.9% of each barred case's pixels.
+
+FX-COLVIEW-001: the table. `expected_view.json` `table` records its file, size 97, input ACEScct, format and SHA-256; the build's built-in table has that SHA-256 and 97 cubed colours.
+
+FX-COLVIEW-002: the ACES 2.0 SDR view. For each case in `expected_view.json` (the white ramp from 1/256 to 64 and the fire gradient to 64, barred; the 24 ColorChecker patches from 4 stops under to 6 over, barred; six pure Rec.709 primary and secondary ramps to 64 and 4,000 stress colours, reported) and each working space (ACEScg, linear Rec.709), the build's processor view of `pixels` against `aces-2.0-sdr`: barred cases within the bar, reported cases printed beside it.
+
+FX-COLVIEW-003: the Un-tone-mapped view, every case and working space against `un-tone-mapped`, within the bar.
+
+FX-COLVIEW-004: the card. `media/hdr_scene.exr` (512 by 256 float, linear Rec.709, the eight ramps and gradients above as 32-row bands) shown by `hdr_scene_aces.json`, `hdr_scene_un_tone_mapped.json` and `hdr_scene_standard.json`, Display and Float, the card's bytes within 1 level of the processor's on every pixel, frames past 1 included; with colour management off (`hdr_scene_off.json`) the card's and the processor's bytes are today's.
+
+FX-COLVIEW-005: the project files. `hdr_scene_aces.json` (no `view`, colour management on) shows ACES 2.0 SDR; each of the six saves back byte for byte; `project.set_view` on the first writes `view`, and back to ACES 2.0 SDR in a file that had none removes it again; with colour management off (`hdr_scene_off.json`, `hdr_scene_off_with_view.json`) the command is refused, the view is Standard and the stored `view` is kept unread.
+
+FX-COLVIEW-006: `hdr_scene_unknown_view.json` (`view` `aces-1.3-sdr`): opens with one `COLOR_VIEW_UNAVAILABLE` warning naming the word, shows Standard, and saves back byte for byte.
+
 ## Adjustment layer fixtures
 
 D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.

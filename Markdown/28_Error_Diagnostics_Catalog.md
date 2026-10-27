@@ -27,6 +27,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | MEDIA_COLOR_METADATA_IGNORED | WARNING | A PNG carries colour information (sRGB, gAMA, cHRM, iCCP or cICP chunk) saying something other than the sRGB the build assumes (D-902) | draw it as sRGB with its numbers unchanged; at import name the file, or the sequence and its drawings once, and each colour chunk with its stored values; chunks that all say exactly sRGB are quiet. An EXR's own primaries are `MEDIA_EXR_ADJUSTED` `primaries` |
 | COLOR_SPACE_UNKNOWN | WARNING | A saved project's asset names a colour space this build does not have (D-909, step C3 of ADR-023) | keep the stored name byte for byte and save it back; draw the asset as missing (transparent), name the asset and the space once at load, and say so in every frame's log that would have drawn it, which marks exports made meanwhile incomplete; never draw it as sRGB in silence. A working space this build does not have refuses the project as `PROJECT_SCHEMA_INVALID` |
 | COLOR_DEPTH_REFUSED | ERROR | 8 bpc (AE) or 32 bpc (AE) chosen in a composition's settings with colour management on, or a project file with colour management on and a composition in one of those depths (D-910, step C4 of ADR-023) | refuse the command and leave the project as it was, or refuse to open the file and change nothing on disk; say that those depths copy After Effects without colour management, and that Display or Float work with it |
+| COLOR_VIEW_UNAVAILABLE | WARNING | A saved project with colour management on names a viewer view this build does not have (D-915, step C5 of ADR-023); the ACES view's table is built into the program and checked by a test, so a table that fails cannot reach a person | keep the stored word byte for byte and save it back; show the Standard view, name the word once at load and in the View menu's list; never export through a view (exports never take it) |
 | EFFECT_UNSUPPORTED | WARNING | Effect type not installed/implemented | preserve serialized record; bypass with visible warning |
 | PRESET_FILE_INVALID | ERROR | A preset file that is not the preset file format, or is a newer version of it (D-180) | import nothing and change nothing; name what was wrong. An effect or setting this build does not have is `EFFECT_UNSUPPORTED`, and refuses the file likewise |
 | EFFECT_PARAMETER_INVALID | ERROR on a command, WARNING on a load and per frame | Effect parameter violates contract | reject the command; on load preserve the record exactly and unrepaired, bypass that one effect while the rest of the stack still runs, warn once per frame it happens, and report fidelity incomplete |
@@ -95,9 +96,7 @@ Added 2026-10-15. D-101 (document 14, accepted 2026-09-27 under D-167) keeps the
 
 Added 2026-10-26 by D-905. ADR-023's later steps (C3 to C5) will raise these; none is built yet, so they are kept out of the Core IDs table, whose every row the build must have. Each moves to Core IDs with the step that raises it: `COLOR_SPACE_UNKNOWN` moved with C3 (D-909), `COLOR_DEPTH_REFUSED` with C4 (D-910).
 
-| ID | Severity | Meaning | Required behavior |
-|---|---|---|---|
-| COLOR_VIEW_UNAVAILABLE | WARNING | The ACES view's baked table cannot be read or does not match its recorded check (C5) | show the Standard view instead and say so in the viewer's label and the session log; never export through a view that failed |
+Both have since moved to Core IDs: COLOR_DEPTH_REFUSED with step C4 (D-910) and COLOR_VIEW_UNAVAILABLE with step C5 (D-915). No row is left here.
 
 ## Missing/unsupported render fallback
 

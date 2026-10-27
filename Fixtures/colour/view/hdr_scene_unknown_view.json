@@ -1,0 +1,93 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-hdr-scene-unknown-view",
+  "color_settings": {
+    "working_space": "acescg",
+    "color_management": true,
+    "alpha_mode": "premultiplied",
+    "view": "aces-1.3-sdr"
+  },
+  "assets": [
+    {
+      "id": "asset-scene",
+      "kind": "still",
+      "name": "hdr_scene",
+      "path": "media/hdr_scene.exr",
+      "interpretation": {
+        "color_space": "linear-srgb",
+        "alpha": "premultiplied"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 512,
+      "height": 256,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 1,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 1
+      },
+      "layer_order": [
+        "layer-scene"
+      ],
+      "layers": [
+        {
+          "id": "layer-scene",
+          "kind": "raster",
+          "name": "scene",
+          "asset_id": "asset-scene",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

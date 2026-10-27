@@ -39,6 +39,10 @@
         },
         "alpha_mode": {
           "const": "premultiplied"
+        },
+        "view": {
+          "type": "string",
+          "$comment": "D-915: aces-2.0-sdr (meant when absent), un-tone-mapped or standard; read only with color_management true; another word is kept and warned COLOR_VIEW_UNAVAILABLE; written after alpha_mode"
         }
       },
       "additionalProperties": true
