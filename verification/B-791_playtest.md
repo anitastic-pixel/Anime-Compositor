@@ -18,8 +18,10 @@ project opens as Exact and saves exactly as it was.
 
 ## The numbers
 
-The timing (Exact against Fast) is still to be measured in a quiet slot. It will go in
-`verification/B-791_fast_key_cleaner_timing_table.md`.
+Measured in a quiet slot on 2026-10-27 (whole frame of the reference shot, median of 5 rounds,
+`verification/B-791_fast_key_cleaner_timing_table.md`): Key Cleaner as added (radius 10) 253.4 ms
+Exact, 195.4 ms Fast; radius 20 268.5 ms, 171.8 ms; radius 40 263.3 ms, 172.5 ms. Fast takes about
+two thirds to three quarters of Exact's time on the whole frame.
 
 Exact is unchanged. Key Cleaner's and Screen Key's frames hash the same before and after this
 change. The full table is `verification/B-791_fast_key_cleaner_table.md`.
