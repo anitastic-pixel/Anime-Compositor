@@ -114,13 +114,6 @@ pub struct ExportRequest {
     pub choices: ExportChoices,
 }
 
-/// D-907 (PROPOSED, off): frames drawn on the graphics card, as the viewer's card draws them
-/// (B-44 and on), read back as floats and written as the processor's would be. Not in the export
-/// window, and false unless a test sets it. A frame the card refuses is drawn by the processor and
-/// named in the report, and the report says which frames the card drew. Off, an export is what it
-/// always was, byte for byte.
-pub static ON_CARD: AtomicBool = AtomicBool::new(false);
-
 /// D-907: how many connections to the card an export on it opens, to draw that many frames at
 /// once. One: three were measured slower than one (`verification/B-786_card_export_table.md`).
 pub static CARDS: AtomicUsize = AtomicUsize::new(1);
@@ -139,6 +132,12 @@ pub struct ExportChoices {
     /// a 24-bit WAV beside it, named by [`sound_file_name`]. Off is what was written before.
     /// An MP4 carries its sound inside it, and a GIF carries none.
     pub wav: bool,
+    /// D-907, D-911: frames drawn on the graphics card, as the viewer's card draws them (B-44 and
+    /// on), read back as floats and written as the processor's would be: the export window's tick
+    /// "Faster on the graphics card (not byte-exact)", off unless the person ticks it. A frame the
+    /// card refuses is drawn by the processor and named in the report, and the report says which
+    /// frames the card drew. Off, an export is what it always was, byte for byte.
+    pub on_card: bool,
 }
 
 /// D-641: the WAV beside a sequence: the naming up to its frame number (or its extension),
@@ -443,7 +442,7 @@ pub fn export_sequence_watched(
     }
 
     // D-907: a card of the export's own, when asked for; none to be had is said, never silent.
-    let card: Option<Vec<Mutex<Card>>> = ON_CARD.load(Ordering::SeqCst).then(Gpu::new).and_then(|g| {
+    let card: Option<Vec<Mutex<Card>>> = request.choices.on_card.then(Gpu::new).and_then(|g| {
         g.map_err(|e| {
             report.diagnostics.push(Diagnostic::new(
                 DiagnosticId::GpuPreviewOnCpu,
@@ -1080,6 +1079,9 @@ fn on_card(
             Ok((buffer, Some(journal.on_processor().to_vec())))
         }
         Err(why) => {
+            // D-911: the reason names its frame, since the report lists many.
+            let mut why = why;
+            why.message = format!("Frame {frame}: {}", why.message);
             journal.record(frame, "card export", why);
             let plan = compose::plan_frame(
                 project,
@@ -1140,7 +1142,7 @@ impl OnCardSaid {
             DiagnosticId::GpuPreviewOnCpu,
             Severity::Info,
             format!(
-                "Exported on the graphics card (D-907, a trial): the card drew {} of {total} \
+                "Exported on the graphics card (D-911): the card drew {} of {total} \
                  frames. Its pixels can differ a little from the processor's, so its files are \
                  not the processor's bytes.",
                 self.card.len()

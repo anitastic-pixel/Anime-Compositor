@@ -1920,6 +1920,7 @@
     </select>
     <label id="ditherlabel" hidden title="Mixes dots of the 256 colours so soft shading does not fall into bands. A bigger file, and a fine grain in the picture"><input type="checkbox" id="gifdither">Dither</label>
     <label id="wavlabel" hidden title="Also writes the composition's sound as a 24-bit WAV file in the same folder, named like the frames. An MP4 carries its sound inside it; a GIF cannot carry sound"><input type="checkbox" id="soundwav">Sound as a WAV beside it</label>
+    <label id="cardlabel" title="Draws the frames on the graphics card, as the viewer does. It helps heavy projects (many layers, card effects) and may be slower on light ones. Its pixels can differ from the processor's by one step in 255, so the files are not byte-exact; a frame the card cannot draw is drawn by the processor, and the report says which. Off, the processor draws every frame exactly"><input type="checkbox" id="cardexport">Faster on the graphics card (not byte-exact)</label>
     <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
     </div>
   </div></span>
@@ -20311,6 +20312,8 @@ const exportChoices = () => 'format=' + $('exportformat').value
   + ($('exportformat').value === 'gif' && $('gifdither').checked ? '&dither=on' : '')
   // D-641: the WAV beside travels with the formats that take one.
   + (!$('wavlabel').hidden && $('soundwav').checked ? '&wav=on' : '')
+  // D-911: the card export, off unless ticked; sent only when ticked.
+  + ($('cardexport').checked ? '&card=on' : '')
   + ($('anyway').checked ? '&missing=write' : '');
 $('export').onclick = () => command('/export?' + exportChoices());
 // D-251: the same choices, kept in a row of the Render panel's queue rather than written now.
@@ -20332,6 +20335,7 @@ try {
   }
   $('gifdither').checked = sessionStorage.getItem('gifdither') === 'on';
   $('soundwav').checked = sessionStorage.getItem('soundwav') === 'on';
+  $('cardexport').checked = sessionStorage.getItem('cardexport') === 'on';
 } catch (e) { /* no storage: the list starts on PNG */ }
 showExportChoices();
 $('exportformat').onchange = (e) => {
@@ -20347,6 +20351,9 @@ $('gifdither').onchange = (e) => {
 };
 $('soundwav').onchange = (e) => {
   try { sessionStorage.setItem('soundwav', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
+};
+$('cardexport').onchange = (e) => {
+  try { sessionStorage.setItem('cardexport', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
 };
 $('cancelexport').onclick = () => command('/cancel-export');
 // W-45 (D-248): the Render panel. One item, the open composition, rendered by the same Export and

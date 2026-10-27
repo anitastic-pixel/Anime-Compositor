@@ -1,7 +1,7 @@
 //! B-786 (D-907, PROPOSED, off): export on the graphics card, as a trial the owner asked to be
 //! measured first ("Measure first", 2026-10-26).
 //!
-//! `export::ON_CARD` is false unless a test sets it, and not in the export window. Set, each
+//! D-911: `ExportChoices::on_card`, the export window's tick, off by default. Set, each
 //! frame is planned as the viewer's card plans it at Full, drawn by `Gpu::draw_held` and read back
 //! as the processor's working floats (`Gpu::sum_back`), then encoded as the processor's frame is.
 //! A frame the card refuses is drawn by the processor and named in the report; an effect the card
@@ -26,7 +26,7 @@ use std::time::Instant;
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::export::{
     export_sequence, ExportChoices, ExportReport, ExportRequest, MissingSource, OutputFormat,
-    CARDS, ON_CARD,
+    CARDS,
 };
 use anime_compositor::exr_io::{self, ExrSamples};
 use anime_compositor::gpu::Gpu;
@@ -39,7 +39,7 @@ use serde_json::{json, Value};
 mod common;
 use common::repo;
 
-/// `ON_CARD` is one switch for the whole process.
+/// `CARDS` is one switch for the whole process.
 static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 
 fn root() -> PathBuf {
@@ -125,12 +125,13 @@ fn export(project: &Project, folder: &str, last: i32, format: OutputFormat, card
     let dir = repo("target/b786").join(folder);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
-    ON_CARD.store(cards > 0, Ordering::SeqCst);
     CARDS.store(cards.max(1), Ordering::SeqCst);
     let start = Instant::now();
-    let report = export_sequence(project, &root(), &request(&dir, last, format), &AtomicBool::new(false));
+    let mut asked = request(&dir, last, format);
+    // D-911: the export window's tick.
+    asked.choices.on_card = cards > 0;
+    let report = export_sequence(project, &root(), &asked, &AtomicBool::new(false));
     let ms = start.elapsed().as_secs_f64() * 1000.0;
-    ON_CARD.store(false, Ordering::SeqCst);
     CARDS.store(1, Ordering::SeqCst);
     assert!(report.succeeded(), "{folder}: {:?}", report.diagnostics);
     (report, ms, dir)
@@ -226,6 +227,8 @@ fn b786_card_export_says_what_the_processor_drew() {
     assert!(text.contains("The card drew frames 2 to 4."), "{text}");
     assert!(text.contains("The processor drew frames 0 to 1"),"{text}");
     assert!(text.contains("adjustment layer has an effect the GPU does not draw"), "{text}");
+    // D-911: each refusal names its frame.
+    assert!(text.contains("Frame 0: ") && text.contains("Frame 1: "), "{text}");
     assert!(text.contains("the processor ran these effects first: Gaussian Blur."), "{text}");
     for f in 0..=1 {
         assert_eq!(

@@ -15164,6 +15164,8 @@ fn export_choices(query: Option<&str>) -> Result<ExportChoices, String> {
         gif_dither: parameter(query, "dither").as_deref() == Some("on"),
         // D-641: the WAV beside a sequence or an animated PNG.
         wav: parameter(query, "wav").as_deref() == Some("on"),
+        // D-911: the tick "Faster on the graphics card (not byte-exact)", sent only when ticked.
+        on_card: parameter(query, "card").as_deref() == Some("on"),
         ..ExportChoices::default()
     })
 }
@@ -15192,8 +15194,14 @@ fn written_as(format: OutputFormat, choices: ExportChoices) -> String {
             }
         ),
     };
-    if beside {
+    let said = if beside {
         format!("{said} with its sound as a WAV beside it,")
+    } else {
+        said
+    };
+    // D-911: never silent.
+    if choices.on_card {
+        format!("{said} on the graphics card (not byte-exact),")
     } else {
         said
     }
@@ -15702,6 +15710,10 @@ fn format_name(format: OutputFormat, choices: ExportChoices) -> String {
         OutputFormat::Mp4 => format!("MP4, {:?}", choices.mp4_quality),
     }) + if choices.wav && !matches!(format, OutputFormat::Gif | OutputFormat::Mp4) {
         ", with a WAV"
+    } else {
+        ""
+    } + if choices.on_card {
+        ", on the graphics card"
     } else {
         ""
     }

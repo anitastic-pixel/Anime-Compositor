@@ -6852,6 +6852,96 @@ fn the_export_choices_are_in_the_window() {
     );
 }
 
+/// B-790 (D-911): the tick "Faster on the graphics card (not byte-exact)" in the export window,
+/// off by default, sent only when ticked, read into the export's choice and said on the status
+/// line and the render queue's row.
+#[test]
+fn the_card_export_tick_is_in_the_window() {
+    let mut report = Report { rows: Vec::new() };
+    let page =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"))
+            .expect("the page");
+    report.check(
+        "the page has the tick, labelled not byte-exact, not ticked when the page opens",
+        true,
+        page.contains("<input type=\"checkbox\" id=\"cardexport\">Faster on the graphics card (not byte-exact)</label>")
+            && !page.contains("id=\"cardexport\" checked"),
+    );
+    report.check(
+        "its hint says it helps heavy projects and may be slower on light ones",
+        true,
+        page.contains("It helps heavy projects (many layers, card effects) and may be slower on light ones."),
+    );
+    report.check(
+        "the page sends `card=on` only when it is ticked",
+        true,
+        page.contains("+ ($('cardexport').checked ? '&card=on' : '')"),
+    );
+    report.check(
+        "the tick is not kept past the sitting: sessionStorage, as the other ticks",
+        true,
+        page.contains("$('cardexport').checked = sessionStorage.getItem('cardexport') === 'on';"),
+    );
+    report.check(
+        "`card=on` asks for the card, and saying nothing does not",
+        "true, false",
+        format!(
+            "{}, {}",
+            export_choices(Some("format=png&card=on")).expect("choices").on_card,
+            export_choices(Some("format=png")).expect("choices").on_card
+        ),
+    );
+    report.check(
+        "any other word is not a yes",
+        false,
+        export_choices(Some("format=png&card=yes")).expect("choices").on_card,
+    );
+    let card = ExportChoices {
+        on_card: true,
+        ..ExportChoices::default()
+    };
+    report.check(
+        "the status line says so when ticked",
+        " on the graphics card (not byte-exact),",
+        written_as(OutputFormat::Png, card),
+    );
+    report.check(
+        "and after the format's own words",
+        " as one MP4 at Standard quality, over black, with the composition's sound, on the graphics card (not byte-exact),",
+        written_as(OutputFormat::Mp4, card),
+    );
+    report.check(
+        "and says nothing of it when not ticked",
+        "",
+        written_as(OutputFormat::Png, ExportChoices::default()),
+    );
+    report.check(
+        "the render queue's row says it",
+        "PNG sequence, on the graphics card",
+        format_name(OutputFormat::Png, card),
+    );
+    report.check(
+        "and not when not ticked",
+        "PNG sequence",
+        format_name(OutputFormat::Png, ExportChoices::default()),
+    );
+    write_artifact(
+        &report,
+        "verification/B-790_panel_table.md",
+        "B-790: the card export tick in the window (D-911)",
+        &[
+            "D-911 offers D-907's export on the graphics card as a tick, off by default. This is the window's half: the tick is on the page, unticked, with its hint; the page sends `card=on` only when ticked; it is read into the export's choice; and the status line and the queue's row say it. What the card export writes, and that an export without it is the processor's bytes, is `tests/b786_card_export.rs` and the B-160 check. The one line that hands the choice to the job sits behind the Windows folder dialog, so that the report says the card drew it is what `verification/B-790_playtest.md` asks the owner to see.",
+        ],
+        &[],
+    );
+    let failed: Vec<&(String, String, String)> =
+        report.rows.iter().filter(|(_, e, a)| e != a).collect();
+    assert!(
+        failed.is_empty(),
+        "see verification/B-790_panel_table.md: {failed:?}"
+    );
+}
+
 /// B-21d: an MP4 from the window (D-72, D-30).
 #[cfg(windows)]
 #[test]
