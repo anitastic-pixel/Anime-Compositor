@@ -1,0 +1,94 @@
+{
+ "pixels_rgba": [
+  255,
+  128,
+  0,
+  255,
+  0,
+  64,
+  255,
+  255,
+  10,
+  200,
+  30,
+  255,
+  250,
+  250,
+  250,
+  255
+ ],
+ "files": {
+  "plain.png": {
+   "warned": false,
+   "chunks": []
+  },
+  "srgb.png": {
+   "warned": false,
+   "chunks": []
+  },
+  "srgb_gama_chrm.png": {
+   "warned": false,
+   "chunks": []
+  },
+  "gama_45455.png": {
+   "warned": true,
+   "chunks": [
+    "gAMA 45455"
+   ]
+  },
+  "cicp_srgb.png": {
+   "warned": false,
+   "chunks": []
+  },
+  "gama_linear.png": {
+   "warned": true,
+   "chunks": [
+    "gAMA 100000"
+   ]
+  },
+  "chrm_rec2020.png": {
+   "warned": true,
+   "chunks": [
+    "cHRM white 31270 32900, red 70800 29200, green 17000 79700, blue 13100 4600"
+   ]
+  },
+  "iccp.png": {
+   "warned": true,
+   "chunks": [
+    "iCCP 114 bytes"
+   ]
+  },
+  "cicp_pq.png": {
+   "warned": true,
+   "chunks": [
+    "cICP 9/16/0/1"
+   ]
+  },
+  "srgb_with_iccp.png": {
+   "warned": true,
+   "chunks": [
+    "sRGB",
+    "iCCP 114 bytes"
+   ]
+  },
+  "gama_srgb_chrm_2020.png": {
+   "warned": true,
+   "chunks": [
+    "gAMA 45455",
+    "cHRM white 31270 32900, red 70800 29200, green 17000 79700, blue 13100 4600"
+   ]
+  }
+ },
+ "sequence": {
+  "files": [
+   "seq/frame_0001.png",
+   "seq/frame_0002.png",
+   "seq/frame_0003.png"
+  ],
+  "warnings": 1,
+  "chunks": [
+   "gAMA 100000"
+  ],
+  "drawings": "1-3"
+ }
+}

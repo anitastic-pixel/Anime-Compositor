@@ -36,7 +36,7 @@ Bilinear weights are computed from source pixel-center coordinates. Sampling mus
 
 ## PNG interpretation
 
-For G1 PNG input, alpha is interpreted as straight/unassociated unless the decoder specification states otherwise. RGB tagged sRGB is converted to linear light before premultiplication. An untagged PNG defaults to sRGB for G1, with an explicit user override reserved for later UI. Embedded profiles/gamma metadata require decoder-specific tests before being claimed as supported.
+For G1 PNG input, alpha is interpreted as straight/unassociated unless the decoder specification states otherwise. RGB tagged sRGB is converted to linear light before premultiplication. An untagged PNG defaults to sRGB for G1, with an explicit user override reserved for later UI. Embedded profiles/gamma metadata require decoder-specific tests before being claimed as supported. Until then they are not read, and never silently: D-902's `MEDIA_COLOR_METADATA_IGNORED` names, at import, every sRGB, gAMA, cHRM, iCCP or cICP chunk of a PNG that says something other than sRGB, and the picture is drawn as sRGB with its numbers unchanged.
 
 PNG output converts the linear working RGB to the declared output encoding, then writes straight alpha unless the chosen encoder/format contract explicitly differs. Display transforms are never baked into export unless selected as the output transform.
 

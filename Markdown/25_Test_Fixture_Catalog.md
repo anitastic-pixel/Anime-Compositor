@@ -813,6 +813,16 @@ FX-EXR-010: export, the extreme picture. The same with `values/specials.exr`, at
 
 The check prints a table with one row per item, 15 for each of the four files, 60 in all, and must say 60 of 60.
 
+## Colour metadata fixtures
+
+Specified on 2026-10-26 by D-902 for B-782. Every file is in `Fixtures/colour/metadata/` and was written byte by byte by `tools/colour_metadata_reference.py` with Python's standard library; `expected_colour_metadata.json` holds each file's expected chunk list, written from the values the script stored, and `pixels_rgba`, the picture every file holds. **A build must decode every file to exactly those 16 bytes**: the chunks change what is said, never the picture.
+
+FX-COLMETA-001: quiet files. `plain.png` (no colour chunk), `srgb.png` (sRGB), `srgb_gama_chrm.png` (sRGB, gAMA 45455, the sRGB cHRM) and `cicp_srgb.png` (cICP 1/13/0/1) import with no `MEDIA_COLOR_METADATA_IGNORED`.
+
+FX-COLMETA-002: warned files, one warning each naming the file and the listed chunks in the order sRGB, gAMA, cHRM, iCCP, cICP: `gama_linear.png` (gAMA 100000), `gama_45455.png` (gAMA 45455 with no sRGB chunk: a plain 2.2 power curve), `chrm_rec2020.png` (Rec. 2020 primaries), `iccp.png` (a 114-byte profile), `cicp_pq.png` (cICP 9/16/0/1, Rec. 2020 PQ), `srgb_with_iccp.png` (sRGB and the profile), `gama_srgb_chrm_2020.png` (gAMA 45455 and Rec. 2020 primaries, both listed).
+
+FX-COLMETA-003: `seq/frame_0001.png` to `frame_0003.png`, each gAMA 100000, imported as one sequence: one warning, naming drawings 1-3.
+
 ## Adjustment layer fixtures
 
 D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.
