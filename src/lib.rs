@@ -470,6 +470,17 @@ impl WorkingBuffer {
     /// premultiplied path exists because R-09 offers the choice, and it differs by exactly one
     /// step, the unpremultiply that is not done.
     pub fn encode(&self, depth: OutputDepth, alpha: OutputAlpha) -> Vec<u8> {
+        self.encode_with(depth, alpha, |c| c.map(color::linear_to_srgb))
+    }
+
+    /// D-917: [`encode`](Self::encode) with `curve` in place of the sRGB curve on each pixel's
+    /// three colour numbers, applied at the same step; the export's Output.
+    pub fn encode_with(
+        &self,
+        depth: OutputDepth,
+        alpha: OutputAlpha,
+        curve: impl Fn([f32; 3]) -> [f32; 3] + Sync,
+    ) -> Vec<u8> {
         let bytes = match depth {
             OutputDepth::Eight => 1,
             OutputDepth::Sixteen => 2,
@@ -489,12 +500,8 @@ impl WorkingBuffer {
                     OutputAlpha::Straight => composite::unpremultiply([px[0], px[1], px[2], px[3]]),
                     OutputAlpha::Premultiplied => [px[0], px[1], px[2], px[3]],
                 };
-                let sample = [
-                    color::linear_to_srgb(px[0]),
-                    color::linear_to_srgb(px[1]),
-                    color::linear_to_srgb(px[2]),
-                    px[3],
-                ];
+                let [r, g, b] = curve([px[0], px[1], px[2]]);
+                let sample = [r, g, b, px[3]];
                 for (index, &c) in sample.iter().enumerate() {
                     match depth {
                         OutputDepth::Eight => dst[index] = color::quantise_u8(c),

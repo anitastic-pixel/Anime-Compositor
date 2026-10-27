@@ -779,7 +779,7 @@ pub fn write(
     samples: ExrSamples,
     rate: FrameRate,
 ) -> Result<(), String> {
-    write_bytes(path, &encode(buffer, samples, rate)?)
+    write_bytes(path, &encode(buffer, samples, rate, crate::color::Gamut::Rec709)?)
 }
 
 /// Write what [`encode`] made. A file left half-written is removed, as the crate's own
@@ -792,11 +792,13 @@ pub fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 /// [`write`]'s file, as bytes, for D-231's export, which encodes frames side by side and writes
-/// them in order.
+/// them in order. D-917: `primaries` are the buffer's numbers' primaries and white, written as its
+/// `chromaticities`; Rec.709 is what was always written.
 pub fn encode(
     buffer: &WorkingBuffer,
     samples: ExrSamples,
     rate: FrameRate,
+    primaries: crate::color::Gamut,
 ) -> Result<Vec<u8>, String> {
     let (w, h) = (buffer.width(), buffer.height());
     let channel = |name: &str, k: usize| {
@@ -830,7 +832,13 @@ pub fn encode(
     // The frame rate is `(i32, u32)` in the crate; a rate past i32 is not a rate anyone set.
     layer.attributes.frames_per_second = Some((rate.numerator() as i32, rate.denominator()));
     let mut image = Image::from_layer(layer);
-    image.attributes.chromaticities = Some(rec709());
+    let [r, g, b, white] = primaries.chromaticities().map(|[x, y]| Vec2(x as f32, y as f32));
+    image.attributes.chromaticities = Some(Chromaticities {
+        red: r,
+        green: g,
+        blue: b,
+        white,
+    });
     let mut file = std::io::Cursor::new(Vec::new());
     image
         .write()

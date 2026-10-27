@@ -15230,3 +15230,31 @@ fn b797_colour_info_from_the_window() {
         "see verification/B-797_colour_info_table.md: {failed:?}"
     );
 }
+
+/// B-796 (D-917): the export's Output list, shown with colour management on only, sent as
+/// `output=` only when not the default, read into the export's choice and said on the status
+/// line and the render queue's row. What each Output writes is `tests/b796_export_output.rs`.
+#[test]
+fn the_export_output_is_in_the_window() {
+    let page =
+        std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui/index.html"))
+            .expect("the page");
+    assert!(page.contains("<select id=\"exportoutput\" hidden"), "hidden until colour management is on");
+    assert!(page.contains("color_management === true);"), "shown with colour management on");
+    assert!(page.contains("$('exportoutput').value !== 'default' ? '&output='"), "sent only when not the default");
+    let choose = |q: &str| export_choices(Some(q)).map(|c| c.output);
+    assert_eq!(choose("format=png"), Ok(export::Output::Default));
+    assert_eq!(choose("format=png&output=rec709"), Ok(export::Output::Rec709));
+    assert_eq!(choose("format=mp4&output=aces-view"), Ok(export::Output::AcesView));
+    assert_eq!(choose("format=exr-float&output=acescg"), Ok(export::Output::AcesCg));
+    assert_eq!(choose("format=exr-float&output=aces2065-1"), Ok(export::Output::Aces2065));
+    assert!(choose("format=png&output=p3").expect_err("not an Output").contains("\"p3\" is not an Output"));
+    let rec709 = ExportChoices { output: export::Output::Rec709, ..ExportChoices::default() };
+    let acescg = ExportChoices { output: export::Output::AcesCg, ..ExportChoices::default() };
+    assert_eq!(written_as(OutputFormat::Png, rec709), " in Rec.709 (BT.1886),");
+    assert_eq!(written_as(OutputFormat::Exr(ExrSamples::Float), acescg), " as EXR, full float, in ACEScg,");
+    assert_eq!(written_as(OutputFormat::Png, ExportChoices::default()), "");
+    assert_eq!(format_name(OutputFormat::Png, rec709), "PNG sequence, in Rec.709 (BT.1886)");
+    assert_eq!(format_name(OutputFormat::Exr(ExrSamples::Float), acescg), "EXR sequence, full float, in ACEScg");
+    assert_eq!(format_name(OutputFormat::Png, ExportChoices::default()), "PNG sequence");
+}

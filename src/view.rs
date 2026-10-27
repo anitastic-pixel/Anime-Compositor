@@ -142,7 +142,7 @@ impl Shown {
     }
 
     /// The matrix from the working space to the view's, `None` when they are the same.
-    fn matrix(self) -> Option<[[f64; 3]; 3]> {
+    pub(crate) fn matrix(self) -> Option<[[f64; 3]; 3]> {
         let to = match self.view {
             View::Aces2Sdr => Gamut::Ap1,
             _ => Gamut::Rec709,
@@ -160,7 +160,7 @@ impl Shown {
 }
 
 /// The view's display value of one straight linear colour, `m` its [`Shown::matrix`].
-fn display(view: View, m: Option<&[[f64; 3]; 3]>, rgb: [f32; 3]) -> [f32; 3] {
+pub(crate) fn display(view: View, m: Option<&[[f64; 3]; 3]>, rgb: [f32; 3]) -> [f32; 3] {
     let rgb = m.map_or(rgb, |m| color::apply_f32(m, rgb));
     match view {
         View::Aces2Sdr => lookup(rgb.map(|c| Curve::AcesCct.from_linear(c))),

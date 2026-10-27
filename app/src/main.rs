@@ -15300,6 +15300,16 @@ fn export_choices(query: Option<&str>) -> Result<ExportChoices, String> {
         wav: parameter(query, "wav").as_deref() == Some("on"),
         // D-911: the tick "Faster on the graphics card (not byte-exact)", sent only when ticked.
         on_card: parameter(query, "card").as_deref() == Some("on"),
+        // D-917: the Output, sent only with colour management on and not the default.
+        output: match parameter(query, "output").as_deref() {
+            None => export::Output::Default,
+            Some(word) => export::Output::from_word(word).ok_or_else(|| {
+                format!(
+                    "Nothing was exported: \"{word}\" is not an Output. Choose default, rec709 or \
+                     aces-view for a picture, or default, acescg or aces2065-1 for an EXR."
+                )
+            })?,
+        },
         ..ExportChoices::default()
     })
 }
@@ -15332,6 +15342,12 @@ fn written_as(format: OutputFormat, choices: ExportChoices) -> String {
         format!("{said} with its sound as a WAV beside it,")
     } else {
         said
+    };
+    // D-917: a chosen Output is said; the default is today's and says nothing.
+    let said = if choices.output == export::Output::Default {
+        said
+    } else {
+        format!("{said} in {},", choices.output.name(format))
     };
     // D-911: never silent.
     if choices.on_card {
@@ -15846,6 +15862,10 @@ fn format_name(format: OutputFormat, choices: ExportChoices) -> String {
         ", with a WAV"
     } else {
         ""
+    } + &if choices.output == export::Output::Default {
+        String::new()
+    } else {
+        format!(", in {}", choices.output.name(format))
     } + if choices.on_card {
         ", on the graphics card"
     } else {

@@ -38,7 +38,9 @@ use crate::gpu::Gpu;
 use crate::exr_io::{self, ExrSamples};
 use crate::film_out::Film;
 use crate::model::{Id, Project};
+use crate::color::Gamut;
 use crate::png_out;
+use crate::view::{Shown, View};
 use crate::{OutputAlpha, OutputDepth, WorkingBuffer};
 
 /// What to do about a frame whose layer has no drawing to show.
@@ -138,6 +140,101 @@ pub struct ExportChoices {
     /// card refuses is drawn by the processor and named in the report, and the report says which
     /// frames the card drew. Off, an export is what it always was, byte for byte.
     pub on_card: bool,
+    /// D-917: the export's Output, read only with colour management on. The default is what was
+    /// always written.
+    pub output: Output,
+}
+
+/// D-917: an export's Output colour with colour management on (document 21, "The export's
+/// Output"). Pictures take the first three, an EXR the default and the last two.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Output {
+    /// sRGB for a picture, the working space for an EXR.
+    #[default]
+    Default,
+    /// Rec.709 with D-906's BT.1886 curve.
+    Rec709,
+    /// D-915's ACES 2.0 SDR view.
+    AcesView,
+    /// An EXR in ACEScg.
+    AcesCg,
+    /// An EXR in ACES2065-1.
+    Aces2065,
+}
+
+impl Output {
+    pub const ALL: [Output; 5] = [
+        Output::Default,
+        Output::Rec709,
+        Output::AcesView,
+        Output::AcesCg,
+        Output::Aces2065,
+    ];
+
+    /// The word the window sends as `output=`.
+    pub fn word(self) -> &'static str {
+        match self {
+            Output::Default => "default",
+            Output::Rec709 => "rec709",
+            Output::AcesView => "aces-view",
+            Output::AcesCg => "acescg",
+            Output::Aces2065 => "aces2065-1",
+        }
+    }
+
+    pub fn from_word(word: &str) -> Option<Output> {
+        Output::ALL.into_iter().find(|o| o.word() == word)
+    }
+
+    /// As the window names it.
+    pub fn name(self, format: OutputFormat) -> &'static str {
+        match (self, format) {
+            (Output::Default, OutputFormat::Exr(_)) => "Working space",
+            (Output::Default, _) => "sRGB",
+            (Output::Rec709, _) => "Rec.709 (BT.1886)",
+            (Output::AcesView, _) => "ACES 2.0 SDR view",
+            (Output::AcesCg, _) => "ACEScg",
+            (Output::Aces2065, _) => "ACES2065-1",
+        }
+    }
+
+    /// Whether `format` can have this Output.
+    pub fn fits(self, format: OutputFormat) -> bool {
+        match format {
+            OutputFormat::Exr(_) => matches!(self, Output::Default | Output::AcesCg | Output::Aces2065),
+            _ => matches!(self, Output::Default | Output::Rec709 | Output::AcesView),
+        }
+    }
+
+    /// What a picture output does to one colour of `working` where the sRGB curve was applied:
+    /// the default from linear Rec.709 is the sRGB curve itself, to the bit.
+    fn curve(self, working: Gamut) -> impl Fn([f32; 3]) -> [f32; 3] + Sync {
+        let view = if self == Output::AcesView { View::Aces2Sdr } else { View::UnToneMapped };
+        let m = Shown { view, working }.matrix();
+        let bt1886 = self == Output::Rec709;
+        move |rgb| {
+            if bt1886 {
+                m.as_ref()
+                    .map_or(rgb, |m| crate::color::apply_f32(m, rgb))
+                    .map(|c| crate::color::Curve::Bt1886.from_linear(c))
+            } else {
+                crate::view::display(view, m.as_ref(), rgb)
+            }
+        }
+    }
+
+    /// The colour chunk a PNG of this Output carries, and the words its `ColorSpace` tag begins
+    /// with, with colour management on.
+    fn label(self) -> (png_out::ColourChunk, &'static str) {
+        match self {
+            Output::Rec709 => (png_out::CICP_REC709_CHUNK, "Rec.709, BT.1886 (gamma 2.4)"),
+            Output::AcesView => (
+                png_out::SRGB_CHUNK,
+                "sRGB IEC 61966-2-1, the ACES 2.0 SDR view",
+            ),
+            _ => (png_out::SRGB_CHUNK, "sRGB IEC 61966-2-1"),
+        }
+    }
 }
 
 /// D-641: the WAV beside a sequence: the naming up to its frame number (or its extension),
@@ -324,6 +421,38 @@ pub fn export_sequence_watched(
     let mut film_sound: Option<[Vec<f64>; 2]> = None;
     let film_path = request.output_dir.join(&request.naming);
     let mut film: Option<Film> = None;
+
+    // D-917: the Output, before anything is written.
+    let output = request.choices.output;
+    if output != Output::Default {
+        let why = if project.color_management.is_none() {
+            Some(format!(
+                "The Output {} was asked for, but colour management is off, so the export writes \
+                 sRGB as it always has; turn colour management on to choose an Output.",
+                output.word()
+            ))
+        } else if !output.fits(request.format) {
+            Some(format!(
+                "The Output {} is not one {} can have: {}.",
+                output.word(),
+                match request.format {
+                    OutputFormat::Exr(_) => "an EXR",
+                    _ => "a picture format",
+                },
+                match request.format {
+                    OutputFormat::Exr(_) => "an EXR takes the working space, acescg or aces2065-1",
+                    _ => "PNG, animated PNG, GIF and MP4 take default (sRGB), rec709 or aces-view",
+                }
+            ))
+        } else {
+            None
+        };
+        if let Some(why) = why {
+            report.status = ExportStatus::Failed;
+            report.diagnostics.push(invalid(why));
+            return report;
+        }
+    }
 
     if request.format == OutputFormat::Apng {
         let refusal = project
@@ -676,20 +805,15 @@ pub fn export_sequence_watched(
                     },
                     OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
                         Some(why) => Err(why),
-                        None if has_sound => crate::mp4_out::Mp4::create_with_sound(
+                        // D-917: transfer 13 (sRGB) with colour management on, but for Rec.709.
+                        None => crate::mp4_out::Mp4::labelled(
                             &path,
                             w,
                             h,
                             rate,
                             request.choices.mp4_quality,
-                        )
-                        .map(Film::Mp4),
-                        None => crate::mp4_out::Mp4::create(
-                            &path,
-                            w,
-                            h,
-                            rate,
-                            request.choices.mp4_quality,
+                            has_sound,
+                            project.color_management.is_some() && output != Output::Rec709,
                         )
                         .map(Film::Mp4),
                     },
@@ -709,6 +833,7 @@ pub fn export_sequence_watched(
                             rate,
                             frames.len() as u32,
                             &header,
+                            colour(project, request),
                         )
                     }
                 });
@@ -776,7 +901,7 @@ pub fn export_sequence_watched(
                                 .expect("not cancelled");
                             drawn.ok().and_then(|d| d.buffer).expect("drawn before")
                         };
-                        png_encode(request, &buffer.unwrap_or_else(again), &tags)
+                        png_encode(project, request, &buffer.unwrap_or_else(again), &tags)
                     };
                     bytes.and_then(|b| std::fs::write(&path, b).map_err(|e| e.to_string()))
                 }
@@ -960,7 +1085,12 @@ enum Encoded {
 /// D-311: lay 8-bit straight RGBA over a background colour, linear RGB, in encoded values, the
 /// way the MP4 was always laid over black; every alpha becomes 255.
 pub fn lay_over(srgb8: &mut [u8], background: [f64; 3]) {
-    let bg = background.map(|v| crate::color::linear_to_srgb(v as f32) * 255.0);
+    lay_under(srgb8, background.map(|v| crate::color::linear_to_srgb(v as f32)));
+}
+
+/// [`lay_over`] a background already encoded (D-917: through the export's Output).
+fn lay_under(srgb8: &mut [u8], encoded: [f32; 3]) {
+    let bg = encoded.map(|v| v * 255.0);
     for px in srgb8.chunks_exact_mut(4) {
         let a = px[3] as f32 / 255.0;
         for i in 0..3 {
@@ -1164,6 +1294,7 @@ fn drawn_from(
         let bypassed = bypassed(&journal.ids_at(frame));
         let encoded = match request.format {
             OutputFormat::Png => Encoded::Png(png_encode(
+                project,
                 request,
                 &buffer,
                 &tags(request, frame, bypassed),
@@ -1173,21 +1304,38 @@ fn drawn_from(
                     .composition(&request.composition)
                     .map(|c| c.frame_rate)
                     .ok_or_else(|| "the composition is not in the project".to_string())
-                    .and_then(|rate| exr_io::encode(&buffer, samples, rate)),
+                    .and_then(|rate| {
+                        // D-917: the working space, or ACEScg or ACES2065-1 converted to.
+                        let working = project.color_management.unwrap_or(Gamut::Rec709);
+                        let to = match request.choices.output {
+                            Output::AcesCg => Gamut::Ap1,
+                            Output::Aces2065 => Gamut::Ap0,
+                            _ => working,
+                        };
+                        if to == working {
+                            exr_io::encode(&buffer, samples, rate, to)
+                        } else {
+                            let mut converted = buffer.clone();
+                            crate::color::convert_rgba(converted.data_mut(), working, to);
+                            exr_io::encode(&converted, samples, rate, to)
+                        }
+                    }),
             ),
             OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4 => {
-                let mut srgb8 = buffer.encode(OutputDepth::Eight, OutputAlpha::Straight);
+                let mut srgb8 = picture(project, request, &buffer, OutputDepth::Eight, OutputAlpha::Straight);
                 // D-311: an MP4 has no alpha, so it is laid over the background colour, in the
                 // same encoded values it was always laid over black in, as the viewer does.
                 let background = project
                     .composition(&request.composition)
                     .and_then(|c| c.background_color);
+                // D-917: the background goes through the Output from linear Rec.709.
                 if let (OutputFormat::Mp4, Some(bg)) = (request.format, background) {
-                    lay_over(&mut srgb8, bg);
+                    let bg = request.choices.output.curve(Gamut::Rec709)(bg.map(|v| v as f32));
+                    lay_under(&mut srgb8, bg);
                 }
                 Encoded::Film {
                     srgb8,
-                    samples: buffer.encode(request.depth, request.alpha),
+                    samples: picture(project, request, &buffer, request.depth, request.alpha),
                 }
             }
         };
@@ -1225,10 +1373,15 @@ fn tags(request: &ExportRequest, frame: i32, bypassed: bool) -> Vec<(&'static st
         ("Software", "anime_compositor export (R-09)".to_string()),
         (
             "ColorSpace",
-            match request.depth {
-                OutputDepth::Eight => "sRGB IEC 61966-2-1, 8 bits per channel".to_string(),
-                OutputDepth::Sixteen => "sRGB IEC 61966-2-1, 16 bits per channel".to_string(),
-            },
+            format!(
+                "{}, {} bits per channel",
+                // D-917: the Output's name; the default's is what was always written.
+                request.choices.output.label().1,
+                match request.depth {
+                    OutputDepth::Eight => 8,
+                    OutputDepth::Sixteen => 16,
+                }
+            ),
         ),
         (
             "AlphaMode",
@@ -1258,6 +1411,7 @@ fn tags(request: &ExportRequest, frame: i32, bypassed: bool) -> Vec<(&'static st
 }
 
 fn png_encode(
+    project: &Project,
     request: &ExportRequest,
     buffer: &WorkingBuffer,
     tags: &[(&str, String)],
@@ -1267,9 +1421,32 @@ fn png_encode(
         buffer.height(),
         request.depth,
         tags,
-        &buffer.encode(request.depth, request.alpha),
+        colour(project, request),
+        &picture(project, request, buffer, request.depth, request.alpha),
     )
     .map_err(|e| e.to_string())
+}
+
+/// D-917: a PNG's colour chunk, only with colour management on.
+fn colour(project: &Project, request: &ExportRequest) -> Option<png_out::ColourChunk> {
+    project.color_management.map(|_| request.choices.output.label().0)
+}
+
+/// D-917: the picture's samples through the export's Output. With colour management off the
+/// Output is the default, whose curve from linear Rec.709 is the sRGB curve: today's bytes.
+fn picture(
+    project: &Project,
+    request: &ExportRequest,
+    buffer: &WorkingBuffer,
+    depth: OutputDepth,
+    alpha: OutputAlpha,
+) -> Vec<u8> {
+    match project.color_management {
+        Some(working) if working != Gamut::Rec709 || request.choices.output != Output::Default => {
+            buffer.encode_with(depth, alpha, request.choices.output.curve(working))
+        }
+        _ => buffer.encode(depth, alpha),
+    }
 }
 
 /// True for a diagnostic that means "this frame has no drawing to show", which is what

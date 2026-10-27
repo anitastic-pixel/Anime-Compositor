@@ -364,6 +364,20 @@ pub mod through_ffmpeg {
             rate: FrameRate,
             quality: Mp4Quality,
         ) -> Result<Self, String> {
+            Self::labelled(path, width, height, rate, quality, false, false)
+        }
+
+        /// D-917: [`Mp4::create`], its transfer label sRGB (13) when `srgb`, else BT.709 (1).
+        pub fn labelled(
+            path: &Path,
+            width: usize,
+            height: usize,
+            rate: FrameRate,
+            quality: Mp4Quality,
+            _with_sound: bool,
+            srgb: bool,
+        ) -> Result<Self, String> {
+            let trc = if srgb { "iec61966-2-1" } else { "bt709" };
             let (num, den) = (rate.numerator(), rate.denominator());
             let bits = bitrate(width, height, rate, quality);
             // ponytail: asks for libx264 by name; a build of ffmpeg without it fails with
@@ -391,7 +405,9 @@ pub mod through_ffmpeg {
                 // names the matrix and leaves the primaries and the transfer unsaid (FX-FMT-060).
                 .args([
                     "-vf",
-                    "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv",
+                    &format!(
+                        "setparams=colorspace=bt709:color_primaries=bt709:color_trc={trc}:range=tv"
+                    ),
                 ])
                 // No reordered frames, so the file's index is the plain one FX-FMT-030 reads.
                 .args([
@@ -410,7 +426,7 @@ pub mod through_ffmpeg {
                     "-color_primaries",
                     "bt709",
                     "-color_trc",
-                    "bt709",
+                    trc,
                 ])
                 .args([
                     "-color_range",
@@ -571,7 +587,7 @@ mod on_windows {
             rate: FrameRate,
             quality: Mp4Quality,
         ) -> Result<Self, String> {
-            Self::open(path, width, height, rate, quality, false)
+            Self::labelled(path, width, height, rate, quality, false, false)
         }
 
         /// D-641: the same film with a sound track, filled by [`Mp4::push_sound`].
@@ -582,21 +598,28 @@ mod on_windows {
             rate: FrameRate,
             quality: Mp4Quality,
         ) -> Result<Self, String> {
-            Self::open(path, width, height, rate, quality, true)
+            Self::labelled(path, width, height, rate, quality, true, false)
         }
 
         pub fn carries_sound(&self) -> bool {
             self.sound.is_some()
         }
 
-        fn open(
+        /// D-917: the film, its transfer label sRGB (13) when `srgb`, else BT.709 (1).
+        pub fn labelled(
             path: &Path,
             width: usize,
             height: usize,
             rate: FrameRate,
             quality: Mp4Quality,
             with_sound: bool,
+            srgb: bool,
         ) -> Result<Self, String> {
+            let transfer = if srgb {
+                MFVideoTransFunc_sRGB
+            } else {
+                MFVideoTransFunc_709
+            };
             unsafe {
                 // Already initialised on this thread is an answer too, and not a failure.
                 let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -608,7 +631,7 @@ mod on_windows {
                     out.SetUINT32(&MF_MT_AVG_BITRATE, bitrate(width, height, rate, quality))?;
                     // D-73: the file says what its colour is (FX-FMT-060).
                     out.SetUINT32(&MF_MT_VIDEO_PRIMARIES, MFVideoPrimaries_BT709.0 as u32)?;
-                    out.SetUINT32(&MF_MT_TRANSFER_FUNCTION, MFVideoTransFunc_709.0 as u32)?;
+                    out.SetUINT32(&MF_MT_TRANSFER_FUNCTION, transfer.0 as u32)?;
                     out.SetUINT32(&MF_MT_YUV_MATRIX, MFVideoTransferMatrix_BT709.0 as u32)?;
                     out.SetUINT32(&MF_MT_VIDEO_NOMINAL_RANGE, MFNominalRange_16_235.0 as u32)?;
                     // ponytail: the encoder's default profile, Baseline. High packs smaller but

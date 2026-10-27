@@ -1924,6 +1924,7 @@
     </select>
     <label id="ditherlabel" hidden title="Mixes dots of the 256 colours so soft shading does not fall into bands. A bigger file, and a fine grain in the picture"><input type="checkbox" id="gifdither">Dither</label>
     <label id="wavlabel" hidden title="Also writes the composition's sound as a 24-bit WAV file in the same folder, named like the frames. An MP4 carries its sound inside it; a GIF cannot carry sound"><input type="checkbox" id="soundwav">Sound as a WAV beside it</label>
+    <select id="exportoutput" hidden title="With colour management on, the colour the file is written in. sRGB is what every export has always been; Rec.709 (BT.1886) is for video work; the ACES 2.0 SDR view writes what the viewer shows in that view. An EXR keeps the working space, or is converted to ACEScg or ACES2065-1, and says which in the file"></select>
     <label id="cardlabel" title="Draws the frames on the graphics card, as the viewer does. It helps heavy projects (many layers, card effects) and may be slower on light ones. Its pixels can differ from the processor's by one step in 255, so the files are not byte-exact; a frame the card cannot draw is drawn by the processor, and the report says which. Off, the processor draws every frame exactly"><input type="checkbox" id="cardexport">Faster on the graphics card (not byte-exact)</label>
     <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
     </div>
@@ -17311,6 +17312,7 @@ function drawPanels() {
   drawEffects();
   drawColourView();
   drawProjectSettings();
+  drawExportOutput();
   askForCurve();
   askForXsheet();
   const layer = selected();
@@ -20454,6 +20456,8 @@ const exportChoices = () => 'format=' + $('exportformat').value
   + (!$('wavlabel').hidden && $('soundwav').checked ? '&wav=on' : '')
   // D-911: the card export, off unless ticked; sent only when ticked.
   + ($('cardexport').checked ? '&card=on' : '')
+  // D-917: the Output, sent only with colour management on and not the default.
+  + (!$('exportoutput').hidden && $('exportoutput').value !== 'default' ? '&output=' + $('exportoutput').value : '')
   + ($('anyway').checked ? '&missing=write' : '');
 $('export').onclick = () => command('/export?' + exportChoices());
 // D-251: the same choices, kept in a row of the Render panel's queue rather than written now.
@@ -20463,7 +20467,21 @@ const showExportChoices = () => {
   $('filmquality').hidden = $('exportformat').value !== 'mp4';
   $('ditherlabel').hidden = $('exportformat').value !== 'gif';
   $('wavlabel').hidden = ['gif', 'mp4'].includes($('exportformat').value);
+  drawExportOutput();
 };
+// D-917: the Output list, with colour management on only; its words follow the format.
+function drawExportOutput() {
+  const sel = $('exportoutput');
+  const exr = $('exportformat').value.startsWith('exr');
+  if (sel.dataset.exr !== String(exr)) {
+    const names = exr
+      ? [['default', 'Output: working space'], ['acescg', 'Output: ACEScg'], ['aces2065-1', 'Output: ACES2065-1']]
+      : [['default', 'Output: sRGB'], ['rec709', 'Output: Rec.709 (BT.1886)'], ['aces-view', 'Output: ACES 2.0 SDR view']];
+    sel.replaceChildren(...names.map(([w, n]) => Object.assign(document.createElement('option'), { value: w, textContent: n })));
+    sel.dataset.exr = String(exr);
+  }
+  sel.hidden = !(doc && doc.project.color_settings && doc.project.color_settings.color_management === true);
+}
 try {
   const kept = sessionStorage.getItem('exportformat');
   if (kept && [...$('exportformat').options].some((o) => o.value === kept)) {

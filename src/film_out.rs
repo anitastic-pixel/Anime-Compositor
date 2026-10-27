@@ -86,6 +86,7 @@ impl Film {
         rate: FrameRate,
         frames: u32,
         tags: &[(&str, String)],
+        colour: Option<crate::png_out::ColourChunk>,
     ) -> Result<Self, String> {
         let file = BufWriter::new(File::create(path).map_err(|e| e.to_string())?);
         let mut encoder = png::Encoder::new(file, width as u32, height as u32);
@@ -104,9 +105,10 @@ impl Film {
                 .add_itxt_chunk((*key).to_string(), value.clone())
                 .map_err(|e| e.to_string())?;
         }
-        Ok(Film::Apng(
-            encoder.write_header().map_err(|e| e.to_string())?,
-        ))
+        let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+        // D-917: the colour chunk, with colour management on.
+        crate::png_out::write_colour(&mut writer, colour).map_err(|e| e.to_string())?;
+        Ok(Film::Apng(writer))
     }
 
     /// Add one frame. `srgb8` is 8-bit straight RGBA and is what a GIF is made from; `samples`
