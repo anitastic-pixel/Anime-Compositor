@@ -15509,6 +15509,8 @@ impl Gpu {
                 edge_noise_reduction,
                 noise_reseed_interval,
                 frame,
+                // D-914: Fast is refused the card (`compose::card_can`), so only Exact is here.
+                ..
             } => {
                 // D-456, as grade::deband: the edges, the blur across then down and pulled back,
                 // then the diffusion, the dither and the view.
@@ -19256,7 +19258,8 @@ impl Gpu {
                 // only its chain's channel; the light's own share is each chain's for its channel.
                 let chains: Vec<_> = crate::soft_glow::chains(s.radius, s.spectral)
                     .into_iter()
-                    .map(|(r, c)| (r, crate::soft_glow::plan(r, s.aspect, s.angle), c))
+                    // D-914: Halation's Quality Fast, the same coarser levels as the processor's.
+                    .map(|(r, c)| (r, crate::soft_glow::plan(r, s.aspect, s.angle, s.fast), c))
                     .collect();
                 let mut own = [0.0f64; 3];
                 for (_, plan, c) in &chains {

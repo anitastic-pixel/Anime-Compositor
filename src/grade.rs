@@ -1039,6 +1039,7 @@ pub(crate) fn deband(
         edge_noise_reduction: enr,
         noise_reseed_interval,
         frame,
+        quality,
     } = e
     else {
         return;
@@ -1119,6 +1120,70 @@ pub(crate) fn deband(
                 total
             })
             .collect()
+    };
+    // D-914: Quality Fast above sigma 8, a tap every `dc` pixels (`blurs::cell`), tap m weighted
+    // by the Gaussian at sigma / dc at m, through the product of (1 - E) over every pixel
+    // strictly between, read off each line's running sums of ln(1 - E) and count of E = 1.
+    let dc = crate::blurs::cell(blur_amount / 3.0);
+    let strided = |v: &[[f64; 4]], across: bool| -> Vec<[f64; 4]> {
+        let kf: Vec<f64> = crate::effects::gaussian_weights(blur_amount / 3.0 / dc as f64)
+            .into_iter()
+            .map(f64::from)
+            .collect();
+        let rf = kf.len() / 2;
+        let (len, lines) = if across { (w, h) } else { (h, w) };
+        let at = move |line: usize, p: usize| if across { line * w + p } else { p * w + line };
+        let sums: Vec<Vec<(f64, u32)>> = (0..lines)
+            .into_par_iter()
+            .map(|line| {
+                let mut s = Vec::with_capacity(len + 1);
+                let (mut l, mut z) = (0.0f64, 0u32);
+                s.push((l, z));
+                for p in 0..len {
+                    let e = edge[at(line, p)];
+                    if e >= 1.0 {
+                        z += 1;
+                    } else {
+                        l += (1.0 - e).ln();
+                    }
+                    s.push((l, z));
+                }
+                s
+            })
+            .collect();
+        (0..w * h)
+            .into_par_iter()
+            .map(|i| {
+                let (line, p) = if across { (i / w, i % w) } else { (i % w, i / w) };
+                let s = &sums[line];
+                let mut total = v[i].map(|u| kf[rf] * u);
+                for sign in [-1isize, 1] {
+                    for m in 1..=rf {
+                        let t = p as isize + sign * (m * dc) as isize;
+                        if t < 0 || t >= len as isize {
+                            break;
+                        }
+                        let t = t as usize;
+                        // The pixels strictly between, a to b - 1.
+                        let (a, b) = if sign > 0 { (p + 1, t) } else { (t + 1, p) };
+                        if s[b].1 > s[a].1 {
+                            break;
+                        }
+                        let through = (s[b].0 - s[a].0).exp();
+                        let j = at(line, t);
+                        (0..4).for_each(|c| total[c] += kf[rf + m] * through * v[j][c]);
+                    }
+                }
+                total
+            })
+            .collect()
+    };
+    let gather = |v: &[[f64; 4]], across: bool| -> Vec<[f64; 4]> {
+        if quality == "fast" && dc > 1 {
+            strided(v, across)
+        } else {
+            gather(v, across)
+        }
     };
     let m: Vec<[f64; 3]> = if r > 0 {
         let lent: Vec<[f64; 4]> = (0..w * h)

@@ -44,6 +44,7 @@ fn debanding(view: &str, blur_amount: f64, diffusion_amount: f64) -> Effect {
         edge_noise_reduction: 100.0,
         noise_reseed_interval: 1.0,
         frame: 0,
+        quality: "exact".to_string(),
     }
 }
 

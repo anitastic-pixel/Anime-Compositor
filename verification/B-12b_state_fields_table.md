@@ -116,7 +116,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.selective_color_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blur, colors, tolerance - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.glow` is an effect this build has | added | added | pass |
-| and the settings it sends for it - threshold, radius, intensity, tolerance, colors, based_on, operation, tint, composite, dimensions, glow_colors, color_looping, color_loops, color_phase, midpoint, color_a, color_b - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - threshold, radius, intensity, tolerance, colors, based_on, operation, tint, composite, dimensions, glow_colors, color_looping, color_loops, color_phase, midpoint, color_a, color_b, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.line_recolor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, colors, new_color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.directional_blur` is an effect this build has | added | added | pass |
@@ -128,7 +128,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.radial_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, center, type - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.bloom` is an effect this build has | added | added | pass |
-| and the settings it sends for it - threshold, radius, intensity, length, angle, streaks - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - threshold, radius, intensity, length, angle, streaks, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.color_key` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, softness, colors, match - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.curves` is an effect this build has | added | added | pass |
@@ -390,7 +390,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.glow_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, center, intensity, direction, shape, color_from_source, color, reverse - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.halation` is an effect this build has | added | added | pass |
-| and the settings it sends for it - threshold, threshold_smooth, radius, amount, color - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - threshold, threshold_smooth, radius, amount, color, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.channel_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - map_layer, fit, completion, softness, property, blur, invert - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.teeth_wipe` is an effect this build has | added | added | pass |
@@ -404,7 +404,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.simple_wire_removal` is an effect this build has | added | added | pass |
 | and the settings it sends for it - point_a, point_b, removal_style, thickness, slope, mirror_blend, frame_offset - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.deband` is an effect this build has | added | added | pass |
-| and the settings it sends for it - view, edge_threshold, edge_softness, blur_amount, edge_blur_reduction, diffusion_amount, edge_diffusion_reduction, diffusion_reseed_interval, noise_amount, edge_noise_reduction, noise_reseed_interval - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - view, edge_threshold, edge_softness, blur_amount, edge_blur_reduction, diffusion_amount, edge_diffusion_reduction, diffusion_reseed_interval, noise_amount, edge_noise_reduction, noise_reseed_interval, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.match_grain` is an effect this build has | added | added | pass |
 | and the settings it sends for it - map_layer, intensity, size, softness, aspect_ratio, red_intensity, green_intensity, blue_intensity, monochromatic, saturation, blending_mode, shadows, midtones, highlights, midpoint, animation_speed, animate_smoothly, random_seed - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.brush_strokes` is an effect this build has | added | added | pass |

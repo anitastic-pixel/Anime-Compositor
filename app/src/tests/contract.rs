@@ -2012,6 +2012,8 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("midpoint", "40"),
             ("color_a", "%23ff0000"),
             ("color_b", "%230000ff"),
+            // D-914.
+            ("quality", "fast"),
         ],
     ),
     // D-91: the colours and the new colour are drawn apart and sent with the tolerance.
@@ -2061,6 +2063,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("length", "30"),
             ("angle", "15"),
             ("streaks", "star"),
+            ("quality", "fast"),
         ],
     ),
     // D-97: the colours and the match word are sent with the two numbers.
@@ -3795,6 +3798,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("radius", "60"),
             ("amount", "150"),
             ("color", "%23ffb040"),
+            ("quality", "fast"),
         ],
     ),
     // D-511: the numbers, the centre and the shape.
@@ -3888,6 +3892,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("noise_amount", "3"),
             ("edge_noise_reduction", "70"),
             ("noise_reseed_interval", "4"),
+            ("quality", "fast"),
         ],
     ),
     // D-454.

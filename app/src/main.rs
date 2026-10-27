@@ -4429,6 +4429,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             streaks: "none".to_string(),
             length: 60.0,
             angle: 0.0,
+            quality: "exact".to_string(),
         }),
         // D-97: no colour chosen, so adding it changes nothing until one is.
         COLOR_KEY => Some(Effect::ColorKey {
@@ -6339,6 +6340,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             edge_noise_reduction: 100.0,
             noise_reseed_interval: 1.0,
             frame: 0,
+            quality: "exact".to_string(),
         }),
         // D-457: as added (Adobe names the controls, not every value): Standard at 100, and for Ultra a pure green key,
         // tolerance 50, desaturate 25, spill range 50, colour correction 50, luma correction 50.
@@ -6743,6 +6745,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             radius: 25.0,
             amount: 100.0,
             color: "#ff4020".to_string(),
+            quality: "exact".to_string(),
         }),
         // D-511: as added (CycoreFX gives no values we found): nothing parted, across the
         // middle, spikes 40 pixels high and wide.
@@ -7656,6 +7659,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                     midpoint: n("midpoint", start.midpoint)?,
                     color_a: w("color_a", start.color_a)?,
                     color_b: w("color_b", start.color_b)?,
+                    quality: w("quality", start.quality)?,
                 }
             },
         }),
@@ -7709,6 +7713,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             streaks: word("streaks")?,
             length: number("length")?,
             angle: number("angle")?,
+            // D-914: Exact when the command does not say, as a file without it.
+            quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
         }),
         COLOR_KEY => Ok(Effect::ColorKey {
             colors: colors()?,
@@ -9575,6 +9581,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             edge_noise_reduction: number("edge_noise_reduction")?,
             noise_reseed_interval: number("noise_reseed_interval")?,
             frame: 0,
+            // D-914: Exact when the command does not say, as a file without it.
+            quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
         }),
         ADVANCED_SPILL_SUPPRESSOR => Ok(Effect::AdvancedSpillSuppressor {
             method: word("method")?,
@@ -10116,6 +10124,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             radius: number("radius")?,
             amount: number("amount")?,
             color: word("color")?,
+            // D-914: Exact when the command does not say, as a file without it.
+            quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
         }),
         TEETH_WIPE => Ok(Effect::TeethWipe {
             completion: number("completion")?,

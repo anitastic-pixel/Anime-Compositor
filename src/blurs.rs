@@ -626,3 +626,89 @@ pub(crate) fn cross_blur(
         });
     grow
 }
+
+/// The cell a blur at `sigma` works on: the smallest power of two `d` with 8 d above sigma, so
+/// 4 to 8 cells a sigma (document 21). Soft Physical Glow's and Halation's levels at Exact
+/// (D-353); D-914's Quality Fast for the big blurs inside Glow, Bloom, Deband and Halation, where
+/// below sigma 8 it is 1 and Fast is Exact to the bit.
+pub(crate) fn cell(sigma: f64) -> usize {
+    let mut d = 1;
+    while 8.0 * d as f64 <= sigma {
+        d *= 2;
+    }
+    d
+}
+
+/// D-914: Quality Fast's reduced blur of `source` at `sigma`, on cells `d` by `d` (`d` above
+/// 1), as Nuke's Blur below full quality. Each cell from the top left holds its pixels' sum over
+/// d * d; the cells are blurred by document 21's Gaussian at sqrt(sigma^2 - d^2 / 4) / d (the
+/// cells' average and the bilinear read back spread it by about d^2 / 4 between them), `long`
+/// D-321's reach, and every pixel reads them back bilinearly at ((x + 0.5) / d - 0.5), the
+/// blurred cells reaching past the picture. The picture grows by `grow` on every side, as the
+/// exact blur's, so it lands where Exact's lands. `tools/fast_blur_reference.py`.
+pub(crate) fn reduced(
+    source: &WorkingBuffer,
+    sigma: f64,
+    d: usize,
+    long: bool,
+    grow: usize,
+) -> WorkingBuffer {
+    let (w, h) = (source.width(), source.height());
+    let (lw, lh) = (w.div_ceil(d), h.div_ceil(d));
+    let src = source.data();
+    let share = 1.0 / (d * d) as f32;
+    let mut low = WorkingBuffer::transparent(lw, lh);
+    low.data_mut()
+        .par_chunks_exact_mut(lw * 4)
+        .enumerate()
+        .for_each(|(j, row)| {
+            for y in j * d..((j + 1) * d).min(h) {
+                let line = &src[y * w * 4..(y + 1) * w * 4];
+                for (x, px) in line.chunks_exact(4).enumerate() {
+                    let c = &mut row[(x / d) * 4..(x / d) * 4 + 4];
+                    for k in 0..4 {
+                        c[k] += px[k];
+                    }
+                }
+            }
+            for v in row.iter_mut() {
+                *v *= share;
+            }
+        });
+    let low_sigma = (sigma * sigma - (d * d) as f64 / 4.0).max(0.0).sqrt() / d as f64;
+    let rl = crate::effects::blur_axes(
+        &mut low,
+        &crate::effects::reach_weights(low_sigma, long),
+        (true, true),
+    ) as f64;
+    let (bw, bh) = (low.width() as isize, low.height() as isize);
+    let at = |i: isize, j: isize| -> &[f32] {
+        if (0..bw).contains(&i) && (0..bh).contains(&j) {
+            let n = ((j * bw + i) * 4) as usize;
+            &low.data()[n..n + 4]
+        } else {
+            &[0.0; 4]
+        }
+    };
+    let (ow, oh) = (w + 2 * grow, h + 2 * grow);
+    let place = |x: usize| (x as f64 - grow as f64 + 0.5) / d as f64 - 0.5 + rl;
+    let mut out = WorkingBuffer::transparent(ow, oh);
+    out.data_mut()
+        .par_chunks_exact_mut(ow * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let v = place(y);
+            let (j, fv) = (v.floor() as isize, (v - v.floor()) as f32);
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let u = place(x);
+                let (i, fu) = (u.floor() as isize, (u - u.floor()) as f32);
+                let (a, b, c, e) = (at(i, j), at(i + 1, j), at(i, j + 1), at(i + 1, j + 1));
+                for k in 0..4 {
+                    let top = a[k] + (b[k] - a[k]) * fu;
+                    let bottom = c[k] + (e[k] - c[k]) * fu;
+                    px[k] = top + (bottom - top) * fv;
+                }
+            }
+        });
+    out
+}

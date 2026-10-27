@@ -6,7 +6,7 @@ D-747, audit row 17 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). An oran
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| the settings it reads: Behind, both, Original Colors, Triangle A>B>A, 1 loop, phase 0, midpoint 50, #ffffff and #000000 | GlowLook { composite: "behind", dimensions: "both", glow_colors: "original", color_looping: "triangle_aba", color_loops: 1.0, color_phase: 0.0, midpoint: 50.0, color_a: "#ffffff", color_b: "#000000" } | yes |
+| the settings it reads: Behind, both, Original Colors, Triangle A>B>A, 1 loop, phase 0, midpoint 50, #ffffff and #000000 | GlowLook { composite: "behind", dimensions: "both", glow_colors: "original", color_looping: "triangle_aba", color_loops: 1.0, color_phase: 0.0, midpoint: 50.0, color_a: "#ffffff", color_b: "#000000", quality: "exact" } | yes |
 | it draws cleanly, and as the same Glow with the starting values written out | [] | yes |
 | saving it again writes none of the new settings | [] | yes |
 
@@ -86,7 +86,7 @@ D-747, audit row 17 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). An oran
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| every setting comes back as written | ("overlay", GlowLook { composite: "on_top", dimensions: "vertical", glow_colors: "a_and_b", color_looping: "triangle_bab", color_loops: 4.0, color_phase: -45.0, midpoint: 70.0, color_a: "#12abef", color_b: "#fedcba" }) | yes |
+| every setting comes back as written | ("overlay", GlowLook { composite: "on_top", dimensions: "vertical", glow_colors: "a_and_b", color_looping: "triangle_bab", color_loops: 4.0, color_phase: -45.0, midpoint: 70.0, color_a: "#12abef", color_b: "#fedcba", quality: "exact" }) | yes |
 
 ## Refused, with a warning, and the Glow left out (no silent fallback)
 

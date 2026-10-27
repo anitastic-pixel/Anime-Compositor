@@ -54,6 +54,8 @@ pub(crate) struct Settings {
     pub halation: Option<[f32; 3]>,
     /// D-545, pick #14: Lens Dirt, `None` when none is added.
     pub dirt: Option<Dirt>,
+    /// D-914: Halation's Quality Fast, each level one cell coarser ([`plan`]).
+    pub fast: bool,
 }
 
 /// D-545, pick #14: Lens Dirt as the processor and the card take it (`effects::LensDirt::lit`),
@@ -135,10 +137,16 @@ pub(crate) fn sizes(spectral: &str, red: f64, green: f64, blue: f64) -> Option<[
 }
 
 /// How far the layer grows: the largest chain's reach (no silent crop).
-pub(crate) fn grow(radius: f64, aspect: f64, angle: f64, spectral: Option<[f64; 3]>) -> usize {
+pub(crate) fn grow(
+    radius: f64,
+    aspect: f64,
+    angle: f64,
+    spectral: Option<[f64; 3]>,
+    fast: bool,
+) -> usize {
     chains(radius, spectral)
         .into_iter()
-        .map(|(r, _)| plan(r, aspect, angle).grow)
+        .map(|(r, _)| plan(r, aspect, angle, fast).grow)
         .max()
         .unwrap_or(0)
 }
@@ -189,16 +197,6 @@ pub(crate) fn tinted(p: [f32; 3], colour: [f32; 3], a: f32) -> [f32; 3] {
     std::array::from_fn(|c| (1.0 - a) * p[c] + a * m * colour[c])
 }
 
-/// The largest power of two `d` with 8 d <= sigma, at least 1: a level is always blurred at 4 to
-/// 8 cells, so the step as it moves to coarser cells stays small (document 21).
-fn cell(sigma: f64) -> usize {
-    let mut d = 1;
-    while 8.0 * d as f64 <= sigma {
-        d *= 2;
-    }
-    d
-}
-
 /// Document 21's normalised taps for a variance (one tap at 0).
 fn taps(var: f64) -> Vec<f32> {
     if var > 0.0 {
@@ -210,8 +208,9 @@ fn taps(var: f64) -> Vec<f32> {
 
 /// The levels for a Radius, Aspect Ratio and Angle. sigma_k = Radius / 3 / 2^k while the level
 /// counts at all; each fades in as clamp(2 sigma - 1, 0, 1), the weights sum to one with the
-/// light's own share.
-pub(crate) fn plan(radius: f64, aspect: f64, angle: f64) -> Plan {
+/// light's own share. Each level on [`crate::blurs::cell`]'s cells (4 to 8 a sigma); D-914's
+/// `fast` (Halation's Quality Fast) one cell coarser, the cell of 2 sigma.
+pub(crate) fn plan(radius: f64, aspect: f64, angle: f64, fast: bool) -> Plan {
     let s = radius / 3.0;
     let mut found = Vec::new();
     let mut k = 0;
@@ -230,7 +229,7 @@ pub(crate) fn plan(radius: f64, aspect: f64, angle: f64) -> Plan {
     let levels = found
         .into_iter()
         .map(|(sigma, f)| {
-            let d = cell(sigma);
+            let d = crate::blurs::cell(if fast { 2.0 * sigma } else { sigma });
             let (su, sv) = (sigma * aspect / d as f64, sigma * (2.0 - aspect) / d as f64);
             let a = su * su * co * co + sv * sv * si * si;
             let b = (su * su - sv * sv) * co * si;
@@ -434,7 +433,7 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
     if w == 0 || h == 0 {
         return 0;
     }
-    let g = grow(s.radius, s.aspect, s.angle, s.spectral);
+    let g = grow(s.radius, s.aspect, s.angle, s.spectral, s.fast);
     let lit: Vec<f32> = source
         .data()
         .par_chunks_exact(4)
@@ -447,7 +446,7 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
         chains(s.radius, s.spectral)
             .into_iter()
             .map(|(radius, channel)| {
-                let plan = plan(radius, s.aspect, s.angle);
+                let plan = plan(radius, s.aspect, s.angle, s.fast);
                 let planes = plan
                     .levels
                     .iter()

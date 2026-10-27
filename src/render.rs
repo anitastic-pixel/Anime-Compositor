@@ -401,6 +401,8 @@ pub struct Glow {
     pub composite: &'static str,
     pub axes: (bool, bool),
     pub ab: Option<GlowAb>,
+    /// D-914: Quality Fast, the light's blur on `blurs::reduced`'s cells; never on the card.
+    pub fast: bool,
 }
 
 /// D-747: Glow Colors A & B, as `effects::GlowLook` gives them.
@@ -852,6 +854,7 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
                     b.lines,
                     b.length,
                     b.angle,
+                    false,
                 )
             });
         }

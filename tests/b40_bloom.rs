@@ -20,6 +20,7 @@ fn bloom(radius: f64, intensity: f64, streaks: &str, length: f64, angle: f64) ->
         streaks: streaks.to_string(),
         length,
         angle,
+        quality: "exact".to_string(),
     }
 }
 
@@ -135,6 +136,7 @@ fn b40_bloom() {
                     streaks: "star".to_string(),
                     length: 500.0,
                     angle: 3600.0,
+                    quality: "exact".to_string(),
                 }),
             ),
             (
@@ -146,6 +148,7 @@ fn b40_bloom() {
                     streaks: "none".to_string(),
                     length: 0.0,
                     angle: -3600.0,
+                    quality: "exact".to_string(),
                 }),
             ),
             (

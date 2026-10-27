@@ -13232,7 +13232,8 @@ const EFFECT_WORDS = {
     layers: [DIRT_LAYER],
   },
   // D-544.
-  'core.halation': { colours: [['color', 'Colour']] },
+  // D-914: Fast blurs a reduced picture above an honest radius.
+  'core.halation': { choices: [['quality', 'Quality', [['exact', 'Exact'], ['fast', 'Fast']]]], colours: [['color', 'Colour']] },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
   'core.glow': {
     choices: [['based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]],
@@ -13248,7 +13249,9 @@ const EFFECT_WORDS = {
       ['color_looping', 'Color Looping', [['triangle_aba', 'Triangle A>B>A'], ['sawtooth_ab', 'Sawtooth A>B'],
         ['sawtooth_ba', 'Sawtooth B>A'], ['triangle_bab', 'Triangle B>A>B']]],
       // D-322: After Effects' radius and strength, which a new one takes; a file without units is classic.
-      ['units', 'Units', [['classic', 'Classic (older projects)'], ['after_effects', 'After Effects']]]],
+      ['units', 'Units', [['classic', 'Classic (older projects)'], ['after_effects', 'After Effects']]],
+      // D-914.
+      ['quality', 'Quality', [['exact', 'Exact'], ['fast', 'Fast']]]],
     colours: [['tint', 'Glow Colours', ['Its own colours', 'One colour']], ['color_a', 'Color A'], ['color_b', 'Color B']],
     chosen: (w) => w.based_on === 'colors',
   },
@@ -13269,7 +13272,9 @@ const EFFECT_WORDS = {
   },
   // D-96.
   'core.bloom': {
-    choices: [['streaks', 'Streaks', [['none', 'None'], ['cross', 'Cross'], ['star', 'Star']]]],
+    choices: [['streaks', 'Streaks', [['none', 'None'], ['cross', 'Cross'], ['star', 'Star']]],
+      // D-914.
+      ['quality', 'Quality', [['exact', 'Exact'], ['fast', 'Fast']]]],
   },
   // D-97. The chosen colours are made transparent.
   'core.color_key': {
@@ -13532,7 +13537,9 @@ const EFFECT_WORDS = {
     choices: [['paint_surface', 'Paint Surface', [['original', 'Paint On Original Image'], ['transparent', 'Paint On Transparent'], ['white', 'Paint On White'], ['black', 'Paint On Black']]],
       ['animate', 'New Strokes Each Frame', [['on', 'On'], ['off', 'Off']]]],
   },
-  'core.deband': { choices: [['view', 'View', [['normal', 'Normal'], ['edge_only', 'Edge Only'], ['selected_edge', 'Selected Edge']]]] },
+  'core.deband': { choices: [['view', 'View', [['normal', 'Normal'], ['edge_only', 'Edge Only'], ['selected_edge', 'Selected Edge']]],
+    // D-914.
+    ['quality', 'Quality', [['exact', 'Exact'], ['fast', 'Fast']]]] },
   // D-458: CycoreFX’s words.
   'core.simple_wire_removal': { choices: [['removal_style', 'Removal Style', [['fade', 'Fade'], ['frame_offset', 'Frame Offset'], ['displace', 'Displace'], ['displace_horizontal', 'Displace Horizontal']]]] },
   // D-505: After Effects’ words.

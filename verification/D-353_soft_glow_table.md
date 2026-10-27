@@ -211,12 +211,12 @@ D-353 (EFFECTS.md P0-21 and pick #1): Glow's new "physical" falloff. A soft thre
 | fx_sglow_004.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
 | fx_sglow_005.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
 | fx_sglow_006.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
-| fx_sglow_007.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
+| fx_sglow_007.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
 | fx_sglow_008.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
 | fx_sglow_009.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
-| fx_sglow_010.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
+| fx_sglow_010.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
 | fx_sglow_011.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
-| fx_sglow_012.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
+| fx_sglow_012.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames (expected 0); the same warnings: true | yes |
 | fx_sglow_013.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
 | fx_sglow_014.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
 | fx_sglow_015.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
@@ -238,14 +238,14 @@ D-353 (EFFECTS.md P0-21 and pick #1): Glow's new "physical" falloff. A soft thre
 | fx_sglow_031.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
 | fx_sglow_032.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames (expected 10); the same warnings: true | yes |
 | the reference shot, Soft Physical Glow as added (radius 500): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
-| the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 0, Full | largest difference 1 of 255, 438 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 0, Full | largest difference 1 of 255, 441 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 100, Full | largest difference 1 of 255, 534 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 239, Full | largest difference 1 of 255, 341 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 0, Draft | largest difference 1 of 255, 31 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 239, Full | largest difference 1 of 255, 339 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 0, Draft | largest difference 1 of 255, 30 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 100, Draft | largest difference 1 of 255, 36 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow as added (radius 500) on three layers, frame 239, Draft | largest difference 1 of 255, 23 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2032399 pixels changed | yes |
-| the reference shot, Soft Physical Glow radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5 on three layers, frame 0, Full | largest difference 1 of 255, 597 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Soft Physical Glow radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5 on three layers, frame 0, Full | largest difference 1 of 255, 598 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5 on three layers, frame 100, Full | largest difference 1 of 255, 224 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5 on three layers, frame 239, Full | largest difference 1 of 255, 297 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Soft Physical Glow radius 60, threshold 40 with smooth 50, luminance, saturation bias 30, exposure 1.5 on three layers, frame 0, Draft | largest difference 1 of 255, 36 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |

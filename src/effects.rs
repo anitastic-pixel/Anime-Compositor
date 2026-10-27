@@ -798,7 +798,8 @@ pub enum Effect {
     },
     /// D-96: `threshold`, 0 to 100, glow's bright test; `radius`, 0 to 500 pixels; `intensity`,
     /// 0 to 10; `streaks`, "none", "cross" or "star"; `length`, 0 to 500 pixels each way; and
-    /// `angle`, -3600 to 3600 degrees clockwise from up.
+    /// `angle`, -3600 to 3600 degrees clockwise from up. D-914: `quality`, "exact" (the default,
+    /// never saved) or "fast", each halo blur on [`crate::blurs::reduced`]'s cells.
     Bloom {
         threshold: f64,
         radius: f64,
@@ -806,6 +807,7 @@ pub enum Effect {
         streaks: String,
         length: f64,
         angle: f64,
+        quality: String,
     },
     /// D-97: `colors` as D-87's; `tolerance` and `softness`, 0 to 255; and `match_by`, "rgb" or
     /// "hue", written `match` in the file: the pixels near a chosen colour made transparent,
@@ -3223,7 +3225,8 @@ pub enum Effect {
     /// `view`, one of [`DEBAND_VIEWS`]; `edge_threshold` and `edge_softness`, 0 to 255 levels;
     /// `blur_amount`, 0 to 100; `diffusion_amount`, 0 to 20 pixels; `noise_amount`, 0 to 32
     /// levels; the three reductions, 0 to 100 per cent; the two reseed intervals, 0 to 100
-    /// frames, their whole part. `frame` is set per frame and never saved.
+    /// frames, their whole part. `frame` is set per frame and never saved. D-914: `quality`,
+    /// "exact" (the default, never saved) or "fast", the blur's taps every cell.
     Deband {
         view: String,
         edge_threshold: f64,
@@ -3237,6 +3240,7 @@ pub enum Effect {
         edge_noise_reduction: f64,
         noise_reseed_interval: f64,
         frame: i32,
+        quality: String,
     },
     /// D-457: after After Effects' Advanced Spill Suppressor, its rule ours
     /// (`grade::advanced_spill_suppressor`, document 21). `method`, one of
@@ -4691,13 +4695,15 @@ pub enum Effect {
     },
     /// D-544: Halation (EFFECTS.md pick #13), on D-353's engine (`soft_glow`, document 21):
     /// `threshold` and `threshold_smooth`, 0 to 100 per cent; `radius`, 0 to 2,000 pixels;
-    /// `amount`, 0 to 400 per cent; `color`, `#rrggbb`.
+    /// `amount`, 0 to 400 per cent; `color`, `#rrggbb`. D-914: `quality`, "exact" (the default,
+    /// never saved) or "fast", each level one cell coarser.
     Halation {
         threshold: f64,
         threshold_smooth: f64,
         radius: f64,
         amount: f64,
         color: String,
+        quality: String,
     },
     /// D-356: Path Stroke, after After Effects' Stroke (`along`, document 21): a brush drawn
     /// along the layer's masks. `mask`, 1 to 1000, the mask numbered so, its floor taken;
@@ -4746,6 +4752,9 @@ pub struct GlowLook {
     pub midpoint: f64,
     pub color_a: String,
     pub color_b: String,
+    /// D-914: Quality, "exact" (the default, never saved) or "fast", the light's blur on
+    /// [`crate::blurs::reduced`]'s cells.
+    pub quality: String,
 }
 
 impl Default for GlowLook {
@@ -4762,6 +4771,7 @@ impl Default for GlowLook {
             midpoint: 50.0,
             color_a: "#ffffff".into(),
             color_b: "#000000".into(),
+            quality: "exact".into(),
         }
     }
 }
@@ -12591,11 +12601,13 @@ impl Effect {
                     *spectral_green,
                     *spectral_blue,
                 );
-                crate::soft_glow::grow(*radius, *aspect_ratio, *aspect_angle, sizes)
+                crate::soft_glow::grow(*radius, *aspect_ratio, *aspect_angle, sizes, false)
             }
-            // D-544: the spread's reach, round.
-            Effect::Halation { radius, .. } if self.fault().is_none() => {
-                crate::soft_glow::grow(*radius, 1.0, 0.0, None)
+            // D-544: the spread's reach, round. D-914: at Fast its coarser levels'.
+            Effect::Halation {
+                radius, quality, ..
+            } if self.fault().is_none() => {
+                crate::soft_glow::grow(*radius, 1.0, 0.0, None, quality == "fast")
             }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, units, .. } => {
@@ -13701,6 +13713,10 @@ impl Effect {
                 .contains(&kind.as_str()))
             .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\"."))
             .or_else(|| edges(e)),
+            // D-914.
+            Effect::Bloom { quality: v, .. } if !["exact", "fast"].contains(&v.as_str()) => Some(format!(
+                "{name}'s quality is \"exact\" or \"fast\", and this is \"{v}\"."
+            )),
             Effect::Bloom { streaks, .. } => (!["none", "cross", "star"]
                 .contains(&streaks.as_str()))
             .then(|| {
@@ -14151,6 +14167,10 @@ impl Effect {
                 .then(|| format!("{name}'s tint is \"off\", \"one_color\" or \"core_to_edge\", and this is \"{v}\"."))
                 .or_else(|| hex_fault(name, "inner colour", inner_color))
                 .or_else(|| hex_fault(name, "outer colour", outer_color)),
+            // D-914.
+            Effect::Halation { quality: v, .. } if !["exact", "fast"].contains(&v.as_str()) => Some(format!(
+                "{name}'s quality is \"exact\" or \"fast\", and this is \"{v}\"."
+            )),
             Effect::Halation { color, .. } => hex_fault(name, "colour", color),
             Effect::SpreadTones { equalize, .. } if !EQUALIZE.contains(&equalize.as_str()) => Some(format!(
                 "Spread Tones equalizes by \"rgb\", \"brightness\" or \"photoshop\", and this is \"{equalize}\"."
@@ -14526,6 +14546,10 @@ impl Effect {
             Effect::Deband { view, .. } if !DEBAND_VIEWS.contains(&view.as_str()) => Some(format!(
                 "Deband's view is one of {}, and this is \"{view}\".",
                 DEBAND_VIEWS.join(", ")
+            )),
+            // D-914.
+            Effect::Deband { quality: v, .. } if !["exact", "fast"].contains(&v.as_str()) => Some(format!(
+                "Deband's quality is \"exact\" or \"fast\", and this is \"{v}\"."
             )),
             Effect::Mosaic { mode: v, .. } if !["size", "count"].contains(&v.as_str()) => Some(format!(
                 "Mosaic's mode is \"size\" or \"count\", and this is \"{v}\"."
@@ -15617,6 +15641,8 @@ fn glow_fault(effect: &Effect) -> Option<String> {
         .or_else(|| {
             one_of("Color Looping", &look.color_looping, &["sawtooth_ab", "sawtooth_ba", "triangle_aba", "triangle_bab"])
         })
+        // D-914.
+        .or_else(|| one_of("quality", &look.quality, &["exact", "fast"]))
     {
         return Some(fault);
     }
@@ -16319,6 +16345,7 @@ pub(crate) fn apply_stack_at(
                 streaks,
                 length,
                 angle,
+                quality,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectBloom, || {
                     crate::bloom::bloom(
@@ -16329,6 +16356,7 @@ pub(crate) fn apply_stack_at(
                         crate::bloom::lines(streaks),
                         *length,
                         *angle,
+                        quality == "fast",
                     )
                 });
                 ox += r;
@@ -20928,6 +20956,7 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             ),
             halation: None,
             dirt: dirt.lit(),
+            fast: false,
         }),
         Effect::Halation {
             threshold,
@@ -20935,6 +20964,7 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             radius,
             amount,
             color,
+            quality,
         } => Some(crate::soft_glow::Settings {
             luminance: true,
             threshold: *threshold,
@@ -20951,6 +20981,7 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             spectral: None,
             halation: Some(encoded(color).map(|v| crate::grade::to_linear(v) as f32)),
             dirt: None,
+            fast: quality == "fast",
         }),
         _ => None,
     }

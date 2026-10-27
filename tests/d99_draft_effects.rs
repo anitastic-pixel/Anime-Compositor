@@ -134,6 +134,7 @@ fn d99_draft_effects() {
                 streaks: "star".into(),
                 length: 60.0,
                 angle: 20.0,
+                quality: "exact".into(),
             },
         ),
         (

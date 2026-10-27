@@ -1584,6 +1584,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ("color_looping", &look.color_looping, &start.color_looping),
                 ("color_a", &look.color_a, &start.color_a),
                 ("color_b", &look.color_b, &start.color_b),
+                // D-914.
+                ("quality", &look.quality, &start.quality),
             ] {
                 if word != was || params.contains_key(key) {
                     params.insert(key.into(), J::from(word.as_str()));
@@ -1687,6 +1689,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             streaks,
             length,
             angle,
+            quality,
         } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("radius".into(), num(*radius));
@@ -1694,6 +1697,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("streaks".into(), J::from(streaks.as_str()));
             params.insert("length".into(), num(*length));
             params.insert("angle".into(), num(*angle));
+            // D-914: Exact, the default, is never written, so an older file saves back as it was.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
         }
         Effect::ColorKey {
             colors,
@@ -3614,8 +3621,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             noise_amount,
             edge_noise_reduction,
             noise_reseed_interval,
+            quality,
             ..
         } => {
+            // D-914: Exact, the default, is never written.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("edge_threshold".into(), num(*edge_threshold));
             params.insert("edge_softness".into(), num(*edge_softness));
@@ -7466,12 +7478,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             radius,
             amount,
             color,
+            quality,
         } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("threshold_smooth".into(), num(*threshold_smooth));
             params.insert("radius".into(), num(*radius));
             params.insert("amount".into(), num(*amount));
             params.insert("color".into(), J::from(color.as_str()));
+            // D-914: Exact, the default, is never written.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
         }
         Effect::SoftGlow {
             falloff,
@@ -9159,6 +9176,8 @@ fn parse_effect(
             radius: effect_number(params, "radius", at)?,
             amount: effect_number(params, "amount", at)?,
             color: effect_word(params, "color", at)?,
+            // D-914: a file without it is Exact.
+            quality: effect_word_or(params, "quality", at, "exact")?,
         }),
         crate::effects::GLOW => Some(crate::effects::Effect::Glow {
             based_on: effect_word(params, "based_on", at)?,
@@ -9185,6 +9204,8 @@ fn parse_effect(
                     midpoint: effect_number_or(params, "midpoint", at, start.midpoint)?,
                     color_a: effect_word_or(params, "color_a", at, &start.color_a)?.to_ascii_lowercase(),
                     color_b: effect_word_or(params, "color_b", at, &start.color_b)?.to_ascii_lowercase(),
+                    // D-914.
+                    quality: effect_word_or(params, "quality", at, &start.quality)?,
                 }
             },
         }),
@@ -9223,6 +9244,8 @@ fn parse_effect(
             streaks: effect_word(params, "streaks", at)?,
             length: effect_number(params, "length", at)?,
             angle: effect_number(params, "angle", at)?,
+            // D-914: a file without it is Exact.
+            quality: effect_word_or(params, "quality", at, "exact")?,
         }),
         // D-97: match is read as written; "RGB" is not the word, and is reported.
         crate::effects::COLOR_KEY => Some(crate::effects::Effect::ColorKey {
@@ -10405,6 +10428,8 @@ fn parse_effect(
             edge_noise_reduction: effect_number(params, "edge_noise_reduction", at)?,
             noise_reseed_interval: effect_number(params, "noise_reseed_interval", at)?,
             frame: 0,
+            // D-914: a file without it is Exact.
+            quality: effect_word_or(params, "quality", at, "exact")?,
         }),
         crate::effects::ADVANCED_SPILL_SUPPRESSOR => {
             Some(crate::effects::Effect::AdvancedSpillSuppressor {

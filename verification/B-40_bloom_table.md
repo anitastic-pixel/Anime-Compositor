@@ -89,7 +89,7 @@ D-96, accepted by the owner on 2026-09-25, its streaks read by D-98's lines sinc
 | radius 20 with a star of length 60 reaches the length | 60 | yes |
 | a cross of length 2.5 at radius 0 reaches 3 | 3 | yes |
 | with no streaks the length reaches nowhere | 0 | yes |
-| a half-size draft preview halves the radius and the length, and nothing else | Bloom { threshold: 80.0, radius: 10.0, intensity: 1.0, streaks: "cross", length: 30.0, angle: 30.0 } | yes |
+| a half-size draft preview halves the radius and the length, and nothing else | Bloom { threshold: 80.0, radius: 10.0, intensity: 1.0, streaks: "cross", length: 30.0, angle: 30.0, quality: "exact" } | yes |
 
 ## The file
 

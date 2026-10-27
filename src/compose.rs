@@ -1528,6 +1528,12 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         && !matches!(&instance.effect, crate::effects::Effect::Glow { operation, look, .. }
             if !["add", "screen"].contains(&operation.as_str()) || look.composite == "none"
                 || look.dimensions != "both" || look.glow_colors != "original")
+        // D-914: the card has no reduced blur, so Glow, Bloom and Deband at Quality Fast are the
+        // processor's, the picture exports draw (Halation's coarser levels are the card's too).
+        // ponytail: give the card a reduced blur if Fast is wanted in the viewer.
+        && !matches!(&instance.effect, crate::effects::Effect::Glow { look, .. } if look.quality == "fast")
+        && !matches!(&instance.effect, crate::effects::Effect::Bloom { quality, .. }
+            | crate::effects::Effect::Deband { quality, .. } if quality == "fast")
         // D-303: the card blurs along both axes only.
         // ponytail: give the card's two passes a still one if a one-way blur is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::GaussianBlur { dimensions, .. } if dimensions != "both")
@@ -4947,6 +4953,8 @@ fn resolve_rest(
                     streaks,
                     length,
                     angle,
+                    // D-914: Fast is refused the card (`card_can`), so only Exact reaches here.
+                    ..
                 } => {
                     use rayon::prelude::*;
                     let lit = intensity != 0.0

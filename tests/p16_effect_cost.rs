@@ -1139,6 +1139,7 @@ fn bloom(streaks: &str) -> Effect {
         streaks: streaks.into(),
         length: 60.0,
         angle: 0.0,
+        quality: "exact".into(),
     }
 }
 

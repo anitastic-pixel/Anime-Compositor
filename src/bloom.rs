@@ -74,7 +74,8 @@ pub(crate) fn bright_level(threshold: f64) -> u32 {
 
 /// Lay the bloom of `source` on top of it, in place, and return how far it grew on each side.
 /// Every setting is already inside its range; intensity 0, or no pixel bright enough, changes
-/// nothing.
+/// nothing. D-914: `fast`, Quality Fast, each halo blur on [`crate::blurs::reduced`]'s cells.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn bloom(
     source: &mut WorkingBuffer,
     threshold: f64,
@@ -83,6 +84,7 @@ pub(crate) fn bloom(
     lines: usize,
     length: f64,
     angle: f64,
+    fast: bool,
 ) -> usize {
     let (w, h) = (source.width(), source.height());
     if intensity == 0.0 || w == 0 || h == 0 {
@@ -109,8 +111,16 @@ pub(crate) fn bloom(
     // (2) The halo: the average of the four blurs, each placed by its own reach.
     let mut halo = WorkingBuffer::transparent(gw, h + 2 * grow);
     for s in SCALES {
-        let mut b = light.clone();
-        let r = blur(&mut b, radius / 3.0 * s);
+        let sigma = radius / 3.0 * s;
+        let d = crate::blurs::cell(sigma);
+        let (b, r) = if fast && d > 1 {
+            let r = kernel_radius(sigma);
+            (crate::blurs::reduced(&light, sigma, d, false, r), r)
+        } else {
+            let mut b = light.clone();
+            let r = blur(&mut b, sigma);
+            (b, r)
+        };
         let off = grow - r;
         let bw = b.width() * 4;
         // P-17: row by row in parallel; each pixel still adds the four in the same order.

@@ -54,6 +54,7 @@ pub(crate) fn settings(
         tint: parse_hex(tint),
         after_effects: units == "after_effects",
         display: false,
+        fast: look.quality == "fast",
     }
 }
 
@@ -167,12 +168,20 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
             },
         )
     };
-    let r = crate::effects::blur_axes(
-        &mut light,
-        &crate::effects::reach_weights(sigma, long),
-        // D-747: Glow Dimensions.
-        g.axes,
-    );
+    // D-914: Quality Fast above sigma 8, in both dimensions, on the reduced blur's cells.
+    let d = crate::blurs::cell(sigma);
+    let r = if g.fast && g.axes == (true, true) && d > 1 {
+        let r = crate::effects::reach_radius(sigma, long);
+        light = crate::blurs::reduced(&light, sigma, d, long, r);
+        r
+    } else {
+        crate::effects::blur_axes(
+            &mut light,
+            &crate::effects::reach_weights(sigma, long),
+            // D-747: Glow Dimensions.
+            g.axes,
+        )
+    };
 
     // (4) Strength and (5) on top of the picture, which is empty outside its own bounds.
     // D-331: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) is the colour read straight: the

@@ -333,7 +333,7 @@ D-544 (EFFECTS.md row 260): a new effect, Halation (`core.halation`), on Soft Ph
 | fx_halo_009.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_halo_010.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_halo_011.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
-| fx_halo_012.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_halo_012.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_halo_013.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_halo_014.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | the reference shot, Halation as added (threshold 60, smooth 50, radius 25, amount 100, red-orange): the processor's frame 100 differs from the same at amount 0, so the comparisons below test the halo | 802772 pixels changed | yes |
