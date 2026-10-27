@@ -68,8 +68,8 @@ The hybrid.
 | C0 | This record; document 21's "Colour spaces"; document 28's reserved identifiers | D-905 |
 | C1 | A PNG's own colour chunks named when not read | D-902 / B-782 |
 | C2 | The named spaces and curves, checked against OpenColorIO; the app does not use them yet | D-906 / B-785 |
-| C3 | The switch, the working space, "Interpret as" per file; conversion at decode | later |
-| C4 | Stored colours, display-value rules and the depths with colour management on | later |
+| C3 | The switch, the working space, "Interpret as" per file; conversion at decode | D-909 / B-788; in the window: D-916 / B-795 |
+| C4 | Stored colours, display-value rules and the depths with colour management on | D-910 / B-789 |
 | C5 | The viewer's view: Standard, Un-tone-mapped, ACES 2.0 SDR | D-915 / B-794 |
 | C6 | An Output colour choice per export, files tagged honestly | later |
 | C7 | Pickers and Info show working and display numbers | later |

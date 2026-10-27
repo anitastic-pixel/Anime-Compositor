@@ -881,6 +881,16 @@ FX-COLVIEW-005: the project files. `hdr_scene_aces.json` (no `view`, colour mana
 
 FX-COLVIEW-006: `hdr_scene_unknown_view.json` (`view` `aces-1.3-sdr`): opens with one `COLOR_VIEW_UNAVAILABLE` warning naming the word, shows Standard, and saves back byte for byte.
 
+## Colour management switch fixtures
+
+D-916: `project.set_color_management` from File > Project Settings. Files in `Fixtures/colour/switch/` from `tools/switch_reference.py` (standard library only); the accepted cases are judged against projects earlier reference tools wrote.
+
+FX-COLSW-001: off to on. `view/hdr_scene_off.json` with `working` `acescg` becomes `view/hdr_scene_aces.json` (read as JSON, project ID aside), the window's frame 0 at Full is that file's byte for byte, the View menu's Colour view appears, and Undo gives back the opened file's bytes and frame. On to off is the reverse.
+
+FX-COLSW-002: the working space with colour management on. `c4/solid_rec709.json` with `acescg` becomes `c4/solid_acescg.json`, and back with `linear-srgb`; project and frame as FX-COLSW-001.
+
+FX-COLSW-003: refused. `off_eight_bpc.json` and `off_ae_32bpc.json` with `acescg` or `linear-srgb`: `COLOR_DEPTH_REFUSED` naming composition "Main" and its depth; colour management stays off, the depth is not changed, nothing goes into the history, and the file saves back byte for byte.
+
 ## Adjustment layer fixtures
 
 D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.

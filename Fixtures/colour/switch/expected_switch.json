@@ -1,0 +1,96 @@
+{
+  "decision": "D-916",
+  "command": "project.set_color_management",
+  "working": {
+    "off": "colour management off (the default)",
+    "acescg": "on, working in ACEScg (the default when on)",
+    "linear-srgb": "on, working in linear Rec.709"
+  },
+  "compare": "same_project_as: the project after the command equals that file's, read as JSON, with project_id left out; same_frame_as: the window's frame 0 at Full is that file's frame 0 at Full, byte for byte",
+  "cases": [
+    {
+      "id": "off-to-acescg",
+      "open": "view/hdr_scene_off.json",
+      "working": "acescg",
+      "expect": "applied",
+      "same_project_as": "view/hdr_scene_aces.json",
+      "same_frame_as": "view/hdr_scene_aces.json",
+      "note": "Off to on: ACEScg, the default when on; the View menu's Colour view appears, showing ACES 2.0 SDR. Undo gives the opened file's bytes back."
+    },
+    {
+      "id": "acescg-to-off",
+      "open": "view/hdr_scene_aces.json",
+      "working": "off",
+      "expect": "applied",
+      "same_project_as": "view/hdr_scene_off.json",
+      "same_frame_as": "view/hdr_scene_off.json",
+      "note": "On to off: today's picture, and the Colour view gone from the View menu."
+    },
+    {
+      "id": "rec709-to-acescg",
+      "open": "c4/solid_rec709.json",
+      "working": "acescg",
+      "expect": "applied",
+      "same_project_as": "c4/solid_acescg.json",
+      "same_frame_as": "c4/solid_acescg.json",
+      "note": "The working space changed with colour management on."
+    },
+    {
+      "id": "acescg-to-rec709",
+      "open": "c4/solid_acescg.json",
+      "working": "linear-srgb",
+      "expect": "applied",
+      "same_project_as": "c4/solid_rec709.json",
+      "same_frame_as": "c4/solid_rec709.json",
+      "note": "Back to linear Rec.709 working, colour management still on."
+    },
+    {
+      "id": "refused-eight-bpc-acescg",
+      "open": "switch/off_eight_bpc.json",
+      "working": "acescg",
+      "expect": "refused",
+      "diagnostic": "COLOR_DEPTH_REFUSED",
+      "names": [
+        "Main",
+        "8 bpc (AE)"
+      ],
+      "note": "D-910's depth refusal: colour management stays off, the composition's depth is not changed, nothing goes into the history and the file saves back byte for byte."
+    },
+    {
+      "id": "refused-eight-bpc-linear-srgb",
+      "open": "switch/off_eight_bpc.json",
+      "working": "linear-srgb",
+      "expect": "refused",
+      "diagnostic": "COLOR_DEPTH_REFUSED",
+      "names": [
+        "Main",
+        "8 bpc (AE)"
+      ],
+      "note": "D-910's depth refusal: colour management stays off, the composition's depth is not changed, nothing goes into the history and the file saves back byte for byte."
+    },
+    {
+      "id": "refused-ae-32bpc-acescg",
+      "open": "switch/off_ae_32bpc.json",
+      "working": "acescg",
+      "expect": "refused",
+      "diagnostic": "COLOR_DEPTH_REFUSED",
+      "names": [
+        "Main",
+        "32 bpc (AE)"
+      ],
+      "note": "D-910's depth refusal: colour management stays off, the composition's depth is not changed, nothing goes into the history and the file saves back byte for byte."
+    },
+    {
+      "id": "refused-ae-32bpc-linear-srgb",
+      "open": "switch/off_ae_32bpc.json",
+      "working": "linear-srgb",
+      "expect": "refused",
+      "diagnostic": "COLOR_DEPTH_REFUSED",
+      "names": [
+        "Main",
+        "32 bpc (AE)"
+      ],
+      "note": "D-910's depth refusal: colour management stays off, the composition's depth is not changed, nothing goes into the history and the file saves back byte for byte."
+    }
+  ]
+}
