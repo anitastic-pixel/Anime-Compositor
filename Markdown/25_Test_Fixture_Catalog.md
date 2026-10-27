@@ -184020,6 +184020,20 @@ FX-BILAT-015 (`fx_bilat_015.json`): Bilateral Blur, Threshold -1, below 0. The f
 FX-BILAT-016 (`fx_bilat_016.json`): Bilateral Blur, Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BILAT-017 (`fx_bilat_017.json`): Bilateral Blur, Colorize "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BILAT-018 to 023 are Quality Fast (D-913), worked by `tools/bilateral_grid_reference.py` into `Fixtures/bilateral_blur/expected_bilateral_blur_fast.json`; the project files have the setting `quality` written "fast" (or, in FX-BILAT-023, a word that is not one), which a file at the default, "exact", never has.
+
+FX-BILAT-018 (`fx_bilat_018.json`): FX-BILAT-001 (Radius 5, Threshold 20, Colorize on) at Quality Fast: the grid's cells 2.27 pixels across and 22 levels deep; the grain is smoothed and the line and specks kept, close to FX-BILAT-001 and not the same. The hole stays a hole and the half-covered column keeps its covering. Frames 0.
+
+FX-BILAT-019 (`fx_bilat_019.json`): FX-BILAT-004 (Colorize off) at Quality Fast: the luminance worked on the grid, every pixel that shows grey. Frames 0.
+
+FX-BILAT-020 (`fx_bilat_020.json`): Radius 4 at Quality Fast: cells under 2 pixels, so the exact rule, the same frame as Quality Exact. Frames 0.
+
+FX-BILAT-021 (`fx_bilat_021.json`): Radius 5, Threshold 1 at Quality Fast: the grid would hold more than four cells for each pixel, so the exact rule, the same frame as Quality Exact. Frames 0.
+
+FX-BILAT-022 (`fx_bilat_022.json`): Radius 10, Threshold 60 at Quality Fast: cells 4.5 pixels across and 66 levels deep, a wider smoothing. Frames 0.
+
+FX-BILAT-023 (`fx_bilat_023.json`): Bilateral Blur, quality written "quick". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 ### Text shaping (D-371)
 
 Words shaped by `rustybuzz` (B-250; EFFECTS.md P0-7 part 2). The rule is D-371's in `tools/text_shaping_reference.py`, which shapes with HarfBuzz itself (`uharfbuzz` 0.53.3) and reads outlines with fontTools, never the build's code. `Fixtures/text_shaping/expected_text_shaping.json` gives, for FX-SHAPE-001 to 012, every glyph left to right as its number in the font, its advance, its two offsets and the character its cluster starts at, whole font units held exactly; and for FX-SHAPE-020 to 023 every character's anchor, to 1e-6, and the exact box of its cluster's outline, to 0.25 pixel, or none for a character that is not the first of its cluster. The fonts are the bundled M PLUS Rounded 1c and, for Arabic and Devanagari, which it lacks, Noto Sans Arabic 2.013 and Noto Sans Devanagari 2.007 in `Fixtures/text_shaping/fonts` (SIL Open Font License 1.1). B-250 checks them, and draws the layout cases' pictures, in `verification/D-371_text_shaping_table.md`.
@@ -215989,6 +216003,12 @@ FX-CARTOON-030 (`fx_cartoon_030.json`): Edge Enhancement -101, below -100. The f
 FX-CARTOON-031 (`fx_cartoon_031.json`): Edge Black Level 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CARTOON-032 (`fx_cartoon_032.json`): Edge Contrast keyed to 2 at frame 4, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-033 and 034 are Quality Fast (D-913), worked by `tools/bilateral_grid_reference.py` into `Fixtures/cartoon/expected_cartoon_fast.json`, the smoothing on the bilateral grid and the rest of Cartoon by `tools/cartoon_reference.py`.
+
+FX-CARTOON-033 (`fx_cartoon_033.json`): FX-CARTOON-001 (the settings as they start, Detail Radius 8, Threshold 10) at Quality Fast: the smoothing worked on the grid, cells 3.6 pixels across and 11 levels deep; the rest of Cartoon as it was. Frames 0.
+
+FX-CARTOON-034 (`fx_cartoon_034.json`): Cartoon, quality written "rough". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Deband (D-456)
 
