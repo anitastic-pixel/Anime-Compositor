@@ -190,3 +190,47 @@ pub fn encode8(buffer: &WorkingBuffer, shown: Shown) -> Vec<u8> {
         out
     })
 }
+
+/// D-918: one colour as the picker, the eyedropper and Info show it with colour management on.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Readout {
+    /// What a file stores (D-910): linear Rec.709, straight.
+    pub stored: [f32; 3],
+    /// The working space's numbers, straight.
+    pub working: [f32; 3],
+    /// What the viewer shows: [`encode8`]'s bytes.
+    pub display: [u8; 3],
+    pub alpha: f32,
+}
+
+impl Readout {
+    /// A stored colour, opaque, as a picker holds it.
+    pub fn of_stored(project: &Project, rgb: [f32; 3]) -> Readout {
+        let mut px = [rgb[0], rgb[1], rgb[2], 1.0];
+        if let Some(working) = project.working() {
+            color::convert_rgba(&mut px, Gamut::Rec709, working);
+        }
+        Readout {
+            stored: rgb,
+            ..Readout::of_pixel(project, px)
+        }
+    }
+
+    /// A premultiplied working pixel of a picture.
+    pub fn of_pixel(project: &Project, px: [f32; 4]) -> Readout {
+        let s = composite::unpremultiply(px);
+        let mut stored = s;
+        if let Some(working) = project.working() {
+            color::convert_rgba(&mut stored, working, Gamut::Rec709);
+        }
+        let mut one = WorkingBuffer::transparent(1, 1);
+        one.data_mut().copy_from_slice(&px);
+        let bytes = encode8(&one, Shown::of(project));
+        Readout {
+            stored: [stored[0], stored[1], stored[2]],
+            working: [s[0], s[1], s[2]],
+            display: [bytes[0], bytes[1], bytes[2]],
+            alpha: s[3],
+        }
+    }
+}

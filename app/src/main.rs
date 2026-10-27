@@ -4085,6 +4085,83 @@ fn thumbnail(
     Ok(export::small(&full, 160))
 }
 
+/// D-918: one colour's numbers with colour management on: `?rgb=r,g,b`, a stored colour (linear
+/// Rec.709), or `?frame=&x=&y=`, a pixel of the composition on screen drawn exactly at Full, as
+/// an export draws it. With colour management off it says only that. Nothing is changed or saved.
+fn colour_info(
+    viewer: &Mutex<Viewer>,
+    query: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    use anime_compositor::color::{self, Gamut};
+    use anime_compositor::view::{Readout, Shown};
+    let (project, composition, root) = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        (
+            held.document.project().clone(),
+            held.composition.clone(),
+            held.root.clone(),
+        )
+    };
+    let Some(working) = project.color_management else {
+        return Ok(serde_json::json!({ "managed": false }));
+    };
+    let readout = if let Some(rgb) = parameter(query, "rgb") {
+        let numbers: Vec<f32> = rgb
+            .split(',')
+            .map(|c| c.trim().parse::<f32>())
+            .filter_map(Result::ok)
+            .filter(|c| c.is_finite())
+            .collect();
+        let [r, g, b] = numbers[..] else {
+            return Err(format!("rgb={rgb} is not three numbers"));
+        };
+        Readout::of_stored(&project, [r, g, b])
+    } else {
+        let number = |name: &str| {
+            parameter(query, name)
+                .and_then(|v| v.parse::<i64>().ok())
+                .ok_or_else(|| format!("ask with rgb=, or with frame=, x= and y= ({name} is missing)"))
+        };
+        let (frame, x, y) = (number("frame")?, number("x")?, number("y")?);
+        // The last picture drawn, kept while the pointer moves over the same frame.
+        type Drawn = (Project, Id, i64, anime_compositor::WorkingBuffer);
+        static LAST: Mutex<Option<Drawn>> = Mutex::new(None);
+        let mut last = LAST.lock().unwrap_or_else(|p| p.into_inner());
+        let same = matches!(&*last, Some((p, c, f, _)) if *p == project && *c == composition && *f == frame);
+        if !same {
+            let picture = anime_compositor::compose::render_frame(
+                &project,
+                &composition,
+                frame as i32,
+                &root,
+                DEFAULT_TILE_SIZE,
+                &mut FrameLog::new(0),
+            )
+            .map_err(|d| d.to_string())?;
+            *last = Some((project.clone(), composition.clone(), frame, picture));
+        }
+        let picture = &last.as_ref().expect("drawn above").3;
+        if x < 0 || y < 0 || x as usize >= picture.width() || y as usize >= picture.height() {
+            return Err(format!("{x}, {y} is outside the picture"));
+        }
+        Readout::of_pixel(&project, picture.pixel(x as usize, y as usize))
+    };
+    let hex = readout
+        .stored
+        .map(|c| format!("{:02x}", color::quantise_u8(color::linear_to_srgb(c))))
+        .concat();
+    Ok(serde_json::json!({
+        "managed": true,
+        "working_space": if working == Gamut::Ap1 { "ACEScg" } else { "Linear Rec.709" },
+        "view": Shown::of(&project).view.name(),
+        "stored": readout.stored,
+        "working": readout.working,
+        "display": readout.display,
+        "alpha": readout.alpha,
+        "hex": format!("#{hex}"),
+    }))
+}
+
 /// D-258: one layer of the composition on screen at `frame`, drawn by itself as W-24's solo would
 /// draw it, for the onion skin. Solo is applied to a copy for this one picture: the window's own
 /// solo, the screen and the history are untouched, and nothing is cached or exported.
@@ -18721,6 +18798,19 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .expect("build the layer alone refusal"),
         };
     }
+    // D-918: the Info row's, the picker's and the eyedropper's numbers with colour management on.
+    if path == "colour-info" {
+        return match colour_info(&viewer, query) {
+            Ok(answer) => allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "application/json; charset=utf-8")
+                .body(answer.to_string().into_bytes())
+                .expect("build the colour info response"),
+            Err(why) => allow_the_page_to_read_this(Response::builder().status(404))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(why.into_bytes())
+                .expect("build the colour info refusal"),
+        };
+    }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
     // Answered before `edit_command`, which would otherwise refuse it for naming no files.
@@ -18903,7 +18993,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /save-increment, /recover, /export, \
                       /cancel-export, /pause-export, /export-watch, /export-frame, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /files-gone, /fonts, /font, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, /sketch-png, or one of \
+                      /files-gone, /fonts, /font, /thumb, /alone, /colour-info, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, /sketch-png, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )

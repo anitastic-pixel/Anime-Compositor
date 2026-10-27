@@ -225,6 +225,8 @@ const ROUTES: &[&str] = &[
     "cancel-export",
     "check-package",
     "collect",
+    // D-918: the Info row's, the picker's and the eyedropper's numbers with colour management on.
+    "colour-info",
     "curve",
     "export",
     // D-252: the job being written, and its frames, for the Render panel.
@@ -5793,7 +5795,7 @@ fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
 }
 
 /// Every control the page wires a handler to, or clicks for the person, or reads.
-const CONTROLS: [&str; 139] = [
+const CONTROLS: [&str; 140] = [
     "addadjust",
     "addeffect",
     "addexposure",
@@ -5836,6 +5838,7 @@ const CONTROLS: [&str; 139] = [
     "delcomppreset",
     "dellayer",
     "down",
+    "dropper",
     "emptyimport",
     "emptynew",
     "export",

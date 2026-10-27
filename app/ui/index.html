@@ -399,6 +399,7 @@
   #strip button b.hold { width: 1px; background: #c8c8d0; }
   #strip button.out { opacity: 0.35; }
   #strip button.now { border-color: #e8b06a; }
+  #colourinfo { font-size: 12px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
   /* W-41b: the view turned or mirrored, on screen only; the snapshot beside the picture. */
   #onion { pointer-events: none; }
   #stage > #view, #stage > #onion, #stage > #boxes, #stage > #sketchover, #guides .grid, #guides .field, #stage > #snapview { transform: var(--turn, none); }
@@ -2222,6 +2223,13 @@
       <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
     </div>
     <div id="strip" hidden></div>
+    <!-- D-918: Info, only with colour management on: the pixel under the pointer and the colour
+         picker touched last, each as working numbers and as the view shows it; and an eyedropper. -->
+    <div id="colourinfo" hidden>
+      <b>Info</b> <button id="dropper" type="button" aria-pressed="false" title="Then click the picture: the colour picker touched last takes that pixel's colour">Pick from the picture</button>
+      <span id="infopoint">Rest the pointer on the picture.</span><br>
+      <span id="infopick">Touch a colour picker to read its numbers.</span>
+    </div>
     <!-- W-41c (D-248): the Map. Which composition holds which, as a tree, as boxes joined by
          arrows, or both; read from the project, and a click opens that composition. -->
     <div id="map">
@@ -17189,7 +17197,9 @@ function drawColourView() {
   const cs = (doc && doc.project.color_settings) || {};
   const on = cs.color_management === true;
   $('colourviewrow').hidden = !on;
-  if (!on) return;
+  $('colourinfo').hidden = !on;
+  if (!on) { setDropping(false); return; }
+  readPick();
   const view = cs.view === undefined ? 'aces-2.0-sdr' : String(cs.view);
   const names = [['aces-2.0-sdr', 'ACES 2.0 SDR'], ['un-tone-mapped', 'Un-tone-mapped'], ['standard', 'Standard']];
   if (!names.some(([w]) => w === view)) names.push([view, view + ' (not known to this build, Standard shown)']);
@@ -17212,6 +17222,73 @@ $('projectsettingsbutton').onclick = () => {
   if (!$('projectsettings').open) $('projectsettings').showModal();
 };
 $('closeprojectsettings').onclick = () => $('projectsettings').close();
+// D-918: the Info row, the picker's numbers and the eyedropper, only with colour management on.
+// The numbers are the window's (`/colour-info`), never written anywhere; a pick is sent as the
+// picker's own input and change, so it saves exactly what picking that hex saves.
+let lastPick = null;   // the colour picker touched last, by id or label: panels are redrawn
+let dropping = false;
+let infoWait = 0;
+const infoOn = () => !!doc && (doc.project.color_settings || {}).color_management === true;
+const pickNow = () => lastPick && (document.getElementById(lastPick.id)
+  || [...document.querySelectorAll('input[type=color]')].find((p) => p.getAttribute('aria-label') === lastPick.label));
+const infoText = (a) => 'Working (' + a.working_space + ') ' + a.working.map((c) => c.toFixed(4)).join(' ')
+  + '   Display (' + a.view + ') ' + a.display.join(' ');
+async function colourInfo(q) {
+  try {
+    const r = await fetch(PROJECT + '/colour-info?' + q);
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
+}
+async function readPick() {
+  const pick = pickNow();
+  if (!infoOn() || !pick) return;
+  const a = await colourInfo('rgb=' + linearOf(pick.value).join(','));
+  if (a && a.managed) $('infopick').textContent = 'Picker ' + pick.value + '   ' + infoText(a);
+}
+const touched = (e) => {
+  const p = e.target;
+  if (!(p instanceof HTMLInputElement) || p.type !== 'color') return;
+  lastPick = { id: p.id, label: p.getAttribute('aria-label') || p.title };
+  readPick();
+};
+document.addEventListener('focusin', touched);
+document.addEventListener('input', touched, true);
+function setDropping(on) {
+  dropping = on;
+  $('dropper').setAttribute('aria-pressed', String(on));
+  stage.style.cursor = on ? 'crosshair' : '';
+}
+$('dropper').onclick = () => setDropping(!dropping);
+const stopDropping = (e) => { if (dropping && e.key === 'Escape') setDropping(false); };
+document.addEventListener('keydown', stopDropping, true);
+const pointAt = (e) => frameSpace().toLayer(...atCanvas(e)).map(Math.floor);
+stage.addEventListener('pointermove', (e) => {
+  if (!infoOn() || needPixels()) return;
+  clearTimeout(infoWait);
+  infoWait = setTimeout(async () => {
+    const [x, y] = pointAt(e);
+    const a = await colourInfo('frame=' + frame + '&x=' + x + '&y=' + y);
+    $('infopoint').textContent = a && a.managed
+      ? x + ', ' + y + '   ' + infoText(a) + '   Alpha ' + a.alpha.toFixed(3) : 'Outside the picture.';
+  }, 120);
+});
+// Before every other press on the picture, so a pick never selects or moves a layer.
+stage.addEventListener('pointerdown', async (e) => {
+  if (!dropping) return;
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  setDropping(false);
+  const pick = pickNow();
+  if (!pick) { $('status').textContent = 'Touch a colour picker first, then pick from the picture.'; return; }
+  if (needPixels()) { $('status').textContent = 'The view is turned or mirrored; Reset turns it back, then pick.'; return; }
+  const [x, y] = pointAt(e);
+  const a = await colourInfo('frame=' + frame + '&x=' + x + '&y=' + y);
+  if (!a || !a.managed) { $('status').textContent = 'Nothing to pick there.'; return; }
+  pick.value = a.hex;
+  pick.dispatchEvent(new Event('input', { bubbles: true }));
+  pick.dispatchEvent(new Event('change', { bubbles: true }));
+  $('status').textContent = 'Picked ' + a.hex + ' from the picture at ' + x + ', ' + y + '.';
+}, true);
 
 function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay

@@ -14926,3 +14926,307 @@ fn b795_colour_management_switch() {
     let failed: Vec<_> = report.rows.iter().filter(|(_, e, a)| e != a).collect();
     assert!(failed.is_empty(), "see verification/B-795_colour_management_switch_table.md: {failed:?}");
 }
+
+/// B-797 (D-918): with colour management on, the window's `colour-info` answers a picker's
+/// colour and a pixel of the picture as working numbers and as the view shows them, against
+/// OpenColorIO's numbers in `Fixtures/colour/c7/expected_readout.json` (FX-COLC7-001 to 004).
+#[test]
+fn b797_colour_info_from_the_window() {
+    use anime_compositor::color;
+    let mut report = Report { rows: Vec::new() };
+    let page = include_str!("../../ui/index.html");
+    let fixture = repo("Fixtures/colour/c7/expected_readout.json");
+    let expected: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(&fixture).expect("read the fixture"),
+    )
+    .expect("the fixture is JSON");
+    let dir = repo("Fixtures/colour/view");
+    let opened = |path: &Path| {
+        Mutex::new(open(path).unwrap_or_else(|d| panic!("open {}: {}", path.display(), d.message)))
+    };
+    let ask = |viewer: &Mutex<Viewer>, q: &str| {
+        colour_info(viewer, Some(q)).unwrap_or_else(|why| panic!("colour-info?{q}: {why}"))
+    };
+    let numbers = |v: &serde_json::Value| -> Vec<f64> {
+        v.as_array()
+            .expect("a list of numbers")
+            .iter()
+            .map(|n| n.as_f64().expect("a number"))
+            .collect()
+    };
+    // The bar: 1e-6 times the colour's size (its largest channel, at least 1), every channel.
+    let off_by = |ours: &[f64], theirs: &[f64]| {
+        let size = theirs.iter().fold(1.0f64, |m, e| m.max(e.abs()));
+        ours.iter()
+            .zip(theirs)
+            .map(|(a, e)| (a - e).abs() / size)
+            .fold(0.0f64, f64::max)
+    };
+    let levels = |ours: &[f64], theirs: &[f64]| {
+        ours.iter()
+            .zip(theirs)
+            .map(|(a, e)| (a - e).abs())
+            .fold(0.0f64, f64::max)
+    };
+    let export = Mutex::new(Export::default());
+    let sent = |viewer: &Mutex<Viewer>| {
+        let got = serve(viewer, &export, Ask::Frame(0), Some(PreviewQuality::Full));
+        assert_eq!(got.status(), 200, "the frame was drawn");
+        got.body().clone()
+    };
+    let word = |w: &str| if w == "acescg" { "ACEScg" } else { "Linear Rec.709" };
+    let view_name = |v: &str| if v == "aces-2.0-sdr" { "ACES 2.0 SDR" } else { "Un-tone-mapped" };
+
+    // FX-COLC7-001: the picker, both working spaces, both views. The linear Rec.709 working
+    // copy is D-915's ACES project with its working space changed, written beside the test.
+    let scratch = std::env::temp_dir().join("b797_colour_info");
+    std::fs::create_dir_all(&scratch).expect("make the scratch folder");
+    let aces_text = std::fs::read_to_string(dir.join("hdr_scene_aces.json")).expect("read");
+    assert!(aces_text.contains("\"working_space\": \"acescg\""));
+    let rec709 = scratch.join("hdr_scene_rec709_working.json");
+    std::fs::write(
+        &rec709,
+        aces_text.replace("\"working_space\": \"acescg\"", "\"working_space\": \"linear-srgb\""),
+    )
+    .expect("write the linear Rec.709 working copy");
+    let cases = expected["picker"].as_array().expect("picker cases");
+    for (working, path) in [("acescg", dir.join("hdr_scene_aces.json")), ("linear-srgb", rec709)] {
+        let viewer = opened(&path);
+        for view in ["aces-2.0-sdr", "un-tone-mapped"] {
+            if view == "un-tone-mapped" {
+                run(&viewer, "project.set_view?view=un-tone-mapped");
+            }
+            let (mut met, mut worst_number, mut worst_level, mut names) = (0, 0.0f64, 0.0f64, true);
+            let mut primaries = Vec::new();
+            for case in cases {
+                let stored = numbers(&case["stored"]);
+                let q = format!(
+                    "rgb={}",
+                    stored.iter().map(f64::to_string).collect::<Vec<_>>().join(",")
+                );
+                let a = ask(&viewer, &q);
+                let n = off_by(&numbers(&a["stored"]), &stored)
+                    .max(off_by(&numbers(&a["working"]), &numbers(&case["working"][working])));
+                let l = levels(&numbers(&a["display"]), &numbers(&case["display"][working][view]));
+                let barred = case["barred"] == true;
+                worst_number = worst_number.max(n);
+                if barred {
+                    worst_level = worst_level.max(l);
+                } else {
+                    primaries.push(format!("{} {l}", case["hex"].as_str().unwrap_or("?")));
+                }
+                names &= a["working_space"] == word(working) && a["view"] == view_name(view);
+                if n <= 1e-6 && (!barred || l <= 1.0) && a["hex"] == case["hex"] && a["alpha"] == 1.0 {
+                    met += 1;
+                }
+            }
+            report.check(
+                &format!(
+                    "FX-COLC7-001 picker, {} working, {}: hexes within every bar (stored and working 1e-6, display 1 level, hex back exactly)",
+                    word(working),
+                    view_name(view)
+                ),
+                format!("{} of {}", cases.len(), cases.len()),
+                format!("{met} of {}", cases.len()),
+            );
+            report.check(
+                &format!("  worst number (relative) and worst level, {} / {}", word(working), view_name(view)),
+                "at most 1e-6, at most 1",
+                format!(
+                    "{}, {}",
+                    if worst_number <= 1e-6 { "at most 1e-6" } else { "MORE" },
+                    if worst_level <= 1.0 { "at most 1" } else { "MORE" }
+                ),
+            );
+            report.check(
+                &format!("  measured: {worst_number:.2e} and {worst_level} levels; the names said"),
+                true,
+                names,
+            );
+            report.check(
+                &format!(
+                    "  reported, not barred (pure primaries, D-918's correction), levels off: {}",
+                    primaries.join(", ")
+                ),
+                true,
+                true,
+            );
+        }
+    }
+
+    // FX-COLC7-002: the pointer, D-915's scene with ACES 2.0 SDR and with Un-tone-mapped.
+    let points = expected["pixels"].as_array().expect("pixel cases");
+    for (file, view) in [("hdr_scene_aces.json", "aces-2.0-sdr"), ("hdr_scene_un_tone_mapped.json", "un-tone-mapped")] {
+        let viewer = opened(&dir.join(file));
+        let bytes = sent(&viewer);
+        let before = held(&viewer).document.project().clone();
+        let (mut numbers_met, mut same_bytes, mut barred_met, mut barred) = (0, 0, 0, 0);
+        let mut reported = Vec::new();
+        for p in points {
+            let (x, y) = (p["x"].as_u64().unwrap() as usize, p["y"].as_u64().unwrap() as usize);
+            let a = ask(&viewer, &format!("frame=0&x={x}&y={y}"));
+            let display = numbers(&a["display"]);
+            let n = off_by(&numbers(&a["stored"]), &numbers(&p["stored"]))
+                .max(off_by(&numbers(&a["working"]), &numbers(&p["working"]["acescg"])));
+            if n <= 1e-6 && a["alpha"] == 1.0 {
+                numbers_met += 1;
+            }
+            let at = (y * 512 + x) * 4;
+            if display == bytes[at..at + 3].iter().map(|&b| f64::from(b)).collect::<Vec<_>>() {
+                same_bytes += 1;
+            }
+            let l = levels(&display, &numbers(&p["display"]["acescg"][view]));
+            if p["barred"] == true {
+                barred += 1;
+                if l <= 1.0 {
+                    barred_met += 1;
+                }
+            } else if l > 1.0 {
+                reported.push(format!("{} at x {x}: {l} levels", p["band"].as_str().unwrap()));
+            }
+        }
+        report.check(
+            &format!("FX-COLC7-002 pointer, {}: stored and working within 1e-6, alpha 1", view_name(view)),
+            format!("{} of {}", points.len(), points.len()),
+            format!("{numbers_met} of {}", points.len()),
+        );
+        report.check(
+            &format!("  display exactly the window's own frame bytes at that pixel, {}", view_name(view)),
+            format!("{} of {}", points.len(), points.len()),
+            format!("{same_bytes} of {}", points.len()),
+        );
+        report.check(
+            &format!("  display within 1 level of OpenColorIO on the barred bands, {}", view_name(view)),
+            format!("{barred} of {barred}"),
+            format!("{barred_met} of {barred}"),
+        );
+        report.check(
+            &format!(
+                "  reported, not barred (pure primary ramps past 1 level), {}: {}",
+                view_name(view),
+                if reported.is_empty() { "none".to_string() } else { reported.join("; ") }
+            ),
+            true,
+            true,
+        );
+        report.check(
+            &format!("  asking changed nothing in the project, {}", view_name(view)),
+            "same, not dirty",
+            format!(
+                "{}, {}",
+                if *held(&viewer).document.project() == before { "same" } else { "CHANGED" },
+                if held(&viewer).document.is_dirty() { "dirty" } else { "not dirty" }
+            ),
+        );
+        let outside = colour_info(&viewer, Some("frame=0&x=512&y=0"));
+        report.check(
+            &format!("  a point outside the picture is refused, {}", view_name(view)),
+            true,
+            outside.is_err(),
+        );
+
+        // FX-COLC7-003: the eyedropper's round trip, from every point: the pixel's nearest
+        // picker hex, read back as the picker reads a hex (linearOf), gives the same hex.
+        if view == "aces-2.0-sdr" {
+            let mut back = 0;
+            for p in points {
+                let a = ask(&viewer, &format!("frame=0&x={}&y={}", p["x"], p["y"]));
+                let hex = a["hex"].as_str().unwrap().to_string();
+                let linear: Vec<String> = (0..3)
+                    .map(|i| {
+                        let byte = u8::from_str_radix(&hex[1 + 2 * i..3 + 2 * i], 16).unwrap();
+                        let s = f64::from(byte) / 255.0;
+                        let l = if s <= 0.04045 { s / 12.92 } else { ((s + 0.055) / 1.055).powf(2.4) };
+                        l.to_string()
+                    })
+                    .collect();
+                if ask(&viewer, &format!("rgb={}", linear.join(",")))["hex"] == hex.as_str() {
+                    back += 1;
+                }
+            }
+            report.check(
+                "FX-COLC7-003 eyedropper: a pixel's picker hex, read back as the picker reads it, is the same hex",
+                format!("{} of {}", points.len(), points.len()),
+                format!("{back} of {}", points.len()),
+            );
+        }
+    }
+    report.check(
+        "  the eyedropper sends the hex as the picker's own input and change (the picker saves it as it always has)",
+        true,
+        page.contains("pick.value = a.hex;\n  pick.dispatchEvent(new Event('input', { bubbles: true }));\n  pick.dispatchEvent(new Event('change', { bubbles: true }));"),
+    );
+    report.check(
+        "  a pick never selects or moves a layer: its press is taken first and stopped",
+        true,
+        page.contains("  if (!dropping) return;\n  e.stopImmediatePropagation();"),
+    );
+
+    // FX-COLC7-004: colour management off.
+    let viewer = opened(&dir.join("hdr_scene_off.json"));
+    let source_before = std::fs::read(dir.join("hdr_scene_off.json")).expect("read");
+    report.check(
+        "FX-COLC7-004 off: a colour is answered only with off",
+        r#"{"managed":false}"#,
+        ask(&viewer, "rgb=1,0.2158605,0"),
+    );
+    report.check(
+        "  off: a pixel likewise",
+        r#"{"managed":false}"#,
+        ask(&viewer, "frame=0&x=10&y=10"),
+    );
+    let project = held(&viewer).document.project().clone();
+    let today = preview::preview_frame(
+        &project,
+        &Id::new("comp-main"),
+        0,
+        &dir,
+        PreviewQuality::Full,
+        DEFAULT_TILE_SIZE,
+        &mut FrameLog::new(0),
+    )
+    .expect("the processor's frame")
+    .to_srgb8_straight();
+    report.check("  off: the window's frame is today's bytes", true, sent(&viewer) == today);
+    report.check(
+        "  off: the project unchanged and its file untouched",
+        "true, not dirty",
+        format!(
+            "{}, {}",
+            std::fs::read(dir.join("hdr_scene_off.json")).expect("read") == source_before,
+            if held(&viewer).document.is_dirty() { "dirty" } else { "not dirty" }
+        ),
+    );
+    report.check(
+        "  off: the Info row is hidden on the page and hidden again when off",
+        true,
+        page.contains("<div id=\"colourinfo\" hidden")
+            && page.contains("$('colourinfo').hidden = !on;\n  if (!on) { setDropping(false); return; }"),
+    );
+    report.check(
+        "  the hex a stored colour reads as is the picker's own (the sRGB curve, 256 levels)",
+        "#ff8000",
+        format!(
+            "#{}",
+            [1.0f32, 0.2158605, 0.0]
+                .map(|c| format!("{:02x}", color::quantise_u8(color::linear_to_srgb(c))))
+                .concat()
+        ),
+    );
+
+    write_artifact(
+        &report,
+        "verification/B-797_colour_info_table.md",
+        "B-797: the picker's, the eyedropper's and Info's numbers with colour management on (D-918)",
+        &[
+            "D-918: with colour management on, the window answers a colour (a picker's) or a pixel of the picture on screen with its stored numbers (linear Rec.709, what a file holds), its working numbers and the levels the view on screen gives it. The expected numbers are OpenColorIO 2.5.1's, written by `tools/c7_reference.py` into `Fixtures/colour/c7/expected_readout.json` before the code; the pixels are D-915's HDR scene (`Fixtures/colour/view/`). With colour management off the window says off and nothing changes.",
+        ],
+        &[],
+    );
+    let failed: Vec<&(String, String, String)> =
+        report.rows.iter().filter(|(_, e, a)| e != a).collect();
+    assert!(
+        failed.is_empty(),
+        "see verification/B-797_colour_info_table.md: {failed:?}"
+    );
+}
