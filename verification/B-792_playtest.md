@@ -21,7 +21,7 @@ Exact and saves exactly as it was.
 
 ## The numbers
 
-The speed is still to be measured, in a quiet slot on the main checkout.
+Speed, measured in a quiet slot on 2026-10-27 (median whole frame of the reference shot, 5 rounds; the raw rounds in B-792_timing_raw.md): Bilateral Blur as added 183.6 ms Exact, 169.7 ms Fast (1.1x); radius 40: 6201.9 ms, 121.0 ms (51x); Cartoon as added 377.2 ms, 208.8 ms (1.8x); Cartoon heavy 6519.9 ms, 195.5 ms (33x).
 
 How far Fast is from Exact at 1920 by 1080, frame 100 of the reference shot, in levels of 255:
 
