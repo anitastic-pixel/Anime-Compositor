@@ -216462,6 +216462,18 @@ FX-KCLEAN-017 (`fx_kclean_017.json`): Strength -1, below 0. The file is read, th
 
 FX-KCLEAN-018 (`fx_kclean_018.json`): Strength keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+FX-KCLEAN-019 to 023 are Quality Fast (D-912, D-903's fast guided filter), worked by `tools/key_cleaner_fast_reference.py` into `Fixtures/key_cleaner/expected_key_cleaner_fast.json`; the project files have the setting `quality` written "fast", which a file at the default, "exact", never has.
+
+FX-KCLEAN-019 (`fx_kclean_019.json`): FX-KCLEAN-001 (Key Cleaner as added, Additional Edge Radius 10) at Quality Fast: the fit worked on blocks 2 by 2 at radius 5 and read back smoothly, so the covering is close to FX-KCLEAN-001's and not the same. Frames 0.
+
+FX-KCLEAN-020 (`fx_kclean_020.json`): FX-KCLEAN-002 (Additional Edge Radius 4) at Quality Fast: below radius 8 Fast is the exact filter, so FX-KCLEAN-002's frame. Frames 0.
+
+FX-KCLEAN-021 (`fx_kclean_021.json`): Additional Edge Radius 12, Alpha Contrast 50, at Quality Fast: blocks 3 by 3 at radius 4, the last row of blocks one pixel tall (16 rows), then steepened. Frames 0.
+
+FX-KCLEAN-022 (`fx_kclean_022.json`): Additional Edge Radius 16, Strength 50, at Quality Fast: blocks 4 by 4 (the most) at radius 4, then halfway back to the drawing. Frames 0.
+
+FX-KCLEAN-023 (`fx_kclean_023.json`): Key Cleaner, quality written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Linear Color Key (D-504)
 
 Linear Color Key (`core.linear_color_key`), after After Effects' Linear Color Key (B-384), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (Color Difference Key's picture): one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. Cases FX-LCKEY-019 to 023 hold two or three Linear Color Keys on the layer, `fx-0-0` first. `tools/linear_color_key_reference.py` works the expected frames, `expected_linear_color_key.json`, tolerance 2e-5; the rule is in document 21. D-541 (2026-10-11, owner-authorised) rewrote FX-LCKEY-007 and FX-LCKEY-011's frame 0 for tolerance 0 keying nothing and added FX-LCKEY-019 to 024 for Keep Colors.
