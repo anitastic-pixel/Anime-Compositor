@@ -22,8 +22,16 @@ project opens as Exact and saves exactly as it was.
 
 ## The numbers
 
-The timings wait for a quiet machine and are not in yet. They will go here and in
-`verification/B-793_fast_blur_timing_table.md`.
+Measured in a quiet slot on 2026-10-27 (whole frame of the reference shot, median of 5 rounds,
+`verification/B-793_fast_blur_timing_table.md`), Exact against Fast:
+
+- Glow, radius 30: 72.3 ms, 73.7 ms (no gain). Radius 60: 80.5 ms, 69.6 ms (14% less).
+- Bloom, radius 30, star: 204.6 ms, 199.7 ms (no real gain). Radius 100: 233.7 ms, 187.6 ms (20% less).
+- Deband, blur 30: 135.6 ms, 139.0 ms (no gain). Blur 60: 185.1 ms, 152.7 ms (18% less).
+- Halation as added (radius 25): 147.4 ms, 123.8 ms (16% less). Radius 100: 160.3 ms, 130.3 ms (19% less).
+
+So Fast saves about a sixth of the frame on the big blurs and nothing on the small ones; at small
+sizes leave it on Exact.
 
 ## What to look at
 
