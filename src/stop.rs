@@ -6,14 +6,26 @@
 //! so only the viewer's frames can be stopped. It is looked at between the top composition's
 //! layers and, while the finished plan is drawn ([`tiles`]), before each tile. A stopped frame is
 //! an error, never a picture: the caller throws it away and nothing of it is kept.
+//!
+//! B-780 (D-900): a frame made ahead in the background ([`behind`]) is stopped as well by any
+//! frame the hand asks for ([`by_hand`]), so the RAM preview's workers give way at once.
 
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static STOPS: AtomicU64 = AtomicU64::new(0);
+/// B-780: stops and frames asked for by hand, together.
+static HAND: AtomicU64 = AtomicU64::new(0);
+
+/// What a frame being drawn is watching: the count it began at, and which count.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Watch {
+    since: u64,
+    behind: bool,
+}
 
 thread_local! {
-    static SINCE: Cell<Option<u64>> = const { Cell::new(None) };
+    static SINCE: Cell<Option<Watch>> = const { Cell::new(None) };
     static TILES: Cell<bool> = const { Cell::new(false) };
     static AT_CHECK: Cell<u32> = const { Cell::new(0) };
 }
@@ -26,11 +38,51 @@ pub fn now() -> u64 {
 /// Stops every frame that arrived before this call and is still being drawn.
 pub fn stop() {
     STOPS.fetch_add(1, Ordering::SeqCst);
+    HAND.fetch_add(1, Ordering::SeqCst);
+}
+
+/// B-780: a frame was asked for by hand; every frame being made [`behind`] stops.
+pub fn by_hand() {
+    HAND.fetch_add(1, Ordering::SeqCst);
 }
 
 /// Runs `job` on this thread as a frame that arrived when the count was `since`.
 pub fn watching<T>(since: u64, job: impl FnOnce() -> T) -> T {
-    let before = SINCE.with(|s| s.replace(Some(since)));
+    watch(Watch { since, behind: false }, job)
+}
+
+/// B-780: runs `job` as a frame made ahead in the background, from now: any [`stop`] or
+/// [`by_hand`] after this call stops it.
+pub fn behind<T>(job: impl FnOnce() -> T) -> T {
+    watch(Watch { since: HAND.load(Ordering::SeqCst), behind: true }, job)
+}
+
+/// B-780: the threads frames made [`behind`] are drawn on, as many as the machine's and below
+/// normal priority, so a frame asked for by hand, drawn on the usual threads, is never queued
+/// behind them while it waits for them to stop.
+pub fn pool() -> &'static rayon::ThreadPool {
+    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| {
+        rayon::ThreadPoolBuilder::new()
+            .thread_name(|i| format!("frames made ahead {i}"))
+            .start_handler(|_| {
+                #[cfg(windows)]
+                // SAFETY: the handle is this thread's own pseudo-handle; a failure leaves the
+                // priority as it was.
+                unsafe {
+                    use windows::Win32::System::Threading::{
+                        GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_BELOW_NORMAL,
+                    };
+                    let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+                }
+            })
+            .build()
+            .expect("start the threads that make frames ahead")
+    })
+}
+
+fn watch<T>(w: Watch, job: impl FnOnce() -> T) -> T {
+    let before = SINCE.with(|s| s.replace(Some(w)));
     let out = job();
     SINCE.with(|s| s.set(before));
     out
@@ -71,7 +123,7 @@ pub fn asked() -> bool {
 
 /// What a tile drawn on another thread hands to [`passed`]: the frame's count inside [`tiles`],
 /// and `None`, never stopped, outside it.
-pub fn tile_watch() -> Option<u64> {
+pub fn tile_watch() -> Option<Watch> {
     if !TILES.with(|t| t.get()) {
         return None;
     }
@@ -80,8 +132,15 @@ pub fn tile_watch() -> Option<u64> {
 }
 
 /// True when a stop came after `since`, from [`tile_watch`].
-pub fn passed(since: Option<u64>) -> bool {
-    since.is_some_and(|since| since != now())
+pub fn passed(since: Option<Watch>) -> bool {
+    since.is_some_and(|w| {
+        w.since
+            != if w.behind {
+                HAND.load(Ordering::SeqCst)
+            } else {
+                now()
+            }
+    })
 }
 
 #[cfg(test)]
@@ -99,5 +158,19 @@ mod tests {
         });
         assert!(!super::asked());
         super::watching(super::now(), || assert!(!super::asked()));
+        // B-780, in the same test since the counts are the process's.
+        super::behind(|| {
+            assert!(!super::asked());
+            super::watching(super::now(), || {
+                super::by_hand();
+                assert!(!super::asked(), "a frame asked for by hand is not stopped by another");
+            });
+            assert!(super::asked(), "a frame made behind gives way to the hand");
+        });
+        super::behind(|| {
+            super::stop();
+            assert!(super::asked(), "and to a stop");
+        });
+        assert!(!super::asked());
     }
 }
