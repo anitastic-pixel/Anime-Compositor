@@ -7338,6 +7338,16 @@ Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
 
+FX-GLOW-034 to 037 are Quality Fast (D-914), worked by `tools/fast_blur_reference.py` into `Fixtures/glow/expected_glow_fast.json`; the project files have the setting `quality` written "fast", which a file at the default, "exact", never has.
+
+FX-GLOW-034 (`fx_glow_034.json`): FX-GLOW-001 at radius 21 (sigma 7) at Quality Fast: below sigma 8 Fast is the exact blur, so the same frame as at Exact. Frames 0.
+
+FX-GLOW-035 (`fx_glow_035.json`): FX-GLOW-001 at radius 30 (sigma 10) at Quality Fast: the light blurred on cells 2 by 2 at sigma 4.97 and read back smoothly, close to Exact and not the same. Frames 0.
+
+FX-GLOW-036 (`fx_glow_036.json`): Radius 60 (sigma 20), Screen, at Quality Fast: cells 4 by 4. Frames 0.
+
+FX-GLOW-037 (`fx_glow_037.json`): Quality written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 
 ## Limit fixtures
 
@@ -14508,6 +14518,16 @@ FX-BLOOM-028: Streaks "Cross", with a capital: words are matched exactly. The fi
 Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
+
+FX-BLOOM-029 to 032 are Quality Fast (D-914), worked by `tools/fast_blur_reference.py` into `Fixtures/bloom/expected_bloom_fast.json`; the project files have the setting `quality` written "fast", which a file at the default, "exact", never has.
+
+FX-BLOOM-029 (`fx_bloom_029.json`): FX-BLOOM-010 (radius 20, the widest blur sigma 6.67) at Quality Fast: every blur below sigma 8, so the same frame as at Exact. Frames 0.
+
+FX-BLOOM-030 (`fx_bloom_030.json`): Radius 30 at Quality Fast: the widest blur (sigma 10) on cells 2 by 2, the three narrower exact. Frames 0.
+
+FX-BLOOM-031 (`fx_bloom_031.json`): Radius 100 with a star of streaks, length 60, at Quality Fast: the four blurs on cells 8, 4, 2 and 1 wide; the streaks as at Exact. Frames 0.
+
+FX-BLOOM-032 (`fx_bloom_032.json`): Quality written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 
 ## Colour key fixtures
@@ -183727,6 +183747,16 @@ FX-HALO-017 (`fx_halo_017.json`): Colour "orange", not a colour #rrggbb. The fil
 
 FX-HALO-018 (`fx_halo_018.json`): Amount keyed to 500 at frame 4, above 400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+FX-HALO-019 to 022 are Quality Fast (D-914), worked by `tools/fast_blur_reference.py` into `Fixtures/halation/expected_halation_fast.json`; the project files have the setting `quality` written "fast", which a file at the default, "exact", never has.
+
+FX-HALO-019 (`fx_halo_019.json`): Radius 6 (the widest level sigma 2) at Quality Fast: the cell of 2 sigma is 1 for every level, the same frame as at Exact. Frames 0.
+
+FX-HALO-020 (`fx_halo_020.json`): FX-HALO-001 (as added, radius 12) at Quality Fast: the widest level (sigma 4) on cells 2 by 2 where Exact has 1, close and not the same. Frames 0.
+
+FX-HALO-021 (`fx_halo_021.json`): FX-HALO-004 (radius 100) at Quality Fast: every level of sigma 4 and up one cell coarser. Frames 0.
+
+FX-HALO-022 (`fx_halo_022.json`): Quality written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Lens Dirt (D-545)
 
 Pick #14, Lens Dirt: a setting group on Soft Physical Glow (`core.glow`, falloff `physical`) and on Lens Flare (`core.lens_flare`), with `dirt_layer`, `dirt_opacity`, `dirt_inherit`, `dirt_exposure`, `dirt_gamma` and `dirt_repeat` (B-425). Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/lens_dirt/`, on D-353's and D-426's drawings (`media/patches.png`, `media/photo.png`), with two dirt drawings of its own as layers turned off: `media/smudge.png` (6 by 4, one pixel clear, one half covered) and `media/specks.png` (20 by 12, larger than the layer, its edge columns red). **Every number is produced by `tools/lens_dirt_reference.py`**, which works D-353's engine (`tools/soft_glow_reference.py`, through `tools/glow_tint_reference.py` and `tools/spectral_glow_reference.py`) or D-426's light (`tools/lens_flare_reference.py`) and then the dirt in double precision; the numbers are in `Fixtures/lens_dirt/expected_lens_dirt.json`. Tolerance 2e-5. B-425 checks them, runs D-353's FX-SGLOW-001 to 045, D-542's FX-GTINT-001 to 022, D-543's FX-SPGLOW-001 to 020, D-544's FX-HALO-001 to 018 and D-426's FX-FLARE-001 to 019 again unchanged, and draws the playtest's pictures, in `verification/D-545_lens_dirt_table.md`.
@@ -216061,6 +216091,16 @@ FX-DEBAND-022 (`fx_deband_022.json`): Blur Amount -1, below 0. The file is read,
 FX-DEBAND-023 (`fx_deband_023.json`): Noise Reseed Interval 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-DEBAND-024 (`fx_deband_024.json`): Noise Amount keyed to 40 at frame 4, above 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEBAND-025 to 028 are Quality Fast (D-914), worked by `tools/fast_blur_reference.py` into `Fixtures/deband/expected_deband_fast.json`; the project files have the setting `quality` written "fast", which a file at the default, "exact", never has.
+
+FX-DEBAND-025 (`fx_deband_025.json`): Blur 16 alone (sigma 5.33) at Quality Fast: below sigma 8, the same frame as at Exact. Frames 0.
+
+FX-DEBAND-026 (`fx_deband_026.json`): Blur 30 alone (sigma 10) at Quality Fast: the edge-stopping blur reading every second pixel; the edge to the dark block kept as at Exact. Frames 0.
+
+FX-DEBAND-027 (`fx_deband_027.json`): The settings as added with Blur 60 (sigma 20) at Quality Fast: every fourth pixel; frame 1 has fresh dither. Frames 0, 1.
+
+FX-DEBAND-028 (`fx_deband_028.json`): Quality written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Advanced Spill Suppressor (D-457)
 
