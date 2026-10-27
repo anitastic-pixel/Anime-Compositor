@@ -171,6 +171,7 @@ const SENT: &[&str] = &[
     "path.add_point",
     "path.remove_point",
     "preset.apply",
+    "project.set_color_management",
     "project.set_view",
     "property.drag_cancel",
     "property.drag_end",
@@ -329,6 +330,11 @@ const WIRING: &[(&str, &str, &str)] = &[
         "Interpret as",
         "asset.set_interpretation",
         "command('/asset.set_interpretation?asset=' + encodeURIComponent(asset.id)",
+    ),
+    (
+        "File > Project Settings, Colour management",
+        "project.set_color_management",
+        "command('/project.set_color_management?working=' + encodeURIComponent($('colourmanagement').value));",
     ),
     (
         "View > Colour view",
@@ -622,6 +628,8 @@ const REACHED: &[(&str, &str)] = &[
     ("asset.set_interpretation", "a command the window answers"),
     // D-915: View > Colour view, with colour management on.
     ("project.set_view", "a command the window answers"),
+    // D-916: File > Project Settings, colour management.
+    ("project.set_color_management", "a command the window answers"),
     // D-253 and D-254, accepted on 2026-10-02.
     ("item.set_label", "a command the window answers"),
     ("project.collect", "a route the shell answers"),
@@ -5785,7 +5793,7 @@ fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
 }
 
 /// Every control the page wires a handler to, or clicks for the person, or reads.
-const CONTROLS: [&str; 136] = [
+const CONTROLS: [&str; 139] = [
     "addadjust",
     "addeffect",
     "addexposure",
@@ -5811,7 +5819,9 @@ const CONTROLS: [&str; 136] = [
     "closecomp",
     "closemap",
     "closeprefs",
+    "closeprojectsettings",
     "collect",
+    "colourmanagement",
     "compadvtab",
     "comparebtn",
     "compbasictab",
@@ -5877,6 +5887,7 @@ const CONTROLS: [&str; 136] = [
     "profileragain",
     "profilerbtn",
     "profilerclose",
+    "projectsettingsbutton",
     "recent",
     "recovery",
     "redo",

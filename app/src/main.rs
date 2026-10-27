@@ -10791,6 +10791,7 @@ const ANSWERS: &[&str] = &[
     "path.add_point",
     "path.remove_point",
     "preset.apply",
+    "project.set_color_management",
     "project.set_view",
     "property.drag_cancel",
     "property.drag_end",
@@ -11200,6 +11201,27 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     color_space,
                 },
             ));
+        }
+        // D-916: File > Project Settings, colour management off or on with its working space.
+        "project.set_color_management" => {
+            let word = parameter(query, "working").unwrap_or_default();
+            let working = match word.as_str() {
+                "off" => None,
+                "acescg" => Some(anime_compositor::color::Gamut::Ap1),
+                "linear-srgb" => Some(anime_compositor::color::Gamut::Rec709),
+                _ => return Some(format!("{word:?} is not a working space this version has.")),
+            };
+            let now = viewer
+                .lock()
+                .expect("the viewer lock was poisoned")
+                .document
+                .project()
+                .color_management;
+            if now == working {
+                // Nothing to change: no step of history for the same setting.
+                return Some("Colour management is already set that way.".to_string());
+            }
+            return Some(edit(viewer, Command::SetColorManagement { working }));
         }
         // D-915: View > Colour view, with colour management on.
         "project.set_view" => {

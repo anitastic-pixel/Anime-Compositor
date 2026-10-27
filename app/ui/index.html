@@ -1611,13 +1611,14 @@
   .pdlg .ft .k { color: #9fb4d6; }
   .pdlg .legend { font-size: 11px; }
   #prefs label { display: block; }
-  #printdialog {
+  #printdialog, #projectsettings {
     background: #1e1e20; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
     padding: 10px 14px;
   }
-  #printdialog::backdrop { background: rgb(0 0 0 / 0.5); }
-  #printdialog h2 { margin-top: 0; }
-  #printdialog label { display: block; margin: 8px 0 2px; }
+  #printdialog::backdrop, #projectsettings::backdrop { background: rgb(0 0 0 / 0.5); }
+  #printdialog h2, #projectsettings h2 { margin-top: 0; }
+  #printdialog label, #projectsettings label { display: block; margin: 8px 0 2px; }
+  #projectsettings p { max-width: 34em; }
   #sessionlog {
     position: fixed; top: 40px; right: 16px; left: auto; margin: 0; z-index: 50;
     width: min(720px, calc(100vw - 32px)); max-height: 75vh; overflow: auto; box-sizing: border-box;
@@ -1876,6 +1877,8 @@
     <button id="checkpackage" title="Compare the drawings beside this project with its package manifest">Check Package</button>
     <hr>
     <button data-run="Import drawings"></button>
+    <!-- D-916: After Effects' File > Project Settings, its Color tab: colour management. -->
+    <button id="projectsettingsbutton" title="Colour management for this project">Project Settings&hellip;</button>
     <button data-run="Print the Sheet"></button>
     <button id="sessionlogbutton" title="Where each frame's time goes, kept only while this window is open">Session log&hellip;</button>
   </div></span>
@@ -2562,6 +2565,20 @@
     <option value="red">red, as a studio's printed sheet, with the marks in black</option>
   </select>
   <p><button id="printnow">Print&hellip;</button> <button id="cancelprint">Leave it</button></p>
+</dialog>
+<!-- D-916: File > Project Settings. The list shows the project's setting; choosing sends
+     project.set_color_management, and a refusal puts the list back when the page redraws. -->
+<dialog id="projectsettings" aria-labelledby="projectsettingstitle">
+  <h2 id="projectsettingstitle">Project Settings</h2>
+  <label for="colourmanagement">Colour management</label>
+  <select id="colourmanagement">
+    <option value="off">Off</option>
+    <option value="acescg">On, working in ACEScg</option>
+    <option value="linear-srgb">On, working in linear Rec.709</option>
+  </select>
+  <p>With colour management on, compositions work in Display or Float, and the View menu has a Colour view.</p>
+  <p>Not done yet: exports are still written from the working numbers through the sRGB curve, so with ACEScg working an exported file looks more saturated than the viewer.</p>
+  <p><button id="closeprojectsettings">Close</button></p>
 </dialog>
 <!-- P-19: the session log. Not modal, so the viewer can be played while it is open. -->
 <dialog id="sessionlog" aria-labelledby="sessionlogtitle">
@@ -17182,6 +17199,20 @@ function drawColourView() {
   sel.onchange = () => command('/project.set_view?view=' + encodeURIComponent(sel.value));
 }
 
+// D-916: File > Project Settings shows the project's colour management, redrawn with the panels.
+function drawProjectSettings() {
+  const cs = (doc && doc.project.color_settings) || {};
+  $('colourmanagement').value = cs.color_management !== true ? 'off'
+    : cs.working_space === 'linear-srgb' ? 'linear-srgb' : 'acescg';
+}
+$('colourmanagement').onchange = () =>
+  command('/project.set_color_management?working=' + encodeURIComponent($('colourmanagement').value));
+$('projectsettingsbutton').onclick = () => {
+  drawProjectSettings();
+  if (!$('projectsettings').open) $('projectsettings').showModal();
+};
+$('closeprojectsettings').onclick = () => $('projectsettings').close();
+
 function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay
   // selected, or the next Delete would name something that is not there.
@@ -17202,6 +17233,7 @@ function drawPanels() {
   drawExposures();
   drawEffects();
   drawColourView();
+  drawProjectSettings();
   askForCurve();
   askForXsheet();
   const layer = selected();
@@ -20621,7 +20653,8 @@ addEventListener('keydown', (e) => {
     if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) e.preventDefault();
     return;
   }
-  if ($('newcomposition').open || $('precompdialog').open || $('soliddialog').open) return;
+  if ($('newcomposition').open || $('precompdialog').open || $('soliddialog').open
+    || $('projectsettings').open) return;
   const el = e.target instanceof Element
     ? e.target.closest('button, select, input, textarea, .scrub, [contenteditable]') : null;
   const typing = renaming || (el && ((el.tagName === 'INPUT' && el.type !== 'checkbox')

@@ -14739,3 +14739,190 @@ fn b794_colour_view_from_the_window() {
     let (_, standard) = cpu(&viewer);
     assert_eq!(sent(&viewer), standard, "an unknown view is shown as Standard");
 }
+
+/// B-795 (D-916): File > Project Settings, colour management, through the window's own command
+/// route, judged against `Fixtures/colour/switch/expected_switch.json` (FX-COLSW-001 to 003).
+/// Writes `verification/B-795_colour_management_switch_table.md`.
+#[test]
+fn b795_colour_management_switch() {
+    let mut report = Report { rows: Vec::new() };
+    let colour = repo("Fixtures/colour");
+    let expected: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(colour.join("switch/expected_switch.json")).expect("read the cases"),
+    )
+    .expect("the cases are JSON");
+    let export = Mutex::new(Export::default());
+    let opened = |rel: &str| {
+        let source = colour.join(rel);
+        Mutex::new(open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)))
+    };
+    let frame = |viewer: &Mutex<Viewer>| {
+        let got = serve(viewer, &export, Ask::Frame(0), Some(PreviewQuality::Full));
+        assert_eq!(got.status(), 200, "the frame was drawn");
+        got.body().clone()
+    };
+    let project = |viewer: &Mutex<Viewer>| {
+        let mut state: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        let mut p = state["project"].take();
+        p.as_object_mut().expect("a project").remove("project_id");
+        p
+    };
+    let saved = |viewer: &Mutex<Viewer>| {
+        let held = held(viewer);
+        persist::to_json(held.document.project(), &held.preserved)
+    };
+    let file = |rel: &str| {
+        std::fs::read_to_string(colour.join(rel)).expect("read the fixture").replace("\r\n", "\n")
+    };
+    let yes_no = |b: bool| if b { "yes" } else { "no" };
+
+    for case in expected["cases"].as_array().expect("cases") {
+        let id = case["id"].as_str().expect("an id");
+        let from = case["open"].as_str().expect("a file");
+        let working = case["working"].as_str().expect("a working word");
+        let viewer = opened(from);
+        let frame_before = frame(&viewer);
+        let saved_before = saved(&viewer);
+        let history = held(&viewer).document.revision();
+        let said = run(&viewer, &format!("project.set_color_management?working={working}"));
+        if case["expect"] == "applied" {
+            let to = case["same_project_as"].as_str().expect("a target");
+            let target = opened(to);
+            let label = match working {
+                "off" => "Turn colour management off",
+                "acescg" => "Turn colour management on, working in ACEScg",
+                _ => "Turn colour management on, working in linear Rec.709",
+            };
+            report.check(&format!("{id}: the status line says"), label, said.clone());
+            report.check(
+                &format!("{id}: the project is `{to}`'s, its project ID aside"),
+                "same",
+                if project(&viewer) == project(&target) { "same" } else { "different" },
+            );
+            report.check(
+                &format!("{id}: frame 0 at Full is `{to}`'s, byte for byte"),
+                "same",
+                if frame(&viewer) == frame(&target) { "same" } else { "different" },
+            );
+            report.check(
+                &format!("{id}: one step of history"),
+                history + 1,
+                held(&viewer).document.revision(),
+            );
+            let on = working != "off";
+            report.check(
+                &format!("{id}: the View menu's Colour view is shown (the page shows it when `color_management` is true)"),
+                yes_no(on),
+                yes_no(project(&viewer)["color_settings"]["color_management"] == true),
+            );
+            let again = run(&viewer, &format!("project.set_color_management?working={working}"));
+            report.check(
+                &format!("{id}: choosing it again adds no history"),
+                format!("Colour management is already set that way. / {}", history + 1),
+                format!("{again} / {}", held(&viewer).document.revision()),
+            );
+            undo(&viewer);
+            report.check(
+                &format!("{id}: Undo, and a save writes what the opened `{from}` saved, byte for byte"),
+                "same",
+                if saved(&viewer) == saved_before { "same" } else { "different" },
+            );
+            report.check(
+                &format!("{id}: Undo, and frame 0 is the opened file's again"),
+                "same",
+                if frame(&viewer) == frame_before { "same" } else { "different" },
+            );
+        } else {
+            let names: Vec<&str> = case["names"]
+                .as_array()
+                .expect("names")
+                .iter()
+                .map(|n| n.as_str().expect("a name"))
+                .collect();
+            report.check(
+                &format!("{id}: refused, naming {}", names.join(" and ")),
+                "yes",
+                yes_no(said.starts_with("Colour management stays off") && names.iter().all(|n| said.contains(n))),
+            );
+            report.check(
+                &format!("{id}: the refusal is `{}`", case["diagnostic"].as_str().unwrap()),
+                case["diagnostic"].as_str().unwrap(),
+                {
+                    let mut held = held(&viewer);
+                    let err = held
+                        .document
+                        .apply(Command::SetColorManagement {
+                            working: Some(if working == "acescg" {
+                                anime_compositor::color::Gamut::Ap1
+                            } else {
+                                anime_compositor::color::Gamut::Rec709
+                            }),
+                        })
+                        .expect_err("refused");
+                    err.id.as_str().to_string()
+                },
+            );
+            report.check(&format!("{id}: no history"), history, held(&viewer).document.revision());
+            report.check(
+                &format!("{id}: a save writes what the opened file saved, byte for byte (still off, depth unchanged)"),
+                "same",
+                if saved(&viewer) == saved_before { "same" } else { "different" },
+            );
+            report.check(
+                &format!("{id}: frame 0 unchanged"),
+                "same",
+                if frame(&viewer) == frame_before { "same" } else { "different" },
+            );
+        }
+    }
+
+    // Turning it off is never refused, and a word this build does not have changes nothing.
+    let viewer = opened("view/hdr_scene_aces.json");
+    let said = run(&viewer, "project.set_color_management?working=rec2020");
+    report.check("an unknown working space is refused by name", "\"rec2020\" is not a working space this version has.", said);
+    report.check("and the file still saves back byte for byte", "same", if saved(&viewer) == file("view/hdr_scene_aces.json") { "same" } else { "different" });
+
+    // A project saved before the switch existed opens with colour management off and saves back.
+    let old = repo("Fixtures/projects/keyed_settings_project.json");
+    let viewer = Mutex::new(open(&old).unwrap_or_else(|d| panic!("open {}: {}", old.display(), d.message)));
+    report.check(
+        "a project saved before D-916 opens with colour management off",
+        "off",
+        if held(&viewer).document.project().color_management.is_none() { "off" } else { "on" },
+    );
+    report.check(
+        "and a save writes the same project, read as JSON",
+        "same",
+        if serde_json::from_str::<serde_json::Value>(&saved(&viewer)).unwrap()
+            == serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(&old).unwrap()).unwrap()
+        { "same" } else { "different" },
+    );
+
+    // The page: File > Project Settings, its list, and what it sends.
+    let page = std::fs::read_to_string(repo("app/ui/index.html")).expect("read the page");
+    for (what, needle) in [
+        ("a Project Settings line in the File menu", "<button id=\"projectsettingsbutton\""),
+        ("the Colour management list's three choices", "<option value=\"off\">Off</option>\n    <option value=\"acescg\">On, working in ACEScg</option>\n    <option value=\"linear-srgb\">On, working in linear Rec.709</option>"),
+        ("choosing sends the command", "command('/project.set_color_management?working=' + encodeURIComponent($('colourmanagement').value));"),
+        ("the list is redrawn from the project with the panels", "  drawColourView();\n  drawProjectSettings();\n"),
+        ("the box says exports are not done yet", "exports are still written from the working numbers"),
+    ] {
+        report.check(what, "yes", yes_no(page.contains(needle)));
+    }
+
+    write_artifact(
+        &report,
+        "verification/B-795_colour_management_switch_table.md",
+        "B-795: colour management from File > Project Settings (D-916)",
+        &[
+            "Each case of `Fixtures/colour/switch/expected_switch.json` (from `tools/switch_reference.py`) \
+             is opened and sent `project.set_color_management` through the window's command route. An \
+             accepted case must become a project an earlier reference tool wrote, and send that \
+             project's frame; a refused case must change nothing.",
+        ],
+        &["Exports with ACEScg working are not yet colour managed (C6); the box says so."],
+    );
+    let failed: Vec<_> = report.rows.iter().filter(|(_, e, a)| e != a).collect();
+    assert!(failed.is_empty(), "see verification/B-795_colour_management_switch_table.md: {failed:?}");
+}

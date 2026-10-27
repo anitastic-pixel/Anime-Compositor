@@ -102,6 +102,12 @@ pub enum Command {
     SetColorView {
         view: crate::view::View,
     },
+    /// Document 24's `project.set_color_management`, D-916: colour management off (`None`) or
+    /// on with its working space, from File > Project Settings. Turning it on is refused while a
+    /// composition is in 8 bpc (AE) or 32 bpc (AE) (D-910). B-795.
+    SetColorManagement {
+        working: Option<crate::color::Gamut>,
+    },
     /// Document 24's `item.set_label`, D-254: a composition's or a footage item's label colour,
     /// as a layer's (W-24). 0 for none.
     SetItemLabel {
@@ -638,6 +644,7 @@ impl Command {
             Command::SetAssetRedistribute { .. } => "SET_ASSET_REDISTRIBUTE",
             Command::SetAssetInterpretation { .. } => "SET_ASSET_INTERPRETATION",
             Command::SetColorView { .. } => "SET_COLOR_VIEW",
+            Command::SetColorManagement { .. } => "SET_COLOR_MANAGEMENT",
             Command::SetItemLabel { .. } => "SET_ITEM_LABEL",
             Command::AddComposition { .. } => "ADD_COMPOSITION",
             Command::RemoveComposition { .. } => "REMOVE_COMPOSITION",
@@ -797,6 +804,13 @@ impl Command {
                 color_space.word().unwrap_or("an unknown colour space")
             ),
             Command::SetColorView { view } => format!("Show the {} colour view", view.name()),
+            Command::SetColorManagement { working } => match working {
+                None => "Turn colour management off".to_string(),
+                Some(crate::color::Gamut::Ap1) => {
+                    "Turn colour management on, working in ACEScg".to_string()
+                }
+                Some(_) => "Turn colour management on, working in linear Rec.709".to_string(),
+            },
             Command::SetItemLabel { item, label } => match label {
                 0 => format!("Clear {item}'s label"),
                 n => format!("Set {item}'s label to colour {n}"),
@@ -1054,6 +1068,7 @@ impl Command {
             | Command::SetAssetRedistribute { .. }
             | Command::SetAssetInterpretation { .. }
             | Command::SetColorView { .. }
+            | Command::SetColorManagement { .. }
             | Command::SetItemLabel { .. }
             | Command::AddComposition { .. }
             | Command::RemoveComposition { .. } => None,
@@ -1140,7 +1155,8 @@ impl Command {
             | Command::SetMotionBlur { .. }
             | Command::SetFrameBlending { .. }
             | Command::SetCompositionSettings { .. }
-            | Command::SetColorView { .. } => {}
+            | Command::SetColorView { .. }
+            | Command::SetColorManagement { .. } => {}
             Command::SetSketchLayer { sketch, .. }
             | Command::RemoveSketchLayer { sketch, .. }
             | Command::AddSketchStroke { sketch, .. }
@@ -1297,6 +1313,7 @@ impl Command {
                 | Command::SetAssetRedistribute { .. }
                 | Command::SetAssetInterpretation { .. }
                 | Command::SetColorView { .. }
+                | Command::SetColorManagement { .. }
                 | Command::SetItemLabel { .. }
                 | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
@@ -2251,6 +2268,48 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::SetColorManagement { working } = command {
+        if !matches!(
+            working,
+            None | Some(crate::color::Gamut::Ap1 | crate::color::Gamut::Rec709)
+        ) {
+            return Err(reject(
+                "That is not a working space this version has.",
+                "D-916: colour management off, or on working in ACEScg or linear Rec.709.",
+            ));
+        }
+        // D-910: never change a depth for the person; name the composition and refuse.
+        if working.is_some() && project.color_management.is_none() {
+            if let Some(comp) = project
+                .compositions
+                .iter()
+                .find(|c| c.eight_bpc || c.ae_32bpc)
+            {
+                let depth = if comp.eight_bpc { "8 bpc (AE)" } else { "32 bpc (AE)" };
+                return Err(Diagnostic::new(
+                    DiagnosticId::ColorDepthRefused,
+                    Severity::Error,
+                    format!(
+                        "Colour management stays off: composition \"{}\" works in {depth}. \
+                         With colour management on, a composition works in Display or Float: \
+                         8 bpc (AE) and 32 bpc (AE) copy After Effects without colour management.",
+                        comp.name
+                    ),
+                    format!(
+                        "D-916: {} is in {depth}; the project is unchanged.",
+                        comp.id
+                    ),
+                )
+                .with_remediation(
+                    "Choose Display or Float in that composition's settings, then turn colour \
+                     management on.",
+                ));
+            }
+        }
+        project.color_management = *working;
+        return Ok(());
+    }
+
     if let Command::SetItemLabel { item, label } = command {
         if *label > 8 {
             return Err(reject(
@@ -2447,6 +2506,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         | Command::SetAssetRedistribute { .. }
         | Command::SetAssetInterpretation { .. }
         | Command::SetColorView { .. }
+        | Command::SetColorManagement { .. }
         | Command::SetItemLabel { .. }
         | Command::AddComposition { .. }
         | Command::RemoveComposition { .. } => {
