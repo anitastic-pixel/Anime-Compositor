@@ -51,10 +51,17 @@ pub fn watching<T>(since: u64, job: impl FnOnce() -> T) -> T {
     watch(Watch { since, behind: false }, job)
 }
 
-/// B-780: runs `job` as a frame made ahead in the background, from now: any [`stop`] or
-/// [`by_hand`] after this call stops it.
-pub fn behind<T>(job: impl FnOnce() -> T) -> T {
-    watch(Watch { since: HAND.load(Ordering::SeqCst), behind: true }, job)
+/// B-787: the count of stops and frames asked for by hand, for [`behind`].
+pub fn hand() -> u64 {
+    HAND.load(Ordering::SeqCst)
+}
+
+/// B-780: runs `job` as a frame made ahead in the background, chosen when the count was `since`
+/// ([`hand`]): any [`stop`] or [`by_hand`] after that stops it. B-787: `since` is taken when the
+/// frame is chosen, not when it starts, so a frame chosen just before the hand's ask and started
+/// just after it still gives way.
+pub fn behind<T>(since: u64, job: impl FnOnce() -> T) -> T {
+    watch(Watch { since, behind: true }, job)
 }
 
 /// B-780: the threads frames made [`behind`] are drawn on, as many as the machine's and below
@@ -159,7 +166,7 @@ mod tests {
         assert!(!super::asked());
         super::watching(super::now(), || assert!(!super::asked()));
         // B-780, in the same test since the counts are the process's.
-        super::behind(|| {
+        super::behind(super::hand(), || {
             assert!(!super::asked());
             super::watching(super::now(), || {
                 super::by_hand();
@@ -167,10 +174,14 @@ mod tests {
             });
             assert!(super::asked(), "a frame made behind gives way to the hand");
         });
-        super::behind(|| {
+        super::behind(super::hand(), || {
             super::stop();
             assert!(super::asked(), "and to a stop");
         });
+        // B-787: a frame chosen before the hand's ask and started after it gives way as well.
+        let chosen = super::hand();
+        super::by_hand();
+        super::behind(chosen, || assert!(super::asked(), "chosen before the hand, started after"));
         assert!(!super::asked());
     }
 }

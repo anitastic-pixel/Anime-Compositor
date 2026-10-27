@@ -11,8 +11,8 @@
 use super::*;
 
 /// The frame requests that start the render-ahead, as the window's request handler starts it.
-fn starts_ahead(ask: Ask) -> bool {
-    ahead_wanted(ask)
+fn starts_ahead(ask: Ask, card: Option<&Mutex<Card>>) -> bool {
+    ahead_wanted(ask, card)
 }
 
 fn l25() -> Option<Mutex<Viewer>> {
@@ -54,7 +54,7 @@ fn run(
     let out = std::thread::scope(|s| {
         let ask = |a: Ask| {
             let reply = serve_logged(&viewer, &export, None, card, a, Some(q));
-            if starts_ahead(a) && !running.swap(true, Ordering::SeqCst) {
+            if starts_ahead(a, card) && !running.swap(true, Ordering::SeqCst) {
                 let (viewer, running) = (&viewer, &running);
                 s.spawn(move || {
                     render_ahead(viewer, card);
@@ -133,9 +133,15 @@ fn b780_first_play_timing() {
     {
         AHEAD_WORKERS.store(k, Ordering::SeqCst);
     }
-    // D-900's proposal: `B780_AT_REST=1` makes the loop at rest as well, as the program does not.
-    if std::env::var("B780_AT_REST").as_deref() == Ok("1") {
-        AHEAD_AT_REST.store(true, Ordering::SeqCst);
+    // The program makes nothing at rest (D-900, D-908 PROPOSED). `B780_AT_REST=card` makes the
+    // loop at rest on the card, D-908's proposal; `1` on the card and the processor, D-900's.
+    match std::env::var("B780_AT_REST").as_deref() {
+        Ok("1") => {
+            AHEAD_AT_REST.store(true, Ordering::SeqCst);
+            AHEAD_AT_REST_CPU.store(true, Ordering::SeqCst);
+        }
+        Ok("card") => AHEAD_AT_REST.store(true, Ordering::SeqCst),
+        _ => {}
     }
     let card = Mutex::new(Card::default());
     let said_card = card.lock().unwrap().set(DrawOn::Gpu);

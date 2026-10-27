@@ -1747,6 +1747,9 @@ fn serve_frame(
         ram.idle = (by_hand && !taken.dragging && !exporting).then_some(taken.frame);
         if by_hand {
             ram.hand_at = Some(Instant::now());
+            // B-787: again, under this lock: a frame chosen ahead between the first call and
+            // now, from playback's old place, is stopped as well.
+            anime_compositor::stop::by_hand();
         }
     }
     let mut sight = Sight {
@@ -1773,6 +1776,14 @@ fn serve_frame(
         .is_none()
         .then(|| taken.cache.lock().expect("the cel cache lock was poisoned"));
     if let Some(cels) = cache.as_deref_mut() {
+        // B-787: a frame asked for by hand has its cels' room back from the frames kept for
+        // other sights, oldest first, so a loop made at rest never leaves the hand short. With
+        // both switches off nothing is made at rest and this is skipped, as before B-787.
+        if matches!(ask, Ask::Frame(_)) && (at_rest(true) || at_rest(false)) {
+            let most = frames_room(cels.held_bytes());
+            let mut ram = taken.ram.lock().expect("the frame memory lock was poisoned");
+            ram.frames.trim(&sight, most);
+        }
         fit_cels(cels, &taken.ram);
     }
     // P-19: the counters are the cache's own running totals. The lock is held from here until
@@ -1986,6 +1997,11 @@ fn serve_frame(
             .expect("the frame memory lock was poisoned");
         if on_screen && !finished.pixels.is_empty() {
             ram.shown = Some(finished.clone());
+        }
+        // B-787: the hand is still from when its frame is made, not from when it was asked, so a
+        // frame slower than `AHEAD_IDLE` is not followed at once by frames made at rest.
+        if matches!(ask, Ask::Frame(_)) {
+            ram.hand_at = Some(Instant::now());
         }
         // D-898: a frame in motion is never kept, as final or at all.
         if fresh
@@ -2229,10 +2245,21 @@ fn finished(pixels: Vec<u8>, width: usize, height: usize, frame: i32, log: Frame
 /// there is one worker.
 static AHEAD_WORKERS: AtomicUsize = AtomicUsize::new(1);
 
-/// B-780 (D-900, PROPOSED): whether the loop is made ahead at rest, once the hand is still, and
-/// not only while playing. Off: on the processor it made the next drag at Full slower (L4 mask
-/// 32 to 93 ms, 5 rounds), the card's were unchanged. B-780's test turns it on for its rows.
+/// B-780 (D-900), B-787 (D-908): whether the loop is made ahead at rest, once the hand is still,
+/// and not only while playing, while the card draws the viewer. Off, D-908 PROPOSED: with it on,
+/// a drag on the mask that holds still halfway was slower at Full on the card (L4 about 12 to
+/// 36 ms in smoke rounds on a shared machine), after two approaches to keep the frames out of the
+/// cels' way. B-787's test turns it on for its rows.
 static AHEAD_AT_REST: AtomicBool = AtomicBool::new(false);
+
+/// D-900, D-908: the same while the processor draws the viewer. Off: it made the next drag at Full
+/// slower (L4 mask 32 to 93 ms, 5 rounds). B-780's test turns it on for its rows.
+static AHEAD_AT_REST_CPU: AtomicBool = AtomicBool::new(false);
+
+/// D-908: whether frames are made ahead at rest for the processor that draws the viewer now.
+fn at_rest(on_card: bool) -> bool {
+    if on_card { &AHEAD_AT_REST } else { &AHEAD_AT_REST_CPU }.load(Ordering::SeqCst)
+}
 
 /// B-780: how long the hand must have been still before the loop round the playhead is made
 /// ahead without playing.
@@ -2291,20 +2318,24 @@ fn ahead_worker(
         }
     };
     loop {
-        let (mut sight, order, cels, ram, playing) = {
+        let on_card =
+            card.is_some_and(|c| drawn_by(Some(&c.lock().expect("the card lock was poisoned"))).is_some());
+        let (mut sight, order, cels, ram, playing, since) = {
             let v = viewer.lock().expect("the viewer lock was poisoned");
             let ram = Arc::clone(&v.ram);
-            let from = {
+            // B-787: the hand's count, read under the same lock the hand's frame updates it in.
+            let (from, since) = {
                 let r = ram.lock().expect("the frame memory lock was poisoned");
-                match (r.playing, r.idle) {
+                let from = match (r.playing, r.idle) {
                     (Some(n), _) => Some((n, true)),
-                    _ if !AHEAD_AT_REST.load(Ordering::SeqCst) => break,
+                    _ if !at_rest(on_card) => break,
                     (None, Some(n)) if r.hand_at.is_none_or(|t| t.elapsed() >= AHEAD_IDLE) => {
                         Some((n, false))
                     }
                     (None, Some(_)) => None,
                     (None, None) => break,
-                }
+                };
+                (from, anime_compositor::stop::hand())
             };
             let Some((from, playing)) = from else {
                 drop(v);
@@ -2322,13 +2353,12 @@ fn ahead_worker(
                 quality: v.quality,
                 card: None,
             };
-            (sight, order, Arc::clone(&v.cache), ram, playing)
+            (sight, order, Arc::clone(&v.cache), ram, playing, since)
         };
-        let on_card =
-            card.is_some_and(|c| drawn_by(Some(&c.lock().expect("the card lock was poisoned"))).is_some());
         if on_card && !first {
             break;
         }
+        let viewer_cels = Arc::clone(&cels);
         // The viewer's cels while playing on the card or alone; the worker's own otherwise.
         let mut shared = (playing && (on_card || alone))
             .then(|| cels.lock().expect("the cel cache lock was poisoned"));
@@ -2377,7 +2407,7 @@ fn ahead_worker(
                 on: true,
                 gpu: Some(Ok(gpu)),
                 ..
-            }) => anime_compositor::stop::behind(|| {
+            }) => anime_compositor::stop::behind(since, || {
                 anime_compositor::cache::files_read(|| {
                     let result = preview::preview_frame_srgb8(
                         &sight.project,
@@ -2405,7 +2435,7 @@ fn ahead_worker(
             }),
             _ => {
                 let mut draw = || {
-                    anime_compositor::stop::behind(|| {
+                    anime_compositor::stop::behind(since, || {
                         anime_compositor::cache::files_read(|| {
                             preview::preview_frame_cached(
                                 &sight.project,
@@ -2462,15 +2492,32 @@ fn ahead_worker(
                 continue;
             }
         }
+        // B-787: at rest, frames are kept only in the room `frames_room` leaves the viewer's
+        // cels, the older sights' frames given up first.
+        let most = match (playing, viewer_cels.try_lock()) {
+            (true, _) => None,
+            (false, Ok(c)) => Some(frames_room(c.held_bytes()).saturating_sub(pixels.len())),
+            // The hand is drawing: it comes first, and this frame is made again once it rests.
+            (false, Err(_)) => {
+                unclaim();
+                continue;
+            }
+        };
         let finished = finished(pixels, width, height, frame, log);
-        if !ram
-            .lock()
-            .expect("the frame memory lock was poisoned")
-            .frames
-            .store(sight, frame, files, finished)
+        let mut ram = ram.lock().expect("the frame memory lock was poisoned");
+        // B-787: drawn before the hand asked, but not yet kept: the hand counts under this lock,
+        // so nothing chosen before its ask is kept after it, however late this thread ran.
+        if anime_compositor::stop::hand() != since {
+            drop(ram);
+            unclaim();
+            continue;
+        }
+        if most.is_some_and(|most| !ram.frames.trim(&sight, most))
+            || !ram.frames.store(sight, frame, files, finished)
         {
             break;
         }
+        drop(ram);
         made.fetch_add(1, Ordering::SeqCst);
     }
     give_back(&mut mine);
@@ -2587,6 +2634,19 @@ fn disk_setting() -> Option<anime_compositor::cache::DiskCache> {
 fn frame_share() -> usize {
     let total = ram_ceiling();
     (total / 2).min(total.saturating_sub(anime_compositor::cache::DEFAULT_BUDGET_BYTES))
+}
+
+/// B-787: the most kept frames may hold while the viewer's cels hold `cels` bytes: the memory
+/// setting less those, the workers' own cels and a quarter left for the cels to grow into. Kept
+/// frames shrink the cels ([`fit_cels`]); without this, loops made at rest on the card left the
+/// next drag's cels too small to hold what it draws from (L4 at Full, move 11 to 23 ms, scale 11
+/// to 21, a mask after a pause 12 to 40).
+fn frames_room(cels: usize) -> usize {
+    let total = ram_ceiling();
+    total
+        .saturating_sub(cels)
+        .saturating_sub(AHEAD_CELS.load(Ordering::SeqCst))
+        .saturating_sub(total / 4)
 }
 
 /// B-154: the cels have what the finished frames do not hold, so a first pass works with the whole
@@ -18937,9 +18997,10 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>, since: u64) -> Resp
                     parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
                 )));
                 // B-154: while playing, the rest of the loop is made in the background; B-780: by
-                // several workers, and at rest too when [`AHEAD_AT_REST`].
+                // several workers, and at rest too when [`AHEAD_AT_REST`] (the card) or
+                // [`AHEAD_AT_REST_CPU`]; the worker looks which draws the viewer.
                 static AHEAD: AtomicBool = AtomicBool::new(false);
-                if ahead_wanted(ask)
+                if ahead_wanted(ask, Some(&card))
                     && !AHEAD.swap(true, Ordering::SeqCst)
                 {
                     let app = app.clone();
@@ -18968,9 +19029,17 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>, since: u64) -> Resp
 }
 
 /// B-154: the frame requests after which frames are made ahead: playback's, and since B-780 a
-/// frame asked for by hand, to be made round once the hand is still.
-fn ahead_wanted(ask: Ask) -> bool {
-    AHEAD_AT_REST.load(Ordering::SeqCst) || matches!(ask, Ask::At(_) | Ask::Play(_))
+/// frame asked for by hand, to be made round once the hand is still; B-787 (D-908): only for the
+/// processor that draws the viewer now when [`at_rest`] says so, so with the processor nothing is
+/// started after a frame asked by hand, as before B-780. Never waits for the card: one held means
+/// something is drawing on it, and the worker looks again.
+fn ahead_wanted(ask: Ask, card: Option<&Mutex<Card>>) -> bool {
+    matches!(ask, Ask::At(_) | Ask::Play(_))
+        || at_rest(card.is_some_and(|c| match c.try_lock() {
+            Ok(c) => drawn_by(Some(&c)).is_some(),
+            Err(std::sync::TryLockError::WouldBlock) => true,
+            Err(std::sync::TryLockError::Poisoned(_)) => false,
+        }))
 }
 
 /// D-890's switch: `false` answers every `frame` request on the window's thread, as before.

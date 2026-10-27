@@ -6,6 +6,9 @@ use PreviewQuality::{Draft, Full};
 /// D-900: the workers the rows below run; the program runs `AHEAD_WORKERS`.
 const SEVERAL: usize = 4;
 
+/// B-787: the at-rest switches are the program's; the tests that turn them run one at a time.
+static SWITCHES: Mutex<()> = Mutex::new(());
+
 fn repo(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -39,6 +42,7 @@ fn hide_layer_1() -> Command {
 
 #[test]
 fn b780_frames_made_by_several_workers_are_the_frames_made_by_one() {
+    let _switches = SWITCHES.lock().unwrap_or_else(|e| e.into_inner());
     let export = Mutex::new(Export::default());
     let mut rows: Vec<(String, String, String)> = Vec::new();
     let mut row = |what: &str, expected: &str, actual: String| {
@@ -79,12 +83,12 @@ fn b780_frames_made_by_several_workers_are_the_frames_made_by_one() {
         AHEAD_WORKERS.load(Ordering::SeqCst).to_string(),
     );
     row(
-        "frames made ahead at rest in the program (D-900, PROPOSED: off, it slowed the next drag at Full on the processor)",
+        "frames made ahead at rest on the processor in the program (D-900, D-908: off, it slowed the next drag at Full on the processor)",
         "off",
-        if AHEAD_AT_REST.load(Ordering::SeqCst) { "on" } else { "off" }.into(),
+        if AHEAD_AT_REST_CPU.load(Ordering::SeqCst) { "on" } else { "off" }.into(),
     );
-    // The rows below are the proposal's: made at rest as well.
-    AHEAD_AT_REST.store(true, Ordering::SeqCst);
+    // The rows below are D-900's proposal: made at rest on the processor as well.
+    AHEAD_AT_REST_CPU.store(true, Ordering::SeqCst);
 
     // Byte for byte the frames one worker makes, which are the frames asked for by hand.
     for q in [Draft, Full] {
@@ -315,7 +319,7 @@ fn b780_frames_made_by_several_workers_are_the_frames_made_by_one() {
         },
     );
 
-    AHEAD_AT_REST.store(false, Ordering::SeqCst);
+    AHEAD_AT_REST_CPU.store(false, Ordering::SeqCst);
     let passed = rows.iter().filter(|(_, e, a)| e == a).count();
     let mut text = format!(
         "# B-780: RAM preview made by several workers, and at rest\n\nWritten by `cargo test \
@@ -345,4 +349,244 @@ fn b780_frames_made_by_several_workers_are_the_frames_made_by_one() {
         rows.len(),
         "see verification/B-780_ram_workers_table.md"
     );
+}
+
+/// B-787 (D-908): the loop made at rest only while the card draws the viewer, with the program's
+/// switches. Writes `verification/B-787_card_at_rest_table.md`.
+#[test]
+fn b787_frames_made_at_rest_on_the_card_only() {
+    let _switches = SWITCHES.lock().unwrap_or_else(|e| e.into_inner());
+    let export = Mutex::new(Export::default());
+    let mut rows: Vec<(String, String, String)> = Vec::new();
+    let mut row = |what: &str, expected: &str, actual: String| {
+        rows.push((what.to_string(), expected.to_string(), actual));
+    };
+    let ask = |v: &Mutex<Viewer>, c: Option<&Mutex<Card>>, a: Ask, q: PreviewQuality| {
+        serve_logged(v, &export, None, c, a, Some(q))
+    };
+    let held_on = |v: &Mutex<Viewer>, c: Option<&Mutex<Card>>| {
+        ready_frames(v, c)["frames"].as_array().map_or(0, Vec::len)
+    };
+    // Frames of `frames` sent from memory that are not the frame `cold` makes by hand.
+    let stale = |ahead: &Mutex<Viewer>,
+                 cold: &Mutex<Viewer>,
+                 c: Option<&Mutex<Card>>,
+                 frames: &[i32],
+                 q: PreviewQuality| {
+        frames
+            .iter()
+            .filter(|&&n| {
+                let kept = ask(ahead, c, Ask::Frame(n), q);
+                cached(&kept) && kept.body() != ask(cold, c, Ask::Frame(n), q).body()
+            })
+            .count()
+    };
+    // Frames of `frames` sent from memory and byte for byte the frame `cold` makes by hand.
+    let same = |ahead: &Mutex<Viewer>,
+                cold: &Mutex<Viewer>,
+                c: Option<&Mutex<Card>>,
+                frames: &[i32],
+                q: PreviewQuality| {
+        let good = frames
+            .iter()
+            .filter(|&&n| {
+                let kept = ask(ahead, c, Ask::Frame(n), q);
+                cached(&kept) && kept.body() == ask(cold, c, Ask::Frame(n), q).body()
+            })
+            .count();
+        format!("{good} of {}", frames.len())
+    };
+    let shot = repo("Fixtures/reference_shot");
+    let every: Vec<i32> = (0..240).collect();
+    row(
+        "frames made ahead at rest while the card draws the viewer, in the program (D-908 PROPOSED)",
+        "off",
+        if AHEAD_AT_REST.load(Ordering::SeqCst) { "on" } else { "off" }.into(),
+    );
+    row(
+        "and while the processor draws it (D-900: the next drag at Full was slower)",
+        "off",
+        if AHEAD_AT_REST_CPU.load(Ordering::SeqCst) { "on" } else { "off" }.into(),
+    );
+    // The rows below are D-908's proposal: the card's switch on, the processor's left off.
+    AHEAD_AT_REST.store(true, Ordering::SeqCst);
+
+    // The processor: nothing is made at rest, with no card and with the card switched off.
+    let off = Mutex::new(Card::default());
+    for (what, c) in [("no card", None), ("the card switched off", Some(&off))] {
+        let rest = viewer_on(&shot);
+        ask(&rest, c, Ask::Frame(100), Draft);
+        std::thread::sleep(AHEAD_IDLE + Duration::from_millis(100));
+        row(
+            &format!("processor ({what}), at rest on frame 100 past the half second: frames made ahead"),
+            "0 frames",
+            format!("{} frames", render_ahead(&rest, c)),
+        );
+    }
+
+    row(
+        "a frame asked by hand on the processor starts the frames made ahead (as before B-780, it does not)",
+        "no",
+        if ahead_wanted(Ask::Frame(100), None) || ahead_wanted(Ask::Frame(100), Some(&off)) { "yes" } else { "no" }.into(),
+    );
+    let card = Mutex::new(Card::default());
+    let said_card = card.lock().unwrap().set(DrawOn::Gpu);
+    let on_card = card.lock().unwrap().on;
+    if on_card {
+        let c = Some(&card);
+        row(
+            "a frame asked by hand on the card starts them, to be made once the hand is still",
+            "yes",
+            if ahead_wanted(Ask::Frame(100), c) { "yes" } else { "no" }.into(),
+        );
+        // At rest on frame 100: nothing for the first half second, then the rest of the loop.
+        for q in [Draft, Full] {
+            let rest = viewer_on(&shot);
+            let made = std::thread::scope(|s| {
+                ask(&rest, c, Ask::Frame(100), q);
+                let worker = s.spawn(|| render_ahead(&rest, c));
+                std::thread::sleep(Duration::from_millis(250));
+                row(
+                    &format!("card, {}: at rest on frame 100, a quarter of a second later: frames held", q.label()),
+                    "1",
+                    held_on(&rest, c).to_string(),
+                );
+                worker.join().unwrap()
+            });
+            let sampled: Vec<i32> = if q == Draft { every.clone() } else { (0..240).step_by(8).collect() };
+            row(
+                &format!("card, {}: once the hand is still the rest of the loop is made", q.label()),
+                "239 frames",
+                format!("{made} frames"),
+            );
+            row(
+                &format!("card, {}: frames sent from memory, byte for byte the card's frame made by hand", q.label()),
+                &format!("{0} of {0}", sampled.len()),
+                same(&rest, &viewer_on(&shot), c, &sampled, q),
+            );
+            if q == Draft {
+                // A quality change: the Draft loop is never sent for Full.
+                row(
+                    "card: the Draft loop made, then each eighth frame asked at Full: Draft frames sent",
+                    "0",
+                    stale(&rest, &viewer_on(&shot), c, &(0..240).step_by(8).collect::<Vec<_>>(), Full).to_string(),
+                );
+                // The card switched off: the card's frames are never sent for the processor's.
+                card.lock().unwrap().set(DrawOn::Cpu);
+                row(
+                    "card switched off after the loop was made: each eighth frame on the processor, card frames sent",
+                    "0",
+                    stale(&rest, &viewer_on(&shot), Some(&card), &(0..240).step_by(8).collect::<Vec<_>>(), Draft).to_string(),
+                );
+                card.lock().unwrap().set(DrawOn::Gpu);
+            }
+        }
+
+        // The hand moves to another frame while the loop is made: work starts round the new one.
+        let moved = viewer_on(&shot);
+        std::thread::scope(|s| {
+            ask(&moved, c, Ask::Frame(100), Draft);
+            let worker = s.spawn(|| render_ahead(&moved, c));
+            while held_on(&moved, c) < 30 && !worker.is_finished() {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            ask(&moved, c, Ask::Frame(20), Draft);
+            worker.join().unwrap();
+        });
+        row(
+            "card: the hand moves from frame 100 to 20 while the loop is made: frames sent from memory that are not the frame made by hand",
+            "0",
+            stale(&moved, &viewer_on(&shot), c, &every, Draft).to_string(),
+        );
+        row(
+            "and every frame is then held",
+            "240 held",
+            format!("{} held", held_on(&moved, c)),
+        );
+
+        // An edit while the loop is made at rest, then an undo.
+        let edited = viewer_on(&shot);
+        std::thread::scope(|s| {
+            ask(&edited, c, Ask::Frame(100), Draft);
+            let worker = s.spawn(|| render_ahead(&edited, c));
+            while held_on(&edited, c) < 30 && !worker.is_finished() {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            edit(&edited, hide_layer_1());
+            worker.join().unwrap();
+        });
+        let cold_edited = viewer_on(&shot);
+        edit(&cold_edited, hide_layer_1());
+        row(
+            "card: layer 1 hidden while the loop is made at rest: frames from memory, the edited frame made by hand",
+            "240 of 240",
+            same(&edited, &cold_edited, c, &every, Draft),
+        );
+        undo(&edited);
+        row(
+            "card: after undo, frames sent from memory that are not the original frame made by hand",
+            "0",
+            stale(&edited, &viewer_on(&shot), c, &every, Draft).to_string(),
+        );
+
+        // Another composition opened while the loop is made at rest, and back.
+        let ahead = viewer_on(&shot);
+        let cold_switched = viewer_on(&shot);
+        let original = ahead.lock().unwrap().composition.clone();
+        for v in [&ahead, &cold_switched] {
+            edit_command(v, "composition.create", Some("name=Other&frames=48"));
+        }
+        let other = ahead.lock().unwrap().composition.clone();
+        show(&ahead, &original);
+        std::thread::scope(|s| {
+            ask(&ahead, c, Ask::Frame(100), Draft);
+            let worker = s.spawn(|| render_ahead(&ahead, c));
+            while held_on(&ahead, c) < 30 && !worker.is_finished() {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            show(&ahead, &other);
+            worker.join().unwrap();
+        });
+        let short: Vec<i32> = (0..48).collect();
+        row(
+            "card: another composition opened while the loop is made at rest: its frames from memory that are not its own",
+            "0",
+            stale(&ahead, &cold_switched, c, &short, Draft).to_string(),
+        );
+        show(&ahead, &original);
+        show(&cold_switched, &original);
+        row(
+            "and back on the first, its frames from memory that are not its own",
+            "0",
+            stale(&ahead, &cold_switched, c, &every, Draft).to_string(),
+        );
+    }
+
+    AHEAD_AT_REST.store(false, Ordering::SeqCst);
+    let passed = rows.iter().filter(|(_, e, a)| e == a).count();
+    let mut text = format!(
+        "# B-787: RAM preview made at rest on the card only\n\nWritten by `cargo test --release \
+         -p anime_compositor_app b787_frames`. The program is built with both at-rest switches off (D-908 PROPOSED); the rows below switch the card's on, as proposed: frames \
+         are made ahead at rest, once the hand has been still for half a second, only while the \
+         graphics card draws the viewer. Frames go through `serve_logged`, the function every \
+         frame on screen comes from; \"by hand\" is a viewer that has made nothing ahead, asked \
+         for one frame at a time. Card: {}.\n\n**{passed} of {} checks pass.**\n\n| Check | \
+         Expected | Actual | Result |\n|---|---|---|---|\n",
+        if on_card {
+            card.lock().unwrap().about()
+        } else {
+            format!("none, card rows NOT RUN: {said_card}")
+        },
+        rows.len()
+    );
+    for (what, expected, actual) in &rows {
+        text.push_str(&format!(
+            "| {what} | {expected} | {actual} | {} |\n",
+            if expected == actual { "PASS" } else { "FAIL" }
+        ));
+    }
+    std::fs::write(repo("verification/B-787_card_at_rest_table.md"), text)
+        .expect("write the table");
+    assert!(on_card, "the card rows did not run: {said_card}");
+    assert_eq!(passed, rows.len(), "see verification/B-787_card_at_rest_table.md");
 }

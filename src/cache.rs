@@ -2043,6 +2043,18 @@ impl FrameCache {
         self.held
     }
 
+    /// B-787: forget the frames of sights other than `keep`, oldest first, until at most `most`
+    /// bytes are held; whether that was reached.
+    pub fn trim(&mut self, keep: &Sight, most: usize) -> bool {
+        while self.held > most {
+            match self.sights.iter().position(|(k, _)| k != keep) {
+                Some(at) => self.forget(at),
+                None => return false,
+            }
+        }
+        true
+    }
+
     /// W-40c (D-249): the frames kept for a sight, in order, without looking at the disk: the
     /// timeline's green line.
     pub fn kept(&self, sight: &Sight) -> Vec<i32> {
@@ -2114,5 +2126,21 @@ mod frame_cache {
         assert!(c.store(sight(Full), 0, Vec::new(), finished(10)));
         c.resize(5);
         assert_eq!(c.held_bytes(), 0);
+    }
+
+    #[test]
+    fn b787_trim_keeps_the_sight_in_hand() {
+        use crate::preview::PreviewQuality::{Draft, Full, Half};
+        let mut c = FrameCache::with_budget(100);
+        assert!(c.store(sight(Full), 0, Vec::new(), finished(10)));
+        assert!(c.store(sight(Half), 0, Vec::new(), finished(10)));
+        assert!(c.store(sight(Draft), 0, Vec::new(), finished(10)));
+        // Other sights go, oldest first, until it fits.
+        assert!(c.trim(&sight(Draft), 20));
+        assert!(!c.holds(&sight(Full), 0) && c.holds(&sight(Half), 0));
+        // The sight kept is never given up: too little room is said, not made.
+        assert!(!c.trim(&sight(Draft), 5));
+        assert!(c.holds(&sight(Draft), 0));
+        assert_eq!(c.held_bytes(), 10);
     }
 }

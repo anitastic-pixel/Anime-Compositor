@@ -2,14 +2,14 @@
 
 Written by `cargo test --release -p anime_compositor_app b780_frames`. Frames go through `serve_logged`, the function every frame on screen comes from; "by hand" is a viewer that has made nothing ahead, asked for one frame at a time. Rows not marked with a worker count run `4` workers on the processor, the setting D-900 leaves off (the program runs one); the card keeps B-154's one. Rows after the second run with frames made at rest switched on, D-900's proposal; the program leaves it off.
 
-A frame asked for by hand while the ten layers were made ahead at Full took 115 ms with one worker and 151 ms with 4, and 120 ms on a viewer with nothing made ahead (one run each, not a timing claim).
+A frame asked for by hand while the ten layers were made ahead at Full took 144 ms with one worker and 126 ms with 4, and 577 ms on a viewer with nothing made ahead (one run each, not a timing claim).
 
 **30 of 30 checks pass.**
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
 | workers making frames ahead on the processor in the program (D-900: several measured no faster) | 1 | 1 | PASS |
-| frames made ahead at rest in the program (D-900, PROPOSED: off, it slowed the next drag at Full on the processor) | off | off | PASS |
+| frames made ahead at rest on the processor in the program (D-900, D-908: off, it slowed the next drag at Full on the processor) | off | off | PASS |
 | reference shot, Draft: after play at frame 0 the other 239 frames are made ahead | 239 frames | 239 frames | PASS |
 | reference shot, Draft: every frame is sent from memory and is byte for byte the frame made by hand | 240 of 240 | 240 of 240 | PASS |
 | reference shot, Full: after play at frame 0 the other 239 frames are made ahead | 239 frames | 239 frames | PASS |
