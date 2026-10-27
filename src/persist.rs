@@ -8021,6 +8021,15 @@ pub fn to_json(project: &Project, preserved: &Preserved) -> String {
         }
     }
     colors.insert("alpha_mode".into(), J::from("premultiplied"));
+    // D-915: `view` only with colour management on, and only when the file had it or the view is
+    // not the default; a word this build does not have, and colour management off, leave it as it was.
+    if project.color_management.is_some() {
+        if let Some(word) = project.color_view.word() {
+            if word != "aces-2.0-sdr" || colors.contains_key("view") {
+                colors.insert("view".into(), J::from(word));
+            }
+        }
+    }
     let root = merge(
         base,
         vec![
@@ -14841,6 +14850,31 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
         crate::color::Gamut::Rec709
     });
     let mut warnings = Vec::new();
+    // D-915: the viewer's view, read only with colour management on; absent is ACES 2.0 SDR.
+    if let (true, Some(raw)) = (managed, colors.get("view")) {
+        let word = as_str(raw, "/color_settings/view")?;
+        project.color_view = crate::view::View::from_word(word);
+        if project.color_view == crate::view::View::Unknown {
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::ColorViewUnavailable,
+                    Severity::Warning,
+                    format!(
+                        "This project shows its picture through the colour view \"{word}\", which \
+                         this version does not have, so the viewer shows Standard."
+                    ),
+                    format!(
+                        "/color_settings/view says \"{word}\"; the word is kept and saved back \
+                         unchanged. Exports never take a view."
+                    ),
+                )
+                .with_remediation(
+                    "Choose a colour view in the View menu, or open the project in the version \
+                     that wrote it.",
+                ),
+            );
+        }
+    }
 
     for (i, raw) in as_array(field(&root, "", "assets")?, "/assets")?
         .iter()

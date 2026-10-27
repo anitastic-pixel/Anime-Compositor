@@ -171,6 +171,7 @@ const SENT: &[&str] = &[
     "path.add_point",
     "path.remove_point",
     "preset.apply",
+    "project.set_view",
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
@@ -328,6 +329,11 @@ const WIRING: &[(&str, &str, &str)] = &[
         "Interpret as",
         "asset.set_interpretation",
         "command('/asset.set_interpretation?asset=' + encodeURIComponent(asset.id)",
+    ),
+    (
+        "View > Colour view",
+        "project.set_view",
+        "sel.onchange = () => command('/project.set_view?view=' + encodeURIComponent(sel.value));",
     ),
     (
         "Can be passed on",
@@ -614,6 +620,8 @@ const REACHED: &[(&str, &str)] = &[
     ("asset.set_redistribute", "a command the window answers"),
     // D-909: Interpret as, in the Project panel's line for a still or a sequence.
     ("asset.set_interpretation", "a command the window answers"),
+    // D-915: View > Colour view, with colour management on.
+    ("project.set_view", "a command the window answers"),
     // D-253 and D-254, accepted on 2026-10-02.
     ("item.set_label", "a command the window answers"),
     ("project.collect", "a route the shell answers"),

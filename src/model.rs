@@ -1898,6 +1898,8 @@ pub struct Project {
     /// D-909: `None` is colour management off (the working space is linear Rec.709, today's);
     /// `Some` is on, with the working space's primaries (ACEScg's or Rec.709's).
     pub color_management: Option<crate::color::Gamut>,
+    /// D-915: the viewer's view, read and shown only with colour management on (`view::Shown::of`).
+    pub color_view: crate::view::View,
 }
 
 impl Project {
@@ -1907,6 +1909,7 @@ impl Project {
             assets: Vec::new(),
             compositions: Vec::new(),
             color_management: None,
+            color_view: crate::view::View::Aces2Sdr,
         }
     }
 

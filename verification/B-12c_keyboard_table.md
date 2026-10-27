@@ -141,6 +141,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `presets-builtin` can be asked for without a mouse | yes | yes | pass |
 | `presets-export` can be asked for without a mouse | yes | yes | pass |
 | `presets-import` can be asked for without a mouse | yes | yes | pass |
+| `project.set_view` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_cancel` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_end` can be asked for without a mouse | yes | yes | pass |
 | `property.drag_update` can be asked for without a mouse | yes | yes | pass |
@@ -224,4 +225,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**194 of 194 checks pass.**
+**195 of 195 checks pass.**

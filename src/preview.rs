@@ -387,6 +387,9 @@ pub fn preview_frame_srgb8(
         true,
     )?;
     let (width, height) = (plan.width, plan.height);
+    // D-915: the colour view, applied once as the picture is encoded.
+    let shown = crate::view::Shown::of(project);
+    gpu.set_view(shown);
     let pixels = match gpu.draw(&plan, cache) {
         Ok(pixels) => pixels,
         Err(why) => {
@@ -394,7 +397,7 @@ pub fn preview_frame_srgb8(
             let plan = on_processor(plan, uses, || {
                 compose::plan_preview(project, composition_id, frame, root, quality, &mut FrameLog::new(usize::MAX), cache, false)
             })?;
-            render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight()
+            crate::view::encode8(&render::render(&plan, compose::tile_size(quality, tile_size)), shown)
         }
     };
     Ok((pixels, width, height))
@@ -425,13 +428,15 @@ pub fn preview_frame_held(
         cache,
         true,
     )?;
+    let shown = crate::view::Shown::of(project); // D-915
+    gpu.set_view(shown);
     if let Err(why) = gpu.draw_held(&plan, cache) {
         log.record(frame, "GPU preview", why);
         let plan = on_processor(plan, uses, || {
             compose::plan_preview(project, composition_id, frame, root, quality, &mut FrameLog::new(usize::MAX), cache, false)
         })?;
         let pixels =
-            render::render(&plan, compose::tile_size(quality, tile_size)).to_srgb8_straight();
+            crate::view::encode8(&render::render(&plan, compose::tile_size(quality, tile_size)), shown);
         gpu.hold(&pixels, plan.width, plan.height);
         return Ok((plan.width, plan.height));
     }

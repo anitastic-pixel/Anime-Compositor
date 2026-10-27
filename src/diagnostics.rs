@@ -120,6 +120,9 @@ diagnostic_ids! {
     /// Document 28, added by D-910: 8 bpc (AE) or 32 bpc (AE) with colour management on, chosen
     /// in a composition's settings or found in a project file. Refused; nothing changes.
     ColorDepthRefused = ("COLOR_DEPTH_REFUSED", true),
+    /// Document 28, added by D-915: a project with colour management on names a viewer view this
+    /// build does not have. The word is kept and saved back; the viewer shows Standard.
+    ColorViewUnavailable = ("COLOR_VIEW_UNAVAILABLE", true),
     /// Document 28, added by D-71: a WAV file's data ends before its header says. What is
     /// there plays.
     MediaAudioCutShort = ("MEDIA_AUDIO_CUT_SHORT", true),

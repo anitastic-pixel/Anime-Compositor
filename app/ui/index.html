@@ -1996,6 +1996,8 @@
     <button data-run="Half quality"></button>
     <button data-run="Transparency grid"></button>
     <button data-run="Alpha only"></button>
+    <!-- D-915: shown only when the project has colour management on. Exports never take it. -->
+    <label id="colourviewrow" hidden>Colour view <select id="colourview" title="How the viewer shows the picture's colours. Exports are written without it"></select></label>
     <hr>
     <button data-run="Grid over the picture"></button>
     <button data-run="Field guide and safe areas"></button>
@@ -17152,6 +17154,21 @@ $('colheads').innerHTML = '<span title="Show">' + svgOf('eye') + '</span><span t
   + '</span><span class="l">Mode</span><span title="Preserve Underlying Transparency">T</span>'
   + '<span class="l pname">Parent</span>';
 
+// D-915: View > Colour view, for a project with colour management on; hidden otherwise.
+function drawColourView() {
+  const cs = (doc && doc.project.color_settings) || {};
+  const on = cs.color_management === true;
+  $('colourviewrow').hidden = !on;
+  if (!on) return;
+  const view = cs.view === undefined ? 'aces-2.0-sdr' : String(cs.view);
+  const names = [['aces-2.0-sdr', 'ACES 2.0 SDR'], ['un-tone-mapped', 'Un-tone-mapped'], ['standard', 'Standard']];
+  if (!names.some(([w]) => w === view)) names.push([view, view + ' (not known to this build, Standard shown)']);
+  const sel = $('colourview');
+  sel.replaceChildren(...names.map(([w, n]) => Object.assign(document.createElement('option'), { value: w, textContent: n })));
+  sel.value = view;
+  sel.onchange = () => command('/project.set_view?view=' + encodeURIComponent(sel.value));
+}
+
 function drawPanels() {
   // A layer that has gone — deleted, or undone into existence and back out — must not stay
   // selected, or the next Delete would name something that is not there.
@@ -17171,6 +17188,7 @@ function drawPanels() {
   drawCamera();
   drawExposures();
   drawEffects();
+  drawColourView();
   askForCurve();
   askForXsheet();
   const layer = selected();

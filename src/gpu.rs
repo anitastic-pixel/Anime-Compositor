@@ -303,6 +303,8 @@ struct Size {
 @group(0) @binding(0) var<uniform> S: Size;
 @group(0) @binding(1) var<storage, read> frame: array<vec4<f32>>;
 @group(0) @binding(2) var<storage, read_write> bytes: array<u32>;
+// D-915: the colour view's matrix (9 numbers, row by row), then view::table() (97 cubed RGB).
+@group(0) @binding(3) var<storage, read> look: array<f32>;
 
 // color::linear_to_srgb and color::quantise_u8.
 fn srgb(c: f32) -> f32 {
@@ -314,6 +316,47 @@ fn srgb(c: f32) -> f32 {
 
 fn level(c: f32) -> u32 {
     return u32(floor(clamp(c, 0.0, 1.0) * 255.0 + 0.5));
+}
+
+// D-915: color::Curve::AcesCct.from_linear.
+fn cct(x: f32) -> f32 {
+    if x <= 0.0078125 {
+        return 10.5402377416545 * x + 0.0729055341958355;
+    }
+    return (log2(x) + 9.72) / 17.52;
+}
+
+fn corner(r: u32, g: u32, b: u32) -> vec3<f32> {
+    let k = 9u + 3u * (r + 97u * (g + 97u * b));
+    return vec3(look[k], look[k + 1u], look[k + 2u]);
+}
+
+// D-915: view::lookup, tetrahedral, the same steps.
+fn tetra(e: vec3<f32>) -> vec3<f32> {
+    let u = clamp(e, vec3(0.0), vec3(1.0)) * 96.0;
+    let i = min(vec3<u32>(floor(u)), vec3(95u));
+    let f = u - vec3<f32>(i);
+    var a: vec3<f32>;
+    var b: vec3<f32>;
+    var w: vec3<f32>;
+    if f.x > f.y {
+        if f.y > f.z {
+            a = corner(i.x + 1u, i.y, i.z); b = corner(i.x + 1u, i.y + 1u, i.z); w = vec3(f.x, f.y, f.z);
+        } else if f.x > f.z {
+            a = corner(i.x + 1u, i.y, i.z); b = corner(i.x + 1u, i.y, i.z + 1u); w = vec3(f.x, f.z, f.y);
+        } else {
+            a = corner(i.x, i.y, i.z + 1u); b = corner(i.x + 1u, i.y, i.z + 1u); w = vec3(f.z, f.x, f.y);
+        }
+    } else if f.z > f.y {
+        a = corner(i.x, i.y, i.z + 1u); b = corner(i.x, i.y + 1u, i.z + 1u); w = vec3(f.z, f.y, f.x);
+    } else if f.z > f.x {
+        a = corner(i.x, i.y + 1u, i.z); b = corner(i.x, i.y + 1u, i.z + 1u); w = vec3(f.y, f.z, f.x);
+    } else {
+        a = corner(i.x, i.y + 1u, i.z); b = corner(i.x + 1u, i.y + 1u, i.z); w = vec3(f.y, f.x, f.z);
+    }
+    let c0 = corner(i.x, i.y, i.z);
+    let c1 = corner(i.x + 1u, i.y + 1u, i.z + 1u);
+    return (1.0 - w.x) * c0 + (w.x - w.y) * a + (w.y - w.z) * b + w.z * c1;
 }
 
 @compute @workgroup_size(16, 16)
@@ -328,6 +371,19 @@ fn encode(@builtin(global_invocation_id) id: vec3<u32>) {
     var e = vec3(srgb(c.x), srgb(c.y), srgb(c.z));
     if S.pad0 == 1u {
         e = c;
+    }
+    // D-915: the colour view, 0 none (today's), 1 Un-tone-mapped, 2 ACES 2.0 SDR.
+    if S.pad1 != 0u {
+        let m = vec3(
+            look[0] * c.x + look[1] * c.y + look[2] * c.z,
+            look[3] * c.x + look[4] * c.y + look[5] * c.z,
+            look[6] * c.x + look[7] * c.y + look[8] * c.z,
+        );
+        if S.pad1 == 1u {
+            e = vec3(srgb(m.x), srgb(m.y), srgb(m.z));
+        } else {
+            e = tetra(vec3(cct(m.x), cct(m.y), cct(m.z)));
+        }
     }
     bytes[at] = level(e.x) | (level(e.y) << 8u) | (level(e.z) << 16u) | (level(p.w) << 24u);
 }
@@ -13223,6 +13279,11 @@ pub struct Gpu {
     /// each with the last frame that used it. The field does not depend on the picture, so it
     /// is drawn again only when those numbers (its settings, or the time when it moves) change.
     fields: RefCell<Vec<(Vec<u64>, wgpu::TextureView, u64)>>,
+    /// D-915: the colour view the encode pass applies, and its numbers: nine for Standard, the
+    /// whole table once another view has been shown.
+    shown: crate::view::Shown,
+    look: wgpu::Buffer,
+    look_for: Option<crate::view::Shown>,
 }
 
 fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
@@ -13401,6 +13462,8 @@ impl Gpu {
                 entry(0, uniform()),
                 entry(1, storage(true)),
                 entry(2, storage(false)),
+                // D-915: the colour view's numbers.
+                entry(3, storage(true)),
             ],
         });
         let unpack_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -13726,6 +13789,12 @@ impl Gpu {
                 m as f64 / 1e9
             ))
         );
+        // D-915: no view yet; nine numbers so the encode pass always has its binding.
+        let device_look = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("D-915 view"),
+            contents: bytemuck::cast_slice(&crate::view::Shown::STANDARD.card_matrix()),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
         Ok(Gpu {
             instance,
             adapter,
@@ -13767,7 +13836,35 @@ impl Gpu {
             working: clear.then(|| RefCell::new(Vec::new())),
             to_clear: RefCell::new(Vec::new()),
             fields: RefCell::new(Vec::new()),
+            shown: crate::view::Shown::STANDARD,
+            look: device_look,
+            look_for: None,
         })
+    }
+
+    /// D-915: the colour view the next frames' encode applies (`view::Shown::of` the project).
+    /// The table goes to the card the first time a view other than Standard is shown.
+    pub fn set_view(&mut self, shown: crate::view::Shown) {
+        self.shown = shown;
+        if shown.code() == 0 || self.look_for == Some(shown) {
+            return;
+        }
+        let matrix = shown.card_matrix();
+        if self.look_for.is_none() {
+            let mut numbers = matrix.to_vec();
+            numbers.extend_from_slice(crate::view::table());
+            self.look = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("D-915 view"),
+                    contents: bytemuck::cast_slice(&numbers),
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                });
+        } else {
+            self.queue
+                .write_buffer(&self.look, 0, bytemuck::cast_slice(&matrix));
+        }
+        self.look_for = Some(shown);
     }
 
     /// The card's own memory in bytes, when Windows says (B-48).
@@ -24786,6 +24883,15 @@ impl Gpu {
         // D-763: 8 bpc (After Effects) lays its layers together in display values. B-688 (D-808):
         // the card does too, and rounds as the CPU does with its double-precision passes. B-749
         // (D-869): so it lays an adjustment layer and a Light Wrap there too.
+        // D-915: an 8 bpc frame's sum is in display values, which a colour view does not start
+        // from; the CPU draws it, view and all. Step C4 refuses that depth with colour management on.
+        if plan.display && self.shown.code() != 0 {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: its composition works in 8 bpc (After Effects) and a colour view is shown.".into(),
+                "D-915: the card's colour view starts from linear working values.".into(),
+            ));
+        }
         if plan.display && self.fx.is_none() {
             return Some(on_cpu(
                 Severity::Info,
@@ -25583,7 +25689,7 @@ impl Gpu {
         let target = self.target.as_ref().expect("made above");
         let (sum, size) = (target.sum.clone(), target.size.clone());
         // B-688 (D-808): whether the sum is in display values.
-        let shape = [width as u32, height as u32, plan.display as u32, 0];
+        let shape = [width as u32, height as u32, plan.display as u32, self.shown.code()];
         self.queue
             .write_buffer(&size, 0, bytemuck::cast_slice(&shape));
         let mut uploads = self.device.create_command_encoder(&Default::default());
@@ -25826,8 +25932,11 @@ impl Gpu {
                 // difference in the frame beneath into a large one (D-225).
                 // B-688 (D-808): and in 8 bpc, where each step rounds to 8 bits.
                 // D-874: and in Float, whose 1e-4 bar half precision's 2.4e-4 steps miss.
+                // D-915: and under a colour view, whose matrix turns half precision's steps on
+                // bright colours into whole levels where the channels cancel.
                 let wide = plan.display
                     || plan.float
+                    || self.shown.code() != 0
                     || plan.layers.iter().any(|l| l.adjust.is_some())
                     || !wraps.is_empty()
                     || matches!(
@@ -25988,6 +26097,10 @@ impl Gpu {
                     wgpu::BindGroupEntry {
                         binding: 2,
                         resource: target.bytes.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: self.look.as_entire_binding(),
                     },
                 ],
             });

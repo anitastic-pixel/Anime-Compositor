@@ -14661,3 +14661,81 @@ fn b788_interpret_as_from_the_window() {
     assert_eq!(word(&viewer), "arri-logc4-awg4");
     assert!(notes_mention(&viewer, "COLOR_SPACE_UNKNOWN"), "{:?}", held(&viewer).notes);
 }
+
+/// B-794 (D-915): View > Colour view, with colour management on. The frame the window sends is
+/// the processor's frame through the chosen view, and Standard is today's bytes.
+#[test]
+fn b794_colour_view_from_the_window() {
+    use anime_compositor::view::{self, Shown};
+    let view_word = |viewer: &Mutex<Viewer>| {
+        let state: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        state["project"]["color_settings"]["view"].clone()
+    };
+    let dir = repo("Fixtures/colour/view");
+    let export = Mutex::new(Export::default());
+    let sent = |viewer: &Mutex<Viewer>| {
+        let got = serve(viewer, &export, Ask::Frame(0), Some(PreviewQuality::Full));
+        assert_eq!(got.status(), 200, "the frame was drawn");
+        got.body().clone()
+    };
+    let cpu = |viewer: &Mutex<Viewer>| {
+        let project = held(viewer).document.project().clone();
+        let frame = preview::preview_frame(
+            &project,
+            &Id::new("comp-main"),
+            0,
+            &dir,
+            PreviewQuality::Full,
+            DEFAULT_TILE_SIZE,
+            &mut FrameLog::new(0),
+        )
+        .expect("the processor's frame");
+        (view::encode8(&frame, Shown::of(&project)), frame.to_srgb8_straight())
+    };
+
+    let source = dir.join("hdr_scene_aces.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    assert_eq!(view_word(&viewer), serde_json::Value::Null, "no view in the file: ACES 2.0 SDR");
+    let (aces, standard) = cpu(&viewer);
+    assert_ne!(aces, standard, "ACES 2.0 SDR is not today's encode on this scene");
+    assert_eq!(sent(&viewer), aces, "the window sends the ACES view");
+
+    assert_eq!(run(&viewer, "project.set_view?view=standard"), "Show the Standard colour view");
+    assert_eq!(view_word(&viewer), "standard");
+    assert!(held(&viewer).document.is_dirty());
+    assert_eq!(sent(&viewer), standard, "Standard is today's bytes");
+    undo(&viewer);
+    assert_eq!(view_word(&viewer), serde_json::Value::Null);
+    assert_eq!(sent(&viewer), aces, "undone, the ACES view again");
+
+    assert_eq!(run(&viewer, "project.set_view?view=un-tone-mapped"), "Show the Un-tone-mapped colour view");
+    let (untone, _) = cpu(&viewer);
+    assert_eq!(sent(&viewer), untone, "the window sends the Un-tone-mapped view");
+    let refused = run(&viewer, "project.set_view?view=aces-1.3-sdr");
+    assert!(refused.contains("not a colour view this version has"), "{refused}");
+    assert_eq!(view_word(&viewer), "un-tone-mapped");
+
+    // Colour management off: refused, and the frame is today's.
+    let source = dir.join("hdr_scene_off_with_view.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    let refused = run(&viewer, "project.set_view?view=standard");
+    assert!(refused.contains("Colour views need colour management"), "{refused}");
+    let (shown, standard) = cpu(&viewer);
+    assert_eq!(shown, standard);
+    assert_eq!(sent(&viewer), standard, "colour management off: today's bytes");
+
+    // A word this build does not have: kept, said, shown as Standard.
+    let source = dir.join("hdr_scene_unknown_view.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    assert_eq!(view_word(&viewer), "aces-1.3-sdr");
+    assert!(notes_mention(&viewer, "COLOR_VIEW_UNAVAILABLE"), "{:?}", held(&viewer).notes);
+    let (_, standard) = cpu(&viewer);
+    assert_eq!(sent(&viewer), standard, "an unknown view is shown as Standard");
+}

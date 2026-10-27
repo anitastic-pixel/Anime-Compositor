@@ -1977,11 +1977,17 @@ fn serve_frame(
     let finished = if let Made::Kept(kept, _) = made {
         kept
     } else {
+        // D-915: the colour view, applied once as the picture is encoded.
+        let shown = anime_compositor::view::Shown::of(&sight.project);
         let (pixels, width, height) = match made {
-            Made::Cpu(buffer) => (buffer.to_srgb8_straight(), buffer.width(), buffer.height()),
+            Made::Cpu(buffer) => (
+                anime_compositor::view::encode8(&buffer, shown),
+                buffer.width(),
+                buffer.height(),
+            ),
             Made::Part(buffer, width, height, part) => {
                 drawn_part = Some(part);
-                (buffer.to_srgb8_straight(), width, height)
+                (anime_compositor::view::encode8(&buffer, shown), width, height)
             }
             Made::Gpu(pixels, width, height) | Made::Shown(pixels, width, height) => {
                 (pixels, width, height)
@@ -2447,7 +2453,10 @@ fn ahead_worker(
                                 &mut log,
                                 cels,
                             )
-                            .map(|b| (b.to_srgb8_straight(), b.width(), b.height()))
+                            .map(|b| {
+                                let shown = anime_compositor::view::Shown::of(&sight.project);
+                                (anime_compositor::view::encode8(&b, shown), b.width(), b.height())
+                            })
                         })
                     })
                 };
@@ -4113,7 +4122,7 @@ fn alone(
     Ok((
         picture.width(),
         picture.height(),
-        picture.to_srgb8_straight(),
+        anime_compositor::view::encode8(&picture, anime_compositor::view::Shown::of(&project)),
     ))
 }
 
@@ -10766,6 +10775,7 @@ const ANSWERS: &[&str] = &[
     "path.add_point",
     "path.remove_point",
     "preset.apply",
+    "project.set_view",
     "property.drag_cancel",
     "property.drag_end",
     "property.drag_update",
@@ -11174,6 +11184,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     color_space,
                 },
             ));
+        }
+        // D-915: View > Colour view, with colour management on.
+        "project.set_view" => {
+            let word = parameter(query, "view").unwrap_or_default();
+            let view = anime_compositor::view::View::from_word(&word);
+            if view == anime_compositor::view::View::Unknown {
+                return Some(format!("{word:?} is not a colour view this version has."));
+            }
+            return Some(edit(viewer, Command::SetColorView { view }));
         }
         // D-61's "Can be passed on" tick, for the drawing chosen in the Project panel.
         "asset.set_redistribute" => {

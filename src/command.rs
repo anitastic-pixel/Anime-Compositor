@@ -97,6 +97,11 @@ pub enum Command {
         asset: Id,
         color_space: crate::ColorSpace,
     },
+    /// Document 24's `project.set_view`, D-915: the viewer's colour view, with colour management
+    /// on. B-794.
+    SetColorView {
+        view: crate::view::View,
+    },
     /// Document 24's `item.set_label`, D-254: a composition's or a footage item's label colour,
     /// as a layer's (W-24). 0 for none.
     SetItemLabel {
@@ -632,6 +637,7 @@ impl Command {
             Command::RelinkAsset { .. } => "RELINK_ASSET",
             Command::SetAssetRedistribute { .. } => "SET_ASSET_REDISTRIBUTE",
             Command::SetAssetInterpretation { .. } => "SET_ASSET_INTERPRETATION",
+            Command::SetColorView { .. } => "SET_COLOR_VIEW",
             Command::SetItemLabel { .. } => "SET_ITEM_LABEL",
             Command::AddComposition { .. } => "ADD_COMPOSITION",
             Command::RemoveComposition { .. } => "REMOVE_COMPOSITION",
@@ -790,6 +796,7 @@ impl Command {
                 "Interpret {asset} as {}",
                 color_space.word().unwrap_or("an unknown colour space")
             ),
+            Command::SetColorView { view } => format!("Show the {} colour view", view.name()),
             Command::SetItemLabel { item, label } => match label {
                 0 => format!("Clear {item}'s label"),
                 n => format!("Set {item}'s label to colour {n}"),
@@ -1046,6 +1053,7 @@ impl Command {
             | Command::RelinkAsset { .. }
             | Command::SetAssetRedistribute { .. }
             | Command::SetAssetInterpretation { .. }
+            | Command::SetColorView { .. }
             | Command::SetItemLabel { .. }
             | Command::AddComposition { .. }
             | Command::RemoveComposition { .. } => None,
@@ -1131,7 +1139,8 @@ impl Command {
             | Command::SetSheetText { .. }
             | Command::SetMotionBlur { .. }
             | Command::SetFrameBlending { .. }
-            | Command::SetCompositionSettings { .. } => {}
+            | Command::SetCompositionSettings { .. }
+            | Command::SetColorView { .. } => {}
             Command::SetSketchLayer { sketch, .. }
             | Command::RemoveSketchLayer { sketch, .. }
             | Command::AddSketchStroke { sketch, .. }
@@ -1287,6 +1296,7 @@ impl Command {
                 | Command::RelinkAsset { .. }
                 | Command::SetAssetRedistribute { .. }
                 | Command::SetAssetInterpretation { .. }
+                | Command::SetColorView { .. }
                 | Command::SetItemLabel { .. }
                 | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
@@ -2224,6 +2234,23 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::SetColorView { view } = command {
+        if project.color_management.is_none() {
+            return Err(reject(
+                "Colour views need colour management, which this project does not have on.",
+                "D-915: with colour management off the viewer shows today's picture, with no view.",
+            ));
+        }
+        if *view == crate::view::View::Unknown {
+            return Err(reject(
+                "That is not a colour view this version has.",
+                "D-915: ACES 2.0 SDR, Un-tone-mapped or Standard.",
+            ));
+        }
+        project.color_view = *view;
+        return Ok(());
+    }
+
     if let Command::SetItemLabel { item, label } = command {
         if *label > 8 {
             return Err(reject(
@@ -2419,6 +2446,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         | Command::RelinkAsset { .. }
         | Command::SetAssetRedistribute { .. }
         | Command::SetAssetInterpretation { .. }
+        | Command::SetColorView { .. }
         | Command::SetItemLabel { .. }
         | Command::AddComposition { .. }
         | Command::RemoveComposition { .. } => {

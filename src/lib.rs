@@ -101,6 +101,7 @@ pub mod text;
 pub mod time;
 pub mod timesheet;
 pub mod trace;
+pub mod view;
 
 /// How the RGB channels of a buffer are encoded.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
