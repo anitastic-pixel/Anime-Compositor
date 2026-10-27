@@ -1,0 +1,89 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-c4-ae32",
+  "color_settings": {
+    "working_space": "acescg",
+    "color_management": true,
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 4,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 1,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 1
+      },
+      "layer_order": [
+        "orange"
+      ],
+      "layers": [
+        {
+          "id": "orange",
+          "kind": "solid",
+          "name": "orange",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 1,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              0.8,
+              0.3,
+              0.05
+            ],
+            "width": 16,
+            "height": 4
+          }
+        }
+      ],
+      "float_depth": true,
+      "ae_32bpc": true
+    }
+  ]
+}

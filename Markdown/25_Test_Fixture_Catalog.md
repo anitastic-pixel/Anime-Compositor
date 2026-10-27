@@ -851,6 +851,20 @@ FX-COLINT-006: `unknown_space.json`, the chart tagged `arri-logc4-awg4`: opens w
 
 FX-COLINT-007: refused at opening, nothing on disk changed: `refused_acescg_without_management.json` (`working_space` `acescg` with no `color_management`) and `refused_unknown_working_space.json` (`linear-rec2020` as the working space), each `PROJECT_SCHEMA_INVALID` at `/color_settings/working_space`.
 
+## Stored colour fixtures
+
+Specified on 2026-10-26 by D-910 for B-789. Every file is in `Fixtures/colour/c4/` and was written by `tools/c4_reference.py`; the expected numbers are in `expected_c4.json`: per scene one row of 16 pixels (every row of the 16 by 4 frame is the same), in linear Rec.709 (`rec709`, the published rules worked in double precision), in ACEScg (`acescg`, OpenColorIO 2.5.1's conversion of those, its built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5`, `OPTIMIZATION_LOSSLESS`) and through today's view (`view`, D-17's sRGB curve, 8 bits). Each scene is saved twice with colour management on, `<scene>_rec709.json` working in linear Rec.709 and `<scene>_acescg.json` working in ACEScg. The bar: every pixel of each frame within 1e-5 in linear light of its working space's numbers, alpha 1; the ACEScg frame taken back to Rec.709 by the build's matrix gives the `view` bytes exactly, as the Rec.709 frame does; and the Rec.709 frame equals the same scene with colour management off, bit for bit.
+
+FX-COLC4-001: `solid_*`, one solid of linear Rec.709 0.8 0.3 0.05 (D-74).
+
+FX-COLC4-002: `gradient_*`, a white solid under Gradient (`core.gradient`, D-114) linear from the left edge's middle to the right edge's, `#ff8000` to `#2040c0`: at column x, t = (x + 0.5) / 16, the colour the sRGB curve's decoding of the two colours' encoded values mixed by t.
+
+FX-COLC4-003: `overlay_*`, a solid of 0.6 0.1 0.4 in Overlay (D-301) over one of 0.2 0.5 0.05: per channel the decoding of Overlay's rule on the two encoded values, the one beneath first.
+
+FX-COLC4-004: `luma_matte_*`, an opaque black solid; above it a red solid of 0.9 0.1 0.05 with a luma matte (D-293) from a matte-only white solid under Gradient `#000000` to `#40c0ff` left to right: the red times the cover, the cover the sRGB curve's encoding of the matte's Rec.709 luma (0.2126, 0.7152, 0.0722). The matte is coloured so that a luma read from ACEScg numbers would differ.
+
+FX-COLC4-005: depths. `refused_eight_bpc.json` (8 bpc (AE)) and `refused_ae_32bpc.json` (32 bpc (AE)), each with colour management on working in ACEScg, are refused at opening with `COLOR_DEPTH_REFUSED`, nothing on disk changed; `float_acescg.json` (Float) opens. With colour management on, `composition.set_settings` choosing either AE depth is refused with `COLOR_DEPTH_REFUSED` and the project left as it was; Display and Float are accepted.
+
 ## Adjustment layer fixtures
 
 D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.
