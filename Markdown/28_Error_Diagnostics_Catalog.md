@@ -89,6 +89,16 @@ Added 2026-10-15. D-101 (document 14, accepted 2026-09-27 under D-167) keeps the
 |---|---|---|---|
 | GPU_PREVIEW_ON_CPU | INFO or WARNING | The viewer asked the graphics card for a frame (B-44) and the CPU drew it instead (D-101) | draw the same frame on the CPU and say why, never a quiet switch; INFO when the reason is the project's (for example an adjustment layer, a picture larger than the card's texture limit, a blend mode other than Normal, Multiply, Screen or Add in Float depth (D-874), a Stencil Alpha or Stencil Luma layer scaled to nothing, B-748), WARNING when the card failed ("The CPU drew this frame: the graphics card failed.", with the remedy to switch the preview back to CPU or to Draft); the words go to the session log and the frame's reply, and the viewer's label reads "drawn on CPU, not GPU"; raised in `src/gpu.rs` |
 
+## Colour management identifiers reserved by ADR-023
+
+Added 2026-10-26 by D-905. ADR-023's later steps (C3 to C5) will raise these; none is built yet, so they are kept out of the Core IDs table, whose every row the build must have. Each moves to Core IDs with the step that raises it.
+
+| ID | Severity | Meaning | Required behavior |
+|---|---|---|---|
+| COLOR_SPACE_UNKNOWN | WARNING | A saved project or an asset names a colour space this build does not have (C3) | keep the stored name byte for byte and save it back; draw the asset as missing (transparent), name the asset and the space once at load, and mark exports made meanwhile incomplete; never draw it as sRGB in silence |
+| COLOR_DEPTH_REFUSED | ERROR | 8 bpc (AE) or 32 bpc (AE) chosen with colour management on, or colour management switched on in one of those depths (C4) | refuse the command and leave the project as it was; say that those depths copy After Effects' project without colour management, and that Display or Float work with it |
+| COLOR_VIEW_UNAVAILABLE | WARNING | The ACES view's baked table cannot be read or does not match its recorded check (C5) | show the Standard view instead and say so in the viewer's label and the session log; never export through a view that failed |
+
 ## Missing/unsupported render fallback
 
 G1 default for an unresolved raster source is transparent pixels plus persistent warning, not a colored placeholder in final export. Viewer may overlay a non-rendering warning badge. Unknown effects are bypassed while preserved in the project, and exported output must report that fidelity is incomplete.

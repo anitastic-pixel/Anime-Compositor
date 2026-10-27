@@ -46,6 +46,20 @@ D-62, accepted on 2026-09-17. EXR input is linear light and premultiplied, the w
 
 EXR output writes the working buffer unchanged and premultiplied. Float output is exact. Half output clamps each sample to -65504..65504 and rounds it to the nearest half, ties to even; that is its declared encoding step. No tolerance applies in either direction: the `exr` crate was measured against OpenEXR's own library and matched to the bit (D-62).
 
+## Colour spaces
+
+ADR-023 (D-905, accepted on 2026-10-26). Colour management is a project switch, off by default. While it is off, the pipeline above is the whole rule and nothing in this section changes a pixel, a file, a cache key or a stored value: the working space is linear light with Rec.709 primaries and the D65 white, and the encoding is D-17's sRGB curve. The named spaces below exist in `src/color.rs` from D-906 and are used only once later steps (C3 to C6) switch them on.
+
+**Primaries and whites** (CIE 1931 xy; red, green, blue, white). Rec.709 / sRGB: 0.64 0.33, 0.30 0.60, 0.15 0.06, D65 0.3127 0.3290. ACES AP1 (ACEScg, ACEScct, ACEScc): 0.713 0.293, 0.165 0.830, 0.128 0.044, ACES white 0.32168 0.33767. ACES AP0 (ACES2065-1): 0.7347 0.2653, 0 1, 0.0001 -0.077, ACES white. Rec.2020: 0.708 0.292, 0.170 0.797, 0.131 0.046, D65. P3-D65: 0.680 0.320, 0.265 0.690, 0.150 0.060, D65.
+
+**Matrices.** Each space's RGB-to-XYZ matrix is the normalised primary matrix, with the white's Y = 1. Linear RGB in space A goes to space B by B's inverse matrix times A's matrix. Where the two whites differ, a Bradford adaptation from A's white to B's goes between them (cone matrix 0.8951 0.2664 -0.1614 / -0.7502 1.7135 0.0367 / 0.0389 -0.0685 1.0296). Bradford is what OpenColorIO's ACES configs were made with; CAT02 would differ by up to 5.2e-3 in a matrix entry. Everything is worked in double precision, and the colour is rounded to single precision once, at the end.
+
+**Curves** (stored number c, linear light x). sRGB: D-17's IEC 61966-2-1 curve, unchanged (x = c/12.92 at or below 0.04045, else ((c+0.055)/1.055)^2.4). BT.1886 with black at 0: x = c^2.4. Gamma 2.2: x = c^2.2. For both powers a negative number passes unchanged, as OpenColorIO's does. ACEScct (S-2016-001): x = (c - 0.0729055341958355)/10.5402377416545 at or below 0.155251141552511, else 2^(17.52 c - 9.72); encoding is the straight piece at or below 0.0078125, else (log2 x + 9.72)/17.52. ACEScc (S-2014-003): encoding is (log2(2^-16 + x/2) + 9.72)/17.52 below 2^-15, (log2 x + 9.72)/17.52 above, and (-16 + 9.72)/17.52 at or below 0. Neither ACES log curve is capped at 65504.
+
+**A conversion** decodes each channel by the source's curve, applies the matrix (none when the primaries are the same), and encodes each channel by the destination's curve.
+
+**Checked against OpenColorIO** (D-906): PyOpenColorIO 2.5.1, its built-in ACES 2.0 studio config, `OPTIMIZATION_LOSSLESS`, writes `Fixtures/colour/expected_conversions.json`. The bar is |ours - OpenColorIO| at most 1e-6 times the sample's size. Two of OpenColorIO's own transforms do not follow the published formula, and the build follows the formula: its sRGB curve has a smooth knee (straight bottom piece to 0.0393 with slope 12.923, not 0.04045 with 12.92: between 0 and 1 the two are at most 6.6e-7 apart in linear light and 6.3e-6 encoded, under a hundredth of a level of 255; below 0, where both extend the straight piece, they differ by 2.5e-4 of the number), and its ACEScc is a 4096-step table clamped to -0.36..1.5 with negatives set to 0. For those rows, and one ACEScct sample where OpenColorIO's single-precision sum cancels, the fixture also carries the formula worked in double precision, and the build is judged against that.
+
 ## Layer render order
 
 For each raster layer, the G1 order is:
