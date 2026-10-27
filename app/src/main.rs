@@ -19425,3 +19425,7 @@ mod profiler;
 #[cfg(test)]
 #[path = "tests/in_motion.rs"]
 mod in_motion;
+
+#[cfg(test)]
+#[path = "tests/shown_size.rs"]
+mod shown_size;

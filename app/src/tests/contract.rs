@@ -5756,7 +5756,7 @@ fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
 }
 
 /// Every control the page wires a handler to, or clicks for the person, or reads.
-const CONTROLS: [&str; 134] = [
+const CONTROLS: [&str; 135] = [
     "addadjust",
     "addeffect",
     "addexposure",
@@ -5806,6 +5806,7 @@ const CONTROLS: [&str; 134] = [
     "findlayer",
     "fit",
     "fit100",
+    "fullpixels",
     "fwd",
     "fxsearch",
     "gifdither",

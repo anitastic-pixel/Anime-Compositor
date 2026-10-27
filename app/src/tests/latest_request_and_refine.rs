@@ -421,10 +421,10 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     );
 
     for (what, marker) in [
-        ("Refine when idle is on unless it has been unticked", "memory: 'auto', refine: true };"),
+        ("Refine when idle is on unless it has been unticked", "memory: 'auto', refine: true, fullPixels: false };"),
         ("its tick is in the viewer's row beside the Full/Draft button", "<input type=\"checkbox\" id=\"refine\" checked> Refine when idle</label>"),
         ("and works at every quality (D-898)", "the tick works at every quality"),
-        ("a stand-in leaves the Full/Draft choice as it was", "    if (!rough) quality = drawnAt;"),
+        ("a stand-in leaves the Full/Draft choice as it was", "    if (!rough && !sized) quality = drawnAt;"),
         ("the Full/Draft button still names what pressing it does", "    $('toggle').textContent = quality === 'draft' ? 'Full resolution' : 'Draft resolution';"),
         ("\"sharpening…\" shows while a stand-in is on screen", "    $('refining').hidden = !rough;"),
         ("the sharp picture is asked for once the hand has been still for SETTLE_MS", "    if (rough) settling = setTimeout(sharpen, Math.max(0, stirred + SETTLE_MS - performance.now()));"),

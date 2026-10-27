@@ -2147,7 +2147,7 @@
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="qualitymenu"><span id="quality">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture quality" hidden>
         <button id="toggle" data-line="Draft or full quality" data-key="D">Full resolution</button>
         <button id="halfq" title="Half the size each way: sharper than Draft, quicker than Full, not final pixels">Half resolution</button>
-        <div class="opts" data-stay><label title="In motion (an eighth of the size each way, not final) while you drag or scrub, then the quality chosen a fifth of a second after you stop. On the GPU: Draft while you drag"><input type="checkbox" id="refine" checked> Refine when idle</label></div>
+        <div class="opts" data-stay><label title="In motion (an eighth of the size each way, not final) while you drag or scrub, then the quality chosen a fifth of a second after you stop. On the GPU: Draft while you drag"><input type="checkbox" id="refine" checked> Refine when idle</label><label title="Off: below 100% zoom the viewer draws only as many pixels as the screen shows (Half at 50%, Draft at 25%), labelled, not final. On: every pixel of the quality chosen, at any zoom"><input type="checkbox" id="fullpixels"> Full pixels</label></div>
       </div></span>
       <span id="refining" hidden title="This is the In motion stand-in; the quality chosen replaces it when you stop">sharpening&hellip;</span>
       <select id="gpu" aria-label="What the preview is drawn on" title="What the preview is drawn on. Exports are always drawn on the CPU">
@@ -2637,6 +2637,8 @@ let watching = 0;     // the timer that asks again while an export is running
 let stirred = -Infinity; // B-163: when the hand last moved the playhead or a value
 let settling = 0;     // B-163: the timer that asks for the sharp picture once the hand is still
 let drawnAt = 'draft'; // the quality of the picture on screen, which a stand-in makes not `quality`
+let drawnRough = false; // D-899: the picture on screen is a stand-in (In motion, or the card's Draft for it)
+let onCard = false;    // D-899: the card drew the picture on screen, where a smaller one is no quicker
 
 // The open project as the core last described it, and which layer and drawing are being worked
 // on. Document 24: "One primary selection context exists at a time." Selection lives here and
@@ -2671,6 +2673,18 @@ let relinking = null; // the asset a proposed relink is waiting on, as the last 
 // picture it has always made. Only a frame asked for by number is changed: playback plays at the
 // quality chosen, as it always has.
 const SETTLE_MS = 200;
+// D-899: below 100% zoom a frame is drawn at the size it is shown, as After Effects' Auto
+// resolution does: the coarsest quality that still has a picture pixel for every screen pixel,
+// and never finer than the one chosen. `shown` is screen pixels per composition pixel, null when
+// Full pixels is ticked. Only a frame asked for by number: playback plays at the quality chosen.
+const SIZES = [['full', 1], ['half', 2], ['draft', 4]];
+function sizedAs(url, shown) {
+  const m = shown && url.includes('/frame/') ? /\?q=(full|half)$/.exec(url) : null;
+  if (!m) return url;
+  const chosen = SIZES.find(([q]) => q === m[1])[1];
+  const fit = SIZES.filter(([, d]) => d >= chosen && d * shown <= 1 + 1e-6).pop();
+  return fit ? url.replace(/\?q=\w+$/, '?q=' + fit[0]) : url;
+}
 function askedAs(url, restless) {
   return restless && url.includes('/frame/') && /\?q=(full|half|draft)$/.test(url)
     ? url.replace(/\?q=\w+$/, '?q=motion') : url;
@@ -2804,7 +2818,10 @@ async function show(url, keep = true) {
   }
   inFlight = true;
   const mine = ++generation;
+  const picked = url;
+  url = sizedAs(url, shownNow()); // D-899
   const chosen = url;
+  const sized = chosen !== picked;
   url = askedAs(url, restless());
   flying = url;
   stopAsked = false;
@@ -2901,17 +2918,19 @@ async function show(url, keep = true) {
     // `askForBoxes` is what decides that.
     const differs = h.get('x-differs') === 'true';
     drawnAt = (h.get('x-quality') || (differs ? 'Draft' : 'Full')).toLowerCase().replace('in motion', 'motion'); // D-259: draft, half or full; D-898: or motion
+    drawnRough = rough;
     askForBoxes(said);
     if (!dragFlight && !dragging) askReady(); // P-25: the green line can wait for the hand
 
     // The indicator describes the render that just arrived, because it came back with it.
     const label = $('quality');
     const drawnOn = h.get('x-drawn-on') || 'CPU';
+    onCard = !drawnOn.startsWith('CPU'); // D-899
     placing(drawnOn !== 'CPU' && !needPixels());
     // W-41: the chip says the quality, and "not final" in orange whenever it differs from the
     // export (D-33); the whole sentence is its tip. Drawn on the CPU instead of the card is said
     // beside it, never only in a tip.
-    label.textContent = h.get('x-quality') + (differs ? ', not final' : '');
+    label.textContent = h.get('x-quality') + (sized && !rough ? ' (size shown)' : '') + (differs ? ', not final' : '');
     $('qualitymenu').title = h.get('x-quality') + ' — ' + width + '×' + height
       + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn
       + '. Click for Full, Half or Draft and Refine when idle';
@@ -2928,7 +2947,8 @@ async function show(url, keep = true) {
     label.className = differs ? 'differs' : '';
     // B-163: a stand-in leaves the choice as it was. The button names what pressing it does,
     // and the tick works at every quality (D-898: In motion is rougher than Draft).
-    if (!rough) quality = drawnAt;
+    if (!rough && !sized) quality = drawnAt; // D-899: nor does a picture at the size shown
+    if (!rough) setTimeout(sizeStillRight);
     $('toggle').textContent = quality === 'draft' ? 'Full resolution' : 'Draft resolution';
     $('halfq').classList.toggle('on', quality === 'half');
     $('refining').hidden = !rough;
@@ -4998,7 +5018,7 @@ sheet.ondblclick = (e) => {
 // Each is a preference with its box in Preferences and its box in the new composition form.
 const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
   ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
-const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, slate: true, strip: true, grid: false, guide: false, drawOn: 'auto', memory: 'auto', refine: true };
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, slate: true, strip: true, grid: false, guide: false, drawOn: 'auto', memory: 'auto', refine: true, fullPixels: false };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
@@ -8633,9 +8653,22 @@ function applyZoom() {
     : Math.round(shown * 100) + '%' + (fit ? ', fit' : '');
   drawBoxes();
   partStillDrawn();
+  sizeStillRight();
   if (stage.style.getPropertyValue('--turn')) drawTurn(); // W-41b: a turned picture kept inside a fit
 }
 stage.addEventListener('scroll', partStillDrawn);
+// D-899: screen pixels per composition pixel, for `sizedAs`; null when Full pixels is ticked, or
+// on the card, which drew Half at 25% no quicker than Full (L25, 2026-10-26).
+function shownNow() {
+  return prefs.fullPixels || onCard ? null : shownScale() * devicePixelRatio;
+}
+// D-899: after a zoom, a still picture drawn at another size than the one now shown is asked again.
+function sizeStillRight() {
+  if (!doc || playing || inFlight || drawnRough) return; // a stand-in is sharpened anyway
+  if (sizedAs('/frame/' + frame + '?q=' + quality, shownNow()).split('?q=')[1] !== drawnAt) {
+    show(FRAMES + '/frame/' + frame + '?q=' + quality);
+  }
+}
 
 // B-45, D-102: while the switch is on, where the picture lies in the window, and what is under
 // it, told to the card every time it changes, so the card can paint it there. A zoom or a scroll
@@ -17240,6 +17273,8 @@ $('halfq').onclick = () => {
 // B-163: the window's, kept with the preferences, and on unless it has been unticked.
 $('refine').checked = prefs.refine;
 $('refine').onchange = (e) => { prefs.refine = e.target.checked; savePrefs(); };
+$('fullpixels').checked = prefs.fullPixels;
+$('fullpixels').onchange = (e) => { prefs.fullPixels = e.target.checked; savePrefs(); sizeStillRight(); };
 // Both views are the window's, not the project's, so neither goes near the document. What each
 // button says is what pressing it does, and the frame that comes back says which view is on.
 $('alpha').onclick = () => command('/viewer.toggle_alpha');
