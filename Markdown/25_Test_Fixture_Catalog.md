@@ -903,6 +903,22 @@ FX-COLC7-003: the eyedropper's round trip. A picker set from a pixel's stored co
 
 FX-COLC7-004: colour management off. With `hdr_scene_off.json` the window's question answers off for a colour and a pixel, and the project, its file and the window's frame are as before.
 
+## Output fixtures
+
+Specified on 2026-10-26 by D-917 for B-796. Every file is in `Fixtures/colour/output/` and was written by `tools/output_reference.py`: the picture with Python's standard library, the expected values by OpenColorIO 2.5.1 (PyOpenColorIO, its built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5`, `OPTIMIZATION_LOSSLESS`, nothing downloaded). `media/output_chart.exr` is 264 by 4 float, linear Rec.709, premultiplied: a white ramp from 1/256 to 64, a fire gradient to 64, the 24 ColorChecker patches from 4 stops under to 6 over, and an orange with alpha from 0 to 1. `chart_acescg.json` and `chart_rec709.json` show it with colour management on in each working space, `chart_off.json` with it off; each is two frames long. A level is floor(clamp(v, 0, 1) times the top plus 0.5). Every check reads the exported file back.
+
+FX-COLOUT-001: the picture outputs. For each working space and each of `default` (OpenColorIO's "Un-tone-mapped" of "sRGB - Display"), `rec709` ("Un-tone-mapped" of "Rec.1886 Rec.709 - Display") and `aces-view` ("ACES 2.0 - SDR 100 nits (Rec.709)" of "sRGB - Display", analytic), a PNG export's levels against `cases`: 8 and 16 bits straight, 8 bits premultiplied. sRGB and Rec.709 within 1 level on every channel of every pixel; the ACES view within 1 level of 255 (257 of 65535) on 99.9% of pixels, the rest reported.
+
+FX-COLOUT-002: the EXR outputs. For each working space and each of `default`, `acescg` and `aces2065-1`, a float EXR export's RGBA against `exr`, within 1e-6 of the colour's size (its largest channel, at least 1), alpha exact; its `chromaticities` attribute as `labels.exr` gives.
+
+FX-COLOUT-003: the labels. With colour management on, a PNG carries the chunk `labels.picture` names (`sRGB` intent 0, or `cICP` 1 1 0 1) and no other colour chunk, and its `ColorSpace` tag begins with the named words; an animated PNG the same chunk, its first frame the PNG's pixels; an MP4's `colr` box the four numbers named (primaries, transfer, matrix, full range).
+
+FX-COLOUT-004: the refusals. An output that does not belong to the format (`acescg` for a PNG, `rec709` for an EXR), and any output but `default` with colour management off (`chart_off.json`), is refused before anything is written, `COMMAND_INVALID_VALUE`, naming the output.
+
+FX-COLOUT-005: off is today. `chart_off.json` exported as PNG (8 and 16 bits, both alphas), EXR, animated PNG, GIF and MP4 with no output word: the same bytes as before D-917 (`labels.off`), with no colour chunk; and every existing export suite unchanged.
+
+FX-COLOUT-006: the card. `chart_rec709.json` exported with D-911's tick and each picture output: within 1 level of the processor's export on every pixel, nothing refused.
+
 ## Adjustment layer fixtures
 
 D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.

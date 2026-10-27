@@ -559,7 +559,8 @@ Not crates and not in the binary, so not in the bill above; recorded here as AGE
 - **PyOpenColorIO 2.5.1** (`opencolorio==2.5.1` from PyPI, BSD-3-Clause, the Academy Software
   Foundation's OpenColorIO). Purpose: `tools/ocio_reference.py` writes the expected values in
   `Fixtures/colour/expected_conversions.json` (ADR-023, D-906), and `tools/interpret_reference.py`
-  those in `Fixtures/colour/interpret/` (D-909). Installed in its own Python virtual
+  those in `Fixtures/colour/interpret/` (D-909), and `tools/output_reference.py` those in
+  `Fixtures/colour/output/` (D-917). Installed in its own Python virtual
   environment outside the repository, never in the build. Distribution impact: none; nothing of it
   ships, and the fixture holds only numbers it computed.
 

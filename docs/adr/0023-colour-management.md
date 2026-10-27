@@ -71,7 +71,7 @@ The hybrid.
 | C3 | The switch, the working space, "Interpret as" per file; conversion at decode | D-909 / B-788; in the window: D-916 / B-795 |
 | C4 | Stored colours, display-value rules and the depths with colour management on | D-910 / B-789 |
 | C5 | The viewer's view: Standard, Un-tone-mapped, ACES 2.0 SDR | D-915 / B-794 |
-| C6 | An Output colour choice per export, files tagged honestly | later |
+| C6 | An Output colour choice per export, files tagged honestly | D-917 / B-796 |
 | C7 | Pickers and Info show working and display numbers | later |
 | C8 | Studio configs, camera logs, wide-gamut and HDR monitors: ask first | waits |
 
