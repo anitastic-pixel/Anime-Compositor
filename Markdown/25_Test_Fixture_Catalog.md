@@ -183429,6 +183429,20 @@ FX-MREF-034 (`fx_mref_034.json`): Refine Soft Matte, view edge region written "m
 
 FX-MREF-035 (`fx_mref_035.json`): Refine Soft Matte, decontamination amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+FX-MREF-036 to 041 are Quality Fast (D-903), worked by `tools/matte_refine_fast_reference.py` into `Fixtures/matte_refine/expected_matte_refine_fast.json`; the project files have the setting `quality` written "fast", which a file at the default, "exact", never has.
+
+FX-MREF-036 (`fx_mref_036.json`): FX-MREF-023 (Refine Soft Matte as added, edge radius 10) at Quality Fast (D-903): the fit worked on blocks 2 by 2 at radius 5 and read back smoothly, so the covering is close to FX-MREF-023's and not the same. Frames 0.
+
+FX-MREF-037 (`fx_mref_037.json`): Refine Hard Matte, feather 8, contrast 0, at Quality Fast: blocks 2 by 2 at radius 4. Frames 0.
+
+FX-MREF-038 (`fx_mref_038.json`): FX-MREF-013 (Refine Hard Matte as added, feather 2) at Quality Fast: below radius 8 Fast is the exact filter, so FX-MREF-013's frame. Frames 0.
+
+FX-MREF-039 (`fx_mref_039.json`): Refine Soft Matte, edge radius 12, feather 13, decontaminate off, at Quality Fast: blocks 3 by 3 at radius 4 for both, the last row of blocks one pixel tall (16 rows). Frames 0.
+
+FX-MREF-040 (`fx_mref_040.json`): Refine Soft Matte, edge radius 20, at Quality Fast: blocks 4 by 4 (the most) at radius 5. Frames 0.
+
+FX-MREF-041 (`fx_mref_041.json`): Refine Soft Matte, quality written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Soft Physical Glow (D-353)
 
 The shared soft-glow engine (EFFECTS.md P0-21) and pick #1, Soft Physical Glow: Glow (`core.glow`) with the setting `falloff` written "physical" (B-233). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/soft_glow/`: the layer `art` holding a drawing the same size, unmoved unless the case says, with the effect `fx-0-0`. The drawings: `media/patches.png`, three patches in rows 3 to 6 on nothing, warm yellow in columns 2 to 4, brown in 7 and 8 and purple in 11 to 13; `media/faint.png`, the same at half covering; and `media/grey.png`, the brown swapped for a grey. **Every number is produced by `tools/soft_glow_reference.py`**, which works in double precision with numpy over whole padded planes of cells, from the drawings' 8-bit values, and asserts no hard threshold lies near an edge; the numbers are in `Fixtures/soft_glow/expected_soft_glow.json`. Tolerance 2e-5. B-233 checks them, and draws the playtest's pictures, in `verification/D-353_soft_glow_table.md`.
