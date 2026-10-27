@@ -890,6 +890,7 @@ FX-COLSW-001: off to on. `view/hdr_scene_off.json` with `working` `acescg` becom
 FX-COLSW-002: the working space with colour management on. `c4/solid_rec709.json` with `acescg` becomes `c4/solid_acescg.json`, and back with `linear-srgb`; project and frame as FX-COLSW-001.
 
 FX-COLSW-003: refused. `off_eight_bpc.json` and `off_ae_32bpc.json` with `acescg` or `linear-srgb`: `COLOR_DEPTH_REFUSED` naming composition "Main" and its depth; colour management stays off, the depth is not changed, nothing goes into the history, and the file saves back byte for byte.
+
 ## Colour readout fixtures
 
 Specified on 2026-10-26 by D-918 for B-797. `Fixtures/colour/c7/expected_readout.json` was written by `tools/c7_reference.py` with OpenColorIO 2.5.1 (PyOpenColorIO, its built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5`, `OPTIMIZATION_LOSSLESS`, nothing downloaded), display "sRGB - Display". A level is floor(clamp(v, 0, 1) times 255 plus 0.5). It reads D-915's projects `Fixtures/colour/view/hdr_scene_*.json` and their picture; it adds no project.

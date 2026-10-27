@@ -2,7 +2,7 @@
 
 Written by `cargo test -p anime_compositor_app part_on_screen`. Zoomed in, the page asks for the part of the picture it can show, as fractions of the picture across and down, and the window makes and sends only those pixels, with one pixel spare on every side. **The rule: every part is byte for byte the same pixels of the whole frame**, made by a viewer that has remembered nothing, with the same size told to the page and the same processor. Parts asked for, as fractions (left, top, right, bottom): the left half (0,0,0.5,1); a box in the middle (0.3,0.3,0.7,0.6); the bottom right corner (0.8,0.9,1,1); a single point (0.5,0.5,0.5,0.5); the middle quarter, as at 200% (0.25,0.25,0.75,0.75). Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
-**6548 of 6548 checks pass.**
+**6868 of 6868 checks pass.**
 
 ## Each group
 
@@ -13,17 +13,17 @@ Written by `cargo test -p anime_compositor_app part_on_screen`. Zoomed in, the p
 | Light Wrap (CPU) | 480 | 96 | 480 of 480 | none |
 | motion blur (CPU) | 400 | 76 | 400 of 400 | none |
 | frame blending (CPU) | 580 | 290 | 580 of 580 | none |
-| Bloom (CPU) | 560 | 112 | 560 of 560 | none |
+| Bloom (CPU) | 640 | 128 | 640 of 640 | none |
 | Directional Blur (CPU) | 300 | 60 | 300 of 300 | none |
-| Glow (CPU) | 660 | 132 | 660 of 660 | none |
+| Glow (CPU) | 740 | 148 | 740 of 740 | none |
 | reference shot (card) | 30 | 0 | 30 of 30 | none |
 | adjustment layers (card) | 260 | 182 | 260 of 260 | none |
 | Light Wrap (card) | 480 | 96 | 480 of 480 | none |
 | motion blur (card) | 400 | 76 | 400 of 400 | none |
 | frame blending (card) | 580 | 290 | 580 of 580 | none |
-| Bloom (card) | 560 | 112 | 560 of 560 | none |
+| Bloom (card) | 640 | 128 | 640 of 640 | none |
 | Directional Blur (card) | 300 | 60 | 300 of 300 | none |
-| Glow (card) | 660 | 132 | 660 of 660 | none |
+| Glow (card) | 740 | 148 | 740 of 740 | none |
 
 ## Memory, playback and export
 
