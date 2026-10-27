@@ -39,6 +39,13 @@ D-92's first rule, the plain average of ceil(length) + 1 samples along the line 
 pixel, is retired; its numbers are in this file and the expected file as they were at commit
 ca2be49. D-98's flat average is retired by D-753; its numbers are as they were at commit
 438fe5d0.
+
+D-919: `taper`, the word "on" or "off", "on" when a file leaves it out. "on" is D-753's tent;
+"off" is D-98's flat average exactly as it was at 438fe5d0, the columns j weighted
+w_j = the integral over t from -H to H of tent(j - t), divided by 2H, with d = length /
+ceil(length) and H = |u_x| * (length + d) / 2 (mostly across). The layer grows by
+ceil(length / 2) either way. FX-DIRBLUR-016 to 026 are 001 to 011 with "off" written, and
+equal 438fe5d0's 001 to 011.
 """
 
 import json
@@ -123,9 +130,10 @@ def line_mean(layer, u, weights, x, y, edges="transparent"):
     return out
 
 
-def blurred(layer, direction, length, x, y, edges="transparent"):
+def blurred(layer, direction, length, x, y, edges="transparent", taper="on"):
     """The output at the pixel (x, y) of layer space, which may lie in the grown border. D-109:
-    with edges "repeat" the layer does not grow, so there is nothing outside it."""
+    with edges "repeat" the layer does not grow, so there is nothing outside it. D-919: with
+    taper "off", D-98's flat average."""
     if edges == "repeat" and not (0 <= x < W and 0 <= y < H):
         return [0.0] * 4
     if length == 0:
@@ -134,6 +142,12 @@ def blurred(layer, direction, length, x, y, edges="transparent"):
     if u is None:
         a = math.radians(direction)
         u = (math.sin(a), -math.cos(a))
+    if taper == "off":
+        d = length / math.ceil(length)
+        h = max(abs(u[0]), abs(u[1])) * (length + d) / 2
+        reach = math.ceil(h + 1)
+        weights = [(j, tent_integral(j - h, j + h) / (2 * h)) for j in range(-reach, reach + 1)]
+        return line_mean(layer, u, [(j, w) for j, w in weights if w], x, y, edges)
     h = max(abs(u[0]), abs(u[1])) * length / 2
     weights = [(j, tapered(j, h)) for j in range(-math.ceil(h), math.ceil(h) + 1)]
     return line_mean(layer, u, [(j, w) for j, w in weights if w], x, y, edges)
@@ -177,8 +191,12 @@ DRAWINGS = {"bars": [[bars(x, y) for x in range(W)] for y in range(H)]}
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(direction=0, length=4, shift=0, name="bars"):
-    return {"drawing": name, "direction": direction, "length": length, "shift": shift}
+def case(direction=0, length=4, shift=0, name="bars", taper=None):
+    """D-919: `taper` is written into the file only when the case gives it."""
+    c = {"drawing": name, "direction": direction, "length": length, "shift": shift}
+    if taper is not None:
+        c["taper"] = taper
+    return c
 
 
 def clamp(v, r):
@@ -189,7 +207,7 @@ def render(c, frame_no):
     layer = [working(p) for row in DRAWINGS[c["drawing"]] for p in row]
     direction = clamp(value_at(c["direction"], frame_no), DIRECTION)
     length = clamp(value_at(c["length"], frame_no), LENGTH)
-    return [blurred(layer, direction, length, x - c["shift"], y)
+    return [blurred(layer, direction, length, x - c["shift"], y, taper=c.get("taper", "on"))
             for y in range(H) for x in range(W)]
 
 
@@ -234,6 +252,37 @@ CASES = {
                        case(direction=keyed((0, 0), (4, 90))), [0, 2, 4]),
 }
 
+# D-919: 001 to 011 again with Taper Ends off, D-98's flat average, the hard-ended streak, in
+# D-98's words. Each equals the case it repeats as it was at commit 438fe5d0.
+OFF = {
+    1: "Direction 0, length 4: every edge streaks up and down, two pixels each way and faintly "
+       "a third, and left and right stay sharp.",
+    2: "Direction 90, length 4: the same streak left and right, and up and down stay sharp.",
+    3: "Direction 270, the opposite way: the streak runs both ways, so this is FX-DIRBLUR-017.",
+    4: "Direction 45, length 6: a diagonal streak, up and right and down and left, between "
+       "pixels.",
+    5: "Length 0: the drawing, untouched.",
+    6: "Length 1, direction 90: each column mixes itself and the two beside it at a quarter, a "
+       "half and a quarter, so the block's left edge column is three quarters covered and the "
+       "column outside it one quarter.",
+    7: "Length 2.5, direction 90: a length that is not a whole number, the ends of the average "
+       "softened.",
+    8: "Direction 3600, ten turns: this is FX-DIRBLUR-016.",
+    9: "Direction 90, length 6, moved three pixels right: the line on the drawing's left edge "
+       "streaks three pixels past it into the grown border.",
+    10: "Length keyed from 0 at frame 0 to 8 at frame 4, direction 90, linear: frame 0 "
+        "untouched, frame 2 at length 4 is FX-DIRBLUR-017, frame 4 at 8.",
+    11: "Direction keyed from 0 at frame 0 to 90 at frame 4, length 4: frame 0 is "
+        "FX-DIRBLUR-016, frame 2 streaks at 45 degrees, frame 4 is FX-DIRBLUR-017.",
+}
+for n, says in OFF.items():
+    _, c, frames = CASES[f"FX-DIRBLUR-{n:03}"]
+    CASES[f"FX-DIRBLUR-{n + 15:03}"] = (
+        f"Taper Ends off, FX-DIRBLUR-{n:03} with D-98's flat average. {says}",
+        dict(c, taper="off"), frames)
+CASES["FX-DIRBLUR-027"] = ("Taper Ends \"on\" written in the file: FX-DIRBLUR-001 exactly, as a "
+                           "file without the word.", case(taper="on"), [0])
+
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
 # out of every frame, with EFFECT_PARAMETER_INVALID.
 INVALID = {
@@ -241,6 +290,10 @@ INVALID = {
     "FX-DIRBLUR-013": ("Length -1, below 0.", case(length=-1)),
     "FX-DIRBLUR-014": ("Direction 3601, past ten turns.", case(direction=3601)),
     "FX-DIRBLUR-015": ("Length keyed to 600 at frame 4.", case(length=keyed((0, 0), (4, 600)))),
+    # D-919: the word exact, as D-760's Shadow Only.
+    "FX-DIRBLUR-028": ("Taper Ends written \"Off\", the panel's name, not the word \"off\".",
+                       case(taper="Off")),
+    "FX-DIRBLUR-029": ("Taper Ends written \"yes\".", case(taper="yes")),
 }
 
 
@@ -258,6 +311,8 @@ def project_json(fx, c):
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.directional_blur", "enabled": True,
         "parameters": {k: setting_json(c[k]) for k in ("direction", "length")}}]
+    if "taper" in c:
+        comp["layers"][0]["effects"][0]["parameters"]["taper"] = c["taper"]
     return p
 
 
@@ -288,6 +343,8 @@ def main():
                                  "frames": {"0": before, "4": before},
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
+    # D-919: in number order, so 001 to 015 stay where they were and the new cases follow.
+    expected["cases"] = dict(sorted(expected["cases"].items()))
 
     (OUT / "expected_directional_blur.json").write_text(json.dumps(expected, indent=1) + "\n", encoding="utf-8")
     check(expected)
@@ -334,6 +391,28 @@ def check(expected):
     # Averaging keeps the covering: the block's five pixels of row 3, spread over columns 3 to 11,
     # and column 2, where the line in column 0 reaches with 1/24 of its own covering.
     assert abs(sum(two[at(x, 3)][3] for x in range(2, 13)) - 5 - 1 / 24) < 1e-12
+    # D-919, Taper Ends off, D-98's checks as they were at 438fe5d0. Row 4 of the block weighs
+    # rows 2 to 6 at 1, 1, 1, 1 and 7/8 over 5, and row 7 at 1/8, so 3.875 / 5 covered.
+    one, two = c["FX-DIRBLUR-016"]["0"], c["FX-DIRBLUR-017"]["0"]
+    assert abs(one[at(7, 4)][3] - 3.875 / 5) < 1e-12 and one[at(7, 1)][3] > 0
+    assert one[at(4, 4)] == [0.0] * 4 and one[at(10, 4)] == [0.0] * 4
+    assert two[at(7, 1)] == [0.0] * 4 and two[at(4, 4)][3] > 0 and two[at(3, 4)][3] > 0
+    assert near(c["FX-DIRBLUR-018"]["0"], two) and near(c["FX-DIRBLUR-023"]["0"], one)
+    assert c["FX-DIRBLUR-020"]["0"] == drawn
+    # Length 1 at 90: a quarter, a half and a quarter.
+    six = c["FX-DIRBLUR-021"]["0"]
+    assert abs(six[at(5, 4)][3] - 0.75) < 1e-12 and abs(six[at(4, 4)][3] - 0.25) < 1e-12
+    # Length 2.5: H = 5/3; two columns left of the block, the tent from 1/3 to 1, 2/9, over 2H.
+    assert abs(c["FX-DIRBLUR-022"]["0"][at(3, 4)][3] - 1 / 15) < 1e-12
+    nine = c["FX-DIRBLUR-024"]
+    assert nine["0"] == nine["3"] and all(nine["0"][at(x, 4)][3] > 0 for x in range(3))
+    ten, eleven = c["FX-DIRBLUR-025"], c["FX-DIRBLUR-026"]
+    assert ten["0"] == drawn and near(ten["2"], two) and ten["4"] != two
+    assert near(eleven["0"], one) and near(eleven["4"], two)
+    assert abs(sum(two[at(x, 3)][3] for x in range(2, 13)) - 5 - 1 / 5) < 1e-12
+    # Off and on differ wherever the streak reaches; "on" written is a file without the word.
+    assert c["FX-DIRBLUR-016"]["0"] != c["FX-DIRBLUR-001"]["0"]
+    assert c["FX-DIRBLUR-027"]["0"] == c["FX-DIRBLUR-001"]["0"]
     for name, frames in c.items():
         for px in frames.values():
             for p in px:
