@@ -5224,6 +5224,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("decontamination_amount", "80"),
             ("decontamination_radius", "2"),
             ("view_decontamination_map", "off"),
+            ("quality", "fast"),
         ],
     ),
     (
@@ -5238,6 +5239,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("decontamination_amount", "50"),
             ("decontamination_radius", "3"),
             ("view_decontamination_map", "on"),
+            ("quality", "fast"),
         ],
     ),
     (

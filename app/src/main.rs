@@ -7273,6 +7273,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
                 decontamination_amount: 100.0,
                 decontamination_radius: 0.0,
                 view_decontamination_map: "off".to_string(),
+                quality: "exact".to_string(),
             })
         }
         // D-356: as added, After Effects' Stroke: mask 1, a white brush 2 pixels across, the
@@ -10568,6 +10569,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 decontamination_amount: number("decontamination_amount")?,
                 decontamination_radius: number("decontamination_radius")?,
                 view_decontamination_map: word("view_decontamination_map")?,
+                quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
             })
         }
         // D-356: the paths are found by compose each frame.

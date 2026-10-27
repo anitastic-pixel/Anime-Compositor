@@ -4633,7 +4633,8 @@ pub enum Effect {
     /// are Soft's only; `feather`, 0 to 100 pixels; `contrast`, 0 to 100 per cent;
     /// `shift_edge`, -100 to 100 per cent; `decontaminate` and `view_decontamination_map`, "off"
     /// or "on"; `decontamination_amount`, 0 to 100 per cent; `decontamination_radius`, 0 to 100
-    /// pixels. The radii are counted in whole pixels.
+    /// pixels. The radii are counted in whole pixels. D-903: `quality`, "exact" (the default,
+    /// never saved) or "fast", the user's choice, drawn in exports too.
     RefineMatte {
         kind: &'static str,
         edge_radius: f64,
@@ -4645,6 +4646,7 @@ pub enum Effect {
         decontamination_amount: f64,
         decontamination_radius: f64,
         view_decontamination_map: String,
+        quality: String,
     },
     /// D-353: Soft Physical Glow (EFFECTS.md P0-21 and pick #1), Glow's `falloff` "physical"
     /// (`soft_glow`, document 21); a Glow without `falloff`, or "classic", is [`Effect::Glow`].
@@ -14154,6 +14156,9 @@ impl Effect {
             Effect::RefineMatte { view_decontamination_map: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "{name}'s view decontamination map is \"off\" or \"on\", and this is \"{v}\"."
             )),
+            Effect::RefineMatte { quality: v, .. } if !["exact", "fast"].contains(&v.as_str()) => Some(format!(
+                "{name}'s quality is \"exact\" or \"fast\", and this is \"{v}\"."
+            )),
             Effect::Stroke { all_masks: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Path Stroke's all masks is \"off\" or \"on\", and this is \"{v}\"."
             )),
@@ -20603,6 +20608,7 @@ pub(crate) fn apply_stack_at(
                 decontamination_amount,
                 decontamination_radius,
                 view_decontamination_map,
+                quality,
             } => crate::perf::time(crate::perf::Stage::EffectRefineMatte, || {
                 let s = crate::matte_refine::Refine {
                     soft: *kind == "soft",
@@ -20615,6 +20621,7 @@ pub(crate) fn apply_stack_at(
                     decontamination_amount: *decontamination_amount,
                     decontamination_radius: *decontamination_radius,
                     view_decontamination_map,
+                    quality,
                 };
                 crate::matte_refine::refine_matte(source, &s)
             }),

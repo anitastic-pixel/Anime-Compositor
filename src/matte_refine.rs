@@ -105,6 +105,80 @@ fn solve3(m: [[f64; 3]; 3], v: [f64; 3]) -> [f64; 3] {
 
 /// The guided filter of the matte `p` by the three-channel `guide`, at radius `r`, epsilon EPS.
 pub(crate) fn guided_filter(guide: &[f64], p: &[f64], w: usize, h: usize, r: usize) -> Vec<f64> {
+    let s = box_sum(&coefficients(guide, p, w, h, r), 4, w, h, r);
+    (0..w * h)
+        .into_par_iter()
+        .map(|i| {
+            let n = count(i % w, i / w, w, h, r);
+            let g = &guide[i * 3..i * 3 + 3];
+            (s[i * 4] * g[0] + s[i * 4 + 1] * g[1] + s[i * 4 + 2] * g[2] + s[i * 4 + 3]) / n
+        })
+        .collect()
+}
+
+/// D-903: the guided filter's Quality Fast, document 21's rule (He and Sun, "Fast Guided
+/// Filter", 2015): a and b worked on blocks s by s, s = min(4, floor(r / 4)), at radius
+/// floor(r / s), their box means read back bilinearly and applied to the full `guide`. Below
+/// radius 8 it is [`guided_filter`] itself.
+pub(crate) fn guided_filter_fast(
+    guide: &[f64],
+    p: &[f64],
+    w: usize,
+    h: usize,
+    r: usize,
+) -> Vec<f64> {
+    let s = (r / 4).min(4);
+    if s < 2 {
+        return guided_filter(guide, p, w, h, r);
+    }
+    let (lw, lh, rl) = (w.div_ceil(s), h.div_ceil(s), r / s);
+    // Each block's mean of the guide and the matte.
+    let mut low = vec![0.0f64; lw * lh * 4];
+    low.par_chunks_mut(4).enumerate().for_each(|(i, o)| {
+        let (bx, by) = ((i % lw) * s, (i / lw) * s);
+        let (ex, ey) = ((bx + s).min(w), (by + s).min(h));
+        for y in by..ey {
+            for x in bx..ex {
+                let j = y * w + x;
+                o[0] += guide[j * 3];
+                o[1] += guide[j * 3 + 1];
+                o[2] += guide[j * 3 + 2];
+                o[3] += p[j];
+            }
+        }
+        let n = ((ex - bx) * (ey - by)) as f64;
+        o.iter_mut().for_each(|v| *v /= n);
+    });
+    let lg: Vec<f64> = low.chunks(4).flat_map(|c| [c[0], c[1], c[2]]).collect();
+    let lp: Vec<f64> = low.chunks(4).map(|c| c[3]).collect();
+    let mut m = box_sum(&coefficients(&lg, &lp, lw, lh, rl), 4, lw, lh, rl);
+    m.par_chunks_mut(4).enumerate().for_each(|(i, c)| {
+        let n = count(i % lw, i / lw, lw, lh, rl);
+        c.iter_mut().for_each(|v| *v /= n);
+    });
+    let at = |x: usize, l: usize| {
+        let u = ((x as f64 + 0.5) / s as f64 - 0.5).clamp(0.0, (l - 1) as f64);
+        let i0 = u.floor() as usize;
+        (i0, (i0 + 1).min(l - 1), u - i0 as f64)
+    };
+    (0..w * h)
+        .into_par_iter()
+        .map(|i| {
+            let ((x0, x1, fx), (y0, y1, fy)) = (at(i % w, lw), at(i / w, lh));
+            let g = &guide[i * 3..i * 3 + 3];
+            let k = |j: usize| {
+                let v = |x: usize, y: usize| m[(y * lw + x) * 4 + j];
+                let top = v(x0, y0) * (1.0 - fx) + v(x1, y0) * fx;
+                let bottom = v(x0, y1) * (1.0 - fx) + v(x1, y1) * fx;
+                top * (1.0 - fy) + bottom * fy
+            };
+            k(0) * g[0] + k(1) * g[1] + k(2) * g[2] + k(3)
+        })
+        .collect()
+}
+
+/// The guided filter's a (three) and b at each pixel, before their box means.
+fn coefficients(guide: &[f64], p: &[f64], w: usize, h: usize, r: usize) -> Vec<f64> {
     // I, p, the six of I I^T and I p, boxed together.
     let mut f = vec![0.0f64; w * h * 13];
     f.par_chunks_mut(13).enumerate().for_each(|(i, o)| {
@@ -138,15 +212,7 @@ pub(crate) fn guided_filter(guide: &[f64], p: &[f64], w: usize, h: usize, r: usi
         o[..3].copy_from_slice(&a);
         o[3] = mp - (a[0] * mi[0] + a[1] * mi[1] + a[2] * mi[2]);
     });
-    let s = box_sum(&ab, 4, w, h, r);
-    (0..w * h)
-        .into_par_iter()
-        .map(|i| {
-            let n = count(i % w, i / w, w, h, r);
-            let g = &guide[i * 3..i * 3 + 3];
-            (s[i * 4] * g[0] + s[i * 4 + 1] * g[1] + s[i * 4 + 2] * g[2] + s[i * 4 + 3]) / n
-        })
-        .collect()
+    ab
 }
 
 /// 0 to 1 across `w` about `c`, each end held inside 0 to 1; a step at `c` when that leaves no
@@ -261,6 +327,8 @@ pub(crate) struct Refine<'a> {
     pub decontamination_amount: f64,
     pub decontamination_radius: f64,
     pub view_decontamination_map: &'a str,
+    /// D-903: "exact" or "fast", which guided filter steps 1 and 2 use.
+    pub quality: &'a str,
 }
 
 /// The edge region at `re`: a covered pixel and a pixel not fully covered both in the square.
@@ -282,6 +350,11 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
         return;
     }
     let n = w * h;
+    let filter = if s.quality == "fast" {
+        guided_filter_fast
+    } else {
+        guided_filter
+    };
     let px = read(source);
     let a0: Vec<f64> = px.par_chunks(4).map(|p| p[3]).collect();
     let known: Vec<bool> = a0.par_iter().map(|&a| a > 0.0).collect();
@@ -316,7 +389,7 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
             .par_chunks(4)
             .flat_map_iter(|p| straight(p).map(srgb))
             .collect();
-        let q = guided_filter(&guide, &a0, w, h, re);
+        let q = filter(&guide, &a0, w, h, re);
         a.par_iter_mut()
             .zip(&q)
             .zip(region)
@@ -325,7 +398,7 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     }
     if rf > 0 {
         let guide: Vec<f64> = c.par_iter().flat_map_iter(|v| v.map(srgb)).collect();
-        a = guided_filter(&guide, &a, w, h, rf)
+        a = filter(&guide, &a, w, h, rf)
             .into_par_iter()
             .map(|v| v.clamp(0.0, 1.0))
             .collect();
@@ -420,6 +493,7 @@ pub(crate) fn key_cleaner(source: &mut WorkingBuffer, radius: f64, contrast: f64
         decontamination_amount: 0.0,
         decontamination_radius: 0.0,
         view_decontamination_map: "off",
+        quality: "exact",
     };
     refine_matte(source, &s);
     if let Some(before) = before {
@@ -455,6 +529,25 @@ mod tests {
         };
         let twice = mean(&mean(&p));
         assert!(q.iter().zip(&twice).all(|(a, b)| (a - b).abs() < 1e-12));
+    }
+
+    #[test]
+    fn fast_guided_filter_keeps_a_constant_and_is_exact_below_radius_8() {
+        let (w, h) = (37, 21);
+        let guide: Vec<f64> = (0..w * h)
+            .flat_map(|i| [(i % 11) as f64 / 10.0, 0.3, (i % 3) as f64 / 3.0])
+            .collect();
+        let q = guided_filter_fast(&guide, &vec![0.7; w * h], w, h, 12);
+        assert!(q.iter().all(|v| (v - 0.7).abs() < 1e-9));
+        let p: Vec<f64> = (0..w * h).map(|i| ((i * 7) % 5) as f64 / 4.0).collect();
+        assert_eq!(
+            guided_filter_fast(&guide, &p, w, h, 7),
+            guided_filter(&guide, &p, w, h, 7)
+        );
+        assert_ne!(
+            guided_filter_fast(&guide, &p, w, h, 8),
+            guided_filter(&guide, &p, w, h, 8)
+        );
     }
 
     #[test]

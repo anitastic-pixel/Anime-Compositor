@@ -7381,6 +7381,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             decontamination_amount,
             decontamination_radius,
             view_decontamination_map,
+            quality,
         } => {
             if *kind == "soft" {
                 params.insert("edge_radius".into(), num(*edge_radius));
@@ -7405,6 +7406,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 "view_decontamination_map".into(),
                 J::from(view_decontamination_map.as_str()),
             );
+            // D-903: Exact, the default, is never written, so an older file saves back as it was.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
         }
         // D-356: the paths are found each frame and never saved.
         Effect::Stroke {
@@ -12621,6 +12626,7 @@ fn parse_effect(
                 decontamination_amount: effect_number(params, "decontamination_amount", at)?,
                 decontamination_radius: effect_number(params, "decontamination_radius", at)?,
                 view_decontamination_map: effect_word(params, "view_decontamination_map", at)?,
+                quality: effect_word_or(params, "quality", at, "exact")?,
             })
         }
         crate::effects::STROKE => Some(crate::effects::Effect::Stroke {
