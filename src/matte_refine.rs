@@ -476,8 +476,14 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
 
 /// D-503: Key Cleaner, document 21's rule: Refine Soft Matte's fit at `radius` with `contrast`
 /// and nothing else, then `strength` (0 to 1) of the way from the layer to that, premultiplied.
-/// The settings are valid.
-pub(crate) fn key_cleaner(source: &mut WorkingBuffer, radius: f64, contrast: f64, strength: f64) {
+/// The settings are valid. D-912: `quality`, "exact" or "fast", Refine's (D-903).
+pub(crate) fn key_cleaner(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    contrast: f64,
+    strength: f64,
+    quality: &str,
+) {
     if strength <= 0.0 {
         return;
     }
@@ -493,7 +499,7 @@ pub(crate) fn key_cleaner(source: &mut WorkingBuffer, radius: f64, contrast: f64
         decontamination_amount: 0.0,
         decontamination_radius: 0.0,
         view_decontamination_map: "off",
-        quality: "exact",
+        quality,
     };
     refine_matte(source, &s);
     if let Some(before) = before {

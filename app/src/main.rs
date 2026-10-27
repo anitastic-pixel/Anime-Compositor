@@ -6397,6 +6397,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             additional_edge_radius: 10.0,
             alpha_contrast: 0.0,
             strength: 100.0,
+            quality: "exact".to_string(),
         }),
         // D-504: as added (Adobe gives no values we found): final, pure blue, RGB as Adobe
         // advises, tolerance and softness 10 (softness under Adobe's best 20).
@@ -9634,6 +9635,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             additional_edge_radius: number("additional_edge_radius")?,
             alpha_contrast: number("alpha_contrast")?,
             strength: number("strength")?,
+            quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
         }),
         LINEAR_COLOR_KEY => Ok(Effect::LinearColorKey {
             view: word("view")?,

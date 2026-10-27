@@ -37,6 +37,7 @@ fn kc(additional_edge_radius: f64, alpha_contrast: f64, strength: f64) -> Effect
         additional_edge_radius,
         alpha_contrast,
         strength,
+        quality: "exact".into(),
     }
 }
 

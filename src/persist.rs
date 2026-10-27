@@ -3734,6 +3734,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             additional_edge_radius,
             alpha_contrast,
             strength,
+            quality,
         } => {
             params.insert(
                 "additional_edge_radius".into(),
@@ -3741,6 +3742,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("alpha_contrast".into(), num(*alpha_contrast));
             params.insert("strength".into(), num(*strength));
+            // D-912: Exact, the default, is never written, so an older file saves back as it was.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
         }
         Effect::LinearColorKey {
             view,
@@ -10471,6 +10476,7 @@ fn parse_effect(
             additional_edge_radius: effect_number(params, "additional_edge_radius", at)?,
             alpha_contrast: effect_number(params, "alpha_contrast", at)?,
             strength: effect_number(params, "strength", at)?,
+            quality: effect_word_or(params, "quality", at, "exact")?,
         }),
         crate::effects::LINEAR_COLOR_KEY => Some(crate::effects::Effect::LinearColorKey {
             view: effect_word(params, "view", at)?,

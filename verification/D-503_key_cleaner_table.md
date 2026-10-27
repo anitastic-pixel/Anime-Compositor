@@ -98,7 +98,7 @@ B-383, after After Effects' Key Cleaner, the rule ours (Adobe publishes none): D
 | radius 4, contrast 30, strength 75 is taken | taken | yes |
 | additional edge radius keyed from 0 to 6 is taken | taken | yes |
 | undo 2 times: frame 0 is the frame it was | byte-identical | yes |
-| a half-size draft preview halves Additional Edge Radius and keeps Alpha Contrast and Strength | KeyCleaner { additional_edge_radius: 4.0, alpha_contrast: 30.0, strength: 75.0 } | yes |
+| a half-size draft preview halves Additional Edge Radius and keeps Alpha Contrast and Strength | KeyCleaner { additional_edge_radius: 4.0, alpha_contrast: 30.0, strength: 75.0, quality: "exact" } | yes |
 
 ## The frame does not depend on how it is cut up
 
@@ -114,17 +114,17 @@ B-383, after After Effects' Key Cleaner, the rule ours (Adobe publishes none): D
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| fx_kclean_001.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| fx_kclean_002.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_kclean_001.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_kclean_002.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_003.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_004.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_005.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_006.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| fx_kclean_007.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_kclean_007.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_008.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| fx_kclean_009.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| fx_kclean_010.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| fx_kclean_011.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_kclean_009.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_kclean_010.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
+| fx_kclean_011.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_012.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_013.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_014.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
@@ -133,26 +133,26 @@ B-383, after After Effects' Key Cleaner, the rule ours (Adobe publishes none): D
 | fx_kclean_017.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_kclean_018.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | the reference shot, Key Cleaner as added on the cels: the processor's frame 100 differs from the shot without the Key Cleaner, so the comparisons below test the effect | 13094 pixels changed | yes |
-| the reference shot, Key Cleaner as added on the cels on three layers, frame 0, Full | largest difference 1 of 255, 5190 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Key Cleaner as added on the cels on three layers, frame 100, Full | largest difference 1 of 255, 6179 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Key Cleaner as added on the cels on three layers, frame 239, Full | largest difference 1 of 255, 5176 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Key Cleaner as added on the cels on three layers, frame 0, Draft | largest difference 1 of 255, 16885 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Key Cleaner as added on the cels on three layers, frame 100, Draft | largest difference 1 of 255, 16983 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Key Cleaner as added on the cels on three layers, frame 239, Draft | largest difference 1 of 255, 17084 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Key Cleaner as added on the cels on three layers, frame 0, Full | largest difference 1 of 255, 4101 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Key Cleaner as added on the cels on three layers, frame 100, Full | largest difference 1 of 255, 4433 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Key Cleaner as added on the cels on three layers, frame 239, Full | largest difference 1 of 255, 4106 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Key Cleaner as added on the cels on three layers, frame 0, Draft | largest difference 1 of 255, 16842 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Key Cleaner as added on the cels on three layers, frame 100, Draft | largest difference 1 of 255, 16931 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Key Cleaner as added on the cels on three layers, frame 239, Draft | largest difference 1 of 255, 17020 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added: the processor's frame 100 differs from the shot without the Key Cleaner, so the comparisons below test the effect | 683913 pixels changed | yes |
-| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 0, Full | largest difference 1 of 255, 19934 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 100, Full | largest difference 1 of 255, 20018 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 239, Full | largest difference 1 of 255, 18832 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 0, Draft | largest difference 1 of 255, 17393 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 100, Draft | largest difference 1 of 255, 17795 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 239, Draft | largest difference 1 of 255, 17622 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 0, Full | largest difference 1 of 255, 1575 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 100, Full | largest difference 1 of 255, 1735 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 239, Full | largest difference 1 of 255, 1165 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 0, Draft | largest difference 1 of 255, 307 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 100, Draft | largest difference 1 of 255, 251 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract (black point 70, softness 60), then Key Cleaner as added on three layers, frame 239, Draft | largest difference 1 of 255, 270 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60: the processor's frame 100 differs from the shot without the Key Cleaner, so the comparisons below test the effect | 672038 pixels changed | yes |
-| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 0, Full | largest difference 1 of 255, 19287 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 100, Full | largest difference 1 of 255, 18409 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 239, Full | largest difference 1 of 255, 18281 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 0, Draft | largest difference 1 of 255, 17305 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 100, Draft | largest difference 1 of 255, 17725 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 239, Draft | largest difference 1 of 255, 17507 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 0, Full | largest difference 1 of 255, 2289 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 100, Full | largest difference 1 of 255, 913 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 239, Full | largest difference 1 of 255, 610 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 0, Draft | largest difference 1 of 255, 253 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 100, Draft | largest difference 1 of 255, 189 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Extract, then Key Cleaner radius 4, contrast 40, strength 60 on three layers, frame 239, Draft | largest difference 1 of 255, 186 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: the street, in `verification/D-503 pictures/`
 

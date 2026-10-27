@@ -172,9 +172,9 @@ B-420, this program's own green and blue screen keyer (roadmap item L-03; not a 
 | the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 0, Full | largest difference 1 of 255, 36148 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 100, Full | largest difference 1 of 255, 37764 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 239, Full | largest difference 1 of 255, 35282 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 0, Draft | largest difference 1 of 255, 17556 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 100, Draft | largest difference 1 of 255, 17553 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 239, Draft | largest difference 1 of 255, 17691 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 0, Draft | largest difference 1 of 255, 17558 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 100, Draft | largest difference 1 of 255, 17554 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Screen Key screen colour orange, shrink 2 and softness 2, left to the processor on three layers, frame 239, Draft | largest difference 1 of 255, 17681 pixels differ; 0 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: in `verification/D-540 pictures/`
 

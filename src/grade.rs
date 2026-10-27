@@ -4205,7 +4205,7 @@ pub(crate) fn screen_key(source: &mut WorkingBuffer, effect: &crate::effects::Ef
             }
         });
     if view == 0 && edge_refine >= 1.0 {
-        crate::matte_refine::key_cleaner(source, edge_refine, 0.0, 1.0);
+        crate::matte_refine::key_cleaner(source, edge_refine, 0.0, 1.0, "exact");
     }
 }
 

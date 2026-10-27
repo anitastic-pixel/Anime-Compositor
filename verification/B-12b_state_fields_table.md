@@ -326,7 +326,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.inner_outer_key` is an effect this build has | added | added | pass |
 | and the settings it sends for it - foreground, background, single_mask_highlight_radius, edge_thin, edge_feather, edge_threshold, invert_extraction, blend_with_original - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.key_cleaner` is an effect this build has | added | added | pass |
-| and the settings it sends for it - additional_edge_radius, alpha_contrast, strength - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - additional_edge_radius, alpha_contrast, strength, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.linear_color_key` is an effect this build has | added | added | pass |
 | and the settings it sends for it - view, key_color, match_colors, key_operation, matching_tolerance, matching_softness - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.screen_key` is an effect this build has | added | added | pass |

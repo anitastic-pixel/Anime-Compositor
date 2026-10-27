@@ -3312,11 +3312,13 @@ pub enum Effect {
     /// D-503: after After Effects' Key Cleaner, its rule, ranges and settings when added ours but
     /// the radius's 10 (`matte_refine::key_cleaner`, document 21). `additional_edge_radius`, 0 to
     /// 100 pixels, whole pixels; `alpha_contrast` and `strength`, 0 to 100 per cent. Reduce
-    /// Chatter, a smoothing over time, is not built.
+    /// Chatter, a smoothing over time, is not built. D-912: `quality`, "exact" (the default,
+    /// never saved) or "fast", D-903's fast guided filter, the user's choice, drawn in exports too.
     KeyCleaner {
         additional_edge_radius: f64,
         alpha_contrast: f64,
         strength: f64,
+        quality: String,
     },
     /// D-504: after After Effects' Linear Color Key, its rule and its settings when added ours
     /// (`grade::linear_color_key`, document 21). `view`, one of [`LCKEY_VIEWS`]; `key_color`,
@@ -6982,6 +6984,7 @@ impl Effect {
                 additional_edge_radius,
                 alpha_contrast,
                 strength,
+                ..
             } => vec![
                 (
                     "additional_edge_radius",
@@ -14164,6 +14167,9 @@ impl Effect {
             Effect::RefineMatte { quality: v, .. } if !["exact", "fast"].contains(&v.as_str()) => Some(format!(
                 "{name}'s quality is \"exact\" or \"fast\", and this is \"{v}\"."
             )),
+            Effect::KeyCleaner { quality: v, .. } if !["exact", "fast"].contains(&v.as_str()) => Some(format!(
+                "Key Cleaner's quality is \"exact\" or \"fast\", and this is \"{v}\"."
+            )),
             Effect::Stroke { all_masks: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Path Stroke's all masks is \"off\" or \"on\", and this is \"{v}\"."
             )),
@@ -17879,12 +17885,14 @@ pub(crate) fn apply_stack_at(
                 additional_edge_radius,
                 alpha_contrast,
                 strength,
+                quality,
             } => crate::perf::time(crate::perf::Stage::EffectKeyCleaner, || {
                 crate::matte_refine::key_cleaner(
                     source,
                     *additional_edge_radius,
                     *alpha_contrast,
                     *strength / 100.0,
+                    quality,
                 )
             }),
             // D-541: the run's input is there, this instance having started it if nothing did.

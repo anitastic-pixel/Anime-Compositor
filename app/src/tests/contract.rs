@@ -3070,7 +3070,12 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     // D-503.
     (
         "core.key_cleaner",
-        &[("additional_edge_radius", "4"), ("alpha_contrast", "30"), ("strength", "75")],
+        &[
+            ("additional_edge_radius", "4"),
+            ("alpha_contrast", "30"),
+            ("strength", "75"),
+            ("quality", "fast"),
+        ],
     ),
     // D-504.
     (
